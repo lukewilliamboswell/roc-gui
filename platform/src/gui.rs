@@ -9,7 +9,7 @@ use crate::graphics::{
         },
     };
 use crate::roc;
-use cgmath::{Vector2, Vector4};
+use cgmath::{Vector2, Vector4, num_traits::AsPrimitive};
 use glyph_brush::{GlyphCruncher, OwnedSection};
 use pipelines::RectResources;
 use std::{
@@ -35,7 +35,20 @@ use winit::{
 const TIME_BETWEEN_TICKS: Duration = Duration::new(0, 1000 / 60);
 
 pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(), Box<dyn Error>> {
-    let (mut model, mut elems) = roc::init_and_render(window_bounds);
+    // let (mut model, mut elems) = roc::init_and_render(window_bounds);
+
+    // let main_for_host = roc_app::mainForHost();
+
+    // let model = main_for_host.init.force_thunk(window_bounds);
+    // let mut elems = main_for_host.render.force_thunk(model);
+
+    // let tick = Duration::from_secs(1);
+    // let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap());
+
+    // main_for_host.update.force_thunk(model, tick_event);
+    
+    // dbg!(String::from_utf8(model.as_slice().into()));
+
 
     // Open window and create a surface
     let mut event_loop = winit::event_loop::EventLoop::new();
@@ -45,18 +58,6 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
         .with_title(title)
         .build(&event_loop)
         .unwrap();
-
-    macro_rules! update_and_rerender {
-        ($event:expr) => {
-            // TODO use (model, elems) =  ... once we've upgraded rust versions
-            let pair = roc::update_and_render(model.clone(), $event);
-
-            model = pair.0;
-            elems = pair.1;
-
-            window.request_redraw();
-        };
-    }
 
     let instance = wgpu::Instance::new(wgpu::Backends::all());
     let surface = unsafe { instance.create_surface(&window) };
@@ -152,10 +153,18 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     &cmd_queue,
                 );
 
-                update_and_rerender!(roc_app::Event::Resize( roc_app::Bounds { 
+                let resize_event= roc_app::Event::Resize( roc_app::Bounds { 
                     height: size.height as f32,
                     width: size.width as f32,
-                }));
+                });
+
+                // dbg!("JUST BEOFRE RESIZE");
+                // model = main_for_host.update.clone().force_thunk(model.clone(), resize_event);
+                // dbg!(String::from_utf8(model.as_slice().into()));
+
+                // elems = main_for_host.render.clone().force_thunk(model.clone());
+
+                window.request_redraw();    
             }
             // Keyboard input
             Event::WindowEvent {
@@ -176,7 +185,7 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     ElementState::Released => roc_app::Event::KeyUp(to_roc_keycode(keycode)),
                 };
 
-                model = roc::update(model.clone(), roc_event);
+                // model = roc::update(model, roc_event);
             }
             // Modifiers Changed
             Event::WindowEvent {
@@ -200,31 +209,32 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
 
-                for elem in elems.iter() {
-                    let (_bounds, drawable) = to_drawable(
-                        elem,
-                        roc_app::Bounds {
-                            width: size.width as f32,
-                            height: size.height as f32,
-                        },
-                        &mut glyph_brush,
-                    );
+                // for elem in elems.iter() {
+                //     dbg!(elem);
+                //     // let (_bounds, drawable) = to_drawable(
+                //     //     elem,
+                //     //     roc_app::Bounds {
+                //     //         width: size.width as f32,
+                //     //         height: size.height as f32,
+                //     //     },
+                //     //     &mut glyph_brush,
+                //     // );
 
-                    process_drawable(
-                        drawable,
-                        &mut staging_belt,
-                        &mut glyph_brush,
-                        &mut cmd_encoder,
-                        &view,
-                        &gpu_device,
-                        &rect_resources,
-                        wgpu::LoadOp::Load,
-                        roc_app::Bounds {
-                            width: size.width as f32,
-                            height: size.height as f32,
-                        },
-                    );
-                }
+                //     // process_drawable(
+                //     //     drawable,
+                //     //     &mut staging_belt,
+                //     //     &mut glyph_brush,
+                //     //     &mut cmd_encoder,
+                //     //     &view,
+                //     //     &gpu_device,
+                //     //     &rect_resources,
+                //     //     wgpu::LoadOp::Load,
+                //     //     roc_app::Bounds {
+                //     //         width: size.width as f32,
+                //     //         height: size.height as f32,
+                //     //     },
+                //     // );
+                // }
 
                 staging_belt.finish();
                 cmd_queue.submit(Some(cmd_encoder.finish()));
@@ -251,8 +261,16 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     next_tick = now + TIME_BETWEEN_TICKS;
 
                     let tick = now.saturating_duration_since(app_start_time);
+                    let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap());
 
-                    update_and_rerender!(roc_app::Event::Tick(tick.as_millis()));
+                    // dbg!("JUST BEFORE UPDATE");
+                    // model = main_for_host.update.clone().force_thunk(model.clone(), tick_event);
+                    // dbg!(String::from_utf8(model.as_slice().into()));
+
+
+                    // elems = main_for_host.render.clone().force_thunk(model.clone());
+
+                    window.request_redraw();
 
                     *control_flow = winit::event_loop::ControlFlow::WaitUntil(next_tick);
                 }

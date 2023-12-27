@@ -2,7 +2,7 @@ use crate::graphics::colors::Rgba;
 use core::alloc::Layout;
 use core::ffi::c_void;
 use core::mem::{self, ManuallyDrop};
-use roc_std::{RocList, RocStr};
+use roc_std::{RocList, RocStr, RocBox};
 use std::ffi::CStr;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
@@ -22,7 +22,7 @@ extern "C" {
     // init
 
     #[link_name = "roc__mainForHost_0_caller"]
-    fn call_init(size: &roc_app::Bounds, closure_data: *const u8, output: &RocList<u8>);
+    fn call_init(size: &roc_app::Bounds, closure_data: *const u8, output: &RocBox<()>);
 
     #[link_name = "roc__mainForHost_0_size"]
     fn init_size() -> i64;
@@ -34,10 +34,10 @@ extern "C" {
 
     #[link_name = "roc__mainForHost_1_caller"]
     fn call_update(
-        model: &RocList<u8>,
+        model: &RocBox<()>,
         event: &roc_app::Event,
         closure_data: *const u8,
-        output: &RocList<u8>,
+        output: &RocBox<()>,
     );
 
     #[link_name = "roc__mainForHost_1_size"]
@@ -49,7 +49,7 @@ extern "C" {
     // render
 
     #[link_name = "roc__mainForHost_2_caller"]
-    fn call_render(model: &RocList<u8>, closure_data: *const u8, output: *mut RocList<roc_app::Elem>);
+    fn call_render(model: &RocBox<()>, closure_data: *const u8, output: *mut RocList<roc_app::Elem>);
 
     #[link_name = "roc__mainForHost_2_size"]
     fn roc_render_size() -> i64;
@@ -347,118 +347,118 @@ pub unsafe extern "C" fn roc_memset(dst: *mut c_void, c: i32, n: usize) -> *mut 
 //     pub width: f32,
 // }
 
-/// Call the app's init function, then render and return that result
-pub fn init_and_render(bounds: roc_app::Bounds) -> (RocList<u8>, RocList<roc_app::Elem>) {
-    // let closure_data_buf;
-    // let closure_layout;
+// /// Call the app's init function, then render and return that result
+// pub fn init_and_render(bounds: roc_app::Bounds) -> (RocBox<()>, RocList<roc_app::Elem>) {
+//     // let closure_data_buf;
+//     // let closure_layout;
 
-    // Call init to get the initial model
-    let mainForHost = roc_app::mainForHost();
+//     // Call init to get the initial model
+//     let mainForHost = roc_app::mainForHost();
 
-    let model = mainForHost.init.force_thunk(roc_app::Bounds { height: bounds.height, width: bounds.width });
-    // let model = unsafe {
-    //     let ret_val_layout = Layout::array::<u8>(init_result_size() as usize).unwrap();
+//     let model = mainForHost.init.force_thunk(roc_app::Bounds { height: bounds.height, width: bounds.width });
+//     // let model = unsafe {
+//     //     let ret_val_layout = Layout::array::<u8>(init_result_size() as usize).unwrap();
 
-    //     // TODO allocate on the stack if it's under a certain size
-    //     let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut Model;
+//     //     // TODO allocate on the stack if it's under a certain size
+//     //     let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut Model;
 
-    //     closure_layout = Layout::array::<u8>(init_size() as usize).unwrap();
+//     //     closure_layout = Layout::array::<u8>(init_size() as usize).unwrap();
 
-    //     // TODO allocate on the stack if it's under a certain size
-    //     closure_data_buf = std::alloc::alloc(closure_layout);
+//     //     // TODO allocate on the stack if it's under a certain size
+//     //     closure_data_buf = std::alloc::alloc(closure_layout);
 
-    //     call_init(&bounds, closure_data_buf, ret_val_buf);
+//     //     call_init(&bounds, closure_data_buf, ret_val_buf);
 
-    //     ret_val_buf
-    // };
+//     //     ret_val_buf
+//     // };
 
-    // Call render passing the model to get the initial Elems
-    let elems = mainForHost.render.force_thunk(model.clone());
-    // let elems = unsafe {
-    //     let mut ret_val: MaybeUninit<RocList<RocElem>> = MaybeUninit::uninit();
+//     // Call render passing the model to get the initial Elems
+//     let elems = mainForHost.render.force_thunk(model.clone());
+//     // let elems = unsafe {
+//     //     let mut ret_val: MaybeUninit<RocList<RocElem>> = MaybeUninit::uninit();
 
-    //     // Reuse the buffer from the previous closure if possible
-    //     let closure_data_buf =
-    //         std::alloc::realloc(closure_data_buf, closure_layout, roc_render_size() as usize);
+//     //     // Reuse the buffer from the previous closure if possible
+//     //     let closure_data_buf =
+//     //         std::alloc::realloc(closure_data_buf, closure_layout, roc_render_size() as usize);
 
-    //     call_render(model, closure_data_buf, ret_val.as_mut_ptr());
+//     //     call_render(model, closure_data_buf, ret_val.as_mut_ptr());
 
-    //     std::alloc::dealloc(closure_data_buf, closure_layout);
+//     //     std::alloc::dealloc(closure_data_buf, closure_layout);
 
-    //     ret_val.assume_init()
-    // };
+//     //     ret_val.assume_init()
+//     // };
 
-    (model, elems)
-}
+//     (model, elems)
+// }
 
-/// Call the app's update function, then render and return that result
-pub fn update(model: RocList<u8>, event: roc_app::Event) -> RocList<u8> {
-    // let closure_data_buf;
-    // let closure_layout;
+// /// Call the app's update function, then render and return that result
+// pub fn update(model: RocBox<()>, event: roc_app::Event) -> RocBox<()> {
+//     // let closure_data_buf;
+//     // let closure_layout;
 
-    // Call update to get the new model
-    let mainForHost = roc_app::mainForHost();
+//     // Call update to get the new model
+//     let mainForHost = roc_app::mainForHost();
 
-    mainForHost.update.force_thunk(model, event)
+//     mainForHost.update.force_thunk(model, event)
 
-    // unsafe {
-    //     let ret_val_layout = Layout::array::<u8>(update_result_size() as usize).unwrap();
+//     // unsafe {
+//     //     let ret_val_layout = Layout::array::<u8>(update_result_size() as usize).unwrap();
 
-    //     // TODO allocate on the stack if it's under a certain size
-    //     let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut Model;
+//     //     // TODO allocate on the stack if it's under a certain size
+//     //     let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut Model;
 
-    //     closure_layout = Layout::array::<u8>(update_size() as usize).unwrap();
+//     //     closure_layout = Layout::array::<u8>(update_size() as usize).unwrap();
 
-    //     // TODO allocate on the stack if it's under a certain size
-    //     closure_data_buf = std::alloc::alloc(closure_layout);
+//     //     // TODO allocate on the stack if it's under a certain size
+//     //     closure_data_buf = std::alloc::alloc(closure_layout);
 
-    //     call_update(model, &event, closure_data_buf, ret_val_buf);
+//     //     call_update(model, &event, closure_data_buf, ret_val_buf);
 
-    //     ret_val_buf
-    // }
-}
+//     //     ret_val_buf
+//     // }
+// }
 
-/// Call the app's update function, then render and return that result
-pub fn update_and_render(model: RocList<u8>, event: roc_app::Event) -> (RocList<u8>, RocList<roc_app::Elem>) {
-    // let closure_data_buf: *mut u8;
-    // let closure_layout;
+// /// Call the app's update function, then render and return that result
+// pub fn update_and_render(model: *mut RocBox<()>, event: roc_app::Event) -> (*mut RocBox<()>, RocList<roc_app::Elem>) {
+//     // let closure_data_buf: *mut u8;
+//     // let closure_layout;
 
-    // Call update to get the new model
-    let mainForHost = roc_app::mainForHost();
+//     // Call update to get the new model
+//     let mainForHost = roc_app::mainForHost();
 
-    let model = mainForHost.update.force_thunk(model, event);
+//     let model = &mainForHost.update.force_thunk(*model, event);
 
-    // let model = unsafe {
-    //     let ret_val_layout = Layout::array::<u8>(update_result_size() as usize).unwrap();
+//     // let model = unsafe {
+//     //     let ret_val_layout = Layout::array::<u8>(update_result_size() as usize).unwrap();
 
-    //     // TODO allocate on the stack if it's under a certain size
-    //     let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut Model;
+//     //     // TODO allocate on the stack if it's under a certain size
+//     //     let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut Model;
 
-    //     closure_layout = Layout::array::<u8>(update_size() as usize).unwrap();
+//     //     closure_layout = Layout::array::<u8>(update_size() as usize).unwrap();
 
-    //     // TODO allocate on the stack if it's under a certain size
-    //     closure_data_buf = std::alloc::alloc(closure_layout);
+//     //     // TODO allocate on the stack if it's under a certain size
+//     //     closure_data_buf = std::alloc::alloc(closure_layout);
 
-    //     call_update(model, &event, closure_data_buf, ret_val_buf);
+//     //     call_update(model, &event, closure_data_buf, ret_val_buf);
 
-    //     ret_val_buf
-    // };
+//     //     ret_val_buf
+//     // };
 
-    // Call render passing the model to get the initial Elems
-    let elems = mainForHost.render.force_thunk(model.clone());
-    // let elems = unsafe {
-    //     let mut ret_val: MaybeUninit<RocList<RocElem>> = MaybeUninit::uninit();
+//     // Call render passing the model to get the initial Elems
+//     let elems = mainForHost.render.force_thunk(*model);
+//     // let elems = unsafe {
+//     //     let mut ret_val: MaybeUninit<RocList<RocElem>> = MaybeUninit::uninit();
 
-    //     // Reuse the buffer from the previous closure if possible
-    //     let closure_data_buf =
-    //         std::alloc::realloc(closure_data_buf, closure_layout, roc_render_size() as usize);
+//     //     // Reuse the buffer from the previous closure if possible
+//     //     let closure_data_buf =
+//     //         std::alloc::realloc(closure_data_buf, closure_layout, roc_render_size() as usize);
 
-    //     call_render(model, closure_data_buf, ret_val.as_mut_ptr());
+//     //     call_render(model, closure_data_buf, ret_val.as_mut_ptr());
 
-    //     std::alloc::dealloc(closure_data_buf, closure_layout);
+//     //     std::alloc::dealloc(closure_data_buf, closure_layout);
 
-    //     ret_val.assume_init()
-    // };
+//     //     ret_val.assume_init()
+//     // };
 
-    (model, elems)
-}
+//     (model, elems)
+// }

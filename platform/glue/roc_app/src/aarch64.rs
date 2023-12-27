@@ -16,6 +16,8 @@
 #![allow(clippy::needless_borrow)]
 #![allow(clippy::clone_on_copy)]
 
+use roc_std::RocBox;
+
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
 #[repr(C)]
@@ -24,18 +26,18 @@ pub struct Bounds {
     pub width: f32,
 }
 
-
+type Model = std::ffi::c_void;
 
 #[repr(C)]
-#[derive(Debug, Clone)]
-pub struct RocFunction_81 {
+#[derive(Debug)]
+pub struct RocFunction_74 {
     closure_data: Vec<u8>,
 }
 
-impl RocFunction_81 {
-    pub fn force_thunk(mut self, arg0: Bounds) -> roc_std::RocList<u8> {
+impl RocFunction_74 {
+    pub fn force_thunk(mut self, arg0: Bounds) -> Model {
         extern "C" {
-            fn roc__mainForHost_0_caller(arg0: *const Bounds, closure_data: *mut u8, output: *mut roc_std::RocList<u8>);
+            fn roc__mainForHost_0_caller(arg0: *const Bounds, closure_data: *mut u8, output: *mut Model);
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
@@ -46,7 +48,9 @@ impl RocFunction_81 {
             output.assume_init()
         }
     }
-}#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
+}
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
 #[repr(C)]
 pub struct Rgba {
     pub a: f32,
@@ -263,21 +267,21 @@ impl Drop for Elem {
 
 
 #[repr(C)]
-#[derive(Debug, Clone)]
-pub struct RocFunction_83 {
+#[derive(Debug)]
+pub struct RocFunction_75 {
     closure_data: Vec<u8>,
 }
 
-impl RocFunction_83 {
-    pub fn force_thunk(mut self, arg0: roc_std::RocList<u8>) -> roc_std::RocList<Elem> {
+impl RocFunction_75 {
+    pub fn force_thunk(mut self, model: &Model) -> roc_std::RocList<Elem> {
         extern "C" {
-            fn roc__mainForHost_1_caller(arg0: *const roc_std::RocList<u8>, closure_data: *mut u8, output: *mut roc_std::RocList<Elem>);
+            fn roc__mainForHost_1_caller(arg0: &Model, closure_data: *mut u8, output: *mut roc_std::RocList<Elem>);
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_1_caller(&arg0, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_1_caller(model, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
 
             output.assume_init()
         }
@@ -324,19 +328,19 @@ impl core::fmt::Debug for discriminant_Event {
     }
 }
 
-#[repr(C, align(16))]
+#[repr(C, align(8))]
 pub union union_Event {
     KeyDown: KeyCode,
     KeyUp: KeyCode,
     Resize: Bounds,
-    Tick: u128,
+    Tick: u64,
 }
 
-const _SIZE_CHECK_union_Event: () = assert!(core::mem::size_of::<union_Event>() == 16);
-const _ALIGN_CHECK_union_Event: () = assert!(core::mem::align_of::<union_Event>() == 16);
+const _SIZE_CHECK_union_Event: () = assert!(core::mem::size_of::<union_Event>() == 8);
+const _ALIGN_CHECK_union_Event: () = assert!(core::mem::align_of::<union_Event>() == 8);
 
-const _SIZE_CHECK_Event: () = assert!(core::mem::size_of::<Event>() == 32);
-const _ALIGN_CHECK_Event: () = assert!(core::mem::align_of::<Event>() == 16);
+const _SIZE_CHECK_Event: () = assert!(core::mem::size_of::<Event>() == 16);
+const _ALIGN_CHECK_Event: () = assert!(core::mem::align_of::<Event>() == 8);
 
 impl Event {
     /// Returns which variant this tag union holds. Note that this never includes a payload!
@@ -344,7 +348,7 @@ impl Event {
         unsafe {
             let bytes = core::mem::transmute::<&Self, &[u8; core::mem::size_of::<Self>()]>(self);
 
-            core::mem::transmute::<u8, discriminant_Event>(*bytes.as_ptr().add(16))
+            core::mem::transmute::<u8, discriminant_Event>(*bytes.as_ptr().add(8))
         }
     }
 
@@ -353,7 +357,7 @@ impl Event {
         let discriminant_ptr: *mut discriminant_Event = (self as *mut Event).cast();
 
         unsafe {
-            *(discriminant_ptr.add(16)) = discriminant;
+            *(discriminant_ptr.add(8)) = discriminant;
         }
     }
 }
@@ -411,7 +415,7 @@ impl core::fmt::Debug for Event {
                     f.debug_tuple("Event::Resize").field(field).finish()
                 },
                 Tick => {
-                    let field: &u128 = &self.payload.Tick;
+                    let field: &u64 = &self.payload.Tick;
                     f.debug_tuple("Event::Tick").field(field).finish()
                 },
             }
@@ -488,7 +492,7 @@ impl Event {
         matches!(self.discriminant, discriminant_Event::Resize)
     }
 
-    pub fn unwrap_Tick(mut self) -> u128 {
+    pub fn unwrap_Tick(mut self) -> u64 {
         debug_assert_eq!(self.discriminant, discriminant_Event::Tick);
         unsafe { self.payload.Tick }
     }
@@ -529,7 +533,7 @@ impl Event {
         }
     }
 
-    pub fn Tick(payload: u128) -> Self {
+    pub fn Tick(payload: u64) -> Self {
         Self {
             discriminant: discriminant_Event::Tick,
             payload: union_Event {
@@ -542,45 +546,76 @@ impl Event {
 
 
 #[repr(C)]
-#[derive(Debug, Clone)]
-pub struct RocFunction_82 {
+#[derive(Debug)]
+pub struct RocFunction_76 {
     closure_data: Vec<u8>,
 }
 
-impl RocFunction_82 {
-    pub fn force_thunk(mut self, arg0: roc_std::RocList<u8>, arg1: Event) -> roc_std::RocList<u8> {
+impl RocFunction_76 {
+    pub fn force_thunk(mut self, model: &mut Model, arg1: Event) -> Model {
         extern "C" {
-            fn roc__mainForHost_2_caller(arg0: *const roc_std::RocList<u8>, arg1: *const Event, closure_data: *mut u8, output: *mut roc_std::RocList<u8>);
+            fn roc__mainForHost_2_caller(model: *mut Model, arg1: *const Event, closure_data: *mut u8, output: *mut Model);
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_2_caller(&arg0, &arg1, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_2_caller(model, &arg1, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
 
             output.assume_init()
         }
     }
-}#[derive(Clone, Debug, )]
+}#[derive(Debug)]
 #[repr(C)]
 pub struct ForHost {
-    pub init: RocFunction_81,
-    pub render: RocFunction_83,
-    pub update: RocFunction_82,
+    pub init: RocFunction_74,
+    pub render: RocFunction_75,
+    pub update: RocFunction_76,
 }
-
-
 
 pub fn mainForHost() -> ForHost {
     extern "C" {
-        fn roc__mainForHost_1_exposed_generic(_: *mut ForHost);
+        fn roc__mainForHost_1_exposed_generic(_: *mut u8);
+        fn roc__mainForHost_1_exposed_size() -> isize;
+        fn roc__mainForHost_0_size() -> isize;
+        fn roc__mainForHost_1_size() -> isize;
+        fn roc__mainForHost_2_size() -> isize;
     }
-
-    let mut ret = core::mem::MaybeUninit::uninit();
+    let size = unsafe { roc__mainForHost_1_exposed_size() } as usize;
+    let mut captures = Vec::with_capacity(size);
+    captures.resize(size, 0);
 
     unsafe {
-        roc__mainForHost_1_exposed_generic(ret.as_mut_ptr(), );
-
-        ret.assume_init()
+        roc__mainForHost_1_exposed_generic(captures.as_mut_ptr());
     }
+
+    let init_size = unsafe { roc__mainForHost_0_size() } as usize;
+    let render_size = unsafe { roc__mainForHost_1_size() } as usize;
+    let update_size = unsafe { roc__mainForHost_2_size() } as usize;
+
+    dbg!(size);
+    dbg!(init_size);
+    dbg!(render_size);
+    dbg!(update_size);
+
+    let mut ret = ForHost {
+        init: RocFunction_74 {
+            closure_data: Vec::with_capacity(init_size),
+        },
+        render: RocFunction_75 {
+            closure_data: Vec::with_capacity(render_size),
+        },
+        update: RocFunction_76 {
+            closure_data: Vec::with_capacity(update_size),
+        },
+    };
+
+    let mut data_slice = captures.as_slice();
+    ret.init.closure_data.extend(&data_slice[..init_size]);
+    data_slice = &data_slice[init_size..];
+    ret.init.closure_data.extend(&data_slice[..render_size]);
+    data_slice = &data_slice[render_size..];
+    ret.init.closure_data.extend(&data_slice[..update_size]);
+
+    ret
 }
