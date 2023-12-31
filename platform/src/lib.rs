@@ -11,7 +11,7 @@ pub extern "C" fn rust_main() -> i32 {
         height: 1000.0,
     };
 
-    let main_for_host = roc_app::mainForHost();
+    let main_for_host = roc::mainForHost();
 
     dbg!(&main_for_host);
 

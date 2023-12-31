@@ -1,17 +1,15 @@
 platform "gui"
-    requires {} { program : _ }
+    requires {} {notUsed : GlueStuff}
     exposes []
     packages {}
-    imports [Game.{ Bounds, Elem, Event }]
+    imports [Game]
     provides [mainForHost]
 
-Model : {}
+GlueStuff : [
+    A Game.Bounds, 
+    B Game.Elem, 
+    C Game.Event
+]
 
-ForHost : {
-    init : Bounds -> Model,
-    update : Model, Event -> Model,
-    render : Model -> List Elem,
-}
-
-mainForHost : ForHost
-mainForHost = program
+mainForHost : GlueStuff
+mainForHost = notUsed
