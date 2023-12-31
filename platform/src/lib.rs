@@ -11,18 +11,18 @@ pub extern "C" fn rust_main() -> i32 {
         height: 1000.0,
     };
 
-    let main_for_host = roc::mainForHost();
+    let roc_main = roc::main_for_host();
 
-    dbg!(&main_for_host);
+    dbg!(&roc_main);
 
-    let mut model = main_for_host.init.force_thunk(bounds);
+    let mut model = roc_main.init.force_thunk(bounds);
 
-    // let tick = std::time::Duration::from_secs(1);
-    // let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap()); 
+    let tick = std::time::Duration::from_secs(1);
+    let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap()); 
        
-    // model = main_for_host.update.force_thunk(&mut model, tick_event);
+    model = roc_main.update.force_thunk(model, tick_event);
 
-    let elem = main_for_host.render.force_thunk(&mut model); 
+    let elem = roc_main.render.force_thunk(model); 
 
     dbg!(elem);
 

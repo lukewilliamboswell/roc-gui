@@ -10,51 +10,6 @@ use std::os::raw::c_char;
 use std::time::Duration;
 use winit::event::VirtualKeyCode;
 
-extern "C" {
-    // program
-
-    // #[link_name = "roc__mainForHost_1_exposed_generic"]
-    // fn roc_program();
-
-    // #[link_name = "roc__mainForHost_1_exposed_size"]
-    // fn roc_program_size() -> i64;
-
-    // init
-
-    #[link_name = "roc__mainForHost_0_caller"]
-    fn call_init(size: &roc_app::Bounds, closure_data: *const u8, output: RocBox<Model>);
-
-    #[link_name = "roc__mainForHost_0_size"]
-    fn init_size() -> i64;
-
-    #[link_name = "roc__mainForHost_0_result_size"]
-    fn init_result_size() -> i64;
-
-    // update
-
-    #[link_name = "roc__mainForHost_1_caller"]
-    fn call_update(
-        model: &RocBox<Model>,
-        event: &roc_app::Event,
-        closure_data: *const u8,
-        output: RocBox<Model>,
-    );
-
-    #[link_name = "roc__mainForHost_1_size"]
-    fn update_size() -> i64;
-
-    #[link_name = "roc__mainForHost_1_result_size"]
-    fn update_result_size() -> i64;
-
-    // render
-
-    #[link_name = "roc__mainForHost_2_caller"]
-    fn call_render(model: &RocBox<Model>, closure_data: *const u8, output: RocList<roc_app::Elem>);
-
-    #[link_name = "roc__mainForHost_2_size"]
-    fn roc_render_size() -> i64;
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn roc_alloc(size: usize, _alignment: u32) -> *mut c_void {
     return libc::malloc(size);
@@ -99,17 +54,17 @@ pub unsafe extern "C" fn roc_memset(dst: *mut c_void, c: i32, n: usize) -> *mut 
     libc::memset(dst, c, n)
 }
 
-type Model = std::ffi::c_void;
+type BoxedModel = std::ffi::c_void;
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct ForHost {
+pub struct ProgramForHost {
     pub init: RocFunctionInit,
     pub render: RocFunctionRender,
     pub update: RocFunctionUpdate,
 }
 
-pub fn mainForHost() -> ForHost {
+pub fn main_for_host() -> ProgramForHost {
     extern "C" {
         fn roc__mainForHost_1_exposed_generic(_: *mut u8);
         fn roc__mainForHost_1_exposed_size() -> isize;
@@ -134,7 +89,7 @@ pub fn mainForHost() -> ForHost {
     dbg!(render_size);
     dbg!(update_size);
 
-    let mut ret = ForHost {
+    let mut ret = ProgramForHost {
         init: RocFunctionInit {
             closure_data: Vec::with_capacity(init_size),
         },
@@ -164,9 +119,9 @@ pub struct RocFunctionInit {
 }
 
 impl RocFunctionInit {
-    pub fn force_thunk(mut self, arg0: roc_app::Bounds) -> Model {
+    pub fn force_thunk(mut self, arg0: roc_app::Bounds) -> BoxedModel {
         extern "C" {
-            fn roc__mainForHost_0_caller(arg0: *const roc_app::Bounds, closure_data: *mut u8, output: *mut Model);
+            fn roc__mainForHost_0_caller(arg0: *const roc_app::Bounds, closure_data: *mut u8, output: *mut BoxedModel);
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
@@ -179,7 +134,6 @@ impl RocFunctionInit {
     }
 }
 
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct RocFunctionUpdate {
@@ -187,9 +141,12 @@ pub struct RocFunctionUpdate {
 }
 
 impl RocFunctionUpdate {
-    pub fn force_thunk(mut self, model: &mut Model, arg1: roc_app::Event) -> Model {
+    pub fn force_thunk(mut self, model: BoxedModel, arg1: roc_app::Event) -> BoxedModel {
+
+        dbg!("UPDATE CALLED IN RUST");
+
         extern "C" {
-            fn roc__mainForHost_2_caller(model: *mut Model, arg1: *const roc_app::Event, closure_data: *mut u8, output: *mut Model);
+            fn roc__mainForHost_2_caller(model: BoxedModel, arg1: *const roc_app::Event, closure_data: *mut u8, output: *mut BoxedModel);
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
@@ -209,9 +166,9 @@ pub struct RocFunctionRender {
 }
 
 impl RocFunctionRender {
-    pub fn force_thunk(mut self, model: &mut Model) -> roc_std::RocList<roc_app::Elem> {
+    pub fn force_thunk(mut self, model: BoxedModel) -> roc_std::RocList<roc_app::Elem> {
         extern "C" {
-            fn roc__mainForHost_1_caller(arg0: &mut Model, closure_data: *mut u8, output: *mut roc_std::RocList<roc_app::Elem>);
+            fn roc__mainForHost_1_caller(arg0: BoxedModel, closure_data: *mut u8, output: *mut roc_std::RocList<roc_app::Elem>);
         }
 
         let mut output = core::mem::MaybeUninit::uninit();

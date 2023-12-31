@@ -49,7 +49,6 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
     
     // dbg!(String::from_utf8(model.as_slice().into()));
 
-
     // Open window and create a surface
     let mut event_loop = winit::event_loop::EventLoop::new();
 

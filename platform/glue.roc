@@ -5,6 +5,7 @@ platform "gui"
     imports [Game]
     provides [mainForHost]
 
+# We are generating only glue for the types we need as a workaround
 GlueStuff : [
     A Game.Bounds, 
     B Game.Elem, 
