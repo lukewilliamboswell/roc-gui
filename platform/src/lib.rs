@@ -26,6 +26,7 @@ pub extern "C" fn rust_main() -> i32 {
 
     dbg!(elem);
 
+    // TODO RE-INSTATE THE GUI PARTS
     // gui::run_event_loop("RocOut!", bounds).expect("Error running event loop");
 
     // Exit code

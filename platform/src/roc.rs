@@ -143,8 +143,6 @@ pub struct RocFunctionUpdate {
 impl RocFunctionUpdate {
     pub fn force_thunk(mut self, model: BoxedModel, arg1: roc_app::Event) -> BoxedModel {
 
-        dbg!("UPDATE CALLED IN RUST");
-
         extern "C" {
             fn roc__mainForHost_2_caller(model: BoxedModel, arg1: *const roc_app::Event, closure_data: *mut u8, output: *mut BoxedModel);
         }
