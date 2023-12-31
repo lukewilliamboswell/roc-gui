@@ -273,9 +273,9 @@ pub struct RocFunction_75 {
 }
 
 impl RocFunction_75 {
-    pub fn force_thunk(mut self, model: &Model) -> roc_std::RocList<Elem> {
+    pub fn force_thunk(mut self, model: &mut Model) -> roc_std::RocList<Elem> {
         extern "C" {
-            fn roc__mainForHost_1_caller(arg0: &Model, closure_data: *mut u8, output: *mut roc_std::RocList<Elem>);
+            fn roc__mainForHost_1_caller(arg0: &mut Model, closure_data: *mut u8, output: *mut roc_std::RocList<Elem>);
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
