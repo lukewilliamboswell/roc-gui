@@ -37,10 +37,10 @@ const TIME_BETWEEN_TICKS: Duration = Duration::new(0, 1000 / 60);
 pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(), Box<dyn Error>> {
     // let (mut model, mut elems) = roc::init_and_render(window_bounds);
 
-    // let main_for_host = roc_app::mainForHost();
+    // let roc_main = roc::main_for_host();
 
-    // let model = main_for_host.init.force_thunk(window_bounds);
-    // let mut elems = main_for_host.render.force_thunk(model);
+    // let mut model = roc_main.init.force_thunk(window_bounds);
+    // let mut elems = roc_main.render.force_thunk(model);
 
     // let tick = Duration::from_secs(1);
     // let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap());
@@ -157,11 +157,8 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     width: size.width as f32,
                 });
 
-                // dbg!("JUST BEOFRE RESIZE");
-                // model = main_for_host.update.clone().force_thunk(model.clone(), resize_event);
-                // dbg!(String::from_utf8(model.as_slice().into()));
-
-                // elems = main_for_host.render.clone().force_thunk(model.clone());
+                // model = roc_main.update.force_thunk(&model, resize_event);
+                // elems = roc_main.render.force_thunk(model);
 
                 window.request_redraw();    
             }

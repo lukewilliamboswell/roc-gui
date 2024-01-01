@@ -23,13 +23,15 @@ update : Model, Event -> Model
 update = \model, _ -> 
 
     dbg "UPDATE CALLED"
+    dbg model
 
-    model
+    {model & text: "Hello, Luke!"}
 
 render : Model -> List Elem
 render = \model -> 
 
     dbg "RENDER CALLED"
+    dbg model
 
     [Text { text: model.text, top: 0, left: 0, size: 40, color: { r: 1, g: 1, b: 1, a: 1 } }]
 

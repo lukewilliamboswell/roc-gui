@@ -11,9 +11,7 @@ pub extern "C" fn rust_main() -> i32 {
         height: 1000.0,
     };
 
-    let roc_main = roc::main_for_host();
-
-    dbg!(&roc_main);
+    let mut roc_main = roc::main_for_host();
 
     let mut model = roc_main.init.force_thunk(bounds);
 
@@ -22,9 +20,13 @@ pub extern "C" fn rust_main() -> i32 {
        
     model = roc_main.update.force_thunk(model, tick_event);
 
-    let elem = roc_main.render.force_thunk(model); 
+    let render_return = roc_main.render.force_thunk(model); 
 
-    dbg!(elem);
+    let elems = render_return.elems;
+    
+    model = render_return.model;
+
+    dbg!(elems);
 
     // TODO RE-INSTATE THE GUI PARTS
     // gui::run_event_loop("RocOut!", bounds).expect("Error running event loop");

@@ -54,7 +54,7 @@ pub unsafe extern "C" fn roc_memset(dst: *mut c_void, c: i32, n: usize) -> *mut 
     libc::memset(dst, c, n)
 }
 
-type BoxedModel = std::ffi::c_void;
+type BoxedModel = roc_std::RocBox<std::ffi::c_void>;
 
 #[derive(Debug)]
 #[repr(C)]
@@ -121,7 +121,11 @@ pub struct RocFunctionInit {
 impl RocFunctionInit {
     pub fn force_thunk(mut self, arg0: roc_app::Bounds) -> BoxedModel {
         extern "C" {
-            fn roc__mainForHost_0_caller(arg0: *const roc_app::Bounds, closure_data: *mut u8, output: *mut BoxedModel);
+            fn roc__mainForHost_0_caller(
+                arg0: *const roc_app::Bounds,
+                closure_data: *mut u8,
+                output: *mut BoxedModel,
+            );
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
@@ -144,13 +148,23 @@ impl RocFunctionUpdate {
     pub fn force_thunk(mut self, model: BoxedModel, arg1: roc_app::Event) -> BoxedModel {
 
         extern "C" {
-            fn roc__mainForHost_2_caller(model: BoxedModel, arg1: *const roc_app::Event, closure_data: *mut u8, output: *mut BoxedModel);
+            fn roc__mainForHost_2_caller(
+                model: *const BoxedModel,
+                arg1: *const roc_app::Event,
+                closure_data: *mut u8,
+                output: *mut BoxedModel,
+            );
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_2_caller(model, &arg1, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_2_caller(
+                &model,
+                &arg1,
+                self.closure_data.as_mut_ptr(),
+                output.as_mut_ptr(),
+            );
 
             output.assume_init()
         }
@@ -163,16 +177,27 @@ pub struct RocFunctionRender {
     closure_data: Vec<u8>,
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct RenderReturn {
+    pub elems: RocList<roc_app::Elem>,
+    pub model: BoxedModel,
+}
+
 impl RocFunctionRender {
-    pub fn force_thunk(mut self, model: BoxedModel) -> roc_std::RocList<roc_app::Elem> {
+    pub fn force_thunk(mut self, model: BoxedModel) -> RenderReturn {
         extern "C" {
-            fn roc__mainForHost_1_caller(arg0: BoxedModel, closure_data: *mut u8, output: *mut roc_std::RocList<roc_app::Elem>);
+            fn roc__mainForHost_1_caller(
+                arg0: *const BoxedModel,
+                closure_data: *mut u8,
+                output: *mut RenderReturn,
+            );
         }
 
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_1_caller(model, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_1_caller(&model, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
 
             output.assume_init()
         }

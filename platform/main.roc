@@ -18,7 +18,7 @@ platform "gui"
 ProgramForHost : {
     init : Bounds -> Box Model,
     update : Box Model, Event -> Box Model,
-    render : Box Model -> List Elem,
+    render : Box Model -> {elems : List Elem, model : Box Model },
 }
 
 init : Bounds -> Box Model
@@ -27,8 +27,8 @@ init =  \bounds -> Box.box (program.init bounds)
 update : Box Model, Event -> Box Model
 update = \boxedModel, event -> Box.box (program.update (Box.unbox boxedModel) event)
 
-render : Box Model -> List Elem
-render = \boxedModel -> program.render (Box.unbox boxedModel)
+render : Box Model -> {elems : List Elem, model : Box Model }
+render = \boxedModel -> {elems: program.render (Box.unbox boxedModel), model: boxedModel}
 
 mainForHost : ProgramForHost
 mainForHost = {init,update,render}
