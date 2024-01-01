@@ -65,7 +65,7 @@ pub struct ProgramForHost {
     model: MaybeUninit<BoxedModel>,
 }
 
-pub fn main_for_host() -> ProgramForHost {
+pub fn program_for_host() -> ProgramForHost {
     extern "C" {
         fn roc__mainForHost_1_exposed_generic(_: *mut u8);
         fn roc__mainForHost_1_exposed_size() -> isize;

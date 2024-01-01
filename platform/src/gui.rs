@@ -35,11 +35,11 @@ use winit::{
 const TIME_BETWEEN_TICKS: Duration = Duration::new(0, 1000 / 60);
 
 pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(), Box<dyn Error>> {
-    let mut roc_main = roc::main_for_host();
+    let mut roc_program = roc::program_for_host();
 
-    roc_main.init(window_bounds);
+    roc_program.init(window_bounds);
 
-    let mut elems = roc_main.render();
+    let mut elems = roc_program.render();
 
     // Open window and create a surface
     let mut event_loop = winit::event_loop::EventLoop::new();
@@ -151,9 +151,9 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     width: size.width as f32,
                 });
 
-                roc_main.update(resize_event);
+                roc_program.update(resize_event);
 
-                elems = roc_main.render();
+                elems = roc_program.render();
 
                 window.request_redraw();
             }
@@ -176,7 +176,7 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     ElementState::Released => roc_app::Event::KeyUp(to_roc_keycode(keycode)),
                 };
 
-                roc_main.update(roc_event);
+                roc_program.update(roc_event);
             }
             // Modifiers Changed
             Event::WindowEvent {
@@ -253,8 +253,8 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     let tick = now.saturating_duration_since(app_start_time);
                     let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap());
 
-                    roc_main.update(tick_event);
-                    elems = roc_main.render();
+                    roc_program.update(tick_event);
+                    elems = roc_program.render();
 
                     window.request_redraw();
 
