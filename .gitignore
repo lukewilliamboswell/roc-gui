@@ -1,6 +1,6 @@
 target
 
-
-hello-gui
+examples/hello-gui
+examples/breakout
 
 *.o

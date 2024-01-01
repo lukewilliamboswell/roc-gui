@@ -16,15 +16,14 @@
 #![allow(clippy::needless_borrow)]
 #![allow(clippy::clone_on_copy)]
 
-
-#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
+#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct Bounds {
     pub height: f32,
     pub width: f32,
 }
 
-#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
+#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct Rgba {
     pub a: f32,
@@ -33,7 +32,7 @@ pub struct Rgba {
     pub r: f32,
 }
 
-#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
+#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct R1 {
     pub color: Rgba,
@@ -43,7 +42,7 @@ pub struct R1 {
     pub width: f32,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, PartialOrd, )]
+#[derive(Clone, Default, Debug, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct R2 {
     pub color: Rgba,
@@ -53,7 +52,7 @@ pub struct R2 {
     pub top: f32,
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, )]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[repr(u8)]
 pub enum discriminant_Elem {
     Rect = 0,
@@ -138,11 +137,11 @@ impl core::fmt::Debug for Elem {
                 Rect => {
                     let field: &R1 = &self.payload.Rect;
                     f.debug_tuple("Elem::Rect").field(field).finish()
-                },
+                }
                 Text => {
                     let field: &R2 = &self.payload.Text;
                     f.debug_tuple("Elem::Text").field(field).finish()
-                },
+                }
             }
         }
     }
@@ -185,7 +184,6 @@ impl PartialOrd for Elem {
 }
 
 impl Elem {
-
     pub fn unwrap_Rect(mut self) -> R1 {
         debug_assert_eq!(self.discriminant, discriminant_Elem::Rect);
         unsafe { self.payload.Rect }
@@ -205,16 +203,11 @@ impl Elem {
     }
 }
 
-
-
 impl Elem {
-
     pub fn Rect(payload: R1) -> Self {
         Self {
             discriminant: discriminant_Elem::Rect,
-            payload: union_Elem {
-                Rect: payload,
-            }
+            payload: union_Elem { Rect: payload },
         }
     }
 
@@ -223,7 +216,7 @@ impl Elem {
             discriminant: discriminant_Elem::Text,
             payload: union_Elem {
                 Text: core::mem::ManuallyDrop::new(payload),
-            }
+            },
         }
     }
 }
@@ -233,12 +226,14 @@ impl Drop for Elem {
         // Drop the payloads
         match self.discriminant() {
             discriminant_Elem::Rect => {}
-            discriminant_Elem::Text => unsafe { core::mem::ManuallyDrop::drop(&mut self.payload.Text) },
+            discriminant_Elem::Text => unsafe {
+                core::mem::ManuallyDrop::drop(&mut self.payload.Text)
+            },
         }
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, )]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[repr(u8)]
 pub enum KeyCode {
     Down = 0,
@@ -260,7 +255,7 @@ impl core::fmt::Debug for KeyCode {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, )]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[repr(u8)]
 pub enum discriminant_Event {
     KeyDown = 0,
@@ -357,19 +352,19 @@ impl core::fmt::Debug for Event {
                 KeyDown => {
                     let field: &KeyCode = &self.payload.KeyDown;
                     f.debug_tuple("Event::KeyDown").field(field).finish()
-                },
+                }
                 KeyUp => {
                     let field: &KeyCode = &self.payload.KeyUp;
                     f.debug_tuple("Event::KeyUp").field(field).finish()
-                },
+                }
                 Resize => {
                     let field: &Bounds = &self.payload.Resize;
                     f.debug_tuple("Event::Resize").field(field).finish()
-                },
+                }
                 Tick => {
                     let field: &u64 = &self.payload.Tick;
                     f.debug_tuple("Event::Tick").field(field).finish()
-                },
+                }
             }
         }
     }
@@ -416,7 +411,6 @@ impl PartialOrd for Event {
 }
 
 impl Event {
-
     pub fn unwrap_KeyDown(mut self) -> KeyCode {
         debug_assert_eq!(self.discriminant, discriminant_Event::KeyDown);
         unsafe { self.payload.KeyDown }
@@ -454,48 +448,37 @@ impl Event {
     }
 }
 
-
-
 impl Event {
-
     pub fn KeyDown(payload: KeyCode) -> Self {
         Self {
             discriminant: discriminant_Event::KeyDown,
-            payload: union_Event {
-                KeyDown: payload,
-            }
+            payload: union_Event { KeyDown: payload },
         }
     }
 
     pub fn KeyUp(payload: KeyCode) -> Self {
         Self {
             discriminant: discriminant_Event::KeyUp,
-            payload: union_Event {
-                KeyUp: payload,
-            }
+            payload: union_Event { KeyUp: payload },
         }
     }
 
     pub fn Resize(payload: Bounds) -> Self {
         Self {
             discriminant: discriminant_Event::Resize,
-            payload: union_Event {
-                Resize: payload,
-            }
+            payload: union_Event { Resize: payload },
         }
     }
 
     pub fn Tick(payload: u64) -> Self {
         Self {
             discriminant: discriminant_Event::Tick,
-            payload: union_Event {
-                Tick: payload,
-            }
+            payload: union_Event { Tick: payload },
         }
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, )]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[repr(u8)]
 pub enum discriminant_GlueStuff {
     A = 0,
@@ -586,15 +569,15 @@ impl core::fmt::Debug for GlueStuff {
                 A => {
                     let field: &Bounds = &self.payload.A;
                     f.debug_tuple("GlueStuff::A").field(field).finish()
-                },
+                }
                 B => {
                     let field: &Elem = &self.payload.B;
                     f.debug_tuple("GlueStuff::B").field(field).finish()
-                },
+                }
                 C => {
                     let field: &Event = &self.payload.C;
                     f.debug_tuple("GlueStuff::C").field(field).finish()
-                },
+                }
             }
         }
     }
@@ -639,7 +622,6 @@ impl PartialOrd for GlueStuff {
 }
 
 impl GlueStuff {
-
     pub fn unwrap_A(mut self) -> Bounds {
         debug_assert_eq!(self.discriminant, discriminant_GlueStuff::A);
         unsafe { self.payload.A }
@@ -668,16 +650,11 @@ impl GlueStuff {
     }
 }
 
-
-
 impl GlueStuff {
-
     pub fn A(payload: Bounds) -> Self {
         Self {
             discriminant: discriminant_GlueStuff::A,
-            payload: union_GlueStuff {
-                A: payload,
-            }
+            payload: union_GlueStuff { A: payload },
         }
     }
 
@@ -686,16 +663,14 @@ impl GlueStuff {
             discriminant: discriminant_GlueStuff::B,
             payload: union_GlueStuff {
                 B: core::mem::ManuallyDrop::new(payload),
-            }
+            },
         }
     }
 
     pub fn C(payload: Event) -> Self {
         Self {
             discriminant: discriminant_GlueStuff::C,
-            payload: union_GlueStuff {
-                C: payload,
-            }
+            payload: union_GlueStuff { C: payload },
         }
     }
 }
@@ -705,13 +680,13 @@ impl Drop for GlueStuff {
         // Drop the payloads
         match self.discriminant() {
             discriminant_GlueStuff::A => {}
-            discriminant_GlueStuff::B => unsafe { core::mem::ManuallyDrop::drop(&mut self.payload.B) },
+            discriminant_GlueStuff::B => unsafe {
+                core::mem::ManuallyDrop::drop(&mut self.payload.B)
+            },
             discriminant_GlueStuff::C => {}
         }
     }
 }
-
-
 
 pub fn mainForHost() -> GlueStuff {
     extern "C" {
@@ -721,7 +696,7 @@ pub fn mainForHost() -> GlueStuff {
     let mut ret = core::mem::MaybeUninit::uninit();
 
     unsafe {
-        roc__mainForHost_1_exposed_generic(ret.as_mut_ptr(), );
+        roc__mainForHost_1_exposed_generic(ret.as_mut_ptr());
 
         ret.assume_init()
     }

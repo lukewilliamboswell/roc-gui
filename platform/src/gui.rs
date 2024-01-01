@@ -1,15 +1,15 @@
 use crate::graphics::{
-        colors::Rgba,
-        lowlevel::buffer::create_rect_buffers,
-        lowlevel::{buffer::MAX_QUADS, ortho::update_ortho_buffer},
-        lowlevel::{buffer::QUAD_INDICES, pipelines},
-        primitives::{
-            rect::{Rect, RectElt},
-            text::build_glyph_brush,
-        },
-    };
+    colors::Rgba,
+    lowlevel::buffer::create_rect_buffers,
+    lowlevel::{buffer::MAX_QUADS, ortho::update_ortho_buffer},
+    lowlevel::{buffer::QUAD_INDICES, pipelines},
+    primitives::{
+        rect::{Rect, RectElt},
+        text::build_glyph_brush,
+    },
+};
 use crate::roc;
-use cgmath::{Vector2, Vector4, num_traits::AsPrimitive};
+use cgmath::{num_traits::AsPrimitive, Vector2, Vector4};
 use glyph_brush::{GlyphCruncher, OwnedSection};
 use pipelines::RectResources;
 use std::{
@@ -35,7 +35,6 @@ use winit::{
 const TIME_BETWEEN_TICKS: Duration = Duration::new(0, 1000 / 60);
 
 pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(), Box<dyn Error>> {
-
     let mut roc_main = roc::main_for_host();
 
     roc_main.init(window_bounds);
@@ -63,11 +62,13 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                 force_fallback_adapter: false,
             })
             .await
-            .expect(r#"Request adapter
+            .expect(
+                r#"Request adapter
             If you're running this from inside nix, run with:
                 `nixVulkanIntel <your previous command that generated this error>`.
                 See extra docs here: github.com/guibou/nixGL
-            "#);
+            "#,
+            );
 
         adapter
             .request_device(
@@ -145,16 +146,16 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     &cmd_queue,
                 );
 
-                let resize_event= roc_app::Event::Resize( roc_app::Bounds { 
+                let resize_event = roc_app::Event::Resize(roc_app::Bounds {
                     height: size.height as f32,
                     width: size.width as f32,
                 });
 
-                roc_main.update( resize_event);
+                roc_main.update(resize_event);
 
                 elems = roc_main.render();
 
-                window.request_redraw();    
+                window.request_redraw();
             }
             // Keyboard input
             Event::WindowEvent {
@@ -176,7 +177,6 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                 };
 
                 roc_main.update(roc_event);
-
             }
             // Modifiers Changed
             Event::WindowEvent {
@@ -253,7 +253,7 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     let tick = now.saturating_duration_since(app_start_time);
                     let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap());
 
-                    roc_main.update( tick_event);
+                    roc_main.update(tick_event);
                     elems = roc_main.render();
 
                     window.request_redraw();
@@ -427,7 +427,6 @@ fn to_drawable(
     bounds: roc_app::Bounds,
     glyph_brush: &mut GlyphBrush<()>,
 ) -> (roc_app::Bounds, Drawable) {
-    
     match elem.discriminant() {
         roc_app::discriminant_Elem::Rect => {
             // let rect = unsafe { &elem.entry().rect };
@@ -460,7 +459,13 @@ fn to_drawable(
                 wgpu_glyph::HorizontalAlign::Left
             });
 
-            let section = owned_section_from_str(text.text.as_str(),to_rgba(text.color), text.size, bounds, layout);
+            let section = owned_section_from_str(
+                text.text.as_str(),
+                to_rgba(text.color),
+                text.size,
+                bounds,
+                layout,
+            );
 
             // Calculate the bounds and offset by measuring glyphs
             let text_bounds;
@@ -523,9 +528,8 @@ fn to_roc_keycode(keycode: winit::event::VirtualKeyCode) -> roc_app::KeyCode {
         winit::event::VirtualKeyCode::Left => roc_app::KeyCode::Left,
         _ => roc_app::KeyCode::Other,
     }
-    
 }
 
-fn to_rgba(from_roc : roc_app::Rgba) -> crate::graphics::colors::Rgba {
+fn to_rgba(from_roc: roc_app::Rgba) -> crate::graphics::colors::Rgba {
     crate::graphics::colors::Rgba::new(from_roc.r, from_roc.g, from_roc.b, from_roc.a)
 }

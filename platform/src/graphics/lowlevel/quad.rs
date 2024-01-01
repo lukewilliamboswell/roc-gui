@@ -1,5 +1,3 @@
-
-
 /// A polygon with 4 corners
 #[derive(Copy, Clone)]
 #[repr(C)]

@@ -1,11 +1,6 @@
 app "hello-gui"
-    packages { 
-        pf: "platform/main.roc",
-        json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.6.0/hJySbEhJV026DlVCHXGOZNOeoOl7468y9F9Buhj0J18.tar.br",
-    }
-    imports [
-        pf.Game.{ Bounds, Elem, Event },
-    ]
+    packages {pf: "../platform/main.roc"}
+    imports [pf.Game.{ Bounds, Elem, Event }]
     provides [program] { Model } to pf
 
 program = { init, update, render }

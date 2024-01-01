@@ -2,7 +2,7 @@ use crate::graphics::colors::Rgba;
 use core::alloc::Layout;
 use core::ffi::c_void;
 use core::mem::{self, ManuallyDrop};
-use roc_std::{RocList, RocStr, RocBox};
+use roc_std::{RocBox, RocList, RocStr};
 use std::ffi::CStr;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
@@ -85,11 +85,6 @@ pub fn main_for_host() -> ProgramForHost {
     let render_size = unsafe { roc__mainForHost_1_size() } as usize;
     let update_size = unsafe { roc__mainForHost_2_size() } as usize;
 
-    dbg!(size);
-    dbg!(init_size);
-    dbg!(render_size);
-    dbg!(update_size);
-
     let mut ret = ProgramForHost {
         init_closure_data: Vec::with_capacity(init_size),
         render_closure_data: Vec::with_capacity(render_size),
@@ -120,14 +115,17 @@ impl ProgramForHost {
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_0_caller(&arg0, self.init_closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_0_caller(
+                &arg0,
+                self.init_closure_data.as_mut_ptr(),
+                output.as_mut_ptr(),
+            );
 
             self.model = output;
         }
     }
 
     pub fn update(&mut self, arg1: roc_app::Event) {
-
         extern "C" {
             fn roc__mainForHost_2_caller(
                 model: *const BoxedModel,
@@ -163,7 +161,11 @@ impl ProgramForHost {
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_1_caller(self.model.as_mut_ptr(), self.render_closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_1_caller(
+                self.model.as_mut_ptr(),
+                self.render_closure_data.as_mut_ptr(),
+                output.as_mut_ptr(),
+            );
 
             let render_return = output.assume_init();
 
