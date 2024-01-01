@@ -1,6 +1,6 @@
 app "breakout"
     packages { pf: "../platform/main.roc" }
-    imports [pf.Game.{ Bounds, Elem, Event }]
+    imports [pf.Types.{ Bounds, Elem, Event }]
     provides [program] { Model } to pf
 
 paddleWidth = 0.2 # width of the paddle, as a % of screen width

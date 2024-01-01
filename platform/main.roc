@@ -1,13 +1,13 @@
 platform "gui"
-    requires {Model} { program : _ }
-    exposes [Game]
+    requires { Model } { program : _ }
+    exposes [Types]
     packages {}
-    imports [Game.{ Bounds, Elem, Event }]
+    imports [Types.{ Bounds, Elem, Event }]
     provides [mainForHost]
 
-# TODO add to annotation for program in header 
-# when not giving UNUSED DEFINITION warning  
-# 
+# TODO add to annotation for program in header
+# when not giving UNUSED DEFINITION warning
+#
 # Program : {
 #     init : Bounds -> Model,
 #     update : Model, Event -> Model,
@@ -18,17 +18,17 @@ platform "gui"
 ProgramForHost : {
     init : Bounds -> Box Model,
     update : Box Model, Event -> Box Model,
-    render : Box Model -> {elems : List Elem, model : Box Model },
+    render : Box Model -> { elems : List Elem, model : Box Model },
 }
 
 init : Bounds -> Box Model
-init =  \bounds -> Box.box (program.init bounds)
+init = \bounds -> Box.box (program.init bounds)
 
 update : Box Model, Event -> Box Model
 update = \boxedModel, event -> Box.box (program.update (Box.unbox boxedModel) event)
 
-render : Box Model -> {elems : List Elem, model : Box Model }
-render = \boxedModel -> {elems: program.render (Box.unbox boxedModel), model: boxedModel}
+render : Box Model -> { elems : List Elem, model : Box Model }
+render = \boxedModel -> { elems: program.render (Box.unbox boxedModel), model: boxedModel }
 
 mainForHost : ProgramForHost
-mainForHost = {init,update,render}
+mainForHost = { init, update, render }

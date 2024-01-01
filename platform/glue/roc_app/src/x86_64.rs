@@ -16,224 +16,15 @@
 #![allow(clippy::needless_borrow)]
 #![allow(clippy::clone_on_copy)]
 
-#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd)]
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
 #[repr(C)]
 pub struct Bounds {
     pub height: f32,
     pub width: f32,
 }
 
-#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd)]
-#[repr(C)]
-pub struct Rgba {
-    pub a: f32,
-    pub b: f32,
-    pub g: f32,
-    pub r: f32,
-}
-
-#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd)]
-#[repr(C)]
-pub struct R1 {
-    pub color: Rgba,
-    pub height: f32,
-    pub left: f32,
-    pub top: f32,
-    pub width: f32,
-}
-
-#[derive(Clone, Default, Debug, PartialEq, PartialOrd)]
-#[repr(C)]
-pub struct R2 {
-    pub text: roc_std::RocStr,
-    pub color: Rgba,
-    pub left: f32,
-    pub size: f32,
-    pub top: f32,
-}
-
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[repr(u8)]
-pub enum discriminant_Elem {
-    Rect = 0,
-    Text = 1,
-}
-
-impl core::fmt::Debug for discriminant_Elem {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::Rect => f.write_str("discriminant_Elem::Rect"),
-            Self::Text => f.write_str("discriminant_Elem::Text"),
-        }
-    }
-}
-
-#[repr(C, align(8))]
-pub union union_Elem {
-    Rect: R1,
-    Text: core::mem::ManuallyDrop<R2>,
-}
-
-const _SIZE_CHECK_union_Elem: () = assert!(core::mem::size_of::<union_Elem>() == 56);
-const _ALIGN_CHECK_union_Elem: () = assert!(core::mem::align_of::<union_Elem>() == 8);
-
-const _SIZE_CHECK_Elem: () = assert!(core::mem::size_of::<Elem>() == 64);
-const _ALIGN_CHECK_Elem: () = assert!(core::mem::align_of::<Elem>() == 8);
-
-impl Elem {
-    /// Returns which variant this tag union holds. Note that this never includes a payload!
-    pub fn discriminant(&self) -> discriminant_Elem {
-        unsafe {
-            let bytes = core::mem::transmute::<&Self, &[u8; core::mem::size_of::<Self>()]>(self);
-
-            core::mem::transmute::<u8, discriminant_Elem>(*bytes.as_ptr().add(56))
-        }
-    }
-
-    /// Internal helper
-    fn set_discriminant(&mut self, discriminant: discriminant_Elem) {
-        let discriminant_ptr: *mut discriminant_Elem = (self as *mut Elem).cast();
-
-        unsafe {
-            *(discriminant_ptr.add(56)) = discriminant;
-        }
-    }
-}
-
-#[repr(C)]
-pub struct Elem {
-    payload: union_Elem,
-    discriminant: discriminant_Elem,
-}
-
-impl Clone for Elem {
-    fn clone(&self) -> Self {
-        use discriminant_Elem::*;
-
-        let payload = unsafe {
-            match self.discriminant {
-                Rect => union_Elem {
-                    Rect: self.payload.Rect.clone(),
-                },
-                Text => union_Elem {
-                    Text: self.payload.Text.clone(),
-                },
-            }
-        };
-
-        Self {
-            discriminant: self.discriminant,
-            payload,
-        }
-    }
-}
-
-impl core::fmt::Debug for Elem {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        use discriminant_Elem::*;
-
-        unsafe {
-            match self.discriminant {
-                Rect => {
-                    let field: &R1 = &self.payload.Rect;
-                    f.debug_tuple("Elem::Rect").field(field).finish()
-                }
-                Text => {
-                    let field: &R2 = &self.payload.Text;
-                    f.debug_tuple("Elem::Text").field(field).finish()
-                }
-            }
-        }
-    }
-}
-
-impl PartialEq for Elem {
-    fn eq(&self, other: &Self) -> bool {
-        use discriminant_Elem::*;
-
-        if self.discriminant != other.discriminant {
-            return false;
-        }
-
-        unsafe {
-            match self.discriminant {
-                Rect => self.payload.Rect == other.payload.Rect,
-                Text => self.payload.Text == other.payload.Text,
-            }
-        }
-    }
-}
-
-impl PartialOrd for Elem {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        use discriminant_Elem::*;
-
-        use std::cmp::Ordering::*;
-
-        match self.discriminant.cmp(&other.discriminant) {
-            Less => Option::Some(Less),
-            Greater => Option::Some(Greater),
-            Equal => unsafe {
-                match self.discriminant {
-                    Rect => self.payload.Rect.partial_cmp(&other.payload.Rect),
-                    Text => self.payload.Text.partial_cmp(&other.payload.Text),
-                }
-            },
-        }
-    }
-}
-
-impl Elem {
-    pub fn unwrap_Rect(mut self) -> R1 {
-        debug_assert_eq!(self.discriminant, discriminant_Elem::Rect);
-        unsafe { self.payload.Rect }
-    }
-
-    pub fn is_Rect(&self) -> bool {
-        matches!(self.discriminant, discriminant_Elem::Rect)
-    }
-
-    pub fn unwrap_Text(mut self) -> R2 {
-        debug_assert_eq!(self.discriminant, discriminant_Elem::Text);
-        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.Text) }
-    }
-
-    pub fn is_Text(&self) -> bool {
-        matches!(self.discriminant, discriminant_Elem::Text)
-    }
-}
-
-impl Elem {
-    pub fn Rect(payload: R1) -> Self {
-        Self {
-            discriminant: discriminant_Elem::Rect,
-            payload: union_Elem { Rect: payload },
-        }
-    }
-
-    pub fn Text(payload: R2) -> Self {
-        Self {
-            discriminant: discriminant_Elem::Text,
-            payload: union_Elem {
-                Text: core::mem::ManuallyDrop::new(payload),
-            },
-        }
-    }
-}
-
-impl Drop for Elem {
-    fn drop(&mut self) {
-        // Drop the payloads
-        match self.discriminant() {
-            discriminant_Elem::Rect => {}
-            discriminant_Elem::Text => unsafe {
-                core::mem::ManuallyDrop::drop(&mut self.payload.Text)
-            },
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, )]
 #[repr(u8)]
 pub enum KeyCode {
     Down = 0,
@@ -255,7 +46,7 @@ impl core::fmt::Debug for KeyCode {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, )]
 #[repr(u8)]
 pub enum discriminant_Event {
     KeyDown = 0,
@@ -352,19 +143,19 @@ impl core::fmt::Debug for Event {
                 KeyDown => {
                     let field: &KeyCode = &self.payload.KeyDown;
                     f.debug_tuple("Event::KeyDown").field(field).finish()
-                }
+                },
                 KeyUp => {
                     let field: &KeyCode = &self.payload.KeyUp;
                     f.debug_tuple("Event::KeyUp").field(field).finish()
-                }
+                },
                 Resize => {
                     let field: &Bounds = &self.payload.Resize;
                     f.debug_tuple("Event::Resize").field(field).finish()
-                }
+                },
                 Tick => {
                     let field: &u64 = &self.payload.Tick;
                     f.debug_tuple("Event::Tick").field(field).finish()
-                }
+                },
             }
         }
     }
@@ -411,6 +202,7 @@ impl PartialOrd for Event {
 }
 
 impl Event {
+
     pub fn unwrap_KeyDown(mut self) -> KeyCode {
         debug_assert_eq!(self.discriminant, discriminant_Event::KeyDown);
         unsafe { self.payload.KeyDown }
@@ -448,107 +240,141 @@ impl Event {
     }
 }
 
+
+
 impl Event {
+
     pub fn KeyDown(payload: KeyCode) -> Self {
         Self {
             discriminant: discriminant_Event::KeyDown,
-            payload: union_Event { KeyDown: payload },
+            payload: union_Event {
+                KeyDown: payload,
+            }
         }
     }
 
     pub fn KeyUp(payload: KeyCode) -> Self {
         Self {
             discriminant: discriminant_Event::KeyUp,
-            payload: union_Event { KeyUp: payload },
+            payload: union_Event {
+                KeyUp: payload,
+            }
         }
     }
 
     pub fn Resize(payload: Bounds) -> Self {
         Self {
             discriminant: discriminant_Event::Resize,
-            payload: union_Event { Resize: payload },
+            payload: union_Event {
+                Resize: payload,
+            }
         }
     }
 
     pub fn Tick(payload: u64) -> Self {
         Self {
             discriminant: discriminant_Event::Tick,
-            payload: union_Event { Tick: payload },
+            payload: union_Event {
+                Tick: payload,
+            }
         }
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[repr(u8)]
-pub enum discriminant_GlueStuff {
-    A = 0,
-    B = 1,
-    C = 2,
+#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
+#[repr(C)]
+pub struct Rgba {
+    pub a: f32,
+    pub b: f32,
+    pub g: f32,
+    pub r: f32,
 }
 
-impl core::fmt::Debug for discriminant_GlueStuff {
+#[derive(Clone, Copy, Default, Debug, PartialEq, PartialOrd, )]
+#[repr(C)]
+pub struct R2 {
+    pub color: Rgba,
+    pub height: f32,
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, PartialOrd, )]
+#[repr(C)]
+pub struct R3 {
+    pub text: roc_std::RocStr,
+    pub color: Rgba,
+    pub left: f32,
+    pub size: f32,
+    pub top: f32,
+}
+
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, )]
+#[repr(u8)]
+pub enum discriminant_Elem {
+    Rect = 0,
+    Text = 1,
+}
+
+impl core::fmt::Debug for discriminant_Elem {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::A => f.write_str("discriminant_GlueStuff::A"),
-            Self::B => f.write_str("discriminant_GlueStuff::B"),
-            Self::C => f.write_str("discriminant_GlueStuff::C"),
+            Self::Rect => f.write_str("discriminant_Elem::Rect"),
+            Self::Text => f.write_str("discriminant_Elem::Text"),
         }
     }
 }
 
 #[repr(C, align(8))]
-pub union union_GlueStuff {
-    A: Bounds,
-    B: core::mem::ManuallyDrop<Elem>,
-    C: Event,
+pub union union_Elem {
+    Rect: R2,
+    Text: core::mem::ManuallyDrop<R3>,
 }
 
-const _SIZE_CHECK_union_GlueStuff: () = assert!(core::mem::size_of::<union_GlueStuff>() == 64);
-const _ALIGN_CHECK_union_GlueStuff: () = assert!(core::mem::align_of::<union_GlueStuff>() == 8);
+const _SIZE_CHECK_union_Elem: () = assert!(core::mem::size_of::<union_Elem>() == 56);
+const _ALIGN_CHECK_union_Elem: () = assert!(core::mem::align_of::<union_Elem>() == 8);
 
-const _SIZE_CHECK_GlueStuff: () = assert!(core::mem::size_of::<GlueStuff>() == 72);
-const _ALIGN_CHECK_GlueStuff: () = assert!(core::mem::align_of::<GlueStuff>() == 8);
+const _SIZE_CHECK_Elem: () = assert!(core::mem::size_of::<Elem>() == 64);
+const _ALIGN_CHECK_Elem: () = assert!(core::mem::align_of::<Elem>() == 8);
 
-impl GlueStuff {
+impl Elem {
     /// Returns which variant this tag union holds. Note that this never includes a payload!
-    pub fn discriminant(&self) -> discriminant_GlueStuff {
+    pub fn discriminant(&self) -> discriminant_Elem {
         unsafe {
             let bytes = core::mem::transmute::<&Self, &[u8; core::mem::size_of::<Self>()]>(self);
 
-            core::mem::transmute::<u8, discriminant_GlueStuff>(*bytes.as_ptr().add(64))
+            core::mem::transmute::<u8, discriminant_Elem>(*bytes.as_ptr().add(56))
         }
     }
 
     /// Internal helper
-    fn set_discriminant(&mut self, discriminant: discriminant_GlueStuff) {
-        let discriminant_ptr: *mut discriminant_GlueStuff = (self as *mut GlueStuff).cast();
+    fn set_discriminant(&mut self, discriminant: discriminant_Elem) {
+        let discriminant_ptr: *mut discriminant_Elem = (self as *mut Elem).cast();
 
         unsafe {
-            *(discriminant_ptr.add(64)) = discriminant;
+            *(discriminant_ptr.add(56)) = discriminant;
         }
     }
 }
 
 #[repr(C)]
-pub struct GlueStuff {
-    payload: union_GlueStuff,
-    discriminant: discriminant_GlueStuff,
+pub struct Elem {
+    payload: union_Elem,
+    discriminant: discriminant_Elem,
 }
 
-impl Clone for GlueStuff {
+impl Clone for Elem {
     fn clone(&self) -> Self {
-        use discriminant_GlueStuff::*;
+        use discriminant_Elem::*;
 
         let payload = unsafe {
             match self.discriminant {
-                A => union_GlueStuff {
-                    A: self.payload.A.clone(),
+                Rect => union_Elem {
+                    Rect: self.payload.Rect.clone(),
                 },
-                B => union_GlueStuff {
-                    B: self.payload.B.clone(),
-                },
-                C => union_GlueStuff {
-                    C: self.payload.C.clone(),
+                Text => union_Elem {
+                    Text: self.payload.Text.clone(),
                 },
             }
         };
@@ -560,32 +386,28 @@ impl Clone for GlueStuff {
     }
 }
 
-impl core::fmt::Debug for GlueStuff {
+impl core::fmt::Debug for Elem {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        use discriminant_GlueStuff::*;
+        use discriminant_Elem::*;
 
         unsafe {
             match self.discriminant {
-                A => {
-                    let field: &Bounds = &self.payload.A;
-                    f.debug_tuple("GlueStuff::A").field(field).finish()
-                }
-                B => {
-                    let field: &Elem = &self.payload.B;
-                    f.debug_tuple("GlueStuff::B").field(field).finish()
-                }
-                C => {
-                    let field: &Event = &self.payload.C;
-                    f.debug_tuple("GlueStuff::C").field(field).finish()
-                }
+                Rect => {
+                    let field: &R2 = &self.payload.Rect;
+                    f.debug_tuple("Elem::Rect").field(field).finish()
+                },
+                Text => {
+                    let field: &R3 = &self.payload.Text;
+                    f.debug_tuple("Elem::Text").field(field).finish()
+                },
             }
         }
     }
 }
 
-impl PartialEq for GlueStuff {
+impl PartialEq for Elem {
     fn eq(&self, other: &Self) -> bool {
-        use discriminant_GlueStuff::*;
+        use discriminant_Elem::*;
 
         if self.discriminant != other.discriminant {
             return false;
@@ -593,17 +415,16 @@ impl PartialEq for GlueStuff {
 
         unsafe {
             match self.discriminant {
-                A => self.payload.A == other.payload.A,
-                B => self.payload.B == other.payload.B,
-                C => self.payload.C == other.payload.C,
+                Rect => self.payload.Rect == other.payload.Rect,
+                Text => self.payload.Text == other.payload.Text,
             }
         }
     }
 }
 
-impl PartialOrd for GlueStuff {
+impl PartialOrd for Elem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        use discriminant_GlueStuff::*;
+        use discriminant_Elem::*;
 
         use std::cmp::Ordering::*;
 
@@ -612,81 +433,77 @@ impl PartialOrd for GlueStuff {
             Greater => Option::Some(Greater),
             Equal => unsafe {
                 match self.discriminant {
-                    A => self.payload.A.partial_cmp(&other.payload.A),
-                    B => self.payload.B.partial_cmp(&other.payload.B),
-                    C => self.payload.C.partial_cmp(&other.payload.C),
+                    Rect => self.payload.Rect.partial_cmp(&other.payload.Rect),
+                    Text => self.payload.Text.partial_cmp(&other.payload.Text),
                 }
             },
         }
     }
 }
 
-impl GlueStuff {
-    pub fn unwrap_A(mut self) -> Bounds {
-        debug_assert_eq!(self.discriminant, discriminant_GlueStuff::A);
-        unsafe { self.payload.A }
+impl Elem {
+
+    pub fn unwrap_Rect(mut self) -> R2 {
+        debug_assert_eq!(self.discriminant, discriminant_Elem::Rect);
+        unsafe { self.payload.Rect }
     }
 
-    pub fn is_A(&self) -> bool {
-        matches!(self.discriminant, discriminant_GlueStuff::A)
+    pub fn is_Rect(&self) -> bool {
+        matches!(self.discriminant, discriminant_Elem::Rect)
     }
 
-    pub fn unwrap_B(mut self) -> Elem {
-        debug_assert_eq!(self.discriminant, discriminant_GlueStuff::B);
-        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.B) }
+    pub fn unwrap_Text(mut self) -> R3 {
+        debug_assert_eq!(self.discriminant, discriminant_Elem::Text);
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.Text) }
     }
 
-    pub fn is_B(&self) -> bool {
-        matches!(self.discriminant, discriminant_GlueStuff::B)
-    }
-
-    pub fn unwrap_C(mut self) -> Event {
-        debug_assert_eq!(self.discriminant, discriminant_GlueStuff::C);
-        unsafe { self.payload.C }
-    }
-
-    pub fn is_C(&self) -> bool {
-        matches!(self.discriminant, discriminant_GlueStuff::C)
+    pub fn is_Text(&self) -> bool {
+        matches!(self.discriminant, discriminant_Elem::Text)
     }
 }
 
-impl GlueStuff {
-    pub fn A(payload: Bounds) -> Self {
+
+
+impl Elem {
+
+    pub fn Rect(payload: R2) -> Self {
         Self {
-            discriminant: discriminant_GlueStuff::A,
-            payload: union_GlueStuff { A: payload },
+            discriminant: discriminant_Elem::Rect,
+            payload: union_Elem {
+                Rect: payload,
+            }
         }
     }
 
-    pub fn B(payload: Elem) -> Self {
+    pub fn Text(payload: R3) -> Self {
         Self {
-            discriminant: discriminant_GlueStuff::B,
-            payload: union_GlueStuff {
-                B: core::mem::ManuallyDrop::new(payload),
-            },
-        }
-    }
-
-    pub fn C(payload: Event) -> Self {
-        Self {
-            discriminant: discriminant_GlueStuff::C,
-            payload: union_GlueStuff { C: payload },
+            discriminant: discriminant_Elem::Text,
+            payload: union_Elem {
+                Text: core::mem::ManuallyDrop::new(payload),
+            }
         }
     }
 }
 
-impl Drop for GlueStuff {
+impl Drop for Elem {
     fn drop(&mut self) {
         // Drop the payloads
         match self.discriminant() {
-            discriminant_GlueStuff::A => {}
-            discriminant_GlueStuff::B => unsafe {
-                core::mem::ManuallyDrop::drop(&mut self.payload.B)
-            },
-            discriminant_GlueStuff::C => {}
+            discriminant_Elem::Rect => {}
+            discriminant_Elem::Text => unsafe { core::mem::ManuallyDrop::drop(&mut self.payload.Text) },
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, )]
+#[repr(C)]
+pub struct GlueStuff {
+    pub a: roc_std::RocList<Bounds>,
+    pub b: roc_std::RocList<Event>,
+    pub c: roc_std::RocList<Elem>,
+}
+
+
 
 pub fn mainForHost() -> GlueStuff {
     extern "C" {
@@ -696,7 +513,7 @@ pub fn mainForHost() -> GlueStuff {
     let mut ret = core::mem::MaybeUninit::uninit();
 
     unsafe {
-        roc__mainForHost_1_exposed_generic(ret.as_mut_ptr());
+        roc__mainForHost_1_exposed_generic(ret.as_mut_ptr(), );
 
         ret.assume_init()
     }

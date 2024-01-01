@@ -1,6 +1,6 @@
 app "hello-gui"
-    packages {pf: "../platform/main.roc"}
-    imports [pf.Game.{ Bounds, Elem, Event }]
+    packages { pf: "../platform/main.roc" }
+    imports [pf.Types.{ Bounds, Elem, Event }]
     provides [program] { Model } to pf
 
 program = { init, update, render }
@@ -9,14 +9,14 @@ Model : { text : Str }
 
 init : Bounds -> Model
 init = \_ ->
-    { text: "Hello, World!" } 
+    { text: "Hello, World!" }
 
 update : Model, Event -> Model
-update = \model, event -> 
-    when event is 
-        Resize _ -> {model & text: "Resized"}
-        KeyDown _ -> {model & text: "KeyDown"}
-        KeyUp _ -> {model & text: "KeyUp"}
+update = \model, event ->
+    when event is
+        Resize _ -> { model & text: "Resized" }
+        KeyDown _ -> { model & text: "KeyDown" }
+        KeyUp _ -> { model & text: "KeyUp" }
         Tick _ -> model
 
 render : Model -> List Elem
