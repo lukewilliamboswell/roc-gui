@@ -35,19 +35,14 @@ use winit::{
 const TIME_BETWEEN_TICKS: Duration = Duration::new(0, 1000 / 60);
 
 pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(), Box<dyn Error>> {
-    // let (mut model, mut elems) = roc::init_and_render(window_bounds);
 
-    // let roc_main = roc::main_for_host();
+    let mut roc_main = roc::main_for_host();
 
-    // let mut model = roc_main.init.force_thunk(window_bounds);
-    // let mut elems = roc_main.render.force_thunk(model);
+    let mut model = roc_main.init.force_thunk(window_bounds);
 
-    // let tick = Duration::from_secs(1);
-    // let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap());
-
-    // main_for_host.update.force_thunk(model, tick_event);
-    
-    // dbg!(String::from_utf8(model.as_slice().into()));
+    let render_return = roc_main.render.force_thunk(&model);
+    let mut elems = render_return.elems;
+    model = render_return.model;
 
     // Open window and create a surface
     let mut event_loop = winit::event_loop::EventLoop::new();
@@ -157,8 +152,11 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     width: size.width as f32,
                 });
 
-                // model = roc_main.update.force_thunk(&model, resize_event);
-                // elems = roc_main.render.force_thunk(model);
+                model = roc_main.update.force_thunk(&model, resize_event);
+
+                let render_return = roc_main.render.force_thunk(&model);
+                elems = render_return.elems;
+                model = render_return.model;
 
                 window.request_redraw();    
             }
@@ -181,7 +179,8 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     ElementState::Released => roc_app::Event::KeyUp(to_roc_keycode(keycode)),
                 };
 
-                // model = roc::update(model, roc_event);
+                model = roc_main.update.force_thunk(&model, roc_event);
+
             }
             // Modifiers Changed
             Event::WindowEvent {
@@ -205,32 +204,31 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
 
-                // for elem in elems.iter() {
-                //     dbg!(elem);
-                //     // let (_bounds, drawable) = to_drawable(
-                //     //     elem,
-                //     //     roc_app::Bounds {
-                //     //         width: size.width as f32,
-                //     //         height: size.height as f32,
-                //     //     },
-                //     //     &mut glyph_brush,
-                //     // );
+                for elem in elems.iter() {
+                    let (_bounds, drawable) = to_drawable(
+                        elem,
+                        roc_app::Bounds {
+                            width: size.width as f32,
+                            height: size.height as f32,
+                        },
+                        &mut glyph_brush,
+                    );
 
-                //     // process_drawable(
-                //     //     drawable,
-                //     //     &mut staging_belt,
-                //     //     &mut glyph_brush,
-                //     //     &mut cmd_encoder,
-                //     //     &view,
-                //     //     &gpu_device,
-                //     //     &rect_resources,
-                //     //     wgpu::LoadOp::Load,
-                //     //     roc_app::Bounds {
-                //     //         width: size.width as f32,
-                //     //         height: size.height as f32,
-                //     //     },
-                //     // );
-                // }
+                    process_drawable(
+                        drawable,
+                        &mut staging_belt,
+                        &mut glyph_brush,
+                        &mut cmd_encoder,
+                        &view,
+                        &gpu_device,
+                        &rect_resources,
+                        wgpu::LoadOp::Load,
+                        roc_app::Bounds {
+                            width: size.width as f32,
+                            height: size.height as f32,
+                        },
+                    );
+                }
 
                 staging_belt.finish();
                 cmd_queue.submit(Some(cmd_encoder.finish()));
@@ -259,12 +257,11 @@ pub fn run_event_loop(title: &str, window_bounds: roc_app::Bounds) -> Result<(),
                     let tick = now.saturating_duration_since(app_start_time);
                     let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap());
 
-                    // dbg!("JUST BEFORE UPDATE");
-                    // model = main_for_host.update.clone().force_thunk(model.clone(), tick_event);
-                    // dbg!(String::from_utf8(model.as_slice().into()));
-
-
-                    // elems = main_for_host.render.clone().force_thunk(model.clone());
+                    // model = roc_main.update.force_thunk(&model, tick_event);
+                
+                    // let render_return = roc_main.render.force_thunk(&model);
+                    // elems = render_return.elems;
+                    // model = render_return.model;
 
                     window.request_redraw();
 

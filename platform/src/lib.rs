@@ -18,9 +18,9 @@ pub extern "C" fn rust_main() -> i32 {
     let tick = std::time::Duration::from_secs(1);
     let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap()); 
        
-    model = roc_main.update.force_thunk(model, tick_event);
+    model = roc_main.update.force_thunk(&model, tick_event);
 
-    let render_return = roc_main.render.force_thunk(model); 
+    let render_return = roc_main.render.force_thunk(&model); 
 
     let elems = render_return.elems;
     

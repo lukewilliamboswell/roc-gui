@@ -119,7 +119,7 @@ pub struct RocFunctionInit {
 }
 
 impl RocFunctionInit {
-    pub fn force_thunk(mut self, arg0: roc_app::Bounds) -> BoxedModel {
+    pub fn force_thunk(&mut self, arg0: roc_app::Bounds) -> BoxedModel {
         extern "C" {
             fn roc__mainForHost_0_caller(
                 arg0: *const roc_app::Bounds,
@@ -145,7 +145,7 @@ pub struct RocFunctionUpdate {
 }
 
 impl RocFunctionUpdate {
-    pub fn force_thunk(mut self, model: BoxedModel, arg1: roc_app::Event) -> BoxedModel {
+    pub fn force_thunk(&mut self, model: &BoxedModel, arg1: roc_app::Event) -> BoxedModel {
 
         extern "C" {
             fn roc__mainForHost_2_caller(
@@ -160,7 +160,7 @@ impl RocFunctionUpdate {
 
         unsafe {
             roc__mainForHost_2_caller(
-                &model,
+                model,
                 &arg1,
                 self.closure_data.as_mut_ptr(),
                 output.as_mut_ptr(),
@@ -185,7 +185,7 @@ pub struct RenderReturn {
 }
 
 impl RocFunctionRender {
-    pub fn force_thunk(mut self, model: BoxedModel) -> RenderReturn {
+    pub fn force_thunk(&mut self, model: &BoxedModel) -> RenderReturn {
         extern "C" {
             fn roc__mainForHost_1_caller(
                 arg0: *const BoxedModel,
@@ -197,7 +197,7 @@ impl RocFunctionRender {
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_1_caller(&model, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_1_caller(model, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
 
             output.assume_init()
         }
