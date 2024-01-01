@@ -11,25 +11,21 @@ pub extern "C" fn rust_main() -> i32 {
         height: 1000.0,
     };
 
-    let mut roc_main = roc::main_for_host();
+    // let mut roc_main = roc::main_for_host();
 
-    roc_main.init(bounds);
+    // roc_main.init(bounds);
 
-    let tick = std::time::Duration::from_secs(1);
-    let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap()); 
+    // let tick = std::time::Duration::from_secs(1);
+    // let tick_event = roc_app::Event::Tick(u64::try_from(tick.as_millis()).unwrap()); 
        
-    roc_main.update(tick_event);
+    // roc_main.update(tick_event);
 
-    let elems = roc_main.render(); 
+    // let elems = roc_main.render(); 
 
-    // let elems = render_return.elems;
-    
-    // model = render_return.model;
-
-    dbg!(elems);
+    // dbg!(elems);
 
     // TODO RE-INSTATE THE GUI PARTS
-    // gui::run_event_loop("RocOut!", bounds).expect("Error running event loop");
+    gui::run_event_loop("RocOut!", bounds).expect("Error running event loop");
 
     // Exit code
     0
