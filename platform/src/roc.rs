@@ -59,9 +59,10 @@ type BoxedModel = roc_std::RocBox<std::ffi::c_void>;
 #[derive(Debug)]
 #[repr(C)]
 pub struct ProgramForHost {
-    pub init: RocFunctionInit,
-    pub render: RocFunctionRender,
-    pub update: RocFunctionUpdate,
+    init_closure_data: Vec<u8>,
+    render_closure_data: Vec<u8>,
+    update_closure_data: Vec<u8>,
+    model: MaybeUninit<BoxedModel>,
 }
 
 pub fn main_for_host() -> ProgramForHost {
@@ -90,36 +91,24 @@ pub fn main_for_host() -> ProgramForHost {
     dbg!(update_size);
 
     let mut ret = ProgramForHost {
-        init: RocFunctionInit {
-            closure_data: Vec::with_capacity(init_size),
-        },
-        render: RocFunctionRender {
-            closure_data: Vec::with_capacity(render_size),
-        },
-        update: RocFunctionUpdate {
-            closure_data: Vec::with_capacity(update_size),
-        },
+        init_closure_data: Vec::with_capacity(init_size),
+        render_closure_data: Vec::with_capacity(render_size),
+        update_closure_data: Vec::with_capacity(update_size),
+        model: MaybeUninit::uninit(),
     };
 
     let mut data_slice = captures.as_slice();
-    ret.init.closure_data.extend(&data_slice[..init_size]);
+    ret.init_closure_data.extend(&data_slice[..init_size]);
     data_slice = &data_slice[init_size..];
-    ret.init.closure_data.extend(&data_slice[..render_size]);
+    ret.render_closure_data.extend(&data_slice[..render_size]);
     data_slice = &data_slice[render_size..];
-    ret.init.closure_data.extend(&data_slice[..update_size]);
+    ret.update_closure_data.extend(&data_slice[..update_size]);
 
     ret
 }
 
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct RocFunctionInit {
-    closure_data: Vec<u8>,
-}
-
-impl RocFunctionInit {
-    pub fn force_thunk(&mut self, arg0: roc_app::Bounds) -> BoxedModel {
+impl ProgramForHost {
+    pub fn init(&mut self, arg0: roc_app::Bounds) {
         extern "C" {
             fn roc__mainForHost_0_caller(
                 arg0: *const roc_app::Bounds,
@@ -131,21 +120,13 @@ impl RocFunctionInit {
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_0_caller(&arg0, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_0_caller(&arg0, self.init_closure_data.as_mut_ptr(), output.as_mut_ptr());
 
-            output.assume_init()
+            self.model = output;
         }
     }
-}
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct RocFunctionUpdate {
-    closure_data: Vec<u8>,
-}
-
-impl RocFunctionUpdate {
-    pub fn force_thunk(&mut self, model: &BoxedModel, arg1: roc_app::Event) -> BoxedModel {
+    pub fn update(&mut self, arg1: roc_app::Event) {
 
         extern "C" {
             fn roc__mainForHost_2_caller(
@@ -160,32 +141,17 @@ impl RocFunctionUpdate {
 
         unsafe {
             roc__mainForHost_2_caller(
-                model,
+                self.model.as_mut_ptr(),
                 &arg1,
-                self.closure_data.as_mut_ptr(),
+                self.update_closure_data.as_mut_ptr(),
                 output.as_mut_ptr(),
             );
 
-            output.assume_init()
+            self.model = output;
         }
     }
-}
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct RocFunctionRender {
-    closure_data: Vec<u8>,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct RenderReturn {
-    pub elems: RocList<roc_app::Elem>,
-    pub model: BoxedModel,
-}
-
-impl RocFunctionRender {
-    pub fn force_thunk(&mut self, model: &BoxedModel) -> RenderReturn {
+    pub fn render(&mut self) -> RocList<roc_app::Elem> {
         extern "C" {
             fn roc__mainForHost_1_caller(
                 arg0: *const BoxedModel,
@@ -197,9 +163,20 @@ impl RocFunctionRender {
         let mut output = core::mem::MaybeUninit::uninit();
 
         unsafe {
-            roc__mainForHost_1_caller(model, self.closure_data.as_mut_ptr(), output.as_mut_ptr());
+            roc__mainForHost_1_caller(self.model.as_mut_ptr(), self.render_closure_data.as_mut_ptr(), output.as_mut_ptr());
 
-            output.assume_init()
+            let render_return = output.assume_init();
+
+            self.model = MaybeUninit::new(render_return.model);
+
+            render_return.elems
         }
     }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct RenderReturn {
+    pub elems: RocList<roc_app::Elem>,
+    pub model: BoxedModel,
 }
