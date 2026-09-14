@@ -2,8 +2,12 @@ use crate::roc_platform_abi::{
     MountOrNoChangeOrReplace, MountOrNoChangeOrReplaceTag, RocErasedCallable,
 };
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
-const MAX_STAGED_NODES: usize = 65_536;
+// A realistic row can lower to several host nodes. Keep a finite corruption /
+// runaway guard, but do not make the common 10k + 1k collection workload fail
+// merely because labelled controls multiply its node count.
+const MAX_STAGED_NODES: usize = 1_048_576;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
@@ -32,6 +36,174 @@ pub enum Patch {
         root: u64,
         nodes: Vec<Node>,
     },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ApplyFacts {
+    pub kind: &'static str,
+    pub staged: u64,
+    pub removed: u64,
+    pub live: u64,
+    pub scanned: u64,
+    pub validate_ns: u64,
+    pub apply_ns: u64,
+}
+
+#[derive(Debug)]
+pub struct GraphApply {
+    pub facts: ApplyFacts,
+    pub root: Option<u64>,
+    pub staged_ids: Vec<u64>,
+    pub removed_ids: Vec<u64>,
+    pub parent: Option<(u64, usize)>,
+}
+
+/// The canonical mounted UI graph. Both semantic specs and the GPUI runtime
+/// apply patches here; GPUI entities are only a materialized view of this state.
+#[derive(Default)]
+pub struct MountedGraph {
+    nodes: HashMap<u64, Node>,
+    root: Option<u64>,
+}
+
+impl MountedGraph {
+    pub fn node(&self, id: u64) -> Option<&Node> {
+        self.nodes.get(&id)
+    }
+
+    /// Nodes in production child order, suitable for semantic ordering checks.
+    pub fn nodes_preorder(&self) -> Vec<&Node> {
+        let mut ordered = Vec::with_capacity(self.nodes.len());
+        let mut pending = self.root.into_iter().collect::<Vec<_>>();
+        while let Some(id) = pending.pop() {
+            let node = self.nodes.get(&id).expect("mounted child is missing");
+            ordered.push(node);
+            pending.extend(node.children.iter().rev().copied());
+        }
+        ordered
+    }
+
+    #[cfg(test)]
+    fn root(&self) -> Option<u64> {
+        self.root
+    }
+
+    pub fn apply(&mut self, patch: Patch) -> Result<GraphApply, String> {
+        self.apply_inner::<false>(patch)
+    }
+
+    pub fn apply_measured(&mut self, patch: Patch) -> Result<GraphApply, String> {
+        self.apply_inner::<true>(patch)
+    }
+
+    fn apply_inner<const MEASURE: bool>(&mut self, patch: Patch) -> Result<GraphApply, String> {
+        let validate_started = MEASURE.then(Instant::now);
+        match &patch {
+            Patch::Mount { root, nodes } | Patch::Replace { root, nodes, .. } => {
+                validate_tree(*root, nodes)?;
+            }
+            Patch::NoChange => {}
+        }
+        let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
+        let apply_started = MEASURE.then(Instant::now);
+
+        let (kind, root, staged_ids, removed_ids, parent, scanned) = match patch {
+            Patch::NoChange => ("no_change", None, vec![], vec![], None, 0),
+            Patch::Mount { root, nodes } => {
+                if !self.nodes.is_empty() {
+                    return Err("application attempted to mount twice".into());
+                }
+                let staged_ids = nodes.iter().map(|node| node.id).collect();
+                self.nodes
+                    .extend(nodes.into_iter().map(|node| (node.id, node)));
+                self.root = Some(root);
+                ("mount", Some(root), staged_ids, vec![], None, 0)
+            }
+            Patch::Replace {
+                old_root,
+                root,
+                nodes,
+            } => {
+                let removed_ids = self.subtree_ids(old_root)?.into_iter().collect::<Vec<_>>();
+                if nodes.iter().any(|node| self.nodes.contains_key(&node.id)) {
+                    return Err("replacement reused a live node id".into());
+                }
+                let mut parent = None;
+                let mut scanned = 0;
+                for (id, node) in &self.nodes {
+                    scanned += 1;
+                    if let Some(position) =
+                        node.children.iter().position(|child| *child == old_root)
+                    {
+                        parent = Some((*id, position));
+                        break;
+                    }
+                }
+                let replacing_root = self.root == Some(old_root);
+                if parent.is_none() && !replacing_root {
+                    return Err("replacement target is detached".into());
+                }
+                let staged_ids = nodes.iter().map(|node| node.id).collect();
+                self.nodes
+                    .extend(nodes.into_iter().map(|node| (node.id, node)));
+                if let Some((parent_id, position)) = parent {
+                    self.nodes
+                        .get_mut(&parent_id)
+                        .expect("located parent disappeared")
+                        .children[position] = root;
+                } else {
+                    self.root = Some(root);
+                }
+                for id in &removed_ids {
+                    self.nodes.remove(id);
+                }
+                (
+                    "replace",
+                    Some(root),
+                    staged_ids,
+                    removed_ids,
+                    parent,
+                    scanned,
+                )
+            }
+        };
+        let facts = ApplyFacts {
+            kind,
+            staged: staged_ids.len() as u64,
+            removed: removed_ids.len() as u64,
+            live: self.nodes.len() as u64,
+            scanned,
+            validate_ns,
+            apply_ns: apply_started.map(elapsed_ns).unwrap_or(0),
+        };
+        Ok(GraphApply {
+            facts,
+            root,
+            staged_ids,
+            removed_ids,
+            parent,
+        })
+    }
+
+    fn subtree_ids(&self, root: u64) -> Result<HashSet<u64>, String> {
+        let mut found = HashSet::new();
+        let mut pending = vec![root];
+        while let Some(id) = pending.pop() {
+            if !found.insert(id) {
+                return Err(format!("cycle in mounted tree at node {id}"));
+            }
+            let node = self
+                .nodes
+                .get(&id)
+                .ok_or_else(|| format!("replacement target {id} is missing"))?;
+            pending.extend(node.children.iter().copied());
+        }
+        Ok(found)
+    }
+}
+
+fn elapsed_ns(start: Instant) -> u64 {
+    start.elapsed().as_nanos().try_into().unwrap_or(u64::MAX)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,21 +265,15 @@ impl BridgeState {
                 }
                 Patch::NoChange
             }
-            Commit::Mount { root } => {
-                validate_tree(root, &self.staged)?;
-                Patch::Mount {
-                    root,
-                    nodes: std::mem::take(&mut self.staged),
-                }
-            }
-            Commit::Replace { old_root, root } => {
-                validate_tree(root, &self.staged)?;
-                Patch::Replace {
-                    old_root,
-                    root,
-                    nodes: std::mem::take(&mut self.staged),
-                }
-            }
+            Commit::Mount { root } => Patch::Mount {
+                root,
+                nodes: std::mem::take(&mut self.staged),
+            },
+            Commit::Replace { old_root, root } => Patch::Replace {
+                old_root,
+                root,
+                nodes: std::mem::take(&mut self.staged),
+            },
         };
         self.pending = Some(patch);
         Ok(())
@@ -312,5 +478,55 @@ mod tests {
                 .unwrap_err()
                 .contains("staged node")
         );
+    }
+
+    #[test]
+    fn canonical_graph_reports_and_applies_nested_replacement() {
+        let mut graph = MountedGraph::default();
+        let mounted = graph
+            .apply(Patch::Mount {
+                root: 3,
+                nodes: vec![
+                    text(1, "old"),
+                    Node {
+                        id: 2,
+                        kind: NodeKind::Row,
+                        children: vec![1],
+                    },
+                    Node {
+                        id: 3,
+                        kind: NodeKind::Column,
+                        children: vec![2],
+                    },
+                ],
+            })
+            .unwrap();
+        assert_eq!(mounted.facts.kind, "mount");
+        assert_eq!(mounted.facts.live, 3);
+        assert_eq!(graph.root(), Some(3));
+
+        let replaced = graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 5,
+                nodes: vec![
+                    text(4, "new"),
+                    Node {
+                        id: 5,
+                        kind: NodeKind::Row,
+                        children: vec![4],
+                    },
+                ],
+            })
+            .unwrap();
+        assert_eq!(replaced.facts.kind, "replace");
+        assert_eq!(replaced.facts.staged, 2);
+        assert_eq!(replaced.facts.removed, 2);
+        assert_eq!(replaced.facts.live, 3);
+        assert!(replaced.facts.scanned > 0);
+        assert_eq!(replaced.parent, Some((3, 0)));
+        assert_eq!(graph.node(3).unwrap().children, vec![5]);
+        assert!(graph.node(1).is_none());
+        assert!(graph.node(2).is_none());
     }
 }

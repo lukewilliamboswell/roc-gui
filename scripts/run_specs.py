@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 1
+SUPPORTED_SCHEMA = 2
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,9 @@ class Case:
 
 
 def discover(patterns: list[str], output: Path) -> list[Case]:
-    specs = sorted(ROOT.glob("examples/*/specs/*.scm"))
+    specs = sorted(
+        [*ROOT.glob("examples/*/specs/*.scm"), *ROOT.glob("benchmarks/*/specs/*.scm")]
+    )
     if patterns:
         specs = [
             spec

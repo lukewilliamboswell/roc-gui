@@ -8,19 +8,13 @@ mod roc_platform_abi;
 mod runner;
 mod spec;
 
-use bridge::{BridgeState, Node, NodeKind, Patch, decode_commit, validate_tree};
+use bridge::{BridgeState, MountedGraph, Node, NodeKind, Patch, decode_commit, validate_tree};
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, MountOrNoChangeOrReplace, RocErasedCallable, RocHost,
     RocListWith, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    ffi::c_void,
-    path::PathBuf,
-    time::Instant,
-};
+use std::{cell::RefCell, collections::HashMap, ffi::c_void, path::PathBuf, time::Instant};
 
 static mut ROC_HOST: *mut RocHost = core::ptr::null_mut();
 
@@ -47,11 +41,13 @@ fn roc_host() -> &'static RocHost {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
+    observatory::note_roc_alloc(length);
     DefaultAllocators::roc_alloc(roc_host_ptr(), length, alignment)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
+    observatory::note_roc_dealloc();
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
 
@@ -61,6 +57,7 @@ pub extern "C" fn roc_realloc(
     new_length: usize,
     alignment: usize,
 ) -> *mut c_void {
+    observatory::note_roc_realloc(new_length);
     DefaultAllocators::roc_realloc(roc_host_ptr(), pointer, new_length, alignment)
 }
 
@@ -300,7 +297,8 @@ impl Render for NodeView {
 }
 
 struct Runtime {
-    nodes: HashMap<u64, Entity<NodeView>>,
+    graph: MountedGraph,
+    views: HashMap<u64, Entity<NodeView>>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
 }
@@ -308,31 +306,51 @@ struct Runtime {
 impl Runtime {
     fn new(cx: &mut Context<Self>) -> Self {
         let mut runtime = Self {
-            nodes: HashMap::new(),
+            graph: MountedGraph::default(),
+            views: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
         };
-        let cycle_started = Instant::now();
-        let roc_started = Instant::now();
-        unsafe { roc_gui_init() };
-        let roc_callback_ns = elapsed_ns(roc_started);
-        let patch = take_patch();
-        runtime.apply_recorded(patch, "init", cycle_started, roc_callback_ns, cx);
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            let roc_started = Instant::now();
+            unsafe { roc_gui_init() };
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let patch = take_patch();
+            runtime.apply_recorded(patch, "init", cycle_started, roc_callback_ns, cx);
+        } else {
+            unsafe { roc_gui_init() };
+            let patch = take_patch();
+            runtime.apply_unrecorded(patch, cx);
+        }
         runtime
     }
 
     fn event_if_live(&mut self, id: u64, cx: &mut Context<Self>) {
         if !matches!(
-            self.nodes.get(&id).map(|view| &view.read(cx).node.kind),
+            self.graph.node(id).map(|node| &node.kind),
             Some(NodeKind::Button { .. })
         ) {
             return;
         }
-        let cycle_started = Instant::now();
-        let roc_started = Instant::now();
-        let patch = dispatch(id);
-        let roc_callback_ns = elapsed_ns(roc_started);
-        self.apply_recorded(patch, "click", cycle_started, roc_callback_ns, cx);
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            let roc_started = Instant::now();
+            let patch = dispatch(id);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            self.apply_recorded(patch, "click", cycle_started, roc_callback_ns, cx);
+        } else {
+            let patch = dispatch(id);
+            self.apply_unrecorded(patch, cx);
+        }
+    }
+
+    fn apply_unrecorded(&mut self, patch: Patch, cx: &mut Context<Self>) {
+        let applied = self
+            .graph
+            .apply(patch)
+            .unwrap_or_else(|message| panic!("invalid native graph patch: {message}"));
+        self.apply_to_gpui(&applied, cx);
     }
 
     fn apply_recorded(
@@ -343,42 +361,61 @@ impl Runtime {
         roc_callback_ns: u64,
         cx: &mut Context<Self>,
     ) {
-        let (patch_kind, staged_nodes) = match &patch {
-            Patch::Mount { nodes, .. } => ("mount", nodes.len() as u64),
-            Patch::NoChange => ("no_change", 0),
-            Patch::Replace { nodes, .. } => ("replace", nodes.len() as u64),
-        };
-        let live_before = self.nodes.len() as u64;
-        let apply_started = Instant::now();
-        self.apply(patch, cx);
-        let apply_ns = elapsed_ns(apply_started);
-        let live_nodes = self.nodes.len() as u64;
-        let removed_nodes = live_before
-            .saturating_add(staged_nodes)
-            .saturating_sub(live_nodes);
-        if observatory::active() {
-            observatory::cycle(observatory::Cycle {
-                run_id: 1,
-                ordinal: self.cycle_ordinal,
-                trigger,
-                patch_kind,
-                duration_ns: elapsed_ns(cycle_started),
-                roc_callback_ns,
-                validate_ns: 0,
-                apply_ns,
-                staged_nodes,
-                removed_nodes,
-                live_nodes,
-                parent_nodes_scanned: 0,
-            });
-        }
+        let applied = self
+            .graph
+            .apply_measured(patch)
+            .unwrap_or_else(|message| panic!("invalid native graph patch: {message}"));
+        let graph_apply_ns = applied.facts.apply_ns;
+        let gpui_started = Instant::now();
+        self.apply_to_gpui(&applied, cx);
+        let gpui_apply_ns = elapsed_ns(gpui_started);
+        observatory::cycle(observatory::Cycle {
+            run_id: 1,
+            ordinal: self.cycle_ordinal,
+            step_ordinal: None,
+            measurement_phase: "interactive",
+            trigger,
+            patch_kind: applied.facts.kind,
+            duration_ns: elapsed_ns(cycle_started),
+            roc_callback_ns,
+            validate_ns: applied.facts.validate_ns,
+            apply_ns: graph_apply_ns.saturating_add(gpui_apply_ns),
+            graph_apply_ns,
+            gpui_apply_ns: Some(gpui_apply_ns),
+            staged_nodes: applied.facts.staged,
+            removed_nodes: applied.facts.removed,
+            live_nodes: applied.facts.live,
+            parent_nodes_scanned: applied.facts.scanned,
+        });
         self.cycle_ordinal += 1;
     }
 
-    fn materialize(&mut self, nodes: &[Node], cx: &mut Context<Self>) {
-        for node in nodes {
+    fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+        self.materialize(&applied.staged_ids, cx);
+        if let Some(root_id) = applied.root {
+            let new_root = self.views[&root_id].clone();
+            if let Some((parent_id, position)) = applied.parent {
+                let parent_view = self.views[&parent_id].clone();
+                parent_view.update(cx, |view, cx| {
+                    view.node.children[position] = root_id;
+                    view.children[position] = new_root.clone();
+                    cx.notify();
+                });
+            } else {
+                self.root = Some(new_root);
+                cx.notify();
+            }
+        }
+        for id in &applied.removed_ids {
+            self.views.remove(id);
+        }
+    }
+
+    fn materialize(&mut self, node_ids: &[u64], cx: &mut Context<Self>) {
+        for id in node_ids {
+            let node = self.graph.node(*id).expect("applied node is missing");
             assert!(
-                !self.nodes.contains_key(&node.id),
+                !self.views.contains_key(&node.id),
                 "node id {} was reused",
                 node.id
             );
@@ -389,96 +426,21 @@ impl Runtime {
                 children: vec![],
                 runtime,
             });
-            self.nodes.insert(node.id, view);
+            self.views.insert(node.id, view);
         }
-        for node in nodes {
+        for id in node_ids {
+            let node = self.graph.node(*id).expect("applied node is missing");
             let children = node
                 .children
                 .iter()
                 .map(|id| {
-                    self.nodes
+                    self.views
                         .get(id)
                         .expect("validated child is missing")
                         .clone()
                 })
                 .collect();
-            self.nodes[&node.id].update(cx, |view, _| view.children = children);
-        }
-    }
-
-    fn subtree_ids(&self, root: u64, cx: &App) -> HashSet<u64> {
-        let mut found = HashSet::new();
-        let mut pending = vec![root];
-        while let Some(id) = pending.pop() {
-            assert!(
-                found.insert(id),
-                "cycle in mounted native tree at node {id}"
-            );
-            let view = self.nodes.get(&id).expect("replacement target is missing");
-            pending.extend(view.read(cx).node.children.iter().copied());
-        }
-        found
-    }
-
-    fn apply(&mut self, patch: Patch, cx: &mut Context<Self>) {
-        match patch {
-            Patch::NoChange => {}
-            Patch::Mount { root, nodes } => {
-                assert!(self.nodes.is_empty(), "Roc attempted to mount twice");
-                validate_tree(root, &nodes)
-                    .unwrap_or_else(|message| panic!("invalid mount: {message}"));
-                self.materialize(&nodes, cx);
-                self.root = Some(self.nodes[&root].clone());
-                cx.notify();
-            }
-            Patch::Replace {
-                old_root,
-                root,
-                nodes,
-            } => {
-                validate_tree(root, &nodes)
-                    .unwrap_or_else(|message| panic!("invalid replacement: {message}"));
-                let removed = self.subtree_ids(old_root, cx);
-                assert!(
-                    nodes.iter().all(|node| !self.nodes.contains_key(&node.id)),
-                    "replacement reused a live node id"
-                );
-
-                let parent = self.nodes.iter().find_map(|(id, view)| {
-                    view.read(cx)
-                        .node
-                        .children
-                        .iter()
-                        .position(|child| *child == old_root)
-                        .map(|position| (*id, position))
-                });
-                let replacing_root = self
-                    .root
-                    .as_ref()
-                    .is_some_and(|current| current.read(cx).node.id == old_root);
-                assert!(
-                    parent.is_some() || replacing_root,
-                    "replacement target is detached"
-                );
-
-                self.materialize(&nodes, cx);
-                let new_root = self.nodes[&root].clone();
-                if let Some((parent_id, position)) = parent {
-                    let parent_view = self.nodes[&parent_id].clone();
-                    parent_view.update(cx, |view, cx| {
-                        view.node.children[position] = root;
-                        view.children[position] = new_root.clone();
-                        cx.notify();
-                    });
-                } else {
-                    self.root = Some(new_root);
-                    cx.notify();
-                }
-
-                for id in removed {
-                    self.nodes.remove(&id);
-                }
-            }
+            self.views[&node.id].update(cx, |view, _| view.children = children);
         }
     }
 }
@@ -528,7 +490,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_record: false,
         stats_output: None,
         stats_detail: observatory::Detail::Standard,
-        stats_buffer_mib: 32,
+        stats_buffer_mib: 4,
         stats_max_mib: 4096,
     };
     let mut pending = arguments.peekable();
@@ -583,9 +545,16 @@ fn start_requested_recorder(
         .stats_output
         .clone()
         .unwrap_or_else(|| observatory::default_path(&args.app_name));
-    let benchmark = parsed_spec
-        .and_then(|case| case.benchmark)
-        .map(|value| (value.warmups, value.samples, value.iterations, value.scale));
+    let benchmark = parsed_spec.and_then(|case| case.benchmark).map(|value| {
+        (
+            value.warmups,
+            value.samples,
+            value.iterations,
+            value.scale,
+            value.initial_size,
+            value.change_size,
+        )
+    });
     observatory::start(observatory::Config {
         path: path.clone(),
         detail: args.stats_detail,
@@ -727,11 +696,9 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     set_roc_host(core::ptr::null_mut());
     if let Err(message) = finalized {
         eprintln!("roc-gui stats error: {message}");
-        1
-    } else {
-        if let Some(path) = stats_path {
-            eprintln!("capture: {}", path.display());
-        }
-        0
     }
+    if let Some(path) = stats_path {
+        eprintln!("capture: {}", path.display());
+    }
+    0
 }

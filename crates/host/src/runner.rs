@@ -1,137 +1,32 @@
 use crate::{
-    bridge::{Node, NodeKind, Patch, validate_tree},
+    bridge::{ApplyFacts, MountedGraph, NodeKind},
     clear_bridge, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
     spec::{Command, Locator, Spec},
     take_patch,
 };
-use std::{
-    collections::{HashMap, HashSet},
-    time::Instant,
-};
+use std::time::Instant;
 
-#[derive(Default)]
-struct MountedGraph {
-    nodes: HashMap<u64, Node>,
-    root: Option<u64>,
-}
-
-struct ApplyFacts {
-    kind: &'static str,
-    staged: u64,
-    removed: u64,
-    live: u64,
-    scanned: u64,
-    validate_ns: u64,
-    apply_ns: u64,
-}
-
-impl MountedGraph {
-    fn apply(&mut self, patch: Patch) -> Result<ApplyFacts, String> {
-        let validate_started = Instant::now();
-        match &patch {
-            Patch::Mount { root, nodes } | Patch::Replace { root, nodes, .. } => {
-                validate_tree(*root, nodes)?;
+fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
+    graph
+        .nodes_preorder()
+        .into_iter()
+        .filter_map(|node| match (locator, &node.kind) {
+            (Locator::Text(expected), NodeKind::Text(actual)) if expected == actual => {
+                Some(node.id)
             }
-            Patch::NoChange => {}
-        }
-        let validate_ns = elapsed_ns(validate_started);
-        let apply_started = Instant::now();
-        let (kind, staged, removed, scanned) = match patch {
-            Patch::NoChange => ("no_change", 0, 0, 0),
-            Patch::Mount { root, nodes } => {
-                if !self.nodes.is_empty() {
-                    return Err("application attempted to mount twice".into());
-                }
-                let staged = nodes.len() as u64;
-                self.nodes
-                    .extend(nodes.into_iter().map(|node| (node.id, node)));
-                self.root = Some(root);
-                ("mount", staged, 0, 0)
+            (Locator::TextPrefix(expected), NodeKind::Text(actual))
+                if actual.starts_with(expected) =>
+            {
+                Some(node.id)
             }
-            Patch::Replace {
-                old_root,
-                root,
-                nodes,
-            } => {
-                let removed_ids = self.subtree_ids(old_root)?;
-                if nodes.iter().any(|node| self.nodes.contains_key(&node.id)) {
-                    return Err("replacement reused a live node id".into());
-                }
-                let mut parent = None;
-                let mut scanned = 0;
-                for (id, node) in &self.nodes {
-                    scanned += 1;
-                    if let Some(position) =
-                        node.children.iter().position(|child| *child == old_root)
-                    {
-                        parent = Some((*id, position));
-                        break;
-                    }
-                }
-                let replacing_root = self.root == Some(old_root);
-                if parent.is_none() && !replacing_root {
-                    return Err("replacement target is detached".into());
-                }
-                let staged = nodes.len() as u64;
-                self.nodes
-                    .extend(nodes.into_iter().map(|node| (node.id, node)));
-                if let Some((parent_id, position)) = parent {
-                    self.nodes
-                        .get_mut(&parent_id)
-                        .expect("located parent disappeared")
-                        .children[position] = root;
-                } else {
-                    self.root = Some(root);
-                }
-                for id in &removed_ids {
-                    self.nodes.remove(id);
-                }
-                ("replace", staged, removed_ids.len() as u64, scanned)
+            (Locator::ButtonName(expected), NodeKind::Button { name }) if expected == name => {
+                Some(node.id)
             }
-        };
-        Ok(ApplyFacts {
-            kind,
-            staged,
-            removed,
-            live: self.nodes.len() as u64,
-            scanned,
-            validate_ns,
-            apply_ns: elapsed_ns(apply_started),
+            _ => None,
         })
-    }
-
-    fn subtree_ids(&self, root: u64) -> Result<HashSet<u64>, String> {
-        let mut found = HashSet::new();
-        let mut pending = vec![root];
-        while let Some(id) = pending.pop() {
-            if !found.insert(id) {
-                return Err(format!("cycle in mounted tree at node {id}"));
-            }
-            let node = self
-                .nodes
-                .get(&id)
-                .ok_or_else(|| format!("replacement target {id} is missing"))?;
-            pending.extend(node.children.iter().copied());
-        }
-        Ok(found)
-    }
-
-    fn matches(&self, locator: &Locator) -> Vec<u64> {
-        self.nodes
-            .values()
-            .filter_map(|node| match (locator, &node.kind) {
-                (Locator::Text(expected), NodeKind::Text(actual)) if expected == actual => {
-                    Some(node.id)
-                }
-                (Locator::ButtonName(expected), NodeKind::Button { name }) if expected == name => {
-                    Some(node.id)
-                }
-                _ => None,
-            })
-            .collect()
-    }
+        .collect()
 }
 
 pub fn run(spec: &Spec) -> Result<(), String> {
@@ -179,8 +74,17 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     unsafe { roc_gui_init() };
     let roc_ns = elapsed_ns(roc_started);
     let patch = take_patch();
-    let facts = graph.apply(patch)?;
-    record_cycle(run_id, 0, "init", cycle_started, roc_ns, &facts);
+    let facts = graph.apply_measured(patch)?.facts;
+    observatory::cycle(make_cycle(
+        run_id,
+        0,
+        None,
+        "initialization",
+        "init",
+        cycle_started,
+        roc_ns,
+        &facts,
+    ));
 
     let mut marked = spec.benchmark.is_none();
     let mut cycle_ordinal = 1u64;
@@ -192,13 +96,15 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             _ => "assertion",
         };
         let step_started = Instant::now();
+        let mut pending_cycle = None;
+        let mut count_evidence = None;
         let result = match &step.command {
             Command::MarkMetrics => {
                 marked = true;
                 Ok(())
             }
             Command::Click(locator) => {
-                let matches = graph.matches(locator);
+                let matches = matches(&graph, locator);
                 if matches.len() != 1 {
                     Err(format!(
                         "line {}: click locator matched {} nodes; expected exactly one",
@@ -210,21 +116,23 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let roc_started = Instant::now();
                     let patch = dispatch(matches[0]);
                     let roc_ns = elapsed_ns(roc_started);
-                    let facts = graph.apply(patch)?;
-                    record_cycle(
+                    let facts = graph.apply_measured(patch)?.facts;
+                    pending_cycle = Some(make_cycle(
                         run_id,
                         cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
                         "click",
                         cycle_started,
                         roc_ns,
                         &facts,
-                    );
+                    ));
                     cycle_ordinal += 1;
                     Ok(())
                 }
             }
             Command::ExpectVisible(locator) => {
-                let count = graph.matches(locator).len();
+                let count = matches(&graph, locator).len();
                 if count == 0 {
                     Err(format!(
                         "line {}: expected locator to be visible",
@@ -235,12 +143,45 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             }
             Command::ExpectNotVisible(locator) => {
-                let count = graph.matches(locator).len();
+                let count = matches(&graph, locator).len();
                 if count == 0 {
                     Ok(())
                 } else {
                     Err(format!(
                         "line {}: expected locator not to be visible, but it matched {count} nodes",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectCount(locator, expected) => {
+                let actual = matches(&graph, locator).len();
+                count_evidence = Some((*expected as u64, actual as u64));
+                if actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected locator to match {expected} nodes, but it matched {actual}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectBefore(first, second) => {
+                let first_matches = matches(&graph, first);
+                let second_matches = matches(&graph, second);
+                let ordered = graph.nodes_preorder();
+                let position = |id| ordered.iter().position(|node| node.id == id);
+                if first_matches.len() != 1 || second_matches.len() != 1 {
+                    Err(format!(
+                        "line {}: expect-before locators matched {} and {} nodes; expected one each",
+                        step.line,
+                        first_matches.len(),
+                        second_matches.len()
+                    ))
+                } else if position(first_matches[0]) < position(second_matches[0]) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected first locator before second",
                         step.line
                     ))
                 }
@@ -256,35 +197,48 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             role,
             status: if result.is_ok() { "pass" } else { "fail" },
             duration_ns: measured.then(|| elapsed_ns(step_started)),
+            expected_count: count_evidence.map(|value| value.0),
+            observed_count: count_evidence.map(|value| value.1),
             diagnostic,
         });
+        // The step is deliberately admitted before its cycle so the composite
+        // foreign key remains valid even when batches split here.
+        if let Some(cycle) = pending_cycle {
+            observatory::cycle(cycle);
+        }
         result?;
     }
     Ok(())
 }
 
-fn record_cycle(
+fn make_cycle(
     run_id: i64,
     ordinal: u64,
+    step_ordinal: Option<usize>,
+    measurement_phase: &'static str,
     trigger: &'static str,
     cycle_started: Instant,
     roc_callback_ns: u64,
     facts: &ApplyFacts,
-) {
-    observatory::cycle(Cycle {
+) -> Cycle {
+    Cycle {
         run_id,
         ordinal,
+        step_ordinal,
+        measurement_phase,
         trigger,
         patch_kind: facts.kind,
         duration_ns: elapsed_ns(cycle_started),
         roc_callback_ns,
         validate_ns: facts.validate_ns,
         apply_ns: facts.apply_ns,
+        graph_apply_ns: facts.apply_ns,
+        gpui_apply_ns: None,
         staged_nodes: facts.staged,
         removed_nodes: facts.removed,
         live_nodes: facts.live,
         parent_nodes_scanned: facts.scanned,
-    });
+    }
 }
 
 fn elapsed_ns(start: Instant) -> u64 {

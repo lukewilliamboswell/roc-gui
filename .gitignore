@@ -1,5 +1,6 @@
 /target/
 /platform/targets/x64glibc/libhost.a
 /counter
+/main
 /.test-out
 /*.rgstats

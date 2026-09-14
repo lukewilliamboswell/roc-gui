@@ -10,6 +10,18 @@ import sys
 from pathlib import Path
 
 
+QUERY_DIR = Path(__file__).resolve().parent / "stats_queries"
+VIEWS = (
+    "semantic_health",
+    "roc_work",
+    "host_gpui_work",
+    "process_resources",
+    "capture_health",
+    "scaling",
+    "spec_results",
+)
+
+
 def open_readonly(path: Path) -> sqlite3.Connection:
     database = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
     database.execute("PRAGMA query_only=ON")
@@ -19,7 +31,7 @@ def open_readonly(path: Path) -> sqlite3.Connection:
 
 def validate(database: sqlite3.Connection) -> dict[str, str]:
     metadata = dict(database.execute("SELECT key,value FROM metadata"))
-    if metadata.get("schema_version") != "1":
+    if metadata.get("schema_version") != "2":
         raise RuntimeError("unsupported schema version")
     if metadata.get("clean_shutdown") != "1" or metadata.get("final_state") != "complete":
         raise RuntimeError("capture did not finalize cleanly")
@@ -92,13 +104,42 @@ def compare(before: Path, after: Path) -> str:
         )
 
 
+def perspective(path: Path, view: str) -> str:
+    query_path = QUERY_DIR / f"{view}.sql"
+    query = query_path.read_text(encoding="utf-8")
+    with open_readonly(path) as database:
+        # Validate the capture before a view can label its evidence complete.
+        # Views then retain their own per-family status and unavailable reasons.
+        metadata = dict(database.execute("SELECT key,value FROM metadata"))
+        if metadata.get("schema_version") != "2":
+            raise RuntimeError("unsupported schema version")
+        cursor = database.execute(query)
+        columns = [description[0] for description in cursor.description]
+        rows = cursor.fetchall()
+    output = [f"view={view} capture={path}", "\t".join(columns)]
+    output.extend(
+        "\t".join("NULL" if value is None else str(value) for value in row)
+        for row in rows
+    )
+    return "\n".join(output)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("capture", type=Path)
     parser.add_argument("--compare", type=Path, help="compare CAPTURE with this after capture")
+    parser.add_argument("--view", choices=VIEWS, help="run a focused, read-only SQLite perspective")
     args = parser.parse_args()
+    if args.compare and args.view:
+        parser.error("--compare and --view are mutually exclusive")
     try:
-        print(compare(args.capture, args.compare) if args.compare else summary(args.capture))
+        if args.compare:
+            result = compare(args.capture, args.compare)
+        elif args.view:
+            result = perspective(args.capture, args.view)
+        else:
+            result = summary(args.capture)
+        print(result)
     except (OSError, sqlite3.Error, RuntimeError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

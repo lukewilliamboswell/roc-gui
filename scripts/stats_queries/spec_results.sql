@@ -5,6 +5,7 @@ WITH evidence AS (
 SELECT evidence.status AS evidence_status,evidence.reason AS evidence_reason,
        runs.phase,runs.sample_index,runs.iteration_index,
        steps.ordinal,steps.source_line,steps.kind,steps.role,steps.status,
+       steps.expected_count,steps.observed_count,
        CASE WHEN evidence.status='complete' THEN steps.duration_ns END AS duration_ns,
        steps.diagnostic
 FROM evidence LEFT JOIN steps ON evidence.status='complete'

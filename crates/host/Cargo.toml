@@ -7,6 +7,8 @@ license = "UPL-1.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 gpui = { version = "=0.2.2", default-features = false, features = ["wayland"] }
 rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled"] }
+libc = "=0.2.189"
+sha2 = "=0.10.9"
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gpui = { version = "=0.2.2", default-features = false, features = ["wayland", "test-support"] }

@@ -9,12 +9,12 @@ WITH capture AS (
         coalesce((SELECT omitted_events FROM recorder_health WHERE id=1),1) AS omitted_events
 ), evidence AS (
     SELECT *, CASE
-        WHEN schema_version<>1 THEN 'unsupported'
+        WHEN schema_version<>2 THEN 'unsupported'
         WHEN clean_shutdown<>1 OR final_state<>'complete' OR writer_failed<>0 THEN 'untrusted'
         WHEN output_limited<>0 OR omitted_events<>0 THEN 'partial'
         ELSE 'complete' END AS evidence_status,
         CASE
-        WHEN schema_version<>1 THEN 'unsupported schema version'
+        WHEN schema_version<>2 THEN 'unsupported schema version'
         WHEN clean_shutdown<>1 THEN 'capture did not shut down cleanly'
         WHEN final_state<>'complete' THEN 'capture final state is not complete'
         WHEN writer_failed<>0 THEN 'recorder writer failed'

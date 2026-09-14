@@ -1,8 +1,8 @@
 -- Attach the after capture as `after`, then compare mechanically equivalent cases.
 WITH checks AS (
     SELECT
-      (SELECT value FROM main.metadata WHERE key='schema_version')='1'
-      AND (SELECT value FROM after.metadata WHERE key='schema_version')='1' AS schema_ok,
+      (SELECT value FROM main.metadata WHERE key='schema_version')='2'
+      AND (SELECT value FROM after.metadata WHERE key='schema_version')='2' AS schema_ok,
       (SELECT value FROM main.metadata WHERE key='clean_shutdown')='1'
       AND (SELECT value FROM after.metadata WHERE key='clean_shutdown')='1'
       AND (SELECT value FROM main.metadata WHERE key='final_state')='complete'
@@ -10,11 +10,17 @@ WITH checks AS (
       (SELECT value FROM main.metadata WHERE key='spec_hash')=(SELECT value FROM after.metadata WHERE key='spec_hash')
       AND (SELECT value FROM main.metadata WHERE key='benchmark_scale')=(SELECT value FROM after.metadata WHERE key='benchmark_scale')
       AND (SELECT value FROM main.metadata WHERE key='benchmark_samples')=(SELECT value FROM after.metadata WHERE key='benchmark_samples')
-      AND (SELECT value FROM main.metadata WHERE key='benchmark_iterations')=(SELECT value FROM after.metadata WHERE key='benchmark_iterations') AS workload_ok,
+      AND (SELECT value FROM main.metadata WHERE key='benchmark_iterations')=(SELECT value FROM after.metadata WHERE key='benchmark_iterations')
+      AND (SELECT value FROM main.metadata WHERE key='benchmark_initial_size')=(SELECT value FROM after.metadata WHERE key='benchmark_initial_size')
+      AND (SELECT value FROM main.metadata WHERE key='benchmark_change_size')=(SELECT value FROM after.metadata WHERE key='benchmark_change_size') AS workload_ok,
       (SELECT value FROM main.metadata WHERE key='backend')=(SELECT value FROM after.metadata WHERE key='backend')
       AND (SELECT value FROM main.metadata WHERE key='target_profile')=(SELECT value FROM after.metadata WHERE key='target_profile')
       AND (SELECT value FROM main.metadata WHERE key='host_os')=(SELECT value FROM after.metadata WHERE key='host_os')
-      AND (SELECT value FROM main.metadata WHERE key='host_arch')=(SELECT value FROM after.metadata WHERE key='host_arch') AS environment_ok
+      AND (SELECT value FROM main.metadata WHERE key='host_arch')=(SELECT value FROM after.metadata WHERE key='host_arch')
+      AND (SELECT value FROM main.metadata WHERE key='cpu_model')=(SELECT value FROM after.metadata WHERE key='cpu_model')
+      AND (SELECT value FROM main.metadata WHERE key='logical_cpu_count')=(SELECT value FROM after.metadata WHERE key='logical_cpu_count')
+      AND (SELECT value FROM main.metadata WHERE key='requested_detail')=(SELECT value FROM after.metadata WHERE key='requested_detail')
+      AND (SELECT value FROM main.metadata WHERE key='buffer_mib')=(SELECT value FROM after.metadata WHERE key='buffer_mib') AS environment_ok
 ), before_values AS (
     SELECT avg(duration_ns) AS mean_ns FROM main.steps s JOIN main.runs r ON r.id=s.run_id
     WHERE s.role='operation' AND s.status='pass' AND r.phase='sample'
@@ -26,7 +32,7 @@ WITH checks AS (
       CASE WHEN NOT schema_ok THEN 'schema version differs or is unsupported'
            WHEN NOT captures_ok THEN 'one or both captures are incomplete'
            WHEN NOT workload_ok THEN 'spec or benchmark policy differs'
-           WHEN NOT environment_ok THEN 'backend, profile, operating system, or architecture differs'
+           WHEN NOT environment_ok THEN 'backend, profile, system, CPU, or recorder policy differs'
            ELSE 'mechanically comparable; machine timing remains report-only' END AS reason
     FROM checks
 )

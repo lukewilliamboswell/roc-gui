@@ -13,6 +13,8 @@ pub struct Benchmark {
     pub samples: u32,
     pub iterations: u32,
     pub scale: u64,
+    pub initial_size: u64,
+    pub change_size: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,6 +28,8 @@ pub enum Command {
     Click(Locator),
     ExpectVisible(Locator),
     ExpectNotVisible(Locator),
+    ExpectCount(Locator, usize),
+    ExpectBefore(Locator, Locator),
     MarkMetrics,
 }
 
@@ -35,6 +39,8 @@ impl Command {
             Self::Click(_) => "click",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectNotVisible(_) => "expect-not-visible",
+            Self::ExpectCount(_, _) => "expect-count",
+            Self::ExpectBefore(_, _) => "expect-before",
             Self::MarkMetrics => "mark-metrics",
         }
     }
@@ -47,8 +53,15 @@ impl Command {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Locator {
     Text(String),
+    TextPrefix(String),
     ButtonName(String),
 }
+
+const MAX_SOURCE_BYTES: usize = 1024 * 1024;
+const MAX_NESTING_DEPTH: usize = 128;
+const MAX_EXPRESSIONS: usize = 100_000;
+const MAX_STEPS: usize = 100_000;
+const MAX_BENCHMARK_LIFECYCLES: u64 = 100_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum SExpr {
@@ -99,6 +112,12 @@ impl fmt::Display for ParseError {
 }
 
 pub fn parse(source: &str) -> Result<Spec, ParseError> {
+    if source.len() > MAX_SOURCE_BYTES {
+        return Err(ParseError {
+            line: 1,
+            message: format!("spec exceeds the {MAX_SOURCE_BYTES}-byte source limit"),
+        });
+    }
     let mut parser = Parser::new(source);
     let root = parser.expr()?;
     parser.skip_space_and_comments();
@@ -145,7 +164,13 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
         }
     }
     let steps = steps.ok_or_else(|| error(root, "test requires a steps clause"))?;
-    if let Some(_) = benchmark {
+    if steps.len() > MAX_STEPS {
+        return Err(error(
+            root,
+            format!("spec exceeds the {MAX_STEPS}-step limit"),
+        ));
+    }
+    if let Some(policy) = benchmark {
         let marks = steps
             .iter()
             .filter(|step| matches!(step.command, Command::MarkMetrics))
@@ -154,6 +179,18 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
             return Err(error(
                 root,
                 format!("benchmark requires exactly one mark-metrics step; found {marks}"),
+            ));
+        }
+        let verifies_scale = steps.iter().any(|step| {
+            matches!(step.command, Command::ExpectCount(_, expected) if expected as u64 == policy.scale)
+        });
+        if !verifies_scale {
+            return Err(error(
+                root,
+                format!(
+                    "benchmark :scale {} requires an expect-count assertion with the same count",
+                    policy.scale
+                ),
             ));
         }
     }
@@ -170,6 +207,8 @@ fn parse_benchmark(node: &SExpr, values: &[SExpr]) -> Result<Benchmark, ParseErr
         samples: 1,
         iterations: 1,
         scale: 0,
+        initial_size: 0,
+        change_size: 0,
     };
     let mut seen = std::collections::HashSet::new();
     let mut index = 1;
@@ -202,6 +241,22 @@ fn parse_benchmark(node: &SExpr, values: &[SExpr]) -> Result<Benchmark, ParseErr
                     ));
                 }
             }
+            ":initial-size" => {
+                result.initial_size = value.parse().map_err(|_| {
+                    error(
+                        &values[index + 1],
+                        "initial size must be a non-negative integer",
+                    )
+                })?;
+            }
+            ":change-size" => {
+                result.change_size = value.parse().map_err(|_| {
+                    error(
+                        &values[index + 1],
+                        "change size must be a non-negative integer",
+                    )
+                })?;
+            }
             _ => {
                 return Err(error(
                     &values[index],
@@ -213,6 +268,15 @@ fn parse_benchmark(node: &SExpr, values: &[SExpr]) -> Result<Benchmark, ParseErr
     }
     if result.scale == 0 {
         return Err(error(node, "benchmark requires :scale"));
+    }
+    let lifecycles = u64::from(result.warmups)
+        .checked_add(u64::from(result.samples) * u64::from(result.iterations))
+        .ok_or_else(|| error(node, "benchmark lifecycle count overflows"))?;
+    if lifecycles > MAX_BENCHMARK_LIFECYCLES {
+        return Err(error(
+            node,
+            format!("benchmark exceeds the {MAX_BENCHMARK_LIFECYCLES}-lifecycle limit"),
+        ));
     }
     Ok(result)
 }
@@ -239,8 +303,20 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         "expect-not-visible" if values.len() == 2 => {
             Command::ExpectNotVisible(parse_locator(&values[1])?)
         }
+        "expect-count" if values.len() == 3 => {
+            let expected = values[2]
+                .atom()
+                .ok_or_else(|| error(&values[2], "expect-count requires a non-negative integer"))?
+                .parse::<usize>()
+                .map_err(|_| error(&values[2], "expect-count requires a non-negative integer"))?;
+            Command::ExpectCount(parse_locator(&values[1])?, expected)
+        }
+        "expect-before" if values.len() == 3 => {
+            Command::ExpectBefore(parse_locator(&values[1])?, parse_locator(&values[2])?)
+        }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
-        "click" | "expect-visible" | "expect-not-visible" | "mark-metrics" => {
+        "click" | "expect-visible" | "expect-not-visible" | "expect-count" | "expect-before"
+        | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -258,6 +334,10 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .string()
             .map(|value| Locator::Text(value.to_owned()))
             .ok_or_else(|| error(node, "text locator requires a string")),
+        Some("text-prefix") if values.len() == 2 => values[1]
+            .string()
+            .map(|value| Locator::TextPrefix(value.to_owned()))
+            .ok_or_else(|| error(node, "text-prefix locator requires a string")),
         Some("role")
             if values.len() == 4
                 && values[1].atom() == Some("button")
@@ -290,6 +370,7 @@ struct Parser<'a> {
     bytes: &'a [u8],
     index: usize,
     line: usize,
+    expressions: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -298,10 +379,26 @@ impl<'a> Parser<'a> {
             bytes: source.as_bytes(),
             index: 0,
             line: 1,
+            expressions: 0,
         }
     }
 
     fn expr(&mut self) -> Result<SExpr, ParseError> {
+        self.expr_at_depth(0)
+    }
+
+    fn expr_at_depth(&mut self, depth: usize) -> Result<SExpr, ParseError> {
+        if depth > MAX_NESTING_DEPTH {
+            return Err(self.error(format!(
+                "spec exceeds the {MAX_NESTING_DEPTH}-level nesting limit"
+            )));
+        }
+        self.expressions += 1;
+        if self.expressions > MAX_EXPRESSIONS {
+            return Err(self.error(format!(
+                "spec exceeds the {MAX_EXPRESSIONS}-expression limit"
+            )));
+        }
         self.skip_space_and_comments();
         let line = self.line;
         match self.peek() {
@@ -316,7 +413,7 @@ impl<'a> Parser<'a> {
                             break;
                         }
                         None => return Err(self.error("unterminated list")),
-                        _ => values.push(self.expr()?),
+                        _ => values.push(self.expr_at_depth(depth + 1)?),
                     }
                 }
                 Ok(SExpr::List(values, line))
@@ -457,7 +554,10 @@ mod tests {
         let spec = parse(
             r#"(test "scale"
               (benchmark :warmups 2 :samples 7 :iterations 3 :scale 10000)
-              (steps (mark-metrics) (click (role button :name "Build"))))"#,
+              (steps
+                (mark-metrics)
+                (click (role button :name "Build"))
+                (expect-count (text-prefix "Row ") 10000)))"#,
         )
         .unwrap();
         assert_eq!(
@@ -467,6 +567,8 @@ mod tests {
                 samples: 7,
                 iterations: 3,
                 scale: 10_000,
+                initial_size: 0,
+                change_size: 0,
             })
         );
     }
@@ -477,6 +579,51 @@ mod tests {
             parse(r#"(test "bad" (benchmark :scale 1) (steps (expect-visible (text "x"))))"#)
                 .unwrap_err();
         assert!(error.message.contains("exactly one"));
+    }
+
+    #[test]
+    fn benchmark_requires_semantic_scale_verification() {
+        let error = parse(
+            r#"(test "bad"
+              (benchmark :scale 1000)
+              (steps (mark-metrics) (expect-count (text-prefix "Row ") 999)))"#,
+        )
+        .unwrap_err();
+        assert!(error.message.contains("same count"));
+    }
+
+    #[test]
+    fn bounds_benchmark_execution() {
+        let error = parse(
+            r#"(test "bad"
+              (benchmark :warmups 1 :samples 100000 :iterations 2 :scale 1)
+              (steps (mark-metrics) (expect-count (text "row") 1)))"#,
+        )
+        .unwrap_err();
+        assert!(error.message.contains("lifecycle limit"));
+    }
+
+    #[test]
+    fn bounds_source_size_and_nesting() {
+        let oversized = " ".repeat(MAX_SOURCE_BYTES + 1);
+        assert!(
+            parse(&oversized)
+                .unwrap_err()
+                .message
+                .contains("source limit")
+        );
+
+        let nested = format!(
+            "{}x{}",
+            "(".repeat(MAX_NESTING_DEPTH + 2),
+            ")".repeat(MAX_NESTING_DEPTH + 2)
+        );
+        assert!(
+            parse(&nested)
+                .unwrap_err()
+                .message
+                .contains("nesting limit")
+        );
     }
 
     #[test]
