@@ -6,6 +6,7 @@ license = "UPL-1.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gpui = { version = "=0.2.2", default-features = false, features = ["wayland"] }
+rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gpui = { version = "=0.2.2", default-features = false, features = ["wayland", "test-support"] }
@@ -13,4 +14,3 @@ gpui = { version = "=0.2.2", default-features = false, features = ["wayland", "t
 [lib]
 name = "host"
 crate-type = ["staticlib"]
-

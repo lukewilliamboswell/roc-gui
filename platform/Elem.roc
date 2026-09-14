@@ -3,7 +3,7 @@ import Event
 
 Elem(a) := [
 	Boundary(a -> Elem(a)),
-	Button({ label : List(Elem(a)), on_press : (a, Event.Press -> Action(a)) }),
+	Button({ label : List(Elem(a)), name : Str, on_press : (a, Event.Press -> Action(a)) }),
 	Column(List(Elem(a))),
 	Row(List(Elem(a))),
 	Text(Str),
@@ -11,8 +11,8 @@ Elem(a) := [
 	text : Str -> Elem(a)
 	text = |value| Text(value)
 
-	button : { label : Elem(a), on_press : a, Event.Press -> Action(a) } -> Elem(a)
-	button = |props| Button({ label: [props.label], on_press: props.on_press })
+	button : { label : Elem(a), name : Str, on_press : a, Event.Press -> Action(a) } -> Elem(a)
+	button = |props| Button({ label: [props.label], name: props.name, on_press: props.on_press })
 
 	row : List(Elem(a)) -> Elem(a)
 	row = |children| Row(children)
@@ -33,6 +33,7 @@ Elem(a) := [
 			}
 			Button({
 				label: button_value.label.map(|label| lift(label, get_child, set_child)),
+				name: button_value.name,
 				on_press: parent_handler,
 			})
 		}
@@ -50,7 +51,7 @@ Elem(a) := [
 
 	inspect : Elem(a) -> [
 		Boundary(a -> Elem(a)),
-		Button({ label : List(Elem(a)), on_press : (a, Event.Press -> Action(a)) }),
+		Button({ label : List(Elem(a)), name : Str, on_press : (a, Event.Press -> Action(a)) }),
 		Column(List(Elem(a))),
 		Row(List(Elem(a))),
 		Text(Str),

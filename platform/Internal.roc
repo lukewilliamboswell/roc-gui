@@ -54,7 +54,7 @@ Internal := [].{
 		Button(button_value) => {
 			label_elem = button_value.label.first() ?? crash "button label missing"
 			label = lower!(label_elem, state, next_boundary, active_boundary, parent_boundary, routes, boundaries)
-			id = Host.node_button!(label.root)
+			id = Host.node_button!(button_value.name, label.root)
 			route = { id, boundary: active_boundary, on_press: button_value.on_press }
 			{ root: id, next_boundary: label.next_boundary, routes: label.routes.append(route), boundaries: label.boundaries }
 		}

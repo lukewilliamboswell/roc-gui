@@ -7,7 +7,7 @@ Host := [].{
 
 	node_column! : List(U64) => U64
 
-	node_button! : U64 => U64
+	node_button! : Str, U64 => U64
 
 	apply! : Patch => {}
 

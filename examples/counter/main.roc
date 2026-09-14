@@ -17,8 +17,8 @@ render = |state| Layout.col(
 	[
 		Elem.text(state.title),
 		Layout.row({}, [
-			Elem.translate(Counter.render, |parent| parent.left, |parent, child| { ..parent, left: child }),
-			Elem.translate(Counter.render, |parent| parent.right, |parent, child| { ..parent, right: child }),
+			Elem.translate(|child| Counter.render("Left", child), |parent| parent.left, |parent, child| { ..parent, left: child }),
+			Elem.translate(|child| Counter.render("Right", child), |parent| parent.right, |parent, child| { ..parent, right: child }),
 		]),
 	],
 )

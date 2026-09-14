@@ -1,5 +1,5 @@
 import pf.Action
-import pf.Elem exposing [Elem]
+import pf.Elem
 import pf.Layout
 
 Counter := [].{
@@ -8,10 +8,10 @@ Counter := [].{
 	init : I64 -> State
 	init = |initial_value| { count: initial_value }
 
-	render : State -> Elem(State)
-	render = |state| Layout.row({}, [
-		Elem.button({ label: Elem.text("−"), on_press: |prev, _| Action.update({ count: prev.count - 1.I64 }) }),
+	render : Str, State -> Elem(State)
+	render = |name, state| Layout.row({}, [
+		Elem.button({ label: Elem.text("−"), name: "${name} decrement", on_press: |prev, _| Action.update({ count: prev.count - 1.I64 }) }),
 		Elem.text(state.count.to_str()),
-		Elem.button({ label: Elem.text("+"), on_press: |prev, _| Action.update({ count: prev.count + 1.I64 }) }),
+		Elem.button({ label: Elem.text("+"), name: "${name} increment", on_press: |prev, _| Action.update({ count: prev.count + 1.I64 }) }),
 	])
 }

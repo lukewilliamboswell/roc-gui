@@ -1307,12 +1307,13 @@ pub struct HostNodeColumnArgs {
 }
 
 /// Arguments for Host.node_button!
-/// Roc signature: U64 => U64
+/// Roc signature: Str, U64 => U64
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostNodeButtonArgs {
-    pub arg0: u64,
+    pub arg0: RocStr,
+    pub arg1: u64,
 }
 
 /// Arguments for Host.apply!
@@ -1533,8 +1534,11 @@ unsafe extern "C" {
     pub fn roc_gui_node_column(arg0: RocListWith<u64, false>) -> u64;
 
     /// Hosted symbol for Host.node_button!
-    /// Roc signature: U64 => U64
-    pub fn roc_gui_node_button(arg0: u64) -> u64;
+    /// Roc signature: Str, U64 => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_button(arg0: RocStr, arg1: u64) -> u64;
 
     /// Hosted symbol for Host.apply!
     /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}

@@ -7,7 +7,7 @@ const MAX_STAGED_NODES: usize = 65_536;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
-    Button,
+    Button { name: String },
     Column,
     Row,
     Text(String),
@@ -160,7 +160,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
             NodeKind::Text(_) if !node.children.is_empty() => {
                 return Err(format!("text node {} has children", node.id));
             }
-            NodeKind::Button if node.children.len() != 1 => {
+            NodeKind::Button { .. } if node.children.len() != 1 => {
                 return Err(format!("button node {} must have one label child", node.id));
             }
             _ => {}
@@ -226,7 +226,7 @@ mod tests {
     fn rejects_bad_button_shape() {
         let nodes = [Node {
             id: 1,
-            kind: NodeKind::Button,
+            kind: NodeKind::Button { name: "bad".into() },
             children: vec![],
         }];
         assert!(validate_tree(1, &nodes).unwrap_err().contains("one label"));
@@ -238,7 +238,14 @@ mod tests {
         let label = bridge
             .stage_node(NodeKind::Text("click".into()), vec![])
             .unwrap();
-        let button = bridge.stage_node(NodeKind::Button, vec![label]).unwrap();
+        let button = bridge
+            .stage_node(
+                NodeKind::Button {
+                    name: "Click".into(),
+                },
+                vec![label],
+            )
+            .unwrap();
         let root = bridge.stage_node(NodeKind::Column, vec![button]).unwrap();
 
         bridge.commit(Commit::Mount { root }).unwrap();
@@ -250,7 +257,9 @@ mod tests {
                     text(label, "click"),
                     Node {
                         id: button,
-                        kind: NodeKind::Button,
+                        kind: NodeKind::Button {
+                            name: "Click".into()
+                        },
                         children: vec![label],
                     },
                     Node {
@@ -289,7 +298,7 @@ mod tests {
         let mut bridge = BridgeState::new();
         assert!(
             bridge
-                .stage_node(NodeKind::Button, vec![999])
+                .stage_node(NodeKind::Button { name: "Bad".into() }, vec![999])
                 .unwrap_err()
                 .contains("unstaged child")
         );
