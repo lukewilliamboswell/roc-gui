@@ -5,11 +5,11 @@
 mod bridge;
 mod roc_platform_abi;
 
-use bridge::{BridgeState, Node, NodeKind, Patch, decode_patch, validate_tree};
+use bridge::{BridgeState, Node, NodeKind, Patch, decode_commit, validate_tree};
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, MountOrNoChangeOrReplace, RocErasedCallable, RocHost,
-    decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    RocListWith, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -74,17 +74,55 @@ pub extern "C" fn roc_crashed(bytes: *const u8, len: usize) {
     DefaultHandlers::roc_crashed(roc_host_ptr(), bytes, len);
 }
 
-/// Receive one owned patch from Roc, copy it into Rust values, and release it.
+fn stage_node(kind: NodeKind, children: Vec<u64>) -> u64 {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .stage_node(kind, children)
+            .unwrap_or_else(|message| panic!("invalid native node build: {message}"))
+    })
+}
+
+/// Stage one owned text node and return its fresh host identity.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
+    let text = value.as_str().to_owned();
+    unsafe { value.decref(roc_host()) };
+    stage_node(NodeKind::Text(text), vec![])
+}
+
+/// Stage one row whose children were already built during this transaction.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_row(children: RocListWith<u64, false>) -> u64 {
+    let children_vec = children.as_slice().to_vec();
+    unsafe { children.decref(roc_host()) };
+    stage_node(NodeKind::Row, children_vec)
+}
+
+/// Stage one column whose children were already built during this transaction.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_column(children: RocListWith<u64, false>) -> u64 {
+    let children_vec = children.as_slice().to_vec();
+    unsafe { children.decref(roc_host()) };
+    stage_node(NodeKind::Column, children_vec)
+}
+
+/// Stage one button whose label was already built during this transaction.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_button(label: u64) -> u64 {
+    stage_node(NodeKind::Button, vec![label])
+}
+
+/// Commit the nodes staged by builder effects as one mount or replacement.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_apply(patch: MountOrNoChangeOrReplace) {
-    let decoded = decode_patch(&patch);
+    let commit = decode_commit(&patch);
     unsafe { patch.decref(roc_host()) };
     BRIDGE.with(|bridge| {
-        let previous = bridge.borrow_mut().pending.replace(decoded);
-        assert!(
-            previous.is_none(),
-            "Roc emitted two patches in one dispatch"
-        );
+        bridge
+            .borrow_mut()
+            .commit(commit)
+            .unwrap_or_else(|message| panic!("invalid native graph commit: {message}"));
     });
 }
 
@@ -198,6 +236,11 @@ fn headless_smoke() {
     assert!(
         !contains_text(&first_nodes, "Counter"),
         "static heading leaked into translated patch"
+    );
+    assert_eq!(
+        dispatch(initial_plus),
+        Patch::NoChange,
+        "removed button id was not treated as stale"
     );
 
     let next_plus =

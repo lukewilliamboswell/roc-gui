@@ -1,8 +1,15 @@
+# TODO(GLUE): Delete this platform root and point regenerate-glue.sh back at
+# main.roc once `roc glue` can analyze a platform whose required application
+# type remains abstract. The real platform binds `[State : state]` from the
+# application, and State does not occur in any hosted or provided ABI type, but
+# standalone glue generation currently still demands a committed layout for
+# `Program(state)`. This file must mirror only the fixed host-visible signatures
+# from main.roc; it must never be used to build applications.
 platform ""
 	requires {
-		[State : state] for main : Program(state),
+		glue_main : {},
 	}
-	exposes [Program, Elem, Layout, Action, Event]
+	exposes []
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 	}
@@ -20,15 +27,10 @@ platform ""
 		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
 	}
 
-import Program exposing [Program]
-import Elem exposing [Elem]
-import Layout
-import Action
-import Event
 import Host
 
 gui_init! : () => {}
-gui_init! = || Program.start!(main)
+gui_init! = || {}
 
 gui_dispatch! : Box((U64 => {})), U64 => {}
 gui_dispatch! = |dispatch_box, event_id| Box.unbox(dispatch_box)(event_id)

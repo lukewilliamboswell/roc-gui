@@ -16,6 +16,5 @@ if [[ ! -f "$glue_spec" ]]; then
 fi
 
 cd "$repo_dir"
-roc glue "$glue_spec" crates/host/src/ platform/main.roc
+roc glue "$glue_spec" crates/host/src/ platform/main-glue.roc
 cargo fmt --all
-

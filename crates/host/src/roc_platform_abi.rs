@@ -1098,90 +1098,57 @@ unsafe impl<T> RocRelease<*mut T> for RocBoxSpineRelease<T> {
     }
 }
 
-/// Element type for __AnonStruct_d10b67a07b7dbdef
+/// Element type for __AnonStruct_8ae3ad5a5c0e22dc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructD10b67a07b7dbdef {
+pub struct AnonStruct8ae3ad5a5c0e22dc {
     pub root: u64,
-    pub nodes: RocList<AnonStruct257fafdaa0a9c26e>,
 }
 
-/// Element type for __AnonStruct_d10b67a07b7dbdef
+/// Element type for __AnonStruct_8ae3ad5a5c0e22dc
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructD10b67a07b7dbdef {
+pub struct AnonStruct8ae3ad5a5c0e22dc {
     pub root: u64,
-    pub nodes: RocList<AnonStruct257fafdaa0a9c26e>,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructD10b67a07b7dbdef>() == 32, "AnonStructD10b67a07b7dbdef size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8ae3ad5a5c0e22dc>() == 8, "AnonStruct8ae3ad5a5c0e22dc size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructD10b67a07b7dbdef>() == 8, "AnonStructD10b67a07b7dbdef alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8ae3ad5a5c0e22dc>() == 8, "AnonStruct8ae3ad5a5c0e22dc alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructD10b67a07b7dbdef>() == 24, "AnonStructD10b67a07b7dbdef size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8ae3ad5a5c0e22dc>() == 8, "AnonStruct8ae3ad5a5c0e22dc size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructD10b67a07b7dbdef>() == 8, "AnonStructD10b67a07b7dbdef alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8ae3ad5a5c0e22dc>() == 8, "AnonStruct8ae3ad5a5c0e22dc alignment mismatch");
 
-/// Element type for __AnonStruct_257fafdaa0a9c26e
+/// Element type for __AnonStruct_8d3c9b3ac95ef074
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct257fafdaa0a9c26e {
-    pub id: u64,
-    pub children: RocListWith<u64, false>,
-    pub kind: ButtonOrColumnOrRowOrText,
-}
-
-/// Element type for __AnonStruct_257fafdaa0a9c26e
-#[cfg(not(target_pointer_width = "32"))]
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct AnonStruct257fafdaa0a9c26e {
-    pub id: u64,
-    pub children: RocListWith<u64, false>,
-    pub kind: ButtonOrColumnOrRowOrText,
-}
-
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct257fafdaa0a9c26e>() == 64, "AnonStruct257fafdaa0a9c26e size mismatch");
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct257fafdaa0a9c26e>() == 8, "AnonStruct257fafdaa0a9c26e alignment mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct257fafdaa0a9c26e>() == 40, "AnonStruct257fafdaa0a9c26e size mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct257fafdaa0a9c26e>() == 8, "AnonStruct257fafdaa0a9c26e alignment mismatch");
-
-/// Element type for __AnonStruct_158f69ce56b55192
-#[cfg(target_pointer_width = "32")]
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct AnonStruct158f69ce56b55192 {
+pub struct AnonStruct8d3c9b3ac95ef074 {
     pub old_root: u64,
     pub root: u64,
-    pub nodes: RocList<AnonStruct257fafdaa0a9c26e>,
 }
 
-/// Element type for __AnonStruct_158f69ce56b55192
+/// Element type for __AnonStruct_8d3c9b3ac95ef074
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct158f69ce56b55192 {
+pub struct AnonStruct8d3c9b3ac95ef074 {
     pub old_root: u64,
     pub root: u64,
-    pub nodes: RocList<AnonStruct257fafdaa0a9c26e>,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct158f69ce56b55192>() == 40, "AnonStruct158f69ce56b55192 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8d3c9b3ac95ef074>() == 16, "AnonStruct8d3c9b3ac95ef074 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct158f69ce56b55192>() == 8, "AnonStruct158f69ce56b55192 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8d3c9b3ac95ef074>() == 8, "AnonStruct8d3c9b3ac95ef074 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct158f69ce56b55192>() == 32, "AnonStruct158f69ce56b55192 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8d3c9b3ac95ef074>() == 16, "AnonStruct8d3c9b3ac95ef074 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct158f69ce56b55192>() == 8, "AnonStruct158f69ce56b55192 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8d3c9b3ac95ef074>() == 8, "AnonStruct8d3c9b3ac95ef074 alignment mismatch");
 
 /// Tag discriminant for MountOrNoChangeOrReplace.
 #[repr(u8)]
@@ -1195,9 +1162,9 @@ pub enum MountOrNoChangeOrReplaceTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union MountOrNoChangeOrReplacePayload {
-    pub mount: core::mem::ManuallyDrop<AnonStructD10b67a07b7dbdef>,
+    pub mount: core::mem::ManuallyDrop<AnonStruct8ae3ad5a5c0e22dc>,
     pub no_change: [u8; 0],
-    pub replace: core::mem::ManuallyDrop<AnonStruct158f69ce56b55192>,
+    pub replace: core::mem::ManuallyDrop<AnonStruct8d3c9b3ac95ef074>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -1211,7 +1178,7 @@ pub struct MountOrNoChangeOrReplacePayloadAlignment;
 #[derive(Clone, Copy)]
 pub struct MountOrNoChangeOrReplace {
     pub _payload_alignment: [MountOrNoChangeOrReplacePayloadAlignment; 0],
-    pub payload: [u8; 32],
+    pub payload: [u8; 16],
     pub tag: MountOrNoChangeOrReplaceTag,
 }
 
@@ -1230,8 +1197,8 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Mount` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_mount_unchecked(&self) -> &AnonStructD10b67a07b7dbdef {
-        unsafe { &*(self.payload.as_ptr() as *const AnonStructD10b67a07b7dbdef) }
+    pub unsafe fn borrow_payload_mount_unchecked(&self) -> &AnonStruct8ae3ad5a5c0e22dc {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct8ae3ad5a5c0e22dc) }
     }
 
     /// Borrow the `Mount` payload without creating another owner.
@@ -1239,8 +1206,8 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Mount` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_mount_unchecked(&self) -> &AnonStructD10b67a07b7dbdef {
-        unsafe { &*(&self.payload.mount as *const core::mem::ManuallyDrop<AnonStructD10b67a07b7dbdef> as *const AnonStructD10b67a07b7dbdef) }
+    pub unsafe fn borrow_payload_mount_unchecked(&self) -> &AnonStruct8ae3ad5a5c0e22dc {
+        unsafe { &*(&self.payload.mount as *const core::mem::ManuallyDrop<AnonStruct8ae3ad5a5c0e22dc> as *const AnonStruct8ae3ad5a5c0e22dc) }
     }
 
     /// Move the `Mount` payload out of one owned tag-union shell.
@@ -1248,8 +1215,8 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Mount`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_mount_unchecked(&mut self) -> AnonStructD10b67a07b7dbdef {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructD10b67a07b7dbdef) }
+    pub unsafe fn take_payload_mount_unchecked(&mut self) -> AnonStruct8ae3ad5a5c0e22dc {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct8ae3ad5a5c0e22dc) }
     }
 
     /// Move the `Mount` payload out of one owned tag-union shell.
@@ -1257,7 +1224,7 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Mount`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_mount_unchecked(&mut self) -> AnonStructD10b67a07b7dbdef {
+    pub unsafe fn take_payload_mount_unchecked(&mut self) -> AnonStruct8ae3ad5a5c0e22dc {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.mount) }
     }
 
@@ -1266,8 +1233,8 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Replace` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_replace_unchecked(&self) -> &AnonStruct158f69ce56b55192 {
-        unsafe { &*(self.payload.as_ptr() as *const AnonStruct158f69ce56b55192) }
+    pub unsafe fn borrow_payload_replace_unchecked(&self) -> &AnonStruct8d3c9b3ac95ef074 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct8d3c9b3ac95ef074) }
     }
 
     /// Borrow the `Replace` payload without creating another owner.
@@ -1275,8 +1242,8 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Replace` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_replace_unchecked(&self) -> &AnonStruct158f69ce56b55192 {
-        unsafe { &*(&self.payload.replace as *const core::mem::ManuallyDrop<AnonStruct158f69ce56b55192> as *const AnonStruct158f69ce56b55192) }
+    pub unsafe fn borrow_payload_replace_unchecked(&self) -> &AnonStruct8d3c9b3ac95ef074 {
+        unsafe { &*(&self.payload.replace as *const core::mem::ManuallyDrop<AnonStruct8d3c9b3ac95ef074> as *const AnonStruct8d3c9b3ac95ef074) }
     }
 
     /// Move the `Replace` payload out of one owned tag-union shell.
@@ -1284,8 +1251,8 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Replace`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_replace_unchecked(&mut self) -> AnonStruct158f69ce56b55192 {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct158f69ce56b55192) }
+    pub unsafe fn take_payload_replace_unchecked(&mut self) -> AnonStruct8d3c9b3ac95ef074 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct8d3c9b3ac95ef074) }
     }
 
     /// Move the `Replace` payload out of one owned tag-union shell.
@@ -1293,122 +1260,63 @@ impl MountOrNoChangeOrReplace {
     /// # Safety
     /// `self.tag` must be `MountOrNoChangeOrReplaceTag::Replace`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_replace_unchecked(&mut self) -> AnonStruct158f69ce56b55192 {
+    pub unsafe fn take_payload_replace_unchecked(&mut self) -> AnonStruct8d3c9b3ac95ef074 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.replace) }
     }
 
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<MountOrNoChangeOrReplace>() == 48, "MountOrNoChangeOrReplace size mismatch");
+const _: () = assert!(core::mem::size_of::<MountOrNoChangeOrReplace>() == 24, "MountOrNoChangeOrReplace size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<MountOrNoChangeOrReplace>() == 8, "MountOrNoChangeOrReplace alignment mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(MountOrNoChangeOrReplace, tag) == 40, "MountOrNoChangeOrReplace tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(MountOrNoChangeOrReplace, tag) == 16, "MountOrNoChangeOrReplace tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<MountOrNoChangeOrReplace>() == 40, "MountOrNoChangeOrReplace size mismatch");
+const _: () = assert!(core::mem::size_of::<MountOrNoChangeOrReplace>() == 24, "MountOrNoChangeOrReplace size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<MountOrNoChangeOrReplace>() == 8, "MountOrNoChangeOrReplace alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(MountOrNoChangeOrReplace, tag) == 32, "MountOrNoChangeOrReplace tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(MountOrNoChangeOrReplace, tag) == 16, "MountOrNoChangeOrReplace tag offset mismatch");
 
-/// Tag discriminant for ButtonOrColumnOrRowOrText.
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ButtonOrColumnOrRowOrTextTag {
-    Button = 0,
-    Column = 1,
-    Row = 2,
-    Text = 3,
-}
-
+/// Arguments for Host.node_text!
+/// Roc signature: Str => U64
+/// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union ButtonOrColumnOrRowOrTextPayload {
-    pub button: [u8; 0],
-    pub column: [u8; 0],
-    pub row: [u8; 0],
-    pub text: core::mem::ManuallyDrop<RocStr>,
+pub struct HostNodeTextArgs {
+    pub arg0: RocStr,
 }
 
-#[cfg(target_pointer_width = "32")]
-#[repr(align(4))]
-#[derive(Clone, Copy)]
-pub struct ButtonOrColumnOrRowOrTextPayloadAlignment;
-
-/// Tag union: ButtonOrColumnOrRowOrText
-#[cfg(target_pointer_width = "32")]
+/// Arguments for Host.node_row!
+/// Roc signature: List(U64) => U64
+/// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ButtonOrColumnOrRowOrText {
-    pub _payload_alignment: [ButtonOrColumnOrRowOrTextPayloadAlignment; 0],
-    pub payload: [u8; 12],
-    pub tag: ButtonOrColumnOrRowOrTextTag,
+pub struct HostNodeRowArgs {
+    pub arg0: RocListWith<u64, false>,
 }
 
-/// Tag union: ButtonOrColumnOrRowOrText
-#[cfg(not(target_pointer_width = "32"))]
+/// Arguments for Host.node_column!
+/// Roc signature: List(U64) => U64
+/// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ButtonOrColumnOrRowOrText {
-    pub payload: ButtonOrColumnOrRowOrTextPayload,
-    pub tag: ButtonOrColumnOrRowOrTextTag,
+pub struct HostNodeColumnArgs {
+    pub arg0: RocListWith<u64, false>,
 }
 
-impl ButtonOrColumnOrRowOrText {
-    /// Borrow the `Text` payload without creating another owner.
-    ///
-    /// # Safety
-    /// `self.tag` must be `ButtonOrColumnOrRowOrTextTag::Text` and the payload must still be initialized.
-    #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_text_unchecked(&self) -> &RocStr {
-        unsafe { &*(self.payload.as_ptr() as *const RocStr) }
-    }
-
-    /// Borrow the `Text` payload without creating another owner.
-    ///
-    /// # Safety
-    /// `self.tag` must be `ButtonOrColumnOrRowOrTextTag::Text` and the payload must still be initialized.
-    #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_text_unchecked(&self) -> &RocStr {
-        unsafe { &*(&self.payload.text as *const core::mem::ManuallyDrop<RocStr> as *const RocStr) }
-    }
-
-    /// Move the `Text` payload out of one owned tag-union shell.
-    ///
-    /// # Safety
-    /// `self.tag` must be `ButtonOrColumnOrRowOrTextTag::Text`. After this call, `self` is logically uninitialized and must not be read or destroyed.
-    #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_text_unchecked(&mut self) -> RocStr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocStr) }
-    }
-
-    /// Move the `Text` payload out of one owned tag-union shell.
-    ///
-    /// # Safety
-    /// `self.tag` must be `ButtonOrColumnOrRowOrTextTag::Text`. After this call, `self` is logically uninitialized and must not be read or destroyed.
-    #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_text_unchecked(&mut self) -> RocStr {
-        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.text) }
-    }
-
+/// Arguments for Host.node_button!
+/// Roc signature: U64 => U64
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostNodeButtonArgs {
+    pub arg0: u64,
 }
-
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<ButtonOrColumnOrRowOrText>() == 32, "ButtonOrColumnOrRowOrText size mismatch");
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<ButtonOrColumnOrRowOrText>() == 8, "ButtonOrColumnOrRowOrText alignment mismatch");
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(ButtonOrColumnOrRowOrText, tag) == 24, "ButtonOrColumnOrRowOrText tag offset mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<ButtonOrColumnOrRowOrText>() == 16, "ButtonOrColumnOrRowOrText size mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<ButtonOrColumnOrRowOrText>() == 4, "ButtonOrColumnOrRowOrText alignment mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(ButtonOrColumnOrRowOrText, tag) == 12, "ButtonOrColumnOrRowOrText tag offset mismatch");
 
 /// Arguments for Host.apply!
-/// Roc signature: [Mount({ nodes : List({ children : List(U64), id : U64, kind : [Button, Column, Row, Text(Str)] }), root : U64 }), NoChange, Replace({ nodes : List({ children : List(U64), id : U64, kind : [Button, Column, Row, Text(Str)] }), old_root : U64, root : U64 })] => {}
+/// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -1427,10 +1335,8 @@ pub struct HostSetDispatchArgs {
 
 // Platform Type Aliases
 
-pub type MountOrNoChangeOrReplaceMount = AnonStructD10b67a07b7dbdef;
-pub type MountOrNoChangeOrReplaceReplace = AnonStruct158f69ce56b55192;
-pub type MountOrNoChangeOrReplaceMountNodes = AnonStruct257fafdaa0a9c26e;
-pub type MountOrNoChangeOrReplaceReplaceNodes = AnonStruct257fafdaa0a9c26e;
+pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
+pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
 
 // Generated Refcount Helpers
 
@@ -1485,121 +1391,15 @@ unsafe impl RocRelease<MountOrNoChangeOrReplace> for MountOrNoChangeOrReplaceRel
     }
 }
 
-impl AnonStructD10b67a07b7dbdef {
+impl AnonStruct8ae3ad5a5c0e22dc {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
-        unsafe { decref_list_of_anon_struct257fafdaa0a9c26e(value.nodes, roc_host); }
-    }
-
-    /// Increment Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must point at live Roc allocations. The retained references must
-    /// be balanced by later decrefs.
-    pub unsafe fn incref(self, amount: isize) {
-        let value = self;
-        unsafe { value.nodes.incref(amount); }
-    }
-}
-
-pub struct AnonStructD10b67a07b7dbdefRelease;
-
-unsafe impl RocRelease<AnonStructD10b67a07b7dbdef> for AnonStructD10b67a07b7dbdefRelease {
-    unsafe fn release(value: AnonStructD10b67a07b7dbdef, roc_host: &RocHost) {
-        unsafe { value.decref(roc_host); }
-    }
-}
-
-impl AnonStruct257fafdaa0a9c26e {
-    /// Recursively decrement Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must own one live Roc reference for each refcounted field.
-    pub unsafe fn decref(self, roc_host: &RocHost) {
-        let value = self;
-        unsafe { value.children.decref(roc_host); }
-        unsafe { value.kind.decref(roc_host); }
-    }
-
-    /// Increment Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must point at live Roc allocations. The retained references must
-    /// be balanced by later decrefs.
-    pub unsafe fn incref(self, amount: isize) {
-        let value = self;
-        unsafe { value.children.incref(amount); }
-        unsafe { value.kind.incref(amount); }
-    }
-}
-
-pub struct AnonStruct257fafdaa0a9c26eRelease;
-
-unsafe impl RocRelease<AnonStruct257fafdaa0a9c26e> for AnonStruct257fafdaa0a9c26eRelease {
-    unsafe fn release(value: AnonStruct257fafdaa0a9c26e, roc_host: &RocHost) {
-        unsafe { value.decref(roc_host); }
-    }
-}
-
-impl ButtonOrColumnOrRowOrText {
-    /// Recursively decrement Roc-owned payloads.
-    ///
-    /// # Safety
-    /// `self` must own one live Roc reference for each refcounted payload.
-    pub unsafe fn decref(self, roc_host: &RocHost) {
-        let mut value = self;
+        let _ = value;
         let _ = roc_host;
-        match value.tag {
-            ButtonOrColumnOrRowOrTextTag::Button => {},
-            ButtonOrColumnOrRowOrTextTag::Column => {},
-            ButtonOrColumnOrRowOrTextTag::Row => {},
-            ButtonOrColumnOrRowOrTextTag::Text => {
-                let payload = unsafe { value.take_payload_text_unchecked() };
-                unsafe { payload.decref(roc_host); }
-            },
-        }
-    }
-
-    /// Increment Roc-owned payloads.
-    ///
-    /// # Safety
-    /// `self` must point at live Roc allocations. The retained references must
-    /// be balanced by later decrefs.
-    pub unsafe fn incref(self, amount: isize) {
-        let value = self;
-        let _ = amount;
-        match value.tag {
-            ButtonOrColumnOrRowOrTextTag::Button => {},
-            ButtonOrColumnOrRowOrTextTag::Column => {},
-            ButtonOrColumnOrRowOrTextTag::Row => {},
-            ButtonOrColumnOrRowOrTextTag::Text => {
-                let payload = unsafe { core::ptr::read(value.borrow_payload_text_unchecked()) };
-                unsafe { payload.incref(amount); }
-            },
-        }
-    }
-}
-
-pub struct ButtonOrColumnOrRowOrTextRelease;
-
-unsafe impl RocRelease<ButtonOrColumnOrRowOrText> for ButtonOrColumnOrRowOrTextRelease {
-    unsafe fn release(value: ButtonOrColumnOrRowOrText, roc_host: &RocHost) {
-        unsafe { value.decref(roc_host); }
-    }
-}
-
-impl AnonStruct158f69ce56b55192 {
-    /// Recursively decrement Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must own one live Roc reference for each refcounted field.
-    pub unsafe fn decref(self, roc_host: &RocHost) {
-        let value = self;
-        unsafe { decref_list_of_anon_struct257fafdaa0a9c26e(value.nodes, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -1609,27 +1409,48 @@ impl AnonStruct158f69ce56b55192 {
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
-        unsafe { value.nodes.incref(amount); }
+        let _ = value;
+        let _ = amount;
     }
 }
 
-pub struct AnonStruct158f69ce56b55192Release;
+pub struct AnonStruct8ae3ad5a5c0e22dcRelease;
 
-unsafe impl RocRelease<AnonStruct158f69ce56b55192> for AnonStruct158f69ce56b55192Release {
-    unsafe fn release(value: AnonStruct158f69ce56b55192, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct8ae3ad5a5c0e22dc> for AnonStruct8ae3ad5a5c0e22dcRelease {
+    unsafe fn release(value: AnonStruct8ae3ad5a5c0e22dc, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-/// Release one owned reference to a `RocList<AnonStruct257fafdaa0a9c26e>`.
-///
-/// The allocation's final reference is claimed atomically before any element
-/// is read, so concurrent owners cannot skip or duplicate element teardown.
-///
-/// # Safety
-/// `value` must own one live Roc list reference.
-pub unsafe fn decref_list_of_anon_struct257fafdaa0a9c26e(value: RocList<AnonStruct257fafdaa0a9c26e>, roc_host: &RocHost) {
-    unsafe { value.release_with::<AnonStruct257fafdaa0a9c26eRelease>(roc_host); }
+impl AnonStruct8d3c9b3ac95ef074 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct8d3c9b3ac95ef074Release;
+
+unsafe impl RocRelease<AnonStruct8d3c9b3ac95ef074> for AnonStruct8d3c9b3ac95ef074Release {
+    unsafe fn release(value: AnonStruct8d3c9b3ac95ef074, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
 }
 
 
@@ -1690,8 +1511,33 @@ fn direct_roc_host() -> RocHost {
 
 #[allow(improper_ctypes)]
 unsafe extern "C" {
+    /// Hosted symbol for Host.node_text!
+    /// Roc signature: Str => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_text(arg0: RocStr) -> u64;
+
+    /// Hosted symbol for Host.node_row!
+    /// Roc signature: List(U64) => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_row(arg0: RocListWith<u64, false>) -> u64;
+
+    /// Hosted symbol for Host.node_column!
+    /// Roc signature: List(U64) => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_column(arg0: RocListWith<u64, false>) -> u64;
+
+    /// Hosted symbol for Host.node_button!
+    /// Roc signature: U64 => U64
+    pub fn roc_gui_node_button(arg0: u64) -> u64;
+
     /// Hosted symbol for Host.apply!
-    /// Roc signature: [Mount({ nodes : List({ children : List(U64), id : U64, kind : [Button, Column, Row, Text(Str)] }), root : U64 }), NoChange, Replace({ nodes : List({ children : List(U64), id : U64, kind : [Button, Column, Row, Text(Str)] }), old_root : U64, root : U64 })] => {}
+    /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
