@@ -1,0 +1,68 @@
+= Contributing
+
+Read `AGENTS.md` before changing the platform. The central constraint is “test
+what we fly”: tests and measurements drive the production implementation and
+never reproduce it.
+
+== Validate a change
+
+[source,sh]
+----
+cargo test --package roc-gui-host
+python3 build.py
+roc check examples/counter/main.roc
+python3 scripts/run_specs.py 'examples/counter/specs/*.scm' --skip-host-build
+----
+
+Run the affected benchmark family when a change touches rendering, routing,
+graph work, allocation, recording, or a scaling-sensitive data structure. Run
+the complete specification suite before integrating a cross-cutting change.
+
+== Complete a platform feature
+
+A new element, property, event, or state mechanism is complete when it has:
+
+. a Roc API and hosted ABI representation;
+. behaviour in the single host graph and GPUI path;
+. semantic locators, operations, and assertions where users need to observe it;
+. deterministic counters and timing spans recorded by the work owner;
+. behaviour, ambiguity, and failure specifications;
+. a realistic scaling case for every dimension that can grow;
+. focused SQLite reporting for evidence that production code populates;
+. application-facing documentation.
+
+Exercise recorder-disabled, enabled, saturated, output-limited, interrupted,
+and writer-failure paths when changing capture infrastructure. Timing is not a
+correctness assertion.
+
+== Generated bindings
+
+Regenerate checked-in Roc ABI bindings whenever hosted functions or
+`platform/Host.roc` change:
+
+[source,sh]
+----
+python3 scripts/regenerate_glue.py /path/to/roc
+----
+
+`platform/main-glue.roc` is an ABI-generation root. Applications build against
+`platform/main.roc`.
+
+== Documentation
+
+AsciiDoc sources live in `docs/`; `docs/index.adoc` is the complete book. Build
+the HTML site with:
+
+[source,sh]
+----
+python3 scripts/build_docs.py
+----
+
+Build the standalone PDF as well with `python3 scripts/build_docs.py --pdf`.
+Docker supplies the pinned Asciidoctor, diagram, PDF, Mermaid, and syntax
+highlighting toolchain; only Python and Docker are required on the host. Output
+is written beneath `.docs-out/`.
+
+Documentation describes the product and its enduring contracts. Put defects,
+missing capabilities, and implementation tasks in `wip/issues-backlog.md`, then
+remove entries when they are resolved.

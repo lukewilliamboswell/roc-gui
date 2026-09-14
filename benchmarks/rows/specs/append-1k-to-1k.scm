@@ -5,5 +5,6 @@
     (expect-count (text-prefix "Row ") 1000)
     (mark-metrics)
     (click (role button :name "Append 1,000 rows"))
+    (expect-patch :kind replace :staged 12023 :removed 6023)
     (expect-count (text-prefix "Row ") 2000)
     (expect-visible (text "Row 2000: 0"))))

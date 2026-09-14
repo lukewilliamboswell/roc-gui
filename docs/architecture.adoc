@@ -1,0 +1,61 @@
+= Contributor architecture
+
+This chapter explains where behaviour lives when extending the platform. It is
+not required to write an application.
+
+[mermaid]
+....
+flowchart LR
+    A["Roc application<br/>state, handlers, render"]
+    P["Roc platform<br/>lowering and event routing"]
+    H["Host + GPUI main thread<br/>mounted graph and native views"]
+    W["Observatory writer thread<br/>batched SQLite writes"]
+    D[(".rgstats SQLite capture")]
+    R["read-only reports"]
+
+    A -->|Program and Elem| P
+    P -->|staged nodes and patch| H
+    H -->|node ID input| P
+    H -.->|when enabled| W
+    W --> D
+    D --> R
+....
+
+== Runtime ownership
+
+Roc application:: Owns state, handlers, renderers, and component composition.
+Roc platform:: Lowers `Elem` values bottom-up through the hosted ABI, keeps
+event routes, and turns an updated translation boundary into a subtree patch.
+Host:: Issues node identities, validates and owns the mounted graph,
+materialises GPUI entities, and dispatches input by node identity.
+Observatory:: Observes owned work and drains bounded records to SQLite. It never
+owns UI behaviour.
+
+There is one mounted graph and one event route. The semantic runner drives and
+queries those production structures; it cannot mount, validate, replace, or
+remove nodes through an alternate implementation.
+
+== One event turn
+
+. GPUI or the semantic runner identifies a live button node.
+. The host passes its node ID to the Roc dispatcher.
+. The platform finds the associated handler and translation boundary.
+. `Action.none` commits a no-change patch. `Action.update` renders and lowers
+the boundary against the next state, then commits a replacement patch.
+. The host validates the patch, updates the mounted graph, and, in an
+interactive process, updates GPUI entities.
+. The platform installs the one-shot dispatcher for the next turn.
+
+Node IDs are host-issued and are not reused within a process. Removed IDs are
+stale and cannot dispatch another event.
+
+== Evidence ownership
+
+A component records only work it performs. Roc callback timing surrounds the
+Roc dispatcher, graph validation and application are measured by the graph
+owner, and GPUI work is reported only when the GPUI path supplies it. A headless
+runner cannot label its timing as layout, paint, or presentation.
+
+Correctness uses semantic results and deterministic counters. Elapsed time is
+report-only. Schema changes increment the schema version; reports do not alias
+old meanings or turn unavailable measurements into zero.

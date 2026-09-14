@@ -88,6 +88,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
 
     let mut marked = spec.benchmark.is_none();
     let mut cycle_ordinal = 1u64;
+    let mut last_patch: Option<ApplyFacts> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
         let role = match &step.command {
             Command::MarkMetrics => "boundary",
@@ -95,9 +96,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             command if command.is_operation() => "setup",
             _ => "assertion",
         };
-        let step_started = Instant::now();
         let mut pending_cycle = None;
         let mut count_evidence = None;
+        let mut patch_evidence = None;
         let result = match &step.command {
             Command::MarkMetrics => {
                 marked = true;
@@ -117,6 +118,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let patch = dispatch(matches[0]);
                     let roc_ns = elapsed_ns(roc_started);
                     let facts = graph.apply_measured(patch)?.facts;
+                    last_patch = Some(facts);
                     pending_cycle = Some(make_cycle(
                         run_id,
                         cycle_ordinal,
@@ -186,8 +188,43 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectPatch(expected) => match last_patch {
+                None => Err(format!(
+                    "line {}: no preceding interaction patch to inspect",
+                    step.line
+                )),
+                Some(actual) => {
+                    patch_evidence = Some((
+                        expected.kind.clone(),
+                        actual.kind,
+                        expected.staged,
+                        actual.staged,
+                        expected.removed,
+                        actual.removed,
+                    ));
+                    if expected.kind == actual.kind
+                        && expected.staged == actual.staged
+                        && expected.removed == actual.removed
+                    {
+                        Ok(())
+                    } else {
+                        Err(format!(
+                            "line {}: expected {} patch with {} staged and {} removed nodes; observed {} with {} staged and {} removed",
+                            step.line,
+                            expected.kind,
+                            expected.staged,
+                            expected.removed,
+                            actual.kind,
+                            actual.staged,
+                            actual.removed
+                        ))
+                    }
+                }
+            },
         };
-        let measured = matches!(role, "operation");
+        // Operation timing begins only after locator resolution, at the same
+        // boundary as its attributed cycle. Assertions are correctness-only.
+        let operation_duration = pending_cycle.as_ref().map(|cycle| cycle.duration_ns);
         let diagnostic = result.as_ref().err().cloned();
         observatory::step(StepResult {
             run_id,
@@ -196,9 +233,15 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             kind: step.command.kind(),
             role,
             status: if result.is_ok() { "pass" } else { "fail" },
-            duration_ns: measured.then(|| elapsed_ns(step_started)),
+            duration_ns: operation_duration,
             expected_count: count_evidence.map(|value| value.0),
             observed_count: count_evidence.map(|value| value.1),
+            expected_patch_kind: patch_evidence.as_ref().map(|value| value.0.clone()),
+            observed_patch_kind: patch_evidence.as_ref().map(|value| value.1),
+            expected_staged_nodes: patch_evidence.as_ref().map(|value| value.2),
+            observed_staged_nodes: patch_evidence.as_ref().map(|value| value.3),
+            expected_removed_nodes: patch_evidence.as_ref().map(|value| value.4),
+            observed_removed_nodes: patch_evidence.as_ref().map(|value| value.5),
             diagnostic,
         });
         // The step is deliberately admitted before its cycle so the composite

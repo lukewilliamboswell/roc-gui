@@ -6,5 +6,6 @@
     (expect-visible (text "Selection: 500"))
     (mark-metrics)
     (click (role button :name "Select row 500"))
+    (expect-patch :kind no_change :staged 0 :removed 0)
     (expect-count (text-prefix "Row ") 1000)
     (expect-visible (text "Selection: 500"))))

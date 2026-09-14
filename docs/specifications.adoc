@@ -1,0 +1,101 @@
+= Specifying behaviour
+
+Specifications describe the application as a user sees it: find text, identify
+a button by its semantic name, press it, and check the result. Put `.scm` files
+in a `specs/` directory beside the `main.roc` they exercise:
+
+....
+my-app/
+├── main.roc
+└── specs/
+    └── editing.scm
+....
+
+The files contain S-expression data. They are not Scheme programs and do not
+execute arbitrary code.
+
+== A behaviour specification
+
+[source,scheme]
+----
+(test "Counter increments independently"
+  (steps
+    (expect-visible (text "Counter"))
+    (expect-visible (text "-1"))
+    (click (role button :name "Left increment"))
+    (expect-not-visible (text "-1"))
+    (expect-visible (text "0"))))
+----
+
+Run one application's specifications with a repository-relative glob:
+
+[source,sh]
+----
+python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
+----
+
+Run every example and benchmark specification with no pattern:
+
+[source,sh]
+----
+python3 scripts/run_specs.py
+----
+
+Each specification gets a fresh process. This isolates application state and
+produces one `.rgstats` SQLite capture beneath a timestamped
+`.test-out/specs/` directory. A failing assertion makes the command fail and
+prints the specification line and reason.
+
+== Locators
+
+`(text "value")`:: Text whose entire value equals `value`.
+`(text-prefix "prefix")`:: Text beginning with `prefix`.
+`(role button :name "name")`:: A button with the semantic `name` passed to
+`Elem.button`.
+
+A `click` locator must resolve to exactly one live node. Ambiguous and missing
+targets fail instead of choosing one by traversal order. Make button names
+unique wherever the buttons are visible together.
+
+== Assertions and operations
+
+`(click LOCATOR)`:: Press exactly one matching button through the application's
+normal Roc event route.
+`(expect-visible LOCATOR)`:: Require at least one match.
+`(expect-not-visible LOCATOR)`:: Require no matches.
+`(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
+observed counts.
+`(expect-before FIRST SECOND)`:: Require a match for `FIRST` to occur before a
+match for `SECOND` in mounted-tree order.
+`(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced
+by the preceding click. `KIND` is `mount`, `replace`, or `no_change`.
+`(mark-metrics)`:: Separate benchmark setup from the operation being measured.
+
+Prefer semantic results—visible text, counts, and order—for application
+behaviour. Use `expect-patch` when the amount or absence of host work is itself
+part of the contract, such as proving that an idempotent press returns
+`no_change` and stages no nodes.
+
+The runner queries the same mounted graph the native host uses. It does not
+construct a separate test tree. Because it does not open a GPUI window, it is
+suited to deterministic semantic checks; pixels, layout, and presentation are
+outside this runner's evidence.
+
+== Selecting and repeating cases
+
+Patterns match repository-relative specification paths. Multiple patterns may
+be supplied. Use `--skip-host-build` while iterating after the host archive is
+already up to date:
+
+[source,sh]
+----
+python3 scripts/run_specs.py \
+  'benchmarks/rows/specs/create-*.scm' \
+  'benchmarks/rows/specs/append-*.scm' \
+  --skip-host-build
+----
+
+The default is one case at a time. `--jobs N` runs cases concurrently, which is
+useful for semantic validation but marks timing-environment evidence partial.
+Use serial runs for performance comparisons. `--aa` repeats each passing case
+with the same executable to show run-to-run noise.

@@ -1,0 +1,49 @@
+= Roc GUI
+:doctype: book
+:toc: left
+:toclevels: 3
+:sectnums:
+:sectanchors:
+:icons: font
+:source-highlighter: rouge
+:imagesdir: images
+
+Roc GUI is a small native GUI platform built around one predictable loop:
+state is rendered into elements, user events produce actions, and actions
+produce the next state. This manual takes an application from its first window
+through semantic specifications and repeatable scaling measurements.
+
+ifdef::backend-html5[]
+link:roc-gui.pdf[Download the standalone PDF manual].
+endif::[]
+
+== Choose a path
+
+New to Roc GUI:: Read <<_what_you_build>>, then follow <<_getting_started>> to
+build the counter and a minimal application.
+Application author:: Continue through <<_building_an_application>> for the
+state/action/render model, elements, layout, and local state boundaries. Use
+<<_specifying_behaviour>> to test through semantic user actions.
+Performance investigator:: Start with <<_measuring_scaling>>, then use
+<<_understanding_captures>> to choose and interpret SQLite evidence views.
+Platform contributor:: Read <<_contributor_architecture>> before
+<<_contributing>>. These chapters cover host ownership, event routing, evidence
+ownership, validation, and feature completeness.
+
+include::overview.adoc[leveloffset=+1]
+
+include::getting-started.adoc[leveloffset=+1]
+
+include::platform-api.adoc[leveloffset=+1]
+
+include::specifications.adoc[leveloffset=+1]
+
+include::benchmarks.adoc[leveloffset=+1]
+
+include::observatory.adoc[leveloffset=+1]
+
+include::troubleshooting.adoc[leveloffset=+1]
+
+include::architecture.adoc[leveloffset=+1]
+
+include::development.adoc[leveloffset=+1]

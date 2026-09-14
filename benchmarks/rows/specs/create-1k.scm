@@ -3,5 +3,6 @@
   (steps
     (mark-metrics)
     (click (role button :name "Create 1,000 rows"))
+    (expect-patch :kind replace :staged 6023 :removed 23)
     (expect-count (text-prefix "Row ") 1000)
     (expect-visible (text "Rows: 1000"))))

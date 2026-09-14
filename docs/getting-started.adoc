@@ -1,0 +1,80 @@
+= Getting started
+
+== Prerequisites
+
+Install the Roc nightly named in the application's `app` header and Rust with
+Cargo. Run the commands from the repository root on Linux x86_64 under Wayland.
+
+The host archive is part of every Roc GUI executable. Build it first:
+
+[source,sh]
+----
+python3 build.py
+----
+
+The result is `platform/targets/x64glibc/libhost.a`. Re-run `build.py` after a
+host change.
+
+== Build and run the example
+
+[source,sh]
+----
+roc build examples/counter/main.roc
+./counter
+----
+
+The window contains two independent counters. Their buttons demonstrate the
+normal application cycle: a press runs a Roc handler, the handler returns a new
+counter state, and only that counter's translated boundary is rendered again.
+
+== Start an application
+
+Create a directory with a `main.roc` file. Point its platform path at this
+repository's `platform/main.roc` and use the same Roc nightly as the platform:
+
+[source,roc]
+----
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+
+import pf.Elem exposing [Elem]
+import pf.Program exposing [Program]
+
+State : { greeting : Str }
+
+render : State -> Elem(State)
+render = |state| Elem.text(state.greeting)
+
+main : Program(State)
+main = Program.run({
+    init: { greeting: "Hello from Roc" },
+    render,
+})
+----
+
+Choose an executable name explicitly when building your application:
+
+[source,sh]
+----
+roc build --output=my-app path/to/main.roc
+./my-app
+----
+
+== Check behaviour without opening a window
+
+The counter includes a semantic specification:
+
+[source,sh]
+----
+python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
+----
+
+The driver builds the host and application, runs each selected `.scm` file in
+a fresh process, and prints the capture path for every passing case. Semantic
+specifications use the production event route and mounted graph without opening
+a GPUI window.
+
+== Where to go next
+
+Read <<_building_an_application>> to add interaction and split state into local
+components. Then add a `.scm` file using <<_specifying_behaviour>> so behaviour
+remains executable as the application changes.

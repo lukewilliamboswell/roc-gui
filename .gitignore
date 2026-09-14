@@ -4,3 +4,5 @@
 /main
 /.test-out
 /*.rgstats
+/.docs-out
+__pycache__

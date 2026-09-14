@@ -1,0 +1,96 @@
+= Measuring scaling
+
+A scaling benchmark is a realistic Roc application driven by the same semantic
+steps as a behaviour specification. Scale comes from application data: more
+rows, more text, a deeper tree, or a change farther from a render boundary. A
+benchmark never receives a special element or alternate renderer unavailable to
+an ordinary application.
+
+== Benchmark policy
+
+Add a `benchmark` clause before `steps`:
+
+[source,scheme]
+----
+(test "Rows: create 10,000"
+  (benchmark :warmups 2 :samples 7 :iterations 1
+             :scale 10000 :initial-size 0 :change-size 10000)
+  (steps
+    (mark-metrics)
+    (click (role button :name "Create 10,000 rows"))
+    (expect-patch :kind replace :staged 60023 :removed 23)
+    (expect-count (text-prefix "Row ") 10000)
+    (expect-visible (text "Rows: 10000"))))
+----
+
+`:warmups`:: Complete runs discarded from timing summaries. Warmups exercise
+the same setup, operation, and assertions as samples.
+`:samples`:: Runs retained for measurement.
+`:iterations`:: Measured runs per sample policy. Each lifecycle starts from a
+fresh application state.
+`:initial-size`:: Items present before the marked operation.
+`:change-size`:: Items the operation is intended to affect.
+`:scale`:: Resident workload proved by an `expect-count` with the same value.
+
+Every benchmark has exactly one `mark-metrics`. Put state preparation before
+the mark and the user operation plus its assertions after it. The runner
+attributes cycles to setup or measured phases; locator resolution and assertion
+scans are harness work, not part of the operation duration.
+
+The declared scale is a label until the application proves it. Requiring a
+matching `expect-count` prevents a fast but broken “10,000 row” case from being
+reported when it created fewer rows.
+
+== Read a scale ladder
+
+One large case cannot distinguish fixed cost from growth. Measure the same
+operation at three or more sizes, then compare columns in the scaling summary:
+
+[source,sh]
+----
+python3 scripts/run_specs.py 'benchmarks/rows/specs/create-*.scm'
+python3 scripts/summarize_suite.py .test-out/specs/TIMESTAMP
+----
+
+Look across sizes rather than treating one duration as a score:
+
+* callback growth points to Roc event, update, render, and lowering work;
+* validation and graph-application growth point to host graph work;
+* staged and removed node counts explain how much structural work was asked for;
+* allocation totals and process resources expose memory cost across samples;
+* `NULL` means that component did not provide that measurement. It is not zero.
+
+Timing is diagnostic evidence, not a pass/fail threshold. Semantic assertions,
+patch expectations, scale verification, and capture health are deterministic
+gates.
+
+== Workload families
+
+The suite varies operations and shapes that applications naturally produce:
+
+Rows:: Create, append, sparse update, select, idempotent reselect, delete,
+clear, swap, and repeated selection at 100, 1,000, and 10,000 rows.
+Row boundaries:: Update the first, middle, and last item when each row owns a
+translated state boundary. This exposes boundary lookup and local replacement
+cost as collection position and size grow.
+Text rows:: Vary short, long, and metadata-rich text across row counts.
+Tree shape:: Compare deep narrow trees and balanced trees so total node count
+is not the only scaling dimension.
+
+Keep each family as a usable application with specifications beside it. Add an
+operation to an existing family when it uses the same state and interaction
+model; create a separate application when the data model or UI shape is
+materially different.
+
+== Compare two captures
+
+Generate captures serially on the same machine and compare matching cases:
+
+[source,sh]
+----
+python3 scripts/analyze_stats.py BEFORE.rgstats --compare AFTER.rgstats
+----
+
+The comparison checks capture identity and workload compatibility before
+showing a ratio. Use `--aa` to establish the natural spread of an unchanged
+executable. Treat a change smaller than that spread as noise.

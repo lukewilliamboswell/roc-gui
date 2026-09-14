@@ -5,6 +5,7 @@
     (expect-count (text-prefix "Row ") 1000)
     (mark-metrics)
     (click (role button :name "Update every tenth row"))
+    (expect-patch :kind replace :staged 6023 :removed 6023)
     (expect-count (text-prefix "Row ") 1000)
     (expect-visible (text "Row 1: 1"))
     (expect-visible (text "Row 11: 1"))

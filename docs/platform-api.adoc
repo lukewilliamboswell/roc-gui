@@ -1,0 +1,101 @@
+= Building an application
+
+== State, render, and actions
+
+An application exports a state type and `main : Program(State)`:
+
+[source,roc]
+----
+import pf.Action
+import pf.Elem exposing [Elem]
+import pf.Layout
+import pf.Program exposing [Program]
+
+State : { count : I64 }
+
+render : State -> Elem(State)
+render = |state| Layout.col({}, [
+    Elem.text("Count: ${state.count.to_str()}"),
+    Elem.button({
+        label: Elem.text("Add one"),
+        name: "Increment count",
+        on_press: |previous, _event|
+            Action.update({ count: previous.count + 1.I64 }),
+    }),
+])
+
+main : Program(State)
+main = Program.run({ init: { count: 0 }, render })
+----
+
+`render` is pure: it reads state and returns an `Elem(State)`. A button handler
+receives the state associated with its render boundary and an `Event.Press`.
+It returns one of two actions:
+
+`Action.update(next_state)`:: Replace the boundary's state and render it again.
+`Action.none`:: Keep the existing state and element tree unchanged.
+
+Use `Action.none` when an event is valid but has no effect, such as pressing a
+decrement button at a lower bound. It is both clearer and less work than
+returning an unchanged state with `Action.update`.
+
+== Elements and layout
+
+`Elem.text(value)`:: Display a string.
+`Elem.button({ label, name, on_press })`:: Display a clickable label and handle
+presses. `label` is an element, so text is written as `Elem.text("Save")`.
+`Layout.row({}, children)`:: Lay out children horizontally.
+`Layout.col({}, children)`:: Lay out children vertically.
+
+Rows and columns accept a `List(Elem(State))`, which makes ordinary list
+transformations useful for repeated UI:
+
+[source,roc]
+----
+render_names : List(Str) -> Elem(State)
+render_names = |names| Layout.col({}, names.map(|name| Elem.text(name)))
+----
+
+The empty `{}` argument reserves the layout configuration position. Semantic
+button names are not visible labels. Give each simultaneously visible button a
+unique, stable name such as `"Delete row ${row.id.to_str()}"`; specifications
+use that identity instead of screen position.
+
+== Local state with `Elem.translate`
+
+A large application often contains parts that can update independently.
+`Elem.translate` adapts an element whose handlers work with child state into an
+element that participates in a parent application:
+
+[source,roc]
+----
+State : { title : Str, counter : Counter.State }
+
+render : State -> Elem(State)
+render = |state| Layout.col({}, [
+    Elem.text(state.title),
+    Elem.translate(
+        |child| Counter.render("Main", child),
+        |parent| parent.counter,
+        |parent, child| { ..parent, counter: child },
+    ),
+])
+----
+
+Its arguments are:
+
+. a renderer for the child state;
+. a getter that extracts child state from parent state;
+. a setter that returns parent state with the child replaced.
+
+Translation is also a render boundary. A button inside the counter receives
+`Counter.State`; when it updates, the platform writes that child back into the
+parent and replaces the counter subtree. The title and other sibling subtrees
+are not rebuilt.
+
+Use a boundary around a component that owns a coherent slice of state and
+changes independently. Do not add boundaries merely to group layout; use rows
+and columns for visual grouping.
+
+For a complete reusable component, see `examples/counter/Counter.roc` and its
+composition in `examples/counter/main.roc`.

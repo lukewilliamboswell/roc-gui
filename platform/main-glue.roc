@@ -1,4 +1,4 @@
-# TODO(GLUE): Delete this platform root and point regenerate-glue.sh back at
+# TODO(GLUE): Delete this platform root and point regenerate_glue.py back at
 # main.roc once `roc glue` can analyze a platform whose required application
 # type remains abstract. The real platform binds `[State : state]` from the
 # application, and State does not occur in any hosted or provided ABI type, but

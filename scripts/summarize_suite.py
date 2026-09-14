@@ -14,13 +14,15 @@ def value(db: sqlite3.Connection, key: str) -> str:
     return row[0] if row else ""
 
 
-def summarize(path: Path) -> tuple[object, ...]:
+def summarize(path: Path) -> tuple[object, ...] | None:
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
         db.execute("PRAGMA query_only=ON")
-        if value(db, "schema_version") != "2":
+        if value(db, "schema_version") != "3":
             raise RuntimeError(f"{path}: unsupported schema")
         if value(db, "clean_shutdown") != "1":
             raise RuntimeError(f"{path}: incomplete capture")
+        if value(db, "benchmark_scale") in ("", "0"):
+            return None
         cycles = db.execute(
             "SELECT c.roc_callback_ns,c.validate_ns,c.graph_apply_ns,c.gpui_apply_ns "
             "FROM cycles c JOIN runs r ON r.id=c.run_id "
@@ -61,7 +63,8 @@ def main() -> int:
             row = summarize(capture)
         except (RuntimeError, sqlite3.Error, ValueError) as error:
             parser.error(str(error))
-        print("\t".join("NULL" if item is None else str(item) for item in row))
+        if row is not None:
+            print("\t".join("NULL" if item is None else str(item) for item in row))
     return 0
 
 

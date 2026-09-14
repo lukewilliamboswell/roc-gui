@@ -1,0 +1,48 @@
+= Troubleshooting
+
+== `roc build` cannot find `libhost.a`
+
+Run `python3 build.py` from the repository root. It creates
+`platform/targets/x64glibc/libhost.a`, the archive selected by the platform's
+`x64glibc` target. Rebuild it after Rust host changes.
+
+== The Roc compiler version does not match
+
+Use the nightly named in the `app` header and `platform/main.roc`. The example
+applications pin the same nightly as the platform. Passing a different compiler
+may fail before application code is checked.
+
+== The executable rejects an argument
+
+Host arguments belong after the executable name. Supported application modes
+include `--host-run-spec PATH`, `--headless-smoke`, `--host-stats-record`, and
+the `--host-stats-*=VALUE` recording controls documented in
+<<_record_an_interactive_application>>. Unknown arguments are rejected.
+
+== A click locator is missing or ambiguous
+
+Check the `name` field passed to `Elem.button`. A role locator uses this semantic
+name, not the text displayed by its label. Names must be unique among the
+buttons present at that step. If a preceding click replaced a boundary, locate
+the new button by name rather than retaining an old host node identity.
+
+== A specification passes but performance columns are `NULL`
+
+Run `semantic_health` and `capture_health` first. If both are complete, `NULL`
+means the selected backend did not perform or instrument that work. Semantic
+headless runs do not open a window, so GPUI layout, paint, and presentation
+cannot be inferred from them.
+
+== A comparison is rejected
+
+Compare captures for the same specification and benchmark policy, built for
+compatible target, backend, profile, recorder policy, and machine properties.
+Generate both serially and use `--aa` to measure normal variation. The analyzer
+rejects incomplete captures before calculating ratios.
+
+== The documentation build cannot render diagrams
+
+Run `python3 scripts/build_docs.py --pdf` with Docker available. The pinned
+documentation image contains Asciidoctor, the PDF and diagram extensions,
+Mermaid CLI, Chromium, and the source highlighters; none of these are installed
+on the host.

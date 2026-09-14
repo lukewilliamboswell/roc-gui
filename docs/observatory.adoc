@@ -1,0 +1,104 @@
+= Understanding captures
+
+Every specification run produces a versioned `.rgstats` SQLite database. The
+database keeps the semantic result, attributed operation records, resource
+counters, recorder health, and privacy-safe comparison identity together. This
+supports several focused reports without inventing a second measurement format.
+
+== Start with the summary
+
+[source,sh]
+----
+python3 scripts/analyze_stats.py CAPTURE.rgstats
+----
+
+The summary validates the schema and capture finalisation, then reports the
+case identity, run and cycle counts, and the distribution of measured operation
+duration. A capture with lost events, writer failure, output truncation, or an
+unclean shutdown is rejected as incomplete.
+
+The analyzer opens databases read-only. You can also inspect them with any
+SQLite client; application-facing reports should use the supplied views so the
+evidence-status rules remain visible.
+
+== Choose the question you are asking
+
+[source,sh]
+----
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view semantic_health
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view roc_work
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view host_gpui_work
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view process_resources
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view capture_health
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view scaling
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view spec_results
+----
+
+`semantic_health`:: Did runs and steps pass, and is their evidence complete?
+`roc_work`:: How much callback time and Roc allocation activity was attributed
+to measured operations?
+`host_gpui_work`:: How much time did graph validation, graph application, and
+available GPUI materialisation consume?
+`process_resources`:: How did process CPU time, peak RSS, and Roc allocation
+counters change across runs?
+`capture_health`:: Did batching, queue pressure, omissions, limits, or writer
+errors weaken the capture?
+`scaling`:: What workload sizes, deterministic work counts, and timings belong
+to each measured cycle?
+`spec_results`:: Which individual steps passed, and what counts or diagnostics
+did they record?
+
+Each focused view includes `evidence_status` and `evidence_reason`. Read those
+before interpreting numeric columns. Missing measurements are `NULL` rather
+than a fabricated zero.
+
+== What semantic runs measure
+
+`scripts/run_specs.py` invokes the executable with `--host-run-spec`. The Roc
+application still renders through the platform, events still use its installed
+dispatcher, and patches still enter the host's canonical mounted graph. The
+runner does not open a GPUI window. Consequently its captures can attribute Roc
+callback, host validation, graph application, allocations, CPU, RSS, and
+deterministic graph work, while GPUI layout, paint, and presentation are
+unavailable.
+
+This distinction matters: headless graph application is useful host evidence,
+but it is not a proxy for rendering a frame.
+
+== Record an interactive application
+
+Recording is disabled by default. Enable it on an ordinary application with:
+
+[source,sh]
+----
+./counter --host-stats-record
+----
+
+Choose a destination explicitly when captures are part of an experiment:
+
+[source,sh]
+----
+./counter --host-stats-output=counter-session.rgstats
+----
+
+Additional controls are:
+
+`--host-stats-detail=summary|standard|full`:: Select the recorder detail policy.
+`--host-stats-buffer-mib=N`:: Set the bounded in-memory admission buffer.
+`--host-stats-max-mib=N`:: Limit database and write-ahead-log output.
+
+The recorder batches writes on a separate thread. When recording is disabled,
+the event hot path skips clocks and event construction behind a predictable
+inactive branch. When it is enabled, recording failure is evidence failure; it
+does not change application behaviour.
+
+== Comparison identity and privacy
+
+A capture stores comparison-relevant build, executable, workload, recorder,
+operating-system, architecture, and CPU properties. It never stores usernames,
+home-directory paths, hostnames, environment variables, command lines,
+application text or state, native pointers, or machine identifiers.
+
+Compiler and application revisions are represented as unavailable unless they
+are supplied by their owning build process. Missing identity weakens a
+comparison; it is never guessed.

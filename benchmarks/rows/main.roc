@@ -90,6 +90,7 @@ render = |state| {
 			Elem.button({ label: Elem.text("Append 1,000"), name: "Append 1,000 rows", on_press: |value, _| Action.update(append_rows(value, 1000)) }),
 			Elem.button({ label: Elem.text("Update every tenth"), name: "Update every tenth row", on_press: |value, _| Action.update(update_every_tenth(value)) }),
 			Elem.button({ label: Elem.text("Swap"), name: "Swap rows 2 and 999", on_press: |value, _| Action.update(swap_rows(value, 1, 998)) }),
+			Elem.button({ label: Elem.text("Swap small"), name: "Swap rows 2 and 99", on_press: |value, _| Action.update(swap_rows(value, 1, 98)) }),
 			Elem.button({ label: Elem.text("Swap far"), name: "Swap rows 2 and 9999", on_press: |value, _| Action.update(swap_rows(value, 1, 9998)) }),
 			Elem.button({ label: Elem.text("Clear"), name: "Clear rows", on_press: |value, _| Action.update({ ..value, rows: [], selected: 0 }) }),
 		]),

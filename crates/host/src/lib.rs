@@ -345,6 +345,8 @@ impl Runtime {
         }
     }
 
+    /// Return GPUI's most recently prepainted bounds for a live node. A node
+    /// has no actionable bounds until it has participated in a real frame.
     fn apply_unrecorded(&mut self, patch: Patch, cx: &mut Context<Self>) {
         let applied = self
             .graph
@@ -473,6 +475,7 @@ struct HostArgs {
     stats_detail: observatory::Detail,
     stats_buffer_mib: usize,
     stats_max_mib: u64,
+    stats_job_count: usize,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -492,6 +495,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_detail: observatory::Detail::Standard,
         stats_buffer_mib: 4,
         stats_max_mib: 4096,
+        stats_job_count: 1,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -522,6 +526,14 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.stats_max_mib = value
                 .parse()
                 .map_err(|_| "stats maximum MiB must be an integer".to_string())?;
+            parsed.stats_record = true;
+        } else if let Some(value) = argument.strip_prefix("--host-stats-job-count=") {
+            parsed.stats_job_count = value
+                .parse()
+                .map_err(|_| "stats job count must be a positive integer".to_string())?;
+            if parsed.stats_job_count == 0 {
+                return Err("stats job count must be a positive integer".into());
+            }
             parsed.stats_record = true;
         } else {
             return Err(format!("unknown host argument: {argument}"));
@@ -569,6 +581,12 @@ fn start_requested_recorder(
         spec_name: parsed_spec.map(|case| case.name.clone()),
         spec_hash,
         benchmark,
+        job_count: args.stats_job_count,
+        patch_expected: parsed_spec.is_some_and(|case| {
+            case.steps
+                .iter()
+                .any(|step| matches!(step.command, spec::Command::ExpectPatch(_)))
+        }),
     })?;
     Ok(Some(path))
 }

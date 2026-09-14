@@ -30,6 +30,7 @@ pub enum Command {
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
     ExpectBefore(Locator, Locator),
+    ExpectPatch(PatchExpectation),
     MarkMetrics,
 }
 
@@ -41,6 +42,7 @@ impl Command {
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
             Self::ExpectBefore(_, _) => "expect-before",
+            Self::ExpectPatch(_) => "expect-patch",
             Self::MarkMetrics => "mark-metrics",
         }
     }
@@ -48,6 +50,13 @@ impl Command {
     pub fn is_operation(&self) -> bool {
         matches!(self, Self::Click(_))
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PatchExpectation {
+    pub kind: String,
+    pub staged: u64,
+    pub removed: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -314,9 +323,44 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         "expect-before" if values.len() == 3 => {
             Command::ExpectBefore(parse_locator(&values[1])?, parse_locator(&values[2])?)
         }
+        "expect-patch" if values.len() == 7 => {
+            if values[1].atom() != Some(":kind")
+                || values[3].atom() != Some(":staged")
+                || values[5].atom() != Some(":removed")
+            {
+                return Err(error(
+                    node,
+                    "expect-patch syntax is :kind KIND :staged COUNT :removed COUNT",
+                ));
+            }
+            let kind = values[2].atom().ok_or_else(|| {
+                error(
+                    &values[2],
+                    "patch kind must be mount, replace, or no_change",
+                )
+            })?;
+            if !matches!(kind, "mount" | "replace" | "no_change") {
+                return Err(error(
+                    &values[2],
+                    "patch kind must be mount, replace, or no_change",
+                ));
+            }
+            let count = |value: &SExpr| {
+                value
+                    .atom()
+                    .ok_or_else(|| error(value, "patch count must be a non-negative integer"))?
+                    .parse::<u64>()
+                    .map_err(|_| error(value, "patch count must be a non-negative integer"))
+            };
+            Command::ExpectPatch(PatchExpectation {
+                kind: kind.to_owned(),
+                staged: count(&values[4])?,
+                removed: count(&values[6])?,
+            })
+        }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click" | "expect-visible" | "expect-not-visible" | "expect-count" | "expect-before"
-        | "mark-metrics" => {
+        | "expect-patch" | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -557,6 +601,7 @@ mod tests {
               (steps
                 (mark-metrics)
                 (click (role button :name "Build"))
+                (expect-patch :kind replace :staged 60021 :removed 21)
                 (expect-count (text-prefix "Row ") 10000)))"#,
         )
         .unwrap();
@@ -571,6 +616,23 @@ mod tests {
                 change_size: 0,
             })
         );
+    }
+
+    #[test]
+    fn parses_patch_evidence() {
+        let spec = parse(
+            r#"(test "patch"
+              (benchmark :scale 1 :change-size 1)
+              (steps (mark-metrics)
+                (click (role button :name "Build"))
+                (expect-patch :kind replace :staged 7 :removed 2)
+                (expect-count (text "row") 1)))"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            &spec.steps[2].command,
+            Command::ExpectPatch(PatchExpectation { kind, staged: 7, removed: 2 }) if kind == "replace"
+        ));
     }
 
     #[test]

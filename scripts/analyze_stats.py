@@ -31,7 +31,7 @@ def open_readonly(path: Path) -> sqlite3.Connection:
 
 def validate(database: sqlite3.Connection) -> dict[str, str]:
     metadata = dict(database.execute("SELECT key,value FROM metadata"))
-    if metadata.get("schema_version") != "2":
+    if metadata.get("schema_version") != "3":
         raise RuntimeError("unsupported schema version")
     if metadata.get("clean_shutdown") != "1" or metadata.get("final_state") != "complete":
         raise RuntimeError("capture did not finalize cleanly")
@@ -43,22 +43,14 @@ def validate(database: sqlite3.Connection) -> dict[str, str]:
     return metadata
 
 
-def percentile(values: list[int], fraction: float) -> float:
-    if not values:
-        return 0.0
-    ordered = sorted(values)
-    index = min(len(ordered) - 1, int((len(ordered) - 1) * fraction))
-    return float(ordered[index])
-
-
 def summary(path: Path) -> str:
     with open_readonly(path) as database:
         metadata = validate(database)
         durations = [
             row[0]
             for row in database.execute(
-                "SELECT duration_ns FROM steps s JOIN runs r ON r.id=s.run_id "
-                "WHERE s.role='operation' AND s.status='pass' AND r.phase='sample'"
+                "SELECT c.duration_ns FROM cycles c JOIN runs r ON r.id=c.run_id "
+                "WHERE c.measurement_phase='measured' AND r.phase='sample'"
             )
         ]
         runs = database.execute("SELECT count(*) FROM runs").fetchone()[0]
@@ -73,8 +65,9 @@ def summary(path: Path) -> str:
                 f"runs={runs} steps={steps} cycles={cycles}",
                 (
                     "marked operation: "
-                    f"samples={len(durations)} median={statistics.median(durations) / 1e6:.3f}ms "
-                    f"p95={percentile(durations, .95) / 1e6:.3f}ms"
+                    f"samples={len(durations)} min={min(durations) / 1e6:.3f}ms "
+                    f"median={statistics.median(durations) / 1e6:.3f}ms "
+                    f"spread={(max(durations) - min(durations)) / 1e6:.3f}ms"
                     if durations
                     else "marked operation: no measured samples"
                 ),
@@ -92,13 +85,16 @@ def compare(before: Path, after: Path) -> str:
         row = database.execute(query).fetchone()
         if row is None:
             raise RuntimeError("comparison query returned no evidence")
-        status, reason, old, new, delta, ratio = row
+        (status, reason, before_samples, before_min, before_median, before_spread,
+         after_samples, after_min, after_median, after_spread, delta, ratio) = row
         if status != "complete":
             return f"evidence_status={status} evidence_reason={reason}"
         return "\n".join(
             [
                 f"evidence_status={status} evidence_reason={reason}",
-                f"before_mean={old / 1e6:.3f}ms after_mean={new / 1e6:.3f}ms delta={delta / 1e6:+.3f}ms ratio={ratio:.3f}",
+                f"before samples={before_samples} min={before_min / 1e6:.3f}ms median={before_median / 1e6:.3f}ms spread={before_spread / 1e6:.3f}ms",
+                f"after samples={after_samples} min={after_min / 1e6:.3f}ms median={after_median / 1e6:.3f}ms spread={after_spread / 1e6:.3f}ms",
+                f"median_delta={delta / 1e6:+.3f}ms median_ratio={ratio:.3f}",
                 "Timing is report-only; semantic and evidence failures are the gates.",
             ]
         )
@@ -111,7 +107,7 @@ def perspective(path: Path, view: str) -> str:
         # Validate the capture before a view can label its evidence complete.
         # Views then retain their own per-family status and unavailable reasons.
         metadata = dict(database.execute("SELECT key,value FROM metadata"))
-        if metadata.get("schema_version") != "2":
+        if metadata.get("schema_version") != "3":
             raise RuntimeError("unsupported schema version")
         cursor = database.execute(query)
         columns = [description[0] for description in cursor.description]

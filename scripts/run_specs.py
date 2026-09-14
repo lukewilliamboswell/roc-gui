@@ -10,12 +10,13 @@ import os
 import sqlite3
 import subprocess
 import sys
+from dataclasses import replace
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 2
+SUPPORTED_SCHEMA = 3
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
 
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
     if not skip_host_build:
-        subprocess.run([str(ROOT / "build.sh")], cwd=ROOT, check=True)
+        subprocess.run(["python3", str(ROOT / "build.py")], cwd=ROOT, check=True)
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
@@ -81,7 +82,7 @@ def validate_capture(path: Path) -> None:
         bad_status = list(
             database.execute(
                 "SELECT name,status,reason FROM measurement_status "
-                "WHERE status IN ('unfinalized','partial') ORDER BY name"
+                "WHERE status='unfinalized' OR (status='partial' AND name<>'timing_environment') ORDER BY name"
             )
         )
         if bad_status:
@@ -94,13 +95,15 @@ def validate_capture(path: Path) -> None:
             raise RuntimeError(f"capture contains foreign-key violations: {foreign_keys!r}")
 
 
-def run_case(case: Case, timeout: float) -> tuple[Case, str | None]:
+def run_case(case: Case, timeout: float, jobs: int, detail: str = "standard") -> tuple[Case, str | None]:
     case.capture.parent.mkdir(parents=True, exist_ok=True)
     command = [
         str(case.executable),
         "--host-run-spec",
         str(case.spec),
         f"--host-stats-output={case.capture}",
+        f"--host-stats-job-count={jobs}",
+        f"--host-stats-detail={detail}",
     ]
     try:
         completed = subprocess.run(
@@ -125,9 +128,12 @@ def run_case(case: Case, timeout: float) -> tuple[Case, str | None]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("patterns", nargs="*", help="glob(s) matched against repository-relative spec paths")
-    parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 1, 4))
+    parser.add_argument("--jobs", type=int, default=1,
+                        help="concurrent cases (default: 1; values above 1 make timing evidence partial)")
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--fail-fast", action="store_true")
+    parser.add_argument("--aa", action="store_true",
+                        help="repeat each passing case with the same executable for an A/A noise capture")
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--output", type=Path)
@@ -159,13 +165,13 @@ def main() -> int:
     results: list[tuple[Case, str | None]] = []
     if args.fail_fast:
         for case in cases:
-            result = run_case(case, args.timeout)
+            result = run_case(case, args.timeout, args.jobs)
             results.append(result)
             if result[1] is not None:
                 break
     else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-            futures = [pool.submit(run_case, case, args.timeout) for case in cases]
+            futures = [pool.submit(run_case, case, args.timeout, args.jobs) for case in cases]
             results.extend(future.result() for future in concurrent.futures.as_completed(futures))
 
     failures = 0
@@ -176,6 +182,21 @@ def main() -> int:
         else:
             failures += 1
             print(f"FAIL {relative}: {error}", file=sys.stderr)
+    if args.aa and failures == 0:
+        for case, _ in sorted(results, key=lambda result: result[0].spec):
+            aa_case = replace(
+                case,
+                capture=case.capture.with_name(f"{case.capture.stem}-aa{case.capture.suffix}"),
+            )
+            _, error = run_case(aa_case, args.timeout, 1)
+            if error is not None:
+                failures += 1
+                print(f"FAIL A/A {case.spec.relative_to(ROOT)}: {error}", file=sys.stderr)
+            else:
+                print(
+                    f"A/A {case.spec.relative_to(ROOT)}: "
+                    f"python3 scripts/analyze_stats.py {case.capture} --compare {aa_case.capture}"
+                )
     passed = len(results) - failures
     print(f"{passed}/{len(cases)} specs passed; captures: {output}")
     return 1 if failures else 0

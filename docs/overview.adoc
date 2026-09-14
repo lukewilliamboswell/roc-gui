@@ -1,0 +1,58 @@
+= What you build
+
+Roc GUI is an action/state platform for https://www.roc-lang.org[Roc], hosted
+on https://www.gpui.rs[GPUI]. You describe application data and how that data
+looks. The platform owns the window, turns the description into native views,
+and routes button presses back to Roc.
+
+A Roc GUI application has three parts:
+
+State:: The data that completely describes the application at a point in time.
+Render:: A pure function from state to an element tree.
+Action:: The result of handling an event: either a replacement state or no
+change.
+
+[mermaid]
+....
+flowchart LR
+    S[State] -->|render| U[Element tree]
+    U -->|native host| W[Window]
+    W -->|button press| H[Handler]
+    H -->|Action.update| S
+    H -->|Action.none| N[No UI change]
+....
+
+This model keeps application decisions in ordinary Roc values and functions.
+There is no mutable widget object to synchronise with a second copy of the
+application state.
+
+== Vocabulary
+
+Application:: Your Roc code: its state, render functions, and event handlers.
+Platform:: The Roc package selected by the application's `app` header. It
+defines the GUI API, lowers elements, and routes events.
+Host:: The Rust executable support linked into the application. It owns the
+window, mounted graph, and GPUI views.
+Element:: An immutable Roc value describing one piece of UI, such as text, a
+button, a row, or a column.
+Element tree:: The nested elements returned by `render`; for example, a column
+whose children are text and a row of buttons.
+Mounted graph:: The host-owned representation of the element tree displayed by
+the application.
+Render boundary:: A subtree created with `Elem.translate` that can update
+without rebuilding its siblings.
+Specification:: A `.scm` file that drives semantic user actions and assertions
+against an application.
+Observatory:: The opt-in recorder embedded in the host. It writes semantic and
+performance evidence to a SQLite `.rgstats` capture.
+
+== What the platform provides
+
+* text;
+* semantically named buttons;
+* horizontal rows and vertical columns;
+* translated state boundaries for independently changing parts of a UI;
+* semantic `.scm` specifications stored beside each application;
+* opt-in SQLite captures for correctness and performance evidence.
+
+The supported target is Linux x86_64 with Wayland.

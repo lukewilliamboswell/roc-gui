@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -74,6 +74,8 @@ pub struct Config {
     pub spec_name: Option<String>,
     pub spec_hash: Option<String>,
     pub benchmark: Option<(u32, u32, u32, u64, u64, u64)>,
+    pub job_count: usize,
+    pub patch_expected: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -107,6 +109,12 @@ pub struct StepResult {
     pub duration_ns: Option<u64>,
     pub expected_count: Option<u64>,
     pub observed_count: Option<u64>,
+    pub expected_patch_kind: Option<String>,
+    pub observed_patch_kind: Option<&'static str>,
+    pub expected_staged_nodes: Option<u64>,
+    pub observed_staged_nodes: Option<u64>,
+    pub expected_removed_nodes: Option<u64>,
+    pub observed_removed_nodes: Option<u64>,
     pub diagnostic: Option<String>,
 }
 
@@ -149,6 +157,7 @@ struct ResourceSnapshot {
     cpu_user_ns: u64,
     cpu_system_ns: u64,
     max_rss_bytes: u64,
+    current_rss_bytes: Option<u64>,
     roc_alloc_calls: u64,
     roc_alloc_requested_bytes: u64,
     roc_dealloc_calls: u64,
@@ -184,12 +193,20 @@ fn resource_snapshot() -> ResourceSnapshot {
         cpu_user_ns,
         cpu_system_ns,
         max_rss_bytes,
+        current_rss_bytes: current_rss_bytes(),
         roc_alloc_calls: ROC_ALLOC_CALLS.load(Ordering::Relaxed),
         roc_alloc_requested_bytes: ROC_ALLOC_REQUESTED_BYTES.load(Ordering::Relaxed),
         roc_dealloc_calls: ROC_DEALLOC_CALLS.load(Ordering::Relaxed),
         roc_realloc_calls: ROC_REALLOC_CALLS.load(Ordering::Relaxed),
         roc_realloc_requested_bytes: ROC_REALLOC_REQUESTED_BYTES.load(Ordering::Relaxed),
     }
+}
+
+fn current_rss_bytes() -> Option<u64> {
+    let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
+    let resident_pages = statm.split_whitespace().nth(1)?.parse::<u64>().ok()?;
+    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    (page_size > 0).then(|| resident_pages.saturating_mul(page_size as u64))
 }
 
 fn process_resources() -> (u64, u64, u64) {
@@ -623,6 +640,11 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         ),
         ("clock_source", "std::time::Instant".into()),
         ("buffer_mib", config.buffer_mib.to_string()),
+        ("job_count", config.job_count.to_string()),
+        (
+            "timing_quality",
+            if config.job_count == 1 { "isolated" } else { "partial-contended" }.into(),
+        ),
         (
             "max_output_bytes",
             config.max_mib.saturating_mul(1024 * 1024).to_string(),
@@ -725,6 +747,20 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         (
             "scale_verification",
             "summary",
+            if config.patch_expected {
+                "unfinalized"
+            } else {
+                "not_recorded"
+            },
+            if config.patch_expected {
+                "capture has not finalized"
+            } else {
+                "case has no benchmark scale"
+            },
+        ),
+        (
+            "patch_verification",
+            "summary",
             if config.benchmark.is_some() {
                 "unfinalized"
             } else {
@@ -733,7 +769,21 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             if config.benchmark.is_some() {
                 "capture has not finalized"
             } else {
-                "case has no benchmark scale"
+                "case declares no expect-patch contract"
+            },
+        ),
+        (
+            "timing_environment",
+            "summary",
+            if config.job_count == 1 {
+                "complete"
+            } else {
+                "partial"
+            },
+            if config.job_count == 1 {
+                "one benchmark case ran at a time"
+            } else {
+                "benchmark cases shared machine resources"
             },
         ),
     ] {
@@ -755,8 +805,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             started_ns,
             resources,
         } => connection.execute(
-            "INSERT INTO runs(id,phase,sample_index,iteration_index,started_ns,outcome,start_cpu_user_ns,start_cpu_system_ns,start_max_rss_bytes,start_roc_alloc_calls,start_roc_alloc_requested_bytes,start_roc_dealloc_calls,start_roc_realloc_calls,start_roc_realloc_requested_bytes) VALUES(?1,?2,?3,?4,?5,'running',?6,?7,?8,?9,?10,?11,?12,?13)",
-            params![id, phase, sample, iteration, as_i64(started_ns), as_i64(resources.cpu_user_ns), as_i64(resources.cpu_system_ns), as_i64(resources.max_rss_bytes), as_i64(resources.roc_alloc_calls), as_i64(resources.roc_alloc_requested_bytes), as_i64(resources.roc_dealloc_calls), as_i64(resources.roc_realloc_calls), as_i64(resources.roc_realloc_requested_bytes)],
+            "INSERT INTO runs(id,phase,sample_index,iteration_index,started_ns,outcome,start_cpu_user_ns,start_cpu_system_ns,start_max_rss_bytes,start_current_rss_bytes,start_roc_alloc_calls,start_roc_alloc_requested_bytes,start_roc_dealloc_calls,start_roc_realloc_calls,start_roc_realloc_requested_bytes) VALUES(?1,?2,?3,?4,?5,'running',?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+            params![id, phase, sample, iteration, as_i64(started_ns), as_i64(resources.cpu_user_ns), as_i64(resources.cpu_system_ns), as_i64(resources.max_rss_bytes), resources.current_rss_bytes.map(as_i64), as_i64(resources.roc_alloc_calls), as_i64(resources.roc_alloc_requested_bytes), as_i64(resources.roc_dealloc_calls), as_i64(resources.roc_realloc_calls), as_i64(resources.roc_realloc_requested_bytes)],
         ),
         Event::RunEnd {
             id,
@@ -765,12 +815,12 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             diagnostic,
             resources,
         } => connection.execute(
-            "UPDATE runs SET ended_ns=?2,outcome=?3,diagnostic=?4,end_cpu_user_ns=?5,end_cpu_system_ns=?6,end_max_rss_bytes=?7,end_roc_alloc_calls=?8,end_roc_alloc_requested_bytes=?9,end_roc_dealloc_calls=?10,end_roc_realloc_calls=?11,end_roc_realloc_requested_bytes=?12 WHERE id=?1",
-            params![id, as_i64(ended_ns), outcome, diagnostic, as_i64(resources.cpu_user_ns), as_i64(resources.cpu_system_ns), as_i64(resources.max_rss_bytes), as_i64(resources.roc_alloc_calls), as_i64(resources.roc_alloc_requested_bytes), as_i64(resources.roc_dealloc_calls), as_i64(resources.roc_realloc_calls), as_i64(resources.roc_realloc_requested_bytes)],
+            "UPDATE runs SET ended_ns=?2,outcome=?3,diagnostic=?4,end_cpu_user_ns=?5,end_cpu_system_ns=?6,end_max_rss_bytes=?7,end_current_rss_bytes=?8,end_roc_alloc_calls=?9,end_roc_alloc_requested_bytes=?10,end_roc_dealloc_calls=?11,end_roc_realloc_calls=?12,end_roc_realloc_requested_bytes=?13 WHERE id=?1",
+            params![id, as_i64(ended_ns), outcome, diagnostic, as_i64(resources.cpu_user_ns), as_i64(resources.cpu_system_ns), as_i64(resources.max_rss_bytes), resources.current_rss_bytes.map(as_i64), as_i64(resources.roc_alloc_calls), as_i64(resources.roc_alloc_requested_bytes), as_i64(resources.roc_dealloc_calls), as_i64(resources.roc_realloc_calls), as_i64(resources.roc_realloc_requested_bytes)],
         ),
         Event::Step(result) => connection.execute(
-            "INSERT INTO steps(run_id,ordinal,source_line,kind,role,status,duration_ns,expected_count,observed_count,diagnostic) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-            params![result.run_id, result.ordinal as i64, result.source_line as i64, result.kind, result.role, result.status, result.duration_ns.map(as_i64), result.expected_count.map(as_i64), result.observed_count.map(as_i64), result.diagnostic],
+            "INSERT INTO steps(run_id,ordinal,source_line,kind,role,status,duration_ns,expected_count,observed_count,expected_patch_kind,observed_patch_kind,expected_staged_nodes,observed_staged_nodes,expected_removed_nodes,observed_removed_nodes,diagnostic) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
+            params![result.run_id, result.ordinal as i64, result.source_line as i64, result.kind, result.role, result.status, result.duration_ns.map(as_i64), result.expected_count.map(as_i64), result.observed_count.map(as_i64), result.expected_patch_kind, result.observed_patch_kind, result.expected_staged_nodes.map(as_i64), result.observed_staged_nodes.map(as_i64), result.expected_removed_nodes.map(as_i64), result.observed_removed_nodes.map(as_i64), result.diagnostic],
         ),
         Event::Cycle(cycle) => connection.execute(
             "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
@@ -828,7 +878,7 @@ fn finalize(
         .map_err(|error| format!("cannot finalize drain metadata: {error}"))?;
     let partial = omitted > 0 || output_limited;
     connection.execute(
-        "UPDATE measurement_status SET status=CASE WHEN status IN ('not_recorded','unavailable') THEN status WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('not_recorded','unavailable') THEN reason WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) ELSE 0 END",
+        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize measurement status: {error}"))?;
     let orphan_count: i64 = connection
@@ -891,7 +941,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=2;
+PRAGMA user_version=3;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -916,6 +966,8 @@ CREATE TABLE runs(
     end_cpu_system_ns INTEGER,
     start_max_rss_bytes INTEGER NOT NULL,
     end_max_rss_bytes INTEGER,
+    start_current_rss_bytes INTEGER,
+    end_current_rss_bytes INTEGER,
     start_roc_alloc_calls INTEGER NOT NULL,
     end_roc_alloc_calls INTEGER,
     start_roc_alloc_requested_bytes INTEGER NOT NULL,
@@ -938,6 +990,12 @@ CREATE TABLE steps(
     duration_ns INTEGER,
     expected_count INTEGER,
     observed_count INTEGER,
+    expected_patch_kind TEXT,
+    observed_patch_kind TEXT,
+    expected_staged_nodes INTEGER,
+    observed_staged_nodes INTEGER,
+    expected_removed_nodes INTEGER,
+    observed_removed_nodes INTEGER,
     diagnostic TEXT,
     UNIQUE(run_id,ordinal)
 );
@@ -1014,6 +1072,8 @@ mod tests {
             spec_name: Some("case".into()),
             spec_hash: Some(stable_hash(b"case")),
             benchmark: None,
+            job_count: 1,
+            patch_expected: false,
         })
         .unwrap();
         run_start(1, "test", None, 0, 1);
@@ -1030,6 +1090,12 @@ mod tests {
             duration_ns: None,
             expected_count: None,
             observed_count: None,
+            expected_patch_kind: Some("replace".into()),
+            observed_patch_kind: Some("replace"),
+            expected_staged_nodes: Some(7),
+            observed_staged_nodes: Some(7),
+            expected_removed_nodes: Some(2),
+            observed_removed_nodes: Some(2),
             diagnostic: None,
         });
         run_end(1, "pass", 2, None);
@@ -1047,6 +1113,15 @@ mod tests {
         assert_eq!(
             db.query_row("SELECT count(*) FROM steps", [], |row| row.get::<_, i64>(0))
                 .unwrap(),
+            1
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes FROM steps",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
             1
         );
         assert_eq!(
