@@ -1,0 +1,16 @@
+[package]
+name = "roc-gui-host"
+version = "0.1.0"
+edition = "2024"
+license = "UPL-1.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gpui = { version = "=0.2.2", default-features = false, features = ["wayland"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+gpui = { version = "=0.2.2", default-features = false, features = ["wayland", "test-support"] }
+
+[lib]
+name = "host"
+crate-type = ["staticlib"]
+
