@@ -82,6 +82,10 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
             "-a", "rouge-style=rocgui",
             "-a", f"pdf-themesdir={theme_dir}",
             "-a", "pdf-theme=roc-gui",
+            # Two levels in print. At three, the contents outran the pages
+            # asciidoctor-pdf reserves for it and the preface was drawn over
+            # its last page. The web contents keeps all three.
+            "-a", "toclevels=2",
             # Vendored faces first, then the gem's own directory so the
             # bundled M+ 1mn mono and fallback faces stay resolvable.
             "-a", f"pdf-fontsdir={fonts_dir};GEM_FONTS_DIR",

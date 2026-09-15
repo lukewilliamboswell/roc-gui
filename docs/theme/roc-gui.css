@@ -82,47 +82,47 @@
   --toc-width: 17.5rem;
   --radius: 4px;
 
-  /* Warm sage: paper rather than white, ink rather than black. The PDF
-     theme in roc-gui-theme.yml carries the same values. */
-  --bg: #fafaf7;
-  --bg-sunken: #f6f1e4;
+  /* Neutral ink with a single blue accent. The PDF theme in
+     roc-gui-theme.yml carries the same values. */
+  --bg: #ffffff;
+  --bg-sunken: #f4f4f2;
   --bg-raised: #ffffff;
-  --ink: #17221b;
-  --ink-soft: #3b4238;
-  --ink-muted: #616a5d;
-  --rule: #ded8c6;
-  --rule-strong: #c2bda9;
+  --ink: #1a1a1a;
+  --ink-soft: #3a3a3a;
+  --ink-muted: #6b6b6b;
+  --rule: #d4d4d0;
+  --rule-strong: #c8c8c4;
 
-  --accent: #53685a;
-  --accent-strong: #2f4136;
-  --accent-wash: #eaecdc;
+  --accent: #2b5ea7;
+  --accent-strong: #1e4478;
+  --accent-wash: #eef2f8;
 
-  --note: #53685a;
-  --tip: #4a6b4f;
+  --note: #2b5ea7;
+  --tip: #2f6b4f;
   --warning: #8a6a2a;
-  --important: #8c4434;
-  --caution: #5f5570;
+  --important: #b91c1c;
+  --caution: #b91c1c;
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #151914;
-    --bg-sunken: #1e231d;
-    --bg-raised: #1a1f19;
-    --ink: #ecede3;
-    --ink-soft: #d3d6c8;
-    --ink-muted: #9aa394;
-    --rule: #333a31;
-    --rule-strong: #4a5347;
+    --bg: #16181a;
+    --bg-sunken: #1f2225;
+    --bg-raised: #1b1e21;
+    --ink: #ececea;
+    --ink-soft: #d2d3d1;
+    --ink-muted: #9a9b99;
+    --rule: #33373b;
+    --rule-strong: #484d52;
 
-    --accent: #a8c0a9;
-    --accent-strong: #c6d6c2;
-    --accent-wash: #232b23;
+    --accent: #8ab4e8;
+    --accent-strong: #b3cff2;
+    --accent-wash: #1e2734;
 
-    --note: #a8c0a9;
-    --tip: #9dc3a2;
+    --note: #8ab4e8;
+    --tip: #86c49b;
     --warning: #d3ac66;
     --important: #dc9583;
     --caution: #b3a7c6;
