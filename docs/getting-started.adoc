@@ -91,8 +91,10 @@ The counter includes a semantic specification:
 python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 ----
 
-The driver builds the host and application, runs each selected `.scm` file in
-a fresh process, and prints the capture path for every passing case. Semantic
+The driver verifies and stages a compatible released host, or builds the host
+when its source inputs changed. It then builds the application, runs each
+selected `.scm` file in a fresh process, and prints the capture path for every
+passing case. Semantic
 specifications use the production event route and mounted graph without opening
 a GPUI window.
 
