@@ -85,6 +85,32 @@ def install_alsa(destination, lock=LOCK, cache=CACHE):
 
 
 @contextmanager
+def cargo_environment(environment, target, lock=LOCK, cache=CACHE):
+    """Expose locked build-time interfaces to every Cargo entry point."""
+    if target != "x64glibc":
+        yield environment
+        return
+    with tempfile.TemporaryDirectory(prefix="roc-gui-cargo-inputs-") as temporary:
+        root = Path(temporary)
+        library = root / "lib"
+        install_alsa(library, lock=lock, cache=cache)
+        pkgconfig = library / "pkgconfig"
+        pkgconfig.mkdir()
+        (pkgconfig / "alsa.pc").write_text(
+            "prefix=${pcfiledir}/../..\n"
+            "libdir=${prefix}/lib\n\n"
+            "Name: alsa\n"
+            "Description: Verified roc-gui ALSA linker interface\n"
+            "Version: 2\n"
+            "Libs: -L${libdir} -lasound\n"
+            "Cflags:\n"
+        )
+        environment["PKG_CONFIG_PATH"] = str(pkgconfig)
+        environment["LIBRARY_PATH"] = str(library)
+        yield environment
+
+
+@contextmanager
 def verified_macos_interfaces(lock=LOCK, cache=CACHE):
     """Admit the reviewed project-authored interfaces used only by final linking."""
     from build_macos_stubs import validate_catalog

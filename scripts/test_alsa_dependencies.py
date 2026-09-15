@@ -37,6 +37,22 @@ class AlsaDependencyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "invalid ALSA interface recipe"):
                 producer.recipe()
 
+    def test_cargo_uses_a_private_verified_alsa_interface(self):
+        import prepare_dependencies
+
+        def install(destination, **_kwargs):
+            destination.mkdir(parents=True)
+            (destination / "libasound.so").write_bytes(b"verified interface")
+
+        environment = {}
+        with patch.object(prepare_dependencies, "install_alsa", side_effect=install), \
+                prepare_dependencies.cargo_environment(environment, "x64glibc") as configured:
+            pkgconfig = Path(configured["PKG_CONFIG_PATH"])
+            self.assertEqual(configured["LIBRARY_PATH"], str(pkgconfig.parent))
+            self.assertIn("-lasound", (pkgconfig / "alsa.pc").read_text())
+            self.assertEqual((pkgconfig.parent / "libasound.so").read_bytes(), b"verified interface")
+        self.assertFalse(pkgconfig.exists())
+
     def make_archive(self, missing=None):
         policy = release_dependencies.KINDS["alsa"]
         files = {"targets/x64glibc/libasound.so": b"tested ELF interface"}
