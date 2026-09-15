@@ -4,14 +4,6 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
-## Linker-input release adoption
-
-- [ ] **ALSA still uses a bootstrap linker recipe.** Add an independently
-  versioned ALSA interface producer and native probe, publish its tested archive
-  from `main`, adopt its generated lock entry, and remove `third_party/alsa` and
-  the ambient system-runtime check. Ordinary builds must then download and
-  verify the locked archive exactly like every other external linker input.
-
 ## Resource broker and confinement foundation
 
 - [ ] **The linked process is not an untrusted-application boundary.** Implement
@@ -82,6 +74,12 @@ the change lands; do not soften the docs to match the gap.
 
 Defects in the platform or host that the benchmark suite has exposed. Each
 names the evidence so a fix can be verified against the same case.
+
+- [ ] **The Roc development optimization mode miscompiles the deep tree scaling
+  case on x64glibc.** An explicit `roc build --opt=dev` produces an executable
+  that segfaults in `benchmarks/tree-shape/specs/deep-1k.scm`; the normal build
+  mode and a build differing only by omission of `--opt=dev` pass. Minimize and
+  report this compiler regression, then update the pinned compiler when fixed.
 
 - [ ] **Full-root replacement remains superlinear at 100,000 rows.** The
   production 100,000-row sparse-update case confirms the effect after dense
