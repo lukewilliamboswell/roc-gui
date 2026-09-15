@@ -34,7 +34,7 @@ discover = |state| {
 	next = state.generation + 1
 	Action.task({
 		pending: { ..state, generation: next, devices: [], status: "Discovering devices" },
-		run: || match Device.acquire!({}) { Err(err) => DiscoveryFailed(err), Ok(grant) => match Device.discover!(grant) { Err(err) => DiscoveryFailed(err), Ok(devices) => Discovered(devices) } },
+		run: || match Device.acquire!() { Err(err) => DiscoveryFailed(err), Ok(grant) => match Device.discover!(grant) { Err(err) => DiscoveryFailed(err), Ok(devices) => Discovered(devices) } },
 		resolve: |latest, result| if latest.generation != next Action.none else match result { DiscoveryFailed(err) => Action.update({ ..latest, status: message(err) }), Discovered(devices) => Action.update({ ..latest, devices, status: "Found ${List.len(devices).to_str()} device" }) },
 	})
 }
@@ -43,7 +43,7 @@ connect = |state| {
 	next = state.generation + 1
 	Action.task({
 		pending: { ..state, generation: next, status: "Connecting" },
-		run: || match Device.acquire!({}) {
+		run: || match Device.acquire!() {
 			Err(err) => ConnectFailed(err)
 			Ok(grant) => match Device.connect!(grant) {
 				Err(err) => ConnectFailed(err)

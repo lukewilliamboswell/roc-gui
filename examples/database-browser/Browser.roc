@@ -22,7 +22,7 @@ choose = |state| {
 	id = state.next_request
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match Files.pick_directory!({}) {
+		run: || match Files.pick_directory!() {
 			Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {
 				Ok(entries) => ChosenFolder({ directory: selection.directory, entries })
 				Err(_) => ChooseFailed

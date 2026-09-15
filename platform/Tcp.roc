@@ -12,8 +12,8 @@ Tcp := [].{
 	TcpErr : TcpErr
 
 	## Connect to the exact endpoint supplied with `--host-cap-tcp`.
-	connect! : {} => Try(Resource.TcpStream, TcpErr)
-	connect! = |_| Host.tcp_connect!({}).map_err(|code| ConnectErr(decode_reason(code)))
+	connect! : () => Try(Resource.TcpStream, TcpErr)
+	connect! = || Host.tcp_connect!().map_err(|code| ConnectErr(decode_reason(code)))
 
 	Stream := [].{
 

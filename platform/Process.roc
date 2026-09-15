@@ -13,8 +13,8 @@ Process := [].{
 
 	## Acquire the process authority explicitly granted with
 	## `--host-cap-process=local-shell|test-program`.
-	acquire! : {} => Try(Grant, ProcessErr)
-	acquire! = |_| Host.process_acquire!({})
+	acquire! : () => Try(Grant, ProcessErr)
+	acquire! = || Host.process_acquire!()
 
 	## Start exactly the granted program in a real pseudo-terminal. Rows and
 	## columns are bounded to 1..4096.

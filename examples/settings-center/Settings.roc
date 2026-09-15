@@ -76,7 +76,7 @@ Settings := [].{
 		id = state.next_request
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Loading(id) },
-			run: || match Files.app_data!({}) {
+			run: || match Files.app_data!() {
 				Err(error) => LoadFailed(preference_error_message(error))
 				Ok(store) => match Files.Dir.read_utf8!(store, "profile-name") {
 					Err(error) => LoadFailed(preference_error_message(error))
@@ -114,7 +114,7 @@ Settings := [].{
 		notes_to_save = state.draft_notes
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
-			run: || match Files.app_data!({}) {
+			run: || match Files.app_data!() {
 				Err(error) => SaveFailed(preference_error_message(error))
 				Ok(store) => match Files.Dir.write_utf8_atomic!(store, "profile-name", name_to_save) {
 					Err(error) => SaveFailed(preference_error_message(error))

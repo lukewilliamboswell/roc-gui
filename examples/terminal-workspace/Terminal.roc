@@ -62,7 +62,7 @@ start = |state| {
 	next_generation = state.generation + 1
 	Action.task({
 		pending: { ..state, generation: next_generation, lines: [], phase: Starting, status: "Starting session" },
-		run: || match Process.acquire!({}) {
+		run: || match Process.acquire!() {
 			Err(err) => StartFailed(err)
 			Ok(grant) => match Process.spawn!(grant, { columns: 100, rows: 30 }) {
 				Err(err) => StartFailed(err)

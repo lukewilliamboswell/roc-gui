@@ -80,11 +80,11 @@ Files := [].{
 	## Acquire the read-only project grant provisioned by the host. This function
 	## does not display trusted UI; interactive hosts must source the grant from
 	## trusted selection. Without a provisioned grant it returns `AccessDenied`.
-	pick_directory! : {} => Try(Choice(Selection), FileErr)
+	pick_directory! : () => Try(Choice(Selection), FileErr)
 
 	## Acquire the private read-write application-data directory granted by the host.
-	app_data! : {} => Try(Resource.DirReadWrite, FileErr)
-	app_data! = |{}| InternalFiles.app_data!({}).map_err(|raw| OpenAppDataErr(decode_reason(raw.code)))
+	app_data! : () => Try(Resource.DirReadWrite, FileErr)
+	app_data! = || InternalFiles.app_data!().map_err(|raw| OpenAppDataErr(decode_reason(raw.code)))
 
 	decode_reason = |code| match code {
 		0 => AccessDenied

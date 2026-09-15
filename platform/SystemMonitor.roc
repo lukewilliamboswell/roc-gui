@@ -19,8 +19,8 @@ SystemMonitor := [].{
 	Reason : [AccessDenied, Busy, Closed, InvalidCapability, Io, ResourceLimit, Unavailable]
 	SystemErr : [AcquireSystemErr(Reason), CloseSystemErr(Reason), SampleSystemErr(Reason)]
 
-	acquire! : {} => Try(Sampler, SystemErr)
-	acquire! = |_| Host.system_acquire!({}).map_err(|code| AcquireSystemErr(decode_reason(code)))
+	acquire! : () => Try(Sampler, SystemErr)
+	acquire! = || Host.system_acquire!().map_err(|code| AcquireSystemErr(decode_reason(code)))
 
 	## Refresh and return one bounded snapshot. Call from `Action.task`.
 	sample! : Sampler => Try(Snapshot, SystemErr)

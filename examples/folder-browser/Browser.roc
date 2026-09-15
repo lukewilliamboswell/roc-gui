@@ -128,7 +128,7 @@ start_pick = |state| {
 	request = begin(state)
 	Action.task({
 		pending: request.pending,
-		run: || match Files.pick_directory!({}) {
+		run: || match Files.pick_directory!() {
 			Err(error) => PickFailed({ hint: hint_for(error), message: describe(error) })
 			Ok(Canceled) => PickCanceled
 			Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {

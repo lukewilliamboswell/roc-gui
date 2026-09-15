@@ -12,7 +12,7 @@ History := [].{
 	mark_private = |state| { ..state, private_next: True, status: "The next changed item will be discarded" }
 
 	start! : State => Action(State)
-	start! = |state| match Clipboard.acquire!({}) {
+	start! = |state| match Clipboard.acquire!() {
 		Err(error) => Action.update({ ..state, status: describe(error) })
 		Ok(clipboard) => match Timer.start!({ interval_ms: 25 }) {
 			Err(_) => Action.update({ ..state, status: "Clipboard timer could not start" })

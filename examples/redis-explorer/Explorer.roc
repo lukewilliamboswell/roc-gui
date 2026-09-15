@@ -30,7 +30,7 @@ connect = |state| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || {
-			stream = Tcp.connect!({}) ? |error| ConnectFailed(tcp_error_text(error))
+			stream = Tcp.connect!() ? |error| ConnectFailed(tcp_error_text(error))
 			pong = connection(stream).request!(Commands.Session.ping()) ? |error| ConnectFailed(redis_error_text(error))
 			if pong == Bytes.from_str("PONG") {
 				Ok(stream)

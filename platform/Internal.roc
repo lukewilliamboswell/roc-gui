@@ -138,21 +138,21 @@ Internal := [].{
 			{ root: id, next_boundary, routes, boundaries }
 		}
 		Row(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
 			id = Host.node_row!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Column(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
 			id = Host.node_column!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Dialog(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
 			id = Host.node_dialog!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
@@ -160,7 +160,7 @@ Internal := [].{
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes.append(route), boundaries: lowered.boundaries }
 		}
 		Panel(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
 			id = Host.node_panel!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
@@ -177,7 +177,7 @@ Internal := [].{
 			{ root: id, next_boundary: child.next_boundary, routes: child.routes, boundaries: child.boundaries }
 		}
 		VirtualList(list_value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			var $next = next_boundary
 			var $routes = routes
 			var $boundaries = boundaries
@@ -295,7 +295,7 @@ Internal := [].{
 			})
 			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.grow, bg: color(canvas_value.bg), border_color: color(canvas_value.border_color), border_width: canvas_value.border_width, radius: canvas_value.radius })
 			route = { id, boundary: active_boundary, boundary_path, fire: |current, _| {
-				event = Host.canvas_event!({})
+				event = Host.canvas_event!()
 				phase = match event.phase {
 					0 => Begin
 					1 => Move
@@ -389,7 +389,7 @@ Internal := [].{
 			match route_result {
 				Ok(route) => {
 					Host.work_start!(1)
-					input = Host.input_value!({})
+					input = Host.input_value!()
 					action = (route.fire)(state, input)
 					Host.work_end!(1)
 					apply_action!(action, state, route.boundary, root_renderer, routes, boundaries, next_boundary)

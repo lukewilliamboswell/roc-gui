@@ -11,8 +11,8 @@ Device := [].{
 	DeviceErr : [AcquireDeviceErr(Reason), ConnectDeviceErr(Reason), DiscoverDeviceErr(Reason), TransactDeviceErr(Reason), CloseDeviceErr(Reason)]
 
 	## Acquire only the HID authority configured by the host.
-	acquire! : {} => Try(Grant, DeviceErr)
-	acquire! = |_| Host.device_acquire!({})
+	acquire! : () => Try(Grant, DeviceErr)
+	acquire! = || Host.device_acquire!()
 
 	## Discover visible devices within this grant. Results are bounded and expose
 	## stable USB identity, never operating-system device paths or serial numbers.

@@ -36,7 +36,7 @@ Workbench := [].{
 		Action.task({
 			pending: { ..state, next_id: id + 1, active_id: id, sending: True, error: "" },
 			run: || {
-				client = Http.acquire!({})?
+				client = Http.acquire!()?
 				Http.send!(client, { timeout_ms: 2_000, max_response_bytes: 262_144, max_redirects: 3 }, request)
 			},
 			resolve: |latest, result| if latest.active_id != id Action.none else match result {

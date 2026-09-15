@@ -9,8 +9,8 @@ Clipboard := [].{
 	Reason : [AccessDenied, ContentTooLarge, InvalidCapability, Unavailable]
 	ClipboardErr : [AcquireClipboardErr(Reason), ReadClipboardErr(Reason), WriteClipboardErr(Reason)]
 
-	acquire! : {} => Try(Handle, ClipboardErr)
-	acquire! = |{}| Host.clipboard_acquire!({}).map_err(|raw| AcquireClipboardErr(decode_reason(raw.code)))
+	acquire! : () => Try(Handle, ClipboardErr)
+	acquire! = || Host.clipboard_acquire!().map_err(|raw| AcquireClipboardErr(decode_reason(raw.code)))
 
 	read_text! : Handle => Try(Snapshot, ClipboardErr)
 	read_text! = |handle| Host.clipboard_read_text!(handle).map_err(|raw| ReadClipboardErr(decode_reason(raw.code)))

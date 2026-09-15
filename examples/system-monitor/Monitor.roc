@@ -34,7 +34,7 @@ wait_next = |state, session| Action.task({
 	},
 })
 
-start! = |state| match SystemMonitor.acquire!({}) {
+start! = |state| match SystemMonitor.acquire!() {
 	Err(err) => Action.update({ ..state, status: err_text(err) })
 	Ok(sampler) => match Timer.start!({ interval_ms: 1 }) {
 		Err(_) => {

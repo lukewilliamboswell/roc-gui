@@ -41,7 +41,7 @@ read_file = |state, folder, name| Action.task({ pending: { ..state, status: Busy
 
 choose_directory = |state| Action.task({
 	pending: { ..state, status: Busy },
-	run: || match Files.pick_directory!({}) {
+	run: || match Files.pick_directory!() {
 		Err(error) => LoadFailed(describe(error))
 		Ok(Canceled) => LoadCanceled
 		Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {
