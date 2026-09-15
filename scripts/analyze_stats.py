@@ -144,6 +144,22 @@ def perspective(path: Path, view: str, aa_bound: Path | None = None) -> str:
     return "\n".join(output)
 
 
+def scaling_compare(base: Path, scaled: Path) -> str:
+    query = (QUERY_DIR / "scaling_compare.sql").read_text(encoding="utf-8")
+    with open_readonly(base) as database:
+        validate(database)
+        with open_readonly(scaled) as scaled_database:
+            validate(scaled_database)
+        database.execute("ATTACH DATABASE ? AS scaled", (scaled.resolve().as_uri() + "?mode=ro",))
+        cursor = database.execute(query)
+        columns = [description[0] for description in cursor.description]
+        rows = cursor.fetchall()
+    output = [f"view=scaling_compare base={base} scaled={scaled}", "\t".join(columns)]
+    output.extend("\t".join("NULL" if value is None else str(value) for value in row) for row in rows)
+    output.append("Timing is report-only; semantic and evidence failures are the gates.")
+    return "\n".join(output)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("capture", type=Path)
@@ -151,14 +167,22 @@ def main() -> int:
     parser.add_argument("--view", choices=VIEWS, help="run a focused, read-only SQLite perspective")
     parser.add_argument("--aa-bound", type=Path,
                         help="validated unchanged-executable capture supplying the scaling A/A spread bound")
+    parser.add_argument("--scale-against", type=Path,
+                        help="report independent component ratios against a mechanically compatible larger-scale capture")
     args = parser.parse_args()
     if args.compare and args.view:
         parser.error("--compare and --view are mutually exclusive")
     if args.aa_bound and args.view != "scaling":
         parser.error("--aa-bound requires --view scaling")
+    if args.scale_against and args.view != "scaling":
+        parser.error("--scale-against requires --view scaling")
+    if args.scale_against and args.aa_bound:
+        parser.error("--scale-against and --aa-bound are mutually exclusive")
     try:
         if args.compare:
             result = compare(args.capture, args.compare)
+        elif args.scale_against:
+            result = scaling_compare(args.capture, args.scale_against)
         elif args.view:
             result = perspective(args.capture, args.view, args.aa_bound)
         else:

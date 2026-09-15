@@ -130,3 +130,22 @@ python3 scripts/analyze_stats.py CAPTURE.rgstats --view scaling --aa-bound CAPTU
 Without `--aa-bound`, `aa_bound_ns` and `spread_exceeds_aa_bound` are `NULL`:
 the capture contains no A/A evidence from which to infer them. Treat a change
 smaller than an available bound as noise.
+
+Compare different scales only when both captures came from the same executable,
+application, target, machine, recorder detail, and isolated serial policy:
+
+[source,sh]
+----
+python3 scripts/analyze_stats.py SCALE-10K.rgstats --view scaling --scale-against SCALE-100K.rgstats
+----
+
+The cross-scale report gives separate ratios for the Roc callback, native-tree
+validation, canonical graph application, complete sample-lifecycle allocation,
+and allocation attributed to measured Roc work spans. Lifecycle allocation
+includes setup outside the marked operation. Span allocation includes only the
+instrumented work attributed to measured callbacks. These scopes are not
+interchangeable and the report labels both. A component whose evidence status
+is not complete is `NULL` independently of the other components. Mechanically
+incompatible captures make every ratio unavailable. Ratios are diagnostic,
+report-only timing and resource evidence; semantic and capture-health results
+remain the correctness gates.
