@@ -3,7 +3,8 @@
   (steps
     (click (role button :name "Choose directory"))
     (await-task)
+	(expect-file-picks 1) (expect-file-lists 1) (expect-file-opens 0) (expect-file-reads 0)
     (mark-metrics)
     (click (role button :name "Close directory"))
     (expect-visible (role dialog :name "Close directory confirmation"))
-    (expect-count (text-prefix "Entry: ") 100)))
+    (expect-count (button-prefix "Select ") 100)))

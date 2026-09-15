@@ -79,6 +79,16 @@ names the evidence so a fix can be verified against the same case.
 
 ## Input and accessibility
 
+- [ ] **File Explorer writable powerbox and desktop integration.** The read-only
+  explorer navigates capability-scoped child folders, preserves back/forward
+  history, selects files and folders, reports typed failures, and virtualizes a
+  realistic directory. Add a separately approved writable-directory grant and
+  direct-child create, rename, copy, move, trash, and restore operations with
+  collision policy, partial-result recovery, cancellation, and undo. Add tabs,
+  split views, multi-selection, drag-and-drop, clipboard file operations,
+  previews, metadata, operating-system open/reveal, watching, and durable grant
+  restoration only as complete production slices.
+
 - [ ] **Music library metadata, persistence, and media integration.** The music
   player foundation provides explicit folder/output capabilities, Rodio and
   Symphonia decoding, a bounded playback state machine, queue navigation,

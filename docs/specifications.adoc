@@ -50,7 +50,6 @@ If an application has an adjacent `fixture/` directory, the runner grants that
 directory through the production `--host-cap-dir` boundary. Fixture contents
 are therefore exercised through the same opaque capability operations as an
 interactive grant, without giving the application ambient test-only I/O.
-
 An adjacent `app-data-fixture/` grants a fresh private copy through
 `--host-cap-app-data` for each case, so writes use the production capability
 without mutating checked-in data. A subdirectory named after the spec selects
@@ -100,6 +99,8 @@ Native file and clipboard fixtures are selected by `fixture-metadata/SPEC_NAME`.
 Each `directory=RELATIVE_PATH` or `clipboard=RELATIVE_PATH` entry grants that
 adjacent directory to the corresponding production capability. The metadata is
 generic to the harness and does not depend on an application directory name.
+Either value may be `none` to exercise denial through the same production
+acquisition call.
 
 == Locators
 
@@ -182,6 +183,10 @@ This assertion reads the timer registry that owns cancellation state.
 `(expect-system-samples N)`:: Require exactly `N` completed host-owned system samples.
 This assertion reads the capability registry that owns stream lifecycle and
 records expected and observed deterministic counts.
+`(expect-file-picks N)`, `(expect-file-lists N)`, `(expect-file-opens N)`, and
+`(expect-file-reads N)`:: Require exact cumulative counts recorded by the Files
+owner. Each scalar assertion preserves its expected and observed value in the
+ordinary deterministic step evidence.
 `(expect-visible LOCATOR)`:: Require at least one match.
 `(expect-focused LOCATOR)`:: Require semantic focus to be on exactly one
 matching enabled control. This proves the host's dialog focus policy, not a

@@ -20,6 +20,7 @@ struct Store {
     initial: Option<(Arc<Dir>, String)>,
     dirs: HashMap<u64, Arc<Dir>>,
     allocations: HashMap<usize, u64>,
+    operations: [u64; 4],
 }
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
@@ -31,6 +32,7 @@ fn store() -> &'static Mutex<Store> {
             initial: None,
             dirs: HashMap::new(),
             allocations: HashMap::new(),
+            operations: [0; 4],
         })
     })
 }
@@ -49,8 +51,22 @@ pub fn configure(path: Option<&Path>) -> Result<(), String> {
             Some((Arc::new(dir), name))
         }
     };
-    store().lock().expect("capability store poisoned").initial = initial;
+    let mut guard = store().lock().expect("capability store poisoned");
+    guard.initial = initial;
+    guard.operations = [0; 4];
     Ok(())
+}
+
+pub fn operation_counts() -> [u64; 4] {
+    store()
+        .lock()
+        .expect("capability store poisoned")
+        .operations
+}
+
+fn record_operation(index: usize) {
+    let mut guard = store().lock().expect("capability store poisoned");
+    guard.operations[index] = guard.operations[index].saturating_add(1);
 }
 
 fn capability(dir: Arc<Dir>) -> *mut u64 {
@@ -172,6 +188,7 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
+    record_operation(0);
     let initial = store()
         .lock()
         .expect("capability store poisoned")
@@ -194,6 +211,7 @@ pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
+    record_operation(1);
     let dir = lookup(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let Some(dir) = dir else {
@@ -275,6 +293,7 @@ pub extern "C" fn roc_files_dir_open_read(
     cap: *mut u64,
     name: RocStr,
 ) -> FilesDirOpenReadDirResult {
+    record_operation(2);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
     let dir = lookup(cap);
@@ -302,6 +321,7 @@ pub extern "C" fn roc_files_dir_open_read(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirReadResult {
+    record_operation(3);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
     let dir = lookup(cap);

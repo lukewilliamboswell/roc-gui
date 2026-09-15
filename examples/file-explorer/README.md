@@ -4,6 +4,11 @@ A practical desktop file manager for navigating and organizing user-selected
 directories. Access begins with an explicit directory grant and respects platform
 permission boundaries.
 
+The implemented read-authority slice navigates direct child folders without
+following links, maintains back/forward history and a root breadcrumb, exposes
+file and folder selection with bounded metadata, and virtualizes large
+directories. Filesystem failures remain operation-specific and visible.
+
 ## Core capabilities
 
 - Breadcrumb, tree, list, and grid navigation with history, tabs, and optional split views.

@@ -45,6 +45,10 @@ pub enum Command {
     ExpectSystemSamplers(usize),
     ExpectSystemSamples(usize),
     ExpectAudioCounters([u64; 9]),
+    ExpectFilePicks(u64),
+    ExpectFileLists(u64),
+    ExpectFileOpens(u64),
+    ExpectFileReads(u64),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -80,6 +84,10 @@ impl Command {
             Self::ExpectSystemSamplers(_) => "expect-system-samplers",
             Self::ExpectSystemSamples(_) => "expect-system-samples",
             Self::ExpectAudioCounters(_) => "expect-audio-counters",
+            Self::ExpectFilePicks(_) => "expect-file-picks",
+            Self::ExpectFileLists(_) => "expect-file-lists",
+            Self::ExpectFileOpens(_) => "expect-file-opens",
+            Self::ExpectFileReads(_) => "expect-file-reads",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -560,6 +568,21 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectAudioCounters(expected)
         }
+        "expect-file-picks" | "expect-file-lists" | "expect-file-opens" | "expect-file-reads"
+            if values.len() == 2 =>
+        {
+            let expected = values[1]
+                .atom()
+                .ok_or_else(|| error(&values[1], "file counter must be an integer"))?
+                .parse()
+                .map_err(|_| error(&values[1], "file counter must be a non-negative integer"))?;
+            match head {
+                "expect-file-picks" => Command::ExpectFilePicks(expected),
+                "expect-file-lists" => Command::ExpectFileLists(expected),
+                "expect-file-opens" => Command::ExpectFileOpens(expected),
+                _ => Command::ExpectFileReads(expected),
+            }
+        }
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -672,6 +695,10 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-system-samplers"
         | "expect-system-samples"
         | "expect-audio-counters"
+        | "expect-file-picks"
+        | "expect-file-lists"
+        | "expect-file-opens"
+        | "expect-file-reads"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
@@ -1263,6 +1290,13 @@ mod tests {
         assert!(
             matches!(&spec.steps[1].command, Command::ExpectVisible(Locator::CanvasItemName(name)) if name == "Card")
         );
+    }
+
+    #[test]
+    fn parses_file_owner_counters() {
+        let spec = parse(r#"(test "files" (steps (expect-file-picks 1) (expect-file-lists 2) (expect-file-opens 3) (expect-file-reads 4)))"#).unwrap();
+        assert!(matches!(spec.steps[0].command, Command::ExpectFilePicks(1)));
+        assert!(matches!(spec.steps[3].command, Command::ExpectFileReads(4)));
     }
 
     #[test]

@@ -111,18 +111,21 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         f"--host-stats-detail={detail}",
     ]
     fixture_metadata = case.app.parent / "fixture-metadata" / case.spec.stem
-    native_fixtures: dict[str, Path] = {}
+    native_fixtures: dict[str, Path | None] = {}
     if fixture_metadata.is_file():
         for line in fixture_metadata.read_text(encoding="utf-8").splitlines():
             key, separator, relative = line.partition("=")
             if separator != "=" or key not in {"directory", "clipboard"} or not relative:
                 raise RuntimeError(f"invalid native fixture metadata in {fixture_metadata}")
+            if relative == "none":
+                native_fixtures[key] = None
+                continue
             path = case.app.parent / relative
             if not path.is_dir():
                 raise RuntimeError(f"native fixture directory does not exist: {path}")
             native_fixtures[key] = path
     fixture = native_fixtures.get("directory", case.app.parent / "fixture")
-    if fixture.is_dir():
+    if fixture is not None and fixture.is_dir():
         command.extend(["--host-cap-dir", str(fixture)])
     if (case.app.parent / "fixture_server.py").is_file():
         command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])

@@ -113,6 +113,23 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
         .collect()
 }
 
+fn expect_file_counter(
+    line: usize,
+    name: &str,
+    expected: u64,
+    observed: u64,
+    evidence: &mut Option<(u64, u64)>,
+) -> Result<(), String> {
+    *evidence = Some((expected, observed));
+    if expected == observed {
+        Ok(())
+    } else {
+        Err(format!(
+            "line {line}: expected {expected} file {name}, observed {observed}"
+        ))
+    }
+}
+
 pub fn run(spec: &Spec) -> Result<(), String> {
     let mut next_run = 1i64;
     if let Some(benchmark) = spec.benchmark {
@@ -152,6 +169,7 @@ fn run_lifecycle(
 }
 
 fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
+    let file_counter_baseline = crate::files::operation_counts();
     let mut graph = MountedGraph::default();
     let cycle_started = Instant::now();
     observatory::reset_roc_work();
@@ -771,6 +789,34 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectFilePicks(expected) => expect_file_counter(
+                step.line,
+                "picks",
+                *expected,
+                crate::files::operation_counts()[0] - file_counter_baseline[0],
+                &mut count_evidence,
+            ),
+            Command::ExpectFileLists(expected) => expect_file_counter(
+                step.line,
+                "lists",
+                *expected,
+                crate::files::operation_counts()[1] - file_counter_baseline[1],
+                &mut count_evidence,
+            ),
+            Command::ExpectFileOpens(expected) => expect_file_counter(
+                step.line,
+                "opens",
+                *expected,
+                crate::files::operation_counts()[2] - file_counter_baseline[2],
+                &mut count_evidence,
+            ),
+            Command::ExpectFileReads(expected) => expect_file_counter(
+                step.line,
+                "reads",
+                *expected,
+                crate::files::operation_counts()[3] - file_counter_baseline[3],
+                &mut count_evidence,
+            ),
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
                 if count == 0 {
