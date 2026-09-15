@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 7
+SUPPORTED_SCHEMA = 8
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,19 @@ class Case:
     app: Path
     executable: Path
     capture: Path
+
+
+def fixture_metadata(case: Case) -> dict[str, str]:
+    metadata = case.app.parent / "fixture-metadata" / case.spec.stem
+    values: dict[str, str] = {}
+    if not metadata.is_file():
+        return values
+    for line in metadata.read_text(encoding="utf-8").splitlines():
+        key, separator, value = line.partition("=")
+        if separator != "=" or key not in {"directory", "clipboard", "http-origin", "tcp", "server", "server-port"} or not value:
+            raise RuntimeError(f"invalid fixture metadata in {metadata}")
+        values[key] = value
+    return values
 
 
 def discover(patterns: list[str], output: Path) -> list[Case]:
@@ -110,13 +123,10 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         f"--host-stats-job-count={jobs}",
         f"--host-stats-detail={detail}",
     ]
-    fixture_metadata = case.app.parent / "fixture-metadata" / case.spec.stem
+    fixture_values = fixture_metadata(case)
     native_fixtures: dict[str, Path | None] = {}
-    if fixture_metadata.is_file():
-        for line in fixture_metadata.read_text(encoding="utf-8").splitlines():
-            key, separator, relative = line.partition("=")
-            if separator != "=" or key not in {"directory", "clipboard"} or not relative:
-                raise RuntimeError(f"invalid native fixture metadata in {fixture_metadata}")
+    for key in ("directory", "clipboard"):
+        if relative := fixture_values.get(key):
             if relative == "none":
                 native_fixtures[key] = None
                 continue
@@ -127,8 +137,8 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
     fixture = native_fixtures.get("directory", case.app.parent / "fixture")
     if fixture is not None and fixture.is_dir():
         command.extend(["--host-cap-dir", str(fixture)])
-    if (case.app.parent / "fixture_server.py").is_file():
-        command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
+    if origin := fixture_values.get("http-origin"):
+        command.extend(["--host-cap-http-origin", origin])
     process_fixture = case.app.parent / "process-fixture" / case.spec.stem
     if process_fixture.is_file():
         profile = process_fixture.read_text(encoding="utf-8").strip()
@@ -148,8 +158,8 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
             raise RuntimeError(f"invalid deterministic system monitor fixture in {system_fixture}")
         command.extend(["--host-cap-system-monitor-fixture", grant])
     app_data_fixture = case.app.parent / "app-data-fixture"
-    if case.app.parent.name == "redis-explorer":
-        command.extend(["--host-cap-tcp", "127.0.0.1:36379"])
+    if authority := fixture_values.get("tcp"):
+        command.extend(["--host-cap-tcp", authority])
     audio_fixture = case.app.parent / "audio-fixture"
     if audio_fixture.is_file():
         fixture_kind = audio_fixture.read_text(encoding="utf-8").strip()
@@ -232,20 +242,23 @@ def main() -> int:
         return 1
 
     fixture_processes: list[subprocess.Popen[bytes]] = []
-    fixture_scripts = {case.app.parent / "fixture_server.py" for case in cases}
-    fixture_scripts = {path for path in fixture_scripts if path.is_file()}
-    fixture_ports = {"http-workbench": 38191, "redis-explorer": 36379}
-    for script in sorted(fixture_scripts):
+    fixture_servers = set()
+    for case in cases:
+        values = fixture_metadata(case)
+        if script_name := values.get("server"):
+            port = values.get("server-port")
+            if port is None or not port.isdigit():
+                raise RuntimeError(f"fixture server port missing for {case.spec}")
+            fixture_servers.add((case.app.parent / script_name, int(port)))
+    for script, port in sorted(fixture_servers):
+        if not script.is_file():
+            raise RuntimeError(f"fixture server does not exist: {script}")
         fixture_process = subprocess.Popen(
             [sys.executable, str(script)], cwd=ROOT,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
         )
         fixture_processes.append(fixture_process)
         atexit.register(lambda process=fixture_process: process.poll() is None and process.terminate())
-        port = fixture_ports.get(script.parent.name)
-        if port is None:
-            print(f"error: no readiness port declared for {script.parent.name}", file=sys.stderr)
-            return 1
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             try:

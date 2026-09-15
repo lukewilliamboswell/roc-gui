@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 7;
+pub const SCHEMA_VERSION: u32 = 8;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -235,6 +235,7 @@ pub struct StepResult {
     pub audio_counters: Option<([u64; 9], [u64; 9])>,
     pub clipboard_counters: Option<([u64; 4], [u64; 4])>,
     pub sqlite_counters: Option<([u64; 3], [u64; 3])>,
+    pub http_counters: Option<([u64; 4], [u64; 4])>,
     pub expected_patch_kind: Option<String>,
     pub observed_patch_kind: Option<&'static str>,
     pub expected_staged_nodes: Option<u64>,
@@ -1014,6 +1015,7 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             let audio_counters = result.audio_counters;
             let clipboard_counters = result.clipboard_counters;
             let sqlite_counters = result.sqlite_counters;
+            let http_counters = result.http_counters;
             connection.execute(
             "INSERT INTO steps(run_id,ordinal,source_line,kind,role,status,duration_ns,expected_count,observed_count,expected_patch_kind,observed_patch_kind,expected_staged_nodes,observed_staged_nodes,expected_removed_nodes,observed_removed_nodes,diagnostic) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
             params![result.run_id, result.ordinal as i64, result.source_line as i64, result.kind, result.role, result.status, result.duration_ns.map(as_i64), result.expected_count.map(as_i64), result.observed_count.map(as_i64), result.expected_patch_kind, result.observed_patch_kind, result.expected_staged_nodes.map(as_i64), result.observed_staged_nodes.map(as_i64), result.expected_removed_nodes.map(as_i64), result.observed_removed_nodes.map(as_i64), result.diagnostic],
@@ -1035,6 +1037,12 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
                     "INSERT INTO database_counter_assertions(step_id,expected_live_connections,observed_live_connections,expected_open,observed_open,expected_query,observed_query) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8)",
                     params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2])],
                 ).map_err(|error| format!("cannot write SQLite counter assertion: {error}"))?;
+            }
+            if let Some((expected, observed)) = http_counters {
+                connection.execute(
+                    "INSERT INTO http_counter_assertions(step_id,expected_live_clients,observed_live_clients,expected_acquire,observed_acquire,expected_send,observed_send,expected_denied,observed_denied) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3])],
+                ).map_err(|error| format!("cannot write HTTP counter assertion: {error}"))?;
             }
             Ok(1)
         },
@@ -1261,6 +1269,13 @@ CREATE TABLE database_counter_assertions(
     expected_live_connections INTEGER NOT NULL, observed_live_connections INTEGER NOT NULL,
     expected_open INTEGER NOT NULL, observed_open INTEGER NOT NULL,
     expected_query INTEGER NOT NULL, observed_query INTEGER NOT NULL
+);
+CREATE TABLE http_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_clients INTEGER NOT NULL, observed_live_clients INTEGER NOT NULL,
+    expected_acquire INTEGER NOT NULL, observed_acquire INTEGER NOT NULL,
+    expected_send INTEGER NOT NULL, observed_send INTEGER NOT NULL
+    ,expected_denied INTEGER NOT NULL, observed_denied INTEGER NOT NULL
 );
 CREATE TABLE cycles(
     id INTEGER PRIMARY KEY,
@@ -1555,6 +1570,7 @@ mod tests {
             audio_counters: None,
             clipboard_counters: None,
             sqlite_counters: None,
+            http_counters: None,
             expected_patch_kind: Some("replace".into()),
             observed_patch_kind: Some("replace"),
             expected_staged_nodes: Some(7),
@@ -1754,6 +1770,7 @@ mod tests {
             audio_counters: None,
             clipboard_counters: None,
             sqlite_counters: None,
+            http_counters: None,
             expected_patch_kind: None,
             observed_patch_kind: None,
             expected_staged_nodes: None,

@@ -210,6 +210,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         let mut audio_counter_evidence = None;
         let mut clipboard_counter_evidence = None;
         let mut sqlite_counter_evidence = None;
+        let mut http_counter_evidence = None;
         let mut patch_evidence = None;
         let result = match &step.command {
             Command::MarkMetrics => {
@@ -707,6 +708,20 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectHttpCounters(expected) => {
+                let (operations, clients) = crate::http::counters();
+                let observed = [clients as u64, operations[0], operations[1], operations[2]];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                http_counter_evidence = Some((*expected, observed));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected HTTP counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
             Command::ExpectDeviceConnections(expected) => {
                 let active = crate::device::active_count();
                 let (_, connected, _, closed) = crate::device::counters();
@@ -1009,6 +1024,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             audio_counters: audio_counter_evidence,
             clipboard_counters: clipboard_counter_evidence,
             sqlite_counters: sqlite_counter_evidence,
+            http_counters: http_counter_evidence,
             expected_patch_kind: patch_evidence.as_ref().map(|value| value.0.clone()),
             observed_patch_kind: patch_evidence.as_ref().map(|value| value.1),
             expected_staged_nodes: patch_evidence.as_ref().map(|value| value.2),

@@ -40,6 +40,7 @@ pub enum Command {
     ExpectProcesses(usize),
     ExpectClipboardCounters([u64; 4]),
     ExpectSqliteCounters([u64; 3]),
+    ExpectHttpCounters([u64; 4]),
     ExpectDeviceConnections(usize),
     ExpectDeviceTransactions(usize),
     ExpectSystemSamplers(usize),
@@ -79,6 +80,7 @@ impl Command {
             Self::ExpectProcesses(_) => "expect-processes",
             Self::ExpectClipboardCounters(_) => "expect-clipboard-counters",
             Self::ExpectSqliteCounters(_) => "expect-sqlite-counters",
+            Self::ExpectHttpCounters(_) => "expect-http-counters",
             Self::ExpectDeviceConnections(_) => "expect-device-connections",
             Self::ExpectDeviceTransactions(_) => "expect-device-transactions",
             Self::ExpectSystemSamplers(_) => "expect-system-samplers",
@@ -517,6 +519,17 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectSqliteCounters(expected)
         }
+        "expect-http-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "HTTP counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "HTTP counters must be non-negative integers"))?;
+            }
+            Command::ExpectHttpCounters(expected)
+        }
         "expect-device-connections" if values.len() == 2 => Command::ExpectDeviceConnections(
             values[1]
                 .atom()
@@ -690,6 +703,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-processes"
         | "expect-clipboard-counters"
         | "expect-sqlite-counters"
+        | "expect-http-counters"
         | "expect-device-connections"
         | "expect-device-transactions"
         | "expect-system-samplers"
