@@ -446,3 +446,31 @@ names the evidence so a fix can be verified against the same case.
   list/list-item element whose Up, Down, Home, and End behavior, selected state,
   scroll-into-view behavior, scaling case, and operating-system accessibility
   mapping all use the production event path.
+
+- [ ] **Redis Explorer serializes nothing on its single stream.** Scan, inspect,
+  and disconnect each borrow the same `pf.Tcp` stream and run on the worker
+  pool, so two overlapping requests interleave their RESP frames on the wire.
+  Pressing Refresh keys twice before the first scan completes ends in
+  "Redis could not scan that key pattern" rather than the newest keyspace: the
+  generation guard suppresses the stale completion correctly, but the newest
+  request has already been corrupted. A superseded request must either be
+  queued behind the stream or cancelled before the next one writes, which is a
+  transport ownership decision rather than an application state fix. Until it
+  is closed there is no specification for superseding a scan or an inspection.
+
+- [ ] **Two concurrent worker completions have no ordered wait.** `await-task`
+  applies one accepted completion, but when an application has two identical
+  requests in flight the order they land in is not deterministic. Image
+  Library's superseded folder scan is only observable while the older
+  completion is being suppressed, so the claim cannot be asserted: a
+  specification that checks the gallery is still empty after the first
+  `await-task` passes or fails depending on which scan finished first.
+  Suppression there is therefore covered only by the final state and the file
+  counters, which are identical with and without the guard. An ordered or
+  request-selective wait step would close it.
+- [ ] **Device Configurator has two unreachable status messages.** `disconnect`
+  answers "No device is connected" and `apply` answers "Connect a device
+  first", but the controls that would produce those presses are disabled in
+  exactly those states, so neither string can ever be shown. Either the
+  controls should stay enabled and explain themselves, or the branches should
+  go.
