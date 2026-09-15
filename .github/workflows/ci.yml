@@ -75,9 +75,10 @@ jobs:
         run: |
           roc build --no-cache --target=x64mingw --opt=dev --output="$RUNNER_TEMP/counter.exe" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter.exe"
-      # Screenshots stay unavailable here: hosted runners do not grant Screen
-      # Recording. Every behavioural window assertion still gates.
+      # Screenshots stay unavailable on macOS: hosted runners do not grant Screen
+      # Recording. Every behavioural window assertion still gates. Windows
+      # captures through PrintWindow and needs no permission.
       - name: Window specifications
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' || runner.os == 'Windows'
         shell: bash
         run: python3 scripts/run_specs.py --only window --allow-missing-shots

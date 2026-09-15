@@ -11,6 +11,7 @@
 //! pass and never as a zero-byte file.
 
 use std::path::Path;
+#[cfg(not(windows))]
 use std::process::Command;
 
 /// A rectangle in screen coordinates, points, ready for a capture tool.
@@ -24,6 +25,8 @@ pub struct Geometry {
 
 /// Why a capture produced no image.
 #[derive(Debug)]
+// Windows renders the image in-process, so no tool can be missing or lie.
+#[cfg_attr(windows, allow(dead_code))]
 pub enum ShotError {
     UnsupportedPlatform,
     DegenerateRegion,
@@ -52,7 +55,7 @@ impl ShotError {
     pub fn hint(&self) -> String {
         match self {
             Self::UnsupportedPlatform => {
-                "screenshots are available on macOS, and on Linux under a wlroots compositor with grim"
+                "screenshots are available on macOS, Windows, and on Linux under a wlroots compositor with grim"
                     .to_owned()
             }
             Self::DegenerateRegion => {
@@ -81,6 +84,7 @@ impl ShotError {
 }
 
 /// The PNG magic number, used to reject a denied capture that still wrote a file.
+#[cfg(not(windows))]
 const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
 
 /// Convert a window-relative region into a screen rectangle for the capture tool.
@@ -129,6 +133,7 @@ pub fn screen_rect(
 }
 
 /// The capture tool for this platform, if there is one.
+#[cfg(not(windows))]
 fn tool(geometry: Geometry, destination: &Path) -> Option<(&'static str, Vec<String>)> {
     let Geometry {
         x,
@@ -162,7 +167,142 @@ fn tool(geometry: Geometry, destination: &Path) -> Option<(&'static str, Vec<Str
     }
 }
 
+/// Capture a region of a window's client area into `destination` on Windows.
+///
+/// Windows ships no capture tool, so the host asks the window to render itself
+/// with `PrintWindow`. `PW_RENDERFULLCONTENT` includes DirectX content, and the
+/// capture works even while another window covers this one. `client` is in
+/// points relative to the client area; the bitmap is in device pixels.
+#[cfg(windows)]
+pub fn capture_window(
+    hwnd: isize,
+    scale: f32,
+    client: Geometry,
+    destination: &Path,
+) -> Result<u64, ShotError> {
+    use windows_sys::Win32::{
+        Foundation::{HWND, RECT},
+        Graphics::Gdi::{
+            BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleBitmap, CreateCompatibleDC,
+            DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, GetDIBits, ReleaseDC, SelectObject,
+        },
+        Storage::Xps::{PW_CLIENTONLY, PrintWindow},
+        UI::WindowsAndMessaging::GetClientRect,
+    };
+    /// Not yet named by `windows-sys`: render DirectComposition content too.
+    const PW_RENDERFULLCONTENT: u32 = 0x2;
+    const TOOL: &str = "PrintWindow";
+
+    if client.width == 0 || client.height == 0 {
+        return Err(ShotError::DegenerateRegion);
+    }
+    let failed = |detail: &str| ShotError::ToolFailed {
+        tool: TOOL,
+        status: None,
+        detail: format!("{detail}: {}", std::io::Error::last_os_error()),
+    };
+    let hwnd = hwnd as HWND;
+    let mut rect = RECT {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+    };
+    if unsafe { GetClientRect(hwnd, &mut rect) } == 0 {
+        return Err(failed("GetClientRect"));
+    }
+    let (width, height) = (rect.right - rect.left, rect.bottom - rect.top);
+    if width <= 0 || height <= 0 {
+        return Err(ShotError::DegenerateRegion);
+    }
+
+    let pixels = unsafe {
+        let window_dc = GetDC(hwnd);
+        let memory_dc = CreateCompatibleDC(window_dc);
+        let bitmap = CreateCompatibleBitmap(window_dc, width, height);
+        let previous = SelectObject(memory_dc, bitmap);
+        let printed = PrintWindow(hwnd, memory_dc, PW_CLIENTONLY | PW_RENDERFULLCONTENT) != 0;
+        SelectObject(memory_dc, previous);
+        let mut info: BITMAPINFO = std::mem::zeroed();
+        info.bmiHeader = BITMAPINFOHEADER {
+            biSize: size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: width,
+            // Negative height asks for top-down rows.
+            biHeight: -height,
+            biPlanes: 1,
+            biBitCount: 32,
+            biCompression: BI_RGB,
+            ..std::mem::zeroed()
+        };
+        let mut pixels = vec![0u8; width as usize * height as usize * 4];
+        let rows = if printed {
+            GetDIBits(
+                memory_dc,
+                bitmap,
+                0,
+                height as u32,
+                pixels.as_mut_ptr().cast(),
+                &mut info,
+                DIB_RGB_COLORS,
+            )
+        } else {
+            0
+        };
+        let error = std::io::Error::last_os_error();
+        DeleteObject(bitmap);
+        DeleteDC(memory_dc);
+        ReleaseDC(hwnd, window_dc);
+        if !printed || rows != height {
+            return Err(ShotError::ToolFailed {
+                tool: TOOL,
+                status: None,
+                detail: format!(
+                    "{}: {error}",
+                    if printed { "GetDIBits" } else { "PrintWindow" }
+                ),
+            });
+        }
+        pixels
+    };
+
+    // Points to device pixels, rounding outward and clamping to the client area.
+    let left = ((client.x as f32 * scale).floor() as i32).clamp(0, width);
+    let top = ((client.y as f32 * scale).floor() as i32).clamp(0, height);
+    let right = (((client.x as f32 + client.width as f32) * scale).ceil() as i32).clamp(0, width);
+    let bottom =
+        (((client.y as f32 + client.height as f32) * scale).ceil() as i32).clamp(0, height);
+    if right <= left || bottom <= top {
+        return Err(ShotError::DegenerateRegion);
+    }
+    let mut image = image::RgbaImage::new((right - left) as u32, (bottom - top) as u32);
+    for (x, y, pixel) in image.enumerate_pixels_mut() {
+        let at = ((top as usize + y as usize) * width as usize + left as usize + x as usize) * 4;
+        // GDI rows are BGRA and leave alpha undefined.
+        *pixel = image::Rgba([pixels[at + 2], pixels[at + 1], pixels[at], 255]);
+    }
+
+    if let Some(parent) = destination.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    image
+        .save_with_format(destination, image::ImageFormat::Png)
+        .map_err(|error| ShotError::ToolFailed {
+            tool: TOOL,
+            status: None,
+            detail: error.to_string(),
+        })?;
+    let bytes = std::fs::metadata(destination)
+        .map_err(|error| ShotError::ToolFailed {
+            tool: TOOL,
+            status: None,
+            detail: error.to_string(),
+        })?
+        .len();
+    Ok(bytes)
+}
+
 /// Capture `geometry` into `destination`.
+#[cfg(not(windows))]
 pub fn capture(geometry: Geometry, destination: &Path) -> Result<u64, ShotError> {
     if geometry.width == 0 || geometry.height == 0 {
         return Err(ShotError::DegenerateRegion);
@@ -298,6 +438,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn a_degenerate_capture_is_refused_before_shelling_out() {
         let error = capture(
             Geometry {
@@ -319,6 +460,10 @@ mod tests {
             status: Some(1),
             detail: String::new(),
         };
-        assert!(error.hint().contains("Screen Recording"), "{}", error.hint());
+        assert!(
+            error.hint().contains("Screen Recording"),
+            "{}",
+            error.hint()
+        );
     }
 }

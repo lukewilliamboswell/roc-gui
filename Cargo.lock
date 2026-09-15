@@ -4868,6 +4868,7 @@ dependencies = [
  "hidapi",
  "image",
  "libc",
+ "raw-window-handle",
  "rodio",
  "rusqlite",
  "sha2 0.10.9",
