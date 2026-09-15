@@ -4,6 +4,7 @@
 
 mod app_data;
 mod bridge;
+mod clipboard;
 mod files;
 mod http;
 mod input;
@@ -173,6 +174,7 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     files::route_dealloc(pointer);
     sqlite::route_dealloc(pointer);
     app_data::route_dealloc(pointer);
+    clipboard::route_dealloc(pointer);
     timers::route_dealloc(pointer);
     http::route_dealloc(pointer);
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
@@ -1436,6 +1438,26 @@ impl Runtime {
             }
         })
         .detach();
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |_, cx| {
+            loop {
+                executor.timer(std::time::Duration::from_millis(100)).await;
+                if cx
+                    .update(|cx| {
+                        clipboard::observe_system(
+                            cx.read_from_clipboard().and_then(|item| item.text()),
+                        );
+                        if let Some(text) = clipboard::take_system_write() {
+                            cx.write_to_clipboard(ClipboardItem::new_string(text));
+                        }
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+        .detach();
         runtime
     }
 
@@ -1999,6 +2021,8 @@ struct HostArgs {
     cap_dir: Option<PathBuf>,
     cap_http_origin: Option<String>,
     cap_app_data: Option<PathBuf>,
+    cap_clipboard_system: bool,
+    cap_clipboard_fixture: Option<PathBuf>,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2023,6 +2047,8 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_dir: None,
         cap_http_origin: None,
         cap_app_data: None,
+        cap_clipboard_system: false,
+        cap_clipboard_fixture: None,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2065,6 +2091,10 @@ fn parse_host_args() -> Result<HostArgs, String> {
             );
         } else if let Some(path) = argument.strip_prefix("--host-cap-app-data=") {
             parsed.cap_app_data = Some(path.into());
+        } else if argument == "--host-cap-clipboard" {
+            parsed.cap_clipboard_system = true;
+        } else if let Some(path) = argument.strip_prefix("--host-cap-clipboard-fixture=") {
+            parsed.cap_clipboard_fixture = Some(path.into());
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -2108,7 +2138,8 @@ fn print_host_help(app_name: &str) {
            --host-help                         Show this help and exit\n\
            --host-cap-dir PATH                 Grant read access to one directory\n\
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
-           --host-cap-app-data PATH         Grant private application-data storage\n\
+           --host-cap-app-data PATH            Grant private application-data storage\n\
+           --host-cap-clipboard                Grant system text clipboard access\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2226,6 +2257,14 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     }
     if let Err(message) = app_data::configure(args.cap_app_data.as_deref()) {
         eprintln!("roc-gui application-data capability error: {message}");
+        set_roc_host(core::ptr::null_mut());
+        return 2;
+    }
+    if let Err(message) = clipboard::configure(
+        args.cap_clipboard_system,
+        args.cap_clipboard_fixture.as_deref(),
+    ) {
+        eprintln!("roc-gui clipboard capability error: {message}");
         set_roc_host(core::ptr::null_mut());
         return 2;
     }

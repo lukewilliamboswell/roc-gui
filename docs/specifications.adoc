@@ -116,6 +116,11 @@ value and deliver `Event.TextChange` through the normal Roc event route. A
 disabled input consumes no edit and dispatches nothing.
 `(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
 `Event.TextSubmit` through the normal Roc event route.
+`(clipboard-text "value")`:: Change the clipboard source granted to a semantic
+fixture. This command is rejected without an explicit fixture grant. The next
+application timer pull observes it through the production capability and host
+read route; the value is neither copied into capture evidence nor emitted as a
+diagnostic.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.

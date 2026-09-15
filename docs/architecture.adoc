@@ -211,6 +211,11 @@ the granted application root, bounds values, and commits each atomic write by
 synchronizing a private temporary file before an in-root rename. Application
 request identities decide whether a completion is still current on the UI
 thread.
+Clipboard observation follows the same capability and task boundary. GPUI's UI
+context owns operating-system reads and writes; the host publishes only the
+latest bounded text and a monotonic sequence to capability-checked worker
+calls. The application timer supplies backpressure and cancellation. Neither
+the shared snapshot nor clipboard values are observatory fields.
 The host applies explicit scheme, timeout, redirect, header, request-body, and
 response-body limits before returning an owned reducer to the UI thread. It
 buffers one bounded byte response rather than exposing a streaming callback.

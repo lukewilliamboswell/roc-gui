@@ -9,4 +9,5 @@ Resource := [].{
 	Timer : Handle([TimerResource])
 	SqliteRead : Handle([SqliteReadResource])
 	HttpClient : Handle([HttpClientResource])
+	Clipboard : Handle([ClipboardResource])
 }

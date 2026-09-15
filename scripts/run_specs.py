@@ -116,6 +116,7 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
     if (case.app.parent / "fixture_server.py").is_file():
         command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
     app_data_fixture = case.app.parent / "app-data-fixture"
+    clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
     with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
         storage = Path(temporary)
         if app_data_fixture.is_dir():
@@ -130,6 +131,8 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
             )
             shutil.copytree(source, storage, dirs_exist_ok=True)
             command.extend(["--host-cap-app-data", str(storage)])
+        if clipboard_fixture.is_dir():
+            command.append(f"--host-cap-clipboard-fixture={clipboard_fixture}")
         try:
             completed = subprocess.run(
                 command,

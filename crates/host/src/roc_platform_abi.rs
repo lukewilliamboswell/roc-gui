@@ -1714,6 +1714,33 @@ const _: () = assert!(core::mem::size_of::<AnonStructBff7bc5a4faa26ae>() == 48, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructBff7bc5a4faa26ae>() == 8, "AnonStructBff7bc5a4faa26ae alignment mismatch");
 
+/// Element type for __AnonStruct_2a44a28a63f85620
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct2a44a28a63f85620 {
+    pub sequence: u64,
+    pub text: RocStr,
+}
+
+/// Element type for __AnonStruct_2a44a28a63f85620
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct2a44a28a63f85620 {
+    pub sequence: u64,
+    pub text: RocStr,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct2a44a28a63f85620>() == 32, "AnonStruct2a44a28a63f85620 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct2a44a28a63f85620>() == 8, "AnonStruct2a44a28a63f85620 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct2a44a28a63f85620>() == 24, "AnonStruct2a44a28a63f85620 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct2a44a28a63f85620>() == 8, "AnonStruct2a44a28a63f85620 alignment mismatch");
+
 /// Element type for __AnonStruct_8ae3ad5a5c0e22dc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -3156,6 +3183,351 @@ const _: () = assert!(core::mem::size_of::<HostGlueSqliteQueryResult>() == 28, "
 const _: () = assert!(core::mem::align_of::<HostGlueSqliteQueryResult>() == 4, "HostGlueSqliteQueryResult alignment mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueSqliteQueryResult, tag) == 24, "HostGlueSqliteQueryResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueClipboardAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueClipboardAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardAcquireResult {
+    pub _payload_alignment: [HostGlueClipboardAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueClipboardAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardAcquireResult {
+    pub payload: HostGlueClipboardAcquireResultPayload,
+    pub tag: HostGlueClipboardAcquireResultTag,
+}
+
+impl HostGlueClipboardAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardAcquireResult>() == 40, "HostGlueClipboardAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardAcquireResult>() == 8, "HostGlueClipboardAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardAcquireResult, tag) == 32, "HostGlueClipboardAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardAcquireResult>() == 20, "HostGlueClipboardAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardAcquireResult>() == 4, "HostGlueClipboardAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardAcquireResult, tag) == 16, "HostGlueClipboardAcquireResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueClipboardReadTextResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueClipboardReadTextResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct2a44a28a63f85620>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextResult {
+    pub _payload_alignment: [HostGlueClipboardReadTextResultPayloadAlignment; 0],
+    pub payload: [u8; 24],
+    pub tag: HostGlueClipboardReadTextResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextResult {
+    pub payload: HostGlueClipboardReadTextResultPayload,
+    pub tag: HostGlueClipboardReadTextResultTag,
+}
+
+impl HostGlueClipboardReadTextResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct2a44a28a63f85620 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct2a44a28a63f85620) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct2a44a28a63f85620 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct2a44a28a63f85620> as *const AnonStruct2a44a28a63f85620) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct2a44a28a63f85620 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct2a44a28a63f85620) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct2a44a28a63f85620 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardReadTextResult>() == 40, "HostGlueClipboardReadTextResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardReadTextResult>() == 8, "HostGlueClipboardReadTextResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardReadTextResult, tag) == 32, "HostGlueClipboardReadTextResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardReadTextResult>() == 32, "HostGlueClipboardReadTextResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardReadTextResult>() == 8, "HostGlueClipboardReadTextResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardReadTextResult, tag) == 24, "HostGlueClipboardReadTextResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueClipboardWriteTextResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueClipboardWriteTextResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextResult {
+    pub _payload_alignment: [HostGlueClipboardWriteTextResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueClipboardWriteTextResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextResult {
+    pub payload: HostGlueClipboardWriteTextResultPayload,
+    pub tag: HostGlueClipboardWriteTextResultTag,
+}
+
+impl HostGlueClipboardWriteTextResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardWriteTextResult>() == 40, "HostGlueClipboardWriteTextResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardWriteTextResult>() == 8, "HostGlueClipboardWriteTextResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardWriteTextResult, tag) == 32, "HostGlueClipboardWriteTextResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardWriteTextResult>() == 20, "HostGlueClipboardWriteTextResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardWriteTextResult>() == 4, "HostGlueClipboardWriteTextResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardWriteTextResult, tag) == 16, "HostGlueClipboardWriteTextResult tag offset mismatch");
 
 /// Tag discriminant for MountOrNoChangeOrReplace.
 #[repr(u8)]
@@ -5013,6 +5385,25 @@ pub struct InternalFilesWriteUtf8AtomicArgs {
     pub arg2: RocStr,
 }
 
+/// Arguments for HostGlue.clipboard_read_text!
+/// Roc signature: Resource.Handle([ClipboardResource]) => Try({ sequence : U64, text : Str }, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.clipboard_write_text!
+/// Roc signature: Resource.Handle([ClipboardResource]), Str => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocStr,
+}
+
 /// Arguments for HostGlue.apply!
 /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
 /// Refcounted fields are owned by the hosted function.
@@ -5238,6 +5629,10 @@ pub type InternalFilesAppDataErr = AnonStruct4c605145331877e7;
 pub type InternalFilesReadUtf8Err = AnonStruct4c605145331877e7;
 pub type InternalFilesReadUtf8Ok = AnonStructA2f37e1d5ed0e4cd;
 pub type InternalFilesWriteUtf8AtomicErr = AnonStruct4c605145331877e7;
+pub type HostGlueClipboardAcquireErr = AnonStruct4c605145331877e7;
+pub type HostGlueClipboardReadTextErr = AnonStruct4c605145331877e7;
+pub type HostGlueClipboardReadTextOk = AnonStruct2a44a28a63f85620;
+pub type HostGlueClipboardWriteTextErr = AnonStruct4c605145331877e7;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
 pub type HostGlueHttpSendArg0 = AnonStructE6f574a7975f5cda;
@@ -6240,6 +6635,176 @@ unsafe impl RocRelease<AnonStructBff7bc5a4faa26ae> for AnonStructBff7bc5a4faa26a
     }
 }
 
+impl HostGlueClipboardAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueClipboardAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueClipboardAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueClipboardAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueClipboardAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueClipboardAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueClipboardAcquireResult> for HostGlueClipboardAcquireResultRelease {
+    unsafe fn release(value: HostGlueClipboardAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueClipboardReadTextResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueClipboardReadTextResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueClipboardReadTextResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueClipboardReadTextResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueClipboardReadTextResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueClipboardReadTextResultRelease;
+
+unsafe impl RocRelease<HostGlueClipboardReadTextResult> for HostGlueClipboardReadTextResultRelease {
+    unsafe fn release(value: HostGlueClipboardReadTextResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct2a44a28a63f85620 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.text.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.text.incref(amount); }
+    }
+}
+
+pub struct AnonStruct2a44a28a63f85620Release;
+
+unsafe impl RocRelease<AnonStruct2a44a28a63f85620> for AnonStruct2a44a28a63f85620Release {
+    unsafe fn release(value: AnonStruct2a44a28a63f85620, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueClipboardWriteTextResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueClipboardWriteTextResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueClipboardWriteTextResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueClipboardWriteTextResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueClipboardWriteTextResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueClipboardWriteTextResultRelease;
+
+unsafe impl RocRelease<HostGlueClipboardWriteTextResult> for HostGlueClipboardWriteTextResultRelease {
+    unsafe fn release(value: HostGlueClipboardWriteTextResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl MountOrNoChangeOrReplace {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -7004,6 +7569,28 @@ unsafe extern "C" {
     ///     unsafe { arg2.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_files_dir_write_utf8_atomic(arg0: *mut u64, arg1: RocStr, arg2: RocStr) -> InternalFilesWriteUtf8AtomicResult;
+
+    /// Hosted symbol for HostGlue.clipboard_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([ClipboardResource]), { code : U8, message : Str })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_clipboard_acquire() -> HostGlueClipboardAcquireResult;
+
+    /// Hosted symbol for HostGlue.clipboard_read_text!
+    /// Roc signature: Resource.Handle([ClipboardResource]) => Try({ sequence : U64, text : Str }, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_clipboard_read_text(arg0: *mut u64) -> HostGlueClipboardReadTextResult;
+
+    /// Hosted symbol for HostGlue.clipboard_write_text!
+    /// Roc signature: Resource.Handle([ClipboardResource]), Str => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_clipboard_write_text(arg0: *mut u64, arg1: RocStr) -> HostGlueClipboardWriteTextResult;
 
     /// Hosted symbol for HostGlue.apply!
     /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}

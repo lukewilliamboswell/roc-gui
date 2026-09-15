@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite]
+	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -30,6 +30,9 @@ platform ""
 		"roc_files_app_data": InternalFiles.app_data!,
 		"roc_files_dir_read_utf8": InternalFiles.read_utf8!,
 		"roc_files_dir_write_utf8_atomic": InternalFiles.write_utf8_atomic!,
+		"roc_clipboard_acquire": Host.clipboard_acquire!,
+		"roc_clipboard_read_text": Host.clipboard_read_text!,
+		"roc_clipboard_write_text": Host.clipboard_write_text!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,
@@ -62,6 +65,7 @@ import Timer
 import Http
 import Sqlite
 import InternalFiles
+import Clipboard
 import Host
 
 gui_init! : () => {}

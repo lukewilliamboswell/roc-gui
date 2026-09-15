@@ -499,6 +499,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 cycle_ordinal += 1;
                 Ok(())
             }
+            Command::ClipboardText(text) => crate::clipboard::inject_fixture(text.clone())
+                .map_err(|message| format!("line {}: {message}", step.line)),
             Command::AwaitTicks(count) => {
                 if *count == 0 {
                     return Err(format!(

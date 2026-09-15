@@ -32,6 +32,7 @@ pub enum Command {
     Focus(Locator),
     PressKey(ControlKey),
     AwaitTask,
+    ClipboardText(String),
     AwaitTicks(u32),
     ExpectSubscriptions(usize),
     Submit(Locator),
@@ -55,6 +56,7 @@ impl Command {
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
+            Self::ClipboardText(_) => "clipboard-text",
             Self::AwaitTicks(_) => "await-ticks",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
             Self::Submit(_) => "submit",
@@ -79,6 +81,7 @@ impl Command {
                 | Self::Focus(_)
                 | Self::PressKey(_)
                 | Self::AwaitTask
+                | Self::ClipboardText(_)
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
         )
@@ -378,6 +381,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "await-task" if values.len() == 1 => Command::AwaitTask,
+        "clipboard-text" if values.len() == 2 => Command::ClipboardText(
+            values[1]
+                .string()
+                .ok_or_else(|| error(&values[1], "clipboard-text requires a string"))?
+                .to_owned(),
+        ),
         "await-ticks" if values.len() == 2 => Command::AwaitTicks(
             values[1]
                 .atom()
@@ -483,6 +492,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "focus"
         | "press-key"
         | "await-task"
+        | "clipboard-text"
         | "await-ticks"
         | "expect-subscriptions"
         | "expect-visible"
@@ -822,6 +832,19 @@ fn utf8_width(first: u8) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_clipboard_fixture_changes_without_exposing_an_ambient_source() {
+        let spec = parse(
+            r#"(test "clipboard"
+                (steps (clipboard-text "comparison value") (await-ticks 1)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ClipboardText("comparison value".into())
+        );
+    }
 
     #[test]
     fn parses_semantic_test_and_comments() {

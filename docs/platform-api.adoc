@@ -234,6 +234,25 @@ Run these blocking operations inside `Action.task`, with a monotonic request
 identity when an edit can supersede pending work. The Settings Center uses this
 route and retains a newer draft when an older load completes.
 
+== Clipboard capabilities
+
+`Clipboard.acquire!({})` acquires text clipboard authority only when the host
+was launched with `--host-cap-clipboard`. Its opaque `Clipboard.Handle` uses
+the common typed `Box(U64)` representation and cannot be manufactured or
+confused with another resource family.
+
+`Clipboard.read_text!(handle)` returns a bounded UTF-8 snapshot with a
+monotonic sequence. Applications compare sequences to suppress stale reads and
+deduplicate repeated content. `Clipboard.write_text!(handle, text)` schedules
+replacement on GPUI's owning UI context. Both directions reject values larger
+than 64 KiB. `Clipboard.ClipboardErr` identifies acquisition, reading, and
+writing with distinct operation tags carrying a portable reason.
+
+Observe changes with one pull-based `Timer` subscription inside `Action.task`.
+Pause by cancelling that timer; sensitive values are discarded before they
+enter state. Clipboard content is application data and never enters host
+diagnostics or observatory captures.
+
 == HTTP requests
 
 Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
