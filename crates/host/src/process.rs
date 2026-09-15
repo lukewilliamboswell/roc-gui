@@ -10,7 +10,12 @@ use std::{
 
 const MAX_ACTIVE: usize = 64;
 const MAX_IO_BYTES: usize = 65_536;
+/// A Windows pseudo console paints output on its own frame timer, so a quiet
+/// gap between its frames is longer than a POSIX terminal's between writes.
+#[cfg(not(windows))]
 const READ_IDLE_MS: u64 = 20;
+#[cfg(windows)]
+const READ_IDLE_MS: u64 = 60;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GrantedProfile {
@@ -243,7 +248,7 @@ pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostGlue
         }
         match pty.terminal.wait_readable(READ_IDLE_MS) {
             Err(_) => return read_err(Reason::Io),
-            Ok(false) if collected.is_empty() => continue,
+            Ok(false) if !pty.terminal.worth_delivering(&collected) => continue,
             Ok(false) => return data(&collected),
             Ok(true) => {}
         }
@@ -544,6 +549,10 @@ mod sys {
             } else {
                 Ok(polled > 0)
             }
+        }
+
+        pub fn worth_delivering(&self, collected: &[u8]) -> bool {
+            !collected.is_empty()
         }
 
         /// Linux reports a hung-up master as `EIO` rather than end of file.
@@ -981,6 +990,14 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
             }
         }
 
+        /// The console repaints on its own after input or a resize, so a quiet
+        /// gap can follow control output (cursor visibility, erase) that
+        /// carries none of the program's text. That output is held until text
+        /// arrives, end of output, or the read fills, and nothing is dropped.
+        pub fn worth_delivering(&self, collected: &[u8]) -> bool {
+            contains_text(collected)
+        }
+
         pub fn read(&self, bytes: &mut [u8]) -> io::Result<usize> {
             let Some(available) = self.available()? else {
                 return Ok(0);
@@ -1052,7 +1069,8 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
                     if count == 0 {
                         break;
                     }
-                    seen.extend_from_slice(&bytes[..count]);                    if String::from_utf8_lossy(&seen).contains(needle) {
+                    seen.extend_from_slice(&bytes[..count]);
+                    if String::from_utf8_lossy(&seen).contains(needle) {
                         break;
                     }
                 }
