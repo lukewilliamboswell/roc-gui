@@ -1,6 +1,6 @@
 (test "scrollback search filters terminal output"
   (steps
-    (click (role button :name "Start test terminal"))
+    (click (role button :name "New terminal"))
     (await-task)
     (await-task)
     (replace-text (role textbox :name "Terminal command") "alpha")

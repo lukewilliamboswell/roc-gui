@@ -118,6 +118,20 @@ fn valid_size(columns: u16, rows: u16) -> bool {
     (1..=4096).contains(&columns) && (1..=4096).contains(&rows)
 }
 
+fn resize_fd(fd: std::os::fd::RawFd, columns: u16, rows: u16) -> std::io::Result<()> {
+    let size = libc::winsize {
+        ws_row: rows,
+        ws_col: columns,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    if unsafe { libc::ioctl(fd, libc::TIOCSWINSZ, &size) } == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
 fn grant_profile(handle: *mut u64) -> Option<GrantedProfile> {
     let id = unsafe { handle.as_ref().copied()? };
     store().lock().ok()?.grants.get(&id).copied()
@@ -217,18 +231,12 @@ fn open_pty(columns: u16, rows: u16, profile: GrantedProfile) -> std::io::Result
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_process_spawn(
     grant: *mut u64,
-    config: AnonStructD5ea40ae766362a5,
+    config: AnonStruct93136bf334c2a2fc,
 ) -> HostGlueProcessSpawnResult {
     let granted = grant_profile(grant);
     unsafe { decref_box(grant as RocBox, roc_host()) };
-    let requested = match config.profile {
-        LocalShellOrTestProgram::LocalShell => GrantedProfile::LocalShell,
-        LocalShellOrTestProgram::TestProgram => GrantedProfile::TestProgram,
-    };
     let failure = if granted.is_none() {
         Some(Reason::InvalidCapability)
-    } else if granted != Some(requested) {
-        Some(Reason::AccessDenied)
     } else if !valid_size(config.columns, config.rows) {
         Some(Reason::InvalidSize)
     } else if active_count() >= MAX_ACTIVE {
@@ -237,7 +245,12 @@ pub extern "C" fn roc_process_spawn(
         None
     };
     let result = failure.map(Err).unwrap_or_else(|| {
-        open_pty(config.columns, config.rows, requested).map_err(|_| Reason::Io)
+        open_pty(
+            config.columns,
+            config.rows,
+            granted.expect("validated process grant"),
+        )
+        .map_err(|_| Reason::Io)
     });
     match result {
         Err(reason) => HostGlueProcessSpawnResult {
@@ -437,26 +450,12 @@ pub extern "C" fn roc_process_resize(
         None => Err(Reason::InvalidCapability),
         Some(_) if !valid_size(size.columns, size.rows) => Err(Reason::InvalidSize),
         Some(pty) if pty.canceled.load(Ordering::Acquire) => Err(Reason::Exited),
-        Some(pty) => {
-            let ws = libc::winsize {
-                ws_row: size.rows,
-                ws_col: size.columns,
-                ws_xpixel: 0,
-                ws_ypixel: 0,
-            };
-            if unsafe {
-                libc::ioctl(
-                    pty.master.lock().expect("pty master poisoned").as_raw_fd(),
-                    libc::TIOCSWINSZ,
-                    &ws,
-                )
-            } == 0
-            {
-                Ok(())
-            } else {
-                Err(Reason::Io)
-            }
-        }
+        Some(pty) => resize_fd(
+            pty.master.lock().expect("pty master poisoned").as_raw_fd(),
+            size.columns,
+            size.rows,
+        )
+        .map_err(|_| Reason::Io),
     };
     match result {
         Ok(()) => HostGlueProcessResizeResult {
@@ -573,6 +572,36 @@ mod tests {
         assert!(!valid_size(0, 24));
         assert!(!valid_size(80, 0));
         assert!(!valid_size(4097, 24));
+    }
+
+    #[test]
+    fn resize_updates_the_kernel_pty_size() {
+        let mut master = -1;
+        let mut slave = -1;
+        assert_eq!(
+            unsafe {
+                libc::openpty(
+                    &mut master,
+                    &mut slave,
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            },
+            0
+        );
+        resize_fd(master, 132, 43).unwrap();
+        let mut observed = std::mem::MaybeUninit::<libc::winsize>::zeroed();
+        assert_eq!(
+            unsafe { libc::ioctl(master, libc::TIOCGWINSZ, observed.as_mut_ptr()) },
+            0
+        );
+        let observed = unsafe { observed.assume_init() };
+        assert_eq!((observed.ws_col, observed.ws_row), (132, 43));
+        unsafe {
+            libc::close(master);
+            libc::close(slave);
+        }
     }
 
     #[test]

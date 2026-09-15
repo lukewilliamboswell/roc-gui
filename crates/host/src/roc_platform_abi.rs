@@ -1741,35 +1741,6 @@ const _: () = assert!(core::mem::size_of::<AnonStruct2a44a28a63f85620>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct2a44a28a63f85620>() == 8, "AnonStruct2a44a28a63f85620 alignment mismatch");
 
-/// Element type for __AnonStruct_d5ea40ae766362a5
-#[cfg(target_pointer_width = "32")]
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct AnonStructD5ea40ae766362a5 {
-    pub columns: u16,
-    pub rows: u16,
-    pub profile: LocalShellOrTestProgram,
-}
-
-/// Element type for __AnonStruct_d5ea40ae766362a5
-#[cfg(not(target_pointer_width = "32"))]
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct AnonStructD5ea40ae766362a5 {
-    pub columns: u16,
-    pub rows: u16,
-    pub profile: LocalShellOrTestProgram,
-}
-
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructD5ea40ae766362a5>() == 6, "AnonStructD5ea40ae766362a5 size mismatch");
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructD5ea40ae766362a5>() == 2, "AnonStructD5ea40ae766362a5 alignment mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructD5ea40ae766362a5>() == 6, "AnonStructD5ea40ae766362a5 size mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructD5ea40ae766362a5>() == 2, "AnonStructD5ea40ae766362a5 alignment mismatch");
-
 /// Element type for __AnonStruct_93136bf334c2a2fc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -4486,23 +4457,6 @@ const _: () = assert!(core::mem::align_of::<HostGlueProcessSpawnResult>() == 4, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueProcessSpawnResult, tag) == 4, "HostGlueProcessSpawnResult tag offset mismatch");
 
-/// Tag union: LocalShellOrTestProgram
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LocalShellOrTestProgram {
-    LocalShell = 0,
-    TestProgram = 1,
-}
-
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<LocalShellOrTestProgram>() == 1, "LocalShellOrTestProgram size mismatch");
-#[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<LocalShellOrTestProgram>() == 1, "LocalShellOrTestProgram alignment mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<LocalShellOrTestProgram>() == 1, "LocalShellOrTestProgram size mismatch");
-#[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<LocalShellOrTestProgram>() == 1, "LocalShellOrTestProgram alignment mismatch");
-
 /// Tag discriminant for Try.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6990,13 +6944,13 @@ pub struct HostGlueTcpCloseArgs {
 }
 
 /// Arguments for HostGlue.process_spawn!
-/// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, profile : [LocalShell, TestProgram], rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueProcessSpawnArgs {
     pub arg0: *mut u64,
-    pub arg1: AnonStructD5ea40ae766362a5,
+    pub arg1: AnonStruct93136bf334c2a2fc,
 }
 
 /// Arguments for HostGlue.process_read!
@@ -7285,7 +7239,7 @@ pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOr
 pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
 pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
 pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessSpawnArg1 = AnonStructD5ea40ae766362a5;
+pub type HostGlueProcessSpawnArg1 = AnonStruct93136bf334c2a2fc;
 pub type HostGlueProcessSpawnErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 pub type HostGlueProcessSpawnErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 pub type HostGlueProcessSpawnErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
@@ -8839,14 +8793,15 @@ unsafe impl RocRelease<HostGlueProcessSpawnResult> for HostGlueProcessSpawnResul
     }
 }
 
-impl AnonStructD5ea40ae766362a5 {
+impl AnonStruct93136bf334c2a2fc {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
-        unsafe { value.profile.decref(roc_host); }
+        let _ = value;
+        let _ = roc_host;
     }
 
     /// Increment Roc-owned fields.
@@ -8856,43 +8811,15 @@ impl AnonStructD5ea40ae766362a5 {
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
-        unsafe { value.profile.incref(amount); }
-    }
-}
-
-pub struct AnonStructD5ea40ae766362a5Release;
-
-unsafe impl RocRelease<AnonStructD5ea40ae766362a5> for AnonStructD5ea40ae766362a5Release {
-    unsafe fn release(value: AnonStructD5ea40ae766362a5, roc_host: &RocHost) {
-        unsafe { value.decref(roc_host); }
-    }
-}
-
-impl LocalShellOrTestProgram {
-    /// Recursively decrement Roc-owned payloads.
-    ///
-    /// # Safety
-    /// `self` must own one live Roc reference for each refcounted payload.
-    pub unsafe fn decref(self, roc_host: &RocHost) {
-        let _ = self;
-        let _ = roc_host;
-    }
-
-    /// Increment Roc-owned payloads.
-    ///
-    /// # Safety
-    /// `self` must point at live Roc allocations. The retained references must
-    /// be balanced by later decrefs.
-    pub unsafe fn incref(self, amount: isize) {
-        let _ = self;
+        let _ = value;
         let _ = amount;
     }
 }
 
-pub struct LocalShellOrTestProgramRelease;
+pub struct AnonStruct93136bf334c2a2fcRelease;
 
-unsafe impl RocRelease<LocalShellOrTestProgram> for LocalShellOrTestProgramRelease {
-    unsafe fn release(value: LocalShellOrTestProgram, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct93136bf334c2a2fc> for AnonStruct93136bf334c2a2fcRelease {
+    unsafe fn release(value: AnonStruct93136bf334c2a2fc, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -9073,37 +9000,6 @@ pub struct HostGlueProcessResizeResultRelease;
 
 unsafe impl RocRelease<HostGlueProcessResizeResult> for HostGlueProcessResizeResultRelease {
     unsafe fn release(value: HostGlueProcessResizeResult, roc_host: &RocHost) {
-        unsafe { value.decref(roc_host); }
-    }
-}
-
-impl AnonStruct93136bf334c2a2fc {
-    /// Recursively decrement Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must own one live Roc reference for each refcounted field.
-    pub unsafe fn decref(self, roc_host: &RocHost) {
-        let value = self;
-        let _ = value;
-        let _ = roc_host;
-    }
-
-    /// Increment Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must point at live Roc allocations. The retained references must
-    /// be balanced by later decrefs.
-    pub unsafe fn incref(self, amount: isize) {
-        let value = self;
-        let _ = value;
-        let _ = amount;
-    }
-}
-
-pub struct AnonStruct93136bf334c2a2fcRelease;
-
-unsafe impl RocRelease<AnonStruct93136bf334c2a2fc> for AnonStruct93136bf334c2a2fcRelease {
-    unsafe fn release(value: AnonStruct93136bf334c2a2fc, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -10007,13 +9903,13 @@ unsafe extern "C" {
     pub fn roc_process_acquire() -> HostGlueProcessAcquireResult;
 
     /// Hosted symbol for HostGlue.process_spawn!
-    /// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, profile : [LocalShell, TestProgram], rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     ///     unsafe { arg1.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
-    pub fn roc_process_spawn(arg0: *mut u64, arg1: AnonStructD5ea40ae766362a5) -> HostGlueProcessSpawnResult;
+    pub fn roc_process_spawn(arg0: *mut u64, arg1: AnonStruct93136bf334c2a2fc) -> HostGlueProcessSpawnResult;
 
     /// Hosted symbol for HostGlue.process_read!
     /// Roc signature: Resource.Handle([PtyResource]), U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])

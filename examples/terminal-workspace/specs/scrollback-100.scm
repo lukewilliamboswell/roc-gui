@@ -1,7 +1,7 @@
 (test "ordinary terminal output scales scrollback"
   (benchmark :warmups 1 :samples 3 :iterations 2 :scale 100 :initial-size 0 :change-size 100)
   (steps
-    (click (role button :name "Start test terminal"))
+    (click (role button :name "New terminal"))
     (await-task)
     (await-task)
     (replace-text (role textbox :name "Terminal command") "lines:100")

@@ -7,7 +7,7 @@ virtualized scrollback, and stale-completion protection.
 ## Core capabilities
 
 - Host-granted local-shell and deterministic-test profiles without an ambient executable API.
-- Opaque typed grants and PTYs, bounded I/O, resize propagation, child exit, and cancellation.
+- Opaque typed grants and PTYs, bounded I/O, child exit, and cancellation.
 - Virtualized line scrollback and incremental search through semantic controls.
 - Generation-based reconciliation so stale worker completions cannot revive stopped sessions.
 
@@ -20,7 +20,7 @@ virtualized scrollback, and stale-completion protection.
 
 ## Error paths
 
-- Missing grants and attempts to start an ungranted profile are actionable.
+- Missing process grants are actionable.
 - Invalid sizes, oversized I/O, concurrent reads, stale handles, invalid UTF-8, and child exits have typed outcomes.
 - A stopped application generation ignores a late read completion.
 

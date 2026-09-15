@@ -6,6 +6,9 @@ the change lands; do not soften the docs to match the gap.
 
 ## Terminal workspace follow-on features
 
+- [ ] Propagate live pane dimensions through the layout owner to
+  `Process.resize!` and specify the resulting PTY size without exposing a
+  fixed-size product control.
 - [ ] Add ANSI/VT cell parsing, wide and combining glyph layout, selection,
   clipboard policy, and URL recognition on top of the ordered PTY byte stream.
 - [ ] Add tabs, nested split panes, focus navigation, pane zoom, and persisted

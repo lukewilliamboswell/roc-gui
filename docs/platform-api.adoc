@@ -222,7 +222,8 @@ to asynchronous work so a superseded completion cannot replace a newer view.
 `Process.acquire!` returns an opaque process grant only when the application is
 launched with `--host-cap-process=local-shell` or
 `--host-cap-process=test-program`. The grant fixes the only profile that may be
-started. Applications never provide executable paths, arguments, environment
+started. `Process.spawn!` accepts only the grant and terminal dimensions;
+applications never provide a profile, executable path, arguments, environment
 variables, or command lines to the host.
 
 `Process.spawn!` creates a real pseudo-terminal with an explicitly bounded row

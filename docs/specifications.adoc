@@ -70,6 +70,12 @@ the Redis Explorer receives one exact loopback TCP endpoint and speaks Redis
 through `roc-redis`. This avoids public-network availability and remote service
 state without introducing a test-only network path.
 
+A `process-fixture/SPEC_NAME` file containing `test-program` grants the fixed
+deterministic PTY child to that case through `--host-cap-process`. Cases without
+the file receive no process authority, which exercises denial without adding a
+test-only product control. The application uses the same `New terminal` action
+for both outcomes.
+
 == Locators
 
 `(text "value")`:: Text whose entire value equals `value`.

@@ -1,7 +1,7 @@
 (test "real PTY accepts input and returns output"
   (steps
     (expect-processes 0)
-    (click (role button :name "Start test terminal"))
+    (click (role button :name "New terminal"))
     (await-task)
     (expect-processes 1)
     (await-task)
@@ -11,9 +11,6 @@
     (await-task)
     (await-task)
     (expect-visible (text-prefix "Terminal line: echo:hello"))
-    (click (role button :name "Resize terminal"))
-    (await-task)
-    (expect-visible (text "Terminal resized to 120x40"))
     (click (role button :name "Stop terminal"))
     (await-task)
     (await-task)

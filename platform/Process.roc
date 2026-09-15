@@ -1,12 +1,11 @@
 import Host
 import Resource
 
-## Host-granted pseudo-terminal processes. Applications can select only a
-## profile authorized at launch; they cannot name or discover executables.
+## Host-granted pseudo-terminal processes. The host grant fixes what starts;
+## applications cannot name or discover executables or profiles.
 Process := [].{
 	Grant : Resource.ProcessGrant
 	Pty : Resource.Pty
-	Profile : [LocalShell, TestProgram]
 	Reason : [AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]
 	ProcessErr : [AcquireProcessErr(Reason), CancelProcessErr(Reason), ReadProcessErr(Reason), ResizeProcessErr(Reason), SpawnProcessErr(Reason), WriteProcessErr(Reason)]
 	Read : [Canceled, Data(List(U8)), EndOfFile]
@@ -17,9 +16,9 @@ Process := [].{
 	acquire! : {} => Try(Grant, ProcessErr)
 	acquire! = |_| Host.process_acquire!({})
 
-	## Start the granted profile in a real pseudo-terminal. Rows and columns are
-	## bounded to 1..4096. A grant authorizes exactly its configured profile.
-	spawn! : Grant, { profile : Profile, columns : U16, rows : U16 } => Try(Pty, ProcessErr)
+	## Start exactly the granted program in a real pseudo-terminal. Rows and
+	## columns are bounded to 1..4096.
+	spawn! : Grant, { columns : U16, rows : U16 } => Try(Pty, ProcessErr)
 	spawn! = |grant, config| Host.process_spawn!(grant, config)
 
 	## Read at most `max_bytes` bytes (1..65536). Reads block on a task worker,

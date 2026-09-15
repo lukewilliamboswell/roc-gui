@@ -115,8 +115,12 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         command.extend(["--host-cap-dir", str(fixture)])
     if (case.app.parent / "fixture_server.py").is_file():
         command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
-    if (case.app.parent / "process-fixture").is_file():
-        command.extend(["--host-cap-process", "test-program"])
+    process_fixture = case.app.parent / "process-fixture" / case.spec.stem
+    if process_fixture.is_file():
+        profile = process_fixture.read_text(encoding="utf-8").strip()
+        if profile not in {"local-shell", "test-program"}:
+            raise RuntimeError(f"invalid process fixture profile in {process_fixture}")
+        command.extend(["--host-cap-process", profile])
     app_data_fixture = case.app.parent / "app-data-fixture"
     clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
     if case.app.parent.name == "redis-explorer":

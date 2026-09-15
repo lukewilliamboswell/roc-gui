@@ -6,12 +6,10 @@ Terminal := [].{
 	State : State
 	init : State
 	init = { command: "", generation: 0, lines: [], phase: Idle, query: "", status: "No session" }
-	start : State, Process.Profile -> Action.Action(State)
+	start : State -> Action.Action(State)
 	start = start
 	cancel : State -> Action.Action(State)
 	cancel = cancel
-	resize : State, U16, U16 -> Action.Action(State)
-	resize = resize
 	set_command : State, Str -> State
 	set_command = |state, command| { ..state, command }
 	set_query : State, Str -> State
@@ -30,7 +28,6 @@ set_query = |state, query| { ..state, query }
 
 err_message = |err| match err {
 	AcquireProcessErr(AccessDenied) => "Process access denied"
-	SpawnProcessErr(AccessDenied) => "Profile not granted"
 	SpawnProcessErr(InvalidSize) => "Terminal size rejected"
 	ReadProcessErr(Busy) => "A read is already pending"
 	ReadProcessErr(InvalidCapability) => "Stale terminal handle"
@@ -59,14 +56,14 @@ read_next = |state, pty, generation| Action.task({
 	},
 })
 
-start : State, Process.Profile -> Action.Action(State)
-start = |state, profile| {
+start : State -> Action.Action(State)
+start = |state| {
 	next_generation = state.generation + 1
 	Action.task({
 		pending: { ..state, generation: next_generation, lines: [], phase: Starting, status: "Starting session" },
 		run: || match Process.acquire!({}) {
 			Err(err) => StartFailed(err)
-			Ok(grant) => match Process.spawn!(grant, { profile, columns: 100, rows: 30 }) {
+			Ok(grant) => match Process.spawn!(grant, { columns: 100, rows: 30 }) {
 				Err(err) => StartFailed(err)
 				Ok(pty) => Started(pty)
 			}
@@ -111,19 +108,6 @@ cancel = |state| match state.phase {
 	_ => Action.update({ ..state, status: "No live session" })
 }
 
-resize : State, U16, U16 -> Action.Action(State)
-resize = |state, columns, rows| match state.phase {
-	Live(session) => Action.task({
-		pending: { ..state, status: "Resizing terminal" },
-		run: || Process.resize!(session.pty, { columns, rows }),
-		resolve: |latest, result| match result {
-			Err(err) => Action.update({ ..latest, status: err_message(err) })
-			Ok(_) => Action.update({ ..latest, status: "Terminal resized to ${columns.to_str()}x${rows.to_str()}" })
-		},
-	})
-	_ => Action.update({ ..state, status: "No live session" })
-}
-
 visible_lines = |state| {
 	var $items = []
 	var $key = 0
@@ -145,10 +129,8 @@ render = |state| {
 	}
 	Elem.col(Elem.ColProps.{ label: "Terminal pane", width: Fill, height: Fill, grow: True, gap: 12 }, [
 		Elem.row(Elem.RowProps.{ label: "Session controls" }, [
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Start", label: "Start test terminal", enabled: !live, on_press: |current, _| start(current, TestProgram) }),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Try shell", label: "Start ungranted shell", enabled: !live, on_press: |current, _| start(current, LocalShell) }),
+			Elem.action_button(Elem.ActionButtonProps.{ caption: "New terminal", label: "New terminal", enabled: !live, on_press: |current, _| start(current) }),
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Stop", label: "Stop terminal", enabled: live, on_press: |current, _| cancel(current) }),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Resize", label: "Resize terminal", enabled: live, on_press: |current, _| resize(current, 120, 40) }),
 			Elem.text(state.status),
 		]),
 		Elem.row(Elem.RowProps.{ label: "Command controls", width: Fill }, [
