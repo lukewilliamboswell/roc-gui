@@ -76,6 +76,35 @@ pub extern "C" fn roc_crashed(bytes: *const u8, len: usize) {
     DefaultHandlers::roc_crashed(roc_host_ptr(), bytes, len);
 }
 
+extern "C" fn counted_roc_alloc(
+    _host: *mut RocHost,
+    length: usize,
+    alignment: usize,
+) -> *mut c_void {
+    roc_alloc(length, alignment)
+}
+
+extern "C" fn counted_roc_dealloc(_host: *mut RocHost, pointer: *mut c_void, alignment: usize) {
+    roc_dealloc(pointer, alignment);
+}
+
+extern "C" fn counted_roc_realloc(
+    _host: *mut RocHost,
+    pointer: *mut c_void,
+    new_length: usize,
+    alignment: usize,
+) -> *mut c_void {
+    roc_realloc(pointer, new_length, alignment)
+}
+
+fn make_counted_roc_host(env: *mut c_void) -> RocHost {
+    let mut host = make_roc_host(env);
+    host.roc_alloc = counted_roc_alloc;
+    host.roc_dealloc = counted_roc_dealloc;
+    host.roc_realloc = counted_roc_realloc;
+    host
+}
+
 fn stage_node(kind: NodeKind, children: Vec<u64>) -> u64 {
     BRIDGE.with(|bridge| {
         bridge
@@ -594,7 +623,7 @@ fn start_requested_recorder(
 #[unsafe(no_mangle)]
 #[cfg(not(test))]
 pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
-    let mut host = make_roc_host(core::ptr::null_mut());
+    let mut host = make_counted_roc_host(core::ptr::null_mut());
     set_roc_host(&mut host);
 
     let args = match parse_host_args() {
@@ -719,4 +748,29 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         eprintln!("capture: {}", path.display());
     }
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        counted_roc_alloc, counted_roc_dealloc, counted_roc_realloc, make_counted_roc_host,
+    };
+
+    #[test]
+    fn host_internal_allocators_use_counted_runtime_routes() {
+        let host = make_counted_roc_host(core::ptr::null_mut());
+
+        assert_eq!(
+            host.roc_alloc as usize,
+            counted_roc_alloc as *const () as usize
+        );
+        assert_eq!(
+            host.roc_dealloc as usize,
+            counted_roc_dealloc as *const () as usize
+        );
+        assert_eq!(
+            host.roc_realloc as usize,
+            counted_roc_realloc as *const () as usize
+        );
+    }
 }

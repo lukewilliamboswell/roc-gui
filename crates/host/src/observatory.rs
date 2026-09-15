@@ -747,12 +747,12 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         (
             "scale_verification",
             "summary",
-            if config.patch_expected {
+            if config.benchmark.is_some() {
                 "unfinalized"
             } else {
                 "not_recorded"
             },
-            if config.patch_expected {
+            if config.benchmark.is_some() {
                 "capture has not finalized"
             } else {
                 "case has no benchmark scale"
@@ -761,12 +761,12 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         (
             "patch_verification",
             "summary",
-            if config.benchmark.is_some() {
+            if config.patch_expected {
                 "unfinalized"
             } else {
                 "not_recorded"
             },
-            if config.benchmark.is_some() {
+            if config.patch_expected {
                 "capture has not finalized"
             } else {
                 "case declares no expect-patch contract"
@@ -1046,6 +1046,8 @@ CREATE INDEX cycles_by_run_ordinal ON cycles(run_id,ordinal);
 mod tests {
     use super::*;
 
+    static RECORDER_TEST: Mutex<()> = Mutex::new(());
+
     #[test]
     fn stable_hash_is_repeatable() {
         assert_eq!(stable_hash(b"abc"), stable_hash(b"abc"));
@@ -1054,6 +1056,7 @@ mod tests {
 
     #[test]
     fn creates_and_finalizes_capture() {
+        let _guard = RECORDER_TEST.lock().unwrap();
         let path = std::env::temp_dir().join(format!(
             "roc-gui-observatory-{}-{}.rgstats",
             std::process::id(),
@@ -1150,6 +1153,30 @@ mod tests {
             .unwrap(),
             "complete"
         );
+        let process_resources_query =
+            include_str!("../../../scripts/stats_queries/process_resources.sql");
+        let mut process_resources = db.prepare(process_resources_query).unwrap();
+        assert_eq!(
+            process_resources.column_names(),
+            [
+                "evidence_status",
+                "evidence_reason",
+                "runs",
+                "cpu_user_ns",
+                "cpu_system_ns",
+                "peak_rss_bytes",
+                "startup_decomposition",
+            ],
+            "the resource report must not derive run-level deltas from raw current-RSS snapshots"
+        );
+        assert!(
+            process_resources
+                .query([])
+                .unwrap()
+                .next()
+                .unwrap()
+                .is_some()
+        );
         for key in [
             "executable_hash",
             "cpu_model",
@@ -1167,6 +1194,88 @@ mod tests {
             );
         }
         assert!(!active());
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn benchmark_without_patch_contract_records_only_scale_verification() {
+        let _guard = RECORDER_TEST.lock().unwrap();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-observatory-status-{}-{}.rgstats",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        start(Config {
+            path: path.clone(),
+            detail: Detail::Standard,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "semantic-headless",
+            app_name: "test".into(),
+            spec_name: Some("benchmark-without-patch-contract".into()),
+            spec_hash: Some(stable_hash(b"benchmark-without-patch-contract")),
+            benchmark: Some((1, 1, 1, 0, 1, 1)),
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        run_start(1, "sample", Some(0), 0, 1);
+        step(StepResult {
+            run_id: 1,
+            ordinal: 0,
+            source_line: 1,
+            kind: "expect-count",
+            role: "assertion",
+            status: "pass",
+            duration_ns: None,
+            expected_count: Some(10),
+            observed_count: Some(10),
+            expected_patch_kind: None,
+            observed_patch_kind: None,
+            expected_staged_nodes: None,
+            observed_staged_nodes: None,
+            expected_removed_nodes: None,
+            observed_removed_nodes: None,
+            diagnostic: None,
+        });
+        run_end(1, "pass", 2, None);
+        finish("success").unwrap();
+
+        let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let status = |name| {
+            db.query_row(
+                "SELECT status, reason, rows_recorded FROM measurement_status WHERE name=?1",
+                [name],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                },
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            status("scale_verification"),
+            (
+                "complete".into(),
+                "capture finalized without recorded loss".into(),
+                1,
+            )
+        );
+        assert_eq!(
+            status("patch_verification"),
+            (
+                "not_recorded".into(),
+                "case declares no expect-patch contract".into(),
+                0,
+            )
+        );
+        drop(db);
         std::fs::remove_file(path).unwrap();
     }
 }
