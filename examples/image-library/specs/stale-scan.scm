@@ -3,6 +3,7 @@
     (click (role button :name "Open image folder"))
     (click (role button :name "Open image folder"))
     (await-task)
+    (await-task)
     (expect-visible (text "27 of 27 entries"))
     (expect-file-picks 2)
     (expect-file-lists 2)
