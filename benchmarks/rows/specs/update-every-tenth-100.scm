@@ -4,5 +4,6 @@
     (click (role button :name "Create 100 rows"))
     (mark-metrics)
     (click (role button :name "Update every tenth row"))
+    (expect-patch :kind replace :staged 623 :removed 623)
     (expect-count (text-prefix "Row ") 100)
     (expect-visible (text "Row 91: 1"))))
