@@ -35,8 +35,9 @@ python3 scripts/analyze_stats.py CAPTURE.rgstats --view spec_results
 ----
 
 `semantic_health`:: Did runs and steps pass, and is their evidence complete?
-`roc_work`:: How much callback time and Roc allocation activity was attributed
-to measured operations?
+`roc_work`:: How much callback time belonged to platform routing, application
+update, application render, and platform lowering, and how much Roc allocation
+activity occurred inside each owned span?
 `host_gpui_work`:: How much time did graph validation, graph application, and
 available GPUI materialisation consume?
 `process_resources`:: How did process CPU time, peak RSS, and Roc allocation
@@ -57,8 +58,10 @@ than a fabricated zero.
 `scripts/run_specs.py` invokes the executable with `--host-run-spec`. The Roc
 application still renders through the platform, events still use its installed
 dispatcher, and patches still enter the host's canonical mounted graph. The
-runner does not open a GPUI window. Consequently its captures can attribute Roc
-callback, host validation, graph application, allocations, CPU, RSS, and
+runner does not open a GPUI window. Consequently its captures can attribute
+platform routing and lowering, application update and render, allocation
+activity within each span, the enclosing Roc callback, host validation, graph
+application, CPU, RSS, and
 deterministic graph work, while GPUI layout, paint, and presentation are
 unavailable.
 
@@ -83,7 +86,10 @@ Choose a destination explicitly when captures are part of an experiment:
 
 Additional controls are:
 
-`--host-stats-detail=summary|standard|full`:: Select the recorder detail policy.
+`--host-stats-detail=summary|full`:: Select the recorder detail policy. Summary
+omits setup cycles while retaining measured, initialization, and interactive
+cycles together with all semantic evidence. Full additionally records setup
+cycles, making the extra observer work explicit.
 `--host-stats-buffer-mib=N`:: Set the bounded in-memory admission buffer.
 `--host-stats-max-mib=N`:: Limit database and write-ahead-log output.
 

@@ -9,28 +9,20 @@ the change lands; do not soften the docs to match the gap.
 - [ ] **All benchmark captures come from the headless runner.** No GPUI stage is
   measured. The capture backend is `semantic-headless`. Closes with the
   end-to-end runner below.
-- [ ] **Roc callback time is one span.** Platform lowering, routing, and the
-  linear boundary lookup in `platform/Internal.roc` cannot be separated from
-  application update and render. Add platform-owned spans and allocation
-  attribution.
-- [ ] **Observer effect is unmeasured.** Run one case at `summary` and `full`
-  detail and record the bound.
 
 ## Performance findings from the suite
 
 Defects in the platform or host that the benchmark suite has exposed. Each
 names the evidence so a fix can be verified against the same case.
 
-- [ ] **Graph apply is mildly superlinear on replace-with-removal at 10,000
-  rows.** Apply grew 16x to 21x per 10x for select, swap, delete, and update
-  every tenth between 1,000 and 10,000 rows, while validation and Roc stayed at
-  10x. The map holds old and new subtrees simultaneously at about 120,000
-  entries. Confirm with a 100,000-row point before optimising.
-- [ ] **Full-tree rebuild is the cost of every rows-family operation.** Select,
-  swap, delete, and update every tenth at 10,000 rows all stage and remove about
-  60,000 nodes and cost 21 to 26 ms; they are indistinguishable from each other
-  and from create. This is expected without boundaries and is the baseline the
-  row-boundaries family exists to beat.
+- [ ] **Full-root replacement remains superlinear at 100,000 rows.** The
+  production 100,000-row sparse-update case confirms the effect after removing
+  simultaneous old/new graph storage and redundant validation maps. In a
+  serial run, 10,000 to 100,000 rows grew from 14.0 ms to 206 ms overall;
+  validation grew from 1.5 ms to 35.8 ms and graph apply from 5.6 ms to 81.5
+  ms. Further work must preserve the generic tree-integrity checks and exact
+  patch counters; the full-root rebuild itself is intentional application
+  semantics, with row boundaries providing the local-update alternative.
 - [ ] **Text and tree-shape families currently measure node count only.** Long
   and short messages at 10,000 rows differ by under 15%, and depth has no
   measurable effect, because the headless path has no layout or paint. These
