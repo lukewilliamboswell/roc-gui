@@ -30,6 +30,7 @@ platform ""
 		"roc_gui_node_textarea": HostGlue.node_textarea!,
 		"roc_gui_node_image": HostGlue.node_image!,
 		"roc_gui_input_value": HostGlue.input_value!,
+		"roc_gui_node_text_input": HostGlue.node_text_input!,
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
 		"roc_gui_set_task_dispatch": HostGlue.set_task_dispatch!,

@@ -17,6 +17,7 @@ Elem(a) :: [
 	Row({ children : List(Elem(a)), props : RowProps }),
 	Scroll(ScrollProps(a)),
 	VirtualList(VirtualListProps(a)),
+	TextInput(TextInputProps(a)),
 	Text(Str),
 ].{
 
@@ -129,6 +130,34 @@ Elem(a) :: [
 		font_size : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
+	}
+
+	## Properties for a controlled single-line text field. `label` is its stable
+	## semantic and accessibility name, `value` is authoritative application
+	## state, and `placeholder` is an empty-field hint. Committed edits deliver
+	## the complete value to `on_change`; Enter delivers it to `on_submit`.
+	TextInputProps(a) := {
+		label : Str,
+		value : Str,
+		placeholder : Str ?? "",
+		enabled : Bool ?? True,
+		on_change : (a, Event.TextChange => Action(a)),
+		on_submit : (a, Event.TextSubmit => Action(a)),
+		gap : U32 ?? 8,
+		padding : U32 ?? 8,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Px(38),
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Rgb(0x162a33),
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Rgb(0x48666b),
+		border_width : U32 ?? 1,
+		radius : U32 ?? 6,
+		font_size : U32 ?? 0,
+		overflow_x : Gui.Overflow ?? Clip,
+		overflow_y : Gui.Overflow ?? Clip,
 	}
 
 	## Properties for a vertically scrollable region. `name` is its stable
@@ -257,6 +286,10 @@ Elem(a) :: [
 	image : ImageProps -> Elem(a)
 	image = |props| Image(props)
 
+	## Display a controlled native single-line text editor.
+	text_input : TextInputProps(a) -> Elem(a)
+	text_input = |props| TextInput(props)
+
 	## Lay out children horizontally in order.
 	row : RowProps, List(Elem(a)) -> Elem(a)
 	row = |props, children| Row({ children, props })
@@ -309,6 +342,13 @@ Elem(a) :: [
 				items: list_value.items.map(|item| { key: item.key, content: lift(item.content, get_child, set_child) }),
 			},
 		)
+		TextInput(input_value) => {
+			child_change = input_value.on_change
+			child_submit = input_value.on_submit
+			parent_change! = |parent, event| Action.lift(child_change(get_child(parent), event), parent, get_child, set_child)
+			parent_submit! = |parent, event| Action.lift(child_submit(get_child(parent), event), parent, get_child, set_child)
+			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, width: input_value.width, height: input_value.height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, radius: input_value.radius, font_size: input_value.font_size, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y })
+		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
@@ -397,6 +437,7 @@ Elem(a) :: [
 		Row({ children : List(Elem(a)), props : RowProps }),
 		Scroll(ScrollProps(a)),
 		VirtualList(VirtualListProps(a)),
+		TextInput(TextInputProps(a)),
 		Text(Str),
 	]
 	inspect = |value| match value {
@@ -411,6 +452,7 @@ Elem(a) :: [
 		Row(children) => Row(children)
 		Scroll(scroll_value) => Scroll(scroll_value)
 		VirtualList(list_value) => VirtualList(list_value)
+		TextInput(input_value) => TextInput(input_value)
 		Text(text_value) => Text(text_value)
 	}
 }

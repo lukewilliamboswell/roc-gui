@@ -1,0 +1,7 @@
+(test "search the settings catalogue"
+  (steps
+    (expect-visible (role virtual-list :name "Matching settings"))
+    (expect-count (text-prefix "Appearance — ") 3)
+    (replace-text (role textbox :name "Search settings") "Privacy")
+    (expect-visible (text "Matches: 3"))
+    (expect-count (text-prefix "Privacy — ") 3)))

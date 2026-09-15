@@ -23,6 +23,7 @@ platform ""
 		"roc_gui_node_textarea": Host.node_textarea!,
 		"roc_gui_node_image": Host.node_image!,
 		"roc_gui_input_value": Host.input_value!,
+		"roc_gui_node_text_input": Host.node_text_input!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,

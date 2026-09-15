@@ -1,5 +1,5 @@
 use crate::{
-    await_task_completion,
+    SUBMIT_EVENT_BIT, await_task_completion,
     bridge::{ApplyFacts, ControlKey, MountedGraph, NodeKind},
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
@@ -63,6 +63,11 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Some(node.id)
             }
             (Locator::ScrollName(expected), NodeKind::Scroll { name, .. }) if expected == name => {
+                Some(node.id)
+            }
+            (Locator::TextInputName(expected), NodeKind::TextInput { label, .. })
+                if expected == label =>
+            {
                 Some(node.id)
             }
             (Locator::VirtualListName(expected), NodeKind::VirtualList { name, .. })
@@ -234,7 +239,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 let found = matches(&graph, locator);
                 if found.len() != 1 {
                     Err(format!(
-                        "line {}: replace-text locator matched {} nodes; expected exactly one",
+                        "line {}: text locator matched {} nodes; expected exactly one",
                         step.line,
                         found.len()
                     ))
@@ -246,23 +251,28 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         "line {}: locator is blocked by the active dialog",
                         step.line
                     ))
-                } else if !matches!(
+                } else if matches!(
                     graph.node(found[0]).map(|node| &node.kind),
-                    Some(NodeKind::Textarea {
-                        enabled: true,
-                        read_only: false,
-                        ..
-                    })
+                    Some(NodeKind::TextInput { enabled: true, .. })
+                        | Some(NodeKind::Textarea {
+                            enabled: true,
+                            read_only: false,
+                            ..
+                        })
                 ) {
-                    Err(format!(
-                        "line {}: locator is not an editable textarea",
-                        step.line
-                    ))
-                } else {
+                    let node_id = found[0];
+                    let trigger = if matches!(
+                        graph.node(node_id).map(|node| &node.kind),
+                        Some(NodeKind::TextInput { .. })
+                    ) {
+                        "text_change"
+                    } else {
+                        "input"
+                    };
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
-                    let patch = crate::dispatch_input(found[0], value.clone());
+                    let patch = crate::dispatch_input(node_id, value.clone());
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
                     let facts = graph.apply_measured(patch)?.facts;
@@ -272,7 +282,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         cycle_ordinal,
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
-                        "input",
+                        trigger,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -281,6 +291,82 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ));
                     cycle_ordinal += 1;
                     Ok(())
+                } else if matches!(
+                    graph.node(found[0]).map(|node| &node.kind),
+                    Some(NodeKind::TextInput { enabled: false, .. })
+                ) {
+                    // Disabled native text inputs neither edit nor dispatch.
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: locator is not an editable text control",
+                        step.line
+                    ))
+                }
+            }
+            Command::Submit(locator) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: submit locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if graph
+                    .active_dialog()
+                    .is_some_and(|dialog| !graph.is_descendant_of(found[0], dialog))
+                {
+                    Err(format!(
+                        "line {}: locator is blocked by the active dialog",
+                        step.line
+                    ))
+                } else if let Some(NodeKind::TextInput {
+                    enabled: true,
+                    value,
+                    ..
+                }) = graph.node(found[0]).map(|node| &node.kind)
+                {
+                    let node_id = found[0];
+                    let event_id = node_id | SUBMIT_EVENT_BIT;
+                    let previous_dialog = graph.active_dialog();
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
+                    let roc_started = Instant::now();
+                    let patch = crate::dispatch_input(event_id, value.clone());
+                    let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    let facts = graph.apply_measured(patch)?.facts;
+                    let next_dialog = graph.active_dialog();
+                    if previous_dialog.is_some() && next_dialog.is_none() {
+                        focused = dialog_return_focus
+                            .take()
+                            .and_then(|identity| graph.find_focus_identity(&identity));
+                    }
+                    last_patch = Some(facts);
+                    pending_cycle = Some(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "text_submit",
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
+                    Ok(())
+                } else if matches!(
+                    graph.node(found[0]).map(|node| &node.kind),
+                    Some(NodeKind::TextInput { enabled: false, .. })
+                ) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: locator is not an enabled text input",
+                        step.line
+                    ))
                 }
             }
             Command::Focus(locator) => {
@@ -309,6 +395,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 read_only: false,
                                 ..
                             }
+                            | NodeKind::TextInput { enabled: true, .. }
                     )
                 ) {
                     Err(format!("line {}: locator is not focusable", step.line))

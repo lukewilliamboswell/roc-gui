@@ -34,6 +34,7 @@ pub enum Command {
     AwaitTask,
     AwaitTicks(u32),
     ExpectSubscriptions(usize),
+    Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
     ExpectNotVisible(Locator),
@@ -56,6 +57,7 @@ impl Command {
             Self::AwaitTask => "await-task",
             Self::AwaitTicks(_) => "await-ticks",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
+            Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
             Self::ExpectNotVisible(_) => "expect-not-visible",
@@ -78,6 +80,7 @@ impl Command {
                 | Self::PressKey(_)
                 | Self::AwaitTask
                 | Self::AwaitTicks(_)
+                | Self::Submit(_)
         )
     }
 }
@@ -105,6 +108,7 @@ pub enum Locator {
     VirtualListName(String),
     TextareaName(String),
     ImageName(String),
+    TextInputName(String),
 }
 
 const MAX_SOURCE_BYTES: usize = 1024 * 1024;
@@ -398,6 +402,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?,
         ),
+        "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
         "expect-not-visible" if values.len() == 2 => {
@@ -488,6 +493,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-value"
         | "expect-value-bytes"
         | "expect-image-bytes"
+        | "submit"
         | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
@@ -527,6 +533,16 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .string()
                 .map(|value| Locator::DialogName(value.to_owned()))
                 .ok_or_else(|| error(node, "dialog name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("textbox")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::TextInputName(value.to_owned()))
+                .ok_or_else(|| error(node, "textbox name must be a string"))
         }
         Some("role")
             if values.len() == 4
@@ -620,7 +636,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, column, dialog, image, panel, row, scroll, textarea, and virtual-list",
+            "supported roles are button, checkbox, column, dialog, image, panel, row, scroll, textarea, textbox, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -891,6 +907,24 @@ mod tests {
         assert_eq!(
             spec.steps[1].command,
             Command::ExpectImageBytes(Locator::ImageName("Preview".into()), 100)
+        );
+    }
+
+    #[test]
+    fn parses_text_input_edits_and_submission() {
+        let spec = parse(
+            r#"(test "editing" (steps
+                (replace-text (role textbox :name "Search") "privacy")
+                (submit (role textbox :name "Search"))))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ReplaceText(Locator::TextInputName("Search".into()), "privacy".into())
+        );
+        assert_eq!(
+            spec.steps[1].command,
+            Command::Submit(Locator::TextInputName("Search".into()))
         );
     }
 

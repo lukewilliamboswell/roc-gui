@@ -12,4 +12,10 @@ Event := [].{
 
 	## A request to dismiss a modal dialog, such as the Escape key.
 	Dismiss : {}
+
+	## A committed text edit containing the complete controlled field value.
+	TextChange : { value : Str }
+
+	## Enter on a single-line text field, carrying its current value.
+	TextSubmit : { value : Str }
 }

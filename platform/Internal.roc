@@ -243,6 +243,33 @@ Internal := [].{
 			id = Host.node_image!({ label: image_value.label, bytes: image_value.bytes, format, fit, grayscale: image_value.grayscale, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
 			{ root: id, next_boundary, routes, boundaries }
 		}
+		TextInput(input_value) => {
+			style = style_args(input_value)
+			ids = Host.node_text_input!({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			change_route : Route(a)
+			change_route = {
+				id: ids.change,
+				boundary: active_boundary,
+				boundary_path,
+				fire: |current, input| if input_value.enabled {
+					(input_value.on_change)(current, { value: input })
+				} else {
+					Action.none
+				},
+			}
+			submit_route : Route(a)
+			submit_route = {
+				id: ids.submit,
+				boundary: active_boundary,
+				boundary_path,
+				fire: |current, input| if input_value.enabled {
+					(input_value.on_submit)(current, { value: input })
+				} else {
+					Action.none
+				},
+			}
+			{ root: ids.id, next_boundary, routes: routes.append(change_route).append(submit_route), boundaries }
+		}
 		Boundary(renderer) => {
 			key = next_boundary
 			child_path = boundary_path.append(key)

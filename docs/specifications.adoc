@@ -71,6 +71,9 @@ name. Locator matching never records its value.
 `(role image :name "name")`:: An encoded image identified by its application
 supplied semantic name. Neither encoded bytes nor source filenames are captured.
 
+`(role textbox :name "label")`:: A controlled text input identified by its
+semantic label.
+
 An interaction locator must resolve to exactly one live node. Ambiguous and
 missing targets fail instead of choosing one by traversal order. Make button
 names unique wherever the buttons are visible together.
@@ -90,6 +93,11 @@ route.
 `(press-key Space)`:: Activate the focused button or toggle the focused enabled
 checkbox through the normal Roc event route.
 `(press-key Escape)`:: Dismiss the active dialog through its `on_dismiss` route.
+`(replace-text LOCATOR "value")`:: Replace an enabled text input's complete
+value and deliver `Event.TextChange` through the normal Roc event route. A
+disabled input consumes no edit and dispatches nothing.
+`(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
+`Event.TextSubmit` through the normal Roc event route.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.

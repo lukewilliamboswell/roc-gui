@@ -85,6 +85,16 @@ of `Png`, `Jpeg`, `Webp`, `Gif`, `Svg`, `Bmp`, or `Tiff`; fit defaults to
 `Contain` and also supports `Cover`, `Fill`, `ScaleDown`, and `None`.
 `grayscale` applies a native rendering effect. Image sources are values, never
 ambient filesystem paths or URLs, and `label` is the stable semantic name.
+
+`Elem.text_input(Elem.TextInputProps.{ ... })`:: Display a controlled,
+single-line native editor. `label` is its stable semantic name, `value` is the
+authoritative application value, and `placeholder` is shown only while empty.
+Committed edits deliver the complete value in `Event.TextChange`; Enter delivers
+`Event.TextSubmit`. The host retains focus, caret, selection, and an active IME
+composition across controlled rerenders. Disabled fields accept neither edits
+nor submission. Text values are bounded to one MiB of UTF-8.
+Text-input labels are non-empty and unique in the mounted graph because they
+also preserve the native editor entity across controlled rerenders.
 `Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `name` is the stable semantic identity.
@@ -127,9 +137,9 @@ unique, stable name such as `"Delete row ${row.id.to_str()}"`; specifications
 use that identity instead of screen position.
 
 Keyboard focus has a visible outline. Tab and Shift+Tab traverse enabled
-buttons and checkboxes in rendered child order, so application layout order is
-also the default keyboard order. Keep labels concise and semantic names stable
-across state updates.
+buttons, checkboxes, and text inputs in rendered child order, so application
+layout order is also the default keyboard order. Keep labels concise and
+semantic names stable across state updates.
 
 `Program.run` also accepts a `window` record with an initial logical `width`,
 `height`, and titlebar `title`. Defaults preserve the compact two-field form;

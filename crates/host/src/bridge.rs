@@ -98,6 +98,13 @@ pub enum NodeKind {
         name: String,
         row_height: u32,
     },
+    TextInput {
+        label: String,
+        value: String,
+        placeholder: String,
+        enabled: bool,
+        style: Style,
+    },
     Text(String),
 }
 
@@ -138,6 +145,11 @@ impl NodeKind {
                 read_only: false,
                 ..
             } => Some((2, label.clone())),
+            Self::TextInput {
+                label,
+                enabled: true,
+                ..
+            } => Some((3, label.clone())),
             _ => None,
         }
     }
@@ -379,6 +391,25 @@ impl MountedGraph {
                 .count();
             if retained_dialogs + new_dialogs > 1 {
                 return Err("mounted graph would contain more than one modal dialog".into());
+            }
+            let mut input_labels = self
+                .nodes
+                .values()
+                .filter(|entry| !self.is_descendant_of(entry.node.id, *old_root))
+                .filter_map(|entry| match &entry.node.kind {
+                    NodeKind::TextInput { label, .. } => Some(label.clone()),
+                    _ => None,
+                })
+                .collect::<HashSet<_>>();
+            for label in nodes.iter().filter_map(|node| match &node.kind {
+                NodeKind::TextInput { label, .. } => Some(label),
+                _ => None,
+            }) {
+                if !input_labels.insert(label.clone()) {
+                    return Err(format!(
+                        "mounted graph contains duplicate text input label {label:?}"
+                    ));
+                }
             }
         }
         let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
@@ -733,6 +764,20 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     {
         return Err("native subtree contains more than one modal dialog".into());
     }
+    let mut input_labels = HashSet::new();
+    for label in nodes.iter().filter_map(|node| match &node.kind {
+        NodeKind::TextInput { label, .. } => Some(label),
+        _ => None,
+    }) {
+        if label.is_empty() {
+            return Err("text input label must not be empty".into());
+        }
+        if !input_labels.insert(label) {
+            return Err(format!(
+                "native subtree contains duplicate text input label {label:?}"
+            ));
+        }
+    }
 
     // BridgeState assigns one monotonically increasing id to every staged node
     // and keeps those nodes in assignment order. Validate that production shape
@@ -766,6 +811,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
             | NodeKind::Image { .. }
+            | NodeKind::TextInput { .. }
                 if !node.children.is_empty() =>
             {
                 return Err(format!("leaf node {} has children", node.id));
@@ -853,6 +899,7 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
             | NodeKind::Image { .. }
+            | NodeKind::TextInput { .. }
                 if !node.children.is_empty() =>
             {
                 return Err(format!("leaf node {} has children", node.id));
@@ -1022,6 +1069,38 @@ mod tests {
             validate_tree(1, &nodes)
                 .unwrap_err()
                 .contains("more than one modal dialog")
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_text_input_labels_used_for_editor_identity() {
+        let input = |id| Node {
+            id,
+            kind: NodeKind::TextInput {
+                label: "Profile name".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Style::default(),
+            },
+            children: vec![],
+        };
+        let nodes = vec![
+            input(1),
+            input(2),
+            Node {
+                id: 3,
+                kind: NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default(),
+                },
+                children: vec![1, 2],
+            },
+        ];
+        assert!(
+            validate_tree(3, &nodes)
+                .unwrap_err()
+                .contains("duplicate text input label")
         );
     }
 

@@ -12,6 +12,7 @@ sha2 = "=0.10.9"
 async-channel = "=2.5.0"
 cap-std = "=4.0.3"
 cap-fs-ext = "=4.0.3"
+unicode-segmentation = "=1.13.3"
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gpui = { version = "=0.2.2", default-features = false, features = ["wayland", "test-support"] }

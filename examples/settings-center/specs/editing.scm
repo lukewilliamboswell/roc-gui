@@ -1,0 +1,16 @@
+(test "edit, validate, apply, and revert a profile setting"
+  (steps
+    (expect-visible (role column :name "Settings Center"))
+    (expect-visible (role textbox :name "Profile name"))
+    (expect-visible (text "Settings are saved"))
+    (replace-text (role textbox :name "Profile name") "Work profile")
+    (expect-visible (text "Unsaved changes"))
+    (click (role button :name "Revert profile"))
+    (expect-visible (text "Settings are saved"))
+    (replace-text (role textbox :name "Profile name") "")
+    (expect-visible (text "Profile name is required"))
+    (click (role button :name "Apply profile"))
+    (expect-visible (text "Profile name is required"))
+    (replace-text (role textbox :name "Profile name") "Personal profile")
+    (submit (role textbox :name "Profile name"))
+    (expect-visible (text "Settings are saved"))))

@@ -82,6 +82,11 @@ names the evidence so a fix can be verified against the same case.
   previews request bodies locally. Add a capability-scoped asynchronous HTTP
   API with redirect, timeout, cancellation, body limits, secret-redacted
   evidence, and stale-response suppression before enabling network Send.
+- [ ] **Text editing has no clipboard or undo history.** The native text input
+  supports focus, caret motion, selection, keyboard deletion, controlled
+  updates, submission, and IME composition. Close by routing platform clipboard
+  operations and a bounded per-editor undo/redo history through the production
+  GPUI input actions, with semantic specifications that never record contents.
 
 - [ ] **Native accessibility roles and names are not exported.** Buttons,
   checkboxes, and scroll regions have stable semantics in the canonical graph,

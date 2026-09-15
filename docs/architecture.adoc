@@ -14,7 +14,8 @@ and GPUI entities. Nodes and entities outside that boundary remain mounted.
 roc-gui has three representations of a UI:
 
 `Elem` value:: A short-lived Roc description produced by a renderer. It carries
-text, layout, buttons, checkboxes, handlers, and explicit local-state boundaries.
+text, layout, buttons, checkboxes, controlled text inputs, handlers, and
+explicit local-state boundaries.
 Mounted graph:: The host's canonical, validated tree of native nodes. It is the
 source of truth shared by the interactive window and semantic specs.
 GPUI entities:: Retained native views materialised from mounted nodes. GPUI uses
@@ -94,7 +95,11 @@ Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
 and columns become flex containers, panels become styled surfaces, dialogs
 become centered modal layers with input-blocking scrims, text becomes
 a text child, and enabled action buttons add focus, keyboard, and pointer
-listeners. Disabled action buttons add no event listener or tab stop. A virtual
+listeners. Disabled action buttons add no event listener or tab stop. Text input
+entities retain native focus, caret, selection, and IME preedit state while
+committed values cross the same controlled Roc replacement boundary. IME
+preedit remains transient in the editor and dispatches one change when the
+composition commits. A virtual
 list is the deliberate exception: its
 complete keyed item subtrees remain in the canonical graph, but GPUI's
 viewport callback creates entities only for intersecting fixed-height rows and
@@ -122,10 +127,10 @@ sequenceDiagram
     participant P as Roc dispatcher
     participant A as App handler
 
-    U->>G: activate named button
-    G->>H: live node ID
+    U->>G: activate or edit a named control
+    G->>H: live node ID and private event payload
     H->>P: dispatch(node ID)
-    P->>A: handler(current state, Press)
+    P->>A: handler(current state, event)
     A-->>P: Action
     alt NoChange
         P->>H: commit NoChange

@@ -4,6 +4,7 @@
 
 mod bridge;
 mod files;
+mod input;
 mod observatory;
 mod roc_platform_abi;
 mod runner;
@@ -18,10 +19,10 @@ use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
     HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeTextareaArgs,
-    HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
-    RocErasedCallable, RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch,
-    roc_gui_init,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs,
+    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs,
+    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
+    decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -97,6 +98,8 @@ thread_local! {
     static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
 }
+
+const SUBMIT_EVENT_BIT: u64 = 1 << 63;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct WindowConfig {
@@ -652,7 +655,56 @@ pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
     )
 }
 
-/// Consume the content-free event slot installed immediately before dispatch.
+/// Stage one controlled single-line editor and allocate its two event routes.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_text_input(
+    args: HostGlueNodeTextInputArgs,
+) -> HostGlueNodeTextInputRetRecord {
+    let label = args.label.as_str().to_owned();
+    let value = args.value.as_str().to_owned();
+    let placeholder = args.placeholder.as_str().to_owned();
+    assert!(!label.is_empty(), "text input label must not be empty");
+    assert!(
+        value.len() <= input::MAX_TEXT_BYTES && placeholder.len() <= input::MAX_TEXT_BYTES,
+        "text input value and placeholder are each limited to one MiB"
+    );
+    unsafe { args.decref(roc_host()) };
+    let id = stage_node(
+        NodeKind::TextInput {
+            label,
+            value,
+            placeholder,
+            enabled: args.enabled,
+            style: decode_layout_style(
+                args.gap,
+                args.padding,
+                args.width_kind,
+                args.width,
+                args.height_kind,
+                args.height,
+                args.grow,
+                args.bg,
+                args.hover_bg,
+                args.active_bg,
+                args.fg,
+                args.border_color,
+                args.border_width,
+                args.radius,
+                args.font_size,
+                args.overflow_x,
+                args.overflow_y,
+            ),
+        },
+        vec![],
+    );
+    HostGlueNodeTextInputRetRecord {
+        change: id,
+        id,
+        submit: id | SUBMIT_EVENT_BIT,
+    }
+}
+
+/// Consume the private event payload installed immediately before dispatch.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_input_value() -> RocStr {
     let value = INPUT_VALUE
@@ -921,6 +973,7 @@ struct NodeView {
     is_root: bool,
     input_enabled: bool,
     focus_handle: Option<FocusHandle>,
+    input: Option<Entity<input::TextInput>>,
 }
 
 fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
@@ -1137,6 +1190,15 @@ impl Render for NodeView {
                     .grayscale(*grayscale),
                 );
             }
+            NodeKind::TextInput { enabled, style, .. } => {
+                element = apply_style(element.flex().items_center(), style);
+                if !enabled || !self.input_enabled {
+                    element = element.opacity(0.5);
+                }
+                if let Some(editor) = &self.input {
+                    element = element.child(editor.clone());
+                }
+            }
             NodeKind::Button {
                 caption,
                 enabled,
@@ -1297,6 +1359,7 @@ struct Runtime {
     dialog_return_focus: Option<(u8, String)>,
     last_trigger_focus: Option<(u8, String)>,
     focus_after_render: Option<u64>,
+    editors: HashMap<String, Entity<input::TextInput>>,
 }
 
 struct VirtualCached {
@@ -1325,6 +1388,7 @@ impl Runtime {
             dialog_return_focus: None,
             last_trigger_focus: None,
             focus_after_render: None,
+            editors: HashMap::new(),
         };
         if observatory::active() {
             runtime.apply_recorded(
@@ -1384,6 +1448,58 @@ impl Runtime {
                 .node(id)
                 .and_then(|node| node.kind.focus_identity());
         }
+        self.dispatch_live_event(id, "click", cx);
+    }
+
+    fn text_event_if_live(
+        &mut self,
+        node_id: u64,
+        event_id: u64,
+        value: String,
+        trigger: &'static str,
+        cx: &mut Context<Self>,
+    ) {
+        if self
+            .active_dialog
+            .is_some_and(|dialog| !self.graph.is_descendant_of(node_id, dialog))
+        {
+            return;
+        }
+        let valid = self
+            .graph
+            .node(node_id)
+            .is_some_and(|node| match &node.kind {
+                NodeKind::TextInput { enabled: true, .. } => {
+                    event_id == node_id || event_id == (node_id | SUBMIT_EVENT_BIT)
+                }
+                _ => false,
+            });
+        if !valid {
+            return;
+        }
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_input(event_id, value);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                trigger,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_input(event_id, value);
+            self.apply_unrecorded(patch, cx);
+        }
+    }
+
+    fn dispatch_live_event(&mut self, id: u64, trigger: &'static str, cx: &mut Context<Self>) {
         if observatory::active() {
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
@@ -1393,7 +1509,7 @@ impl Runtime {
             let (roc_work, roc_work_valid) = observatory::take_roc_work();
             self.apply_recorded(
                 patch,
-                "click",
+                trigger,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -1575,6 +1691,16 @@ impl Runtime {
             self.views.remove(id);
             self.focus_handles.remove(id);
         }
+        let live_labels: std::collections::HashSet<String> = self
+            .graph
+            .nodes_preorder()
+            .into_iter()
+            .filter_map(|node| match &node.kind {
+                NodeKind::TextInput { label, .. } => Some(label.clone()),
+                _ => None,
+            })
+            .collect();
+        self.editors.retain(|label, _| live_labels.contains(label));
     }
 
     fn materialize(&mut self, node_ids: &[u64], cx: &mut Context<Self>) {
@@ -1585,23 +1711,36 @@ impl Runtime {
             .filter(|id| !virtualized.contains(id))
             .collect::<Vec<_>>();
         for id in &eager {
-            let node = self.graph.node(*id).expect("applied node is missing");
+            let node = self
+                .graph
+                .node(*id)
+                .expect("applied node is missing")
+                .clone();
             assert!(
                 !self.views.contains_key(&node.id),
                 "node id {} was reused",
                 node.id
             );
-            let runtime = cx.entity().downgrade();
             let value = node.clone();
-            let focus_handle = node.kind.focus_identity().map(|_| cx.focus_handle());
+            let input_enabled = self
+                .active_dialog
+                .is_none_or(|dialog| self.graph.is_descendant_of(node.id, dialog));
+            let editor = self.editor_for_node(&node, input_enabled, cx);
+            let focus_handle = if let Some(editor) = &editor {
+                Some(editor.read(cx).focus_handle())
+            } else {
+                node.kind.focus_identity().map(|_| cx.focus_handle())
+            };
             let view_focus = focus_handle.clone();
+            let runtime = cx.entity().downgrade();
             let view = cx.new(|_| NodeView {
                 node: value,
                 children: vec![],
                 runtime,
                 is_root: false,
-                input_enabled: true,
+                input_enabled,
                 focus_handle: view_focus,
+                input: editor,
             });
             if let Some(handle) = focus_handle {
                 self.focus_handles.insert(node.id, handle);
@@ -1625,6 +1764,73 @@ impl Runtime {
         }
     }
 
+    fn editor_for_node(
+        &mut self,
+        node: &Node,
+        input_enabled: bool,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<input::TextInput>> {
+        if let NodeKind::TextInput {
+            label,
+            value,
+            placeholder,
+            enabled,
+            ..
+        } = &node.kind
+        {
+            let runtime = cx.entity().downgrade();
+            let change_runtime = runtime.clone();
+            let submit_runtime = runtime.clone();
+            let node_id = node.id;
+            let change: std::rc::Rc<dyn Fn(String, &mut App)> =
+                std::rc::Rc::new(move |text, cx| {
+                    let _ = change_runtime.update(cx, |runtime, cx| {
+                        runtime.text_event_if_live(node_id, node_id, text, "text_change", cx)
+                    });
+                });
+            let submit: std::rc::Rc<dyn Fn(String, &mut App)> =
+                std::rc::Rc::new(move |text, cx| {
+                    let _ = submit_runtime.update(cx, |runtime, cx| {
+                        runtime.text_event_if_live(
+                            node_id,
+                            node_id | SUBMIT_EVENT_BIT,
+                            text,
+                            "text_submit",
+                            cx,
+                        )
+                    });
+                });
+            if let Some(editor) = self.editors.get(label).cloned() {
+                editor.update(cx, |editor, cx| {
+                    editor.configure(
+                        value,
+                        placeholder,
+                        *enabled && input_enabled,
+                        change,
+                        submit,
+                        cx,
+                    )
+                });
+                Some(editor)
+            } else {
+                let editor = cx.new(|cx| {
+                    input::TextInput::new(
+                        value.clone(),
+                        placeholder.clone(),
+                        *enabled && input_enabled,
+                        change,
+                        submit,
+                        cx,
+                    )
+                });
+                self.editors.insert(label.clone(), editor.clone());
+                Some(editor)
+            }
+        } else {
+            None
+        }
+    }
+
     fn build_virtual_node(&mut self, id: u64, cx: &mut Context<Self>) -> (Entity<NodeView>, u64) {
         let node = self
             .graph
@@ -1643,11 +1849,16 @@ impl Runtime {
             (built.into_iter().map(|(view, _)| view).collect(), count)
         };
         let runtime = cx.entity().downgrade();
-        let focus_handle = node.kind.focus_identity().map(|_| cx.focus_handle());
-        let view_focus = focus_handle.clone();
         let input_enabled = self
             .active_dialog
             .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
+        let input = self.editor_for_node(&node, input_enabled, cx);
+        let focus_handle = if let Some(editor) = &input {
+            Some(editor.read(cx).focus_handle())
+        } else {
+            node.kind.focus_identity().map(|_| cx.focus_handle())
+        };
+        let view_focus = focus_handle.clone();
         let view = cx.new(|_| NodeView {
             node,
             children,
@@ -1655,6 +1866,7 @@ impl Runtime {
             is_root: false,
             input_enabled,
             focus_handle: view_focus,
+            input,
         });
         if let Some(handle) = focus_handle {
             self.focus_handles.insert(id, handle);
@@ -2035,6 +2247,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let window_config = WINDOW_CONFIG.with(|config| config.borrow().clone());
 
     Application::new().run(move |cx| {
+        input::bind_keys(cx);
         cx.bind_keys([
             KeyBinding::new("tab", FocusNext, None),
             KeyBinding::new("shift-tab", FocusPrevious, None),
