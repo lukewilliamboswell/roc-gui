@@ -3,13 +3,14 @@ import Event
 import Gui
 
 ## A declarative UI tree whose event handlers transition application state `a`.
-## Use `text`, `button`, `checkbox`, `row`, and `col` to build a tree, and
+## Use `text`, `action_button`, `checkbox`, `row`, `col`, and `panel` to build a tree, and
 ## `translate` or `lift` to embed UI over smaller component state.
 Elem(a) :: [
 	Boundary(a -> Elem(a)),
-	Button({ label : List(Elem(a)), name : Str, on_press : (a, Event.Press -> Action(a)) }),
+	ActionButton(ActionButtonProps(a)),
 	Checkbox(CheckboxProps(a)),
 	Column({ children : List(Elem(a)), props : ColProps }),
+	Panel({ children : List(Elem(a)), props : PanelProps }),
 	Row({ children : List(Elem(a)), props : RowProps }),
 	Scroll(ScrollProps(a)),
 	Text(Str),
@@ -57,6 +58,53 @@ Elem(a) :: [
 		overflow_y : Gui.Overflow ?? Visible,
 	}
 
+	## Properties for `panel`. Panels are padded, bordered, rounded vertical
+	## surfaces by default, and carry a stable semantic `label`.
+	PanelProps := {
+		label : Str,
+		gap : U32 ?? 8,
+		padding : U32 ?? 16,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Default,
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Rgb(0x48666b),
+		border_width : U32 ?? 1,
+		radius : U32 ?? 8,
+		font_size : U32 ?? 0,
+		overflow_x : Gui.Overflow ?? Visible,
+		overflow_y : Gui.Overflow ?? Visible,
+	}
+
+	## Properties for `action_button`. `caption` is visible text and `label` is
+	## its stable semantic name. Disabled buttons remain visible but cannot be
+	## focused or dispatch presses. Visual fields use the same native style
+	## vocabulary as layout controls.
+	ActionButtonProps(a) := {
+		caption : Str,
+		label : Str,
+		enabled : Bool ?? True,
+		on_press : (a, Event.Press -> Action(a)),
+		gap : U32 ?? 8,
+		padding : U32 ?? 8,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Rgb(0x315469),
+		hover_bg : Gui.Color ?? Rgb(0x3e6a83),
+		active_bg : Gui.Color ?? Rgb(0x274453),
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Default,
+		border_width : U32 ?? 0,
+		radius : U32 ?? 6,
+		font_size : U32 ?? 0,
+		overflow_x : Gui.Overflow ?? Visible,
+		overflow_y : Gui.Overflow ?? Visible,
+	}
+
 	## Properties for a vertically scrollable region. `name` is its stable
 	## semantic identity for specifications and accessibility.
 	ScrollAxis : [Both, Horizontal, Vertical]
@@ -92,10 +140,14 @@ Elem(a) :: [
 	text : Str -> Elem(a)
 	text = |value| Text(value)
 
-	## Display a named button and handle presses. `name` is its stable semantic
-	## locator; `label` is the element rendered inside it.
-	button : { label : Elem(a), name : Str, on_press : a, Event.Press -> Action(a) } -> Elem(a)
-	button = |props| Button({ label: [props.label], name: props.name, on_press: props.on_press })
+	## Display a named text button and handle presses. `name` is its stable
+	## semantic locator; `label` is its visible caption.
+	button : { label : Str, name : Str, on_press : a, Event.Press -> Action(a) } -> Elem(a)
+	button = |props| ActionButton(ActionButtonProps.{ caption: props.label, label: props.name, on_press: props.on_press })
+
+	## Display a controlled, styled action button.
+	action_button : ActionButtonProps(a) -> Elem(a)
+	action_button = |props| ActionButton(props)
 
 	## Display a controlled checkbox. A handler must return the state containing
 	## the next `checked` value for the visual state to change.
@@ -110,6 +162,10 @@ Elem(a) :: [
 	col : ColProps, List(Elem(a)) -> Elem(a)
 	col = |props, children| Column({ children, props })
 
+	## Group children in a labelled padded, bordered, rounded vertical surface.
+	panel : PanelProps, List(Elem(a)) -> Elem(a)
+	panel = |props, children| Panel({ children, props })
+
 	## Constrain `child` to the available height and allow vertical scrolling.
 	scroll : ScrollProps(a) -> Elem(a)
 	scroll = |props| Scroll(props)
@@ -120,15 +176,34 @@ Elem(a) :: [
 		Text(value) => Text(value)
 		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
+		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), name: scroll_value.name })
-		Button(button_value) => {
+		ActionButton(button_value) => {
 			child_handler = button_value.on_press
 			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
-			Button({
-				label: button_value.label.map(|label| lift(label, get_child, set_child)),
-				name: button_value.name,
-				on_press: parent_handler,
-			})
+			ActionButton(
+				ActionButtonProps.{
+					caption: button_value.caption,
+					label: button_value.label,
+					enabled: button_value.enabled,
+					on_press: parent_handler,
+					gap: button_value.gap,
+					padding: button_value.padding,
+					width: button_value.width,
+					height: button_value.height,
+					grow: button_value.grow,
+					bg: button_value.bg,
+					hover_bg: button_value.hover_bg,
+					active_bg: button_value.active_bg,
+					fg: button_value.fg,
+					border_color: button_value.border_color,
+					border_width: button_value.border_width,
+					radius: button_value.radius,
+					font_size: button_value.font_size,
+					overflow_x: button_value.overflow_x,
+					overflow_y: button_value.overflow_y,
+				},
+			)
 		}
 		Checkbox(checkbox_value) => {
 			child_handler = checkbox_value.on_change
@@ -175,18 +250,20 @@ Elem(a) :: [
 	## libraries that transform element trees.
 	inspect : Elem(a) -> [
 		Boundary(a -> Elem(a)),
-		Button({ label : List(Elem(a)), name : Str, on_press : (a, Event.Press -> Action(a)) }),
+		ActionButton(ActionButtonProps(a)),
 		Checkbox(CheckboxProps(a)),
 		Column({ children : List(Elem(a)), props : ColProps }),
+		Panel({ children : List(Elem(a)), props : PanelProps }),
 		Row({ children : List(Elem(a)), props : RowProps }),
 		Scroll(ScrollProps(a)),
 		Text(Str),
 	]
 	inspect = |value| match value {
 		Boundary(renderer) => Boundary(renderer)
-		Button(button_value) => Button(button_value)
+		ActionButton(button_value) => ActionButton(button_value)
 		Checkbox(checkbox_value) => Checkbox(checkbox_value)
 		Column(children) => Column(children)
+		Panel(children) => Panel(children)
 		Row(children) => Row(children)
 		Scroll(scroll_value) => Scroll(scroll_value)
 		Text(text_value) => Text(text_value)

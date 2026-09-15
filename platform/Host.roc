@@ -52,9 +52,52 @@ Host := [].{
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
+
+	node_panel! : {
+		builder : U64,
+		label : Str,
+		gap : U32,
+		padding : U32,
+		width_kind : U8,
+		width : U32,
+		height_kind : U8,
+		height : U32,
+		grow : Bool,
+		bg : U32,
+		hover_bg : U32,
+		active_bg : U32,
+		fg : U32,
+		border_color : U32,
+		border_width : U32,
+		radius : U32,
+		font_size : U32,
+		overflow_x : U8,
+		overflow_y : U8,
+	} => U64
 	node_scroll! : { axis : U8, child : U64, name : Str } => U64
 
-	node_button! : Str, U64 => U64
+	node_action_button! : {
+		caption : Str,
+		label : Str,
+		enabled : Bool,
+		gap : U32,
+		padding : U32,
+		width_kind : U8,
+		width : U32,
+		height_kind : U8,
+		height : U32,
+		grow : Bool,
+		bg : U32,
+		hover_bg : U32,
+		active_bg : U32,
+		fg : U32,
+		border_color : U32,
+		border_width : U32,
+		radius : U32,
+		font_size : U32,
+		overflow_x : U8,
+		overflow_y : U8,
+	} => U64
 
 	node_checkbox! : {
 		label : Str,

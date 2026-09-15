@@ -108,7 +108,7 @@ breadcrumbs = |trail| {
 	var $result = []
 	for location in trail {
 		current_depth = $depth
-		$result = $result.append(Elem.button({ label: Elem.text(location.name), name: "Breadcrumb ${current_depth.to_str()}", on_press: |current, _| go_to(current, current_depth) }))
+		$result = $result.append(Elem.action_button(Elem.ActionButtonProps.{ caption: location.name, label: "Breadcrumb ${current_depth.to_str()}", on_press: |current, _| go_to(current, current_depth), padding: 6, bg: Gui.rgb(0x203944) }))
 		$depth = current_depth + 1
 	}
 	$result
@@ -122,6 +122,10 @@ retry = |state, retry_value| match retry_value {
 
 render : State -> Elem(State)
 render = |state| {
+	is_busy = match state.status {
+		Busy(_) => True
+		_ => False
+	}
 	controls = [
 		Elem.checkbox(
 			Elem.CheckboxProps.{
@@ -137,31 +141,31 @@ render = |state| {
 				radius: 6,
 			},
 		),
-		Elem.button({ label: Elem.text("Choose directory"), name: "Choose directory", on_press: |current, _| start_pick(current) }),
+		Elem.action_button(Elem.ActionButtonProps.{ caption: "Choose directory", label: "Choose directory", enabled: !is_busy, on_press: |current, _| start_pick(current), width: Fill, fg: Gui.rgb(0xeeeeea) }),
 	]
 	status = match state.status {
-		Busy(_) => [Elem.text("Loading…")]
-		Failed(failure) => [Elem.text(failure.message), Elem.button({ label: Elem.text("Retry"), name: "Retry", on_press: |current, _| retry(current, failure.retry) })]
+		Busy(_) => [Elem.panel(Elem.PanelProps.{ label: "Loading status", width: Fill, padding: 12 }, [Elem.text("Loading…")])]
+		Failed(failure) => [Elem.panel(Elem.PanelProps.{ label: "Directory error", width: Fill, padding: 12, border_color: Gui.rgb(0xb85c5c) }, [Elem.text(failure.message), Elem.action_button(Elem.ActionButtonProps.{ caption: "Retry", label: "Retry", on_press: |current, _| retry(current, failure.retry) })])]
 		Ready => []
 	}
 	content = match state.view {
-		Empty => Elem.text("Choose a directory to begin")
+		Empty => Elem.panel(Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True }, [Elem.text("Choose a directory to begin")])
 		Showing(view) => {
 			current = view.trail.last() ?? crash "showing view has a location"
 			back = if view.trail.len() > 1 {
-				[Elem.button({ label: Elem.text("Back"), name: "Back", on_press: |current_state, _| go_to(current_state, view.trail.len() - 2) })]
+				[Elem.action_button(Elem.ActionButtonProps.{ caption: "Back", label: "Back", on_press: |current_state, _| go_to(current_state, view.trail.len() - 2), padding: 6 })]
 			} else {
 				[]
 			}
 			rows = view.entries.keep_if(|entry| state.show_files or entry.kind == Directory).map(
 				|entry| if entry.kind == Directory {
-					Elem.button({ label: Elem.text("Folder: ${entry.name}"), name: "Open directory ${entry.name}", on_press: |current_state, _| open_child(current_state, current, entry.name) })
+					Elem.action_button(Elem.ActionButtonProps.{ caption: "Folder: ${entry.name}", label: "Open directory ${entry.name}", on_press: |current_state, _| open_child(current_state, current, entry.name), width: Fill, fg: Gui.rgb(0xeeeeea) })
 				} else {
 					Elem.text("File: ${entry.name}")
 				},
 			)
-			Layout.col(
-				Elem.ColProps.{ label: "Directory view", width: Fill, height: Fill, grow: True, gap: 12 },
+			Elem.panel(
+				Elem.PanelProps.{ label: "Directory view", width: Fill, height: Fill, grow: True, gap: 12 },
 				back.concat([
 					Layout.row(Elem.RowProps.{ label: "Directory breadcrumbs", width: Fill, gap: 6 }, breadcrumbs(view.trail)),
 					Elem.scroll(Elem.ScrollProps.{ name: "Directory contents", content: Layout.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 6 }, rows) }),
@@ -173,7 +177,7 @@ render = |state| {
 		Elem.ColProps.{ label: "Folder browser", width: Fill, height: Fill, grow: True, padding: 24, gap: 16 },
 		[
 			Elem.text("Capability folder browser"),
-			Layout.col(Elem.ColProps.{ label: "Directory controls", width: Fill, gap: 12 }, controls),
+			Elem.panel(Elem.PanelProps.{ label: "Directory controls", width: Fill, gap: 12 }, controls),
 		].concat(status).append(content),
 	)
 }

@@ -45,9 +45,16 @@ returning an unchanged state with `Action.update`.
 == Elements and layout
 
 `Elem.text(value)`:: Display a string.
-`Elem.button({ label, name, on_press })`:: Display a clickable label and handle
-presses. Buttons participate in keyboard tab order and activate with Enter or
-Space. `label` is an element, so text is written as `Elem.text("Save")`.
+`Elem.action_button(Elem.ActionButtonProps.{ ... })`:: Display a controlled,
+styled action button. `caption` is visible text, `label` is its stable semantic
+name, and `enabled` defaults to `True`. Enabled buttons participate in keyboard
+tab order and activate with Enter or Space. Disabled buttons remain visible
+with a subdued appearance and accept neither pointer nor keyboard activation.
+Props include padding, sizing, growth, foreground and interaction colours,
+border, radius, font size, and overflow.
+`Elem.button({ label, name, on_press })`:: Concise text-button constructor over
+the same native action-button node. Its `label` is a string; use
+`Elem.action_button` for styling and explicit caption/semantic-label naming.
 `Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and handle
 `Event.Check`. Props include enabled state, gap, padding, sizing, growth,
 foreground and interaction colours, border, radius, font size, and overflow.
@@ -58,12 +65,14 @@ available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `name` is the stable semantic identity.
 `Layout.row(Elem.RowProps.{ ... }, children)`:: Lay out children horizontally.
 `Layout.col(Elem.ColProps.{ ... }, children)`:: Lay out children vertically.
+`Elem.panel(Elem.PanelProps.{ ... }, children)`:: Group children vertically in
+a labelled surface that is padded, bordered, and rounded by default.
 
-Row and column props share the native `Gui.Style` fields: gap, padding, width,
+Row, column, panel, and action-button props share the native `Gui.Style` fields: gap, padding, width,
 height, growth, colours, borders, radius, font size, and per-axis overflow.
 `Auto`, `Fill`, and `Px(n)` express dimensions. An optional non-empty `label`
 provides a stable semantic locator, such as
-`(role column :name "Directory view")`; it does not add visible text.
+`(role panel :name "Directory view")`; it does not add visible text.
 
 Rows and columns accept a `List(Elem(State))`, which makes ordinary list
 transformations useful for repeated UI:

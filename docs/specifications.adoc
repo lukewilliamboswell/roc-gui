@@ -57,8 +57,9 @@ interactive grant, without giving the application ambient test-only I/O.
 `(text-prefix "prefix")`:: Text beginning with `prefix`.
 `(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
 `(role button :name "name")`:: A button with the semantic `name` passed to
-`Elem.button`.
+`Elem.button` or `Elem.action_button`.
 `(role checkbox :name "label")`:: A checkbox identified by its visible label.
+`(role panel :name "label")`:: A panel identified by its semantic label.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
@@ -67,8 +68,9 @@ names unique wherever the buttons are visible together.
 
 == Assertions and operations
 
-`(click LOCATOR)`:: Press exactly one matching button through the application's
-normal Roc event route.
+`(click LOCATOR)`:: Press exactly one matching enabled control through the
+application's normal Roc event route. A disabled control consumes no event and
+does not call Roc, matching the interactive host.
 `(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
 or checkbox. Focus remains valid only while that mounted node is live.
 `(press-key Enter)`:: Activate the focused button through the normal Roc event

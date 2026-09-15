@@ -49,7 +49,8 @@ the built-in test runner.
 `Program.run` supplies an initial state, a renderer, and initial resizable-window
 metadata. Calling the renderer
 produces an immutable `Elem(State)` description. Composition stays in Roc:
-styled and semantically named `Layout.row` and `Layout.col`, `Elem.text`, `Elem.button`, and named
+styled and semantically named `Layout.row`, `Layout.col`, `Elem.panel`,
+`Elem.text`, `Elem.action_button`, and named
 `Elem.scroll` regions build the tree, while
 `Elem.translate` introduces a local-state boundary.
 
@@ -64,7 +65,7 @@ The platform lowers the `Elem` description into native nodes with host-issued
 identities. The result is staged separately from the visible graph so it can be
 validated as a complete change before commit.
 
-During the same walk, the platform builds an event route for every button and
+During the same walk, the platform builds an event route for every action button and
 records each state boundary's renderer, native root, and parent boundary. A
 route connects a semantic button name and native node ID to a Roc handler and
 the boundary that owns its update.
@@ -89,9 +90,10 @@ is stale and cannot later identify another control.
 
 === The host materialises GPUI views
 
-Every newly mounted graph node becomes one GPUI `Entity<NodeView>`. Rows and
-columns become flex containers, text becomes a text child, and buttons add
-styles and a click listener. The host connects the new native subtree to the
+Every newly mounted graph node becomes one GPUI `Entity<NodeView>`. Rows,
+columns, and panels become flex containers, text becomes a text child, and
+enabled action buttons add focus, keyboard, and pointer listeners. Disabled
+action buttons add no event listener or tab stop. The host connects the new native subtree to the
 retained entities around its boundary and releases the replaced subtree.
 
 The host notifies GPUI of the changed entity. GPUI owns subsequent rendering,

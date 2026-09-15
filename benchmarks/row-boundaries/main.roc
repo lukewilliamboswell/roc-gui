@@ -6,6 +6,7 @@ import pf.Layout
 import pf.Program exposing [Program]
 
 RowState : { id : U64, value : U64 }
+
 State : { rows : List(RowState), selected : U64 }
 
 make_rows : U64 -> List(RowState)
@@ -22,7 +23,16 @@ find_row = |rows, id| rows.find_first(|row| row.id == id) ?? crash "row boundary
 
 replace_row : State, RowState -> State
 replace_row = |state, replacement| {
-	{ ..state, rows: state.rows.map(|row| if row.id == replacement.id { replacement } else { row }) }
+	{
+		..state,
+		rows: state.rows.map(
+			|row| if row.id == replacement.id {
+				replacement
+			} else {
+				row
+			},
+		),
+	}
 }
 
 update_every_tenth : State -> State
@@ -30,7 +40,11 @@ update_every_tenth = |state| {
 	var $rows = []
 	for row in state.rows {
 		index = $rows.len()
-		next = if index % 10 == 0 { { ..row, value: row.value + 1 } } else { row }
+		next = if index % 10 == 0 {
+			{ ..row, value: row.value + 1 }
+		} else {
+			row
+		}
 		$rows = $rows.append(next)
 	}
 	{ ..state, rows: $rows }
@@ -38,9 +52,14 @@ update_every_tenth = |state| {
 
 delete_row : State, U64 -> State
 delete_row = |state, id| {
-	{ ..state,
+	{
+		..state,
 		rows: state.rows.keep_if(|row| row.id != id),
-		selected: if state.selected == id { 0 } else { state.selected },
+		selected: if state.selected == id {
+			0
+		} else {
+			state.selected
+		},
 	}
 }
 
@@ -54,56 +73,70 @@ swap_rows = |state, left, right| {
 }
 
 render_row : RowState -> Elem(RowState)
-render_row = |row| Layout.row({}, [
-	Elem.text("Row ${row.id.to_str()}: ${row.value.to_str()}"),
-	Elem.button({
-		label: Elem.text("Increment"),
-		name: "Increment row ${row.id.to_str()}",
-		on_press: |current, _| Action.update({ ..current, value: current.value + 1 }),
-	}),
-])
+render_row = |row| Layout.row(
+	{},
+	[
+		Elem.text("Row ${row.id.to_str()}: ${row.value.to_str()}"),
+		Elem.button({
+			label: "Increment",
+			name: "Increment row ${row.id.to_str()}",
+			on_press: |current, _| Action.update({ ..current, value: current.value + 1 }),
+		}),
+	],
+)
 
 render : State -> Elem(State)
 render = |state| {
 	var $rendered = []
 	for row in state.rows {
 		id = row.id
-		$rendered = $rendered.append(Layout.row({}, [
-			Elem.translate(
-				|child| render_row(child),
-				|parent| find_row(parent.rows, id),
-				|parent, child| replace_row(parent, child),
+		$rendered = $rendered.append(
+			Layout.row(
+				{},
+				[
+					Elem.translate(
+						|child| render_row(child),
+						|parent| find_row(parent.rows, id),
+						|parent, child| replace_row(parent, child),
+					),
+					Elem.button({
+						label: "Select",
+						name: "Select row ${id.to_str()}",
+						on_press: |current, _| if current.selected == id {
+							Action.none
+						} else {
+							Action.update({ ..current, selected: id })
+						},
+					}),
+					Elem.button({
+						label: "Delete",
+						name: "Delete row ${id.to_str()}",
+						on_press: |current, _| Action.update(delete_row(current, id)),
+					}),
+				],
 			),
-			Elem.button({
-				label: Elem.text("Select"),
-				name: "Select row ${id.to_str()}",
-				on_press: |current, _| if current.selected == id {
-					Action.none
-				} else {
-					Action.update({ ..current, selected: id })
-				},
-			}),
-			Elem.button({
-				label: Elem.text("Delete"),
-				name: "Delete row ${id.to_str()}",
-				on_press: |current, _| Action.update(delete_row(current, id)),
-			}),
-		]))
+		)
 	}
-	Layout.col({}, [
-		Layout.row({}, [
-			Elem.button({ label: Elem.text("Create 100"), name: "Create 100 rows", on_press: |_, _| Action.update({ rows: make_rows(100), selected: 0 }) }),
-			Elem.button({ label: Elem.text("Create 1,000"), name: "Create 1,000 rows", on_press: |_, _| Action.update({ rows: make_rows(1000), selected: 0 }) }),
-			Elem.button({ label: Elem.text("Create 10,000"), name: "Create 10,000 rows", on_press: |_, _| Action.update({ rows: make_rows(10000), selected: 0 }) }),
-			Elem.button({ label: Elem.text("Update every tenth"), name: "Update every tenth row", on_press: |value, _| Action.update(update_every_tenth(value)) }),
-			Elem.button({ label: Elem.text("Swap"), name: "Swap rows 2 and 999", on_press: |value, _| Action.update(swap_rows(value, 1, 998)) }),
-			Elem.button({ label: Elem.text("Swap small"), name: "Swap rows 2 and 99", on_press: |value, _| Action.update(swap_rows(value, 1, 98)) }),
-			Elem.button({ label: Elem.text("Swap far"), name: "Swap rows 2 and 9999", on_press: |value, _| Action.update(swap_rows(value, 1, 9998)) }),
-		]),
-		Elem.text("Rows: ${state.rows.len().to_str()}"),
-		Elem.text("Selection: ${state.selected.to_str()}"),
-		Layout.col({}, $rendered),
-	])
+	Layout.col(
+		{},
+		[
+			Layout.row(
+				{},
+				[
+					Elem.button({ label: "Create 100", name: "Create 100 rows", on_press: |_, _| Action.update({ rows: make_rows(100), selected: 0 }) }),
+					Elem.button({ label: "Create 1,000", name: "Create 1,000 rows", on_press: |_, _| Action.update({ rows: make_rows(1000), selected: 0 }) }),
+					Elem.button({ label: "Create 10,000", name: "Create 10,000 rows", on_press: |_, _| Action.update({ rows: make_rows(10000), selected: 0 }) }),
+					Elem.button({ label: "Update every tenth", name: "Update every tenth row", on_press: |value, _| Action.update(update_every_tenth(value)) }),
+					Elem.button({ label: "Swap", name: "Swap rows 2 and 999", on_press: |value, _| Action.update(swap_rows(value, 1, 998)) }),
+					Elem.button({ label: "Swap small", name: "Swap rows 2 and 99", on_press: |value, _| Action.update(swap_rows(value, 1, 98)) }),
+					Elem.button({ label: "Swap far", name: "Swap rows 2 and 9999", on_press: |value, _| Action.update(swap_rows(value, 1, 9998)) }),
+				],
+			),
+			Elem.text("Rows: ${state.rows.len().to_str()}"),
+			Elem.text("Selection: ${state.selected.to_str()}"),
+			Layout.col({}, $rendered),
+		],
+	)
 }
 
 main : Program(State)

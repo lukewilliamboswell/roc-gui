@@ -44,7 +44,10 @@ type NodeSet = HashSet<u64, BuildHasherDefault<NodeIdHasher>>;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
     Button {
-        name: String,
+        caption: String,
+        label: String,
+        enabled: bool,
+        style: Style,
     },
     Checkbox {
         label: String,
@@ -53,6 +56,10 @@ pub enum NodeKind {
         style: Style,
     },
     Column {
+        label: String,
+        style: Style,
+    },
+    Panel {
         label: String,
         style: Style,
     },
@@ -77,8 +84,10 @@ impl NodeKind {
     pub fn accepts_key(&self, key: ControlKey) -> bool {
         matches!(
             (self, key),
-            (Self::Button { .. }, ControlKey::Enter | ControlKey::Space)
-                | (Self::Checkbox { enabled: true, .. }, ControlKey::Space)
+            (
+                Self::Button { enabled: true, .. },
+                ControlKey::Enter | ControlKey::Space
+            ) | (Self::Checkbox { enabled: true, .. }, ControlKey::Space)
         )
     }
 }
@@ -575,11 +584,10 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     let mut parent_count = 0;
     for node in nodes {
         match node.kind {
-            NodeKind::Text(_) | NodeKind::Checkbox { .. } if !node.children.is_empty() => {
-                return Err(format!("text node {} has children", node.id));
-            }
-            NodeKind::Button { .. } if node.children.len() != 1 => {
-                return Err(format!("button node {} must have one label child", node.id));
+            NodeKind::Text(_) | NodeKind::Checkbox { .. } | NodeKind::Button { .. }
+                if !node.children.is_empty() =>
+            {
+                return Err(format!("leaf node {} has children", node.id));
             }
             NodeKind::Scroll { .. } if node.children.len() != 1 => {
                 return Err(format!(
@@ -644,11 +652,10 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
     let mut parent_count = 0;
     for node in nodes {
         match node.kind {
-            NodeKind::Text(_) | NodeKind::Checkbox { .. } if !node.children.is_empty() => {
-                return Err(format!("text node {} has children", node.id));
-            }
-            NodeKind::Button { .. } if node.children.len() != 1 => {
-                return Err(format!("button node {} must have one label child", node.id));
+            NodeKind::Text(_) | NodeKind::Checkbox { .. } | NodeKind::Button { .. }
+                if !node.children.is_empty() =>
+            {
+                return Err(format!("leaf node {} has children", node.id));
             }
             NodeKind::Scroll { .. } if node.children.len() != 1 => {
                 return Err(format!(
@@ -683,13 +690,22 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
 mod tests {
     use super::*;
 
+    fn button(label: &str, enabled: bool) -> NodeKind {
+        NodeKind::Button {
+            caption: label.into(),
+            label: label.into(),
+            enabled,
+            style: Style::default(),
+        }
+    }
+
     #[test]
     fn controls_accept_only_their_native_activation_keys() {
-        let button = NodeKind::Button {
-            name: "Open".into(),
-        };
-        assert!(button.accepts_key(ControlKey::Enter));
-        assert!(button.accepts_key(ControlKey::Space));
+        let enabled_button = button("Open", true);
+        assert!(enabled_button.accepts_key(ControlKey::Enter));
+        assert!(enabled_button.accepts_key(ControlKey::Space));
+        assert!(!button("Open", false).accepts_key(ControlKey::Enter));
+        assert!(!button("Open", false).accepts_key(ControlKey::Space));
 
         let enabled = NodeKind::Checkbox {
             label: "Show files".into(),
@@ -771,13 +787,16 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bad_button_shape() {
-        let nodes = [Node {
-            id: 1,
-            kind: NodeKind::Button { name: "bad".into() },
-            children: vec![],
-        }];
-        assert!(validate_tree(1, &nodes).unwrap_err().contains("one label"));
+    fn rejects_button_children() {
+        let nodes = [
+            Node {
+                id: 1,
+                kind: button("bad", true),
+                children: vec![2],
+            },
+            text(2, "bad"),
+        ];
+        assert!(validate_tree(1, &nodes).unwrap_err().contains("children"));
     }
 
     #[test]
@@ -894,7 +913,7 @@ mod tests {
                     children: vec![99],
                 }],
             ),
-            Err("text node 1 has children".into())
+            Err("leaf node 1 has children".into())
         );
     }
 
@@ -983,17 +1002,7 @@ mod tests {
     #[test]
     fn stages_bottom_up_and_commits_a_tree() {
         let mut bridge = BridgeState::new();
-        let label = bridge
-            .stage_node(NodeKind::Text("click".into()), vec![])
-            .unwrap();
-        let button = bridge
-            .stage_node(
-                NodeKind::Button {
-                    name: "Click".into(),
-                },
-                vec![label],
-            )
-            .unwrap();
+        let button = bridge.stage_node(button("Click", true), vec![]).unwrap();
         let root = bridge
             .stage_node(
                 NodeKind::Column {
@@ -1010,13 +1019,10 @@ mod tests {
             Some(Patch::Mount {
                 root,
                 nodes: vec![
-                    text(label, "click"),
                     Node {
                         id: button,
-                        kind: NodeKind::Button {
-                            name: "Click".into()
-                        },
-                        children: vec![label],
+                        kind: self::button("Click", true),
+                        children: vec![],
                     },
                     Node {
                         id: root,
@@ -1101,7 +1107,7 @@ mod tests {
         let mut bridge = BridgeState::new();
         assert!(
             bridge
-                .stage_node(NodeKind::Button { name: "Bad".into() }, vec![999])
+                .stage_node(button("Bad", true), vec![999])
                 .unwrap_err()
                 .contains("unstaged child")
         );

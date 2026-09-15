@@ -5,6 +5,6 @@
     (expect-count (text-prefix "Row ") 1000)
     (mark-metrics)
     (click (role button :name "Swap rows 2 and 999"))
-    (expect-patch :kind replace :staged 6025 :removed 6025)
+    (expect-patch :kind replace :staged 4015 :removed 4015)
     (expect-count (text-prefix "Row ") 1000)
     (expect-before (text "Row 999: 0") (text "Row 2: 0"))))

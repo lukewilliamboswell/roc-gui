@@ -22,7 +22,9 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
-            (Locator::ButtonName(expected), NodeKind::Button { name }) if expected == name => {
+            (Locator::ButtonName(expected), NodeKind::Button { label, .. })
+                if expected == label =>
+            {
                 Some(node.id)
             }
             (Locator::CheckboxName(expected), NodeKind::Checkbox { label, .. })
@@ -36,6 +38,11 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Some(node.id)
             }
             (Locator::ColumnName(expected), NodeKind::Column { label, .. })
+                if !label.is_empty() && expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::PanelName(expected), NodeKind::Panel { label, .. })
                 if !label.is_empty() && expected == label =>
             {
                 Some(node.id)
@@ -141,6 +148,16 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         step.line,
                         matches.len()
                     ))
+                } else if matches!(
+                    graph.node(matches[0]).map(|node| &node.kind),
+                    Some(
+                        NodeKind::Button { enabled: false, .. }
+                            | NodeKind::Checkbox { enabled: false, .. }
+                    )
+                ) {
+                    // Native disabled controls consume no event, so the semantic
+                    // runner likewise performs no Roc dispatch or measurement.
+                    Ok(())
                 } else {
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
@@ -176,7 +193,10 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 } else if !matches!(
                     graph.node(matches[0]).map(|node| &node.kind),
-                    Some(NodeKind::Button { .. } | NodeKind::Checkbox { enabled: true, .. })
+                    Some(
+                        NodeKind::Button { enabled: true, .. }
+                            | NodeKind::Checkbox { enabled: true, .. }
+                    )
                 ) {
                     Err(format!("line {}: locator is not focusable", step.line))
                 } else {

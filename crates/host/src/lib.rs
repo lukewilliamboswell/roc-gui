@@ -15,9 +15,10 @@ use bridge::{
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, MountOrNoChangeOrReplace, RocErasedCallable,
-    RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
+    HostGlueNodeColumnArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
+    make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -356,6 +357,36 @@ pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
     )
 }
 
+/// Stage one styled, semantically labelled panel.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_panel(args: HostGlueNodePanelArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    unsafe { args.label.decref(roc_host()) };
+    let style = decode_layout_style(
+        args.gap,
+        args.padding,
+        args.width_kind,
+        args.width,
+        args.height_kind,
+        args.height,
+        args.grow,
+        args.bg,
+        args.hover_bg,
+        args.active_bg,
+        args.fg,
+        args.border_color,
+        args.border_width,
+        args.radius,
+        args.font_size,
+        args.overflow_x,
+        args.overflow_y,
+    );
+    stage_node(
+        NodeKind::Panel { label, style },
+        finish_children(args.builder),
+    )
+}
+
 /// Stage one named vertical scroll region whose child was already built.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
@@ -376,12 +407,42 @@ pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
     )
 }
 
-/// Stage one semantically named button whose label was already built.
+/// Stage one styled action button.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_button(name: RocStr, label: u64) -> u64 {
-    let owned_name = name.as_str().to_owned();
-    unsafe { name.decref(roc_host()) };
-    stage_node(NodeKind::Button { name: owned_name }, vec![label])
+pub extern "C" fn roc_gui_node_action_button(args: HostGlueNodeActionButtonArgs) -> u64 {
+    let caption = args.caption.as_str().to_owned();
+    let label = args.label.as_str().to_owned();
+    unsafe {
+        args.caption.decref(roc_host());
+        args.label.decref(roc_host());
+    }
+    stage_node(
+        NodeKind::Button {
+            caption,
+            label,
+            enabled: args.enabled,
+            style: decode_layout_style(
+                args.gap,
+                args.padding,
+                args.width_kind,
+                args.width,
+                args.height_kind,
+                args.height,
+                args.grow,
+                args.bg,
+                args.hover_bg,
+                args.active_bg,
+                args.fg,
+                args.border_color,
+                args.border_width,
+                args.radius,
+                args.font_size,
+                args.overflow_x,
+                args.overflow_y,
+            ),
+        },
+        vec![],
+    )
 }
 
 fn decode_length(kind: u8, value: u32) -> Length {
@@ -589,7 +650,7 @@ fn clear_bridge() {
 
 fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
     nodes.iter().find_map(|node| {
-        matches!(&node.kind, NodeKind::Button { name } if name == expected).then_some(node.id)
+        matches!(&node.kind, NodeKind::Button { label, .. } if label == expected).then_some(node.id)
     })
 }
 
@@ -727,7 +788,7 @@ impl Render for NodeView {
             element = element.size_full().min_h_0().min_w_0();
         }
         match &self.node.kind {
-            NodeKind::Column { style, .. } => {
+            NodeKind::Column { style, .. } | NodeKind::Panel { style, .. } => {
                 element = apply_style(element.flex().flex_col(), style);
             }
             NodeKind::Row { style, .. } => {
@@ -753,41 +814,49 @@ impl Render for NodeView {
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
             }
-            NodeKind::Button { .. } => {
+            NodeKind::Button {
+                caption,
+                enabled,
+                style,
+                ..
+            } => {
                 let node_id = self.node.id;
                 let runtime = self.runtime.clone();
                 let enter_runtime = self.runtime.clone();
                 let space_runtime = self.runtime.clone();
-                element = element
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .px_3()
-                    .py_2()
-                    .rounded_md()
-                    .bg(rgb(0x315469))
-                    .hover(|style| style.bg(rgb(0x3e6a83)))
-                    .active(|style| style.bg(rgb(0x274453)))
-                    .focusable()
-                    .tab_index(0)
-                    .focus(|style| style.border_2().border_color(rgb(0x9bdcf0)))
-                    .on_action(move |_: &ActivateEnter, _, cx| {
-                        let _ = enter_runtime.update(cx, |runtime, cx| {
-                            runtime.activate_if_live(node_id, ControlKey::Enter, cx)
+                element = apply_style(
+                    element
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(caption.clone()),
+                    style,
+                );
+                if *enabled {
+                    element = element
+                        .focusable()
+                        .tab_index(0)
+                        .focus(|style| style.border_2().border_color(rgb(0x9bdcf0)))
+                        .on_action(move |_: &ActivateEnter, _, cx| {
+                            let _ = enter_runtime.update(cx, |runtime, cx| {
+                                runtime.activate_if_live(node_id, ControlKey::Enter, cx)
+                            });
+                        })
+                        .on_action(move |_: &ActivateSpace, _, cx| {
+                            let _ = space_runtime.update(cx, |runtime, cx| {
+                                runtime.activate_if_live(node_id, ControlKey::Space, cx)
+                            });
+                        })
+                        .cursor_pointer()
+                        .on_click(move |event, _, cx| {
+                            if event.mouse_position().is_some() {
+                                let _ = runtime
+                                    .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
+                            }
                         });
-                    })
-                    .on_action(move |_: &ActivateSpace, _, cx| {
-                        let _ = space_runtime.update(cx, |runtime, cx| {
-                            runtime.activate_if_live(node_id, ControlKey::Space, cx)
-                        });
-                    })
-                    .cursor_pointer()
-                    .on_click(move |event, _, cx| {
-                        if event.mouse_position().is_some() {
-                            let _ = runtime
-                                .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
-                        }
-                    });
+                } else {
+                    element = element.opacity(0.5).cursor_default();
+                }
             }
             NodeKind::Checkbox {
                 label,
@@ -946,7 +1015,7 @@ impl Runtime {
     fn event_if_live(&mut self, id: u64, cx: &mut Context<Self>) {
         if !matches!(
             self.graph.node(id).map(|node| &node.kind),
-            Some(NodeKind::Button { .. } | NodeKind::Checkbox { enabled: true, .. })
+            Some(NodeKind::Button { enabled: true, .. } | NodeKind::Checkbox { enabled: true, .. })
         ) {
             return;
         }

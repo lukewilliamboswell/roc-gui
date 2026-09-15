@@ -9,9 +9,12 @@ Counter := [].{
 	init = |initial_value| { count: initial_value }
 
 	render : Str, State -> Elem(State)
-	render = |name, state| Layout.row({}, [
-		Elem.button({ label: Elem.text("−"), name: "${name} decrement", on_press: |prev, _| Action.update({ count: prev.count - 1.I64 }) }),
-		Elem.text(state.count.to_str()),
-		Elem.button({ label: Elem.text("+"), name: "${name} increment", on_press: |prev, _| Action.update({ count: prev.count + 1.I64 }) }),
-	])
+	render = |name, state| Layout.row(
+		{},
+		[
+			Elem.button({ label: "−", name: "${name} decrement", on_press: |prev, _| Action.update({ count: prev.count - 1.I64 }) }),
+			Elem.text(state.count.to_str()),
+			Elem.button({ label: "+", name: "${name} increment", on_press: |prev, _| Action.update({ count: prev.count + 1.I64 }) }),
+		],
+	)
 }

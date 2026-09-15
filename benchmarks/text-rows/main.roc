@@ -6,6 +6,7 @@ import pf.Layout
 import pf.Program exposing [Program]
 
 Content : [Short, Long, MetadataRich]
+
 State : { count : U64, content : Content }
 
 body : Content -> Str
@@ -32,20 +33,26 @@ render = |state| {
 		id = $messages.len() + 1
 		$messages = $messages.append(render_message(id, state.content))
 	}
-	Layout.col({}, [
-		Layout.row({}, [
-			Elem.button({ label: Elem.text("Short 100"), name: "Show 100 short messages", on_press: |_, _| Action.update({ count: 100, content: Short }) }),
-			Elem.button({ label: Elem.text("Short 1,000"), name: "Show 1,000 short messages", on_press: |_, _| Action.update({ count: 1000, content: Short }) }),
-			Elem.button({ label: Elem.text("Short 10,000"), name: "Show 10,000 short messages", on_press: |_, _| Action.update({ count: 10000, content: Short }) }),
-			Elem.button({ label: Elem.text("Long 100"), name: "Show 100 long messages", on_press: |_, _| Action.update({ count: 100, content: Long }) }),
-			Elem.button({ label: Elem.text("Long 1,000"), name: "Show 1,000 long messages", on_press: |_, _| Action.update({ count: 1000, content: Long }) }),
-			Elem.button({ label: Elem.text("Long 10,000"), name: "Show 10,000 long messages", on_press: |_, _| Action.update({ count: 10000, content: Long }) }),
-			Elem.button({ label: Elem.text("Rich 100"), name: "Show 100 metadata-rich messages", on_press: |_, _| Action.update({ count: 100, content: MetadataRich }) }),
-			Elem.button({ label: Elem.text("Rich 1,000"), name: "Show 1,000 metadata-rich messages", on_press: |_, _| Action.update({ count: 1000, content: MetadataRich }) }),
-			Elem.button({ label: Elem.text("Rich 10,000"), name: "Show 10,000 metadata-rich messages", on_press: |_, _| Action.update({ count: 10000, content: MetadataRich }) }),
-		]),
-		Layout.col({}, $messages),
-	])
+	Layout.col(
+		{},
+		[
+			Layout.row(
+				{},
+				[
+					Elem.button({ label: "Short 100", name: "Show 100 short messages", on_press: |_, _| Action.update({ count: 100, content: Short }) }),
+					Elem.button({ label: "Short 1,000", name: "Show 1,000 short messages", on_press: |_, _| Action.update({ count: 1000, content: Short }) }),
+					Elem.button({ label: "Short 10,000", name: "Show 10,000 short messages", on_press: |_, _| Action.update({ count: 10000, content: Short }) }),
+					Elem.button({ label: "Long 100", name: "Show 100 long messages", on_press: |_, _| Action.update({ count: 100, content: Long }) }),
+					Elem.button({ label: "Long 1,000", name: "Show 1,000 long messages", on_press: |_, _| Action.update({ count: 1000, content: Long }) }),
+					Elem.button({ label: "Long 10,000", name: "Show 10,000 long messages", on_press: |_, _| Action.update({ count: 10000, content: Long }) }),
+					Elem.button({ label: "Rich 100", name: "Show 100 metadata-rich messages", on_press: |_, _| Action.update({ count: 100, content: MetadataRich }) }),
+					Elem.button({ label: "Rich 1,000", name: "Show 1,000 metadata-rich messages", on_press: |_, _| Action.update({ count: 1000, content: MetadataRich }) }),
+					Elem.button({ label: "Rich 10,000", name: "Show 10,000 metadata-rich messages", on_press: |_, _| Action.update({ count: 10000, content: MetadataRich }) }),
+				],
+			),
+			Layout.col({}, $messages),
+		],
+	)
 }
 
 main : Program(State)

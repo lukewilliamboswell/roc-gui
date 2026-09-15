@@ -115,6 +115,13 @@ Internal := [].{
 			id = Host.node_column!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
+		Panel(value) => {
+			builder = Host.children_begin!({})
+			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
+			style = style_args(value.props)
+			id = Host.node_panel!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
+		}
 		Scroll(scroll_value) => {
 			child = lower!(scroll_value.content, state, next_boundary, active_boundary, boundary_path, routes, boundaries)
 			axis = match scroll_value.axis {
@@ -125,12 +132,20 @@ Internal := [].{
 			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.name })
 			{ root: id, next_boundary: child.next_boundary, routes: child.routes, boundaries: child.boundaries }
 		}
-		Button(button_value) => {
-			label_elem = button_value.label.first() ?? crash "button label missing"
-			label = lower!(label_elem, state, next_boundary, active_boundary, boundary_path, routes, boundaries)
-			id = Host.node_button!(button_value.name, label.root)
-			route = { id, boundary: active_boundary, boundary_path, fire: |current| (button_value.on_press)(current, {}) }
-			{ root: id, next_boundary: label.next_boundary, routes: label.routes.append(route), boundaries: label.boundaries }
+		ActionButton(button_value) => {
+			style = style_args(button_value)
+			id = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			route = {
+				id,
+				boundary: active_boundary,
+				boundary_path,
+				fire: |current| if button_value.enabled {
+					(button_value.on_press)(current, {})
+				} else {
+					Action.none
+				},
+			}
+			{ root: id, next_boundary, routes: routes.append(route), boundaries }
 		}
 		Checkbox(checkbox_value) => {
 			style = style_args(checkbox_value)

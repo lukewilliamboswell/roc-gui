@@ -4,7 +4,7 @@
     (click (role button :name "Create 100,000 rows"))
     (mark-metrics)
     (click (role button :name "Update every tenth row"))
-    (expect-patch :kind replace :staged 600025 :removed 600025)
+    (expect-patch :kind replace :staged 400015 :removed 400015)
     (expect-count (text-prefix "Row ") 100000)
     (expect-visible (text "Row 99991: 1"))
     (expect-visible (text "Row 99992: 0"))))
