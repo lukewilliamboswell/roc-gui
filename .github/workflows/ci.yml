@@ -38,7 +38,7 @@ jobs:
           python3 -m unittest \
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
-            scripts/test_build_host_artifact.py \
+            scripts/test_host_release_policy.py \
             scripts/test_macos_interfaces.py
       - name: Full application specification suite
         run: python3 scripts/run_specs.py --jobs 2

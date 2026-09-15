@@ -69,6 +69,7 @@ def main() -> None:
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
     profile = "debug" if args.debug else "release"
     platform_targets = ROOT / "platform/targets"
+    platform_targets.mkdir(parents=True, exist_ok=True)
     destination = platform_targets / target
     if not args.skip_inputs:
         with tempfile.TemporaryDirectory(dir=platform_targets, prefix=".stage-") as temporary:
