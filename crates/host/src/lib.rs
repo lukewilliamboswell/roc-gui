@@ -2521,7 +2521,6 @@ fn print_host_help(app_name: &str) {
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
            --host-cap-audio                    Grant default audio-output access\n\
-           --host-cap-audio-null               Grant a deterministic null audio sink\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\

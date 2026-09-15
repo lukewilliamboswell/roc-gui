@@ -7,7 +7,7 @@ import Files
 Audio := [].{
 	Output : Resource.AudioOutput
 	Track : Resource.AudioTrack
-	Playback : [Loaded, Paused, Playing, Stopped]
+	Playback : [Paused, Playing, Stopped]
 	Status : { duration_ms : U64, position_ms : U64, playback : Playback }
 	LoadedTrack : { duration_ms : U64, track : Track }
 	Reason : [AccessDenied, DecodeFailed, InvalidCapability, InvalidName, OutputUnavailable, ResourceLimit, Unsupported, Unavailable]
@@ -31,7 +31,6 @@ Audio := [].{
 	stop! = |track| Host.audio_stop!(track).map_err(|raw| StopAudioErr(decode_reason(raw.code)))
 
 	decode_playback = |code| match code {
-		0 => Loaded
 		1 => Playing
 		2 => Paused
 		_ => Stopped

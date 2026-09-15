@@ -54,6 +54,11 @@ to each measured cycle?
 `spec_results`:: Which individual steps passed, and what counts or diagnostics
 did they record?
 
+Audio counter assertions retain their complete expected and observed vectors in
+`audio_counter_assertions`. The columns cover live output and track resources,
+then acquire, load, play, pause, seek, status, and stop operations. Each row is
+owned by the assertion step that sampled the production audio host.
+
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.

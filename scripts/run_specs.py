@@ -131,7 +131,11 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
     clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
     if case.app.parent.name == "redis-explorer":
         command.extend(["--host-cap-tcp", "127.0.0.1:36379"])
-    if case.app.parent.name == "music-player":
+    audio_fixture = case.app.parent / "audio-fixture"
+    if audio_fixture.is_file():
+        fixture_kind = audio_fixture.read_text(encoding="utf-8").strip()
+        if fixture_kind != "null":
+            raise RuntimeError(f"invalid audio fixture kind in {audio_fixture}")
         command.append("--host-cap-audio-null")
     with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
         storage = Path(temporary)

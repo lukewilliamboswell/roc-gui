@@ -284,11 +284,11 @@ The host delegates media decoding and playback to Rodio and Symphonia.
 `Audio.Track` is an opaque host resource. `Audio.play!`, `Audio.pause!`,
 `Audio.seek!`, `Audio.status!`, and `Audio.stop!` are bounded operations intended
 for `Action.task`. Status reports the decoder-owned duration, playback position,
-and `Loaded`, `Playing`, `Paused`, or `Stopped` state. `Audio.AudioErr` identifies
+and `Playing`, `Paused`, or `Stopped` state. `Audio.AudioErr` identifies
 the failed operation and carries a portable reason such as `DecodeFailed`,
 `OutputUnavailable`, or `InvalidCapability`.
 
-Specification runs may receive `--host-cap-audio-null`. The null output drains
+Specification runs may receive a harness-owned null-output grant. It drains
 the same paced Rodio mixer, decoder, and player state used by a system output;
 it changes only the final device sink.
 

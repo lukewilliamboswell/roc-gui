@@ -189,6 +189,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         };
         let mut pending_cycle = None;
         let mut count_evidence = None;
+        let mut audio_counter_evidence = None;
         let mut patch_evidence = None;
         let result = match &step.command {
             Command::MarkMetrics => {
@@ -686,6 +687,30 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectAudioCounters(expected) => {
+                let (operations, outputs, tracks) = crate::audio::counters();
+                let observed = [
+                    outputs as u64,
+                    tracks as u64,
+                    operations[0],
+                    operations[1],
+                    operations[2],
+                    operations[3],
+                    operations[4],
+                    operations[5],
+                    operations[6],
+                ];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                audio_counter_evidence = Some((*expected, observed));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected audio counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
                 if count == 0 {
@@ -875,6 +900,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             duration_ns: operation_duration,
             expected_count: count_evidence.map(|value| value.0),
             observed_count: count_evidence.map(|value| value.1),
+            audio_counters: audio_counter_evidence,
             expected_patch_kind: patch_evidence.as_ref().map(|value| value.0.clone()),
             observed_patch_kind: patch_evidence.as_ref().map(|value| value.1),
             expected_staged_nodes: patch_evidence.as_ref().map(|value| value.2),

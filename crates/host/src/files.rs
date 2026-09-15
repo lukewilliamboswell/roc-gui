@@ -143,28 +143,30 @@ pub(crate) fn valid_name(name: &str) -> bool {
     matches!(parts.next(), Some(Component::Normal(_))) && parts.next().is_none()
 }
 
-pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, std::io::Error> {
+pub(crate) enum BoundedReadError {
+    InvalidCapability,
+    InvalidName,
+    ResourceLimit,
+    Io,
+}
+
+pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, BoundedReadError> {
     if !valid_name(name) {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "invalid file name",
-        ));
+        return Err(BoundedReadError::InvalidName);
     }
-    let dir = lookup(handle).ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::PermissionDenied,
-            "invalid directory capability",
-        )
-    })?;
+    let dir = lookup(handle).ok_or(BoundedReadError::InvalidCapability)?;
     let mut options = OpenOptions::new();
     options.read(true);
-    let mut file = dir.open_with(name, &options.follow(FollowSymlinks::No))?;
-    let length = file.metadata()?.len();
+    let mut file = dir
+        .open_with(name, &options.follow(FollowSymlinks::No))
+        .map_err(|_| BoundedReadError::Io)?;
+    let length = file.metadata().map_err(|_| BoundedReadError::Io)?.len();
     if length > MAX_FILE_BYTES {
-        return Err(std::io::Error::other("file exceeds audio load limit"));
+        return Err(BoundedReadError::ResourceLimit);
     }
     let mut bytes = Vec::with_capacity(length as usize);
-    file.read_to_end(&mut bytes)?;
+    file.read_to_end(&mut bytes)
+        .map_err(|_| BoundedReadError::Io)?;
     Ok(bytes)
 }
 

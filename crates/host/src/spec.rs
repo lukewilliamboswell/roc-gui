@@ -40,6 +40,7 @@ pub enum Command {
     ExpectProcesses(usize),
     ExpectDeviceConnections(usize),
     ExpectDeviceTransactions(usize),
+    ExpectAudioCounters([u64; 9]),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -70,6 +71,7 @@ impl Command {
             Self::ExpectProcesses(_) => "expect-processes",
             Self::ExpectDeviceConnections(_) => "expect-device-connections",
             Self::ExpectDeviceTransactions(_) => "expect-device-transactions",
+            Self::ExpectAudioCounters(_) => "expect-audio-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -509,6 +511,17 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?,
         ),
+        "expect-audio-counters" if values.len() == 10 => {
+            let mut expected = [0u64; 9];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "audio counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "audio counters must be non-negative integers"))?;
+            }
+            Command::ExpectAudioCounters(expected)
+        }
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -616,6 +629,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-processes"
         | "expect-device-connections"
         | "expect-device-transactions"
+        | "expect-audio-counters"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"

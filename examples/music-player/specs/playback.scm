@@ -8,4 +8,5 @@
     (expect-visible (text "Playing track-001.wav"))
     (click (role button :name "Toggle playback"))
     (await-task)
-    (expect-visible (text "Paused"))))
+    (expect-visible (text "Paused"))
+    (expect-audio-counters 1 1 1 1 1 1 0 0 0)))

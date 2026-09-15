@@ -83,6 +83,13 @@ size. The product performs the same discover, connect, and byte transaction
 operations for both transports; cases without a fixture exercise denial through
 the normal `Discover devices` action.
 
+An adjacent `audio-fixture` file containing `null` grants a paced null output
+to that application's cases. The harness-only grant is not advertised as a
+product option; it changes only the final sink while Rodio retains ownership of
+the production decoder, mixer, player, seeking, and status state. The
+`expect-audio-counters` assertion records live outputs, live tracks, and the
+seven operation-attempt counters as deterministic step evidence.
+
 == Locators
 
 `(text "value")`:: Text whose entire value equals `value`.

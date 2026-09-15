@@ -5,7 +5,10 @@ use std::{
     io::Cursor,
     mem::ManuallyDrop,
     num::{NonZeroU16, NonZeroU32},
-    sync::{Mutex, OnceLock},
+    sync::{
+        Arc, Mutex, OnceLock,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     thread,
     time::Duration,
 };
@@ -18,8 +21,24 @@ pub enum Grant {
 }
 
 enum OutputKeepalive {
-    System { _sink: rodio::MixerDeviceSink },
-    Null,
+    System {
+        _sink: rodio::MixerDeviceSink,
+    },
+    Null {
+        stop: Arc<AtomicBool>,
+        thread: Option<thread::JoinHandle<()>>,
+    },
+}
+
+impl Drop for OutputKeepalive {
+    fn drop(&mut self) {
+        if let Self::Null { stop, thread } = self {
+            stop.store(true, Ordering::Release);
+            if let Some(handle) = thread.take() {
+                let _ = handle.join();
+            }
+        }
+    }
 }
 
 struct Output {
@@ -40,6 +59,12 @@ struct Store {
 }
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
+static OPERATIONS: [AtomicU64; 7] = [const { AtomicU64::new(0) }; 7];
+pub fn counters() -> ([u64; 7], usize, usize) {
+    let operations = std::array::from_fn(|index| OPERATIONS[index].load(Ordering::Relaxed));
+    let guard = store().lock().unwrap();
+    (operations, guard.outputs.len(), guard.tracks.len())
+}
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -58,6 +83,9 @@ pub fn configure(grant: Grant) {
     guard.outputs.clear();
     guard.tracks.clear();
     guard.allocations.clear();
+    for counter in &OPERATIONS {
+        counter.store(0, Ordering::Relaxed);
+    }
 }
 
 fn error(code: u8, message: &'static str) -> HostGlueAudioAcquireErr {
@@ -96,10 +124,12 @@ fn null_output() -> Output {
         NonZeroU16::new(2).unwrap(),
         NonZeroU32::new(44_100).unwrap(),
     );
-    thread::Builder::new()
+    let stop = Arc::new(AtomicBool::new(false));
+    let worker_stop = stop.clone();
+    let thread = thread::Builder::new()
         .name("roc-gui-null-audio".into())
         .spawn(move || {
-            loop {
+            while !worker_stop.load(Ordering::Acquire) {
                 for _ in 0..88 {
                     if source.next().is_none() {
                         break;
@@ -111,12 +141,16 @@ fn null_output() -> Output {
         .expect("failed to start null audio sink");
     Output {
         mixer,
-        _keepalive: OutputKeepalive::Null,
+        _keepalive: OutputKeepalive::Null {
+            stop,
+            thread: Some(thread),
+        },
     }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_audio_acquire() -> HostGlueAudioAcquireResult {
+    OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let mut guard = store().lock().unwrap();
     let output = match guard.grant {
         Grant::Denied => {
@@ -164,6 +198,7 @@ pub extern "C" fn roc_audio_load(
     dir_handle: *mut u64,
     name: RocStr,
 ) -> HostGlueAudioLoadResult {
+    OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let filename = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
     let bytes = files::read_bounded(dir_handle, &filename);
@@ -180,11 +215,16 @@ pub extern "C" fn roc_audio_load(
         },
         tag: HostGlueAudioLoadResultTag::Err,
     };
-    let Ok(bytes) = bytes else {
-        return fail(
-            2,
-            "audio file could not be read through the directory grant",
-        );
+    let bytes = match bytes {
+        Ok(bytes) => bytes,
+        Err(files::BoundedReadError::InvalidCapability) => {
+            return fail(1, "invalid directory capability");
+        }
+        Err(files::BoundedReadError::InvalidName) => return fail(2, "invalid audio file name"),
+        Err(files::BoundedReadError::ResourceLimit) => {
+            return fail(3, "audio file exceeds the load limit");
+        }
+        Err(files::BoundedReadError::Io) => return fail(7, "audio file could not be read"),
     };
     let byte_len = bytes.len() as u64;
     let Ok(decoder) = Decoder::builder()
@@ -258,6 +298,7 @@ fn with_track(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_audio_play(handle: *mut u64) -> HostGlueAudioPlayResult {
+    OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         if track.stopped {
             return Err((1, "stopped audio track capability"));
@@ -268,6 +309,7 @@ pub extern "C" fn roc_audio_play(handle: *mut u64) -> HostGlueAudioPlayResult {
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_audio_pause(handle: *mut u64) -> HostGlueAudioPauseResult {
+    OPERATIONS[3].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         if track.stopped {
             return Err((1, "stopped audio track capability"));
@@ -278,6 +320,7 @@ pub extern "C" fn roc_audio_pause(handle: *mut u64) -> HostGlueAudioPauseResult 
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_audio_seek(handle: *mut u64, position_ms: u64) -> HostGlueAudioSeekResult {
+    OPERATIONS[4].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         if track.stopped {
             return Err((1, "stopped audio track capability"));
@@ -292,6 +335,7 @@ pub extern "C" fn roc_audio_seek(handle: *mut u64, position_ms: u64) -> HostGlue
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_audio_stop(handle: *mut u64) -> HostGlueAudioStopResult {
+    OPERATIONS[6].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         track.player.stop();
         track.stopped = true;
@@ -301,6 +345,7 @@ pub extern "C" fn roc_audio_stop(handle: *mut u64) -> HostGlueAudioStopResult {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostGlueAudioStatusResult {
+    OPERATIONS[5].fetch_add(1, Ordering::Relaxed);
     let track_id = id(handle);
     unsafe {
         decref_box(handle as RocBox, roc_host());

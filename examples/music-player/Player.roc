@@ -107,12 +107,21 @@ toggle = |state| match state.playback {
 	} })
 }
 
-step! = |state, delta| match (state.library, state.playback) {
+step = |state, delta| match (state.library, state.playback) {
 	(Loaded(library), Playing(current)) | (Loaded(library), Paused(current)) => {
 		len = List.len(library.tracks)
 		next = if delta < 0 { if current.index == 0 0 else current.index - 1 } else if current.index + 1 >= len current.index else current.index + 1
-		_ = Audio.stop!(current.track)
-		play_index(state, library, next)
+		Action.task({
+			pending: { ..state, generation: state.generation + 1, status: "Changing track…" },
+			run: || Audio.stop!(current.track),
+			resolve: |latest, result| match result {
+				Err(err) => Action.update({ ..latest, status: audio_error(err) })
+				Ok(_) => match latest.library {
+					Empty => Action.update(latest)
+					Loaded(latest_library) => play_index(latest, latest_library, next)
+				}
+			},
+		})
 	}
 	_ => Action.update(state)
 }
@@ -140,9 +149,9 @@ render = |state| {
 		Elem.panel(Elem.PanelProps.{ label: "Playback status", border_color: Gui.rgb(0x4f76c7) }, [Elem.text(state.status)]),
 		library_view,
 		Elem.row(Elem.RowProps.{ label: "Playback controls" }, [
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Previous", label: "Previous track", on_press: |current, _| step!(current, -1) }),
+			Elem.action_button(Elem.ActionButtonProps.{ caption: "Previous", label: "Previous track", on_press: |current, _| step(current, -1) }),
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Play / Pause", label: "Toggle playback", on_press: |current, _| toggle(current) }),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Next", label: "Next track", on_press: |current, _| step!(current, 1) }),
+			Elem.action_button(Elem.ActionButtonProps.{ caption: "Next", label: "Next track", on_press: |current, _| step(current, 1) }),
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Stop", label: "Stop playback", on_press: |current, _| stop(current) }),
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Seek +100 ms", label: "Seek forward", on_press: |current, _| seek_forward(current) }),
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Refresh", label: "Refresh playback status", on_press: |current, _| refresh_status(current) }),
