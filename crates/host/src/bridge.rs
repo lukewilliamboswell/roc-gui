@@ -63,6 +63,7 @@ pub struct GraphApply {
 #[derive(Default)]
 pub struct MountedGraph {
     nodes: HashMap<u64, Node>,
+    parents: HashMap<u64, (u64, usize)>,
     root: Option<u64>,
 }
 
@@ -114,6 +115,7 @@ impl MountedGraph {
                     return Err("application attempted to mount twice".into());
                 }
                 let staged_ids = nodes.iter().map(|node| node.id).collect();
+                self.parents.extend(parent_entries(&nodes));
                 self.nodes
                     .extend(nodes.into_iter().map(|node| (node.id, node)));
                 self.root = Some(root);
@@ -128,22 +130,14 @@ impl MountedGraph {
                 if nodes.iter().any(|node| self.nodes.contains_key(&node.id)) {
                     return Err("replacement reused a live node id".into());
                 }
-                let mut parent = None;
-                let mut scanned = 0;
-                for (id, node) in &self.nodes {
-                    scanned += 1;
-                    if let Some(position) =
-                        node.children.iter().position(|child| *child == old_root)
-                    {
-                        parent = Some((*id, position));
-                        break;
-                    }
-                }
+                let parent = self.parents.get(&old_root).copied();
+                let scanned = u64::from(parent.is_some());
                 let replacing_root = self.root == Some(old_root);
                 if parent.is_none() && !replacing_root {
                     return Err("replacement target is detached".into());
                 }
                 let staged_ids = nodes.iter().map(|node| node.id).collect();
+                self.parents.extend(parent_entries(&nodes));
                 self.nodes
                     .extend(nodes.into_iter().map(|node| (node.id, node)));
                 if let Some((parent_id, position)) = parent {
@@ -151,11 +145,13 @@ impl MountedGraph {
                         .get_mut(&parent_id)
                         .expect("located parent disappeared")
                         .children[position] = root;
+                    self.parents.insert(root, (parent_id, position));
                 } else {
                     self.root = Some(root);
                 }
                 for id in &removed_ids {
                     self.nodes.remove(id);
+                    self.parents.remove(id);
                 }
                 (
                     "replace",
@@ -200,6 +196,15 @@ impl MountedGraph {
         }
         Ok(found)
     }
+}
+
+fn parent_entries(nodes: &[Node]) -> impl Iterator<Item = (u64, (u64, usize))> + '_ {
+    nodes.iter().flat_map(|node| {
+        node.children
+            .iter()
+            .enumerate()
+            .map(move |(position, child)| (*child, (node.id, position)))
+    })
 }
 
 fn elapsed_ns(start: Instant) -> u64 {
@@ -523,10 +528,21 @@ mod tests {
         assert_eq!(replaced.facts.staged, 2);
         assert_eq!(replaced.facts.removed, 2);
         assert_eq!(replaced.facts.live, 3);
-        assert!(replaced.facts.scanned > 0);
+        assert_eq!(replaced.facts.scanned, 1);
         assert_eq!(replaced.parent, Some((3, 0)));
         assert_eq!(graph.node(3).unwrap().children, vec![5]);
         assert!(graph.node(1).is_none());
         assert!(graph.node(2).is_none());
+
+        let replaced_again = graph
+            .apply(Patch::Replace {
+                old_root: 4,
+                root: 6,
+                nodes: vec![text(6, "newer")],
+            })
+            .unwrap();
+        assert_eq!(replaced_again.parent, Some((5, 0)));
+        assert_eq!(replaced_again.facts.scanned, 1);
+        assert_eq!(graph.node(5).unwrap().children, vec![6]);
     }
 }
