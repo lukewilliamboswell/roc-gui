@@ -14,7 +14,7 @@ Player := [].{
 
 Track : { name : Str }
 Library : [Empty, Loaded({ directory : Files.Dir.Read, output : Audio.Output, tracks : List(Track) })]
-Playback : [Idle, Paused({ index : U64, track : Audio.Track }), Playing({ index : U64, track : Audio.Track }), Stopped]
+Playback : [Idle, Active({ index : U64, paused : Bool, track : Audio.Track }), Stopped]
 State : { generation : U64, library : Library, playback : Playback, status : Str }
 
 is_audio = |name| Str.ends_with(name, ".wav")
@@ -69,25 +69,25 @@ play_index = |state, library, index| match library.tracks.get(index) {
 		},
 		resolve: |latest, result| match result {
 			PlayFailed(request, message) => if request == latest.generation { Action.update({ ..latest, status: message }) } else { Action.update(latest) }
-			PlayStarted(request, started_index, track) => if request == latest.generation { Action.update({ ..latest, playback: Playing({ index: started_index, track }), status: "Playing ${item.name}" }) } else { Action.task({ pending: latest, run: || Audio.stop!(track), resolve: |current, _| Action.update(current) }) }
+			PlayStarted(request, started_index, track) => if request == latest.generation { Action.update({ ..latest, playback: Active({ index: started_index, paused: False, track }), status: "Playing ${item.name}" }) } else { Action.task({ pending: latest, run: || Audio.stop!(track), resolve: |current, _| Action.update(current) }) }
 		},
 	}) }
 }
 
 stop = |state| match state.playback {
-	Playing(current) | Paused(current) => Action.task({ pending: { ..state, generation: state.generation + 1, status: "Stopping…" }, run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, playback: Stopped, status: "Stopped" })
+	Active(current) => Action.task({ pending: { ..state, generation: state.generation + 1, status: "Stopping…" }, run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, playback: Stopped, status: "Stopped" })
 		Err(_) => Action.update({ ..latest, status: "Stop failed" }) } })
 	_ => Action.update(state)
 }
 
 seek_forward = |state| match state.playback {
-	Playing(current) | Paused(current) => Action.task({ pending: { ..state, status: "Seeking…" }, run: || Audio.seek!(current.track, 100), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, status: "Position 100 ms" })
+	Active(current) => Action.task({ pending: { ..state, status: "Seeking…" }, run: || Audio.seek!(current.track, 100), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, status: "Position 100 ms" })
 		Err(err) => Action.update({ ..latest, status: audio_error(err) }) } })
 	_ => Action.update(state)
 }
 
 refresh_status = |state| match state.playback {
-	Playing(current) | Paused(current) => Action.task({ pending: state, run: || Audio.status!(current.track), resolve: |latest, result| match result { Ok(status) => Action.update({ ..latest, status: "Position ${U64.to_str(status.position_ms)} ms" })
+	Active(current) => Action.task({ pending: state, run: || Audio.status!(current.track), resolve: |latest, result| match result { Ok(status) => Action.update({ ..latest, status: "Position ${U64.to_str(status.position_ms)} ms" })
 		Err(err) => Action.update({ ..latest, status: audio_error(err) }) } })
 	_ => Action.update(state)
 }
@@ -97,18 +97,21 @@ toggle = |state| match state.playback {
 		Empty => Action.update(state)
 		Loaded(library) => play_index(state, library, 0)
 	}
-	Playing(current) => Action.task({ pending: { ..state, status: "Pausing…" }, run: || Audio.pause!(current.track), resolve: |latest, result| match result {
-		Ok(_) => Action.update({ ..latest, playback: Paused(current), status: "Paused" })
-		Err(_) => Action.update({ ..latest, status: "Pause failed" })
-	} })
-	Paused(current) => Action.task({ pending: { ..state, status: "Resuming…" }, run: || Audio.play!(current.track), resolve: |latest, result| match result {
-		Ok(_) => Action.update({ ..latest, playback: Playing(current), status: "Playing" })
-		Err(_) => Action.update({ ..latest, status: "Resume failed" })
-	} })
+	Active(current) => if current.paused {
+		Action.task({ pending: { ..state, status: "Resuming…" }, run: || Audio.play!(current.track), resolve: |latest, result| match result {
+			Ok(_) => Action.update({ ..latest, playback: Active({ ..current, paused: False }), status: "Playing" })
+			Err(_) => Action.update({ ..latest, status: "Resume failed" })
+		} })
+	} else {
+		Action.task({ pending: { ..state, status: "Pausing…" }, run: || Audio.pause!(current.track), resolve: |latest, result| match result {
+			Ok(_) => Action.update({ ..latest, playback: Active({ ..current, paused: True }), status: "Paused" })
+			Err(_) => Action.update({ ..latest, status: "Pause failed" })
+		} })
+	}
 }
 
 step = |state, delta| match (state.library, state.playback) {
-	(Loaded(library), Playing(current)) | (Loaded(library), Paused(current)) => {
+	(Loaded(library), Active(current)) => {
 		len = List.len(library.tracks)
 		next = if delta < 0 { if current.index == 0 0 else current.index - 1 } else if current.index + 1 >= len current.index else current.index + 1
 		Action.task({
