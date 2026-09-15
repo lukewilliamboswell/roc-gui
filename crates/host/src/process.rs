@@ -166,7 +166,7 @@ pub extern "C" fn roc_process_acquire() -> HostGlueProcessAcquireResult {
 }
 
 fn open_pty(columns: u16, rows: u16, profile: GrantedProfile) -> std::io::Result<Pty> {
-    let size = libc::winsize {
+    let mut size = libc::winsize {
         ws_row: rows,
         ws_col: columns,
         ws_xpixel: 0,
@@ -179,8 +179,8 @@ fn open_pty(columns: u16, rows: u16, profile: GrantedProfile) -> std::io::Result
             &mut master,
             &mut slave,
             std::ptr::null_mut(),
-            std::ptr::null(),
-            &size,
+            std::ptr::null_mut(),
+            &mut size,
         )
     } != 0
     {
@@ -584,8 +584,8 @@ mod tests {
                     &mut master,
                     &mut slave,
                     std::ptr::null_mut(),
-                    std::ptr::null(),
-                    std::ptr::null(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
                 )
             },
             0
