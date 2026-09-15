@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 
 from dependency_artifacts import sha256, unpack_verified, verify_archive, read_lock
 
@@ -154,13 +155,18 @@ def publish(directory, tag, kind="musl"):
 
 def release_by_tag(tag):
     """Find drafts as well as published releases without relying on tag refs."""
-    releases = json.loads(subprocess.check_output([
-        "gh", "api", f"repos/{REPOSITORY}/releases?per_page=100",
-    ], text=True))
-    matches = [release for release in releases if release["tag_name"] == tag]
-    if len(matches) != 1:
-        raise ValueError("created dependency draft release is missing or ambiguous")
-    return matches[0]
+    for attempt in range(5):
+        releases = json.loads(subprocess.check_output([
+            "gh", "api", f"repos/{REPOSITORY}/releases?per_page=100",
+        ], text=True))
+        matches = [release for release in releases if release["tag_name"] == tag]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            break
+        if attempt < 4:
+            time.sleep(1)
+    raise ValueError("created dependency draft release is missing or ambiguous")
 
 
 def publish_assets(directory, tag, kind, source, assets, validation, scope):
