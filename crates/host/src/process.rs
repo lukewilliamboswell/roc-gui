@@ -297,13 +297,7 @@ pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostGlue
             events: libc::POLLIN | libc::POLLHUP,
             revents: 0,
         };
-        let polled = unsafe {
-            libc::poll(
-                &mut descriptor,
-                1,
-                if collected.is_empty() { 20 } else { 20 },
-            )
-        };
+        let polled = unsafe { libc::poll(&mut descriptor, 1, 20) };
         if polled < 0 {
             return read_err(Reason::Io);
         }
