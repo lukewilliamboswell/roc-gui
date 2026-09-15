@@ -152,6 +152,17 @@ def publish(directory, tag, kind="musl"):
                    "This release contains no platform host or application code.")
 
 
+def release_by_tag(tag):
+    """Find drafts as well as published releases without relying on tag refs."""
+    releases = json.loads(subprocess.check_output([
+        "gh", "api", f"repos/{REPOSITORY}/releases?per_page=100",
+    ], text=True))
+    matches = [release for release in releases if release["tag_name"] == tag]
+    if len(matches) != 1:
+        raise ValueError("created dependency draft release is missing or ambiguous")
+    return matches[0]
+
+
 def publish_assets(directory, tag, kind, source, assets, validation, scope):
     """Publish already admitted artifacts without importing producer-specific code."""
     # The CLI refuses an existing release. Check tags too: --target alone does
@@ -174,9 +185,7 @@ def publish_assets(directory, tag, kind, source, assets, validation, scope):
     subprocess.run(["gh", "release", "create", tag, *map(str, assets), "--repo", REPOSITORY,
                     "--target", source, "--latest=false", "--draft",
                     "--title", f"{kind} link inputs {tag}", "--notes-file", str(notes)], check=True)
-    published = json.loads(subprocess.check_output([
-        "gh", "api", f"repos/{REPOSITORY}/releases/tags/{tag}",
-    ], text=True))
+    published = release_by_tag(tag)
     expected_names = {path.name for path in assets}
     observed_names = {asset["name"] for asset in published["assets"]}
     if not published["draft"] or published["target_commitish"] != source or observed_names != expected_names:
