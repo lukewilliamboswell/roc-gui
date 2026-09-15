@@ -42,9 +42,9 @@ use std::{
     collections::HashMap,
     ffi::c_void,
     path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
     sync::{Arc, Mutex, OnceLock},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 actions!(
@@ -71,6 +71,8 @@ struct TaskRuntime {
 }
 
 static TASK_RUNTIME: OnceLock<TaskRuntime> = OnceLock::new();
+static GPUI_SMOKE: AtomicBool = AtomicBool::new(false);
+static GPUI_SMOKE_RENDERS: AtomicU64 = AtomicU64::new(0);
 
 fn task_runtime() -> &'static TaskRuntime {
     TASK_RUNTIME.get_or_init(|| {
@@ -2299,7 +2301,10 @@ fn elapsed_ns(start: Instant) -> u64 {
 }
 
 impl Render for Runtime {
-    fn render(&mut self, window: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        if GPUI_SMOKE.load(Ordering::Relaxed) {
+            GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
+        }
         if let Some(target) = self.focus_after_render.take() {
             if let Some(handle) = self.focus_handles.get(&target) {
                 handle.focus(window);
@@ -2324,6 +2329,7 @@ struct HostArgs {
     app_name: String,
     help: bool,
     host_smoke: bool,
+    host_gpui_smoke: bool,
     spec_path: Option<PathBuf>,
     stats_record: bool,
     stats_output: Option<PathBuf>,
@@ -2355,6 +2361,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         app_name,
         help: false,
         host_smoke: false,
+        host_gpui_smoke: false,
         spec_path: None,
         stats_record: false,
         stats_output: None,
@@ -2379,6 +2386,8 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.help = true;
         } else if argument == "--host-smoke" {
             parsed.host_smoke = true;
+        } else if argument == "--host-gpui-smoke" {
+            parsed.host_gpui_smoke = true;
         } else if argument == "--host-stats-record" {
             parsed.stats_record = true;
         } else if argument == "--host-run-spec" {
@@ -2482,8 +2491,12 @@ fn parse_host_args() -> Result<HostArgs, String> {
             return Err(format!("unknown host argument: {argument}"));
         }
     }
-    if parsed.host_smoke && parsed.spec_path.is_some() {
-        return Err("--host-smoke and --host-run-spec are mutually exclusive".into());
+    if usize::from(parsed.host_smoke)
+        + usize::from(parsed.host_gpui_smoke)
+        + usize::from(parsed.spec_path.is_some())
+        > 1
+    {
+        return Err("host smoke modes and --host-run-spec are mutually exclusive".into());
     }
     Ok(parsed)
 }
@@ -2567,6 +2580,7 @@ fn print_host_help(app_name: &str) {
 		   --host-cap-system-monitor           Grant read-only local system sampling\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
+          --host-gpui-smoke                   Open, render, and close a real GPUI window\n\
            --host-stats-record                 Record an observatory capture\n\
            --host-stats-output=PATH            Set the capture output path\n\
            --host-stats-detail=summary|full    Select capture detail\n\
@@ -2611,7 +2625,11 @@ fn start_requested_recorder(
         backend: if args.spec_path.is_some() || args.host_smoke {
             "semantic-headless"
         } else {
-            "gpui-wayland"
+            if cfg!(target_os = "macos") {
+                "gpui-macos"
+            } else {
+                "gpui-wayland"
+            }
         },
         app_name: args.app_name.clone(),
         spec_name: parsed_spec.map(|case| case.name.clone()),
@@ -2769,6 +2787,9 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         roc_work_valid,
     };
     let window_config = WINDOW_CONFIG.with(|config| config.borrow().clone());
+    GPUI_SMOKE.store(args.host_gpui_smoke, Ordering::Relaxed);
+    GPUI_SMOKE_RENDERS.store(0, Ordering::Relaxed);
+    let gpui_smoke = args.host_gpui_smoke;
 
     Application::new().run(move |cx| {
         input::bind_keys(cx);
@@ -2794,20 +2815,43 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
             ),
             cx,
         );
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: Some(TitlebarOptions {
-                    title: Some(window_config.title.clone().into()),
+        let window = cx
+            .open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some(window_config.title.clone().into()),
+                        ..Default::default()
+                    }),
                     ..Default::default()
-                }),
-                ..Default::default()
-            },
-            move |_, cx| cx.new(|cx| Runtime::new(initial, cx)),
-        )
-        .expect("failed to open GPUI window");
+                },
+                move |_, cx| cx.new(|cx| Runtime::new(initial, cx)),
+            )
+            .expect("failed to open GPUI window");
         cx.activate(true);
+        if gpui_smoke {
+            cx.spawn(async move |cx| {
+                cx.background_executor().timer(Duration::from_secs(2)).await;
+                let renders = window
+                    .update(cx, |_, _, _| GPUI_SMOKE_RENDERS.load(Ordering::Relaxed))
+                    .expect("GPUI smoke window closed before validation");
+                assert!(renders > 0, "no GPUI views rendered");
+                eprintln!("PASS: GPUI mounted and rendered {renders} frame(s)");
+                cx.update(|cx| cx.quit()).unwrap();
+            })
+            .detach();
+        }
     });
+
+    if args.host_gpui_smoke {
+        let renders = GPUI_SMOKE_RENDERS.load(Ordering::Relaxed);
+        if renders == 0 {
+            eprintln!("FAIL: GPUI window closed before the mounted graph rendered");
+            clear_bridge();
+            set_roc_host(core::ptr::null_mut());
+            return 1;
+        }
+    }
 
     if observatory::active() {
         observatory::run_end(1, "pass", observatory::now_ns(), None);

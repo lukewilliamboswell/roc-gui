@@ -1,0 +1,110 @@
+name: Platform bundle release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package SemVer without a v prefix
+        type: string
+        required: true
+      validate_only:
+        description: Build and test exact assets without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-roc
+      - name: Validate release policy
+        if: ${{ !inputs.validate_only }}
+        uses: lukewilliamboswell/roc-automation/actions/check-release@355f762079f676df4d0ae86416edf34216b488e0
+        with:
+          version: ${{ inputs.version }}
+          compiler-root: platform/main.roc
+          allow-default-branch: 'true'
+          allow-nightly-bootstrap: 'true'
+      - name: Verify locked artifact attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify_release_attestations.py dependencies.lock.json host.lock.json --cache "$RUNNER_TEMP/cache"
+      - name: Bundle exact locked bytes once
+        run: python3 scripts/bundle_platform.py --output "$RUNNER_TEMP/release" --cache "$RUNNER_TEMP/cache"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: platform-release
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 30
+
+  test:
+    name: Test exact bundle (${{ matrix.target }})
+    needs: bundle
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x64glibc
+          - os: macos-15
+            target: arm64mac
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-roc
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: platform-release
+          path: ${{ runner.temp }}/release
+      - name: Install Linux runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0
+      - name: Serve and test the exact content-addressed bundle
+        run: python3 scripts/check_platform_bundle.py --directory "$RUNNER_TEMP/release"
+
+  publish:
+    if: ${{ !inputs.validate_only && github.ref == 'refs/heads/main' && github.repository == 'lukewilliamboswell/roc-gui' }}
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: platform-release
+          path: ${{ runner.temp }}/release
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release/*.tar.zst
+            ${{ runner.temp }}/release/release-manifest.json
+      - name: Publish the exact tested bytes from a verified draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python3 scripts/publish_platform.py --directory "$RUNNER_TEMP/release" --version "$RELEASE_VERSION"

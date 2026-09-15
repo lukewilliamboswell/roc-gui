@@ -1,0 +1,117 @@
+name: GUI host link inputs
+
+on:
+  pull_request:
+    paths:
+      - crates/host/**
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .cargo/config.toml
+      - build.py
+      - dependencies/gui-host-notices/**
+      - scripts/cargo_build_evidence.py
+      - scripts/gui_host_artifacts.py
+      - scripts/host_notice_payload.py
+      - scripts/host_build_identity.py
+      - scripts/prepare_gui_host_release.py
+      - scripts/prepare_host_build.py
+      - scripts/normalize_host_archive.py
+      - scripts/rust_license_inventory.py
+      - scripts/toolchain_license_inventory.py
+      - scripts/release_host_artifacts.py
+      - scripts/test_host_release_policy.py
+      - scripts/test_rust_license_inventory.py
+      - scripts/test_toolchain_license_inventory.py
+      - .github/workflows/gui-hosts.yml
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: New host release tag (deps-gui-host-<version>)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gui-hosts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and exercise ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x64glibc
+          - os: macos-15
+            target: arm64mac
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - name: Check host evidence and notice admission
+        run: |
+          python3 scripts/test_host_release_policy.py
+          python3 scripts/test_rust_license_inventory.py
+          python3 scripts/test_toolchain_license_inventory.py
+      - name: Test and capture the production host
+        run: |
+          cargo test --locked --workspace
+          python3 scripts/prepare_host_build.py --evidence "$RUNNER_TEMP/cargo-evidence" --output "$RUNNER_TEMP/host-output"
+      - name: Compose notices, source companion, and tested host archive
+        run: |
+          python3 scripts/prepare_gui_host_release.py \
+            --target ${{ matrix.target }} \
+            --source "$RUNNER_TEMP/host-output" \
+            --cargo-evidence "$RUNNER_TEMP/cargo-evidence" \
+            --output "$RUNNER_TEMP/host" \
+            --roc roc
+      - name: Exercise a real macOS window
+        if: runner.os == 'macOS'
+        run: |
+          cp "$RUNNER_TEMP/host-output/libhost.a" platform/targets/arm64mac/libhost.a
+          python3 scripts/build_macos_stubs.py --archives platform/targets/arm64mac --output "$RUNNER_TEMP/macos-sysroot"
+          rm -rf platform/targets/macos-sysroot
+          mv "$RUNNER_TEMP/macos-sysroot" platform/targets/macos-sysroot
+          roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
+          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: gui-host-${{ matrix.target }}
+          path: ${{ runner.temp }}/host/*.tar
+          retention-days: 30
+
+  publish:
+    name: Attest and publish tested hosts
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'lukewilliamboswell/roc-gui'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: gui-host-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/host
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-path: ${{ runner.temp }}/host/*.tar
+      - name: Publish from a verified draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: python3 scripts/release_host_artifacts.py --directory "$RUNNER_TEMP/host" --tag "$RELEASE_TAG" --target x64glibc --target arm64mac

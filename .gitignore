@@ -1,5 +1,12 @@
 /target/
-/platform/targets/x64glibc/libhost.a
+/platform/targets/*/*.a
+/platform/targets/*/*.o
+/platform/targets/*/*.obj
+/platform/targets/*/*.so
+/platform/targets/*/*.lib
+/platform/targets/*/*.tbd
+/platform/targets/*/*.json
+/platform/targets/macos-sysroot/
 /counter
 /main
 /.test-out
@@ -7,3 +14,5 @@
 /.docs-out
 __pycache__
 /generated-docs
+/.artifact-cache/
+/.release-out/
