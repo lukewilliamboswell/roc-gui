@@ -1,13 +1,13 @@
-## Host-granted directory capabilities. Acquisition requests trusted host selection;
-## every filesystem operation afterward requires the opaque, rights-specific
-## directory handle it returned.
+## Host-provisioned directory capabilities. Interactive hosts source project
+## grants from trusted selection; development and automation may provision the
+## same registry explicitly. Every later operation requires the opaque handle.
 
 import InternalFiles
 import Resource
 
 Files := [].{
 
-	## The result of a user-facing chooser. Canceling is a successful outcome.
+	## The result of acquiring a provisioned selection. Canceling is successful.
 	Choice(a) : [Canceled, Chosen(a)]
 
 	## A chosen directory's display name and read authority.
@@ -76,8 +76,9 @@ Files := [].{
 		write_utf8_atomic! = |directory, name, value| InternalFiles.write_utf8_atomic!(directory, name, value).map_err(|raw| WriteFileErr(decode_reason(raw.code)))
 	}
 
-	## Request a trusted read-only project selection. Development and automation
-	## may provision the same grant registry; absent authority returns `AccessDenied`.
+	## Acquire the read-only project grant provisioned by the host. This function
+	## does not display trusted UI; interactive hosts must source the grant from
+	## trusted selection. Without a provisioned grant it returns `AccessDenied`.
 	pick_directory! : {} => Try(Choice(Selection), FileErr)
 
 	## Acquire the private read-write application-data directory granted by the host.
