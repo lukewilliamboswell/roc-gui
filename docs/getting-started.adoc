@@ -59,6 +59,13 @@ roc build --output=my-app path/to/main.roc
 ./my-app
 ----
 
+Pass `--host-help` after Roc's argument separator to list native host options:
+
+[source,sh]
+----
+roc path/to/main.roc -- --host-help
+----
+
 == Check behaviour without opening a window
 
 The counter includes a semantic specification:

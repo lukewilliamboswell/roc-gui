@@ -26,6 +26,7 @@ pub struct Step {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Click(Locator),
+    AwaitTask,
     ExpectVisible(Locator),
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
@@ -38,6 +39,7 @@ impl Command {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Click(_) => "click",
+            Self::AwaitTask => "await-task",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
@@ -48,7 +50,7 @@ impl Command {
     }
 
     pub fn is_operation(&self) -> bool {
-        matches!(self, Self::Click(_))
+        matches!(self, Self::Click(_) | Self::AwaitTask)
     }
 }
 
@@ -64,6 +66,8 @@ pub enum Locator {
     Text(String),
     TextPrefix(String),
     ButtonName(String),
+    CheckboxName(String),
+    CheckboxPrefix(String),
 }
 
 const MAX_SOURCE_BYTES: usize = 1024 * 1024;
@@ -308,6 +312,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         .ok_or_else(|| error(node, "step requires a command name"))?;
     let command = match head {
         "click" if values.len() == 2 => Command::Click(parse_locator(&values[1])?),
+        "await-task" if values.len() == 1 => Command::AwaitTask,
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-not-visible" if values.len() == 2 => {
             Command::ExpectNotVisible(parse_locator(&values[1])?)
@@ -359,8 +364,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
-        "click" | "expect-visible" | "expect-not-visible" | "expect-count" | "expect-before"
-        | "expect-patch" | "mark-metrics" => {
+        "click" | "await-task" | "expect-visible" | "expect-not-visible" | "expect-count"
+        | "expect-before" | "expect-patch" | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -382,6 +387,10 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .string()
             .map(|value| Locator::TextPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "text-prefix locator requires a string")),
+        Some("checkbox-prefix") if values.len() == 2 => values[1]
+            .string()
+            .map(|value| Locator::CheckboxPrefix(value.to_owned()))
+            .ok_or_else(|| error(node, "checkbox-prefix locator requires a string")),
         Some("role")
             if values.len() == 4
                 && values[1].atom() == Some("button")
@@ -392,7 +401,17 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .map(|value| Locator::ButtonName(value.to_owned()))
                 .ok_or_else(|| error(node, "button name must be a string"))
         }
-        Some("role") => Err(error(node, "only (role button :name \"...\") is supported")),
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("checkbox")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::CheckboxName(value.to_owned()))
+                .ok_or_else(|| error(node, "checkbox name must be a string"))
+        }
+        Some("role") => Err(error(node, "supported roles are button and checkbox")),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
     }

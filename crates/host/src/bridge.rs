@@ -43,10 +43,51 @@ type NodeSet = HashSet<u64, BuildHasherDefault<NodeIdHasher>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
-    Button { name: String },
+    Button {
+        name: String,
+    },
+    Checkbox {
+        label: String,
+        checked: bool,
+        enabled: bool,
+        style: CheckboxStyle,
+    },
     Column,
     Row,
     Text(String),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Length {
+    Auto,
+    Fill,
+    Px(u32),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Overflow {
+    Visible,
+    Clip,
+    Scroll,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CheckboxStyle {
+    pub gap: u32,
+    pub padding: u32,
+    pub width: Length,
+    pub height: Length,
+    pub grow: bool,
+    pub bg: Option<u32>,
+    pub hover_bg: Option<u32>,
+    pub active_bg: Option<u32>,
+    pub fg: Option<u32>,
+    pub border_color: Option<u32>,
+    pub border_width: u32,
+    pub radius: u32,
+    pub font_size: u32,
+    pub overflow_x: Overflow,
+    pub overflow_y: Overflow,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -321,6 +362,7 @@ pub enum Commit {
 
 pub struct BridgeState {
     pub dispatcher: Option<RocErasedCallable>,
+    pub task_dispatcher: Option<RocErasedCallable>,
     pub pending: Option<Patch>,
     next_node_id: u64,
     staged: Vec<Node>,
@@ -332,6 +374,7 @@ impl BridgeState {
     pub const fn new() -> Self {
         Self {
             dispatcher: None,
+            task_dispatcher: None,
             pending: None,
             next_node_id: 1,
             staged: Vec::new(),
@@ -487,7 +530,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     let mut parent_count = 0;
     for node in nodes {
         match node.kind {
-            NodeKind::Text(_) if !node.children.is_empty() => {
+            NodeKind::Text(_) | NodeKind::Checkbox { .. } if !node.children.is_empty() => {
                 return Err(format!("text node {} has children", node.id));
             }
             NodeKind::Button { .. } if node.children.len() != 1 => {
@@ -550,7 +593,7 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
     let mut parent_count = 0;
     for node in nodes {
         match node.kind {
-            NodeKind::Text(_) if !node.children.is_empty() => {
+            NodeKind::Text(_) | NodeKind::Checkbox { .. } if !node.children.is_empty() => {
                 return Err(format!("text node {} has children", node.id));
             }
             NodeKind::Button { .. } if node.children.len() != 1 => {

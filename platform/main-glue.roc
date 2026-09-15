@@ -15,23 +15,31 @@ platform ""
 	}
 	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch! }
 	hosted {
-		"roc_gui_node_text": Host.node_text!,
-		"roc_gui_children_begin": Host.children_begin!,
-		"roc_gui_children_push": Host.children_push!,
-		"roc_gui_node_row": Host.node_row!,
-		"roc_gui_node_column": Host.node_column!,
-		"roc_gui_node_button": Host.node_button!,
-		"roc_gui_apply": Host.apply!,
-		"roc_gui_set_dispatch": Host.set_dispatch!,
-		"roc_gui_work_start": Host.work_start!,
-		"roc_gui_work_end": Host.work_end!,
+		"roc_gui_node_text": HostGlue.node_text!,
+		"roc_gui_children_begin": HostGlue.children_begin!,
+		"roc_gui_children_push": HostGlue.children_push!,
+		"roc_gui_node_row": HostGlue.node_row!,
+		"roc_gui_node_column": HostGlue.node_column!,
+		"roc_gui_node_button": HostGlue.node_button!,
+		"roc_gui_node_checkbox": HostGlue.node_checkbox!,
+		"roc_gui_apply": HostGlue.apply!,
+		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
+		"roc_gui_set_task_dispatch": HostGlue.set_task_dispatch!,
+		"roc_gui_enqueue_task": HostGlue.enqueue_task!,
+		"roc_gui_work_start": HostGlue.work_start!,
+		"roc_gui_work_end": HostGlue.work_end!,
+		"roc_files_pick_directory": Files.pick_directory!,
+		"roc_files_dir_list": Files.Dir.list!,
+		"roc_files_dir_open_read": Files.Dir.open_read_dir!,
 	}
 	targets: {
 		inputs_dir: "targets/",
 		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
 	}
 
-import Host
+import HostGlue
+import Action
+import Files
 
 gui_init! : () => {}
 gui_init! = || {}

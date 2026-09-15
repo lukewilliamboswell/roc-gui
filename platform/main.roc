@@ -2,11 +2,11 @@ platform ""
 	requires {
 		[State : state] for main : Program(state),
 	}
-	exposes [Program, Elem, Layout, Action, Event]
+	exposes [Program, Elem, Layout, Action, Event, Gui, Files]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 	}
-	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch! }
+	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch!, "roc_gui_complete": gui_complete!, "roc_gui_run_task": gui_run_task! }
 	hosted {
 		"roc_gui_node_text": Host.node_text!,
 		"roc_gui_children_begin": Host.children_begin!,
@@ -14,10 +14,16 @@ platform ""
 		"roc_gui_node_row": Host.node_row!,
 		"roc_gui_node_column": Host.node_column!,
 		"roc_gui_node_button": Host.node_button!,
+		"roc_gui_node_checkbox": Host.node_checkbox!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
+		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,
+		"roc_gui_enqueue_task": Host.enqueue_task!,
 		"roc_gui_work_start": Host.work_start!,
 		"roc_gui_work_end": Host.work_end!,
+		"roc_files_pick_directory": Files.pick_directory!,
+		"roc_files_dir_list": Files.Dir.list!,
+		"roc_files_dir_open_read": Files.Dir.open_read_dir!,
 	}
 	targets: {
 		inputs_dir: "targets/",
@@ -29,6 +35,8 @@ import Elem exposing [Elem]
 import Layout
 import Action
 import Event
+import Gui
+import Files
 import Host
 
 gui_init! : () => {}
@@ -36,3 +44,9 @@ gui_init! = || Program.start!(main)
 
 gui_dispatch! : Box((U64 => {})), U64 => {}
 gui_dispatch! = |dispatch_box, event_id| Box.unbox(dispatch_box)(event_id)
+
+gui_complete! : Box((Box((Box(state) -> Box(Action.Action(state)))) => {})), Box((Box(state) -> Box(Action.Action(state)))) => {}
+gui_complete! = |dispatch_box, completion_box| Box.unbox(dispatch_box)(completion_box)
+
+gui_run_task! : Box((() => Box((Box(state) -> Box(Action.Action(state)))))) => Box((Box(state) -> Box(Action.Action(state))))
+gui_run_task! = |task_box| Box.unbox(task_box)()

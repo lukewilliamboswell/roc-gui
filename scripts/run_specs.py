@@ -105,6 +105,9 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         f"--host-stats-job-count={jobs}",
         f"--host-stats-detail={detail}",
     ]
+    fixture = case.app.parent / "fixture"
+    if fixture.is_dir():
+        command.extend(["--host-cap-dir", str(fixture)])
     try:
         completed = subprocess.run(
             command,

@@ -14,7 +14,7 @@ and GPUI entities. Nodes and entities outside that boundary remain mounted.
 roc-gui has three representations of a UI:
 
 `Elem` value:: A short-lived Roc description produced by a renderer. It carries
-text, layout, buttons, handlers, and explicit local-state boundaries.
+text, layout, buttons, checkboxes, handlers, and explicit local-state boundaries.
 Mounted graph:: The host's canonical, validated tree of native nodes. It is the
 source of truth shared by the interactive window and semantic specs.
 GPUI entities:: Retained native views materialised from mounted nodes. GPUI uses
@@ -165,6 +165,25 @@ Boundaries affect both composition and cost. Put them around state that can
 update independently, but do not treat one as a cache: its complete subtree is
 rendered and lowered afresh for every `Update` it owns. `Action.none` is the
 only handler result that stages no tree and mutates no graph or GPUI entity.
+
+== Asynchronous action turns
+
+An `Action.task` first replaces its owning boundary with the declared pending
+state. The host then accepts the boxed task into one unbounded queue serviced by
+between four and sixteen native workers. A worker returns a boxed reducer, not
+a state snapshot. The UI thread applies that reducer through the latest
+installed task dispatcher, renders the root boundary, commits one ordinary
+patch, and installs successor dispatchers. Roc values cross threads only as
+owned erased callables; generic state and actions remain boxed across the ABI.
+
+Directory handles are typed nominal wrappers over `Box(U64)`. Each token names
+a host registry entry containing a `cap_std::fs::Dir`; final box deallocation
+removes that entry. The phantom resource kind leaves room for other handle
+families without allowing their types to be confused. Ambient filesystem
+authority is used only to create the explicit
+`--host-cap-dir` grant. Listing and child acquisition operate relative to the
+stored handle, and child acquisition uses the no-follow operation from
+`cap-fs-ext`.
 
 == There is no node-level diff
 

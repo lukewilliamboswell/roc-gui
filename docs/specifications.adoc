@@ -46,12 +46,19 @@ produces one `.rgstats` SQLite capture beneath a timestamped
 `.test-out/specs/` directory. A failing assertion makes the command fail and
 prints the specification line and reason.
 
+If an application has an adjacent `fixture/` directory, the runner grants that
+directory through the production `--host-cap-dir` boundary. Fixture contents
+are therefore exercised through the same opaque capability operations as an
+interactive grant, without giving the application ambient test-only I/O.
+
 == Locators
 
 `(text "value")`:: Text whose entire value equals `value`.
 `(text-prefix "prefix")`:: Text beginning with `prefix`.
+`(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
 `(role button :name "name")`:: A button with the semantic `name` passed to
 `Elem.button`.
+`(role checkbox :name "label")`:: A checkbox identified by its visible label.
 
 A `click` locator must resolve to exactly one live node. Ambiguous and missing
 targets fail instead of choosing one by traversal order. Make button names
@@ -61,6 +68,9 @@ unique wherever the buttons are visible together.
 
 `(click LOCATOR)`:: Press exactly one matching button through the application's
 normal Roc event route.
+`(await-task)`:: Wait for exactly one accepted worker task and apply its
+completion through the normal latest-state route. A task that resolves to
+another task requires another `await-task` step.
 `(expect-visible LOCATOR)`:: Require at least one match.
 `(expect-not-visible LOCATOR)`:: Require no matches.
 `(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and

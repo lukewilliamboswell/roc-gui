@@ -30,10 +30,13 @@ main = Program.run({ init: { count: 0 }, render })
 
 `render` is pure: it reads state and returns an `Elem(State)`. A button handler
 receives the state associated with its render boundary and an `Event.Press`.
-It returns one of two actions:
+It returns one of three actions:
 
 `Action.update(next_state)`:: Replace the boundary's state and render it again.
 `Action.none`:: Keep the existing state and element tree unchanged.
+`Action.task({ pending, run, resolve })`:: Commit `pending`, run `run` on the
+bounded native worker pool, then invoke `resolve` against the latest state on
+the UI thread.
 
 Use `Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
@@ -44,6 +47,9 @@ returning an unchanged state with `Action.update`.
 `Elem.text(value)`:: Display a string.
 `Elem.button({ label, name, on_press })`:: Display a clickable label and handle
 presses. `label` is an element, so text is written as `Elem.text("Save")`.
+`Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and handle
+`Event.Check`. Props include enabled state, gap, padding, sizing, growth,
+foreground and interaction colours, border, radius, font size, and overflow.
 `Layout.row({}, children)`:: Lay out children horizontally.
 `Layout.col({}, children)`:: Lay out children vertically.
 
@@ -102,3 +108,19 @@ and why this is a boundary operation rather than a virtual-tree diff.
 
 For a complete reusable component, see `examples/counter/Counter.roc` and its
 composition in `examples/counter/main.roc`.
+
+== Directory capabilities and tasks
+
+`Files.pick_directory!({})` acquires the read-only directory capability granted
+by `--host-cap-dir PATH`. With no grant it returns `AccessDenied`. The returned
+`Files.Dir.Read` is an opaque, reference-counted handle: it may be stored in
+state or captured by tasks, but applications cannot forge it or recover an
+ambient path. Internally it uses the platform-wide typed `Resource.Handle`
+representation, leaving the same ABI shape available to future resource APIs.
+
+`Files.Dir.list!(directory)` lists at most 10,000 direct children and 4 MiB of
+UTF-8 names. Entries distinguish files, directories, symlinks, and other file
+types. `Files.Dir.open_read_dir!(directory, name)` acquires a direct child
+directory without following the final symlink; names containing traversal or
+multiple path components are rejected. Run filesystem operations inside
+`Action.task`, as shown by `examples/folder-browser/main.roc`.

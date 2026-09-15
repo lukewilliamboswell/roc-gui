@@ -15,7 +15,7 @@ may fail before application code is checked.
 == The executable rejects an argument
 
 Host arguments belong after the executable name. Supported application modes
-include `--host-run-spec PATH`, `--headless-smoke`, `--host-stats-record`, and
+include `--host-help`, `--host-run-spec PATH`, `--host-smoke`, `--host-stats-record`, and
 the `--host-stats-*=VALUE` recording controls documented in
 <<_record_an_interactive_application>>. Unknown arguments are rejected.
 

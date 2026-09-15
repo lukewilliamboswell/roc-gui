@@ -1,4 +1,9 @@
+## Values delivered to element event handlers.
 Event := [].{
-	Press : {}
-}
 
+	## A button press. It carries no additional data.
+	Press : {}
+
+	## A checkbox change containing the newly requested checked state.
+	Check : { checked : Bool }
+}

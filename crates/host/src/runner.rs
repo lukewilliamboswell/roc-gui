@@ -1,10 +1,11 @@
 use crate::{
+    await_task_completion,
     bridge::{ApplyFacts, MountedGraph, NodeKind},
-    clear_bridge, dispatch,
+    clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
     spec::{Command, Locator, Spec},
-    take_patch,
+    take_patch, task_counts,
 };
 use std::time::Instant;
 
@@ -22,6 +23,16 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Some(node.id)
             }
             (Locator::ButtonName(expected), NodeKind::Button { name }) if expected == name => {
+                Some(node.id)
+            }
+            (Locator::CheckboxName(expected), NodeKind::Checkbox { label, .. })
+                if expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::CheckboxPrefix(expected), NodeKind::Checkbox { label, .. })
+                if label.starts_with(expected) =>
+            {
                 Some(node.id)
             }
             _ => None,
@@ -140,6 +151,36 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     cycle_ordinal += 1;
                     Ok(())
                 }
+            }
+            Command::AwaitTask => {
+                let before = task_counts();
+                let cycle_started = Instant::now();
+                observatory::reset_roc_work();
+                let roc_started = Instant::now();
+                let completion = await_task_completion()?;
+                let patch = complete(completion);
+                let roc_ns = elapsed_ns(roc_started);
+                let after = task_counts();
+                if after.1 != before.1 + 1 || after.1 > after.0 {
+                    return Err("task completion counters violated ownership invariants".into());
+                }
+                let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                let facts = graph.apply_measured(patch)?.facts;
+                last_patch = Some(facts);
+                pending_cycle = Some(make_cycle(
+                    run_id,
+                    cycle_ordinal,
+                    Some(ordinal),
+                    if marked { "measured" } else { "setup" },
+                    "task",
+                    cycle_started,
+                    roc_ns,
+                    roc_work,
+                    &facts,
+                    roc_work_valid,
+                ));
+                cycle_ordinal += 1;
+                Ok(())
             }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();

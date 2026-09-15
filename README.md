@@ -9,8 +9,9 @@ roc build examples/counter/main.roc
 ./counter
 ```
 
-The platform provides text, buttons, row and column layout, local state
-boundaries, semantic `.scm` specifications, and SQLite performance captures.
+The platform provides text, buttons, styled checkboxes, row and column layout,
+local state boundaries, worker tasks, read-only directory capabilities,
+semantic `.scm` specifications, and SQLite performance captures.
 It targets Linux x86_64 with Wayland.
 
 Read the [manual](docs/index.adoc), begin with
