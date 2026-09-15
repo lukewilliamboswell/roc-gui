@@ -3,4 +3,4 @@
   (steps
     (mark-metrics)
     (drag (role canvas :name "Presentation stage") 10 10 36 28)
-    (expect-count (canvas-item-prefix "Layer ") 1000)))
+    (expect-canvas-primitives (role canvas :name "Presentation stage") 1000)))

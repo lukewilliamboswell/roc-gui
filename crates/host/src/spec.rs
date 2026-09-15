@@ -43,6 +43,7 @@ pub enum Command {
     ExpectFocused(Locator),
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
+    ExpectCanvasPrimitives(Locator, usize),
     ExpectValue(Locator, String),
     ExpectValueBytes(Locator, usize),
     ExpectImageBytes(Locator, usize),
@@ -70,6 +71,7 @@ impl Command {
             Self::ExpectFocused(_) => "expect-focused",
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
+            Self::ExpectCanvasPrimitives(_, _) => "expect-canvas-primitives",
             Self::ExpectValue(_, _) => "expect-value",
             Self::ExpectValueBytes(_, _) => "expect-value-bytes",
             Self::ExpectImageBytes(_, _) => "expect-image-bytes",
@@ -249,7 +251,7 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
             ));
         }
         let verifies_scale = steps.iter().any(|step| {
-            matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
+            matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectCanvasPrimitives(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
         });
         if !verifies_scale {
             return Err(error(
@@ -483,6 +485,24 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 .map_err(|_| error(&values[2], "expect-count requires a non-negative integer"))?;
             Command::ExpectCount(parse_locator(&values[1])?, expected)
         }
+        "expect-canvas-primitives" if values.len() == 3 => {
+            let expected = values[2]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[2],
+                        "expect-canvas-primitives requires a non-negative integer",
+                    )
+                })?
+                .parse::<usize>()
+                .map_err(|_| {
+                    error(
+                        &values[2],
+                        "expect-canvas-primitives requires a non-negative integer",
+                    )
+                })?;
+            Command::ExpectCanvasPrimitives(parse_locator(&values[1])?, expected)
+        }
         "expect-value" if values.len() == 3 => Command::ExpectValue(
             parse_locator(&values[1])?,
             values[2]
@@ -559,6 +579,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
+        | "expect-canvas-primitives"
         | "expect-before"
         | "expect-patch"
         | "expect-value"

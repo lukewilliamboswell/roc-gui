@@ -703,6 +703,26 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectCanvasPrimitives(locator, expected) => {
+                let found = matches(&graph, locator);
+                let actual = if found.len() == 1 {
+                    match graph.node(found[0]).map(|node| &node.kind) {
+                        Some(NodeKind::Canvas { primitives, .. }) => primitives.len(),
+                        _ => 0,
+                    }
+                } else {
+                    0
+                };
+                count_evidence = Some((*expected as u64, actual as u64));
+                if actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected canvas owner to report {expected} primitives, but it reported {actual}",
+                        step.line
+                    ))
+                }
+            }
             Command::ExpectValue(locator, expected) => {
                 let found = matches(&graph, locator);
                 if found.len() != 1 {

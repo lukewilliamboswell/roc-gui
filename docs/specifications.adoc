@@ -116,6 +116,9 @@ does not call Roc, matching the interactive host.
 gesture through a canvas's production event route. Coordinates are integer
 logical pixels in canvas space. `(canvas-item-prefix "prefix")` supports
 deterministic primitive counts in scaling specifications.
+`(expect-canvas-primitives LOCATOR COUNT)`:: Require one canvas owner to report
+the exact retained primitive count. The expected and observed values are stored
+as deterministic scale evidence.
 `(replace-text LOCATOR "value")`:: Replace an editable textarea's controlled
 value through its production Roc input route. Disabled and read-only textareas
 fail as non-editable.
