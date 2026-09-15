@@ -50,10 +50,16 @@ pub enum NodeKind {
         label: String,
         checked: bool,
         enabled: bool,
-        style: CheckboxStyle,
+        style: Style,
     },
-    Column,
-    Row,
+    Column {
+        label: String,
+        style: Style,
+    },
+    Row {
+        label: String,
+        style: Style,
+    },
     Scroll {
         name: String,
         axis: ScrollAxis,
@@ -84,11 +90,23 @@ pub enum Length {
     Px(u32),
 }
 
+impl Default for Length {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Overflow {
     Visible,
     Clip,
     Scroll,
+}
+
+impl Default for Overflow {
+    fn default() -> Self {
+        Self::Visible
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -98,8 +116,8 @@ pub enum ScrollAxis {
     Both,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CheckboxStyle {
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Style {
     pub gap: u32,
     pub padding: u32,
     pub width: Length,
@@ -677,7 +695,7 @@ mod tests {
             label: "Show files".into(),
             checked: false,
             enabled: true,
-            style: CheckboxStyle {
+            style: Style {
                 gap: 0,
                 padding: 0,
                 width: Length::Auto,
@@ -728,7 +746,10 @@ mod tests {
             text(2, "hello"),
             Node {
                 id: 1,
-                kind: NodeKind::Column,
+                kind: NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default(),
+                },
                 children: vec![2],
             },
         ];
@@ -784,13 +805,19 @@ mod tests {
                 &[
                     Node {
                         id: 1,
-                        kind: NodeKind::Column,
+                        kind: NodeKind::Column {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![2],
                     },
                     text(2, "child"),
                     Node {
                         id: 3,
-                        kind: NodeKind::Row,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![2],
                     },
                 ],
@@ -802,7 +829,10 @@ mod tests {
                 1,
                 &[Node {
                     id: 1,
-                    kind: NodeKind::Column,
+                    kind: NodeKind::Column {
+                        label: String::new(),
+                        style: Style::default()
+                    },
                     children: vec![99],
                 }],
             ),
@@ -814,12 +844,18 @@ mod tests {
                 &[
                     Node {
                         id: 1,
-                        kind: NodeKind::Column,
+                        kind: NodeKind::Column {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![2],
                     },
                     Node {
                         id: 2,
-                        kind: NodeKind::Row,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![1],
                     },
                 ],
@@ -869,7 +905,10 @@ mod tests {
             text(42, "second"),
             Node {
                 id: 43,
-                kind: NodeKind::Row,
+                kind: NodeKind::Row {
+                    label: String::new(),
+                    style: Style::default(),
+                },
                 children: vec![41, 42],
             },
         ];
@@ -885,12 +924,18 @@ mod tests {
                     text(1, "child"),
                     Node {
                         id: 2,
-                        kind: NodeKind::Row,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![1],
                     },
                     Node {
                         id: 3,
-                        kind: NodeKind::Column,
+                        kind: NodeKind::Column {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![1],
                     },
                 ],
@@ -904,7 +949,10 @@ mod tests {
                     text(1, "child"),
                     Node {
                         id: 2,
-                        kind: NodeKind::Column,
+                        kind: NodeKind::Column {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![99],
                     },
                 ],
@@ -918,7 +966,10 @@ mod tests {
         let nodes = vec![
             Node {
                 id: 1,
-                kind: NodeKind::Column,
+                kind: NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default()
+                },
                 children: vec![],
             };
             MAX_STAGED_NODES + 1
@@ -943,7 +994,15 @@ mod tests {
                 vec![label],
             )
             .unwrap();
-        let root = bridge.stage_node(NodeKind::Column, vec![button]).unwrap();
+        let root = bridge
+            .stage_node(
+                NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default(),
+                },
+                vec![button],
+            )
+            .unwrap();
 
         bridge.commit(Commit::Mount { root }).unwrap();
         assert_eq!(
@@ -961,7 +1020,10 @@ mod tests {
                     },
                     Node {
                         id: root,
-                        kind: NodeKind::Column,
+                        kind: NodeKind::Column {
+                            label: String::new(),
+                            style: Style::default()
+                        },
                         children: vec![button],
                     },
                 ],
@@ -979,7 +1041,15 @@ mod tests {
             .unwrap();
         bridge.push_child(inner, text).unwrap();
         let inner_children = bridge.finish_children(inner).unwrap();
-        let row = bridge.stage_node(NodeKind::Row, inner_children).unwrap();
+        let row = bridge
+            .stage_node(
+                NodeKind::Row {
+                    label: String::new(),
+                    style: Style::default(),
+                },
+                inner_children,
+            )
+            .unwrap();
         bridge.push_child(outer, row).unwrap();
         assert_eq!(bridge.finish_children(outer), Ok(vec![row]));
     }
@@ -1057,12 +1127,18 @@ mod tests {
                     text(1, "old"),
                     Node {
                         id: 2,
-                        kind: NodeKind::Row,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default(),
+                        },
                         children: vec![1],
                     },
                     Node {
                         id: 3,
-                        kind: NodeKind::Column,
+                        kind: NodeKind::Column {
+                            label: String::new(),
+                            style: Style::default(),
+                        },
                         children: vec![2],
                     },
                 ],
@@ -1080,7 +1156,10 @@ mod tests {
                     text(4, "new"),
                     Node {
                         id: 5,
-                        kind: NodeKind::Row,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default(),
+                        },
                         children: vec![4],
                     },
                 ],
@@ -1119,7 +1198,10 @@ mod tests {
                     text(1, "old"),
                     Node {
                         id: 2,
-                        kind: NodeKind::Column,
+                        kind: NodeKind::Column {
+                            label: String::new(),
+                            style: Style::default(),
+                        },
                         children: vec![1],
                     },
                 ],
@@ -1134,7 +1216,10 @@ mod tests {
                     text(3, "new"),
                     Node {
                         id: 4,
-                        kind: NodeKind::Row,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default(),
+                        },
                         children: vec![3],
                     },
                 ],

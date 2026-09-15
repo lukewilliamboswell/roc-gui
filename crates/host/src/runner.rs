@@ -35,6 +35,16 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (Locator::ColumnName(expected), NodeKind::Column { label, .. })
+                if !label.is_empty() && expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::RowName(expected), NodeKind::Row { label, .. })
+                if !label.is_empty() && expected == label =>
+            {
+                Some(node.id)
+            }
             (Locator::ScrollName(expected), NodeKind::Scroll { name, .. }) if expected == name => {
                 Some(node.id)
             }

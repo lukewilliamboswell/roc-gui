@@ -9,11 +9,54 @@ Elem(a) :: [
 	Boundary(a -> Elem(a)),
 	Button({ label : List(Elem(a)), name : Str, on_press : (a, Event.Press -> Action(a)) }),
 	Checkbox(CheckboxProps(a)),
-	Column(List(Elem(a))),
-	Row(List(Elem(a))),
+	Column({ children : List(Elem(a)), props : ColProps }),
+	Row({ children : List(Elem(a)), props : RowProps }),
 	Scroll(ScrollProps(a)),
 	Text(Str),
 ].{
+
+	## Properties for `col`. `label` is an optional stable semantic locator.
+	## The remaining fields control the column's native layout and presentation.
+	ColProps := {
+		label : Str ?? "",
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Default,
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Default,
+		border_width : U32 ?? 0,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		overflow_x : Gui.Overflow ?? Visible,
+		overflow_y : Gui.Overflow ?? Visible,
+	}
+
+	## Properties for `row`. `label` is an optional stable semantic locator.
+	## The remaining fields control the row's native layout and presentation.
+	RowProps := {
+		label : Str ?? "",
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Default,
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Default,
+		border_width : U32 ?? 0,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		overflow_x : Gui.Overflow ?? Visible,
+		overflow_y : Gui.Overflow ?? Visible,
+	}
+
 	## Properties for a vertically scrollable region. `name` is its stable
 	## semantic identity for specifications and accessibility.
 	ScrollAxis : [Both, Horizontal, Vertical]
@@ -60,12 +103,12 @@ Elem(a) :: [
 	checkbox = |props| Checkbox(props)
 
 	## Lay out children horizontally in order.
-	row : List(Elem(a)) -> Elem(a)
-	row = |children| Row(children)
+	row : RowProps, List(Elem(a)) -> Elem(a)
+	row = |props, children| Row({ children, props })
 
 	## Lay out children vertically in order.
-	col : List(Elem(a)) -> Elem(a)
-	col = |children| Column(children)
+	col : ColProps, List(Elem(a)) -> Elem(a)
+	col = |props, children| Column({ children, props })
 
 	## Constrain `child` to the available height and allow vertical scrolling.
 	scroll : ScrollProps(a) -> Elem(a)
@@ -75,8 +118,8 @@ Elem(a) :: [
 	lift : Elem(child), (parent -> child), (parent, child -> parent) -> Elem(parent)
 	lift = |elem, get_child, set_child| match elem {
 		Text(value) => Text(value)
-		Row(children) => Row(children.map(|child| lift(child, get_child, set_child)))
-		Column(children) => Column(children.map(|child| lift(child, get_child, set_child)))
+		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
+		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), name: scroll_value.name })
 		Button(button_value) => {
 			child_handler = button_value.on_press
@@ -134,8 +177,8 @@ Elem(a) :: [
 		Boundary(a -> Elem(a)),
 		Button({ label : List(Elem(a)), name : Str, on_press : (a, Event.Press -> Action(a)) }),
 		Checkbox(CheckboxProps(a)),
-		Column(List(Elem(a))),
-		Row(List(Elem(a))),
+		Column({ children : List(Elem(a)), props : ColProps }),
+		Row({ children : List(Elem(a)), props : RowProps }),
 		Scroll(ScrollProps(a)),
 		Text(Str),
 	]

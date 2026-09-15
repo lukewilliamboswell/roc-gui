@@ -160,11 +160,27 @@ render = |state| {
 					Elem.text("File: ${entry.name}")
 				},
 			)
-			Layout.col({}, back.concat([Layout.row({}, breadcrumbs(view.trail)), Elem.scroll(Elem.ScrollProps.{ name: "Directory contents", content: Layout.col({}, rows) })]))
+			Layout.col(
+				Elem.ColProps.{ label: "Directory view", width: Fill, height: Fill, grow: True, gap: 12 },
+				back.concat([
+					Layout.row(Elem.RowProps.{ label: "Directory breadcrumbs", width: Fill, gap: 6 }, breadcrumbs(view.trail)),
+					Elem.scroll(Elem.ScrollProps.{ name: "Directory contents", content: Layout.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 6 }, rows) }),
+				]),
+			)
 		}
 	}
-	Layout.col({}, [Elem.text("Capability folder browser")].concat(controls).concat(status).append(content))
+	Layout.col(
+		Elem.ColProps.{ label: "Folder browser", width: Fill, height: Fill, grow: True, padding: 24, gap: 16 },
+		[
+			Elem.text("Capability folder browser"),
+			Layout.col(Elem.ColProps.{ label: "Directory controls", width: Fill, gap: 12 }, controls),
+		].concat(status).append(content),
+	)
 }
 
 main : Program(State)
-main = Program.run({ init: { next_request: 1, show_files: True, status: Ready, view: Empty }, render })
+main = Program.run({
+	init: { next_request: 1, show_files: True, status: Ready, view: Empty },
+	render,
+	window: { title: "Capability Folder Browser", width: 960, height: 640 },
+})

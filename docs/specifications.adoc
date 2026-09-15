@@ -104,6 +104,10 @@ GPUI key event or verify compositor delivery, tab traversal, focus painting, or
 operating-system accessibility. Those claims require the end-to-end GPUI
 runner tracked in the backlog.
 
+Named rows and columns use `(role row :name "...")` and
+`(role column :name "...")`. These locators describe the mounted application
+graph; they do not assert pixel geometry or operating-system accessibility.
+
 == Selecting and repeating cases
 
 Patterns match repository-relative specification paths. Multiple patterns may

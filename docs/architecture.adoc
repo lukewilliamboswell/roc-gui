@@ -46,9 +46,10 @@ the built-in test runner.
 
 === The application renders a value
 
-`Program.run` supplies an initial state and a renderer. Calling the renderer
+`Program.run` supplies an initial state, a renderer, and initial resizable-window
+metadata. Calling the renderer
 produces an immutable `Elem(State)` description. Composition stays in Roc:
-`Layout.row`, `Layout.col`, `Elem.text`, `Elem.button`, and named
+styled and semantically named `Layout.row` and `Layout.col`, `Elem.text`, `Elem.button`, and named
 `Elem.scroll` regions build the tree, while
 `Elem.translate` introduces a local-state boundary.
 

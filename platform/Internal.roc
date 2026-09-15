@@ -15,7 +15,68 @@ Internal := [].{
 		routes : List(Route(a)),
 	}
 
-	lower_children! : List(Elem(a)), a, U64, U64, List(U64), List(Route(a)), List(BoundaryInfo(a)), U64 => {
+	max_style_value = 16384
+
+	color = |value| match value {
+		Default => 0x01000000
+		Rgb(rgb) => if rgb <= 0x00ffffff {
+			rgb
+		} else {
+			crash "Gui RGB colors are at most 0xffffff"
+		}
+	}
+
+	length = |value| match value {
+		Auto => { kind: 0, value: 0 }
+		Fill => { kind: 1, value: 0 }
+		Px(pixels) => if pixels <= max_style_value {
+			{ kind: 2, value: pixels }
+		} else {
+			crash "Gui pixel dimensions are at most 16384 logical pixels"
+		}
+	}
+
+	overflow = |value| match value {
+		Visible => 0
+		Clip => 1
+		Scroll => 2
+	}
+
+	style_args = |style| {
+		if style.gap > max_style_value or style.padding > max_style_value or style.border_width > max_style_value or style.radius > max_style_value or style.font_size > max_style_value {
+			crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
+		}
+		width = length(style.width)
+		height = length(style.height)
+		{
+			gap: style.gap,
+			padding: style.padding,
+			width_kind: width.kind,
+			width: width.value,
+			height_kind: height.kind,
+			height: height.value,
+			grow: style.grow,
+			bg: color(style.bg),
+			hover_bg: color(style.hover_bg),
+			active_bg: color(style.active_bg),
+			fg: color(style.fg),
+			border_color: color(style.border_color),
+			border_width: style.border_width,
+			radius: style.radius,
+			font_size: style.font_size,
+			overflow_x: overflow(style.overflow_x),
+			overflow_y: overflow(style.overflow_y),
+		}
+	}
+
+	lower_children! : List(Elem(a)),
+	a,
+	U64,
+	U64,
+	List(U64),
+	List(Route(a)),
+	List(BoundaryInfo(a)),
+	U64 => {
 		boundaries : List(BoundaryInfo(a)),
 		next_boundary : U64,
 		routes : List(Route(a)),
@@ -40,21 +101,27 @@ Internal := [].{
 			id = Host.node_text!(value)
 			{ root: id, next_boundary, routes, boundaries }
 		}
-		Row(children) => {
+		Row(value) => {
 			builder = Host.children_begin!({})
-			lowered = lower_children!(children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
-			id = Host.node_row!(builder)
+			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
+			style = style_args(value.props)
+			id = Host.node_row!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
-		Column(children) => {
+		Column(value) => {
 			builder = Host.children_begin!({})
-			lowered = lower_children!(children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
-			id = Host.node_column!(builder)
+			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
+			style = style_args(value.props)
+			id = Host.node_column!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Scroll(scroll_value) => {
 			child = lower!(scroll_value.content, state, next_boundary, active_boundary, boundary_path, routes, boundaries)
-			axis = match scroll_value.axis { Vertical => 0, Horizontal => 1, Both => 2 }
+			axis = match scroll_value.axis {
+				Vertical => 0
+				Horizontal => 1
+				Both => 2
+			}
 			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.name })
 			{ root: id, next_boundary: child.next_boundary, routes: child.routes, boundaries: child.boundaries }
 		}
@@ -66,49 +133,38 @@ Internal := [].{
 			{ root: id, next_boundary: label.next_boundary, routes: label.routes.append(route), boundaries: label.boundaries }
 		}
 		Checkbox(checkbox_value) => {
-			max_style_value = 16384
-			if checkbox_value.gap > max_style_value or checkbox_value.padding > max_style_value or checkbox_value.border_width > max_style_value or checkbox_value.radius > max_style_value or checkbox_value.font_size > max_style_value {
-				crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
-			}
-			color = |value| match value {
-				Default => 0x01000000
-				Rgb(rgb) => if rgb <= 0x00ffffff { rgb } else { crash "Gui RGB colors are at most 0xffffff" }
-			}
-			length = |value| match value {
-				Auto => { kind: 0, value: 0 }
-				Fill => { kind: 1, value: 0 }
-				Px(pixels) => if pixels <= max_style_value { { kind: 2, value: pixels } } else { crash "Gui pixel dimensions are at most 16384 logical pixels" }
-			}
-			overflow = |value| match value { Visible => 0, Clip => 1, Scroll => 2 }
-			width = length(checkbox_value.width)
-			height = length(checkbox_value.height)
+			style = style_args(checkbox_value)
 			id = Host.node_checkbox!({
 				label: checkbox_value.label,
 				checked: checkbox_value.checked,
 				enabled: checkbox_value.enabled,
-				gap: checkbox_value.gap,
-				padding: checkbox_value.padding,
-				width_kind: width.kind,
-				width: width.value,
-				height_kind: height.kind,
-				height: height.value,
-				grow: checkbox_value.grow,
-				bg: color(checkbox_value.bg),
-				hover_bg: color(checkbox_value.hover_bg),
-				active_bg: color(checkbox_value.active_bg),
-				fg: color(checkbox_value.fg),
-				border_color: color(checkbox_value.border_color),
-				border_width: checkbox_value.border_width,
-				radius: checkbox_value.radius,
-				font_size: checkbox_value.font_size,
-				overflow_x: overflow(checkbox_value.overflow_x),
-				overflow_y: overflow(checkbox_value.overflow_y),
+				gap: style.gap,
+				padding: style.padding,
+				width_kind: style.width_kind,
+				width: style.width,
+				height_kind: style.height_kind,
+				height: style.height,
+				grow: style.grow,
+				bg: style.bg,
+				hover_bg: style.hover_bg,
+				active_bg: style.active_bg,
+				fg: style.fg,
+				border_color: style.border_color,
+				border_width: style.border_width,
+				radius: style.radius,
+				font_size: style.font_size,
+				overflow_x: style.overflow_x,
+				overflow_y: style.overflow_y,
 			})
 			route = {
 				id,
 				boundary: active_boundary,
 				boundary_path,
-				fire: |current| if checkbox_value.enabled { (checkbox_value.on_change)(current, { checked: !checkbox_value.checked }) } else { Action.none },
+				fire: |current| if checkbox_value.enabled {
+					(checkbox_value.on_change)(current, { checked: !checkbox_value.checked })
+				} else {
+					Action.none
+				},
 			}
 			{ root: id, next_boundary, routes: routes.append(route), boundaries }
 		}
@@ -164,7 +220,7 @@ Internal := [].{
 			match route_result {
 				Ok(route) => {
 					Host.work_start!(1)
-				action = (route.fire)(state)
+					action = (route.fire)(state)
 					Host.work_end!(1)
 					apply_action!(action, state, route.boundary, root_renderer, routes, boundaries, next_boundary)
 				}
@@ -185,8 +241,9 @@ Internal := [].{
 		Host.set_task_dispatch!(Box.box(complete!))
 	}
 
-	start! : a, (a -> Elem(a)) => {}
-	start! = |initial, render| {
+	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32 } => {}
+	start! = |initial, render, window| {
+		Host.window_config!(window.title, window.width, window.height)
 		root_renderer = render
 		Host.work_start!(2)
 		rendered = render(initial)

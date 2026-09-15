@@ -56,8 +56,14 @@ disabled checkboxes do not accept focus or activation.
 `Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `name` is the stable semantic identity.
-`Layout.row({}, children)`:: Lay out children horizontally.
-`Layout.col({}, children)`:: Lay out children vertically.
+`Layout.row(Elem.RowProps.{ ... }, children)`:: Lay out children horizontally.
+`Layout.col(Elem.ColProps.{ ... }, children)`:: Lay out children vertically.
+
+Row and column props share the native `Gui.Style` fields: gap, padding, width,
+height, growth, colours, borders, radius, font size, and per-axis overflow.
+`Auto`, `Fill`, and `Px(n)` express dimensions. An optional non-empty `label`
+provides a stable semantic locator, such as
+`(role column :name "Directory view")`; it does not add visible text.
 
 Rows and columns accept a `List(Elem(State))`, which makes ordinary list
 transformations useful for repeated UI:
@@ -65,11 +71,14 @@ transformations useful for repeated UI:
 [source,roc]
 ----
 render_names : List(Str) -> Elem(State)
-render_names = |names| Layout.col({}, names.map(|name| Elem.text(name)))
+render_names = |names| Layout.col(
+    Elem.ColProps.{ width: Fill, gap: 6 },
+    names.map(|name| Elem.text(name)),
+)
 ----
 
-The empty `{}` argument reserves the layout configuration position. Semantic
-button names are not visible labels. Give each simultaneously visible button a
+The empty `{}` retains neutral defaults. Semantic element names are not visible
+labels. Give each simultaneously visible button a
 unique, stable name such as `"Delete row ${row.id.to_str()}"`; specifications
 use that identity instead of screen position.
 
@@ -77,6 +86,11 @@ Keyboard focus has a visible outline. Tab and Shift+Tab traverse enabled
 buttons and checkboxes in rendered child order, so application layout order is
 also the default keyboard order. Keep labels concise and semantic names stable
 across state updates.
+
+`Program.run` also accepts a `window` record with an initial logical `width`,
+`height`, and titlebar `title`. Defaults preserve the compact two-field form;
+windows remain resizable and layout elements using `Fill` follow the available
+viewport.
 
 == Local state with `Elem.translate`
 

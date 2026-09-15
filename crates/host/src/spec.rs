@@ -77,6 +77,8 @@ pub enum Locator {
     ButtonName(String),
     CheckboxName(String),
     CheckboxPrefix(String),
+    ColumnName(String),
+    RowName(String),
     ScrollName(String),
 }
 
@@ -415,6 +417,26 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .ok_or_else(|| error(node, "checkbox-prefix locator requires a string")),
         Some("role")
             if values.len() == 4
+                && values[1].atom() == Some("column")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::ColumnName(value.to_owned()))
+                .ok_or_else(|| error(node, "column name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("row")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::RowName(value.to_owned()))
+                .ok_or_else(|| error(node, "row name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
                 && values[1].atom() == Some("button")
                 && values[2].atom() == Some(":name") =>
         {
@@ -445,7 +467,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, and scroll",
+            "supported roles are button, checkbox, column, row, and scroll",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -645,6 +667,24 @@ mod tests {
         assert_eq!(spec.name, "counter");
         assert_eq!(spec.steps.len(), 2);
         assert_eq!(spec.steps[1].line, 5);
+    }
+
+    #[test]
+    fn parses_named_layout_roles() {
+        let spec = parse(
+            r#"(test "layout" (steps
+                (expect-visible (role column :name "Content"))
+                (expect-visible (role row :name "Toolbar"))))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectVisible(Locator::ColumnName("Content".into()))
+        );
+        assert_eq!(
+            spec.steps[1].command,
+            Command::ExpectVisible(Locator::RowName("Toolbar".into()))
+        );
     }
 
     #[test]

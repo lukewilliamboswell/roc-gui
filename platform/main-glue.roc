@@ -7,7 +7,7 @@
 # from main.roc; it must never be used to build applications.
 platform ""
 	requires {
-		glue_main : {},
+		glue_main : {}
 	}
 	exposes []
 	packages {
@@ -29,6 +29,7 @@ platform ""
 		"roc_gui_enqueue_task": HostGlue.enqueue_task!,
 		"roc_gui_work_start": HostGlue.work_start!,
 		"roc_gui_work_end": HostGlue.work_end!,
+		"roc_gui_window_config": HostGlue.window_config!,
 		"roc_files_pick_directory": Files.pick_directory!,
 		"roc_files_dir_list": Files.Dir.list!,
 		"roc_files_dir_open_read": Files.Dir.open_read_dir!,

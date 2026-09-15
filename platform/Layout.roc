@@ -4,13 +4,11 @@ import Elem exposing [Elem]
 ## `Elem.col` directly.
 Layout := [].{
 
-	## Lay out children horizontally. The props record is reserved for future
-	## layout options.
-	row : {}, List(Elem(a)) -> Elem(a)
-	row = |_, children| Elem.row(children)
+	## Lay out children horizontally using native row properties.
+	row : Elem.RowProps, List(Elem(a)) -> Elem(a)
+	row = |props, children| Elem.row(props, children)
 
-	## Lay out children vertically. The props record is reserved for future
-	## layout options.
-	col : {}, List(Elem(a)) -> Elem(a)
-	col = |_, children| Elem.col(children)
+	## Lay out children vertically using native column properties.
+	col : Elem.ColProps, List(Elem(a)) -> Elem(a)
+	col = |props, children| Elem.col(props, children)
 }

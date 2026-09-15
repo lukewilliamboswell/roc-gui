@@ -10,14 +10,14 @@ mod runner;
 mod spec;
 
 use bridge::{
-    BridgeState, CheckboxStyle, ControlKey, Length, MountedGraph, Node, NodeKind, Overflow, Patch,
-    ScrollAxis, decode_commit, validate_tree,
+    BridgeState, ControlKey, Length, MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis,
+    Style, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueNodeCheckboxArgs, HostGlueNodeScrollArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, MountOrNoChangeOrReplace, RocErasedCallable,
+    RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -84,6 +84,46 @@ static mut ROC_HOST: *mut RocHost = core::ptr::null_mut();
 
 thread_local! {
     static BRIDGE: RefCell<BridgeState> = const { RefCell::new(BridgeState::new()) };
+    static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct WindowConfig {
+    title: String,
+    width: u32,
+    height: u32,
+}
+
+impl Default for WindowConfig {
+    fn default() -> Self {
+        Self {
+            title: "Roc GUI".into(),
+            width: 480,
+            height: 240,
+        }
+    }
+}
+
+fn validate_window_config(config: WindowConfig) -> Result<WindowConfig, String> {
+    if !(240..=16_384).contains(&config.width) || !(160..=16_384).contains(&config.height) {
+        return Err(
+            "window width must be 240..16384 and height must be 160..16384 logical pixels".into(),
+        );
+    }
+    Ok(config)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_window_config(title: RocStr, width: u32, height: u32) {
+    let title_value = title.as_str().to_owned();
+    unsafe { title.decref(roc_host()) };
+    let config = validate_window_config(WindowConfig {
+        title: title_value,
+        width,
+        height,
+    })
+    .unwrap_or_else(|message| panic!("invalid native window configuration: {message}"));
+    WINDOW_CONFIG.with(|current| *current.borrow_mut() = config);
 }
 
 fn set_roc_host(host: *mut RocHost) {
@@ -218,16 +258,102 @@ fn finish_children(builder: u64) -> Vec<u64> {
     })
 }
 
-/// Stage one row whose children were already built during this transaction.
-#[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_row(builder: u64) -> u64 {
-    stage_node(NodeKind::Row, finish_children(builder))
+fn decode_layout_style(
+    gap: u32,
+    padding: u32,
+    width_kind: u8,
+    width: u32,
+    height_kind: u8,
+    height: u32,
+    grow: bool,
+    bg: u32,
+    hover_bg: u32,
+    active_bg: u32,
+    fg: u32,
+    border_color: u32,
+    border_width: u32,
+    radius: u32,
+    font_size: u32,
+    overflow_x: u8,
+    overflow_y: u8,
+) -> Style {
+    Style {
+        gap,
+        padding,
+        width: decode_length(width_kind, width),
+        height: decode_length(height_kind, height),
+        grow,
+        bg: decode_color(bg),
+        hover_bg: decode_color(hover_bg),
+        active_bg: decode_color(active_bg),
+        fg: decode_color(fg),
+        border_color: decode_color(border_color),
+        border_width,
+        radius,
+        font_size,
+        overflow_x: decode_overflow(overflow_x),
+        overflow_y: decode_overflow(overflow_y),
+    }
 }
 
-/// Stage one column whose children were already built during this transaction.
+/// Stage one styled, semantically named row.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_column(builder: u64) -> u64 {
-    stage_node(NodeKind::Column, finish_children(builder))
+pub extern "C" fn roc_gui_node_row(args: HostGlueNodeRowArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    unsafe { args.label.decref(roc_host()) };
+    let style = decode_layout_style(
+        args.gap,
+        args.padding,
+        args.width_kind,
+        args.width,
+        args.height_kind,
+        args.height,
+        args.grow,
+        args.bg,
+        args.hover_bg,
+        args.active_bg,
+        args.fg,
+        args.border_color,
+        args.border_width,
+        args.radius,
+        args.font_size,
+        args.overflow_x,
+        args.overflow_y,
+    );
+    stage_node(
+        NodeKind::Row { label, style },
+        finish_children(args.builder),
+    )
+}
+
+/// Stage one styled, semantically named column.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    unsafe { args.label.decref(roc_host()) };
+    let style = decode_layout_style(
+        args.gap,
+        args.padding,
+        args.width_kind,
+        args.width,
+        args.height_kind,
+        args.height,
+        args.grow,
+        args.bg,
+        args.hover_bg,
+        args.active_bg,
+        args.fg,
+        args.border_color,
+        args.border_width,
+        args.radius,
+        args.font_size,
+        args.overflow_x,
+        args.overflow_y,
+    );
+    stage_node(
+        NodeKind::Column { label, style },
+        finish_children(args.builder),
+    )
 }
 
 /// Stage one named vertical scroll region whose child was already built.
@@ -289,23 +415,25 @@ pub extern "C" fn roc_gui_node_checkbox(args: HostGlueNodeCheckboxArgs) -> u64 {
             label,
             checked: args.checked,
             enabled: args.enabled,
-            style: CheckboxStyle {
-                gap: args.gap,
-                padding: args.padding,
-                width: decode_length(args.width_kind, args.width),
-                height: decode_length(args.height_kind, args.height),
-                grow: args.grow,
-                bg: decode_color(args.bg),
-                hover_bg: decode_color(args.hover_bg),
-                active_bg: decode_color(args.active_bg),
-                fg: decode_color(args.fg),
-                border_color: decode_color(args.border_color),
-                border_width: args.border_width,
-                radius: args.radius,
-                font_size: args.font_size,
-                overflow_x: decode_overflow(args.overflow_x),
-                overflow_y: decode_overflow(args.overflow_y),
-            },
+            style: decode_layout_style(
+                args.gap,
+                args.padding,
+                args.width_kind,
+                args.width,
+                args.height_kind,
+                args.height,
+                args.grow,
+                args.bg,
+                args.hover_bg,
+                args.active_bg,
+                args.fg,
+                args.border_color,
+                args.border_width,
+                args.radius,
+                args.font_size,
+                args.overflow_x,
+                args.overflow_y,
+            ),
         },
         vec![],
     )
@@ -456,6 +584,7 @@ fn clear_bridge() {
             unsafe { decref_erased_callable(dispatcher, roc_host()) };
         }
     });
+    WINDOW_CONFIG.with(|config| *config.borrow_mut() = WindowConfig::default());
 }
 
 fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
@@ -538,6 +667,59 @@ struct NodeView {
     is_root: bool,
 }
 
+fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
+    element = element
+        .gap(px(style.gap as f32))
+        .p(px(style.padding as f32));
+    element = match style.width {
+        Length::Auto => element,
+        Length::Fill => element.w_full(),
+        Length::Px(value) => element.w(px(value as f32)),
+    };
+    element = match style.height {
+        Length::Auto => element,
+        Length::Fill => element.h_full(),
+        Length::Px(value) => element.h(px(value as f32)),
+    };
+    if style.grow {
+        element = element.flex_grow();
+    }
+    if let Some(value) = style.bg {
+        element = element.bg(rgb(value));
+    }
+    if let Some(value) = style.hover_bg {
+        element = element.hover(move |s| s.bg(rgb(value)));
+    }
+    if let Some(value) = style.active_bg {
+        element = element.active(move |s| s.bg(rgb(value)));
+    }
+    if let Some(value) = style.fg {
+        element = element.text_color(rgb(value));
+    }
+    if let Some(value) = style.border_color {
+        element = element.border_color(rgb(value));
+    }
+    if style.border_width > 0 {
+        element = element.border(px(style.border_width as f32));
+    }
+    if style.radius > 0 {
+        element = element.rounded(px(style.radius as f32));
+    }
+    if style.font_size > 0 {
+        element = element.text_size(px(style.font_size as f32));
+    }
+    element = match style.overflow_x {
+        Overflow::Visible => element,
+        Overflow::Clip => element.overflow_x_hidden(),
+        Overflow::Scroll => element.overflow_x_scroll(),
+    };
+    match style.overflow_y {
+        Overflow::Visible => element,
+        Overflow::Clip => element.overflow_y_hidden(),
+        Overflow::Scroll => element.overflow_y_scroll(),
+    }
+}
+
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let mut element = div().id(("node", self.node.id));
@@ -545,11 +727,11 @@ impl Render for NodeView {
             element = element.size_full().min_h_0().min_w_0();
         }
         match &self.node.kind {
-            NodeKind::Column => {
-                element = element.flex().flex_col().gap_3();
+            NodeKind::Column { style, .. } => {
+                element = apply_style(element.flex().flex_col(), style);
             }
-            NodeKind::Row => {
-                element = element.flex().flex_row().items_center().gap_3();
+            NodeKind::Row { style, .. } => {
+                element = apply_style(element.flex().flex_row().items_center(), style);
             }
             NodeKind::Scroll { axis, .. } => {
                 element = element
@@ -713,8 +895,16 @@ struct Runtime {
     cycle_ordinal: u64,
 }
 
+struct InitialMount {
+    patch: Patch,
+    cycle_started: Instant,
+    roc_callback_ns: u64,
+    roc_work: [observatory::RocWork; 4],
+    roc_work_valid: bool,
+}
+
 impl Runtime {
-    fn new(cx: &mut Context<Self>) -> Self {
+    fn new(initial: InitialMount, cx: &mut Context<Self>) -> Self {
         let mut runtime = Self {
             graph: MountedGraph::default(),
             views: HashMap::new(),
@@ -722,26 +912,17 @@ impl Runtime {
             cycle_ordinal: 0,
         };
         if observatory::active() {
-            let cycle_started = Instant::now();
-            observatory::reset_roc_work();
-            let roc_started = Instant::now();
-            unsafe { roc_gui_init() };
-            let roc_callback_ns = elapsed_ns(roc_started);
-            let (roc_work, roc_work_valid) = observatory::take_roc_work();
-            let patch = take_patch();
             runtime.apply_recorded(
-                patch,
+                initial.patch,
                 "init",
-                cycle_started,
-                roc_callback_ns,
-                roc_work,
-                roc_work_valid,
+                initial.cycle_started,
+                initial.roc_callback_ns,
+                initial.roc_work,
+                initial.roc_work_valid,
                 cx,
             );
         } else {
-            unsafe { roc_gui_init() };
-            let patch = take_patch();
-            runtime.apply_unrecorded(patch, cx);
+            runtime.apply_unrecorded(initial.patch, cx);
         }
         let completions = task_runtime().completions.clone();
         cx.spawn(async move |runtime, cx| {
@@ -1199,7 +1380,22 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         observatory::run_start(1, "interactive", None, 0, observatory::now_ns());
     }
 
-    Application::new().run(|cx| {
+    let cycle_started = Instant::now();
+    observatory::reset_roc_work();
+    let roc_started = Instant::now();
+    unsafe { roc_gui_init() };
+    let roc_callback_ns = elapsed_ns(roc_started);
+    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+    let initial = InitialMount {
+        patch: take_patch(),
+        cycle_started,
+        roc_callback_ns,
+        roc_work,
+        roc_work_valid,
+    };
+    let window_config = WINDOW_CONFIG.with(|config| config.borrow().clone());
+
+    Application::new().run(move |cx| {
         cx.bind_keys([
             KeyBinding::new("tab", FocusNext, None),
             KeyBinding::new("shift-tab", FocusPrevious, None),
@@ -1213,17 +1409,24 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         })
         .detach();
 
-        let bounds = Bounds::centered(None, size(px(480.), px(240.)), cx);
+        let bounds = Bounds::centered(
+            None,
+            size(
+                px(window_config.width as f32),
+                px(window_config.height as f32),
+            ),
+            cx,
+        );
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 titlebar: Some(TitlebarOptions {
-                    title: Some("Roc GUI".into()),
+                    title: Some(window_config.title.clone().into()),
                     ..Default::default()
                 }),
                 ..Default::default()
             },
-            |_, cx| cx.new(Runtime::new),
+            move |_, cx| cx.new(|cx| Runtime::new(initial, cx)),
         )
         .expect("failed to open GPUI window");
         cx.activate(true);
@@ -1247,7 +1450,8 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::{
-        counted_roc_alloc, counted_roc_dealloc, counted_roc_realloc, make_counted_roc_host,
+        WindowConfig, counted_roc_alloc, counted_roc_dealloc, counted_roc_realloc,
+        make_counted_roc_host, validate_window_config,
     };
 
     #[test]
@@ -1265,6 +1469,34 @@ mod tests {
         assert_eq!(
             host.roc_realloc as usize,
             counted_roc_realloc as *const () as usize
+        );
+    }
+
+    #[test]
+    fn validates_initial_window_bounds() {
+        assert!(
+            validate_window_config(WindowConfig {
+                title: "App".into(),
+                width: 960,
+                height: 640
+            })
+            .is_ok()
+        );
+        assert!(
+            validate_window_config(WindowConfig {
+                title: "App".into(),
+                width: 239,
+                height: 640
+            })
+            .is_err()
+        );
+        assert!(
+            validate_window_config(WindowConfig {
+                title: "App".into(),
+                width: 960,
+                height: 159
+            })
+            .is_err()
         );
     }
 }

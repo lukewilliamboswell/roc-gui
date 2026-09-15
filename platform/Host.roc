@@ -9,9 +9,49 @@ Host := [].{
 
 	children_push! : U64, U64 => {}
 
-	node_row! : U64 => U64
+	node_row! : {
+		builder : U64,
+		label : Str,
+		gap : U32,
+		padding : U32,
+		width_kind : U8,
+		width : U32,
+		height_kind : U8,
+		height : U32,
+		grow : Bool,
+		bg : U32,
+		hover_bg : U32,
+		active_bg : U32,
+		fg : U32,
+		border_color : U32,
+		border_width : U32,
+		radius : U32,
+		font_size : U32,
+		overflow_x : U8,
+		overflow_y : U8,
+	} => U64
 
-	node_column! : U64 => U64
+	node_column! : {
+		builder : U64,
+		label : Str,
+		gap : U32,
+		padding : U32,
+		width_kind : U8,
+		width : U32,
+		height_kind : U8,
+		height : U32,
+		grow : Bool,
+		bg : U32,
+		hover_bg : U32,
+		active_bg : U32,
+		fg : U32,
+		border_color : U32,
+		border_width : U32,
+		radius : U32,
+		font_size : U32,
+		overflow_x : U8,
+		overflow_y : U8,
+	} => U64
 	node_scroll! : { axis : U8, child : U64, name : Str } => U64
 
 	node_button! : Str, U64 => U64
@@ -50,4 +90,6 @@ Host := [].{
 	work_start! : U8 => {}
 
 	work_end! : U8 => {}
+
+	window_config! : Str, U32, U32 => {}
 }

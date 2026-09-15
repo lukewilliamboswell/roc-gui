@@ -1,6 +1,6 @@
 platform ""
 	requires {
-		[State : state] for main : Program(state),
+		[State : state] for main : Program(state)
 	}
 	exposes [Program, Elem, Layout, Action, Event, Gui, Files]
 	packages {
@@ -22,6 +22,7 @@ platform ""
 		"roc_gui_enqueue_task": Host.enqueue_task!,
 		"roc_gui_work_start": Host.work_start!,
 		"roc_gui_work_end": Host.work_end!,
+		"roc_gui_window_config": Host.window_config!,
 		"roc_files_pick_directory": Files.pick_directory!,
 		"roc_files_dir_list": Files.Dir.list!,
 		"roc_files_dir_open_read": Files.Dir.open_read_dir!,

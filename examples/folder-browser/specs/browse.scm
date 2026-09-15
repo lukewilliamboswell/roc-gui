@@ -1,5 +1,7 @@
 (test "navigate a granted directory capability"
   (steps
+    (expect-visible (role column :name "Folder browser"))
+    (expect-visible (role column :name "Directory controls"))
     (expect-visible (role checkbox :name "Show files as well as folders"))
     (focus (role button :name "Choose directory"))
     (press-key Enter)
@@ -8,6 +10,9 @@
     (press-key Space)
     (await-task)
     (expect-visible (role scroll :name "Directory contents"))
+    (expect-visible (role column :name "Directory view"))
+    (expect-visible (role row :name "Directory breadcrumbs"))
+    (expect-visible (role column :name "Directory entries"))
     (expect-visible (role button :name "Open directory nested"))
     (expect-not-visible (text "File: alpha.txt"))
     (focus (role button :name "Open directory nested"))
