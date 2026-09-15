@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 6
+SUPPORTED_SCHEMA = 7
 
 
 @dataclass(frozen=True)
@@ -110,7 +110,18 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         f"--host-stats-job-count={jobs}",
         f"--host-stats-detail={detail}",
     ]
-    fixture = case.app.parent / "fixture"
+    fixture_metadata = case.app.parent / "fixture-metadata" / case.spec.stem
+    native_fixtures: dict[str, Path] = {}
+    if fixture_metadata.is_file():
+        for line in fixture_metadata.read_text(encoding="utf-8").splitlines():
+            key, separator, relative = line.partition("=")
+            if separator != "=" or key not in {"directory", "clipboard"} or not relative:
+                raise RuntimeError(f"invalid native fixture metadata in {fixture_metadata}")
+            path = case.app.parent / relative
+            if not path.is_dir():
+                raise RuntimeError(f"native fixture directory does not exist: {path}")
+            native_fixtures[key] = path
+    fixture = native_fixtures.get("directory", case.app.parent / "fixture")
     if fixture.is_dir():
         command.extend(["--host-cap-dir", str(fixture)])
     if (case.app.parent / "fixture_server.py").is_file():
@@ -128,7 +139,6 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
             raise RuntimeError(f"invalid deterministic device fixture in {device_fixture}")
         command.extend(["--host-cap-device", grant])
     app_data_fixture = case.app.parent / "app-data-fixture"
-    clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
     if case.app.parent.name == "redis-explorer":
         command.extend(["--host-cap-tcp", "127.0.0.1:36379"])
     audio_fixture = case.app.parent / "audio-fixture"
@@ -151,7 +161,7 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
             )
             shutil.copytree(source, storage, dirs_exist_ok=True)
             command.extend(["--host-cap-app-data", str(storage)])
-        if clipboard_fixture.is_dir():
+        if clipboard_fixture := native_fixtures.get("clipboard"):
             command.append(f"--host-cap-clipboard-fixture={clipboard_fixture}")
         try:
             completed = subprocess.run(

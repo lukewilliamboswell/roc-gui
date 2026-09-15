@@ -26,7 +26,7 @@ class ScalingAaBoundTests(unittest.TestCase):
                 INSERT INTO recorder_health VALUES (1, 0, 0, 0);
                 """
             )
-            metadata = {"schema_version": "6", "clean_shutdown": "1", "final_state": "complete",
+            metadata = {"schema_version": "7", "clean_shutdown": "1", "final_state": "complete",
                         "spec_name": "case", "benchmark_scale": "100",
                         "benchmark_initial_size": "0", "benchmark_change_size": "100",
                         "app_name": "app", "executable_hash": "same-executable",

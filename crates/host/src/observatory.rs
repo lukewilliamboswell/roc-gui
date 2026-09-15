@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 6;
+pub const SCHEMA_VERSION: u32 = 7;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -233,6 +233,8 @@ pub struct StepResult {
     pub expected_count: Option<u64>,
     pub observed_count: Option<u64>,
     pub audio_counters: Option<([u64; 9], [u64; 9])>,
+    pub clipboard_counters: Option<([u64; 4], [u64; 4])>,
+    pub sqlite_counters: Option<([u64; 3], [u64; 3])>,
     pub expected_patch_kind: Option<String>,
     pub observed_patch_kind: Option<&'static str>,
     pub expected_staged_nodes: Option<u64>,
@@ -1010,6 +1012,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
         ),
         Event::Step(result) => {
             let audio_counters = result.audio_counters;
+            let clipboard_counters = result.clipboard_counters;
+            let sqlite_counters = result.sqlite_counters;
             connection.execute(
             "INSERT INTO steps(run_id,ordinal,source_line,kind,role,status,duration_ns,expected_count,observed_count,expected_patch_kind,observed_patch_kind,expected_staged_nodes,observed_staged_nodes,expected_removed_nodes,observed_removed_nodes,diagnostic) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
             params![result.run_id, result.ordinal as i64, result.source_line as i64, result.kind, result.role, result.status, result.duration_ns.map(as_i64), result.expected_count.map(as_i64), result.observed_count.map(as_i64), result.expected_patch_kind, result.observed_patch_kind, result.expected_staged_nodes.map(as_i64), result.observed_staged_nodes.map(as_i64), result.expected_removed_nodes.map(as_i64), result.observed_removed_nodes.map(as_i64), result.diagnostic],
@@ -1019,6 +1023,18 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
                     "INSERT INTO audio_counter_assertions(step_id,expected_live_outputs,observed_live_outputs,expected_live_tracks,observed_live_tracks,expected_acquire,observed_acquire,expected_load,observed_load,expected_play,observed_play,expected_pause,observed_pause,expected_seek,observed_seek,expected_status,observed_status,expected_stop,observed_stop) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
                     params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3]), as_i64(expected[4]), as_i64(observed[4]), as_i64(expected[5]), as_i64(observed[5]), as_i64(expected[6]), as_i64(observed[6]), as_i64(expected[7]), as_i64(observed[7]), as_i64(expected[8]), as_i64(observed[8])],
                 ).map_err(|error| format!("cannot write audio counter assertion: {error}"))?;
+            }
+            if let Some((expected, observed)) = clipboard_counters {
+                connection.execute(
+                    "INSERT INTO clipboard_counter_assertions(step_id,expected_live_handles,observed_live_handles,expected_acquire,observed_acquire,expected_read,observed_read,expected_write,observed_write) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3])],
+                ).map_err(|error| format!("cannot write clipboard counter assertion: {error}"))?;
+            }
+            if let Some((expected, observed)) = sqlite_counters {
+                connection.execute(
+                    "INSERT INTO database_counter_assertions(step_id,expected_live_connections,observed_live_connections,expected_open,observed_open,expected_query,observed_query) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2])],
+                ).map_err(|error| format!("cannot write SQLite counter assertion: {error}"))?;
             }
             Ok(1)
         },
@@ -1232,6 +1248,19 @@ CREATE TABLE audio_counter_assertions(
     expected_seek INTEGER NOT NULL, observed_seek INTEGER NOT NULL,
     expected_status INTEGER NOT NULL, observed_status INTEGER NOT NULL,
     expected_stop INTEGER NOT NULL, observed_stop INTEGER NOT NULL
+);
+CREATE TABLE clipboard_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_handles INTEGER NOT NULL, observed_live_handles INTEGER NOT NULL,
+    expected_acquire INTEGER NOT NULL, observed_acquire INTEGER NOT NULL,
+    expected_read INTEGER NOT NULL, observed_read INTEGER NOT NULL,
+    expected_write INTEGER NOT NULL, observed_write INTEGER NOT NULL
+);
+CREATE TABLE database_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_connections INTEGER NOT NULL, observed_live_connections INTEGER NOT NULL,
+    expected_open INTEGER NOT NULL, observed_open INTEGER NOT NULL,
+    expected_query INTEGER NOT NULL, observed_query INTEGER NOT NULL
 );
 CREATE TABLE cycles(
     id INTEGER PRIMARY KEY,
@@ -1524,6 +1553,8 @@ mod tests {
             expected_count: None,
             observed_count: None,
             audio_counters: None,
+            clipboard_counters: None,
+            sqlite_counters: None,
             expected_patch_kind: Some("replace".into()),
             observed_patch_kind: Some("replace"),
             expected_staged_nodes: Some(7),
@@ -1721,6 +1752,8 @@ mod tests {
             expected_count: Some(10),
             observed_count: Some(10),
             audio_counters: None,
+            clipboard_counters: None,
+            sqlite_counters: None,
             expected_patch_kind: None,
             observed_patch_kind: None,
             expected_staged_nodes: None,

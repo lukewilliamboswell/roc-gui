@@ -3,7 +3,10 @@ use std::{
     collections::HashMap,
     mem::ManuallyDrop,
     path::Path,
-    sync::{Mutex, OnceLock},
+    sync::{
+        Mutex, OnceLock,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 pub const MAX_TEXT_BYTES: usize = 64 * 1024;
@@ -26,6 +29,7 @@ struct Store {
 }
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
+static OPERATIONS: [AtomicU64; 3] = [const { AtomicU64::new(0) }; 3];
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -62,7 +66,20 @@ pub fn configure(system: bool, fixture: Option<&Path>) -> Result<(), String> {
     guard.pending_write = None;
     guard.handles.clear();
     guard.allocations.clear();
+    for counter in &OPERATIONS {
+        counter.store(0, Ordering::Relaxed);
+    }
     Ok(())
+}
+
+pub fn counters() -> ([u64; 3], usize) {
+    let operations = std::array::from_fn(|index| OPERATIONS[index].load(Ordering::Relaxed));
+    let handles = store()
+        .lock()
+        .expect("clipboard capability store poisoned")
+        .handles
+        .len();
+    (operations, handles)
 }
 
 fn error(code: u8, message: &'static str) -> HostGlueClipboardAcquireErr {
@@ -97,6 +114,7 @@ pub fn route_dealloc(base: *mut std::ffi::c_void) {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_clipboard_acquire() -> HostGlueClipboardAcquireResult {
+    OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let mut guard = store().lock().unwrap();
     if guard.grant == Grant::Denied {
         HostGlueClipboardAcquireResult {
@@ -118,6 +136,7 @@ pub extern "C" fn roc_clipboard_acquire() -> HostGlueClipboardAcquireResult {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_clipboard_read_text(handle: *mut u64) -> HostGlueClipboardReadTextResult {
+    OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let result = {
         let guard = store().lock().unwrap();
         if !valid(handle, &guard) {
@@ -151,6 +170,7 @@ pub extern "C" fn roc_clipboard_write_text(
     handle: *mut u64,
     text: RocStr,
 ) -> HostGlueClipboardWriteTextResult {
+    OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
     let owned = text.as_str().to_owned();
     unsafe { text.decref(roc_host()) };
     let result = {

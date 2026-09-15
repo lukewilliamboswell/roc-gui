@@ -6,7 +6,10 @@ use std::{
     collections::HashMap,
     io::Read,
     mem::ManuallyDrop,
-    sync::{Mutex, OnceLock},
+    sync::{
+        Mutex, OnceLock,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 const MAX_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
@@ -21,6 +24,7 @@ struct Store {
     allocations: HashMap<usize, u64>,
 }
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
+static OPERATIONS: [AtomicU64; 2] = [const { AtomicU64::new(0) }; 2];
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -29,6 +33,22 @@ fn store() -> &'static Mutex<Store> {
             allocations: HashMap::new(),
         })
     })
+}
+
+pub fn configure() {
+    for counter in &OPERATIONS {
+        counter.store(0, Ordering::Relaxed);
+    }
+}
+
+pub fn counters() -> ([u64; 2], usize) {
+    let operations = std::array::from_fn(|index| OPERATIONS[index].load(Ordering::Relaxed));
+    let connections = store()
+        .lock()
+        .expect("SQLite capability store poisoned")
+        .connections
+        .len();
+    (operations, connections)
 }
 
 fn error(code: u8, message: &'static str) -> HostGlueSqliteQueryErr {
@@ -90,6 +110,7 @@ pub extern "C" fn roc_sqlite_open_read(
     cap: *mut u64,
     name: RocStr,
 ) -> HostGlueSqliteOpenReadResult {
+    OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
     let dir = files::lookup(cap);
@@ -195,6 +216,7 @@ fn cell(value: ValueRef<'_>, total: &mut usize) -> Result<HostGlueSqliteQueryOkR
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_sqlite_query(cap: *mut u64, query: RocStr) -> HostGlueSqliteQueryResult {
+    OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let sql = query.as_str().to_owned();
     unsafe { query.decref(roc_host()) };
     let id = unsafe { cap.as_ref().copied() };

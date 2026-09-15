@@ -2655,6 +2655,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     }
     tcp::configure(args.cap_tcp);
     process::configure(args.cap_process);
+    sqlite::configure();
     audio::configure(args.cap_audio);
     device::configure(args.cap_device);
     let stats_path = match start_requested_recorder(

@@ -38,6 +38,8 @@ pub enum Command {
     ExpectSubscriptions(usize),
     ExpectTcpStreams(usize),
     ExpectProcesses(usize),
+    ExpectClipboardCounters([u64; 4]),
+    ExpectSqliteCounters([u64; 3]),
     ExpectDeviceConnections(usize),
     ExpectDeviceTransactions(usize),
     ExpectAudioCounters([u64; 9]),
@@ -69,6 +71,8 @@ impl Command {
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
             Self::ExpectTcpStreams(_) => "expect-tcp-streams",
             Self::ExpectProcesses(_) => "expect-processes",
+            Self::ExpectClipboardCounters(_) => "expect-clipboard-counters",
+            Self::ExpectSqliteCounters(_) => "expect-sqlite-counters",
             Self::ExpectDeviceConnections(_) => "expect-device-connections",
             Self::ExpectDeviceTransactions(_) => "expect-device-transactions",
             Self::ExpectAudioCounters(_) => "expect-audio-counters",
@@ -477,6 +481,30 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?,
         ),
+        "expect-clipboard-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "clipboard counters must be integers"))?
+                    .parse()
+                    .map_err(|_| {
+                        error(value, "clipboard counters must be non-negative integers")
+                    })?;
+            }
+            Command::ExpectClipboardCounters(expected)
+        }
+        "expect-sqlite-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "SQLite counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "SQLite counters must be non-negative integers"))?;
+            }
+            Command::ExpectSqliteCounters(expected)
+        }
         "expect-device-connections" if values.len() == 2 => Command::ExpectDeviceConnections(
             values[1]
                 .atom()
@@ -627,6 +655,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-subscriptions"
         | "expect-tcp-streams"
         | "expect-processes"
+        | "expect-clipboard-counters"
+        | "expect-sqlite-counters"
         | "expect-device-connections"
         | "expect-device-transactions"
         | "expect-audio-counters"
@@ -1004,6 +1034,23 @@ mod tests {
             spec.steps[0].command,
             Command::ClipboardText("comparison value".into())
         );
+    }
+
+    #[test]
+    fn parses_native_owner_counter_assertions() {
+        let clipboard =
+            parse(r#"(test "clipboard counters" (steps (expect-clipboard-counters 1 2 3 4)))"#)
+                .unwrap();
+        assert!(matches!(
+            clipboard.steps[0].command,
+            Command::ExpectClipboardCounters([1, 2, 3, 4])
+        ));
+        let sqlite =
+            parse(r#"(test "SQLite counters" (steps (expect-sqlite-counters 1 2 3)))"#).unwrap();
+        assert!(matches!(
+            sqlite.steps[0].command,
+            Command::ExpectSqliteCounters([1, 2, 3])
+        ));
     }
 
     #[test]
