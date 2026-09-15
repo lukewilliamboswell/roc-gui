@@ -213,6 +213,25 @@ class DependencyTests(unittest.TestCase):
                 release_dependencies.prepare(self.root, "deps-musl-1", environment)
             verifier.assert_not_called()
 
+    def test_draft_release_lookup_does_not_depend_on_a_published_tag_ref(self):
+        draft = {
+            "id": 7,
+            "tag_name": "deps-musl-1",
+            "draft": True,
+            "target_commitish": "a" * 40,
+            "assets": [],
+        }
+        response = json.dumps([
+            {"id": 6, "tag_name": "deps-other-1", "draft": True},
+            draft,
+        ])
+        with patch.object(release_dependencies.subprocess, "check_output", return_value=response) as query:
+            self.assertEqual(release_dependencies.release_by_tag("deps-musl-1"), draft)
+        query.assert_called_once_with([
+            "gh", "api",
+            f"repos/{release_dependencies.REPOSITORY}/releases?per_page=100",
+        ], text=True)
+
 
 if __name__ == "__main__":
     unittest.main()
