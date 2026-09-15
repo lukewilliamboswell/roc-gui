@@ -204,6 +204,25 @@ names the evidence so a fix can be verified against the same case.
   cancellation and bounded streamed upload/download progress before
   applications depend on either.
 
+- [ ] **HTTP Workbench advanced document tools.** Add syntax-highlighted JSON
+  and text response modes, cURL and collection import/export, and resizable
+  split panes through production editor/layout primitives. Preserve request
+  meaning and redact authentication material in every persisted or exported
+  representation.
+
+- [ ] **HTTP Workbench collections and structured validation.** Add bounded
+  non-secret request history and named collections through `AppData`, excluding
+  authorization, cookie, and proxy-authorization values by construction. Add
+  structured JSON validation and multiple header/query rows with field-owned
+  diagnostics before advertising environment or authentication editors.
+
+- [ ] **Broker trusted HTTP destinations at runtime.** The provisioned origin
+  grant pins non-literal DNS resolution, disables ambient proxies, rejects
+  credential-bearing URLs, and rechecks redirects against the granted origin.
+  Add user-visible named destination setup and consent backed by an OS
+  credential store. Audit platform-specific resolver behavior and IPv4-mapped
+  IPv6 classification before treating provisioning flags as user consent.
+
 - [ ] **Native accessibility roles and names are not exported.** Buttons,
   checkboxes, and scroll regions have stable semantics in the canonical graph,
   but the GPUI host does not yet publish them to each operating system's

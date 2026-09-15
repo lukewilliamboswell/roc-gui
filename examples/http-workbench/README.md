@@ -4,20 +4,22 @@ A local-first desktop client for composing, sending, inspecting, and organizing
 HTTP requests. It should be credible for everyday API development while remaining
 immediately useful with a bundled local sample service.
 
-The executable example sends bounded HTTP requests asynchronously: it provides
-a controlled URL and multiline request body, an inline portable-error surface,
-a read-only response view, and request-generation tracking so a superseded
-response cannot replace the latest one. Grant only its target origin with
+The executable composes bounded canonical HTTP requests asynchronously with a
+method, URL, query string, one explicit header, and multiline body. It presents
+response status, headers, and body independently, retains operation-tagged
+errors, supports retry and dismissing obsolete results, and uses generation
+tracking so a superseded response cannot replace the latest one. Grant its
+development destination with
 `roc examples/http-workbench/main.roc -- --host-cap-http-origin http://127.0.0.1:38191`.
 Run its colocated specifications with
 `python3 scripts/run_specs.py 'examples/http-workbench/specs/*.scm'`.
 
 ## Core capabilities
 
-- Tabbed request documents with method, URL, query, headers, authentication, and body editors.
+- Request documents with method, URL, query, header, and body editors.
 - Asynchronous HTTP execution with explicit redirects, timeouts, response limits, and stale-result suppression.
 - Structured JSON and text response views, search, syntax highlighting, and large-content virtualization.
-- Request history, named collections, environment values, import/export, and secret-safe persistence.
+- Secret-safe request history, named collections, environment values, and import/export.
 - Resizable panes, keyboard commands, focus management, and accessible status reporting.
 
 ## Happy paths

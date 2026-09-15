@@ -65,6 +65,11 @@ record live handles and acquire, read, and write attempts. SQLite rows record
 live connections and open and query attempts. These are correctness counters
 sampled directly from the capability owners; unavailable evidence is absent.
 
+HTTP assertions retain live clients plus acquire, send, and denied-operation
+counters in `http_counter_assertions`. Transport cancellation is not recorded
+because the HTTP capability does not expose it; stale reducer suppression does
+not fabricate cancellation evidence.
+
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.

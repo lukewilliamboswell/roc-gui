@@ -61,13 +61,12 @@ ordinary controlled editing followed by the same worker-backed atomic save used
 by the application. `expect-value-bytes` supplies deterministic, content-free
 scale evidence; task and patch counters remain owned by their production paths.
 
-An application may also provide `fixture_server.py`. The runner starts every
-loopback-only deterministic service needed by the selected cases, while each
-application still uses its production protocol package, capability, worker
-pool, and completion route. The HTTP Workbench uses its loopback HTTP service;
-the Redis Explorer receives one exact loopback TCP endpoint and speaks Redis
-through `roc-redis`. This avoids public-network availability and remote service
-state without introducing a test-only network path.
+Generic per-case fixture metadata may name a loopback server script, readiness
+port, and exact HTTP origin or TCP endpoint. The runner starts only services
+selected by that metadata, while applications use their production protocol
+packages, capabilities, worker pools, and completion routes. This avoids
+public-network availability and remote service state without introducing a
+test-only network path or application-name policy.
 
 A `process-fixture/SPEC_NAME` file containing `test-program` grants the fixed
 deterministic PTY child to that case through `--host-cap-process`. Cases without
@@ -169,6 +168,8 @@ diagnostic.
 live handle count and attempted Clipboard operations.
 `(expect-sqlite-counters LIVE OPEN QUERY)`:: Assert the owner-recorded live
 connection count and attempted SQLite operations.
+`(expect-http-counters LIVE ACQUIRE SEND DENIED)`:: Assert the owner-recorded
+live client count, operation attempts, and authority denials.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.

@@ -3,6 +3,15 @@ import http.server
 import time
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = f"GET {self.path} {self.headers.get('x-workbench', '')}".encode()
+        self.send_response(200)
+        self.send_header("content-type", "text/plain")
+        self.send_header("x-fixture", "http-workbench")
+        self.send_header("content-length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
         length = int(self.headers.get("content-length", "0"))
         body = self.rfile.read(length)
@@ -14,6 +23,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = b"x" * 200000
         self.send_response(200)
         self.send_header("content-type", "application/json")
+        self.send_header("x-fixture", "http-workbench")
         self.send_header("content-length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)

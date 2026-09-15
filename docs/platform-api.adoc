@@ -340,6 +340,15 @@ Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
 values. `Http.acquire!({})` returns an opaque `Http.Client` only when the host
 was launched with `--host-cap-http-origin ORIGIN`. The grant names one exact
 scheme, host, and effective port; requests and redirects cannot leave it.
+Acquire failures are `AcquireHttpErr(reason)` and exchange failures are
+`SendHttpErr(reason)`, retaining the operation together with the portable
+reason. Provisioning grants authority for development and automation; they are
+not a substitute for an application's user-visible trusted-destination setup.
+
+The host disables ambient proxy discovery, rejects credentials embedded in
+URLs, and pins an accepted non-literal destination resolution for the exchange.
+Literal loopback or private addresses remain usable only when named explicitly
+by the provisioned origin.
 
 `Http.send!(client, config, request)` performs one bounded exchange and returns
 the package's canonical `Response`. Call it from `Action.task` so connection,

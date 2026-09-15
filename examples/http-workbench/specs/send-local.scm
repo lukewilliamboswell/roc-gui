@@ -4,4 +4,5 @@
     (replace-text (role textarea :name "Request body") "{\"message\":\"updated\"}")
     (click (role button :name "Send request"))
     (await-task)
-    (expect-value (role textarea :name "Response body") "Status 200\n{\"message\":\"updated\"}")))
+    (expect-value (role textarea :name "Response body") "Status 200\n{\"message\":\"updated\"}")
+    (expect-http-counters 0 1 1 0)))
