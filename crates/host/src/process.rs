@@ -653,11 +653,39 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
         }
     }
 
-    /// Mode requests the pseudo console makes of the terminal reading it.
-    const NEGOTIATION: &[u8] = b"\x1b[?9001h\x1b[?1004h";
-    /// The negotiation followed by the console's first frame setup: hide the
-    /// cursor, clear, reset attributes, home. None of it is program output.
-    const STARTUP: &[u8] = b"\x1b[?9001h\x1b[?1004h\x1b[?25l\x1b[2J\x1b[m\x1b[H";
+    /// Startup control output is never held beyond this many bytes.
+    const STARTUP_HOLD_LIMIT: usize = 64 * 1024;
+
+    /// Whether VT output contains a printable character or line break outside
+    /// CSI (`ESC [`), OSC (`ESC ]`, ended by BEL or `ESC \`), and other escapes.
+    fn contains_text(bytes: &[u8]) -> bool {
+        #[derive(PartialEq)]
+        enum Mode {
+            Text,
+            Escape,
+            Csi,
+            Osc,
+        }
+        let mut mode = Mode::Text;
+        for &byte in bytes {
+            mode = match mode {
+                Mode::Text if byte == 0x1b => Mode::Escape,
+                Mode::Text if byte == b'\n' || (0x20..0x7f).contains(&byte) || byte >= 0x80 => {
+                    return true;
+                }
+                Mode::Text => Mode::Text,
+                Mode::Escape if byte == b'[' => Mode::Csi,
+                Mode::Escape if byte == b']' => Mode::Osc,
+                Mode::Escape => Mode::Text,
+                Mode::Csi if (0x40..=0x7e).contains(&byte) => Mode::Text,
+                Mode::Csi => Mode::Csi,
+                Mode::Osc if byte == 0x07 => Mode::Text,
+                Mode::Osc if byte == 0x1b => Mode::Escape,
+                Mode::Osc => Mode::Osc,
+            };
+        }
+        false
+    }
 
     pub struct Terminal {
         output: Mutex<Option<File>>,
@@ -889,26 +917,31 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
             }
         }
 
-        /// Before any client output, the pseudo console negotiates modes with
-        /// the terminal reading it and sets up its first frame. The console
-        /// may flush that setup on its own, ahead of the program's first
-        /// output, so it is held back until complete and then discarded.
-        /// Returns whether startup bytes are still incomplete.
+        /// Before the program's first output, the pseudo console negotiates
+        /// modes, sets up its first frame, and titles the window, and it may
+        /// flush any of that on its own. Until printable text arrives those
+        /// control sequences are held back (not dropped), so a reader's first
+        /// data carries the program's output rather than only terminal setup.
+        /// Returns whether startup output is still being held.
         fn startup_pending(&self, available: u32) -> io::Result<bool> {
             if !self.negotiating.load(Ordering::Acquire) {
                 return Ok(false);
             }
-            let mut guard = self.output.lock().expect("pty output poisoned");
-            let Some(output) = guard.as_mut() else {
+            if available as usize > STARTUP_HOLD_LIMIT {
+                self.negotiating.store(false, Ordering::Release);
+                return Ok(false);
+            }
+            let guard = self.output.lock().expect("pty output poisoned");
+            let Some(output) = guard.as_ref() else {
                 return Ok(false);
             };
-            let mut peeked = [0u8; STARTUP.len()];
+            let mut peeked = vec![0u8; available as usize];
             let mut read = 0u32;
             if unsafe {
                 PeekNamedPipe(
                     output.as_raw_handle() as HANDLE,
                     peeked.as_mut_ptr() as *mut c_void,
-                    (available as usize).min(STARTUP.len()) as u32,
+                    available,
                     &mut read,
                     ptr::null_mut(),
                     ptr::null_mut(),
@@ -918,16 +951,11 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
                 self.negotiating.store(false, Ordering::Release);
                 return Ok(false);
             }
-            let seen = &peeked[..read as usize];
-            if seen == STARTUP {
-                output.read_exact(&mut peeked)?;
-            } else if STARTUP.starts_with(seen) {
-                return Ok(true);
-            } else if seen.starts_with(NEGOTIATION) {
-                output.read_exact(&mut peeked[..NEGOTIATION.len()])?;
+            if contains_text(&peeked[..read as usize]) {
+                self.negotiating.store(false, Ordering::Release);
+                return Ok(false);
             }
-            self.negotiating.store(false, Ordering::Release);
-            Ok(false)
+            Ok(true)
         }
 
         pub fn wait_readable(&self, timeout_ms: u64) -> io::Result<bool> {
@@ -1033,6 +1061,16 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
         }
 
         #[test]
+        fn startup_control_sequences_are_not_text() {
+            assert!(!contains_text(b"\x1b[?9001h\x1b[?1004h\x1b[?25l\x1b[2J\x1b[m\x1b[H"));
+            assert!(!contains_text(b"\x1b]0;C:\\Windows\\powershell.exe\x07\x1b[?25h\r"));
+            assert!(!contains_text(b"\x1b]0;title\x1b\\\x1b[K"));
+            assert!(!contains_text(b"\x1b[3"), "an incomplete sequence is not text");
+            assert!(contains_text(b"\x1b[Hterminal-ready"));
+            assert!(contains_text(b"\x1b[K\r\n"));
+        }
+
+        #[test]
         fn encoded_command_is_base64_utf16le() {
             assert_eq!(encoded_command("a"), "YQA=");
             assert_eq!(encoded_command("ab"), "YQBiAA==");
@@ -1056,10 +1094,17 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
         #[test]
         fn test_program_speaks_its_protocol_through_the_pseudo_console() {
             let terminal = Terminal::spawn(80, 24, GrantedProfile::TestProgram).unwrap();
-            let ready = read_until(&terminal, "terminal-ready");
+            // The first data a reader sees carries program text, not only
+            // the console's control-sequence startup.
+            assert!(terminal.wait_readable(30_000).unwrap());
+            let mut first = [0u8; 4096];
+            let count = terminal.read(&mut first).unwrap();
+            assert!(contains_text(&first[..count]), "first read held only terminal setup");
+            let mut ready = String::from_utf8_lossy(&first[..count]).into_owned();
+            if !ready.contains("terminal-ready") {
+                ready += &read_until(&terminal, "terminal-ready");
+            }
             assert!(ready.contains("terminal-ready"));
-            assert!(!ready.contains("\u{1b}[?9001h"), "console negotiation reached the reader");
-            assert!(!ready.contains("\u{1b}[2J"), "console frame setup reached the reader");
             terminal.resize(132, 43).unwrap();
             // Newlines are Enter, as they are for a POSIX line discipline.
             assert_eq!(terminal.write(b"hello\n").unwrap(), 6);
