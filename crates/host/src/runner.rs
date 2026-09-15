@@ -1,6 +1,6 @@
 use crate::{
     await_task_completion,
-    bridge::{ApplyFacts, MountedGraph, NodeKind},
+    bridge::{ApplyFacts, ControlKey, MountedGraph, NodeKind},
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
@@ -44,6 +44,11 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             }
             (Locator::ColumnName(expected), NodeKind::Column { label, .. })
                 if !label.is_empty() && expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::DialogName(expected), NodeKind::Dialog { label, .. })
+                if expected == label =>
             {
                 Some(node.id)
             }
@@ -140,6 +145,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut cycle_ordinal = 1u64;
     let mut last_patch: Option<ApplyFacts> = None;
     let mut focused: Option<u64> = None;
+    let mut dialog_return_focus: Option<(u8, String)> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
         let role = match &step.command {
             Command::MarkMetrics => "boundary",
@@ -163,6 +169,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         step.line,
                         matches.len()
                     ))
+                } else if graph
+                    .active_dialog()
+                    .is_some_and(|dialog| !graph.is_descendant_of(matches[0], dialog))
+                {
+                    Ok(())
                 } else if matches!(
                     graph.node(matches[0]).map(|node| &node.kind),
                     Some(
@@ -174,6 +185,10 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     // runner likewise performs no Roc dispatch or measurement.
                     Ok(())
                 } else {
+                    let previous_dialog = graph.active_dialog();
+                    let opener = graph
+                        .node(matches[0])
+                        .and_then(|node| node.kind.focus_identity());
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
@@ -181,6 +196,19 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
                     let facts = graph.apply_measured(patch)?.facts;
+                    let next_dialog = graph.active_dialog();
+                    match (previous_dialog, next_dialog) {
+                        (None, Some(dialog)) => {
+                            dialog_return_focus = opener;
+                            focused = graph.first_focusable_in(dialog);
+                        }
+                        (Some(_), None) => {
+                            focused = dialog_return_focus
+                                .take()
+                                .and_then(|identity| graph.find_focus_identity(&identity));
+                        }
+                        _ => {}
+                    }
                     last_patch = Some(facts);
                     pending_cycle = Some(make_cycle(
                         run_id,
@@ -205,6 +233,14 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         "line {}: replace-text locator matched {} nodes; expected exactly one",
                         step.line,
                         found.len()
+                    ))
+                } else if graph
+                    .active_dialog()
+                    .is_some_and(|dialog| !graph.is_descendant_of(found[0], dialog))
+                {
+                    Err(format!(
+                        "line {}: locator is blocked by the active dialog",
+                        step.line
                     ))
                 } else if !matches!(
                     graph.node(found[0]).map(|node| &node.kind),
@@ -251,6 +287,14 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         step.line,
                         matches.len()
                     ))
+                } else if graph
+                    .active_dialog()
+                    .is_some_and(|dialog| !graph.is_descendant_of(matches[0], dialog))
+                {
+                    Err(format!(
+                        "line {}: locator is blocked by the active dialog",
+                        step.line
+                    ))
                 } else if !matches!(
                     graph.node(matches[0]).map(|node| &node.kind),
                     Some(
@@ -270,9 +314,15 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             }
             Command::PressKey(key) => {
-                let focused_id = focused.ok_or_else(|| {
-                    format!("line {}: press-key requires a focused control", step.line)
-                });
+                let focused_id = if *key == ControlKey::Escape {
+                    graph.active_dialog().ok_or_else(|| {
+                        format!("line {}: Escape requires an active dialog", step.line)
+                    })
+                } else {
+                    focused.ok_or_else(|| {
+                        format!("line {}: press-key requires a focused control", step.line)
+                    })
+                };
                 match focused_id {
                     Err(message) => Err(message),
                     Ok(id) if graph.node(id).is_none() => Err(format!(
@@ -280,6 +330,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         step.line
                     )),
                     Ok(id) => {
+                        let previous_dialog = graph.active_dialog();
                         let activates = graph.node(id).unwrap().kind.accepts_key(*key);
                         if !activates {
                             Err(format!(
@@ -287,6 +338,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 step.line
                             ))
                         } else {
+                            let opener = graph.node(id).and_then(|node| node.kind.focus_identity());
                             let cycle_started = Instant::now();
                             observatory::reset_roc_work();
                             let roc_started = Instant::now();
@@ -294,6 +346,19 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             let roc_ns = elapsed_ns(roc_started);
                             let (roc_work, roc_work_valid) = observatory::take_roc_work();
                             let facts = graph.apply_measured(patch)?.facts;
+                            let next_dialog = graph.active_dialog();
+                            match (previous_dialog, next_dialog) {
+                                (None, Some(dialog)) => {
+                                    dialog_return_focus = opener;
+                                    focused = graph.first_focusable_in(dialog);
+                                }
+                                (Some(_), None) => {
+                                    focused = dialog_return_focus
+                                        .take()
+                                        .and_then(|identity| graph.find_focus_identity(&identity));
+                                }
+                                _ => {}
+                            }
                             last_patch = Some(facts);
                             pending_cycle = Some(make_cycle(
                                 run_id,
@@ -352,6 +417,17 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 } else {
                     Ok(())
+                }
+            }
+            Command::ExpectFocused(locator) => {
+                let found = matches(&graph, locator);
+                if found.len() == 1 && focused == Some(found[0]) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected locator to have semantic focus",
+                        step.line
+                    ))
                 }
             }
             Command::ExpectNotVisible(locator) => {

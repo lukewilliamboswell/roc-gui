@@ -2506,6 +2506,100 @@ unsafe impl RocRelease<HostGlueNodeColumnArgs> for HostGlueNodeColumnArgsRelease
     }
 }
 
+/// Arguments for HostGlue.node_dialog!
+/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeDialogArgs {
+    pub builder: u64,
+    pub label: RocStr,
+    pub active_bg: u32,
+    pub bg: u32,
+    pub border_color: u32,
+    pub border_width: u32,
+    pub fg: u32,
+    pub font_size: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub hover_bg: u32,
+    pub padding: u32,
+    pub radius: u32,
+    pub width: u32,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub width_kind: u8,
+}
+
+/// Arguments for HostGlue.node_dialog!
+/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeDialogArgs {
+    pub builder: u64,
+    pub label: RocStr,
+    pub active_bg: u32,
+    pub bg: u32,
+    pub border_color: u32,
+    pub border_width: u32,
+    pub fg: u32,
+    pub font_size: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub hover_bg: u32,
+    pub padding: u32,
+    pub radius: u32,
+    pub width: u32,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 88, "HostGlueNodeDialogArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeDialogArgs>() == 8, "HostGlueNodeDialogArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 80, "HostGlueNodeDialogArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeDialogArgs>() == 8, "HostGlueNodeDialogArgs alignment mismatch");
+
+impl HostGlueNodeDialogArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+    }
+}
+
+pub struct HostGlueNodeDialogArgsRelease;
+
+unsafe impl RocRelease<HostGlueNodeDialogArgs> for HostGlueNodeDialogArgsRelease {
+    unsafe fn release(value: HostGlueNodeDialogArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 /// Arguments for HostGlue.node_panel!
 /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
@@ -3120,6 +3214,7 @@ pub struct FilesDirOpenReadDirArgs {
 
 pub type HostGlueNodeRowArg0 = AnonStruct1f89f22437f75671;
 pub type HostGlueNodeColumnArg0 = AnonStruct1f89f22437f75671;
+pub type HostGlueNodeDialogArg0 = AnonStruct1f89f22437f75671;
 pub type HostGlueNodePanelArg0 = AnonStruct1f89f22437f75671;
 pub type HostGlueNodeScrollArg0 = AnonStruct6aa5c9965944c201;
 pub type HostGlueNodeActionButtonArg0 = AnonStructB48d36aa8eceb0b8;
@@ -3939,6 +4034,13 @@ unsafe extern "C" {
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_column(arg0: HostGlueNodeColumnArgs) -> u64;
+
+    /// Hosted symbol for HostGlue.node_dialog!
+    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_dialog(arg0: HostGlueNodeDialogArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_panel!
     /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64

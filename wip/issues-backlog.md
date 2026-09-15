@@ -74,7 +74,8 @@ names the evidence so a fix can be verified against the same case.
   by specifications.
 - [ ] **Focus is not restored across replaced subtrees.** Keyboard focus works
   for each live GPUI control, but a Roc state update replaces that control's
-  native entity. Close by carrying role and stable semantic name across a
+  native entity. Dialog open/close is the deliberate exception: its runtime
+  policy restores the semantic opener. Close the general gap by carrying role and stable semantic name across a
   successful patch when the corresponding control remains live, and specify
   the destination when navigation removes the focused control.
 - [ ] **Composite directory navigation has no roving focus.** A user can reach

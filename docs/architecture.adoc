@@ -91,7 +91,8 @@ is stale and cannot later identify another control.
 === The host materialises GPUI views
 
 Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
-and columns become flex containers, panels become styled surfaces, text becomes
+and columns become flex containers, panels become styled surfaces, dialogs
+become centered modal layers with input-blocking scrims, text becomes
 a text child, and enabled action buttons add focus, keyboard, and pointer
 listeners. Disabled action buttons add no event listener or tab stop. A virtual
 list is the deliberate exception: its
@@ -99,6 +100,11 @@ complete keyed item subtrees remain in the canonical graph, but GPUI's
 viewport callback creates entities only for intersecting fixed-height rows and
 recycles entities that leave the range. The host connects the new native
 subtree to retained entities around its boundary and releases replaced views.
+
+While a dialog is mounted, controls outside its graph subtree do not install
+pointer listeners or tab stops. The runtime focuses the first enabled dialog
+control, routes Escape to the dialog node, and restores the opener by its stable
+role and semantic name after the dialog leaves the graph.
 
 The host notifies GPUI of the changed entity. GPUI owns subsequent rendering,
 layout, prepaint, paint, and presentation. roc-gui does not calculate geometry

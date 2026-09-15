@@ -67,6 +67,10 @@ pub enum NodeKind {
         label: String,
         style: Style,
     },
+    Dialog {
+        label: String,
+        style: Style,
+    },
     Panel {
         label: String,
         style: Style,
@@ -92,6 +96,7 @@ pub enum NodeKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControlKey {
     Enter,
+    Escape,
     Space,
 }
 
@@ -103,7 +108,30 @@ impl NodeKind {
                 Self::Button { enabled: true, .. },
                 ControlKey::Enter | ControlKey::Space
             ) | (Self::Checkbox { enabled: true, .. }, ControlKey::Space)
+                | (Self::Dialog { .. }, ControlKey::Escape)
         )
+    }
+
+    pub fn focus_identity(&self) -> Option<(u8, String)> {
+        match self {
+            Self::Button {
+                label,
+                enabled: true,
+                ..
+            } => Some((0, label.clone())),
+            Self::Checkbox {
+                label,
+                enabled: true,
+                ..
+            } => Some((1, label.clone())),
+            Self::Textarea {
+                label,
+                enabled: true,
+                read_only: false,
+                ..
+            } => Some((2, label.clone())),
+            _ => None,
+        }
     }
 }
 
@@ -232,6 +260,41 @@ impl MountedGraph {
         ordered
     }
 
+    pub fn active_dialog(&self) -> Option<u64> {
+        self.nodes_preorder()
+            .into_iter()
+            .find_map(|node| matches!(node.kind, NodeKind::Dialog { .. }).then_some(node.id))
+    }
+
+    pub fn is_descendant_of(&self, mut id: u64, ancestor: u64) -> bool {
+        loop {
+            if id == ancestor {
+                return true;
+            }
+            match self
+                .nodes
+                .get(&id)
+                .and_then(|entry| entry.parent.map(|value| value.0))
+            {
+                Some(parent) => id = parent,
+                None => return false,
+            }
+        }
+    }
+
+    pub fn first_focusable_in(&self, ancestor: u64) -> Option<u64> {
+        self.nodes_preorder().into_iter().find_map(|node| {
+            (self.is_descendant_of(node.id, ancestor) && node.kind.focus_identity().is_some())
+                .then_some(node.id)
+        })
+    }
+
+    pub fn find_focus_identity(&self, identity: &(u8, String)) -> Option<u64> {
+        self.nodes_preorder().into_iter().find_map(|node| {
+            (node.kind.focus_identity().as_ref() == Some(identity)).then_some(node.id)
+        })
+    }
+
     /// IDs below virtual-list nodes. They remain in the canonical graph for
     /// semantic lookup and routing but do not receive eager GPUI entities.
     pub fn virtual_descendant_ids(&self) -> HashSet<u64> {
@@ -271,6 +334,24 @@ impl MountedGraph {
                 validate_tree(*root, nodes)?;
             }
             Patch::NoChange => {}
+        }
+        if let Patch::Replace {
+            old_root, nodes, ..
+        } = &patch
+        {
+            let retained_dialogs = self
+                .nodes
+                .values()
+                .filter(|entry| matches!(entry.node.kind, NodeKind::Dialog { .. }))
+                .filter(|entry| !self.is_descendant_of(entry.node.id, *old_root))
+                .count();
+            let new_dialogs = nodes
+                .iter()
+                .filter(|node| matches!(node.kind, NodeKind::Dialog { .. }))
+                .count();
+            if retained_dialogs + new_dialogs > 1 {
+                return Err("mounted graph would contain more than one modal dialog".into());
+            }
         }
         let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
         let apply_started = MEASURE.then(Instant::now);
@@ -616,6 +697,14 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     if nodes.len() > MAX_STAGED_NODES {
         return Err(format!("native subtree exceeds {MAX_STAGED_NODES} nodes"));
     }
+    if nodes
+        .iter()
+        .filter(|node| matches!(node.kind, NodeKind::Dialog { .. }))
+        .count()
+        > 1
+    {
+        return Err("native subtree contains more than one modal dialog".into());
+    }
 
     // BridgeState assigns one monotonically increasing id to every staged node
     // and keeps those nodes in assignment order. Validate that production shape
@@ -844,6 +933,13 @@ mod tests {
         assert!(!enabled.accepts_key(ControlKey::Enter));
         assert!(enabled.accepts_key(ControlKey::Space));
         assert!(!disabled.accepts_key(ControlKey::Space));
+
+        let dialog = NodeKind::Dialog {
+            label: "Confirm".into(),
+            style: Style::default(),
+        };
+        assert!(dialog.accepts_key(ControlKey::Escape));
+        assert!(!dialog.accepts_key(ControlKey::Enter));
     }
 
     fn text(id: u64, value: &str) -> Node {
@@ -868,6 +964,35 @@ mod tests {
             },
         ];
         assert_eq!(validate_tree(1, &nodes), Ok(()));
+    }
+
+    #[test]
+    fn rejects_more_than_one_dialog_in_a_subtree() {
+        let dialog = |id| Node {
+            id,
+            kind: NodeKind::Dialog {
+                label: format!("dialog-{id}"),
+                style: Style::default(),
+            },
+            children: vec![],
+        };
+        let nodes = vec![
+            dialog(2),
+            dialog(3),
+            Node {
+                id: 1,
+                kind: NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default(),
+                },
+                children: vec![2, 3],
+            },
+        ];
+        assert!(
+            validate_tree(1, &nodes)
+                .unwrap_err()
+                .contains("more than one modal dialog")
+        );
     }
 
     #[test]

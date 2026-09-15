@@ -20,6 +20,7 @@ platform ""
 		"roc_gui_children_push": HostGlue.children_push!,
 		"roc_gui_node_row": HostGlue.node_row!,
 		"roc_gui_node_column": HostGlue.node_column!,
+		"roc_gui_node_dialog": HostGlue.node_dialog!,
 		"roc_gui_node_panel": HostGlue.node_panel!,
 		"roc_gui_node_scroll": HostGlue.node_scroll!,
 		"roc_gui_node_action_button": HostGlue.node_action_button!,

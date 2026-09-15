@@ -13,6 +13,7 @@ platform ""
 		"roc_gui_children_push": Host.children_push!,
 		"roc_gui_node_row": Host.node_row!,
 		"roc_gui_node_column": Host.node_column!,
+		"roc_gui_node_dialog": Host.node_dialog!,
 		"roc_gui_node_panel": Host.node_panel!,
 		"roc_gui_node_scroll": Host.node_scroll!,
 		"roc_gui_node_action_button": Host.node_action_button!,

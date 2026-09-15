@@ -9,4 +9,7 @@ Event := [].{
 
 	## A controlled text edit containing the complete requested value.
 	Input : { value : Str }
+
+	## A request to dismiss a modal dialog, such as the Escape key.
+	Dismiss : {}
 }

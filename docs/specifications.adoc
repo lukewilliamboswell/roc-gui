@@ -61,6 +61,8 @@ interactive grant, without giving the application ambient test-only I/O.
 `Elem.button` or `Elem.action_button`.
 `(role checkbox :name "label")`:: A checkbox identified by its visible label.
 `(role panel :name "label")`:: A panel identified by its semantic label.
+`(role dialog :name "label")`:: The active modal dialog identified by its
+semantic label.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
 `(role virtual-list :name "name")`:: A fixed-row virtual list identified by its
 semantic name.
@@ -85,10 +87,14 @@ or checkbox. Focus remains valid only while that mounted node is live.
 route.
 `(press-key Space)`:: Activate the focused button or toggle the focused enabled
 checkbox through the normal Roc event route.
+`(press-key Escape)`:: Dismiss the active dialog through its `on_dismiss` route.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.
 `(expect-visible LOCATOR)`:: Require at least one match.
+`(expect-focused LOCATOR)`:: Require semantic focus to be on exactly one
+matching enabled control. This proves the host's dialog focus policy, not a
+compositor-delivered focus event.
 `(expect-not-visible LOCATOR)`:: Require no matches.
 `(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
 observed counts.

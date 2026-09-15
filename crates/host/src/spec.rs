@@ -33,6 +33,7 @@ pub enum Command {
     PressKey(ControlKey),
     AwaitTask,
     ExpectVisible(Locator),
+    ExpectFocused(Locator),
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
     ExpectValue(Locator, String),
@@ -51,6 +52,7 @@ impl Command {
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
             Self::ExpectVisible(_) => "expect-visible",
+            Self::ExpectFocused(_) => "expect-focused",
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
             Self::ExpectValue(_, _) => "expect-value",
@@ -89,6 +91,7 @@ pub enum Locator {
     CheckboxName(String),
     CheckboxPrefix(String),
     ColumnName(String),
+    DialogName(String),
     PanelName(String),
     RowName(String),
     ScrollName(String),
@@ -349,15 +352,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         "press-key" if values.len() == 2 => {
             let key = values[1]
                 .atom()
-                .ok_or_else(|| error(&values[1], "press-key requires Enter or Space"))?;
+                .ok_or_else(|| error(&values[1], "press-key requires Enter, Escape, or Space"))?;
             Command::PressKey(match key {
                 "Enter" => ControlKey::Enter,
+                "Escape" => ControlKey::Escape,
                 "Space" => ControlKey::Space,
-                _ => return Err(error(&values[1], "press-key requires Enter or Space")),
+                _ => {
+                    return Err(error(
+                        &values[1],
+                        "press-key requires Enter, Escape, or Space",
+                    ));
+                }
             })
         }
         "await-task" if values.len() == 1 => Command::AwaitTask,
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
+        "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
         "expect-not-visible" if values.len() == 2 => {
             Command::ExpectNotVisible(parse_locator(&values[1])?)
         }
@@ -457,6 +467,16 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .ok_or_else(|| error(node, "button-prefix locator requires a string")),
         Some("role")
             if values.len() == 4
+                && values[1].atom() == Some("dialog")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::DialogName(value.to_owned()))
+                .ok_or_else(|| error(node, "dialog name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
                 && values[1].atom() == Some("panel")
                 && values[2].atom() == Some(":name") =>
         {
@@ -537,7 +557,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, column, panel, row, scroll, textarea, and virtual-list",
+            "supported roles are button, checkbox, column, dialog, panel, row, scroll, textarea, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -792,18 +812,20 @@ mod tests {
               (steps
                 (focus (role button :name "Open"))
                 (press-key Enter)
+                (press-key Escape)
                 (press-key Space)))"#,
         )
         .unwrap();
         assert!(matches!(spec.steps[0].command, Command::Focus(_)));
         assert_eq!(spec.steps[1].command, Command::PressKey(ControlKey::Enter));
-        assert_eq!(spec.steps[2].command, Command::PressKey(ControlKey::Space));
+        assert_eq!(spec.steps[2].command, Command::PressKey(ControlKey::Escape));
+        assert_eq!(spec.steps[3].command, Command::PressKey(ControlKey::Space));
     }
 
     #[test]
     fn rejects_unsupported_semantic_key() {
-        let error = parse(r#"(test "keyboard" (steps (press-key Escape)))"#).unwrap_err();
-        assert!(error.message.contains("Enter or Space"));
+        let error = parse(r#"(test "keyboard" (steps (press-key Tab)))"#).unwrap_err();
+        assert!(error.message.contains("Enter, Escape, or Space"));
     }
 
     #[test]

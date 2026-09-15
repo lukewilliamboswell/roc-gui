@@ -11,6 +11,7 @@ Elem(a) :: [
 	Checkbox(CheckboxProps(a)),
 	Textarea(TextareaProps(a)),
 	Column({ children : List(Elem(a)), props : ColProps }),
+	Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 	Panel({ children : List(Elem(a)), props : PanelProps }),
 	Row({ children : List(Elem(a)), props : RowProps }),
 	Scroll(ScrollProps(a)),
@@ -55,6 +56,28 @@ Elem(a) :: [
 		border_color : Gui.Color ?? Default,
 		border_width : U32 ?? 0,
 		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		overflow_x : Gui.Overflow ?? Visible,
+		overflow_y : Gui.Overflow ?? Visible,
+	}
+
+	## Properties for a modal dialog. `label` is its stable semantic name and
+	## `on_dismiss` handles Escape. Dialogs center above an input-blocking scrim.
+	DialogProps(a) := {
+		label : Str,
+		on_dismiss : (a, Event.Dismiss -> Action(a)),
+		gap : U32 ?? 16,
+		padding : U32 ?? 24,
+		width : Gui.Length ?? Px(520),
+		height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Rgb(0x212f37),
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		fg : Gui.Color ?? Rgb(0xeeeeea),
+		border_color : Gui.Color ?? Rgb(0x48666b),
+		border_width : U32 ?? 1,
+		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
@@ -205,6 +228,11 @@ Elem(a) :: [
 	col : ColProps, List(Elem(a)) -> Elem(a)
 	col = |props, children| Column({ children, props })
 
+	## Present one modal surface, focus its first enabled control, trap keyboard
+	## traversal inside it, and restore its opener after dismissal.
+	dialog : DialogProps(a), List(Elem(a)) -> Elem(a)
+	dialog = |props, children| Dialog({ children, props })
+
 	## Group children in a labelled padded, bordered, rounded vertical surface.
 	panel : PanelProps, List(Elem(a)) -> Elem(a)
 	panel = |props, children| Panel({ children, props })
@@ -227,6 +255,14 @@ Elem(a) :: [
 		Text(value) => Text(value)
 		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
+		Dialog(value) => {
+			child_handler = value.props.on_dismiss
+			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			Dialog({
+				children: value.children.map(|child| lift(child, get_child, set_child)),
+				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler, gap: value.props.gap, padding: value.props.padding, width: value.props.width, height: value.props.height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, radius: value.props.radius, font_size: value.props.font_size, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y },
+			})
+		}
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), name: scroll_value.name })
 		VirtualList(list_value) => VirtualList(
@@ -317,6 +353,7 @@ Elem(a) :: [
 		Checkbox(CheckboxProps(a)),
 		Textarea(TextareaProps(a)),
 		Column({ children : List(Elem(a)), props : ColProps }),
+		Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 		Panel({ children : List(Elem(a)), props : PanelProps }),
 		Row({ children : List(Elem(a)), props : RowProps }),
 		Scroll(ScrollProps(a)),
@@ -329,6 +366,7 @@ Elem(a) :: [
 		Checkbox(checkbox_value) => Checkbox(checkbox_value)
 		Textarea(textarea_value) => Textarea(textarea_value)
 		Column(children) => Column(children)
+		Dialog(dialog_value) => Dialog(dialog_value)
 		Panel(children) => Panel(children)
 		Row(children) => Row(children)
 		Scroll(scroll_value) => Scroll(scroll_value)

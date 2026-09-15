@@ -16,10 +16,10 @@ use bridge::{
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
+    HostGlueNodeScrollArgs, HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs,
+    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
+    decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -33,7 +33,13 @@ use std::{
 
 actions!(
     roc_gui,
-    [FocusNext, FocusPrevious, ActivateEnter, ActivateSpace]
+    [
+        FocusNext,
+        FocusPrevious,
+        ActivateEnter,
+        ActivateEscape,
+        ActivateSpace
+    ]
 );
 
 unsafe extern "C" {
@@ -355,6 +361,36 @@ pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
     );
     stage_node(
         NodeKind::Column { label, style },
+        finish_children(args.builder),
+    )
+}
+
+/// Stage one modal dialog and its ordinary child subtree.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    unsafe { args.label.decref(roc_host()) };
+    let style = decode_layout_style(
+        args.gap,
+        args.padding,
+        args.width_kind,
+        args.width,
+        args.height_kind,
+        args.height,
+        args.grow,
+        args.bg,
+        args.hover_bg,
+        args.active_bg,
+        args.fg,
+        args.border_color,
+        args.border_width,
+        args.radius,
+        args.font_size,
+        args.overflow_x,
+        args.overflow_y,
+    );
+    stage_node(
+        NodeKind::Dialog { label, style },
         finish_children(args.builder),
     )
 }
@@ -810,6 +846,8 @@ struct NodeView {
     children: Vec<Entity<NodeView>>,
     runtime: WeakEntity<Runtime>,
     is_root: bool,
+    input_enabled: bool,
+    focus_handle: Option<FocusHandle>,
 }
 
 fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
@@ -868,12 +906,38 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let mut element = div().id(("node", self.node.id));
+        let mut append_children = true;
         if self.is_root {
             element = element.size_full().min_h_0().min_w_0();
         }
         match &self.node.kind {
             NodeKind::Column { style, .. } | NodeKind::Panel { style, .. } => {
                 element = apply_style(element.flex().flex_col(), style);
+            }
+            NodeKind::Dialog { style, .. } => {
+                let dialog_id = self.node.id;
+                let runtime = self.runtime.clone();
+                let inner = apply_style(
+                    div().id(("dialog-surface", dialog_id)).flex().flex_col(),
+                    style,
+                )
+                .children(self.children.iter().cloned().map(AnyView::from));
+                element = element
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .bg(rgba(0x00000099))
+                    .on_action(move |_: &ActivateEscape, _, cx| {
+                        let _ = runtime.update(cx, |runtime, cx| {
+                            runtime.activate_if_live(dialog_id, ControlKey::Escape, cx)
+                        });
+                    })
+                    .child(inner);
+                append_children = false;
             }
             NodeKind::Row { style, .. } => {
                 element = apply_style(element.flex().flex_row().items_center(), style);
@@ -939,10 +1003,11 @@ impl Render for NodeView {
                 };
                 element = apply_style(element.flex().flex_col().child(shown), style)
                     .scrollbar_width(px(8.0));
-                if *enabled && !*read_only {
+                if *enabled && !*read_only && self.input_enabled {
+                    if let Some(handle) = &self.focus_handle {
+                        element = element.track_focus(handle).tab_index(0);
+                    }
                     element = element
-                        .focusable()
-                        .tab_index(0)
                         .cursor(CursorStyle::IBeam)
                         .focus(|s| s.border_2().border_color(rgb(0x9bdcf0)))
                         .on_key_down(move |event, _, cx| {
@@ -983,10 +1048,11 @@ impl Render for NodeView {
                         .child(caption.clone()),
                     style,
                 );
-                if *enabled {
+                if *enabled && self.input_enabled {
+                    if let Some(handle) = &self.focus_handle {
+                        element = element.track_focus(handle).tab_index(0);
+                    }
                     element = element
-                        .focusable()
-                        .tab_index(0)
                         .focus(|style| style.border_2().border_color(rgb(0x9bdcf0)))
                         .on_action(move |_: &ActivateEnter, _, cx| {
                             let _ = enter_runtime.update(cx, |runtime, cx| {
@@ -1083,11 +1149,12 @@ impl Render for NodeView {
                 if let Some(value) = style.active_bg {
                     element = element.active(move |refinement| refinement.bg(rgb(value)));
                 }
-                if *enabled {
+                if *enabled && self.input_enabled {
                     let space_runtime = self.runtime.clone();
+                    if let Some(handle) = &self.focus_handle {
+                        element = element.track_focus(handle).tab_index(0);
+                    }
                     element = element
-                        .focusable()
-                        .tab_index(0)
                         .focus(|refinement| refinement.border_2().border_color(rgb(0x9bdcf0)))
                         .on_action(move |_: &ActivateSpace, _, cx| {
                             let _ = space_runtime.update(cx, |runtime, cx| {
@@ -1104,7 +1171,11 @@ impl Render for NodeView {
                 }
             }
         }
-        element.children(self.children.iter().cloned().map(AnyView::from))
+        if append_children {
+            element.children(self.children.iter().cloned().map(AnyView::from))
+        } else {
+            element
+        }
     }
 }
 
@@ -1112,8 +1183,13 @@ struct Runtime {
     graph: MountedGraph,
     views: HashMap<u64, Entity<NodeView>>,
     virtual_views: HashMap<(u64, u64), VirtualCached>,
+    focus_handles: HashMap<u64, FocusHandle>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
+    active_dialog: Option<u64>,
+    dialog_return_focus: Option<(u8, String)>,
+    last_trigger_focus: Option<(u8, String)>,
+    focus_after_render: Option<u64>,
 }
 
 struct VirtualCached {
@@ -1135,8 +1211,13 @@ impl Runtime {
             graph: MountedGraph::default(),
             views: HashMap::new(),
             virtual_views: HashMap::new(),
+            focus_handles: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
+            active_dialog: None,
+            dialog_return_focus: None,
+            last_trigger_focus: None,
+            focus_after_render: None,
         };
         if observatory::active() {
             runtime.apply_recorded(
@@ -1171,11 +1252,30 @@ impl Runtime {
     }
 
     fn event_if_live(&mut self, id: u64, cx: &mut Context<Self>) {
+        if self
+            .active_dialog
+            .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
         if !matches!(
             self.graph.node(id).map(|node| &node.kind),
-            Some(NodeKind::Button { enabled: true, .. } | NodeKind::Checkbox { enabled: true, .. })
+            Some(
+                NodeKind::Button { enabled: true, .. }
+                    | NodeKind::Checkbox { enabled: true, .. }
+                    | NodeKind::Dialog { .. }
+            )
         ) {
             return;
+        }
+        if !matches!(
+            self.graph.node(id).map(|node| &node.kind),
+            Some(NodeKind::Dialog { .. })
+        ) {
+            self.last_trigger_focus = self
+                .graph
+                .node(id)
+                .and_then(|node| node.kind.focus_identity());
         }
         if observatory::active() {
             let cycle_started = Instant::now();
@@ -1200,6 +1300,12 @@ impl Runtime {
     }
 
     fn input_if_live(&mut self, id: u64, value: String, cx: &mut Context<Self>) {
+        if self
+            .active_dialog
+            .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
         if !matches!(
             self.graph.node(id).map(|node| &node.kind),
             Some(NodeKind::Textarea {
@@ -1309,6 +1415,25 @@ impl Runtime {
             self.views.clear();
         }
         self.materialize(&applied.staged_ids, cx);
+        let next_dialog = self.graph.active_dialog();
+        match (self.active_dialog.is_some(), next_dialog) {
+            (false, Some(dialog)) => {
+                self.dialog_return_focus = self.last_trigger_focus.take();
+                self.focus_after_render = self.graph.first_focusable_in(dialog);
+            }
+            (true, None) => {
+                self.focus_after_render = self
+                    .dialog_return_focus
+                    .take()
+                    .and_then(|identity| self.graph.find_focus_identity(&identity));
+            }
+            _ => {}
+        }
+        self.active_dialog = next_dialog;
+        for (id, view) in &self.views {
+            let enabled = next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
+            view.update(cx, |view, _| view.input_enabled = enabled);
+        }
         if let Some(root_id) = applied.root {
             if let (Some((_parent_id, position)), Some(new_root), Some(parent_view)) = (
                 applied.parent,
@@ -1341,6 +1466,7 @@ impl Runtime {
         }
         for id in &applied.removed_ids {
             self.views.remove(id);
+            self.focus_handles.remove(id);
         }
     }
 
@@ -1360,12 +1486,19 @@ impl Runtime {
             );
             let runtime = cx.entity().downgrade();
             let value = node.clone();
+            let focus_handle = node.kind.focus_identity().map(|_| cx.focus_handle());
+            let view_focus = focus_handle.clone();
             let view = cx.new(|_| NodeView {
                 node: value,
                 children: vec![],
                 runtime,
                 is_root: false,
+                input_enabled: true,
+                focus_handle: view_focus,
             });
+            if let Some(handle) = focus_handle {
+                self.focus_handles.insert(node.id, handle);
+            }
             self.views.insert(node.id, view);
         }
         for id in &eager {
@@ -1403,12 +1536,22 @@ impl Runtime {
             (built.into_iter().map(|(view, _)| view).collect(), count)
         };
         let runtime = cx.entity().downgrade();
+        let focus_handle = node.kind.focus_identity().map(|_| cx.focus_handle());
+        let view_focus = focus_handle.clone();
+        let input_enabled = self
+            .active_dialog
+            .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
         let view = cx.new(|_| NodeView {
             node,
             children,
             runtime,
             is_root: false,
+            input_enabled,
+            focus_handle: view_focus,
         });
+        if let Some(handle) = focus_handle {
+            self.focus_handles.insert(id, handle);
+        }
         (view, descendants + 1)
     }
 
@@ -1485,7 +1628,12 @@ fn elapsed_ns(start: Instant) -> u64 {
 }
 
 impl Render for Runtime {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        if let Some(target) = self.focus_after_render.take() {
+            if let Some(handle) = self.focus_handles.get(&target) {
+                handle.focus(window);
+            }
+        }
         div()
             .id("roc-gui-root")
             .on_action(|_: &FocusNext, window, _| window.focus_next())
@@ -1784,6 +1932,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
             KeyBinding::new("tab", FocusNext, None),
             KeyBinding::new("shift-tab", FocusPrevious, None),
             KeyBinding::new("enter", ActivateEnter, None),
+            KeyBinding::new("escape", ActivateEscape, None),
             KeyBinding::new("space", ActivateSpace, None),
         ]);
         cx.on_window_closed(|cx| {
