@@ -64,6 +64,16 @@ names the evidence so a fix can be verified against the same case.
   a globally activated overlay with focus restoration as complete production
   slices before presenting it as a full desktop clipboard manager.
 
+- [ ] **Redis mutation, authentication, and cluster operation.** The Redis
+  Explorer foundation exercises an exact-endpoint TCP grant, `roc-redis`,
+  bounded incremental SCAN, native type and TTL discovery, and read-only
+  inspection for strings, lists, sets, hashes, and sorted sets. Add credential
+  capabilities, database selection, cluster redirection policy, optimistic
+  mutation with server confirmation, destructive confirmation, expiry edits,
+  reconnection, and cancellation as complete slices before presenting it as a
+  general Redis administration tool. Credentials must never enter captures or
+  ordinary persisted application state.
+
 - [ ] **SQLite write transactions and parameters.** The database capability is
   deliberately read-only and executes one statement without bindings. Add a
   separately granted read-write capability, typed parameters, cancellation,

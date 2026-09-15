@@ -10,4 +10,5 @@ Resource := [].{
 	SqliteRead : Handle([SqliteReadResource])
 	HttpClient : Handle([HttpClientResource])
 	Clipboard : Handle([ClipboardResource])
+	TcpStream : Handle([TcpStreamResource])
 }

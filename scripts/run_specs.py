@@ -117,6 +117,8 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
     app_data_fixture = case.app.parent / "app-data-fixture"
     clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
+    if case.app.parent.name == "redis-explorer":
+        command.extend(["--host-cap-tcp", "127.0.0.1:36379"])
     with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
         storage = Path(temporary)
         if app_data_fixture.is_dir():
@@ -192,31 +194,34 @@ def main() -> int:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 
-    fixture_process = None
+    fixture_processes: list[subprocess.Popen[bytes]] = []
     fixture_scripts = {case.app.parent / "fixture_server.py" for case in cases}
     fixture_scripts = {path for path in fixture_scripts if path.is_file()}
-    if fixture_scripts:
-        if len(fixture_scripts) != 1:
-            print("error: selected specs require different local fixture servers", file=sys.stderr)
-            return 1
+    fixture_ports = {"http-workbench": 38191, "redis-explorer": 36379}
+    for script in sorted(fixture_scripts):
         fixture_process = subprocess.Popen(
-            [sys.executable, str(fixture_scripts.pop())], cwd=ROOT,
+            [sys.executable, str(script)], cwd=ROOT,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
         )
-        atexit.register(lambda: fixture_process.poll() is None and fixture_process.terminate())
+        fixture_processes.append(fixture_process)
+        atexit.register(lambda process=fixture_process: process.poll() is None and process.terminate())
+        port = fixture_ports.get(script.parent.name)
+        if port is None:
+            print(f"error: no readiness port declared for {script.parent.name}", file=sys.stderr)
+            return 1
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             try:
-                with socket.create_connection(("127.0.0.1", 38191), timeout=0.1):
+                with socket.create_connection(("127.0.0.1", port), timeout=0.1):
                     break
             except OSError:
                 if fixture_process.poll() is not None:
-                    print("error: local HTTP fixture failed to start", file=sys.stderr)
+                    print(f"error: local fixture failed to start: {script}", file=sys.stderr)
                     return 1
                 time.sleep(0.02)
         else:
             fixture_process.terminate()
-            print("error: local HTTP fixture did not become ready", file=sys.stderr)
+            print(f"error: local fixture did not become ready: {script}", file=sys.stderr)
             return 1
 
     results: list[tuple[Case, str | None]] = []
@@ -256,7 +261,7 @@ def main() -> int:
                 )
     passed = len(results) - failures
     print(f"{passed}/{len(cases)} specs passed; captures: {output}")
-    if fixture_process is not None:
+    for fixture_process in fixture_processes:
         fixture_process.terminate()
         fixture_process.wait(timeout=5)
     return 1 if failures else 0

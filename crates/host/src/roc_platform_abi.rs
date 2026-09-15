@@ -3529,6 +3529,351 @@ const _: () = assert!(core::mem::align_of::<HostGlueClipboardWriteTextResult>() 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueClipboardWriteTextResult, tag) == 16, "HostGlueClipboardWriteTextResult tag offset mismatch");
 
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueTcpConnectResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueTcpConnectResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpConnectResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpConnectResult {
+    pub _payload_alignment: [HostGlueTcpConnectResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueTcpConnectResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpConnectResult {
+    pub payload: HostGlueTcpConnectResultPayload,
+    pub tag: HostGlueTcpConnectResultTag,
+}
+
+impl HostGlueTcpConnectResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpConnectResult>() == 16, "HostGlueTcpConnectResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpConnectResult>() == 8, "HostGlueTcpConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpConnectResult, tag) == 8, "HostGlueTcpConnectResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpConnectResult>() == 8, "HostGlueTcpConnectResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpConnectResult>() == 4, "HostGlueTcpConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpConnectResult, tag) == 4, "HostGlueTcpConnectResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueTcpReadUpToResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueTcpReadUpToResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<RocListWith<u8, false>>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToResult {
+    pub _payload_alignment: [HostGlueTcpReadUpToResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: HostGlueTcpReadUpToResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToResult {
+    pub payload: HostGlueTcpReadUpToResultPayload,
+    pub tag: HostGlueTcpReadUpToResultTag,
+}
+
+impl HostGlueTcpReadUpToResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocListWith<u8, false>> as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpReadUpToResult>() == 32, "HostGlueTcpReadUpToResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpReadUpToResult>() == 8, "HostGlueTcpReadUpToResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpReadUpToResult, tag) == 24, "HostGlueTcpReadUpToResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpReadUpToResult>() == 16, "HostGlueTcpReadUpToResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpReadUpToResult>() == 4, "HostGlueTcpReadUpToResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpReadUpToResult, tag) == 12, "HostGlueTcpReadUpToResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueTcpWriteAllResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueTcpWriteAllResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllResult {
+    pub _payload_alignment: [HostGlueTcpWriteAllResultPayloadAlignment; 0],
+    pub payload: [u8; 1],
+    pub tag: HostGlueTcpWriteAllResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllResult {
+    pub payload: HostGlueTcpWriteAllResultPayload,
+    pub tag: HostGlueTcpWriteAllResultTag,
+}
+
+impl HostGlueTcpWriteAllResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpWriteAllResult>() == 2, "HostGlueTcpWriteAllResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpWriteAllResult>() == 1, "HostGlueTcpWriteAllResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpWriteAllResult, tag) == 1, "HostGlueTcpWriteAllResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpWriteAllResult>() == 2, "HostGlueTcpWriteAllResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpWriteAllResult>() == 1, "HostGlueTcpWriteAllResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpWriteAllResult, tag) == 1, "HostGlueTcpWriteAllResult tag offset mismatch");
+
 /// Tag discriminant for MountOrNoChangeOrReplace.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5404,6 +5749,35 @@ pub struct HostGlueClipboardWriteTextArgs {
     pub arg1: RocStr,
 }
 
+/// Arguments for HostGlue.tcp_read_up_to!
+/// Roc signature: Resource.Handle([TcpStreamResource]), U64 => Try(List(U8), U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToArgs {
+    pub arg0: *mut u64,
+    pub arg1: u64,
+}
+
+/// Arguments for HostGlue.tcp_write_all!
+/// Roc signature: Resource.Handle([TcpStreamResource]), List(U8) => Try({}, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.tcp_close!
+/// Roc signature: Resource.Handle([TcpStreamResource]) => Try({}, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpCloseArgs {
+    pub arg0: *mut u64,
+}
+
 /// Arguments for HostGlue.apply!
 /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
 /// Refcounted fields are owned by the hosted function.
@@ -5633,6 +6007,9 @@ pub type HostGlueClipboardAcquireErr = AnonStruct4c605145331877e7;
 pub type HostGlueClipboardReadTextErr = AnonStruct4c605145331877e7;
 pub type HostGlueClipboardReadTextOk = AnonStruct2a44a28a63f85620;
 pub type HostGlueClipboardWriteTextErr = AnonStruct4c605145331877e7;
+pub type HostGlueTcpCloseResult = HostGlueTcpWriteAllResult;
+pub type HostGlueTcpCloseResultPayload = HostGlueTcpWriteAllResultPayload;
+pub type HostGlueTcpCloseResultTag = HostGlueTcpWriteAllResultTag;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
 pub type HostGlueHttpSendArg0 = AnonStructE6f574a7975f5cda;
@@ -6805,6 +7182,129 @@ unsafe impl RocRelease<HostGlueClipboardWriteTextResult> for HostGlueClipboardWr
     }
 }
 
+impl HostGlueTcpConnectResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueTcpConnectResultTag::Err => {},
+            HostGlueTcpConnectResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueTcpConnectResultTag::Err => {},
+            HostGlueTcpConnectResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueTcpConnectResultRelease;
+
+unsafe impl RocRelease<HostGlueTcpConnectResult> for HostGlueTcpConnectResultRelease {
+    unsafe fn release(value: HostGlueTcpConnectResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueTcpReadUpToResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueTcpReadUpToResultTag::Err => {},
+            HostGlueTcpReadUpToResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueTcpReadUpToResultTag::Err => {},
+            HostGlueTcpReadUpToResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueTcpReadUpToResultRelease;
+
+unsafe impl RocRelease<HostGlueTcpReadUpToResult> for HostGlueTcpReadUpToResultRelease {
+    unsafe fn release(value: HostGlueTcpReadUpToResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueTcpWriteAllResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueTcpWriteAllResultTag::Err => {},
+            HostGlueTcpWriteAllResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueTcpWriteAllResultTag::Err => {},
+            HostGlueTcpWriteAllResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueTcpWriteAllResultRelease;
+
+unsafe impl RocRelease<HostGlueTcpWriteAllResult> for HostGlueTcpWriteAllResultRelease {
+    unsafe fn release(value: HostGlueTcpWriteAllResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl MountOrNoChangeOrReplace {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -7591,6 +8091,34 @@ unsafe extern "C" {
     ///     unsafe { arg1.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_clipboard_write_text(arg0: *mut u64, arg1: RocStr) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.tcp_connect!
+    /// Roc signature: {} => Try(Resource.Handle([TcpStreamResource]), U8)
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_tcp_connect() -> HostGlueTcpConnectResult;
+
+    /// Hosted symbol for HostGlue.tcp_read_up_to!
+    /// Roc signature: Resource.Handle([TcpStreamResource]), U64 => Try(List(U8), U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_tcp_read_up_to(arg0: *mut u64, arg1: u64) -> HostGlueTcpReadUpToResult;
+
+    /// Hosted symbol for HostGlue.tcp_write_all!
+    /// Roc signature: Resource.Handle([TcpStreamResource]), List(U8) => Try({}, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    pub fn roc_tcp_write_all(arg0: *mut u64, arg1: RocListWith<u8, false>) -> HostGlueTcpWriteAllResult;
+
+    /// Hosted symbol for HostGlue.tcp_close!
+    /// Roc signature: Resource.Handle([TcpStreamResource]) => Try({}, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_tcp_close(arg0: *mut u64) -> HostGlueTcpWriteAllResult;
 
     /// Hosted symbol for HostGlue.apply!
     /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}

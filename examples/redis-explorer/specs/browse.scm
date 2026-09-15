@@ -1,0 +1,18 @@
+(test "scan and inspect native Redis values"
+  (steps
+    (expect-visible (role column :name "Redis Explorer"))
+    (click (role button :name "Connect to Redis"))
+    (await-task)
+    (expect-tcp-streams 1)
+    (click (role button :name "Refresh Redis keys"))
+    (await-task)
+    (expect-visible (text "Keys: 5"))
+    (expect-count (button-prefix "Inspect Redis key profile:") 5)
+    (click (role button :name "Inspect Redis key profile:ada"))
+    (await-task)
+    (expect-visible (role panel :name "Value inspector"))
+    (expect-visible (text "Type: hash"))
+    (expect-visible (text "Value 0: name: Ada Lovelace"))
+    (click (role button :name "Inspect Redis key profile:grace"))
+    (await-task)
+    (expect-visible (text "Value 0: Grace Hopper"))))

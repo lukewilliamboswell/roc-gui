@@ -35,6 +35,7 @@ pub enum Command {
     ClipboardText(String),
     AwaitTicks(u32),
     ExpectSubscriptions(usize),
+    ExpectTcpStreams(usize),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -59,6 +60,7 @@ impl Command {
             Self::ClipboardText(_) => "clipboard-text",
             Self::AwaitTicks(_) => "await-ticks",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
+            Self::ExpectTcpStreams(_) => "expect-tcp-streams",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -411,6 +413,23 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?,
         ),
+        "expect-tcp-streams" if values.len() == 2 => Command::ExpectTcpStreams(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-tcp-streams requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-tcp-streams requires a non-negative integer",
+                    )
+                })?,
+        ),
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -495,6 +514,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "clipboard-text"
         | "await-ticks"
         | "expect-subscriptions"
+        | "expect-tcp-streams"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"

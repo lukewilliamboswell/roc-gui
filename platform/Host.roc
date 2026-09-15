@@ -231,6 +231,11 @@ Host := [].{
 	clipboard_read_text! : Resource.Clipboard => Try({ sequence : U64, text : Str }, { code : U8, message : Str })
 	clipboard_write_text! : Resource.Clipboard, Str => Try({}, { code : U8, message : Str })
 
+	tcp_connect! : {} => Try(Resource.TcpStream, U8)
+	tcp_read_up_to! : Resource.TcpStream, U64 => Try(List(U8), U8)
+	tcp_write_all! : Resource.TcpStream, List(U8) => Try({}, U8)
+	tcp_close! : Resource.TcpStream => Try({}, U8)
+
 	apply! : Patch => {}
 
 	set_dispatch! : Box((U64 => {})) => {}

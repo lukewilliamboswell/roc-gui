@@ -298,3 +298,25 @@ Open and query calls are blocking capability operations. Run them inside
 `Action.task`, retain the last successful view while work is pending, and use a
 monotonic request identity in the resolver so an older completion cannot
 replace a newer result. `examples/database-browser` demonstrates this pattern.
+
+== TCP endpoint capabilities
+
+`Tcp.connect!({})` opens an ordered byte stream to the single numeric
+`IP:PORT` endpoint granted with `--host-cap-tcp`. Without that host grant it
+returns `ConnectErr(AccessDenied)`. The application cannot select or derive a
+different destination from the opaque handle, and releasing its final
+reference closes the socket and removes the host registry entry.
+
+`Tcp.Stream.read_up_to!(stream, max_bytes)` reads between one byte and a
+one-MiB requested maximum; an empty list means orderly end of stream.
+`Tcp.Stream.write_all!(stream, bytes)` writes the complete value or fails and
+accepts at most 16 MiB. `Tcp.Stream.close!(stream)` is idempotent. Connections,
+reads, and writes have finite native timeouts, and failures use the
+operation-tagged `Tcp.TcpErr` union: `ConnectErr`, `ReadErr`, `WriteErr`, or
+`CloseErr` wraps a portable reason.
+
+TCP operations block and belong inside `Action.task`. Protocol packages build
+on the byte transport rather than being reimplemented by the platform. The
+Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
+command encoding, bounded RESP2 decoding, typed commands, and exchange policy
+remain the responsibility of the established platform-independent package.

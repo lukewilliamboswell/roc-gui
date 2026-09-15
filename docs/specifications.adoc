@@ -62,12 +62,13 @@ ordinary controlled editing followed by the same worker-backed atomic save used
 by the application. `expect-value-bytes` supplies deterministic, content-free
 scale evidence; task and patch counters remain owned by their production paths.
 
-An application may also provide `fixture_server.py`. The runner starts that
-loopback-only deterministic service for its cases, while the application still
-uses the production HTTP client, worker pool, and completion route. The HTTP
-workbench uses this to specify echo success, scheme rejection, response limits,
-stale-result suppression, and a 200,000-byte response without public-network
-availability or remote service state.
+An application may also provide `fixture_server.py`. The runner starts every
+loopback-only deterministic service needed by the selected cases, while each
+application still uses its production protocol package, capability, worker
+pool, and completion route. The HTTP Workbench uses its loopback HTTP service;
+the Redis Explorer receives one exact loopback TCP endpoint and speaks Redis
+through `roc-redis`. This avoids public-network availability and remote service
+state without introducing a test-only network path.
 
 == Locators
 
@@ -128,6 +129,9 @@ another task requires another `await-task` step.
 same worker and latest-state route. `N` must be positive.
 `(expect-subscriptions N)`:: Require exactly `N` active host timer handles.
 This assertion reads the timer registry that owns cancellation state.
+`(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
+This assertion reads the capability registry that owns stream lifecycle and
+records expected and observed deterministic counts.
 `(expect-visible LOCATOR)`:: Require at least one match.
 `(expect-focused LOCATOR)`:: Require semantic focus to be on exactly one
 matching enabled control. This proves the host's dialog focus policy, not a

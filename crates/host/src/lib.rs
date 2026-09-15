@@ -13,6 +13,7 @@ mod roc_platform_abi;
 mod runner;
 mod spec;
 mod sqlite;
+mod tcp;
 mod timers;
 
 use bridge::{
@@ -175,6 +176,7 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     sqlite::route_dealloc(pointer);
     app_data::route_dealloc(pointer);
     clipboard::route_dealloc(pointer);
+    tcp::route_dealloc(pointer);
     timers::route_dealloc(pointer);
     http::route_dealloc(pointer);
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
@@ -2023,6 +2025,7 @@ struct HostArgs {
     cap_app_data: Option<PathBuf>,
     cap_clipboard_system: bool,
     cap_clipboard_fixture: Option<PathBuf>,
+    cap_tcp: Option<std::net::SocketAddr>,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2049,6 +2052,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_app_data: None,
         cap_clipboard_system: false,
         cap_clipboard_fixture: None,
+        cap_tcp: None,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2095,6 +2099,19 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_clipboard_system = true;
         } else if let Some(path) = argument.strip_prefix("--host-cap-clipboard-fixture=") {
             parsed.cap_clipboard_fixture = Some(path.into());
+        } else if argument == "--host-cap-tcp" {
+            let endpoint = pending
+                .next()
+                .ok_or_else(|| "--host-cap-tcp requires an IP:PORT endpoint".to_string())?;
+            parsed.cap_tcp =
+                Some(endpoint.parse().map_err(|_| {
+                    "--host-cap-tcp requires a numeric IP:PORT endpoint".to_string()
+                })?);
+        } else if let Some(endpoint) = argument.strip_prefix("--host-cap-tcp=") {
+            parsed.cap_tcp =
+                Some(endpoint.parse().map_err(|_| {
+                    "--host-cap-tcp requires a numeric IP:PORT endpoint".to_string()
+                })?);
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -2140,6 +2157,7 @@ fn print_host_help(app_name: &str) {
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
+           --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2151,7 +2169,8 @@ fn print_host_help(app_name: &str) {
          \n\
          Options are passed through Roc after `--`, for example:\n\
            roc app.roc -- --host-help\n\
-           roc app.roc -- --host-cap-dir ./documents"
+           roc app.roc -- --host-cap-dir ./documents\n\
+           roc app.roc -- --host-cap-tcp 127.0.0.1:6379"
     );
 }
 
@@ -2268,6 +2287,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 2;
     }
+    tcp::configure(args.cap_tcp);
     let stats_path = match start_requested_recorder(
         &args,
         parsed_spec.as_ref().map(|(case, _)| case),

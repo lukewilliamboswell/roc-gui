@@ -533,6 +533,18 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectTcpStreams(expected) => {
+                let active = crate::tcp::active_count();
+                count_evidence = Some((*expected as u64, active as u64));
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active TCP streams, observed {active}",
+                        step.line
+                    ))
+                }
+            }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
                 if count == 0 {
