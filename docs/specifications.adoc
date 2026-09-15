@@ -50,6 +50,13 @@ If an application has an adjacent `fixture/` directory, the runner grants that
 directory through the production `--host-cap-dir` boundary. Fixture contents
 are therefore exercised through the same opaque capability operations as an
 interactive grant, without giving the application ambient test-only I/O.
+
+Image specifications can assert the production image-data owner's staged-node,
+staged-byte, inspection, and failure totals with
+`expect-image-owner-counters`. These are numeric work counters only. Image
+names, paths, encoded values, dimensions, and rendered application text are not
+capture evidence.
+
 An adjacent `app-data-fixture/` grants a fresh private copy through
 `--host-cap-app-data` for each case, so writes use the production capability
 without mutating checked-in data. A subdirectory named after the spec selects

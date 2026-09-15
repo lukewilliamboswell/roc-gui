@@ -221,6 +221,24 @@ clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
 
+== Encoded image data
+
+`ImageData.inspect!(bytes, format)` validates bounded encoded bytes already
+obtained through application data or an explicit capability and reports pixel
+dimensions. It accepts neither paths nor URLs. Raster inspection uses the
+maintained `image` decoder and SVG inspection uses `usvg`; inputs above 64 MiB,
+dimensions above 32,768, and images above 200 million pixels are rejected.
+
+Failures carry the operation tag `InspectImageErr` and one of `Corrupt`,
+`InvalidDimensions`, `ResourceLimit`, or `Unsupported`. Image presentation
+continues to use byte-based `Elem.ImageProps`. `ImageData` owns metadata and
+integrity inspection only; it does not duplicate layout or rendering props.
+
+The native image-data owner counts staged image nodes, staged encoded bytes,
+inspections, and inspection failures. Semantic specifications compare those
+numeric counters with `expect-image-owner-counters`; captures never store
+encoded content, image names, paths, dimensions, or application text.
+
 == Process and pseudo-terminal capabilities
 
 `Process.acquire!` returns an opaque process grant only when the application is

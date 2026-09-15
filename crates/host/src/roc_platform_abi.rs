@@ -2062,6 +2062,33 @@ const _: () = assert!(core::mem::size_of::<AnonStruct916a0c1ad2ed4712>() == 32, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct916a0c1ad2ed4712>() == 8, "AnonStruct916a0c1ad2ed4712 alignment mismatch");
 
+/// Element type for __AnonStruct_b3b29ac2cb34a461
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructB3b29ac2cb34a461 {
+    pub height: u32,
+    pub width: u32,
+}
+
+/// Element type for __AnonStruct_b3b29ac2cb34a461
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructB3b29ac2cb34a461 {
+    pub height: u32,
+    pub width: u32,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructB3b29ac2cb34a461>() == 8, "AnonStructB3b29ac2cb34a461 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructB3b29ac2cb34a461>() == 4, "AnonStructB3b29ac2cb34a461 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructB3b29ac2cb34a461>() == 8, "AnonStructB3b29ac2cb34a461 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructB3b29ac2cb34a461>() == 4, "AnonStructB3b29ac2cb34a461 alignment mismatch");
+
 /// Element type for __AnonStruct_8ae3ad5a5c0e22dc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -6835,6 +6862,133 @@ const _: () = assert!(core::mem::align_of::<HostGlueSystemSampleResult>() == 8, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueSystemSampleResult, tag) == 80, "HostGlueSystemSampleResult tag offset mismatch");
 
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueImageInspectResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueImageInspectResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<AnonStructB3b29ac2cb34a461>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectResult {
+    pub _payload_alignment: [HostGlueImageInspectResultPayloadAlignment; 0],
+    pub payload: [u8; 8],
+    pub tag: HostGlueImageInspectResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectResult {
+    pub payload: HostGlueImageInspectResultPayload,
+    pub tag: HostGlueImageInspectResultTag,
+}
+
+impl HostGlueImageInspectResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructB3b29ac2cb34a461 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStructB3b29ac2cb34a461) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructB3b29ac2cb34a461 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStructB3b29ac2cb34a461> as *const AnonStructB3b29ac2cb34a461) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructB3b29ac2cb34a461 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructB3b29ac2cb34a461) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructB3b29ac2cb34a461 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueImageInspectResult>() == 12, "HostGlueImageInspectResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueImageInspectResult>() == 4, "HostGlueImageInspectResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueImageInspectResult, tag) == 8, "HostGlueImageInspectResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueImageInspectResult>() == 12, "HostGlueImageInspectResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueImageInspectResult>() == 4, "HostGlueImageInspectResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueImageInspectResult, tag) == 8, "HostGlueImageInspectResult tag offset mismatch");
+
 /// Tag discriminant for MountOrNoChangeOrReplace.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -9013,6 +9167,16 @@ pub struct HostGlueSystemCloseArgs {
     pub arg0: *mut u64,
 }
 
+/// Arguments for HostGlue.image_inspect!
+/// Roc signature: List(U8), U8 => Try({ height : U32, width : U32 }, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectArgs {
+    pub arg0: RocListWith<u8, false>,
+    pub arg1: u8,
+}
+
 /// Arguments for HostGlue.apply!
 /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
 /// Refcounted fields are owned by the hosted function.
@@ -9386,6 +9550,7 @@ pub type HostGlueSystemSampleOkProcesses = AnonStruct916a0c1ad2ed4712;
 pub type HostGlueSystemCloseResult = HostGlueTcpWriteAllResult;
 pub type HostGlueSystemCloseResultPayload = HostGlueTcpWriteAllResultPayload;
 pub type HostGlueSystemCloseResultTag = HostGlueTcpWriteAllResultTag;
+pub type HostGlueImageInspectOk = AnonStructB3b29ac2cb34a461;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
 pub type HostGlueHttpSendArg0 = AnonStructE6f574a7975f5cda;
@@ -11992,6 +12157,80 @@ unsafe impl RocRelease<AnonStruct916a0c1ad2ed4712> for AnonStruct916a0c1ad2ed471
     }
 }
 
+impl HostGlueImageInspectResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueImageInspectResultTag::Err => {},
+            HostGlueImageInspectResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueImageInspectResultTag::Err => {},
+            HostGlueImageInspectResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueImageInspectResultRelease;
+
+unsafe impl RocRelease<HostGlueImageInspectResult> for HostGlueImageInspectResultRelease {
+    unsafe fn release(value: HostGlueImageInspectResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructB3b29ac2cb34a461 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStructB3b29ac2cb34a461Release;
+
+unsafe impl RocRelease<AnonStructB3b29ac2cb34a461> for AnonStructB3b29ac2cb34a461Release {
+    unsafe fn release(value: AnonStructB3b29ac2cb34a461, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl MountOrNoChangeOrReplace {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -13007,6 +13246,13 @@ unsafe extern "C" {
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     pub fn roc_system_close(arg0: *mut u64) -> HostGlueTcpWriteAllResult;
+
+    /// Hosted symbol for HostGlue.image_inspect!
+    /// Roc signature: List(U8), U8 => Try({ height : U32, width : U32 }, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_image_inspect(arg0: RocListWith<u8, false>, arg1: u8) -> HostGlueImageInspectResult;
 
     /// Hosted symbol for HostGlue.apply!
     /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}

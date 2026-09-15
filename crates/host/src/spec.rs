@@ -50,6 +50,7 @@ pub enum Command {
     ExpectFileLists(u64),
     ExpectFileOpens(u64),
     ExpectFileReads(u64),
+    ExpectImageOwnerCounters([u64; 4]),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -90,6 +91,7 @@ impl Command {
             Self::ExpectFileLists(_) => "expect-file-lists",
             Self::ExpectFileOpens(_) => "expect-file-opens",
             Self::ExpectFileReads(_) => "expect-file-reads",
+            Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -596,6 +598,19 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 _ => Command::ExpectFileReads(expected),
             }
         }
+        "expect-image-owner-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "image owner counters must be integers"))?
+                    .parse()
+                    .map_err(|_| {
+                        error(value, "image owner counters must be non-negative integers")
+                    })?;
+            }
+            Command::ExpectImageOwnerCounters(expected)
+        }
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -713,6 +728,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-lists"
         | "expect-file-opens"
         | "expect-file-reads"
+        | "expect-image-owner-counters"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"

@@ -180,11 +180,24 @@ names the evidence so a fix can be verified against the same case.
   records decoded dimensions/frames or a content-free failure category and
   renders a semantic per-image fallback; do not duplicate GPUI's decoder in the
   semantic runner.
-- [ ] **Image-library thumbnails and bounded decoded cache.** The foundation
-  reads and displays one capability-scoped image. Add background thumbnail
-  generation, cancellation/stale-result suppression, viewport-driven grids,
-  orientation metadata, and explicit decoded-byte eviction counters before
-  scaling to ordinary photo collections.
+- [ ] **Image-library trusted Open and capability lineage.** Development and
+  automation provisioning enters the ordinary grant registry, but it is not
+  trusted chooser consent. Add a platform-owned Open broker with ancestry and
+  revocation semantics before describing interactive folder selection as a
+  user grant.
+- [ ] **Image-library cancellation and decoded-cache ownership.** Folder scans
+  suppress stale task completions, but bounded Files reads do not yet expose
+  cooperative cancellation and GPUI does not expose decoded-byte eviction.
+  Add those production seams and owner counters before retaining much larger
+  raster collections.
+- [ ] **Image-library metadata and editing breadth.** Add EXIF orientation,
+  color-profile and animation metadata plus production zoom, pan, rotate, crop,
+  undo and slideshow primitives. Do not infer these values from filenames or
+  add controls that bypass `ImageProps`.
+- [ ] **Image-library export broker.** Add a trusted Save/Export broker with a
+  separately selected writable grant, collision policy and revocation. The
+  existing development directory provision is read-only and must not be used
+  as implicit export authority.
 
 - [ ] **Textarea selection, IME composition, and clipboard commands.** The
   production textarea accepts ordinary character, Enter, and Backspace input

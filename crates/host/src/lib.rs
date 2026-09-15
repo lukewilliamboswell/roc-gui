@@ -9,6 +9,7 @@ mod clipboard;
 mod device;
 mod files;
 mod http;
+mod image_data;
 mod input;
 mod observatory;
 mod process;
@@ -635,6 +636,7 @@ pub extern "C" fn roc_gui_node_textarea(args: HostGlueNodeTextareaArgs) -> u64 {
 pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     let bytes = args.bytes.as_slice().to_vec();
+    image_data::note_staged(bytes.len());
     let format = match args.format {
         0 => BridgeImageFormat::Bmp,
         1 => BridgeImageFormat::Gif,

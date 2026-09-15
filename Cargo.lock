@@ -4864,12 +4864,14 @@ dependencies = [
  "cap-std",
  "gpui",
  "hidapi",
+ "image",
  "libc",
  "rodio",
  "rusqlite",
  "sha2 0.10.9",
  "sysinfo",
  "unicode-segmentation",
+ "usvg",
  "zed-reqwest",
 ]
 
