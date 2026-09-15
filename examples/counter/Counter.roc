@@ -18,6 +18,10 @@ Counter := [].{
 	control_hover = Gui.rgb(0xEFE9DA)
 	control_active = Gui.rgb(0xE2DAC6)
 
+	## The keyboard focus ring. The host's amber suits its own dark ground and
+	## fights this paper one, so the card picks the ink it already uses.
+	focus_ring = Gui.rgb(0x9B4A32)
+
 	## Ink for the numeral: negative counts read in a muted red so the sign is
 	## legible at a glance rather than only in the glyph.
 	numeral_ink = |count| if count < 0.I64 negative_ink else ink
@@ -47,6 +51,7 @@ Counter := [].{
 			border_color: rule,
 			border_width: 1,
 			radius: 10,
+			focus_color: focus_ring,
 		},
 	)
 

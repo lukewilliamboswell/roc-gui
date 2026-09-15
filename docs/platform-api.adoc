@@ -135,6 +135,12 @@ default to `Same`, which takes the shorthand. A pill-shaped control wants
 generous horizontal and tight vertical padding, which is the shorthand plus two
 sides rather than a fixed height chosen to cancel the padding out.
 
+`disabled_bg`, `disabled_fg`, and `focus_color` replace the host's own
+control-state colours. The host defaults suit its dark ground: a blue-grey
+disabled fill at 55% opacity, and an amber focus ring. An application that names
+its own disabled colours gets those at full opacity, because a chosen colour is
+already the colour it wants to be.
+
 `border_width` is likewise the shorthand, with `border_top`, `border_right`,
 `border_bottom`, and `border_left` overriding one side each. A dense panel
 divides its regions with a rule on the one edge that faces the next region,

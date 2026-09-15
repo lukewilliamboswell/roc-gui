@@ -330,6 +330,9 @@ macro_rules! decode_layout_style {
             bg: decode_color($args.bg),
             hover_bg: decode_color($args.hover_bg),
             active_bg: decode_color($args.active_bg),
+            disabled_bg: decode_color($args.disabled_bg),
+            disabled_fg: decode_color($args.disabled_fg),
+            focus_color: decode_color($args.focus_color),
             fg: decode_color($args.fg),
             border_color: decode_color($args.border_color),
             border_width: [
@@ -1156,16 +1159,24 @@ fn trace_ellipse(builder: &mut PathBuilder, center: Point<Pixels>, radii: Size<f
     builder.close();
 }
 
-fn apply_disabled(element: Stateful<Div>) -> Stateful<Div> {
-    element
-        .bg(rgb(DISABLED_BG))
-        .text_color(rgb(DISABLED_FG))
-        .opacity(0.55)
-        .cursor_default()
+/// The host's own disabled treatment suits the default dark ground. An
+/// application that names its own disabled colours gets those instead, at full
+/// opacity: a chosen colour is already the colour it wants to be, and fading it
+/// is what left a saturated pill still reading as live on a near-black ground.
+fn apply_disabled(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
+    let element = element
+        .bg(rgb(style.disabled_bg.unwrap_or(DISABLED_BG)))
+        .text_color(rgb(style.disabled_fg.unwrap_or(DISABLED_FG)))
+        .cursor_default();
+    match (style.disabled_bg, style.disabled_fg) {
+        (None, None) => element.opacity(0.55),
+        _ => element,
+    }
 }
 
-fn apply_focus_ring(element: Stateful<Div>) -> Stateful<Div> {
-    element.focus(|style| style.border_2().border_color(rgb(FOCUS_RING)))
+fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
+    let ring = rgb(style.focus_color.unwrap_or(FOCUS_RING));
+    element.focus(move |focused| focused.border_2().border_color(ring))
 }
 
 impl Render for NodeView {
@@ -1401,7 +1412,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = apply_focus_ring(element.cursor(CursorStyle::IBeam))
+                    element = apply_focus_ring(element.cursor(CursorStyle::IBeam), style)
                         .on_key_down(move |event, _, cx| {
                             let mut next = current.clone();
                             if event.keystroke.key == "backspace" {
@@ -1418,7 +1429,7 @@ impl Render for NodeView {
                                 .update(cx, |runtime, cx| runtime.input_if_live(node_id, next, cx));
                         });
                 } else if !*enabled {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
                 let _ = label;
             }
@@ -1459,7 +1470,7 @@ impl Render for NodeView {
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
                 if !enabled || !self.input_enabled {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
                 if let Some(editor) = &self.input {
                     element = element.child(editor.clone());
@@ -1487,7 +1498,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = apply_focus_ring(element)
+                    element = apply_focus_ring(element, style)
                         .on_action(move |_: &ActivateEnter, _, cx| {
                             let _ = enter_runtime.update(cx, |runtime, cx| {
                                 runtime.activate_if_live(node_id, ControlKey::Enter, cx)
@@ -1506,7 +1517,7 @@ impl Render for NodeView {
                             }
                         });
                 } else {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
             }
             NodeKind::Checkbox {
@@ -1543,7 +1554,7 @@ impl Render for NodeView {
                             .border_color(rgb(if enabled_box {
                                 CHECKBOX_BORDER
                             } else {
-                                DISABLED_FG
+                                style.disabled_fg.unwrap_or(DISABLED_FG)
                             }))
                             .bg(rgb(box_bg))
                             .text_color(rgb(box_fg))
@@ -1611,7 +1622,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = apply_focus_ring(element)
+                    element = apply_focus_ring(element, style)
                         .on_action(move |_: &ActivateSpace, _, cx| {
                             let _ = space_runtime.update(cx, |runtime, cx| {
                                 runtime.activate_if_live(node_id, ControlKey::Space, cx)
@@ -1625,7 +1636,7 @@ impl Render for NodeView {
                             }
                         });
                 } else {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
             }
         }

@@ -298,6 +298,9 @@ pub struct Style {
     pub bg: Option<u32>,
     pub hover_bg: Option<u32>,
     pub active_bg: Option<u32>,
+    pub disabled_bg: Option<u32>,
+    pub disabled_fg: Option<u32>,
+    pub focus_color: Option<u32>,
     pub fg: Option<u32>,
     pub border_color: Option<u32>,
     /// Top, right, bottom, left, already resolved from the shorthand.

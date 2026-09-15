@@ -71,16 +71,6 @@ the change lands; do not soften the docs to match the gap.
 
 ## Element appearance
 
-- [ ] **Disabled and focus appearance are host constants an application cannot
-  reach.** `apply_disabled` paints `DISABLED_BG`/`DISABLED_FG` at a fixed 0.55
-  opacity and `apply_focus_ring` draws a fixed amber, both chosen for the
-  default dark ground. They made those states unmistakable, which was the
-  point, but they assume one palette: on a near-black application the amber ring
-  fights a deliberate accent, on a near-white one the blue-grey disabled fill is
-  foreign, and a disabled control on a saturated ground still reads as live at
-  0.55. Both should derive from the element's own style, or be overridable,
-  rather than being constants. Introduced with the control-state fixes.
-
 - [ ] **Panel labels are never painted.** `Elem.panel`'s `label` is a semantic
   locator name, and several applications use it for a status phrase rather than
   a heading, so painting it as a header would both duplicate body text and move
@@ -99,16 +89,6 @@ the change lands; do not soften the docs to match the gap.
   wrapper element that exists for no other reason. `music-player`'s wordmark and
   status line are each a one-child `row` whose only job is `fg` and `font_size`.
   Close with a styled text element carrying the same colour and size fields.
-- [ ] **A disabled control's appearance is a fixed opacity.** Disabled elements
-  are painted at 0.55 opacity of the application's own colours, which is not a
-  colour an application can choose. On a near-black ground a saturated accent
-  pill at 55% still reads as live, so a media transport cannot honestly present
-  itself as inert before a library is loaded. Close with disabled colour fields
-  alongside `hover_bg` and `active_bg`.
-- [ ] **The focus ring is a host constant.** Keyboard focus paints
-  `FOCUS_RING` regardless of the application's palette, so a deliberate accent
-  is contradicted the moment a control is focused. Close with a focus colour in
-  `Gui.Style`, defaulting to the host constant.
 - [ ] **Text cannot be kept on one line, and cannot be truncated.** There is no
   wrap, nowrap, or ellipsis control, so a string longer than its container
   reflows and grows that container. `counter`'s oversized numeral pushed its own
