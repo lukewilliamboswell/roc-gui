@@ -107,13 +107,17 @@ evidence: no name, path, URI, identifier, or application text is recorded.
 
 `expect-audio-counters`:: Live outputs, live tracks, and the seven
 operation-attempt counters.
-`expect-file-access`:: Portal, provisioned, and revoked root counts.
+`expect-file-access`:: Chooser, provisioned, and revoked root counts.
 `expect-file-lifecycle-counters`:: Root allocations, child allocations, live
 handles, revocation requests, successful revocations, and post-revocation
 operation rejections.
-`expect-file-selection-counters`:: Seven host-owned totals, in order: portal
+`expect-file-selection-counters`:: Seven host-owned totals, in order: chooser
 requests, chosen results, cancellations, denials, unavailable results,
 suppressed prompts, and development provisions.
+`clipboard-text`:: Changes the clipboard source granted to a fixture, and is
+rejected without an explicit fixture grant. The next application timer pull
+observes the new value through the production capability and host read route;
+the value is neither copied into capture evidence nor emitted as a diagnostic.
 `expect-image-owner-counters`:: The production image-data owner's staged-node,
 staged-byte, inspection, and failure totals. Image names, paths, encoded
 values, and dimensions are not capture evidence.

@@ -1,8 +1,11 @@
-= Specification reference
+= Specification language reference
 
 The complete `.scm` vocabulary: locators, operations, assertions, window steps,
-and case selection. The Testing your application chapter is the shorter path if
-you are verifying an application for the first time.
+and case selection. Read Testing your application first if you are verifying an
+application for the first time; this chapter is the one to reach for once you
+know what you want to say and need to know how to say it. Steps that depend on
+this repository's own fixtures are described in Contributing instead, so a
+vocabulary entry here means the same thing in any application.
 
 Specifications describe the application as a user sees it: find text, identify
 a button by its semantic name, press it, and check the result. Put `.scm` files
@@ -106,11 +109,6 @@ same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
-`(clipboard-text "value")`:: Change the clipboard source granted to a semantic
-fixture. This step is rejected without an explicit fixture grant. The next
-application timer pull observes the new value through the production capability
-and host read route; the value is neither copied into capture evidence nor
-emitted as a diagnostic.
 `(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
 gesture through a canvas's production event route. Coordinates are integer
 logical pixels in canvas space.
@@ -273,6 +271,11 @@ activation keys and no modifiers.
 `(type "TEXT")`:: Send each character as a real keystroke into the focused
 element, through GPUI's own keystroke dispatch. The semantic `replace-text`
 sets a value directly and exercises none of the editing path.
+`(resize W H)`:: Resize the production window to `W` by `H` logical pixels, each
+64 to 8192. A layout is only proved at the size it was tested at, and
+`main.roc` asks for one size, so this is how a specification claims a narrow or
+a wide window rather than assuming one. Follow it with `(settle)` before
+asserting, as with any other input step.
 `(settle)` / `(settle :frames N :timeout-ms N)`:: Wait for `N` consecutive
 presented frames during which no host task started or finished. Defaults are
 `:frames 2 :timeout-ms 2000`. A timeout fails the step; it never proceeds
