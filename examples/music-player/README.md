@@ -5,8 +5,9 @@ track list, and use the playback queue, pause, seek, status, stop, next, and
 previous controls. Folder and output authority are explicit; the application
 never receives an ambient filesystem path.
 
-The host uses Rodio 0.22.2 and its Symphonia decoder. Normal runs require
-`--host-cap-dir PATH --host-cap-audio`. Semantic specifications grant the same
+The host uses Rodio 0.22.2 and its Symphonia decoder. Ordinary mixer output
+needs no grant; a folder does, chosen through the operating system's own panel
+or provisioned with `--host-cap-dir PATH`. Semantic specifications grant the same
 Rodio decoder/player/mixer graph a paced null output sink, so CI needs no audio
 device and does not substitute a second player implementation.
 

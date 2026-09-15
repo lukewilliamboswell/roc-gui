@@ -2372,7 +2372,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_clipboard_fixture: None,
         cap_tcp: None,
         cap_process: None,
-        cap_audio: audio::Grant::Denied,
+        cap_audio: audio::Grant::System,
         cap_device: None,
         cap_system_monitor: system_monitor::Grant::Denied,
     };
@@ -2472,8 +2472,6 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_app_data = Some(path.into());
         } else if argument == "--host-cap-clipboard" {
             parsed.cap_clipboard_system = true;
-        } else if argument == "--host-cap-audio" {
-            parsed.cap_audio = audio::Grant::System;
         } else if argument == "--host-cap-audio-null" {
             parsed.cap_audio = audio::Grant::Null;
         } else if let Some(path) = argument.strip_prefix("--host-cap-clipboard-fixture=") {
@@ -2633,7 +2631,6 @@ fn print_host_help(app_name: &str) {
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
-           --host-cap-audio                    Grant default audio-output access\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\

@@ -354,8 +354,11 @@ route and retains a newer draft when an older load completes.
 
 == Audio output capabilities
 
-`Audio.acquire!({})` acquires an opaque output handle only when the host was
-launched with `--host-cap-audio`. `Audio.load!(output, directory, name)` loads
+`Audio.acquire!({})` acquires an opaque output handle for ordinary mixer output.
+Playing sound through the shared system mixer is an automatically provisioned
+service with no prompt, and the handle lasts for the session; exclusive access
+or unusual routing would be separate scope. Acquisition fails when the machine
+has no usable output device. `Audio.load!(output, directory, name)` loads
 one direct file through an existing `Files.Dir.Read` grant; names with traversal
 or multiple components are rejected and encoded input is bounded to 64 MiB.
 The host delegates media decoding and playback to Rodio and Symphonia.
