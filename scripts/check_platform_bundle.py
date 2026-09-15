@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 
@@ -25,6 +26,7 @@ def check(directory: Path, roc: str) -> None:
     target = TARGETS.get((platform.system(), platform.machine()))
     if target is None:
         raise ValueError("bundle validation requires a supported native runner")
+    subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
     handler = partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
