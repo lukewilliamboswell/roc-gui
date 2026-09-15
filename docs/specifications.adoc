@@ -56,11 +56,14 @@ interactive grant, without giving the application ambient test-only I/O.
 `(text "value")`:: Text whose entire value equals `value`.
 `(text-prefix "prefix")`:: Text beginning with `prefix`.
 `(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
+`(button-prefix "prefix")`:: Button names beginning with `prefix`.
 `(role button :name "name")`:: A button with the semantic `name` passed to
 `Elem.button` or `Elem.action_button`.
 `(role checkbox :name "label")`:: A checkbox identified by its visible label.
 `(role panel :name "label")`:: A panel identified by its semantic label.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
+`(role virtual-list :name "name")`:: A fixed-row virtual list identified by its
+semantic name.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
 missing targets fail instead of choosing one by traversal order. Make button
@@ -99,6 +102,11 @@ The runner queries the same mounted graph the native host uses. It does not
 construct a separate test tree. Because it does not open a GPUI window, it is
 suited to deterministic semantic checks; pixels, layout, and presentation are
 outside this runner's evidence.
+
+For a virtual list, text and control locators inspect all logically mounted
+items, including rows outside an interactive viewport. A headless
+`expect-visible` therefore proves logical presence, not viewport intersection;
+native visible-range and materialization evidence is recorded only by GPUI.
 
 `focus` and `press-key` model the production controls' accepted activation-key
 matrix and invoke their normal Roc event route. They do not inject a native

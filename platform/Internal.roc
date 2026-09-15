@@ -132,6 +132,22 @@ Internal := [].{
 			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.name })
 			{ root: id, next_boundary: child.next_boundary, routes: child.routes, boundaries: child.boundaries }
 		}
+		VirtualList(list_value) => {
+			builder = Host.children_begin!({})
+			var $next = next_boundary
+			var $routes = routes
+			var $boundaries = boundaries
+			for item in list_value.items {
+				lowered = lower!(item.content, state, $next, active_boundary, boundary_path, $routes, $boundaries)
+				row = Host.node_virtual_item!(item.key, lowered.root)
+				Host.children_push!(builder, row)
+				$next = lowered.next_boundary
+				$routes = lowered.routes
+				$boundaries = lowered.boundaries
+			}
+			id = Host.node_virtual_list!({ builder, name: list_value.name, row_height: list_value.row_height })
+			{ root: id, next_boundary: $next, routes: $routes, boundaries: $boundaries }
+		}
 		ActionButton(button_value) => {
 			style = style_args(button_value)
 			id = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })

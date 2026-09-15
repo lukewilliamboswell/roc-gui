@@ -23,6 +23,8 @@ platform ""
 		"roc_gui_node_panel": HostGlue.node_panel!,
 		"roc_gui_node_scroll": HostGlue.node_scroll!,
 		"roc_gui_node_action_button": HostGlue.node_action_button!,
+		"roc_gui_node_virtual_item": HostGlue.node_virtual_item!,
+		"roc_gui_node_virtual_list": HostGlue.node_virtual_list!,
 		"roc_gui_node_checkbox": HostGlue.node_checkbox!,
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,

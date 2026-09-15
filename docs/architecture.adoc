@@ -90,11 +90,15 @@ is stale and cannot later identify another control.
 
 === The host materialises GPUI views
 
-Every newly mounted graph node becomes one GPUI `Entity<NodeView>`. Rows,
-columns, and panels become flex containers, text becomes a text child, and
-enabled action buttons add focus, keyboard, and pointer listeners. Disabled
-action buttons add no event listener or tab stop. The host connects the new native subtree to the
-retained entities around its boundary and releases the replaced subtree.
+Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
+and columns become flex containers, panels become styled surfaces, text becomes
+a text child, and enabled action buttons add focus, keyboard, and pointer
+listeners. Disabled action buttons add no event listener or tab stop. A virtual
+list is the deliberate exception: its
+complete keyed item subtrees remain in the canonical graph, but GPUI's
+viewport callback creates entities only for intersecting fixed-height rows and
+recycles entities that leave the range. The host connects the new native
+subtree to retained entities around its boundary and releases replaced views.
 
 The host notifies GPUI of the changed entity. GPUI owns subsequent rendering,
 layout, prepaint, paint, and presentation. roc-gui does not calculate geometry

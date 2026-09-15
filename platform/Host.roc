@@ -99,6 +99,10 @@ Host := [].{
 		overflow_y : U8,
 	} => U64
 
+	node_virtual_item! : U64, U64 => U64
+
+	node_virtual_list! : { builder : U64, name : Str, row_height : U32 } => U64
+
 	node_checkbox! : {
 		label : Str,
 		checked : Bool,

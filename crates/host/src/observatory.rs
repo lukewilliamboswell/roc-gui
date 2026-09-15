@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -259,6 +259,13 @@ enum Event {
     },
     Step(StepResult),
     Cycle(Cycle),
+    VirtualListFrame {
+        list_id: u64,
+        visible_items: u64,
+        materialized_entities: u64,
+        recycled_entities: u64,
+        live_entities: u64,
+    },
     Finish {
         application_outcome: &'static str,
         drain_started: Instant,
@@ -600,6 +607,25 @@ pub fn cycle(cycle: Cycle) {
     submit(Event::Cycle(cycle), false);
 }
 
+pub fn virtual_list_frame(
+    list_id: u64,
+    visible_items: u64,
+    materialized_entities: u64,
+    recycled_entities: u64,
+    live_entities: u64,
+) {
+    submit(
+        Event::VirtualListFrame {
+            list_id,
+            visible_items,
+            materialized_entities,
+            recycled_entities,
+            live_entities,
+        },
+        false,
+    );
+}
+
 pub fn finish(application_outcome: &'static str) -> Result<(), String> {
     let recorder = {
         let mut slot = RECORDER.lock().unwrap_or_else(|error| error.into_inner());
@@ -691,7 +717,7 @@ fn writer(
             // Runs, steps, and finalization are correctness/control evidence.
             // The terminal reserve is specifically held for them; only the
             // high-volume cycle stream is sacrificed at the admission limit.
-            if output_limited && matches!(event, Event::Cycle(_)) {
+            if output_limited && matches!(event, Event::Cycle(_) | Event::VirtualListFrame { .. }) {
                 omitted.fetch_add(1, Ordering::Relaxed);
                 continue;
             }
@@ -876,6 +902,20 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             },
         ),
         (
+            "virtual_list_materialization",
+            "summary",
+            if config.backend == "gpui-wayland" {
+                "unfinalized"
+            } else {
+                "not_recorded"
+            },
+            if config.backend == "gpui-wayland" {
+                "capture has not finalized"
+            } else {
+                "semantic headless execution has no viewport"
+            },
+        ),
+        (
             "gpu_timing",
             "summary",
             "unavailable",
@@ -989,6 +1029,10 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             }
             Ok(1)
         },
+        Event::VirtualListFrame { list_id, visible_items, materialized_entities, recycled_entities, live_entities } => connection.execute(
+            "INSERT INTO virtual_list_frames(run_id,list_id,visible_items,materialized_entities,recycled_entities,live_entities) VALUES(1,?1,?2,?3,?4,?5)",
+            params![as_i64(list_id), as_i64(visible_items), as_i64(materialized_entities), as_i64(recycled_entities), as_i64(live_entities)],
+        ),
         Event::Finish { .. } => return Err("internal recorder finalization ordering error".into()),
     }
     .map(|_| ())
@@ -1041,7 +1085,7 @@ fn finalize(
         .map_err(|error| format!("cannot finalize drain metadata: {error}"))?;
     let partial = omitted > 0 || output_limited;
     connection.execute(
-        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
+        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize measurement status: {error}"))?;
     connection.execute(
@@ -1108,7 +1152,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=4;
+PRAGMA user_version=5;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1188,6 +1232,15 @@ CREATE TABLE cycles(
     UNIQUE(run_id,ordinal),
     FOREIGN KEY(run_id,step_ordinal) REFERENCES steps(run_id,ordinal)
 );
+CREATE TABLE virtual_list_frames(
+    id INTEGER PRIMARY KEY,
+    run_id INTEGER NOT NULL REFERENCES runs(id),
+    list_id INTEGER NOT NULL,
+    visible_items INTEGER NOT NULL,
+    materialized_entities INTEGER NOT NULL,
+    recycled_entities INTEGER NOT NULL,
+    live_entities INTEGER NOT NULL
+);
 CREATE TABLE recording_gaps(
     id INTEGER PRIMARY KEY,
     family TEXT NOT NULL,
@@ -1220,6 +1273,7 @@ CREATE INDEX runs_by_phase_sample ON runs(phase,sample_index,iteration_index);
 CREATE INDEX steps_by_run_ordinal ON steps(run_id,ordinal);
 CREATE INDEX cycles_by_run_ordinal ON cycles(run_id,ordinal);
 CREATE INDEX roc_work_spans_by_kind ON roc_work_spans(kind,cycle_id);
+CREATE INDEX virtual_list_frames_by_run ON virtual_list_frames(run_id,id);
 "#;
 
 #[cfg(test)]
@@ -1345,6 +1399,51 @@ mod tests {
             drop(db);
             std::fs::remove_file(path).unwrap();
         }
+    }
+
+    #[test]
+    fn persists_virtual_list_owner_counters() {
+        let _guard = RECORDER_TEST.lock().unwrap();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-virtual-list-{}-{}.rgstats",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        start(Config {
+            path: path.clone(),
+            detail: Detail::Summary,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-wayland",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        run_start(1, "interactive", None, 0, 1);
+        virtual_list_frame(17, 8, 24, 6, 24);
+        run_end(1, "pass", 2, None);
+        finish("success").unwrap();
+        let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let values = db.query_row("SELECT list_id,visible_items,materialized_entities,recycled_entities,live_entities FROM virtual_list_frames", [], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?, row.get::<_, i64>(3)?, row.get::<_, i64>(4)?))).unwrap();
+        assert_eq!(values, (17, 8, 24, 6, 24));
+        assert_eq!(
+            db.query_row(
+                "SELECT status FROM measurement_status WHERE name='virtual_list_materialization'",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+            "complete"
+        );
+        drop(db);
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

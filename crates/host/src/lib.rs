@@ -17,8 +17,9 @@ use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
     HostGlueNodeColumnArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
+    RocErasedCallable, RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch,
+    roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -404,6 +405,24 @@ pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
             axis,
         },
         vec![args.child],
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_virtual_item(args: HostGlueNodeVirtualItemArgs) -> u64 {
+    stage_node(NodeKind::VirtualItem { key: args.arg0 }, vec![args.arg1])
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -> u64 {
+    let name = args.name.as_str().to_owned();
+    unsafe { args.name.decref(roc_host()) };
+    stage_node(
+        NodeKind::VirtualList {
+            name,
+            row_height: args.row_height,
+        },
+        finish_children(args.builder),
     )
 }
 
@@ -811,6 +830,29 @@ impl Render for NodeView {
                         .overflow_scroll(),
                 };
             }
+            NodeKind::VirtualItem { .. } => {}
+            NodeKind::VirtualList { row_height, .. } => {
+                let list_id = self.node.id;
+                let count = self.node.children.len();
+                let runtime = self.runtime.clone();
+                let height = *row_height;
+                element = element
+                    .flex()
+                    .flex_col()
+                    .flex_grow()
+                    .min_h_0()
+                    .max_h_full()
+                    .child(
+                        uniform_list(("virtual-list", list_id), count, move |range, _, cx| {
+                            runtime
+                                .update(cx, |runtime, cx| {
+                                    runtime.virtual_range(list_id, range, height, cx)
+                                })
+                                .unwrap_or_default()
+                        })
+                        .size_full(),
+                    );
+            }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
             }
@@ -960,8 +1002,14 @@ impl Render for NodeView {
 struct Runtime {
     graph: MountedGraph,
     views: HashMap<u64, Entity<NodeView>>,
+    virtual_views: HashMap<(u64, u64), VirtualCached>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
+}
+
+struct VirtualCached {
+    view: Entity<NodeView>,
+    entities: u64,
 }
 
 struct InitialMount {
@@ -977,6 +1025,7 @@ impl Runtime {
         let mut runtime = Self {
             graph: MountedGraph::default(),
             views: HashMap::new(),
+            virtual_views: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
         };
@@ -1103,20 +1152,43 @@ impl Runtime {
     }
 
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+        if !applied.staged_ids.is_empty() || !applied.removed_ids.is_empty() || applied.retired_root
+        {
+            let mut recycled = HashMap::<u64, u64>::new();
+            for ((list, _), cached) in &self.virtual_views {
+                *recycled.entry(*list).or_default() += cached.entities;
+            }
+            for (list, entities) in recycled {
+                observatory::virtual_list_frame(list, 0, 0, entities, 0);
+            }
+            self.virtual_views.clear();
+        }
         if applied.retired_root {
             self.views.clear();
         }
         self.materialize(&applied.staged_ids, cx);
         if let Some(root_id) = applied.root {
-            let new_root = self.views[&root_id].clone();
-            if let Some((parent_id, position)) = applied.parent {
-                let parent_view = self.views[&parent_id].clone();
+            if let (Some((_parent_id, position)), Some(new_root), Some(parent_view)) = (
+                applied.parent,
+                self.views.get(&root_id).cloned(),
+                applied
+                    .parent
+                    .and_then(|(parent, _)| self.views.get(&parent).cloned()),
+            ) {
                 parent_view.update(cx, |view, cx| {
                     view.node.children[position] = root_id;
                     view.children[position] = new_root.clone();
                     cx.notify();
                 });
+            } else if applied.parent.is_some() {
+                // The replacement is inside a virtual row. Its complete graph
+                // is already committed; the next list callback reconstructs
+                // only the affected visible subtree from that graph.
+                if let Some(root) = &self.root {
+                    root.update(cx, |_, cx| cx.notify());
+                }
             } else {
+                let new_root = self.views[&root_id].clone();
                 new_root.update(cx, |view, cx| {
                     view.is_root = true;
                     cx.notify();
@@ -1131,7 +1203,13 @@ impl Runtime {
     }
 
     fn materialize(&mut self, node_ids: &[u64], cx: &mut Context<Self>) {
-        for id in node_ids {
+        let virtualized = self.graph.virtual_descendant_ids();
+        let eager = node_ids
+            .iter()
+            .copied()
+            .filter(|id| !virtualized.contains(id))
+            .collect::<Vec<_>>();
+        for id in &eager {
             let node = self.graph.node(*id).expect("applied node is missing");
             assert!(
                 !self.views.contains_key(&node.id),
@@ -1148,11 +1226,12 @@ impl Runtime {
             });
             self.views.insert(node.id, view);
         }
-        for id in node_ids {
+        for id in &eager {
             let node = self.graph.node(*id).expect("applied node is missing");
             let children = node
                 .children
                 .iter()
+                .filter(|id| !virtualized.contains(id))
                 .map(|id| {
                     self.views
                         .get(id)
@@ -1162,6 +1241,100 @@ impl Runtime {
                 .collect();
             self.views[&node.id].update(cx, |view, _| view.children = children);
         }
+    }
+
+    fn build_virtual_node(&mut self, id: u64, cx: &mut Context<Self>) -> (Entity<NodeView>, u64) {
+        let node = self
+            .graph
+            .node(id)
+            .expect("virtual node is missing")
+            .clone();
+        let (children, descendants) = if matches!(node.kind, NodeKind::VirtualList { .. }) {
+            (vec![], 0)
+        } else {
+            let built = node
+                .children
+                .iter()
+                .map(|child| self.build_virtual_node(*child, cx))
+                .collect::<Vec<_>>();
+            let count = built.iter().map(|(_, count)| *count).sum();
+            (built.into_iter().map(|(view, _)| view).collect(), count)
+        };
+        let runtime = cx.entity().downgrade();
+        let view = cx.new(|_| NodeView {
+            node,
+            children,
+            runtime,
+            is_root: false,
+        });
+        (view, descendants + 1)
+    }
+
+    fn virtual_range(
+        &mut self,
+        list_id: u64,
+        range: std::ops::Range<usize>,
+        row_height: u32,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        let item_ids = self
+            .graph
+            .node(list_id)
+            .expect("virtual list is missing")
+            .children
+            .clone();
+        let wanted = range
+            .filter_map(|index| item_ids.get(index).copied())
+            .collect::<Vec<_>>();
+        let wanted_set = wanted
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>();
+        let recycled = self
+            .virtual_views
+            .iter()
+            .filter(|((owner, item), _)| *owner == list_id && !wanted_set.contains(item))
+            .map(|(_, cached)| cached.entities)
+            .sum();
+        self.virtual_views
+            .retain(|(owner, item), _| *owner != list_id || wanted_set.contains(item));
+        let mut materialized = 0;
+        for item in &wanted {
+            if !self.virtual_views.contains_key(&(list_id, *item)) {
+                let (view, entities) = self.build_virtual_node(*item, cx);
+                materialized += entities;
+                self.virtual_views
+                    .insert((list_id, *item), VirtualCached { view, entities });
+            }
+        }
+        let live_entities = self
+            .virtual_views
+            .iter()
+            .filter(|((owner, _), _)| *owner == list_id)
+            .map(|(_, cached)| cached.entities)
+            .sum();
+        observatory::virtual_list_frame(
+            list_id,
+            wanted.len() as u64,
+            materialized,
+            recycled,
+            live_entities,
+        );
+        wanted
+            .into_iter()
+            .map(|id| {
+                let view = self.virtual_views[&(list_id, id)].view.clone();
+                let key = match self.graph.node(id).map(|node| &node.kind) {
+                    Some(NodeKind::VirtualItem { key }) => *key,
+                    _ => panic!("virtual list child is not an item"),
+                };
+                div()
+                    .id(("virtual-row", key))
+                    .h(px(row_height as f32))
+                    .child(view)
+                    .into_any_element()
+            })
+            .collect()
     }
 }
 

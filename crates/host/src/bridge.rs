@@ -71,6 +71,13 @@ pub enum NodeKind {
         name: String,
         axis: ScrollAxis,
     },
+    VirtualItem {
+        key: u64,
+    },
+    VirtualList {
+        name: String,
+        row_height: u32,
+    },
     Text(String),
 }
 
@@ -215,6 +222,25 @@ impl MountedGraph {
             pending.extend(node.children.iter().rev().copied());
         }
         ordered
+    }
+
+    /// IDs below virtual-list nodes. They remain in the canonical graph for
+    /// semantic lookup and routing but do not receive eager GPUI entities.
+    pub fn virtual_descendant_ids(&self) -> HashSet<u64> {
+        let mut result = HashSet::new();
+        for entry in self.nodes.values() {
+            if matches!(entry.node.kind, NodeKind::VirtualList { .. }) {
+                let mut pending = entry.node.children.clone();
+                while let Some(id) = pending.pop() {
+                    if result.insert(id) {
+                        if let Some(child) = self.nodes.get(&id) {
+                            pending.extend(child.node.children.iter().copied());
+                        }
+                    }
+                }
+            }
+        }
+        result
     }
 
     #[cfg(test)]
@@ -549,6 +575,32 @@ pub fn decode_commit(patch: &MountOrNoChangeOrReplace) -> Commit {
     }
 }
 
+fn validate_virtual_keys<'a>(
+    list: &Node,
+    mut lookup: impl FnMut(u64) -> Option<&'a Node>,
+) -> Result<(), String> {
+    let mut keys = HashSet::with_capacity(list.children.len());
+    for child in &list.children {
+        let Some(Node {
+            kind: NodeKind::VirtualItem { key },
+            ..
+        }) = lookup(*child)
+        else {
+            return Err(format!(
+                "virtual list node {} has a non-item child",
+                list.id
+            ));
+        };
+        if !keys.insert(*key) {
+            return Err(format!(
+                "virtual list node {} has duplicate item key {}",
+                list.id, key
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     if root == 0 {
         return Err("node id 0 is reserved".into());
@@ -594,6 +646,21 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
                     "scroll node {} must have one content child",
                     node.id
                 ));
+            }
+            NodeKind::VirtualItem { .. } if node.children.len() != 1 => {
+                return Err(format!(
+                    "virtual item node {} must have one content child",
+                    node.id
+                ));
+            }
+            NodeKind::VirtualList { row_height, .. } if !(1..=16_384).contains(&row_height) => {
+                return Err(format!(
+                    "virtual list node {} has invalid row height",
+                    node.id
+                ));
+            }
+            NodeKind::VirtualList { .. } => {
+                validate_virtual_keys(node, |id| nodes.iter().find(|candidate| candidate.id == id))?
             }
             _ => {}
         }
@@ -663,6 +730,23 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
                     node.id
                 ));
             }
+            NodeKind::VirtualItem { .. } if node.children.len() != 1 => {
+                return Err(format!(
+                    "virtual item node {} must have one content child",
+                    node.id
+                ));
+            }
+            NodeKind::VirtualList { row_height, .. } if !(1..=16_384).contains(&row_height) => {
+                return Err(format!(
+                    "virtual list node {} has invalid row height",
+                    node.id
+                ));
+            }
+            NodeKind::VirtualList { .. } => validate_virtual_keys(node, |id| {
+                id.checked_sub(first_id)
+                    .and_then(|offset| usize::try_from(offset).ok())
+                    .and_then(|index| nodes.get(index))
+            })?,
             _ => {}
         }
         for child in &node.children {
@@ -814,6 +898,61 @@ mod tests {
                 .unwrap_err()
                 .contains("one content child")
         );
+    }
+
+    #[test]
+    fn virtual_list_requires_unique_stable_item_keys() {
+        let nodes = [
+            text(1, "first"),
+            Node {
+                id: 2,
+                kind: NodeKind::VirtualItem { key: 7 },
+                children: vec![1],
+            },
+            text(3, "second"),
+            Node {
+                id: 4,
+                kind: NodeKind::VirtualItem { key: 7 },
+                children: vec![3],
+            },
+            Node {
+                id: 5,
+                kind: NodeKind::VirtualList {
+                    name: "rows".into(),
+                    row_height: 24,
+                },
+                children: vec![2, 4],
+            },
+        ];
+        assert!(
+            validate_tree(5, &nodes)
+                .unwrap_err()
+                .contains("duplicate item key 7")
+        );
+    }
+
+    #[test]
+    fn virtual_descendants_remain_logical_without_eager_views() {
+        let mut graph = MountedGraph::default();
+        let nodes = vec![
+            text(1, "row"),
+            Node {
+                id: 2,
+                kind: NodeKind::VirtualItem { key: 11 },
+                children: vec![1],
+            },
+            Node {
+                id: 3,
+                kind: NodeKind::VirtualList {
+                    name: "rows".into(),
+                    row_height: 24,
+                },
+                children: vec![2],
+            },
+        ];
+        graph.apply(Patch::Mount { root: 3, nodes }).unwrap();
+        assert_eq!(graph.nodes_preorder().len(), 3);
+        assert_eq!(graph.virtual_descendant_ids(), HashSet::from([1, 2]));
     }
 
     #[test]

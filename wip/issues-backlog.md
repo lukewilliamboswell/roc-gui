@@ -32,12 +32,6 @@ names the evidence so a fix can be verified against the same case.
 
 ## Runner: test what we fly
 
-- [ ] **Large scroll regions eagerly materialize every GPUI view.** The scroll
-  scale ladder proves the ordinary mounted graph at 100, 1,000, and 10,000
-  rows, but `Runtime::materialize` still creates one `NodeView` per row.
-  Introduce a production virtual-list element before claiming bounded native
-  entities or responsive interaction for very large directories.
-
 - [ ] **End-to-end GPUI spec runner.** The driver runs inside the production
   `Application`, opens the real window, resolves a locator to a live node and its
   laid-out bounds, synthesises the input event through GPUI, and closes the cycle

@@ -63,6 +63,11 @@ disabled checkboxes do not accept focus or activation.
 `Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `name` is the stable semantic identity.
+`Elem.virtual_list(Elem.VirtualListProps.{ name, row_height, items })`:: Present
+stable-keyed rows at one fixed logical height. Each item is an
+`Elem.VirtualListItem.{ key, content }`; keys must be unique within the list.
+The complete item graph remains available to semantic inspection and event
+routing, while GPUI materializes only the current viewport range.
 `Layout.row(Elem.RowProps.{ ... }, children)`:: Lay out children horizontally.
 `Layout.col(Elem.ColProps.{ ... }, children)`:: Lay out children vertically.
 `Elem.panel(Elem.PanelProps.{ ... }, children)`:: Group children vertically in

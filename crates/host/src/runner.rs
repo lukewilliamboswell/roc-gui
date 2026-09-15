@@ -27,6 +27,11 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (Locator::ButtonPrefix(expected), NodeKind::Button { label, .. })
+                if label.starts_with(expected) =>
+            {
+                Some(node.id)
+            }
             (Locator::CheckboxName(expected), NodeKind::Checkbox { label, .. })
                 if expected == label =>
             {
@@ -53,6 +58,11 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Some(node.id)
             }
             (Locator::ScrollName(expected), NodeKind::Scroll { name, .. }) if expected == name => {
+                Some(node.id)
+            }
+            (Locator::VirtualListName(expected), NodeKind::VirtualList { name, .. })
+                if expected == name =>
+            {
                 Some(node.id)
             }
             _ => None,

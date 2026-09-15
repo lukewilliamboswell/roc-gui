@@ -75,12 +75,14 @@ pub enum Locator {
     Text(String),
     TextPrefix(String),
     ButtonName(String),
+    ButtonPrefix(String),
     CheckboxName(String),
     CheckboxPrefix(String),
     ColumnName(String),
     PanelName(String),
     RowName(String),
     ScrollName(String),
+    VirtualListName(String),
 }
 
 const MAX_SOURCE_BYTES: usize = 1024 * 1024;
@@ -416,6 +418,10 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .string()
             .map(|value| Locator::CheckboxPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "checkbox-prefix locator requires a string")),
+        Some("button-prefix") if values.len() == 2 => values[1]
+            .string()
+            .map(|value| Locator::ButtonPrefix(value.to_owned()))
+            .ok_or_else(|| error(node, "button-prefix locator requires a string")),
         Some("role")
             if values.len() == 4
                 && values[1].atom() == Some("panel")
@@ -476,9 +482,19 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .map(|value| Locator::ScrollName(value.to_owned()))
                 .ok_or_else(|| error(node, "scroll name must be a string"))
         }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("virtual-list")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::VirtualListName(value.to_owned()))
+                .ok_or_else(|| error(node, "virtual-list name must be a string"))
+        }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, column, panel, row, and scroll",
+            "supported roles are button, checkbox, column, panel, row, scroll, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -712,6 +728,17 @@ mod tests {
         assert_eq!(
             spec.steps[0].command,
             Command::ExpectVisible(Locator::ScrollName("Directory contents".into()))
+        );
+    }
+
+    #[test]
+    fn parses_named_virtual_list_region() {
+        let spec =
+            parse(r#"(test "virtual" (steps (expect-visible (role virtual-list :name "Rows"))))"#)
+                .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectVisible(Locator::VirtualListName("Rows".into()))
         );
     }
 

@@ -16,6 +16,8 @@ platform ""
 		"roc_gui_node_panel": Host.node_panel!,
 		"roc_gui_node_scroll": Host.node_scroll!,
 		"roc_gui_node_action_button": Host.node_action_button!,
+		"roc_gui_node_virtual_item": Host.node_virtual_item!,
+		"roc_gui_node_virtual_list": Host.node_virtual_list!,
 		"roc_gui_node_checkbox": Host.node_checkbox!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,

@@ -13,6 +13,7 @@ Elem(a) :: [
 	Panel({ children : List(Elem(a)), props : PanelProps }),
 	Row({ children : List(Elem(a)), props : RowProps }),
 	Scroll(ScrollProps(a)),
+	VirtualList(VirtualListProps(a)),
 	Text(Str),
 ].{
 
@@ -110,6 +111,14 @@ Elem(a) :: [
 	ScrollAxis : [Both, Horizontal, Vertical]
 	ScrollProps(a) := { axis : ScrollAxis ?? Vertical, content : Elem(a), name : Str }
 
+	## One stable row in a virtual list. `key` identifies the row independently
+	## of its current index, while `content` is an ordinary element tree.
+	VirtualListItem(a) := { content : Elem(a), key : U64 }
+
+	## Properties for a viewport-driven, fixed-height list. Only rows intersecting
+	## the native viewport are materialized as GPUI elements.
+	VirtualListProps(a) := { items : List(VirtualListItem(a)), name : Str, row_height : U32 }
+
 	## Properties for `checkbox`. `label` is both visible text and the stable
 	## semantic name used by specifications. `on_change` receives the requested
 	## checked state. The common visual fields mirror `Gui.Style`; defaults let a
@@ -170,6 +179,14 @@ Elem(a) :: [
 	scroll : ScrollProps(a) -> Elem(a)
 	scroll = |props| Scroll(props)
 
+	## Present fixed-height rows while materializing only the visible native range.
+	virtual_list : VirtualListProps(a) -> Elem(a)
+	virtual_list = |props| if props.row_height == 0 or props.row_height > 16384 {
+		crash "Gui virtual row height must be between 1 and 16384"
+	} else {
+		VirtualList(props)
+	}
+
 	## Adapt an already-built child tree to parent state.
 	lift : Elem(child), (parent -> child), (parent, child -> parent) -> Elem(parent)
 	lift = |elem, get_child, set_child| match elem {
@@ -178,6 +195,13 @@ Elem(a) :: [
 		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), name: scroll_value.name })
+		VirtualList(list_value) => VirtualList(
+			VirtualListProps.{
+				name: list_value.name,
+				row_height: list_value.row_height,
+				items: list_value.items.map(|item| { key: item.key, content: lift(item.content, get_child, set_child) }),
+			},
+		)
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
 			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
@@ -256,6 +280,7 @@ Elem(a) :: [
 		Panel({ children : List(Elem(a)), props : PanelProps }),
 		Row({ children : List(Elem(a)), props : RowProps }),
 		Scroll(ScrollProps(a)),
+		VirtualList(VirtualListProps(a)),
 		Text(Str),
 	]
 	inspect = |value| match value {
@@ -266,6 +291,7 @@ Elem(a) :: [
 		Panel(children) => Panel(children)
 		Row(children) => Row(children)
 		Scroll(scroll_value) => Scroll(scroll_value)
+		VirtualList(list_value) => VirtualList(list_value)
 		Text(text_value) => Text(text_value)
 	}
 }

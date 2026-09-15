@@ -1334,6 +1334,35 @@ const _: () = assert!(core::mem::size_of::<AnonStructB48d36aa8eceb0b8>() == 80, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructB48d36aa8eceb0b8>() == 4, "AnonStructB48d36aa8eceb0b8 alignment mismatch");
 
+/// Element type for __AnonStruct_f86f1c1ac9d3a8e4
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructF86f1c1ac9d3a8e4 {
+    pub builder: u64,
+    pub name: RocStr,
+    pub row_height: u32,
+}
+
+/// Element type for __AnonStruct_f86f1c1ac9d3a8e4
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructF86f1c1ac9d3a8e4 {
+    pub builder: u64,
+    pub name: RocStr,
+    pub row_height: u32,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructF86f1c1ac9d3a8e4>() == 40, "AnonStructF86f1c1ac9d3a8e4 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructF86f1c1ac9d3a8e4>() == 8, "AnonStructF86f1c1ac9d3a8e4 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructF86f1c1ac9d3a8e4>() == 24, "AnonStructF86f1c1ac9d3a8e4 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructF86f1c1ac9d3a8e4>() == 8, "AnonStructF86f1c1ac9d3a8e4 alignment mismatch");
+
 /// Element type for __AnonStruct_8a6495c35d8ba3b6
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -2664,6 +2693,78 @@ unsafe impl RocRelease<HostGlueNodeActionButtonArgs> for HostGlueNodeActionButto
     }
 }
 
+/// Arguments for HostGlue.node_virtual_item!
+/// Roc signature: U64, U64 => U64
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeVirtualItemArgs {
+    pub arg0: u64,
+    pub arg1: u64,
+}
+
+/// Arguments for HostGlue.node_virtual_list!
+/// Roc signature: { builder : U64, name : Str, row_height : U32 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeVirtualListArgs {
+    pub builder: u64,
+    pub name: RocStr,
+    pub row_height: u32,
+}
+
+/// Arguments for HostGlue.node_virtual_list!
+/// Roc signature: { builder : U64, name : Str, row_height : U32 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeVirtualListArgs {
+    pub builder: u64,
+    pub name: RocStr,
+    pub row_height: u32,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeVirtualListArgs>() == 40, "HostGlueNodeVirtualListArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeVirtualListArgs>() == 8, "HostGlueNodeVirtualListArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeVirtualListArgs>() == 24, "HostGlueNodeVirtualListArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeVirtualListArgs>() == 8, "HostGlueNodeVirtualListArgs alignment mismatch");
+
+impl HostGlueNodeVirtualListArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct HostGlueNodeVirtualListArgsRelease;
+
+unsafe impl RocRelease<HostGlueNodeVirtualListArgs> for HostGlueNodeVirtualListArgsRelease {
+    unsafe fn release(value: HostGlueNodeVirtualListArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 /// Arguments for HostGlue.node_checkbox!
 /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
@@ -2851,6 +2952,7 @@ pub type HostGlueNodeColumnArg0 = AnonStruct1f89f22437f75671;
 pub type HostGlueNodePanelArg0 = AnonStruct1f89f22437f75671;
 pub type HostGlueNodeScrollArg0 = AnonStruct6aa5c9965944c201;
 pub type HostGlueNodeActionButtonArg0 = AnonStructB48d36aa8eceb0b8;
+pub type HostGlueNodeVirtualListArg0 = AnonStructF86f1c1ac9d3a8e4;
 pub type HostGlueNodeCheckboxArg0 = AnonStruct8a6495c35d8ba3b6;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
@@ -3364,6 +3466,35 @@ unsafe impl RocRelease<AnonStructB48d36aa8eceb0b8> for AnonStructB48d36aa8eceb0b
     }
 }
 
+impl AnonStructF86f1c1ac9d3a8e4 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct AnonStructF86f1c1ac9d3a8e4Release;
+
+unsafe impl RocRelease<AnonStructF86f1c1ac9d3a8e4> for AnonStructF86f1c1ac9d3a8e4Release {
+    unsafe fn release(value: AnonStructF86f1c1ac9d3a8e4, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl AnonStruct8a6495c35d8ba3b6 {
     /// Recursively decrement Roc-owned fields.
     ///
@@ -3624,6 +3755,17 @@ unsafe extern "C" {
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_action_button(arg0: HostGlueNodeActionButtonArgs) -> u64;
+
+    /// Hosted symbol for HostGlue.node_virtual_item!
+    /// Roc signature: U64, U64 => U64
+    pub fn roc_gui_node_virtual_item(arg0: u64, arg1: u64) -> u64;
+
+    /// Hosted symbol for HostGlue.node_virtual_list!
+    /// Roc signature: { builder : U64, name : Str, row_height : U32 } => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_virtual_list(arg0: HostGlueNodeVirtualListArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_checkbox!
     /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
