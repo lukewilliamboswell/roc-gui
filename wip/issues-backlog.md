@@ -148,6 +148,15 @@ names the evidence so a fix can be verified against the same case.
   metadata for this repository's own examples. `docs/testing-your-app.adoc`
   now carries the user-facing path; the reference should lose the fixture block
   to `development.adoc` and be retitled.
+- [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
+  screen rectangle, so anything drawn over the window lands in the evidence; a
+  1280x800 window on a display with the dock visible photographs the dock. A
+  window-targeted capture (`screencapture -l<windowid>`, which reads the
+  window's own contents) would be immune, at the cost of cropping in process
+  from the returned image rather than in the request. The `image` crate is
+  already a dependency; the missing piece is the window id, which GPUI does not
+  expose and which would need the pid-to-window mapping the capture currently
+  avoids needing.
 - [ ] **Per-canvas-item screenshot regions.** Only a canvas node's own
   rectangle is recorded, so `(screenshot :region (role canvas-item ...))` is a
   parse error rather than a silent whole-canvas photograph. Recording primitive

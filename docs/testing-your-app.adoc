@@ -171,6 +171,12 @@ reason rather than guessing. On macOS the tool needs Screen Recording
 permission for whatever launched your application; without it the run reports
 `unavailable` and names the permission.
 
+A screenshot is a photograph of that region of the screen, not of the window's
+own buffer, so anything drawn over your window is in the picture: the dock, a
+notification, another application's window. Keep the window unobstructed while
+a specification runs, and treat a shot containing something you did not expect
+as evidence about the screen rather than about your application.
+
 An unavailable screenshot fails the run unless
 `--host-window-allow-missing-shots` is given. Every other assertion still runs
 either way, so a machine that cannot photograph anything can still verify

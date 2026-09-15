@@ -26,6 +26,11 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
         shutil.rmtree(site)
     site.mkdir(parents=True)
 
+    # The theme is embedded in each page rather than linked, so a page keeps
+    # working when opened straight from disk and Rouge's own stylesheet is
+    # never left dangling by `linkcss`.
+    theme_dir = DOCS / "theme"
+    theme = ["-a", f"stylesdir={theme_dir}", "-a", "stylesheet=roc-gui.css"]
     diagram = [
         "-r", "asciidoctor-diagram",
         "-r", "/documents/rouge_roc.rb",
@@ -34,7 +39,7 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
     ]
     for source in sorted(DOCS.glob("*.adoc")):
         run(
-            "asciidoctor", *diagram, "-a", "source-highlighter=rouge",
+            "asciidoctor", *diagram, *theme, "-a", "source-highlighter=rouge",
             "-a", "toc=left", "-a", "sectanchors", "-D", str(site), str(source),
         )
 
@@ -45,6 +50,9 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
     architecture_html = architecture.read_text(encoding="utf-8") if architecture.is_file() else ""
     if '<img src="diag-mermaid-' not in architecture_html or ".svg" not in architecture_html:
         raise SystemExit("architecture Mermaid diagram was not rendered to SVG")
+    index_html = (site / "index.html").read_text(encoding="utf-8")
+    if "Roc GUI documentation theme" not in index_html:
+        raise SystemExit("custom stylesheet was not embedded in the page")
     roc_html = (site / "getting-started.html").read_text(encoding="utf-8")
     scm_html = (site / "specifications.html").read_text(encoding="utf-8")
     if 'data-lang="roc"' not in roc_html or '<span class="k">' not in roc_html:
@@ -56,7 +64,9 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
     if want_pdf:
         manual = output / "roc-gui.pdf"
         run(
-            "asciidoctor-pdf", *diagram[:-2], "-a", "mermaid-format=png",
+            "asciidoctor-pdf", *diagram[:-2],
+            "-a", f"pdf-themesdir={theme_dir}", "-a", "pdf-theme=roc-gui",
+            "-a", "mermaid-format=png",
             "-a", "mermaid-puppeteer-config=/documents/.github/mermaid-puppeteer.json",
             "-o", str(manual), str(DOCS / "index.adoc"),
         )
