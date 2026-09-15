@@ -4868,6 +4868,7 @@ dependencies = [
  "rodio",
  "rusqlite",
  "sha2 0.10.9",
+ "sysinfo",
  "unicode-segmentation",
  "zed-reqwest",
 ]

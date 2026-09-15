@@ -83,6 +83,12 @@ size. The product performs the same discover, connect, and byte transaction
 operations for both transports; cases without a fixture exercise denial through
 the normal `Discover devices` action.
 
+A `system-monitor-fixture/SPEC_NAME` file grants a deterministic system sampler
+through the same snapshot ABI used by the physical `sysinfo` source. Its value
+is `standard`, `unavailable`, or `processes:N`; this is runner metadata, not an
+application switch. Cases without the file exercise permission denial through
+the ordinary `Resume sampling` action.
+
 An adjacent `audio-fixture` file containing `null` grants a paced null output
 to that application's cases. The harness-only grant is not advertised as a
 product option; it changes only the final sink while Rodio retains ownership of
@@ -172,6 +178,8 @@ This assertion reads the timer registry that owns cancellation state.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
 `(expect-device-connections N)`:: Require exactly `N` host-owned device connection handles.
 `(expect-device-transactions N)`:: Require exactly `N` completed host-owned device transactions.
+`(expect-system-samplers N)`:: Require exactly `N` active host-owned system samplers.
+`(expect-system-samples N)`:: Require exactly `N` completed host-owned system samples.
 This assertion reads the capability registry that owns stream lifecycle and
 records expected and observed deterministic counts.
 `(expect-visible LOCATOR)`:: Require at least one match.

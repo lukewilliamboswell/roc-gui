@@ -717,6 +717,36 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectSystemSamplers(expected) => {
+                let active = crate::system_monitor::active_count();
+                let (acquired, _, closed) = crate::system_monitor::counters();
+                if closed > acquired {
+                    return Err(
+                        "system sampler lifecycle counters violated ownership invariants".into(),
+                    );
+                }
+                count_evidence = Some((*expected as u64, active as u64));
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active system samplers, observed {active}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectSystemSamples(expected) => {
+                let (_, sampled, _) = crate::system_monitor::counters();
+                count_evidence = Some((*expected as u64, sampled));
+                if sampled == *expected as u64 {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} system samples, observed {sampled}",
+                        step.line
+                    ))
+                }
+            }
             Command::ExpectAudioCounters(expected) => {
                 let (operations, outputs, tracks) = crate::audio::counters();
                 let observed = [

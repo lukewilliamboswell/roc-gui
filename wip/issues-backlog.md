@@ -120,10 +120,14 @@ names the evidence so a fix can be verified against the same case.
   counters before presenting the example as a general database administration
   tool.
 
-- [ ] **System monitor sensors and charts.** The system-monitor example proves
-  bounded live updates, cancellation, and explicit unavailable values. Add
-  capability-detected OS CPU and memory samplers, chart/canvas elements,
-  process-table sorting and privacy-safe export as complete later slices.
+- [ ] **System Monitor charts and export.** The system-monitor slice has a real
+  capability-scoped `sysinfo` sampler, explicit unavailable values, bounded
+  history, sorting/filtering/selection, and a virtualized process table. Add
+  canvas time-series charts and a separately granted privacy-safe export whose
+  schema excludes process names and IDs before offering session export.
+- [ ] **System Monitor platform breadth.** Validate the sampler and unavailable
+  classifications on macOS and Windows, and add per-disk/per-interface identity
+  only with explicit privacy policy and deterministic evidence.
 
 - [ ] **Image decode status is not represented in the mounted graph.** GPUI's
   image asset decoder owns asynchronous success and failure after mounting, but

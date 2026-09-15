@@ -138,6 +138,12 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         if grant != "virtual" and not (grant.startswith("virtual:") and grant[8:].isdigit()):
             raise RuntimeError(f"invalid deterministic device fixture in {device_fixture}")
         command.extend(["--host-cap-device", grant])
+    system_fixture = case.app.parent / "system-monitor-fixture" / case.spec.stem
+    if system_fixture.is_file():
+        grant = system_fixture.read_text(encoding="utf-8").strip()
+        if grant not in {"standard", "unavailable"} and not (grant.startswith("processes:") and grant[10:].isdigit()):
+            raise RuntimeError(f"invalid deterministic system monitor fixture in {system_fixture}")
+        command.extend(["--host-cap-system-monitor-fixture", grant])
     app_data_fixture = case.app.parent / "app-data-fixture"
     if case.app.parent.name == "redis-explorer":
         command.extend(["--host-cap-tcp", "127.0.0.1:36379"])

@@ -16,6 +16,7 @@ mod roc_platform_abi;
 mod runner;
 mod spec;
 mod sqlite;
+mod system_monitor;
 mod tcp;
 mod timers;
 
@@ -192,6 +193,7 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     app_data::route_dealloc(pointer);
     clipboard::route_dealloc(pointer);
     device::route_dealloc(pointer);
+    system_monitor::route_dealloc(pointer);
     tcp::route_dealloc(pointer);
     process::route_dealloc(pointer);
     timers::route_dealloc(pointer);
@@ -2336,6 +2338,7 @@ struct HostArgs {
     cap_process: Option<process::GrantedProfile>,
     cap_audio: audio::Grant,
     cap_device: Option<device::GrantedDevice>,
+    cap_system_monitor: system_monitor::Grant,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2366,6 +2369,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_process: None,
         cap_audio: audio::Grant::Denied,
         cap_device: None,
+        cap_system_monitor: system_monitor::Grant::Denied,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2441,6 +2445,12 @@ fn parse_host_args() -> Result<HostArgs, String> {
             })?)?);
         } else if let Some(value) = argument.strip_prefix("--host-cap-device=") {
             parsed.cap_device = Some(parse_device_grant(value)?);
+        } else if argument == "--host-cap-system-monitor" {
+            parsed.cap_system_monitor = system_monitor::Grant::Real;
+        } else if argument == "--host-cap-system-monitor-fixture" {
+            parsed.cap_system_monitor = parse_system_monitor_fixture(&pending.next().ok_or_else(|| "--host-cap-system-monitor-fixture requires standard, unavailable, or processes:N".to_string())?)?;
+        } else if let Some(value) = argument.strip_prefix("--host-cap-system-monitor-fixture=") {
+            parsed.cap_system_monitor = parse_system_monitor_fixture(value)?;
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -2510,6 +2520,34 @@ fn parse_device_grant(value: &str) -> Result<device::GrantedDevice, String> {
     })
 }
 
+fn parse_system_monitor_fixture(value: &str) -> Result<system_monitor::Grant, String> {
+    if value == "standard" {
+        return Ok(system_monitor::Grant::Virtual {
+            processes: 24,
+            unavailable: false,
+        });
+    }
+    if value == "unavailable" {
+        return Ok(system_monitor::Grant::Virtual {
+            processes: 0,
+            unavailable: true,
+        });
+    }
+    if let Some(count) = value.strip_prefix("processes:") {
+        let processes = count
+            .parse::<usize>()
+            .map_err(|_| "system monitor process count must be an integer".to_string())?;
+        if !(1..=10_000).contains(&processes) {
+            return Err("system monitor process count must be 1..10000".into());
+        }
+        return Ok(system_monitor::Grant::Virtual {
+            processes,
+            unavailable: false,
+        });
+    }
+    Err("system monitor fixture must be standard, unavailable, or processes:N".into())
+}
+
 fn print_host_help(app_name: &str) {
     println!(
         "Usage: {app_name} [HOST OPTIONS]\n\
@@ -2524,6 +2562,7 @@ fn print_host_help(app_name: &str) {
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
+		   --host-cap-system-monitor           Grant read-only local system sampling\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2658,6 +2697,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     sqlite::configure();
     audio::configure(args.cap_audio);
     device::configure(args.cap_device);
+    system_monitor::configure(args.cap_system_monitor);
     let stats_path = match start_requested_recorder(
         &args,
         parsed_spec.as_ref().map(|(case, _)| case),

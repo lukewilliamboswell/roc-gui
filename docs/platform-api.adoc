@@ -256,6 +256,25 @@ Failures retain their operation in tags such as
 `DiscoverDeviceErr(NotFound)` and `TransactDeviceErr(Protocol)`. Connection and
 transaction lifecycle counts are recorded by the host that owns those events.
 
+== System observation capabilities
+
+`SystemMonitor.acquire!` returns an opaque typed sampler only when the host has
+granted read-only system observation. `SystemMonitor.sample!` refreshes CPU,
+memory, aggregate process disk I/O, network I/O, and a bounded process list on a
+task worker. `SystemMonitor.close!` is idempotent. Applications cannot request
+another machine or broaden the grant.
+
+Every snapshot field is a tagged `Value` or `Unavailable(Unsupported)` value.
+Permission denial is an `AcquireSystemErr(AccessDenied)` operation failure, not
+a fabricated unavailable sensor. Overall CPU is normalized across the machine
+and uses tenths of one percent in `0..1000`. Per-process CPU uses the same unit
+and can exceed `1000` for multi-core use. Memory and I/O counters are bytes as
+reported by `sysinfo`; the platform does not infer unavailable measurements.
+
+Processes are bounded and sorted by CPU, memory, then PID. Only PID, display
+name, CPU, and memory cross the ABI; user, executable path, arguments,
+environment, hostname, and machine identity do not.
+
 == Durable application data
 
 `Files.app_data!({})` acquires the application's private read-write directory

@@ -42,6 +42,8 @@ pub enum Command {
     ExpectSqliteCounters([u64; 3]),
     ExpectDeviceConnections(usize),
     ExpectDeviceTransactions(usize),
+    ExpectSystemSamplers(usize),
+    ExpectSystemSamples(usize),
     ExpectAudioCounters([u64; 9]),
     Submit(Locator),
     ExpectVisible(Locator),
@@ -75,6 +77,8 @@ impl Command {
             Self::ExpectSqliteCounters(_) => "expect-sqlite-counters",
             Self::ExpectDeviceConnections(_) => "expect-device-connections",
             Self::ExpectDeviceTransactions(_) => "expect-device-transactions",
+            Self::ExpectSystemSamplers(_) => "expect-system-samplers",
+            Self::ExpectSystemSamples(_) => "expect-system-samples",
             Self::ExpectAudioCounters(_) => "expect-audio-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
@@ -539,6 +543,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?,
         ),
+        "expect-system-samplers" if values.len() == 2 => {
+            Command::ExpectSystemSamplers(parse_non_negative(&values[1], "expect-system-samplers")?)
+        }
+        "expect-system-samples" if values.len() == 2 => {
+            Command::ExpectSystemSamples(parse_non_negative(&values[1], "expect-system-samples")?)
+        }
         "expect-audio-counters" if values.len() == 10 => {
             let mut expected = [0u64; 9];
             for (index, value) in values[1..].iter().enumerate() {
@@ -659,6 +669,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-sqlite-counters"
         | "expect-device-connections"
         | "expect-device-transactions"
+        | "expect-system-samplers"
+        | "expect-system-samples"
         | "expect-audio-counters"
         | "expect-visible"
         | "expect-not-visible"
@@ -853,6 +865,14 @@ fn error(node: &SExpr, message: impl Into<String>) -> ParseError {
         line: node.line(),
         message: message.into(),
     }
+}
+
+fn parse_non_negative(node: &SExpr, command: &str) -> Result<usize, ParseError> {
+    let message = || format!("{command} requires a non-negative integer");
+    node.atom()
+        .ok_or_else(|| error(node, message()))?
+        .parse()
+        .map_err(|_| error(node, message()))
 }
 
 struct Parser<'a> {

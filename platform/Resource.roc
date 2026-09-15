@@ -17,4 +17,5 @@ Resource := [].{
 	AudioTrack : Handle([AudioTrackResource])
 	DeviceGrant : Handle([DeviceGrantResource])
 	DeviceConnection : Handle([DeviceConnectionResource])
+	SystemSampler : Handle([SystemSamplerResource])
 }
