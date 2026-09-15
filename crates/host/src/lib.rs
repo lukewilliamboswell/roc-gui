@@ -3,6 +3,7 @@
 #![cfg_attr(test, allow(dead_code, unused_imports))]
 
 mod app_data;
+mod audio;
 mod bridge;
 mod clipboard;
 mod files;
@@ -174,6 +175,7 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
     files::route_dealloc(pointer);
+    audio::route_dealloc(pointer);
     sqlite::route_dealloc(pointer);
     app_data::route_dealloc(pointer);
     clipboard::route_dealloc(pointer);
@@ -2029,6 +2031,7 @@ struct HostArgs {
     cap_clipboard_fixture: Option<PathBuf>,
     cap_tcp: Option<std::net::SocketAddr>,
     cap_process: Option<process::GrantedProfile>,
+    cap_audio: audio::Grant,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2057,6 +2060,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_clipboard_fixture: None,
         cap_tcp: None,
         cap_process: None,
+        cap_audio: audio::Grant::Denied,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2101,6 +2105,10 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_app_data = Some(path.into());
         } else if argument == "--host-cap-clipboard" {
             parsed.cap_clipboard_system = true;
+        } else if argument == "--host-cap-audio" {
+            parsed.cap_audio = audio::Grant::System;
+        } else if argument == "--host-cap-audio-null" {
+            parsed.cap_audio = audio::Grant::Null;
         } else if let Some(path) = argument.strip_prefix("--host-cap-clipboard-fixture=") {
             parsed.cap_clipboard_fixture = Some(path.into());
         } else if argument == "--host-cap-tcp" {
@@ -2175,6 +2183,8 @@ fn print_host_help(app_name: &str) {
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
+           --host-cap-audio                    Grant default audio-output access\n\
+           --host-cap-audio-null               Grant a deterministic null audio sink\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
@@ -2308,6 +2318,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     }
     tcp::configure(args.cap_tcp);
     process::configure(args.cap_process);
+    audio::configure(args.cap_audio);
     let stats_path = match start_requested_recorder(
         &args,
         parsed_spec.as_ref().map(|(case, _)| case),

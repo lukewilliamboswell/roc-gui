@@ -13,4 +13,6 @@ Resource := [].{
 	TcpStream : Handle([TcpStreamResource])
 	ProcessGrant : Handle([ProcessGrantResource])
 	Pty : Handle([PtyResource])
+	AudioOutput : Handle([AudioOutputResource])
+	AudioTrack : Handle([AudioTrackResource])
 }

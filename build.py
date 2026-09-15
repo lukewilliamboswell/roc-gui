@@ -21,6 +21,12 @@ def output(*command: str) -> str:
 def main() -> None:
     if platform.system() != "Linux" or platform.machine() != "x86_64":
         raise SystemExit("This initial platform supports Linux x86_64 only.")
+    alsa_runtime = Path("/usr/lib/x86_64-linux-gnu/libasound.so.2")
+    if not alsa_runtime.is_file():
+        raise SystemExit(
+            "Audio support requires the system ALSA runtime at "
+            "/usr/lib/x86_64-linux-gnu/libasound.so.2."
+        )
 
     environment = os.environ.copy()
     environment["ROC_GUI_HOST_COMMIT"] = output("git", "rev-parse", "HEAD") or "unavailable"

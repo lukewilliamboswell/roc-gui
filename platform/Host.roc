@@ -237,6 +237,14 @@ Host := [].{
 	process_resize! : Resource.Pty, { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
 	process_cancel! : Resource.Pty => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
 
+	audio_acquire! : {} => Try(Resource.AudioOutput, { code : U8, message : Str })
+	audio_load! : Resource.AudioOutput, Resource.DirRead, Str => Try({ duration_ms : U64, track : Resource.AudioTrack }, { code : U8, message : Str })
+	audio_play! : Resource.AudioTrack => Try({}, { code : U8, message : Str })
+	audio_pause! : Resource.AudioTrack => Try({}, { code : U8, message : Str })
+	audio_seek! : Resource.AudioTrack, U64 => Try({}, { code : U8, message : Str })
+	audio_status! : Resource.AudioTrack => Try({ duration_ms : U64, position_ms : U64, state : U8 }, { code : U8, message : Str })
+	audio_stop! : Resource.AudioTrack => Try({}, { code : U8, message : Str })
+
 	tcp_connect! : {} => Try(Resource.TcpStream, U8)
 	tcp_read_up_to! : Resource.TcpStream, U64 => Try(List(U8), U8)
 	tcp_write_all! : Resource.TcpStream, List(U8) => Try({}, U8)

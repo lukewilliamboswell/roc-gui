@@ -1741,6 +1741,62 @@ const _: () = assert!(core::mem::size_of::<AnonStruct2a44a28a63f85620>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct2a44a28a63f85620>() == 8, "AnonStruct2a44a28a63f85620 alignment mismatch");
 
+/// Element type for __AnonStruct_8e993eac1f1cd0c
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct8e993eac1f1cd0c {
+    pub duration_ms: u64,
+    pub track: *mut u64,
+}
+
+/// Element type for __AnonStruct_8e993eac1f1cd0c
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct8e993eac1f1cd0c {
+    pub duration_ms: u64,
+    pub track: *mut u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct8e993eac1f1cd0c>() == 16, "AnonStruct8e993eac1f1cd0c size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct8e993eac1f1cd0c>() == 8, "AnonStruct8e993eac1f1cd0c alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct8e993eac1f1cd0c>() == 16, "AnonStruct8e993eac1f1cd0c size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct8e993eac1f1cd0c>() == 8, "AnonStruct8e993eac1f1cd0c alignment mismatch");
+
+/// Element type for __AnonStruct_18a809e7fe3ae87a
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct18a809e7fe3ae87a {
+    pub duration_ms: u64,
+    pub position_ms: u64,
+    pub state: u8,
+}
+
+/// Element type for __AnonStruct_18a809e7fe3ae87a
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct18a809e7fe3ae87a {
+    pub duration_ms: u64,
+    pub position_ms: u64,
+    pub state: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct18a809e7fe3ae87a>() == 24, "AnonStruct18a809e7fe3ae87a size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct18a809e7fe3ae87a>() == 8, "AnonStruct18a809e7fe3ae87a alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct18a809e7fe3ae87a>() == 24, "AnonStruct18a809e7fe3ae87a size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct18a809e7fe3ae87a>() == 8, "AnonStruct18a809e7fe3ae87a alignment mismatch");
+
 /// Element type for __AnonStruct_93136bf334c2a2fc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -3555,6 +3611,387 @@ const _: () = assert!(core::mem::size_of::<HostGlueClipboardWriteTextResult>() =
 const _: () = assert!(core::mem::align_of::<HostGlueClipboardWriteTextResult>() == 4, "HostGlueClipboardWriteTextResult alignment mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueClipboardWriteTextResult, tag) == 16, "HostGlueClipboardWriteTextResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueAudioAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueAudioAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioAcquireResult {
+    pub _payload_alignment: [HostGlueAudioAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueAudioAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioAcquireResult {
+    pub payload: HostGlueAudioAcquireResultPayload,
+    pub tag: HostGlueAudioAcquireResultTag,
+}
+
+impl HostGlueAudioAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioAcquireResult>() == 40, "HostGlueAudioAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioAcquireResult>() == 8, "HostGlueAudioAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioAcquireResult, tag) == 32, "HostGlueAudioAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioAcquireResult>() == 20, "HostGlueAudioAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioAcquireResult>() == 4, "HostGlueAudioAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioAcquireResult, tag) == 16, "HostGlueAudioAcquireResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueAudioLoadResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueAudioLoadResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct8e993eac1f1cd0c>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadResult {
+    pub _payload_alignment: [HostGlueAudioLoadResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueAudioLoadResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadResult {
+    pub payload: HostGlueAudioLoadResultPayload,
+    pub tag: HostGlueAudioLoadResultTag,
+}
+
+impl HostGlueAudioLoadResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct8e993eac1f1cd0c {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct8e993eac1f1cd0c) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct8e993eac1f1cd0c {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct8e993eac1f1cd0c> as *const AnonStruct8e993eac1f1cd0c) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct8e993eac1f1cd0c {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct8e993eac1f1cd0c) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct8e993eac1f1cd0c {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioLoadResult>() == 40, "HostGlueAudioLoadResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioLoadResult>() == 8, "HostGlueAudioLoadResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioLoadResult, tag) == 32, "HostGlueAudioLoadResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioLoadResult>() == 24, "HostGlueAudioLoadResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioLoadResult>() == 8, "HostGlueAudioLoadResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioLoadResult, tag) == 16, "HostGlueAudioLoadResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueAudioStatusResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueAudioStatusResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct18a809e7fe3ae87a>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusResult {
+    pub _payload_alignment: [HostGlueAudioStatusResultPayloadAlignment; 0],
+    pub payload: [u8; 24],
+    pub tag: HostGlueAudioStatusResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusResult {
+    pub payload: HostGlueAudioStatusResultPayload,
+    pub tag: HostGlueAudioStatusResultTag,
+}
+
+impl HostGlueAudioStatusResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct18a809e7fe3ae87a {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct18a809e7fe3ae87a) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct18a809e7fe3ae87a {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct18a809e7fe3ae87a> as *const AnonStruct18a809e7fe3ae87a) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct18a809e7fe3ae87a {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct18a809e7fe3ae87a) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct18a809e7fe3ae87a {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioStatusResult>() == 40, "HostGlueAudioStatusResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioStatusResult>() == 8, "HostGlueAudioStatusResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioStatusResult, tag) == 32, "HostGlueAudioStatusResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioStatusResult>() == 32, "HostGlueAudioStatusResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioStatusResult>() == 8, "HostGlueAudioStatusResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioStatusResult, tag) == 24, "HostGlueAudioStatusResult tag offset mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -6914,6 +7351,63 @@ pub struct HostGlueClipboardWriteTextArgs {
     pub arg1: RocStr,
 }
 
+/// Arguments for HostGlue.audio_load!
+/// Roc signature: Resource.Handle([AudioOutputResource]), Resource.Handle([DirReadResource]), Str => Try({ duration_ms : U64, track : Resource.Handle([AudioTrackResource]) }, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadArgs {
+    pub arg0: *mut u64,
+    pub arg1: *mut u64,
+    pub arg2: RocStr,
+}
+
+/// Arguments for HostGlue.audio_play!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioPlayArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.audio_pause!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioPauseArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.audio_seek!
+/// Roc signature: Resource.Handle([AudioTrackResource]), U64 => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioSeekArgs {
+    pub arg0: *mut u64,
+    pub arg1: u64,
+}
+
+/// Arguments for HostGlue.audio_status!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({ duration_ms : U64, position_ms : U64, state : U8 }, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.audio_stop!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStopArgs {
+    pub arg0: *mut u64,
+}
+
 /// Arguments for HostGlue.tcp_read_up_to!
 /// Roc signature: Resource.Handle([TcpStreamResource]), U64 => Try(List(U8), U8)
 /// Refcounted fields are owned by the hosted function.
@@ -7221,6 +7715,27 @@ pub type HostGlueClipboardAcquireErr = AnonStruct4c605145331877e7;
 pub type HostGlueClipboardReadTextErr = AnonStruct4c605145331877e7;
 pub type HostGlueClipboardReadTextOk = AnonStruct2a44a28a63f85620;
 pub type HostGlueClipboardWriteTextErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioAcquireErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioLoadErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioLoadOk = AnonStruct8e993eac1f1cd0c;
+pub type HostGlueAudioPlayResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioPlayResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioPlayResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioPlayErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioPauseResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioPauseResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioPauseResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioPauseErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioSeekResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioSeekResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioSeekResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioSeekErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioStatusErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioStatusOk = AnonStruct18a809e7fe3ae87a;
+pub type HostGlueAudioStopResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioStopResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioStopResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioStopErr = AnonStruct4c605145331877e7;
 pub type HostGlueTcpCloseResult = HostGlueTcpWriteAllResult;
 pub type HostGlueTcpCloseResultPayload = HostGlueTcpWriteAllResultPayload;
 pub type HostGlueTcpCloseResultTag = HostGlueTcpWriteAllResultTag;
@@ -8458,6 +8973,213 @@ pub struct HostGlueClipboardWriteTextResultRelease;
 
 unsafe impl RocRelease<HostGlueClipboardWriteTextResult> for HostGlueClipboardWriteTextResultRelease {
     unsafe fn release(value: HostGlueClipboardWriteTextResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueAudioAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueAudioAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueAudioAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueAudioAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueAudioAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueAudioAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueAudioAcquireResult> for HostGlueAudioAcquireResultRelease {
+    unsafe fn release(value: HostGlueAudioAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueAudioLoadResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueAudioLoadResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueAudioLoadResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueAudioLoadResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueAudioLoadResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueAudioLoadResultRelease;
+
+unsafe impl RocRelease<HostGlueAudioLoadResult> for HostGlueAudioLoadResultRelease {
+    unsafe fn release(value: HostGlueAudioLoadResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct8e993eac1f1cd0c {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_box_with(value.track as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { incref_box(value.track as RocBox, amount); }
+    }
+}
+
+pub struct AnonStruct8e993eac1f1cd0cRelease;
+
+unsafe impl RocRelease<AnonStruct8e993eac1f1cd0c> for AnonStruct8e993eac1f1cd0cRelease {
+    unsafe fn release(value: AnonStruct8e993eac1f1cd0c, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueAudioStatusResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueAudioStatusResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueAudioStatusResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueAudioStatusResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueAudioStatusResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueAudioStatusResultRelease;
+
+unsafe impl RocRelease<HostGlueAudioStatusResult> for HostGlueAudioStatusResultRelease {
+    unsafe fn release(value: HostGlueAudioStatusResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct18a809e7fe3ae87a {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct18a809e7fe3ae87aRelease;
+
+unsafe impl RocRelease<AnonStruct18a809e7fe3ae87a> for AnonStruct18a809e7fe3ae87aRelease {
+    unsafe fn release(value: AnonStruct18a809e7fe3ae87a, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -9868,6 +10590,61 @@ unsafe extern "C" {
     ///     unsafe { arg1.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_clipboard_write_text(arg0: *mut u64, arg1: RocStr) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([AudioOutputResource]), { code : U8, message : Str })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_acquire() -> HostGlueAudioAcquireResult;
+
+    /// Hosted symbol for HostGlue.audio_load!
+    /// Roc signature: Resource.Handle([AudioOutputResource]), Resource.Handle([DirReadResource]), Str => Try({ duration_ms : U64, track : Resource.Handle([AudioTrackResource]) }, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { decref_box_with(arg1 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg2.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_load(arg0: *mut u64, arg1: *mut u64, arg2: RocStr) -> HostGlueAudioLoadResult;
+
+    /// Hosted symbol for HostGlue.audio_play!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_play(arg0: *mut u64) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_pause!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_pause(arg0: *mut u64) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_seek!
+    /// Roc signature: Resource.Handle([AudioTrackResource]), U64 => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_seek(arg0: *mut u64, arg1: u64) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_status!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({ duration_ms : U64, position_ms : U64, state : U8 }, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_status(arg0: *mut u64) -> HostGlueAudioStatusResult;
+
+    /// Hosted symbol for HostGlue.audio_stop!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_stop(arg0: *mut u64) -> HostGlueClipboardWriteTextResult;
 
     /// Hosted symbol for HostGlue.tcp_connect!
     /// Roc signature: {} => Try(Resource.Handle([TcpStreamResource]), U8)

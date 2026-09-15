@@ -125,6 +125,8 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
     clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
     if case.app.parent.name == "redis-explorer":
         command.extend(["--host-cap-tcp", "127.0.0.1:36379"])
+    if case.app.parent.name == "music-player":
+        command.append("--host-cap-audio-null")
     with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
         storage = Path(temporary)
         if app_data_fixture.is_dir():

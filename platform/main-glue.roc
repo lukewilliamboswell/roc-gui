@@ -40,6 +40,13 @@ platform ""
 		"roc_clipboard_acquire": HostGlue.clipboard_acquire!,
 		"roc_clipboard_read_text": HostGlue.clipboard_read_text!,
 		"roc_clipboard_write_text": HostGlue.clipboard_write_text!,
+		"roc_audio_acquire": HostGlue.audio_acquire!,
+		"roc_audio_load": HostGlue.audio_load!,
+		"roc_audio_play": HostGlue.audio_play!,
+		"roc_audio_pause": HostGlue.audio_pause!,
+		"roc_audio_seek": HostGlue.audio_seek!,
+		"roc_audio_status": HostGlue.audio_status!,
+		"roc_audio_stop": HostGlue.audio_stop!,
 		"roc_tcp_connect": HostGlue.tcp_connect!,
 		"roc_tcp_read_up_to": HostGlue.tcp_read_up_to!,
 		"roc_tcp_write_all": HostGlue.tcp_write_all!,
@@ -69,7 +76,7 @@ platform ""
 	}
 	targets: {
 		inputs_dir: "targets/",
-		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
+		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libasound.so", "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
 	}
 
 import HostGlue

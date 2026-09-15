@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process]
+	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -33,6 +33,13 @@ platform ""
 		"roc_clipboard_acquire": Host.clipboard_acquire!,
 		"roc_clipboard_read_text": Host.clipboard_read_text!,
 		"roc_clipboard_write_text": Host.clipboard_write_text!,
+		"roc_audio_acquire": Host.audio_acquire!,
+		"roc_audio_load": Host.audio_load!,
+		"roc_audio_play": Host.audio_play!,
+		"roc_audio_pause": Host.audio_pause!,
+		"roc_audio_seek": Host.audio_seek!,
+		"roc_audio_status": Host.audio_status!,
+		"roc_audio_stop": Host.audio_stop!,
 		"roc_tcp_connect": Host.tcp_connect!,
 		"roc_tcp_read_up_to": Host.tcp_read_up_to!,
 		"roc_tcp_write_all": Host.tcp_write_all!,
@@ -62,7 +69,7 @@ platform ""
 	}
 	targets: {
 		inputs_dir: "targets/",
-		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
+		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libasound.so", "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
 	}
 
 import Program exposing [Program]
@@ -78,6 +85,7 @@ import InternalFiles
 import Clipboard
 import Tcp
 import Process
+import Audio
 import Host
 
 gui_init! : () => {}

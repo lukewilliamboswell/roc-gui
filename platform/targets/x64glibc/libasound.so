@@ -1,0 +1,2 @@
+/* Link against the distribution-provided ALSA ABI without copying it. */
+INPUT(/usr/lib/x86_64-linux-gnu/libasound.so.2)

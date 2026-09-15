@@ -68,6 +68,15 @@ names the evidence so a fix can be verified against the same case.
 
 ## Input and accessibility
 
+- [ ] **Music library metadata, persistence, and media integration.** The music
+  player foundation provides explicit folder/output capabilities, Rodio and
+  Symphonia decoding, a bounded playback state machine, queue navigation,
+  seeking, stale-load suppression, corrupt-media isolation, and a virtualized
+  ordinary-use library. Add metadata and artwork extraction, durable roots and
+  playlists, filesystem reconciliation, volume and repeat policy, automatic
+  end-of-track queue advancement, device-loss recovery, and operating-system
+  media controls as complete production slices.
+
 - [ ] **Clipboard image formats, durable pins, and global activation.** The
   clipboard-history slice provides explicitly granted, bounded text capture,
   privacy exclusion, restore, cancellation, stale suppression, virtualization,

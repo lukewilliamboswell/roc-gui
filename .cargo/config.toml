@@ -1,0 +1,3 @@
+[env]
+PKG_CONFIG_PATH = { value = "third_party/alsa/lib/pkgconfig", relative = true }
+LIBRARY_PATH = { value = "third_party/alsa/lib", relative = true }

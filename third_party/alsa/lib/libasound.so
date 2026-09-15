@@ -1,0 +1,2 @@
+/* Build-only linker alias. The runtime library remains system-owned. */
+INPUT(libasound.so.2)

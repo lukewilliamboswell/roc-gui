@@ -143,6 +143,31 @@ pub(crate) fn valid_name(name: &str) -> bool {
     matches!(parts.next(), Some(Component::Normal(_))) && parts.next().is_none()
 }
 
+pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, std::io::Error> {
+    if !valid_name(name) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "invalid file name",
+        ));
+    }
+    let dir = lookup(handle).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "invalid directory capability",
+        )
+    })?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    let mut file = dir.open_with(name, &options.follow(FollowSymlinks::No))?;
+    let length = file.metadata()?.len();
+    if length > MAX_FILE_BYTES {
+        return Err(std::io::Error::other("file exceeds audio load limit"));
+    }
+    let mut bytes = Vec::with_capacity(length as usize);
+    file.read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
     let initial = store()

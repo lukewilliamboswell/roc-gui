@@ -255,6 +255,25 @@ Run these blocking operations inside `Action.task`, with a monotonic request
 identity when an edit can supersede pending work. The Settings Center uses this
 route and retains a newer draft when an older load completes.
 
+== Audio output capabilities
+
+`Audio.acquire!({})` acquires an opaque output handle only when the host was
+launched with `--host-cap-audio`. `Audio.load!(output, directory, name)` loads
+one direct file through an existing `Files.Dir.Read` grant; names with traversal
+or multiple components are rejected and encoded input is bounded to 64 MiB.
+The host delegates media decoding and playback to Rodio and Symphonia.
+
+`Audio.Track` is an opaque host resource. `Audio.play!`, `Audio.pause!`,
+`Audio.seek!`, `Audio.status!`, and `Audio.stop!` are bounded operations intended
+for `Action.task`. Status reports the decoder-owned duration, playback position,
+and `Loaded`, `Playing`, `Paused`, or `Stopped` state. `Audio.AudioErr` identifies
+the failed operation and carries a portable reason such as `DecodeFailed`,
+`OutputUnavailable`, or `InvalidCapability`.
+
+Specification runs may receive `--host-cap-audio-null`. The null output drains
+the same paced Rodio mixer, decoder, and player state used by a system output;
+it changes only the final device sink.
+
 == Clipboard capabilities
 
 `Clipboard.acquire!({})` acquires text clipboard authority only when the host
