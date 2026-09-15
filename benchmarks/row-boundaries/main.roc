@@ -2,7 +2,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem exposing [Elem]
-import pf.Layout
 import pf.Program exposing [Program]
 
 RowState : { id : U64, value : U64 }
@@ -73,7 +72,7 @@ swap_rows = |state, left, right| {
 }
 
 render_row : RowState -> Elem(RowState)
-render_row = |row| Layout.row(
+render_row = |row| Elem.row(
 	{},
 	[
 		Elem.text("Row ${row.id.to_str()}: ${row.value.to_str()}"),
@@ -91,7 +90,7 @@ render = |state| {
 	for row in state.rows {
 		id = row.id
 		$rendered = $rendered.append(
-			Layout.row(
+			Elem.row(
 				{},
 				[
 					Elem.translate(
@@ -117,10 +116,10 @@ render = |state| {
 			),
 		)
 	}
-	Layout.col(
+	Elem.col(
 		{},
 		[
-			Layout.row(
+			Elem.row(
 				{},
 				[
 					Elem.button({ label: "Create 100", name: "Create 100 rows", on_press: |_, _| Action.update({ rows: make_rows(100), selected: 0 }) }),
@@ -134,7 +133,7 @@ render = |state| {
 			),
 			Elem.text("Rows: ${state.rows.len().to_str()}"),
 			Elem.text("Selection: ${state.selected.to_str()}"),
-			Layout.col({}, $rendered),
+			Elem.col({}, $rendered),
 		],
 	)
 }

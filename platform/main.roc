@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Layout, Action, Event, Gui, Files, Timer, Http, Sqlite]
+	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 	}
@@ -49,7 +49,6 @@ platform ""
 
 import Program exposing [Program]
 import Elem exposing [Elem]
-import Layout
 import Action
 import Event
 import Gui

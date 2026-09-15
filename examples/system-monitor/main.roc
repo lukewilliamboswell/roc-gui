@@ -3,7 +3,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 import pf.Action
 import pf.Elem
 import pf.Gui
-import pf.Layout
 import pf.Program exposing [Program]
 import pf.Timer
 
@@ -59,11 +58,11 @@ render = |state| {
 		Paused => Elem.action_button(Elem.ActionButtonProps.{ caption: "Resume", label: "Resume sampling", on_press: |current, _| start!(current) })
 		Running(handle) => Elem.action_button(Elem.ActionButtonProps.{ caption: "Pause", label: "Pause sampling", on_press: |current, _| pause!(current, handle) })
 	}
-	Layout.col(
+	Elem.col(
 		Elem.ColProps.{ label: "System monitor", width: Fill, height: Fill, grow: True, padding: 24 },
 		[
 			Elem.text("System Monitor"),
-			Layout.row(Elem.RowProps.{ label: "Sampling controls" }, [control, Elem.action_button(Elem.ActionButtonProps.{ caption: "Validate bounds", label: "Validate timer bounds", on_press: |current, _| invalid_start!(current) }), Elem.text(state.status)]),
+			Elem.row(Elem.RowProps.{ label: "Sampling controls" }, [control, Elem.action_button(Elem.ActionButtonProps.{ caption: "Validate bounds", label: "Validate timer bounds", on_press: |current, _| invalid_start!(current) }), Elem.text(state.status)]),
 			Elem.panel(Elem.PanelProps.{ label: "Resource summary", width: Fill }, [Elem.text("CPU: unavailable"), Elem.text("Memory: unavailable")]),
 			Elem.virtual_list(Elem.VirtualListProps.{ name: "Observation history", row_height: 32, items: sample_items(state.samples) }),
 		],

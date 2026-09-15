@@ -4,7 +4,6 @@ import pf.Action
 import pf.Elem exposing [Elem]
 import pf.Files
 import pf.Gui
-import pf.Layout
 import pf.Program exposing [Program]
 
 Location : { directory : Files.Dir.Read, name : Str }
@@ -167,13 +166,13 @@ render = |state| {
 			Elem.panel(
 				Elem.PanelProps.{ label: "Directory view", width: Fill, height: Fill, grow: True, gap: 12 },
 				back.concat([
-					Layout.row(Elem.RowProps.{ label: "Directory breadcrumbs", width: Fill, gap: 6 }, breadcrumbs(view.trail)),
-					Elem.scroll(Elem.ScrollProps.{ name: "Directory contents", content: Layout.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 6 }, rows) }),
+					Elem.row(Elem.RowProps.{ label: "Directory breadcrumbs", width: Fill, gap: 6 }, breadcrumbs(view.trail)),
+					Elem.scroll(Elem.ScrollProps.{ name: "Directory contents", content: Elem.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 6 }, rows) }),
 				]),
 			)
 		}
 	}
-	Layout.col(
+	Elem.col(
 		Elem.ColProps.{ label: "Folder browser", width: Fill, height: Fill, grow: True, padding: 24, gap: 16 },
 		[
 			Elem.text("Capability folder browser"),

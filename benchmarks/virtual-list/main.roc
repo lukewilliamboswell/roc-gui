@@ -3,7 +3,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 import pf.Action
 import pf.Elem
 import pf.Gui
-import pf.Layout
 import pf.Program exposing [Program]
 
 State : { rows : List(U64), selected : U64 }
@@ -16,10 +15,10 @@ make_rows = |count| {
 	$rows
 }
 
-render = |state| Layout.col(
+render = |state| Elem.col(
 	Elem.ColProps.{ width: Fill, height: Fill, grow: True },
 	[
-		Layout.row(
+		Elem.row(
 			{},
 			[
 				Elem.button({ label: "Load 100 rows", name: "Load 100 rows", on_press: |_, _| Action.update({ rows: make_rows(100), selected: 100 }) }),

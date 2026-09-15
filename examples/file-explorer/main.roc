@@ -4,7 +4,6 @@ import pf.Action
 import pf.Elem exposing [Elem]
 import pf.Files
 import pf.Gui
-import pf.Layout
 import pf.Program exposing [Program]
 
 View : [Empty, Showing({ entries : List(Files.Entry), name : Str })]
@@ -56,7 +55,7 @@ render = |state| {
 		Showing(view) => Elem.panel(
 			Elem.PanelProps.{ label: "Directory content", width: Fill, height: Fill, grow: True },
 			[
-				Layout.row(
+				Elem.row(
 					Elem.RowProps.{ label: "Directory toolbar", width: Fill },
 					[
 						Elem.text(view.name),
@@ -80,7 +79,7 @@ render = |state| {
 				[
 					Elem.text("Close ${name}?"),
 					Elem.text("The directory grant and current view will be forgotten."),
-					Layout.row(
+					Elem.row(
 						Elem.RowProps.{ label: "Close directory actions" },
 						[
 							Elem.action_button(Elem.ActionButtonProps.{ caption: "Cancel", label: "Cancel close directory", on_press: |current, _| Action.update({ ..current, dialog: Closed }) }),
@@ -91,7 +90,7 @@ render = |state| {
 			),
 		]
 	}
-	Layout.col(
+	Elem.col(
 		Elem.ColProps.{ label: "File explorer", width: Fill, height: Fill, grow: True, padding: 24, gap: 16 },
 		[
 			Elem.text("File Explorer"),

@@ -2,7 +2,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem exposing [Elem]
-import pf.Layout
 import pf.Program exposing [Program]
 
 Shape : [Empty, Deep(U64), Balanced(U64)]
@@ -11,10 +10,10 @@ State : { shape : Shape }
 
 deep_tree : U64 -> Elem(State)
 deep_tree = |count| {
-	var $tree = Layout.col({}, [])
+	var $tree = Elem.col({}, [])
 	var $remaining = count
 	while $remaining > 0 {
-		$tree = Layout.col({}, [Elem.text("Outline item ${$remaining.to_str()}"), $tree])
+		$tree = Elem.col({}, [Elem.text("Outline item ${$remaining.to_str()}"), $tree])
 		$remaining = $remaining - 1
 	}
 	$tree
@@ -22,22 +21,22 @@ deep_tree = |count| {
 
 balanced_tree : U64, U64 -> Elem(State)
 balanced_tree = |levels, id| if levels == 0 {
-	Layout.col({}, [])
+	Elem.col({}, [])
 } else {
-	Layout.col(
+	Elem.col(
 		{},
 		[
 			Elem.text("Outline item ${id.to_str()}"),
-			Layout.row({}, [balanced_tree(levels - 1, id * 2), balanced_tree(levels - 1, id * 2 + 1)]),
+			Elem.row({}, [balanced_tree(levels - 1, id * 2), balanced_tree(levels - 1, id * 2 + 1)]),
 		],
 	)
 }
 
 render : State -> Elem(State)
-render = |state| Layout.col(
+render = |state| Elem.col(
 	{},
 	[
-		Layout.row(
+		Elem.row(
 			{},
 			[
 				Elem.button({ label: "Deep 10", name: "Build deep tree of 10", on_press: |_, _| Action.update({ shape: Deep(10) }) }),
@@ -49,7 +48,7 @@ render = |state| Layout.col(
 			],
 		),
 		match state.shape {
-			Empty => Layout.col({}, [])
+			Empty => Elem.col({}, [])
 			Deep(count) => deep_tree(count)
 			Balanced(levels) => balanced_tree(levels, 1)
 		},

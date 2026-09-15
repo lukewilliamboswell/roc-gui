@@ -2,7 +2,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem exposing [Elem]
-import pf.Layout
 import pf.Program exposing [Program]
 
 Content : [Short, Long, MetadataRich]
@@ -23,7 +22,7 @@ render_message = |id, content| {
 		MetadataRich => [Elem.text("Author: Operator"), Elem.text("Status: Delivered"), Elem.text("Received: just now")]
 		_ => []
 	}
-	Layout.col({}, primary.concat(metadata))
+	Elem.col({}, primary.concat(metadata))
 }
 
 render : State -> Elem(State)
@@ -33,10 +32,10 @@ render = |state| {
 		id = $messages.len() + 1
 		$messages = $messages.append(render_message(id, state.content))
 	}
-	Layout.col(
+	Elem.col(
 		{},
 		[
-			Layout.row(
+			Elem.row(
 				{},
 				[
 					Elem.button({ label: "Short 100", name: "Show 100 short messages", on_press: |_, _| Action.update({ count: 100, content: Short }) }),
@@ -50,7 +49,7 @@ render = |state| {
 					Elem.button({ label: "Rich 10,000", name: "Show 10,000 metadata-rich messages", on_press: |_, _| Action.update({ count: 10000, content: MetadataRich }) }),
 				],
 			),
-			Layout.col({}, $messages),
+			Elem.col({}, $messages),
 		],
 	)
 }

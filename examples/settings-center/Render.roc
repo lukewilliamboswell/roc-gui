@@ -2,7 +2,6 @@
 import pf.Action
 import pf.Elem exposing [Elem]
 import pf.Gui
-import pf.Layout
 import Settings
 
 Render := [].{
@@ -23,18 +22,18 @@ Render := [].{
 		} else {
 			Elem.panel(Elem.PanelProps.{ label: "Saved status", width: Fill, padding: 10 }, [Elem.text("Settings are saved")])
 		}
-		content = Layout.col(
+		content = Elem.col(
 			Elem.ColProps.{ label: "Settings Center", width: Fill, height: Fill, grow: True, padding: 24, gap: 14 },
 			[
 				Elem.text("Settings Center"),
 				Elem.action_button(Elem.ActionButtonProps.{ caption: "Rename workspace", label: "Open rename dialog", on_press: |current, _| Action.update({ ..current, dialog_open: True }) }),
-				Layout.row(Elem.RowProps.{ label: "Categories", width: Fill, gap: 8 }, ["Appearance", "Editor", "Privacy", "Notifications"].map(|category| Elem.action_button(Elem.ActionButtonProps.{ caption: category, label: "Category ${category}", on_press: |current, _| Action.update({ ..current, search: category }) }))),
+				Elem.row(Elem.RowProps.{ label: "Categories", width: Fill, gap: 8 }, ["Appearance", "Editor", "Privacy", "Notifications"].map(|category| Elem.action_button(Elem.ActionButtonProps.{ caption: category, label: "Category ${category}", on_press: |current, _| Action.update({ ..current, search: category }) }))),
 				Elem.panel(
 					Elem.PanelProps.{ label: "Profile settings", width: Fill, gap: 10 },
 					[
 						Elem.text_input(Elem.TextInputProps.{ label: "Profile name", value: state.draft_name, placeholder: "Enter a profile name", on_change: |current, event| Action.update({ ..current, draft_name: event.value }), on_submit: |current, _| Settings.apply_name(current) }),
 						status,
-						Layout.row(
+						Elem.row(
 							Elem.RowProps.{ label: "Profile actions", gap: 8 },
 							[
 								Elem.action_button(
@@ -78,7 +77,7 @@ Render := [].{
 			],
 		)
 		if state.dialog_open {
-			Layout.col(
+			Elem.col(
 				Elem.ColProps.{ label: "Settings application", width: Fill, height: Fill, grow: True },
 				[
 					content,

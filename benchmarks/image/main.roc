@@ -2,7 +2,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem
-import pf.Layout
 import pf.Program exposing [Program]
 
 State : { bytes : List(U8) }
@@ -17,10 +16,10 @@ image_bytes = |size| {
 	"${prefix}${Str.join_with(segments, "")}${Str.join_with(remainder, "")}${suffix}".to_utf8()
 }
 
-render = |state| Layout.col(
+render = |state| Elem.col(
 	Elem.ColProps.{ width: Fill, height: Fill, grow: True, padding: 16 },
 	[
-		Layout.row(
+		Elem.row(
 			{},
 			[
 				Elem.button({ label: "Load 100 KB image", name: "Load 100000 byte image", on_press: |_, _| Action.update({ bytes: image_bytes(100000) }) }),

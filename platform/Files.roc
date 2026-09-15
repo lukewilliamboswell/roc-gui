@@ -19,9 +19,6 @@ Files := [].{
 	## available and absent for directories and other entries.
 	Entry : { name : Str, kind : Kind, bytes : [None, Some(U64)] }
 
-	## The filesystem operation which failed.
-	Operation : [ListDirectory, OpenReadDirectory, PickDirectory, ReadFile]
-
 	## A stable, portable category for a filesystem failure.
 	Reason : [
 		AccessDenied,
@@ -36,8 +33,14 @@ Files := [].{
 		Unsupported,
 	]
 
-	## A filesystem failure, split into the attempted operation and its reason.
-	Error : { operation : Operation, reason : Reason }
+	## A filesystem failure. The tag identifies the operation that failed, so
+	## callers can handle operation-specific failures directly.
+	FileErr : [
+		ListDirectoryErr(Reason),
+		OpenReadDirectoryErr(Reason),
+		PickDirectoryErr(Reason),
+		ReadFileErr(Reason),
+	]
 
 	## Operations requiring read authority for a particular directory.
 	Dir := [].{
@@ -48,19 +51,19 @@ Files := [].{
 
 		## List direct children without following symbolic links. Results are
 		## bounded by the host's entry and metadata limits.
-		list! : Resource.DirRead => Try(List(Entry), Error)
+		list! : Resource.DirRead => Try(List(Entry), FileErr)
 
 		## Acquire one direct ordinary child directory as a new read handle. `name`
 		## must be a single ordinary entry name; traversal and links are rejected.
-		open_read_dir! : Resource.DirRead, Str => Try(Resource.DirRead, Error)
+		open_read_dir! : Resource.DirRead, Str => Try(Resource.DirRead, FileErr)
 
 		## Read one direct ordinary child file without following symbolic links.
 		## Reads are bounded by the host and return `ResourceLimit` when the file is
 		## too large for one in-memory value.
-		read! : Resource.DirRead, Str => Try(List(U8), Error)
+		read! : Resource.DirRead, Str => Try(List(U8), FileErr)
 	}
 
 	## Acquire the directory handle granted when the application was launched.
 	## Without a `--host-cap-dir PATH` grant this returns `AccessDenied`.
-	pick_directory! : {} => Try(Choice(Selection), Error)
+	pick_directory! : {} => Try(Choice(Selection), FileErr)
 }

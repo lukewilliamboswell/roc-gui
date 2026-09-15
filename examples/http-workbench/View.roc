@@ -2,12 +2,11 @@
 import pf.Action
 import pf.Elem
 import pf.Gui
-import pf.Layout
 import Workbench
 
 View := [].{
 	render : Workbench.State -> Elem(Workbench.State)
-	render = |state| Layout.col(
+	render = |state| Elem.col(
 		Elem.ColProps.{ label: "HTTP workbench", width: Fill, height: Fill, grow: True, padding: 20, gap: 12 },
 		[
 			Elem.text("HTTP Workbench"),

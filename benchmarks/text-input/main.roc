@@ -2,7 +2,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem
-import pf.Layout
 import pf.Program exposing [Program]
 
 State : { count : U64, search : Str }
@@ -27,10 +26,10 @@ settings = |count| {
 
 render = |state| {
 	visible = settings(state.count).keep_if(|setting| state.search.is_empty() or setting.name.contains(state.search))
-	Layout.col(
+	Elem.col(
 		Elem.ColProps.{ width: Fill, height: Fill, grow: True },
 		[
-			Layout.row(
+			Elem.row(
 				{},
 				[
 					Elem.button({ label: "Load 100 settings", name: "Load 100 settings", on_press: |current, _| Action.update({ ..current, count: 100 }) }),

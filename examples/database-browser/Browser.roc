@@ -1,7 +1,6 @@
 import pf.Action
 import pf.Elem exposing [Elem]
 import pf.Files
-import pf.Layout
 import pf.Sqlite
 import Query
 
@@ -21,52 +20,72 @@ State : { database : [None, Some(Sqlite.Read)], folder : [None, Some(Folder)], n
 
 choose = |state| {
 	id = state.next_request
-	Action.task({ pending: { ..state, next_request: id + 1, status: Busy(id) }, run: || match Files.pick_directory!({}) {
-		Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {
-			Ok(entries) => ChosenFolder({ directory: selection.directory, entries })
+	Action.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || match Files.pick_directory!({}) {
+			Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {
+				Ok(entries) => ChosenFolder({ directory: selection.directory, entries })
+				Err(_) => ChooseFailed
+			}
+			Ok(Canceled) => ChooseCanceled
 			Err(_) => ChooseFailed
-		}
-		Ok(Canceled) => ChooseCanceled
-		Err(_) => ChooseFailed
-	}, resolve: |latest, result| match latest.status {
-		Busy(active) if active == id => match result {
-			ChosenFolder(folder) => Action.update({ ..latest, folder: Some(folder), status: Ready })
-			ChooseCanceled => Action.update({ ..latest, status: Ready })
-			ChooseFailed => Action.update({ ..latest, status: Failed("Could not open the database folder") })
-		}
-		_ => Action.none
-	} })
+		},
+		resolve: |latest, result| match latest.status {
+			Busy(active) if active == id => match result {
+				ChosenFolder(folder) => Action.update({ ..latest, folder: Some(folder), status: Ready })
+				ChooseCanceled => Action.update({ ..latest, status: Ready })
+				ChooseFailed => Action.update({ ..latest, status: Failed("Could not open the database folder") })
+			}
+			_ => Action.none
+		},
+	})
 }
 
 open_database = |state, directory, name| {
 	id = state.next_request
-	Action.task({ pending: { ..state, next_request: id + 1, status: Busy(id) }, run: || match Sqlite.open_read!(directory, name) {
-		Err(_) => Err(OpenFailed)
-		Ok(database) => match Sqlite.query!(database, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") {
+	Action.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || match Sqlite.open_read!(directory, name) {
 			Err(_) => Err(OpenFailed)
-			Ok(result) => Ok({ database, result })
-		}
-	}, resolve: |latest, outcome| match latest.status {
-		Busy(active) if active == id => match outcome {
-			Err(_) => Action.update({ ..latest, status: Failed("Could not open a valid SQLite database") })
-			Ok(opened) => Action.update({ ..latest, database: Some(opened.database), schema: opened.result.rows.map(|row| match row.first() {
-				Ok(value) => Query.value_text(value)
-				Err(_) => ""
-			}), result: None, status: Ready })
-		}
-		_ => Action.none
-	} })
+			Ok(database) => match Sqlite.query!(database, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") {
+				Err(_) => Err(OpenFailed)
+				Ok(result) => Ok({ database, result })
+			}
+		},
+		resolve: |latest, outcome| match latest.status {
+			Busy(active) if active == id => match outcome {
+				Err(_) => Action.update({ ..latest, status: Failed("Could not open a valid SQLite database") })
+				Ok(opened) => Action.update({
+					..latest,
+					database: Some(opened.database),
+					schema: opened.result.rows.map(
+						|row| match row.first() {
+							Ok(value) => Query.value_text(value)
+							Err(_) => ""
+						},
+					),
+					result: None,
+					status: Ready,
+				})
+			}
+			_ => Action.none
+		},
+	})
 }
 
 run_query = |state, database, sql| {
 	id = state.next_request
-	Action.task({ pending: { ..state, next_request: id + 1, status: Busy(id) }, run: || Sqlite.query!(database, sql), resolve: |latest, outcome| match latest.status {
-		Busy(active) if active == id => match outcome {
-			Ok(result) => Action.update({ ..latest, result: Some(result), status: Ready })
-			Err(error) => Action.update({ ..latest, status: Failed(error.message) })
-		}
-		_ => Action.none
-	} })
+	Action.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || Sqlite.query!(database, sql),
+		resolve: |latest, outcome| match latest.status {
+			Busy(active) if active == id => match outcome {
+				Ok(result) => Action.update({ ..latest, result: Some(result), status: Ready })
+				Err(error) => Action.update({ ..latest, status: Failed(error.message) })
+			}
+			_ => Action.none
+		},
+	})
 }
 
 render : State -> Elem(State)
@@ -82,7 +101,7 @@ render = |state| {
 	}
 	result_view = match state.result {
 		None => Elem.text("Run a query to inspect rows")
-		Some(result) => Layout.col(
+		Some(result) => Elem.col(
 			Elem.ColProps.{ width: Fill, height: Fill, grow: True },
 			[
 				Elem.text("Columns: ${Str.join_with(result.columns, ", ")}"),
@@ -103,5 +122,5 @@ render = |state| {
 		Busy(_) => [Elem.text("Working…")]
 		Failed(message) => [Elem.panel(Elem.PanelProps.{ label: "Database error", width: Fill }, [Elem.text(message)])]
 	}
-	Layout.col(Elem.ColProps.{ label: "Database browser", width: Fill, height: Fill, grow: True, padding: 20 }, [Elem.text("SQLite Database Browser"), Elem.button({ label: "Choose database folder", name: "Choose database folder", on_press: |current, _| choose(current) })].concat(status).concat([Layout.row(Elem.RowProps.{ width: Fill }, [Layout.col(Elem.ColProps.{ label: "Database files", width: Px(220) }, database_files), Layout.col(Elem.ColProps.{ label: "Database schema", width: Px(220) }, schema)])]).concat(query_area).concat([result_view]))
+	Elem.col(Elem.ColProps.{ label: "Database browser", width: Fill, height: Fill, grow: True, padding: 20 }, [Elem.text("SQLite Database Browser"), Elem.button({ label: "Choose database folder", name: "Choose database folder", on_press: |current, _| choose(current) })].concat(status).concat([Elem.row(Elem.RowProps.{ width: Fill }, [Elem.col(Elem.ColProps.{ label: "Database files", width: Px(220) }, database_files), Elem.col(Elem.ColProps.{ label: "Database schema", width: Px(220) }, schema)])]).concat(query_area).concat([result_view]))
 }

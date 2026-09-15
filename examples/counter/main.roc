@@ -2,7 +2,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import Counter
 import pf.Elem exposing [Elem]
-import pf.Layout
 import pf.Program exposing [Program]
 
 State : {
@@ -12,14 +11,17 @@ State : {
 }
 
 render : State -> Elem(State)
-render = |state| Layout.col(
+render = |state| Elem.col(
 	{},
 	[
 		Elem.text(state.title),
-		Layout.row({}, [
-			Elem.translate(|child| Counter.render("Left", child), |parent| parent.left, |parent, child| { ..parent, left: child }),
-			Elem.translate(|child| Counter.render("Right", child), |parent| parent.right, |parent, child| { ..parent, right: child }),
-		]),
+		Elem.row(
+			{},
+			[
+				Elem.translate(|child| Counter.render("Left", child), |parent| parent.left, |parent, child| { ..parent, left: child }),
+				Elem.translate(|child| Counter.render("Right", child), |parent| parent.right, |parent, child| { ..parent, right: child }),
+			],
+		),
 	],
 )
 

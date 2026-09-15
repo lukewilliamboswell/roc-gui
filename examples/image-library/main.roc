@@ -3,7 +3,6 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 import pf.Action
 import pf.Elem exposing [Elem]
 import pf.Files
-import pf.Layout
 import pf.Program exposing [Program]
 
 Picture : { bytes : List(U8), format : Elem.ImageFormat, name : Str }
@@ -90,7 +89,7 @@ render = |state| {
 		Busy(_) => [Elem.text("Loading…")]
 		Failed(message) => [Elem.panel(Elem.PanelProps.{ label: "Image error", width: Fill }, [Elem.text(message)])]
 	}
-	Layout.col(Elem.ColProps.{ label: "Image library", width: Fill, height: Fill, grow: True, padding: 20 }, [Elem.text("Image Library"), Elem.button({ label: "Choose image folder", name: "Choose image folder", on_press: |current, _| pick(current) })].concat(status).concat([Layout.row(Elem.RowProps.{ width: Fill, height: Fill, grow: True }, [Elem.scroll(Elem.ScrollProps.{ name: "Image files", content: Layout.col(Elem.ColProps.{ width: Px(220) }, entries) }), viewer])]))
+	Elem.col(Elem.ColProps.{ label: "Image library", width: Fill, height: Fill, grow: True, padding: 20 }, [Elem.text("Image Library"), Elem.button({ label: "Choose image folder", name: "Choose image folder", on_press: |current, _| pick(current) })].concat(status).concat([Elem.row(Elem.RowProps.{ width: Fill, height: Fill, grow: True }, [Elem.scroll(Elem.ScrollProps.{ name: "Image files", content: Elem.col(Elem.ColProps.{ width: Px(220) }, entries) }), viewer])]))
 }
 
 main : Program(State)
