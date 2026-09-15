@@ -5,7 +5,8 @@ scans a filtered keyspace without `KEYS`, and inspects native values and TTLs.
 
 ## Core capabilities
 
-- Exact numeric endpoint authority through an opaque `pf.Tcp` stream.
+- Exact numeric development endpoint authority through an opaque `pf.Tcp`
+  stream, with explicit disconnect.
 - RESP encoding and decoding through `jaredramirez/roc-redis` 0.1.0-rc3.
 - Incremental SCAN filtering and virtualized key results.
 - Read-only strings, hashes, lists, sets, and sorted sets with TTL display.
@@ -28,4 +29,6 @@ scans a filtered keyspace without `KEYS`, and inspects native values and TTLs.
 
 Run the suite with `python3 scripts/run_specs.py 'examples/redis-explorer/specs/*.scm'`.
 For an interactive Redis server, run the application with
-`--host-cap-tcp 127.0.0.1:6379` after Roc's `--` argument separator.
+`--host-cap-tcp 127.0.0.1:6379` after Roc's `--` argument separator. This
+provisions a development connection; it is not a user-consent flow or a general
+DNS-capable Connect UI.

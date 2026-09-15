@@ -4,6 +4,7 @@ import pf.Tcp
 import redis.Bytes
 import redis.Client
 import redis.Commands
+import redis.Execute
 import redis.Transport
 import RedisData exposing [Key, Selection]
 
@@ -29,23 +30,32 @@ connect = |state| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || {
-			stream = Tcp.connect!({}) ? |_| ConnectFailed
-			pong = connection(stream).request!(Commands.Session.ping()) ? |_| ConnectFailed
+			stream = Tcp.connect!({}) ? |error| ConnectFailed(tcp_error_text(error))
+			pong = connection(stream).request!(Commands.Session.ping()) ? |error| ConnectFailed(redis_error_text(error))
 			if pong == Bytes.from_str("PONG") {
 				Ok(stream)
 			} else {
-				Err(ConnectFailed)
+				Err(ConnectFailed("Redis returned an invalid handshake reply"))
 			}
 		},
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
 				Ok(stream) => Action.update({ ..latest, stream: Some(stream), status: Ready })
-				Err(_) => Action.update({ ..latest, status: Failed("The granted Redis endpoint is unavailable") })
+				Err(ConnectFailed(message)) => Action.update({ ..latest, status: Failed(message) })
 			}
 			_ => Action.none
 		},
 	})
 }
+
+disconnect = |state, stream| Action.task({
+	pending: { ..state, stream: None, keys: [], selection: None, status: Busy(state.next_request) },
+	run: || Tcp.Stream.close!(stream),
+	resolve: |latest, outcome| match outcome {
+		Ok({}) => Action.update({ ..latest, status: Ready })
+		Err(error) => Action.update({ ..latest, status: Failed(tcp_error_text(error)) })
+	},
+})
 
 scan_pages! = |conn, cursor, pattern, remaining, found| {
 	page = conn.request!(Commands.Keyspace.scan(cursor, { pattern: Present(Bytes.from_str(pattern)), count: Present(remaining) })) ? |_| ScanFailed
@@ -147,7 +157,7 @@ render : State -> Elem(State)
 render = |state| {
 	controls = match state.stream {
 		None => [Elem.button({ label: "Connect", name: "Connect to Redis", on_press: |current, _| connect(current) })]
-		Some(stream) => [Elem.text_input(Elem.TextInputProps.{ label: "Key pattern", value: state.pattern, placeholder: "Redis glob, for example profile:*", on_change: |current, event| Action.update({ ..current, pattern: event.value }), on_submit: |current, _| scan(current, stream) }), Elem.button({ label: "Refresh keys", name: "Refresh Redis keys", on_press: |current, _| scan(current, stream) })]
+		Some(stream) => [Elem.text_input(Elem.TextInputProps.{ label: "Key pattern", value: state.pattern, placeholder: "Redis glob, for example profile:*", on_change: |current, event| Action.update({ ..current, pattern: event.value }), on_submit: |current, _| scan(current, stream) }), Elem.button({ label: "Refresh keys", name: "Refresh Redis keys", on_press: |current, _| scan(current, stream) }), Elem.button({ label: "Disconnect", name: "Disconnect from Redis", on_press: |current, _| disconnect(current, stream) })]
 	}
 	status = match state.status {
 		Ready => []
@@ -168,4 +178,33 @@ render = |state| {
 		Some(selected) => Elem.panel(Elem.PanelProps.{ label: "Value inspector", width: Fill, height: Fill, grow: True }, [Elem.text("Key: ${selected.key.name}"), Elem.text("Type: ${RedisData.kind_name(selected.kind)}"), Elem.text(RedisData.ttl_text(selected.ttl_ms))].concat(RedisData.lines(selected.value).map_with_index(|line, index| Elem.text("Value ${index.to_str()}: ${line}"))))
 	}
 	Elem.col(Elem.ColProps.{ label: "Redis Explorer", width: Fill, height: Fill, grow: True, padding: 20 }, [Elem.text("Redis Explorer")].concat(controls).concat(status).concat([Elem.text("Keys: ${state.keys.len().to_str()}"), Elem.row(Elem.RowProps.{ width: Fill, height: Fill, grow: True }, [Elem.virtual_list(Elem.VirtualListProps.{ name: "Redis keys", row_height: 34, items: key_items }), details])]))
+}
+
+tcp_error_text = |error| match error {
+	ConnectErr(reason) => tcp_reason_text(reason)
+	ReadErr(reason) => tcp_reason_text(reason)
+	WriteErr(reason) => tcp_reason_text(reason)
+	CloseErr(reason) => tcp_reason_text(reason)
+}
+
+tcp_reason_text = |reason| match reason {
+	AccessDenied => "Redis connection authority was not granted"
+	Closed => "Redis closed the connection"
+	ConnectionFailed => "The granted Redis endpoint is unavailable"
+	InvalidCapability => "The Redis connection was no longer valid"
+	InvalidRequest => "The Redis transport request was invalid"
+	ResourceLimit => "The Redis transport exceeded its resource limit"
+	Timeout => "The Redis endpoint timed out"
+}
+
+redis_error_text = |error| match error {
+	ExchangeFailed(details) => match details {
+		ReadFailed(ReadErr(Timeout)) => "The Redis endpoint timed out"
+		WriteFailed(WriteErr(Timeout)) => "The Redis endpoint timed out"
+		ProtocolFailure(_) => "Redis returned an invalid protocol frame"
+		_ => "Redis connection failed during the protocol exchange"
+	}
+	ReplyDecodeFailure(_) => "Redis returned an invalid protocol reply"
+	ServerError(_) => "Redis rejected the protocol request"
+	RequestRejected(_) => "The Redis protocol request exceeded its bound"
 }

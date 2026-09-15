@@ -164,6 +164,12 @@ names the evidence so a fix can be verified against the same case.
   general Redis administration tool. Credentials must never enter captures or
   ordinary persisted application state.
 
+- [ ] **Broker trusted TCP destinations and revocation.** Numeric exact-endpoint
+  provisioning deliberately performs no DNS and serves development and
+  automation. Add named user-approved destinations, revocation that closes
+  owned streams, and lifecycle evidence through a trusted connection broker
+  before applications present a general-purpose Connect UI.
+
 - [ ] **SQLite write transactions and parameters.** The database capability is
   deliberately read-only and executes one statement without bindings. Add a
   separately granted read-write capability, typed parameters, cancellation,
