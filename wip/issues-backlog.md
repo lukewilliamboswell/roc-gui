@@ -175,13 +175,6 @@ the change lands; do not soften the docs to match the gap.
   only; the indicator paints fixed dark values. On `image-library`'s near-white
   wall the grayscale toggle is the one dark chip in the window and the identity
   cannot reach it. Close with indicator colour fields on `Elem.CheckboxProps`.
-- [ ] **A row cannot distribute its children along its main axis.** There is
-  `gap` and nothing else, so a trailing child cannot sit at the far edge.
-  `terminal-workspace` wants its session status at the right end of the toolbar
-  and its encoding readout at the right end of the header, which is what an
-  instrument panel does with a status field; both are left-packed instead,
-  because the alternative is a grown spacer element that exists only to push.
-  Close with a main-axis distribution field on rows and columns.
 - [ ] **No font family.** Terminal output is columnar: `terminal-workspace`'s
   scrollback, its line counts, and its `pty 100x30` readout all want a monospace
   face, and nothing in `Gui.Style` selects one. Digits in the footer shift width
@@ -467,11 +460,3 @@ names the evidence so a fix can be verified against the same case.
   list/list-item element whose Up, Down, Home, and End behavior, selected state,
   scroll-into-view behavior, scaling case, and operating-system accessibility
   mapping all use the production event path.
-- [ ] **Rows and columns cannot align or justify their children.** `Gui.Style`
-  carries size, colour, border, and overflow, but no main- or cross-axis
-  alignment, so an application cannot centre a block in the space it was given.
-  Empty-state messages, which belong in the middle of an otherwise blank
-  content area, are left-aligned with padding instead. Close with an alignment
-  property on row, column, and panel props, mapped to the GPUI flex container
-  the host already builds, with a specification that photographs a centred
-  child.

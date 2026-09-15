@@ -32,6 +32,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 
 	node_column! : {
@@ -55,6 +57,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_dialog! : {
 		builder : U64,
@@ -77,6 +81,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 
 	node_panel! : {
@@ -100,6 +106,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_scroll! : { axis : U8, child : U64, name : Str } => U64
 
@@ -125,6 +133,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 
 	node_virtual_item! : U64, U64 => U64
@@ -153,6 +163,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 
 	node_textarea! : {
@@ -179,6 +191,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 
 	node_image! : {
@@ -205,6 +219,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 
 	node_canvas! : {
@@ -246,6 +262,8 @@ Host := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => { change : U64, id : U64, submit : U64 }
 
 	input_value! : {} => Str

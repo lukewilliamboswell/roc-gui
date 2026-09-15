@@ -23,6 +23,14 @@ meta = |caption| Elem.row(
 	[Elem.text(caption)],
 )
 
+## The last readout in an instrument header sits at the far edge, which is what
+## a status field does. It grows into the space left over and justifies its own
+## text to the end, so no spacer element exists only to push.
+trailing_meta = |caption| Elem.row(
+	Elem.RowProps.{ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta },
+	[Elem.text(caption)],
+)
+
 header = Elem.row(
 	Elem.RowProps.{
 		label: "Workspace header",
@@ -41,7 +49,7 @@ header = Elem.row(
 		divider("|"),
 		meta("pty 100x30"),
 		divider("|"),
-		meta("utf-8"),
+		trailing_meta("utf-8"),
 	],
 )
 

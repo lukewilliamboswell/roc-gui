@@ -30,6 +30,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_column! : {
 		builder : U64,
@@ -52,6 +54,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_dialog! : {
 		builder : U64,
@@ -74,6 +78,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_panel! : {
 		builder : U64,
@@ -96,6 +102,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_scroll! : { axis : U8, child : U64, name : Str } => U64
 	node_action_button! : {
@@ -120,6 +128,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 
 	node_virtual_item! : U64, U64 => U64
@@ -146,6 +156,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_textarea! : {
 		label : Str,
@@ -171,6 +183,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_image! : {
 		label : Str,
@@ -196,6 +210,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => U64
 	node_canvas! : {
 		label : Str,
@@ -228,6 +244,8 @@ HostGlue := [].{
 		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
+		align : U8,
+		justify : U8,
 	} => { change : U64, id : U64, submit : U64 }
 	sqlite_open_read! : Resource.DirRead, Str => Try(Resource.SqliteRead, { code : U8, message : Str })
 	sqlite_query! : Resource.SqliteRead, Str => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })

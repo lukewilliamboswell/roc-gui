@@ -119,8 +119,16 @@ most one dialog at a time.
 
 Row, column, panel, dialog, and action-button props share the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
-radius, font size, font weight, and per-axis overflow. `font_weight` is zero for
-the native default, or 100 through 900; 700 is bold.
+radius, font size, font weight, per-axis overflow, and the two axis placements.
+`font_weight` is zero for the native default, or 100 through 900; 700 is bold.
+
+`justify` distributes children along the container's own layout axis and `align`
+places them across it. `justify` is `Start`, `Center`, `End`, `Between`, or
+`Around`; `align` is `Start`, `Center`, `End`, `Baseline`, or `Stretch`. Both
+default to `Default`, which keeps the element's native placement. A grown child
+with `justify: End` puts a trailing status field at the far edge without a
+spacer element, and a grown empty-state column with `align: Center` and
+`justify: Center` sits in the middle of the area it was given.
 `Auto`, `Fill`, and `Px(n)` express dimensions. An optional non-empty `label`
 provides a stable semantic locator, such as
 `(role panel :name "Directory view")`; it does not add visible text.

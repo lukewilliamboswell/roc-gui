@@ -261,6 +261,32 @@ pub enum ImageFit {
     ScaleDown,
 }
 
+/// Where a container places its children across its layout axis.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Align {
+    /// The element's own native alignment.
+    #[default]
+    Native,
+    Start,
+    Center,
+    End,
+    Baseline,
+    Stretch,
+}
+
+/// How a container distributes its children along its layout axis.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Justify {
+    /// The element's own native distribution.
+    #[default]
+    Native,
+    Start,
+    Center,
+    End,
+    Between,
+    Around,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Style {
     pub gap: u32,
@@ -279,6 +305,8 @@ pub struct Style {
     pub font_weight: u32,
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,
+    pub align: Align,
+    pub justify: Justify,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

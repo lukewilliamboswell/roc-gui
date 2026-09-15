@@ -8,9 +8,19 @@ Length : [Auto, Fill, Px(U32)]
 ## How content outside a control's bounds is presented on one axis.
 Overflow : [Visible, Clip, Scroll]
 
+## Where a container places its children across its layout axis. `Default` keeps
+## the element's own native alignment.
+Align : [Default, Start, Center, End, Baseline, Stretch]
+
+## How a container distributes its children along its layout axis. `Default`
+## keeps the element's own native distribution.
+Justify : [Default, Start, Center, End, Between, Around]
+
 ## Native presentation values shared by element property records.
 Gui := [].{
+	Align : Align
 	Color : Color
+	Justify : Justify
 	Length : Length
 	Overflow : Overflow
 
@@ -34,6 +44,8 @@ Gui := [].{
 		font_weight : U32 ?? 0,
 		overflow_x : Overflow ?? Visible,
 		overflow_y : Overflow ?? Visible,
+		align : Align ?? Default,
+		justify : Justify ?? Default,
 	}
 
 	## Construct an RGB color from a `0xRRGGBB` integer.

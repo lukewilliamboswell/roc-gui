@@ -26,8 +26,9 @@ mod watchdog;
 mod window_runner;
 
 use bridge::{
-    BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
-    ImageFormat as BridgeImageFormat, Length, MountedGraph, Node, NodeKind, Overflow, Patch,
+    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
+    ImageFormat as BridgeImageFormat, Justify, Length, MountedGraph, Node, NodeKind, Overflow,
+    Patch,
     ScrollAxis, Style, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
@@ -332,6 +333,8 @@ macro_rules! decode_layout_style {
             font_weight: $args.font_weight,
             overflow_x: decode_overflow($args.overflow_x),
             overflow_y: decode_overflow($args.overflow_y),
+            align: decode_align($args.align),
+            justify: decode_justify($args.justify),
         }
     };
 }
@@ -449,6 +452,30 @@ fn decode_length(kind: u8, value: u32) -> Length {
         1 => Length::Fill,
         2 => Length::Px(value),
         _ => panic!("invalid length kind {kind}"),
+    }
+}
+
+fn decode_align(value: u8) -> Align {
+    match value {
+        0 => Align::Native,
+        1 => Align::Start,
+        2 => Align::Center,
+        3 => Align::End,
+        4 => Align::Baseline,
+        5 => Align::Stretch,
+        _ => panic!("invalid align {value}"),
+    }
+}
+
+fn decode_justify(value: u8) -> Justify {
+    match value {
+        0 => Justify::Native,
+        1 => Justify::Start,
+        2 => Justify::Center,
+        3 => Justify::End,
+        4 => Justify::Between,
+        5 => Justify::Around,
+        _ => panic!("invalid justify {value}"),
     }
 }
 
@@ -950,8 +977,33 @@ struct NodeView {
     canvas_bounds: Arc<Mutex<Option<Bounds<Pixels>>>>,
 }
 
+/// Place the container's children across and along its layout axis. `Native`
+/// leaves the element's own alignment alone, which is how a row keeps centring
+/// its children unless the application says otherwise.
+fn apply_axes(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
+    element = match style.align {
+        Align::Native => element,
+        Align::Start => element.items_start(),
+        Align::Center => element.items_center(),
+        Align::End => element.items_end(),
+        Align::Baseline => element.items_baseline(),
+        Align::Stretch => {
+            element.style().align_items = Some(AlignItems::Stretch);
+            element
+        }
+    };
+    match style.justify {
+        Justify::Native => element,
+        Justify::Start => element.justify_start(),
+        Justify::Center => element.justify_center(),
+        Justify::End => element.justify_end(),
+        Justify::Between => element.justify_between(),
+        Justify::Around => element.justify_around(),
+    }
+}
+
 fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
-    element = element
+    element = apply_axes(element, style)
         .gap(px(style.gap as f32))
         .p(px(style.padding as f32));
     element = match style.width {
@@ -1462,10 +1514,7 @@ impl Render for NodeView {
                 } else {
                     CHECKBOX_BORDER
                 };
-                element = element
-                    .flex()
-                    .flex_row()
-                    .items_center()
+                element = apply_axes(element.flex().flex_row().items_center(), style)
                     .gap(px(style.gap as f32))
                     .p(px(style.padding as f32))
                     .child(

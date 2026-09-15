@@ -158,7 +158,7 @@ render = |state| {
 		Elem.row(Elem.RowProps.{ label: "Session controls", width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 1, radius: Theme.radius }, [
 			key_cap("New terminal", "New terminal", !live, |current, _| start(current)),
 			key_cap("Stop", "Stop terminal", live, |current, _| cancel(current)),
-			Elem.row(Elem.RowProps.{ label: "Session status", padding: 4, gap: 0, fg: Theme.signal, font_size: Theme.meta }, [Elem.text(state.status)]),
+			Elem.row(Elem.RowProps.{ label: "Session status", padding: 4, gap: 0, grow: True, justify: End, fg: Theme.signal, font_size: Theme.meta }, [Elem.text(state.status)]),
 		]),
 		field_row("Command bar", "cmd", Elem.text_input(Elem.TextInputProps.{ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
 		field_row("Filter bar", "find", Elem.text_input(Elem.TextInputProps.{ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Action.update(set_query(current, event.value)), on_submit: |current, _| Action.update(current), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),

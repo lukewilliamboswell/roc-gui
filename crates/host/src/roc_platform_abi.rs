@@ -1154,11 +1154,11 @@ const _: () = assert!(core::mem::size_of::<AnonStruct4869dafad3498788>() == 16, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct4869dafad3498788>() == 4, "AnonStruct4869dafad3498788 alignment mismatch");
 
-/// Element type for __AnonStruct_c0f9b0f791a4a196
+/// Element type for __AnonStruct_7eb16fab69bd6bd3
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructC0f9b0f791a4a196 {
+pub struct AnonStruct7eb16fab69bd6bd3 {
     pub builder: u64,
     pub label: RocStr,
     pub active_bg: u32,
@@ -1174,18 +1174,20 @@ pub struct AnonStructC0f9b0f791a4a196 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_c0f9b0f791a4a196
+/// Element type for __AnonStruct_7eb16fab69bd6bd3
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructC0f9b0f791a4a196 {
+pub struct AnonStruct7eb16fab69bd6bd3 {
     pub builder: u64,
     pub label: RocStr,
     pub active_bg: u32,
@@ -1201,21 +1203,23 @@ pub struct AnonStructC0f9b0f791a4a196 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructC0f9b0f791a4a196>() == 96, "AnonStructC0f9b0f791a4a196 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct7eb16fab69bd6bd3>() == 96, "AnonStruct7eb16fab69bd6bd3 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructC0f9b0f791a4a196>() == 8, "AnonStructC0f9b0f791a4a196 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct7eb16fab69bd6bd3>() == 8, "AnonStruct7eb16fab69bd6bd3 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructC0f9b0f791a4a196>() == 80, "AnonStructC0f9b0f791a4a196 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct7eb16fab69bd6bd3>() == 80, "AnonStruct7eb16fab69bd6bd3 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructC0f9b0f791a4a196>() == 8, "AnonStructC0f9b0f791a4a196 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct7eb16fab69bd6bd3>() == 8, "AnonStruct7eb16fab69bd6bd3 alignment mismatch");
 
 /// Element type for __AnonStruct_6aa5c9965944c201
 #[cfg(target_pointer_width = "32")]
@@ -1246,11 +1250,11 @@ const _: () = assert!(core::mem::size_of::<AnonStruct6aa5c9965944c201>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct6aa5c9965944c201>() == 8, "AnonStruct6aa5c9965944c201 alignment mismatch");
 
-/// Element type for __AnonStruct_1e9e67e6a30c8826
+/// Element type for __AnonStruct_54d5fb9573b5fa23
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct1e9e67e6a30c8826 {
+pub struct AnonStruct54d5fb9573b5fa23 {
     pub caption: RocStr,
     pub label: RocStr,
     pub active_bg: u32,
@@ -1266,19 +1270,21 @@ pub struct AnonStruct1e9e67e6a30c8826 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_1e9e67e6a30c8826
+/// Element type for __AnonStruct_54d5fb9573b5fa23
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct1e9e67e6a30c8826 {
+pub struct AnonStruct54d5fb9573b5fa23 {
     pub caption: RocStr,
     pub label: RocStr,
     pub active_bg: u32,
@@ -1294,22 +1300,24 @@ pub struct AnonStruct1e9e67e6a30c8826 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct1e9e67e6a30c8826>() == 112, "AnonStruct1e9e67e6a30c8826 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct54d5fb9573b5fa23>() == 112, "AnonStruct54d5fb9573b5fa23 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct1e9e67e6a30c8826>() == 8, "AnonStruct1e9e67e6a30c8826 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct54d5fb9573b5fa23>() == 8, "AnonStruct54d5fb9573b5fa23 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct1e9e67e6a30c8826>() == 84, "AnonStruct1e9e67e6a30c8826 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct54d5fb9573b5fa23>() == 84, "AnonStruct54d5fb9573b5fa23 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct1e9e67e6a30c8826>() == 4, "AnonStruct1e9e67e6a30c8826 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct54d5fb9573b5fa23>() == 4, "AnonStruct54d5fb9573b5fa23 alignment mismatch");
 
 /// Element type for __AnonStruct_f86f1c1ac9d3a8e4
 #[cfg(target_pointer_width = "32")]
@@ -1340,11 +1348,11 @@ const _: () = assert!(core::mem::size_of::<AnonStructF86f1c1ac9d3a8e4>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructF86f1c1ac9d3a8e4>() == 8, "AnonStructF86f1c1ac9d3a8e4 alignment mismatch");
 
-/// Element type for __AnonStruct_98f35a864ae80691
+/// Element type for __AnonStruct_8f9f0f11e546c77f
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct98f35a864ae80691 {
+pub struct AnonStruct8f9f0f11e546c77f {
     pub label: RocStr,
     pub active_bg: u32,
     pub bg: u32,
@@ -1359,20 +1367,22 @@ pub struct AnonStruct98f35a864ae80691 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub checked: bool,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_98f35a864ae80691
+/// Element type for __AnonStruct_8f9f0f11e546c77f
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct98f35a864ae80691 {
+pub struct AnonStruct8f9f0f11e546c77f {
     pub label: RocStr,
     pub active_bg: u32,
     pub bg: u32,
@@ -1387,29 +1397,31 @@ pub struct AnonStruct98f35a864ae80691 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub checked: bool,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct98f35a864ae80691>() == 88, "AnonStruct98f35a864ae80691 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8f9f0f11e546c77f>() == 88, "AnonStruct8f9f0f11e546c77f size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct98f35a864ae80691>() == 8, "AnonStruct98f35a864ae80691 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8f9f0f11e546c77f>() == 8, "AnonStruct8f9f0f11e546c77f alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct98f35a864ae80691>() == 72, "AnonStruct98f35a864ae80691 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8f9f0f11e546c77f>() == 76, "AnonStruct8f9f0f11e546c77f size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct98f35a864ae80691>() == 4, "AnonStruct98f35a864ae80691 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8f9f0f11e546c77f>() == 4, "AnonStruct8f9f0f11e546c77f alignment mismatch");
 
-/// Element type for __AnonStruct_b51b2620feceec58
+/// Element type for __AnonStruct_be45c8d29a916202
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB51b2620feceec58 {
+pub struct AnonStructBe45c8d29a916202 {
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
@@ -1426,20 +1438,22 @@ pub struct AnonStructB51b2620feceec58 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub read_only: bool,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_b51b2620feceec58
+/// Element type for __AnonStruct_be45c8d29a916202
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB51b2620feceec58 {
+pub struct AnonStructBe45c8d29a916202 {
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
@@ -1456,9 +1470,11 @@ pub struct AnonStructB51b2620feceec58 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub read_only: bool,
@@ -1466,19 +1482,19 @@ pub struct AnonStructB51b2620feceec58 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructB51b2620feceec58>() == 136, "AnonStructB51b2620feceec58 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructBe45c8d29a916202>() == 136, "AnonStructBe45c8d29a916202 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructB51b2620feceec58>() == 8, "AnonStructB51b2620feceec58 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructBe45c8d29a916202>() == 8, "AnonStructBe45c8d29a916202 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructB51b2620feceec58>() == 96, "AnonStructB51b2620feceec58 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructBe45c8d29a916202>() == 100, "AnonStructBe45c8d29a916202 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructB51b2620feceec58>() == 4, "AnonStructB51b2620feceec58 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructBe45c8d29a916202>() == 4, "AnonStructBe45c8d29a916202 alignment mismatch");
 
-/// Element type for __AnonStruct_f36c3604805f7ab
+/// Element type for __AnonStruct_ed62e98b8f13114a
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructF36c3604805f7ab {
+pub struct AnonStructEd62e98b8f13114a {
     pub bytes: RocListWith<u8, false>,
     pub label: RocStr,
     pub active_bg: u32,
@@ -1494,21 +1510,23 @@ pub struct AnonStructF36c3604805f7ab {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub fit: u8,
     pub format: u8,
     pub grayscale: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_f36c3604805f7ab
+/// Element type for __AnonStruct_ed62e98b8f13114a
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructF36c3604805f7ab {
+pub struct AnonStructEd62e98b8f13114a {
     pub bytes: RocListWith<u8, false>,
     pub label: RocStr,
     pub active_bg: u32,
@@ -1524,24 +1542,26 @@ pub struct AnonStructF36c3604805f7ab {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub fit: u8,
     pub format: u8,
     pub grayscale: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructF36c3604805f7ab>() == 112, "AnonStructF36c3604805f7ab size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructEd62e98b8f13114a>() == 112, "AnonStructEd62e98b8f13114a size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructF36c3604805f7ab>() == 8, "AnonStructF36c3604805f7ab alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructEd62e98b8f13114a>() == 8, "AnonStructEd62e98b8f13114a alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructF36c3604805f7ab>() == 84, "AnonStructF36c3604805f7ab size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructEd62e98b8f13114a>() == 88, "AnonStructEd62e98b8f13114a size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructF36c3604805f7ab>() == 4, "AnonStructF36c3604805f7ab alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructEd62e98b8f13114a>() == 4, "AnonStructEd62e98b8f13114a alignment mismatch");
 
 /// Element type for __AnonStruct_1cd73c88e8aa8818
 #[cfg(target_pointer_width = "32")]
@@ -1697,11 +1717,11 @@ const _: () = assert!(core::mem::size_of::<AnonStructDc4c26f806dfc5bf>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructDc4c26f806dfc5bf>() == 8, "AnonStructDc4c26f806dfc5bf alignment mismatch");
 
-/// Element type for __AnonStruct_63babfdddae33c11
+/// Element type for __AnonStruct_383599775c7216c
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct63babfdddae33c11 {
+pub struct AnonStruct383599775c7216c {
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
@@ -1718,19 +1738,21 @@ pub struct AnonStruct63babfdddae33c11 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_63babfdddae33c11
+/// Element type for __AnonStruct_383599775c7216c
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct63babfdddae33c11 {
+pub struct AnonStruct383599775c7216c {
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
@@ -1747,22 +1769,24 @@ pub struct AnonStruct63babfdddae33c11 {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct63babfdddae33c11>() == 136, "AnonStruct63babfdddae33c11 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct383599775c7216c>() == 136, "AnonStruct383599775c7216c size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct63babfdddae33c11>() == 8, "AnonStruct63babfdddae33c11 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct383599775c7216c>() == 8, "AnonStruct383599775c7216c alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct63babfdddae33c11>() == 96, "AnonStruct63babfdddae33c11 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct383599775c7216c>() == 96, "AnonStruct383599775c7216c size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct63babfdddae33c11>() == 4, "AnonStruct63babfdddae33c11 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct383599775c7216c>() == 4, "AnonStruct383599775c7216c alignment mismatch");
 
 /// Element type for __AnonStruct_4c605145331877e7
 #[cfg(target_pointer_width = "32")]
@@ -7839,7 +7863,7 @@ pub struct HostGlueChildrenPushArgs {
 }
 
 /// Arguments for HostGlue.node_row!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -7860,15 +7884,17 @@ pub struct HostGlueNodeRowArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_row!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -7889,8 +7915,10 @@ pub struct HostGlueNodeRowArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -7935,7 +7963,7 @@ unsafe impl RocRelease<HostGlueNodeRowArgs> for HostGlueNodeRowArgsRelease {
 }
 
 /// Arguments for HostGlue.node_column!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -7956,15 +7984,17 @@ pub struct HostGlueNodeColumnArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_column!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -7985,8 +8015,10 @@ pub struct HostGlueNodeColumnArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -8031,7 +8063,7 @@ unsafe impl RocRelease<HostGlueNodeColumnArgs> for HostGlueNodeColumnArgsRelease
 }
 
 /// Arguments for HostGlue.node_dialog!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8052,15 +8084,17 @@ pub struct HostGlueNodeDialogArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_dialog!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8081,8 +8115,10 @@ pub struct HostGlueNodeDialogArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -8127,7 +8163,7 @@ unsafe impl RocRelease<HostGlueNodeDialogArgs> for HostGlueNodeDialogArgsRelease
 }
 
 /// Arguments for HostGlue.node_panel!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8148,15 +8184,17 @@ pub struct HostGlueNodePanelArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_panel!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8177,8 +8215,10 @@ pub struct HostGlueNodePanelArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -8285,7 +8325,7 @@ unsafe impl RocRelease<HostGlueNodeScrollArgs> for HostGlueNodeScrollArgsRelease
 }
 
 /// Arguments for HostGlue.node_action_button!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, caption : Str, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, caption : Str, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8306,16 +8346,18 @@ pub struct HostGlueNodeActionButtonArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_action_button!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, caption : Str, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, caption : Str, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8336,9 +8378,11 @@ pub struct HostGlueNodeActionButtonArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -8457,7 +8501,7 @@ unsafe impl RocRelease<HostGlueNodeVirtualListArgs> for HostGlueNodeVirtualListA
 }
 
 /// Arguments for HostGlue.node_checkbox!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8477,17 +8521,19 @@ pub struct HostGlueNodeCheckboxArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub checked: bool,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_checkbox!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8507,10 +8553,12 @@ pub struct HostGlueNodeCheckboxArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub checked: bool,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -8521,7 +8569,7 @@ const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 88, "H
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCheckboxArgs>() == 8, "HostGlueNodeCheckboxArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 72, "HostGlueNodeCheckboxArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 76, "HostGlueNodeCheckboxArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCheckboxArgs>() == 4, "HostGlueNodeCheckboxArgs alignment mismatch");
 
@@ -8555,7 +8603,7 @@ unsafe impl RocRelease<HostGlueNodeCheckboxArgs> for HostGlueNodeCheckboxArgsRel
 }
 
 /// Arguments for HostGlue.node_textarea!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, read_only : Bool, value : Str, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, read_only : Bool, value : Str, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8577,9 +8625,11 @@ pub struct HostGlueNodeTextareaArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub read_only: bool,
@@ -8587,7 +8637,7 @@ pub struct HostGlueNodeTextareaArgs {
 }
 
 /// Arguments for HostGlue.node_textarea!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, read_only : Bool, value : Str, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, read_only : Bool, value : Str, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8609,9 +8659,11 @@ pub struct HostGlueNodeTextareaArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub read_only: bool,
@@ -8623,7 +8675,7 @@ const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 136, "
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextareaArgs>() == 8, "HostGlueNodeTextareaArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 96, "HostGlueNodeTextareaArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 100, "HostGlueNodeTextareaArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextareaArgs>() == 4, "HostGlueNodeTextareaArgs alignment mismatch");
 
@@ -8661,7 +8713,7 @@ unsafe impl RocRelease<HostGlueNodeTextareaArgs> for HostGlueNodeTextareaArgsRel
 }
 
 /// Arguments for HostGlue.node_image!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, bytes : List(U8), fg : U32, fit : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, bytes : List(U8), fg : U32, fit : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8682,18 +8734,20 @@ pub struct HostGlueNodeImageArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub fit: u8,
     pub format: u8,
     pub grayscale: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_image!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, bytes : List(U8), fg : U32, fit : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, bytes : List(U8), fg : U32, fit : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8714,11 +8768,13 @@ pub struct HostGlueNodeImageArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub fit: u8,
     pub format: u8,
     pub grayscale: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -8729,7 +8785,7 @@ const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 112, "Hos
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeImageArgs>() == 8, "HostGlueNodeImageArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 84, "HostGlueNodeImageArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 88, "HostGlueNodeImageArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeImageArgs>() == 4, "HostGlueNodeImageArgs alignment mismatch");
 
@@ -8845,7 +8901,7 @@ unsafe impl RocRelease<HostGlueNodeCanvasArgs> for HostGlueNodeCanvasArgsRelease
 }
 
 /// Arguments for HostGlue.node_text_input!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8867,16 +8923,18 @@ pub struct HostGlueNodeTextInputArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_text_input!
-/// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8898,9 +8956,11 @@ pub struct HostGlueNodeTextInputArgs {
     pub padding: u32,
     pub radius: u32,
     pub width: u32,
+    pub align: u8,
     pub enabled: bool,
     pub grow: bool,
     pub height_kind: u8,
+    pub justify: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub width_kind: u8,
@@ -9413,20 +9473,20 @@ pub struct FilesDirReadArgs {
 
 // Platform Type Aliases
 
-pub type HostGlueNodeRowArg0 = AnonStructC0f9b0f791a4a196;
-pub type HostGlueNodeColumnArg0 = AnonStructC0f9b0f791a4a196;
-pub type HostGlueNodeDialogArg0 = AnonStructC0f9b0f791a4a196;
-pub type HostGlueNodePanelArg0 = AnonStructC0f9b0f791a4a196;
+pub type HostGlueNodeRowArg0 = AnonStruct7eb16fab69bd6bd3;
+pub type HostGlueNodeColumnArg0 = AnonStruct7eb16fab69bd6bd3;
+pub type HostGlueNodeDialogArg0 = AnonStruct7eb16fab69bd6bd3;
+pub type HostGlueNodePanelArg0 = AnonStruct7eb16fab69bd6bd3;
 pub type HostGlueNodeScrollArg0 = AnonStruct6aa5c9965944c201;
-pub type HostGlueNodeActionButtonArg0 = AnonStruct1e9e67e6a30c8826;
+pub type HostGlueNodeActionButtonArg0 = AnonStruct54d5fb9573b5fa23;
 pub type HostGlueNodeVirtualListArg0 = AnonStructF86f1c1ac9d3a8e4;
-pub type HostGlueNodeCheckboxArg0 = AnonStruct98f35a864ae80691;
-pub type HostGlueNodeTextareaArg0 = AnonStructB51b2620feceec58;
-pub type HostGlueNodeImageArg0 = AnonStructF36c3604805f7ab;
+pub type HostGlueNodeCheckboxArg0 = AnonStruct8f9f0f11e546c77f;
+pub type HostGlueNodeTextareaArg0 = AnonStructBe45c8d29a916202;
+pub type HostGlueNodeImageArg0 = AnonStructEd62e98b8f13114a;
 pub type HostGlueNodeCanvasArg0 = AnonStruct1cd73c88e8aa8818;
 pub type HostGlueNodeCanvasArg0Primitives = AnonStruct6d9cdb5c6eba22bc;
 pub type HostGlueCanvasEvent = AnonStructB2e41b851da291a;
-pub type HostGlueNodeTextInputArg0 = AnonStruct63babfdddae33c11;
+pub type HostGlueNodeTextInputArg0 = AnonStruct383599775c7216c;
 pub type HostGlueNodeTextInput = AnonStructDc4c26f806dfc5bf;
 pub type HostGlueSqliteOpenReadErr = AnonStruct4c605145331877e7;
 pub type HostGlueSqliteQueryErr = AnonStruct4c605145331877e7;
@@ -10120,7 +10180,7 @@ unsafe impl RocRelease<AnonStruct4869dafad3498788> for AnonStruct4869dafad349878
     }
 }
 
-impl AnonStructC0f9b0f791a4a196 {
+impl AnonStruct7eb16fab69bd6bd3 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -10141,10 +10201,10 @@ impl AnonStructC0f9b0f791a4a196 {
     }
 }
 
-pub struct AnonStructC0f9b0f791a4a196Release;
+pub struct AnonStruct7eb16fab69bd6bd3Release;
 
-unsafe impl RocRelease<AnonStructC0f9b0f791a4a196> for AnonStructC0f9b0f791a4a196Release {
-    unsafe fn release(value: AnonStructC0f9b0f791a4a196, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct7eb16fab69bd6bd3> for AnonStruct7eb16fab69bd6bd3Release {
+    unsafe fn release(value: AnonStruct7eb16fab69bd6bd3, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -10178,7 +10238,7 @@ unsafe impl RocRelease<AnonStruct6aa5c9965944c201> for AnonStruct6aa5c9965944c20
     }
 }
 
-impl AnonStruct1e9e67e6a30c8826 {
+impl AnonStruct54d5fb9573b5fa23 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -10201,10 +10261,10 @@ impl AnonStruct1e9e67e6a30c8826 {
     }
 }
 
-pub struct AnonStruct1e9e67e6a30c8826Release;
+pub struct AnonStruct54d5fb9573b5fa23Release;
 
-unsafe impl RocRelease<AnonStruct1e9e67e6a30c8826> for AnonStruct1e9e67e6a30c8826Release {
-    unsafe fn release(value: AnonStruct1e9e67e6a30c8826, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct54d5fb9573b5fa23> for AnonStruct54d5fb9573b5fa23Release {
+    unsafe fn release(value: AnonStruct54d5fb9573b5fa23, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -10238,7 +10298,7 @@ unsafe impl RocRelease<AnonStructF86f1c1ac9d3a8e4> for AnonStructF86f1c1ac9d3a8e
     }
 }
 
-impl AnonStruct98f35a864ae80691 {
+impl AnonStruct8f9f0f11e546c77f {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -10259,15 +10319,15 @@ impl AnonStruct98f35a864ae80691 {
     }
 }
 
-pub struct AnonStruct98f35a864ae80691Release;
+pub struct AnonStruct8f9f0f11e546c77fRelease;
 
-unsafe impl RocRelease<AnonStruct98f35a864ae80691> for AnonStruct98f35a864ae80691Release {
-    unsafe fn release(value: AnonStruct98f35a864ae80691, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct8f9f0f11e546c77f> for AnonStruct8f9f0f11e546c77fRelease {
+    unsafe fn release(value: AnonStruct8f9f0f11e546c77f, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStructB51b2620feceec58 {
+impl AnonStructBe45c8d29a916202 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -10292,15 +10352,15 @@ impl AnonStructB51b2620feceec58 {
     }
 }
 
-pub struct AnonStructB51b2620feceec58Release;
+pub struct AnonStructBe45c8d29a916202Release;
 
-unsafe impl RocRelease<AnonStructB51b2620feceec58> for AnonStructB51b2620feceec58Release {
-    unsafe fn release(value: AnonStructB51b2620feceec58, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructBe45c8d29a916202> for AnonStructBe45c8d29a916202Release {
+    unsafe fn release(value: AnonStructBe45c8d29a916202, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStructF36c3604805f7ab {
+impl AnonStructEd62e98b8f13114a {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -10323,10 +10383,10 @@ impl AnonStructF36c3604805f7ab {
     }
 }
 
-pub struct AnonStructF36c3604805f7abRelease;
+pub struct AnonStructEd62e98b8f13114aRelease;
 
-unsafe impl RocRelease<AnonStructF36c3604805f7ab> for AnonStructF36c3604805f7abRelease {
-    unsafe fn release(value: AnonStructF36c3604805f7ab, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructEd62e98b8f13114a> for AnonStructEd62e98b8f13114aRelease {
+    unsafe fn release(value: AnonStructEd62e98b8f13114a, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -10453,7 +10513,7 @@ unsafe impl RocRelease<AnonStructDc4c26f806dfc5bf> for AnonStructDc4c26f806dfc5b
     }
 }
 
-impl AnonStruct63babfdddae33c11 {
+impl AnonStruct383599775c7216c {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -10478,10 +10538,10 @@ impl AnonStruct63babfdddae33c11 {
     }
 }
 
-pub struct AnonStruct63babfdddae33c11Release;
+pub struct AnonStruct383599775c7216cRelease;
 
-unsafe impl RocRelease<AnonStruct63babfdddae33c11> for AnonStruct63babfdddae33c11Release {
-    unsafe fn release(value: AnonStruct63babfdddae33c11, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct383599775c7216c> for AnonStruct383599775c7216cRelease {
+    unsafe fn release(value: AnonStruct383599775c7216c, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -12933,28 +12993,28 @@ unsafe extern "C" {
     pub fn roc_gui_children_push(arg0: u64, arg1: u64);
 
     /// Hosted symbol for HostGlue.node_row!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_row(arg0: HostGlueNodeRowArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_column!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_column(arg0: HostGlueNodeColumnArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_dialog!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_dialog(arg0: HostGlueNodeDialogArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_panel!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, builder : U64, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -12968,7 +13028,7 @@ unsafe extern "C" {
     pub fn roc_gui_node_scroll(arg0: HostGlueNodeScrollArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_action_button!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, caption : Str, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, caption : Str, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -12986,21 +13046,21 @@ unsafe extern "C" {
     pub fn roc_gui_node_virtual_list(arg0: HostGlueNodeVirtualListArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_checkbox!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, checked : Bool, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_checkbox(arg0: HostGlueNodeCheckboxArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_textarea!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, read_only : Bool, value : Str, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, read_only : Bool, value : Str, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_textarea(arg0: HostGlueNodeTextareaArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_image!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, bytes : List(U8), fg : U32, fit : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, bytes : List(U8), fg : U32, fit : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, radius : U32, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -13023,7 +13083,7 @@ unsafe extern "C" {
     pub fn roc_gui_input_value() -> RocStr;
 
     /// Hosted symbol for HostGlue.node_text_input!
-    /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }

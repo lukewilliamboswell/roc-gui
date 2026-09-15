@@ -241,7 +241,7 @@ entry_row = |entry, current| {
 }
 
 ## A quiet full-width block for a state that has nothing to list.
-notice = |message, detail| Elem.col(Elem.ColProps.{ label: "Directory notice", width: Fill, grow: True, padding: 40, gap: 6 }, [styled_text(message, Gui.rgb(0xd6e2e8), 16), styled_text(detail, muted_fg, 13)])
+notice = |message, detail| Elem.col(Elem.ColProps.{ label: "Directory notice", width: Fill, grow: True, padding: 24, gap: 6, align: Center, justify: Center }, [styled_text(message, Gui.rgb(0xd6e2e8), 16), styled_text(detail, muted_fg, 13)])
 
 error_panel = |failure| Elem.panel(
 	Elem.PanelProps.{ label: "Directory error", width: Fill, padding: 12, gap: 8, border_color: Gui.rgb(0xb85c5c), bg: Gui.rgb(0x2a1c1f) },
