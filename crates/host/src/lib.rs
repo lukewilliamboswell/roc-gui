@@ -9,6 +9,7 @@ mod files;
 mod http;
 mod input;
 mod observatory;
+mod process;
 mod roc_platform_abi;
 mod runner;
 mod spec;
@@ -177,6 +178,7 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     app_data::route_dealloc(pointer);
     clipboard::route_dealloc(pointer);
     tcp::route_dealloc(pointer);
+    process::route_dealloc(pointer);
     timers::route_dealloc(pointer);
     http::route_dealloc(pointer);
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
@@ -2026,6 +2028,7 @@ struct HostArgs {
     cap_clipboard_system: bool,
     cap_clipboard_fixture: Option<PathBuf>,
     cap_tcp: Option<std::net::SocketAddr>,
+    cap_process: Option<process::GrantedProfile>,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2053,6 +2056,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_clipboard_system: false,
         cap_clipboard_fixture: None,
         cap_tcp: None,
+        cap_process: None,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2112,6 +2116,12 @@ fn parse_host_args() -> Result<HostArgs, String> {
                 Some(endpoint.parse().map_err(|_| {
                     "--host-cap-tcp requires a numeric IP:PORT endpoint".to_string()
                 })?);
+        } else if argument == "--host-cap-process" {
+            parsed.cap_process = Some(parse_process_profile(&pending.next().ok_or_else(
+                || "--host-cap-process requires local-shell or test-program".to_string(),
+            )?)?);
+        } else if let Some(profile) = argument.strip_prefix("--host-cap-process=") {
+            parsed.cap_process = Some(parse_process_profile(profile)?);
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -2147,6 +2157,14 @@ fn parse_host_args() -> Result<HostArgs, String> {
     Ok(parsed)
 }
 
+fn parse_process_profile(value: &str) -> Result<process::GrantedProfile, String> {
+    match value {
+        "local-shell" => Ok(process::GrantedProfile::LocalShell),
+        "test-program" => Ok(process::GrantedProfile::TestProgram),
+        _ => Err("process capability must be local-shell or test-program".into()),
+    }
+}
+
 fn print_host_help(app_name: &str) {
     println!(
         "Usage: {app_name} [HOST OPTIONS]\n\
@@ -2158,6 +2176,7 @@ fn print_host_help(app_name: &str) {
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
+           --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2288,6 +2307,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         return 2;
     }
     tcp::configure(args.cap_tcp);
+    process::configure(args.cap_process);
     let stats_path = match start_requested_recorder(
         &args,
         parsed_spec.as_ref().map(|(case, _)| case),

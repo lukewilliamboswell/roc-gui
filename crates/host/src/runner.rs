@@ -545,6 +545,21 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectProcesses(expected) => {
+                let active = crate::process::active_count();
+                let (spawned, _, _, canceled) = crate::process::counters();
+                if canceled > spawned {
+                    return Err("process lifecycle counters violated ownership invariants".into());
+                }
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active PTY processes, observed {active}",
+                        step.line
+                    ))
+                }
+            }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
                 if count == 0 {

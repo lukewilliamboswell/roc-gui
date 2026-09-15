@@ -11,4 +11,6 @@ Resource := [].{
 	HttpClient : Handle([HttpClientResource])
 	Clipboard : Handle([ClipboardResource])
 	TcpStream : Handle([TcpStreamResource])
+	ProcessGrant : Handle([ProcessGrantResource])
+	Pty : Handle([PtyResource])
 }

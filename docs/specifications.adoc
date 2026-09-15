@@ -177,6 +177,9 @@ Named rows and columns use `(role row :name "...")` and
 `(role column :name "...")`. These locators describe the mounted application
 graph; they do not assert pixel geometry or operating-system accessibility.
 
+`(expect-processes N)` asserts the host-owned count of live PTY child
+processes. The process subsystem records this lifecycle evidence.
+
 == Selecting and repeating cases
 
 Patterns match repository-relative specification paths. Multiple patterns may

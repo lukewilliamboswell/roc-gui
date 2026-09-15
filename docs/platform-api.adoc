@@ -217,6 +217,26 @@ clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
 
+== Process and pseudo-terminal capabilities
+
+`Process.acquire!` returns an opaque process grant only when the application is
+launched with `--host-cap-process=local-shell` or
+`--host-cap-process=test-program`. The grant fixes the only profile that may be
+started. Applications never provide executable paths, arguments, environment
+variables, or command lines to the host.
+
+`Process.spawn!` creates a real pseudo-terminal with an explicitly bounded row
+and column size. `Process.read!`, `Process.write!`, `Process.resize!`, and
+`Process.cancel!` require its typed `Process.Pty` handle. Reads and writes are
+capped at 65,536 bytes per call, one read may wait on a PTY, and cancellation
+wakes that wait. Blocking operations belong in `Action.task`, whose completion
+is reconciled with the latest state on the ordinary event route.
+
+Failures carry their operation in the tag, such as
+`SpawnProcessErr(AccessDenied)` or `ReadProcessErr(Busy)`. Process grants and
+PTYs are opaque `Box(U64)` resources and cannot be confused with other handle
+kinds.
+
 == Durable application data
 
 `Files.app_data!({})` acquires the application's private read-write directory

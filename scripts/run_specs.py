@@ -115,6 +115,8 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         command.extend(["--host-cap-dir", str(fixture)])
     if (case.app.parent / "fixture_server.py").is_file():
         command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
+    if (case.app.parent / "process-fixture").is_file():
+        command.extend(["--host-cap-process", "test-program"])
     app_data_fixture = case.app.parent / "app-data-fixture"
     clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
     if case.app.parent.name == "redis-explorer":
