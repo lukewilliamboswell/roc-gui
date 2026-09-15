@@ -3,6 +3,7 @@
   "auto_merge": true,
   "compiler_roots": [
     "platform/main.roc",
+    "benchmarks/animation-canvas/main.roc",
     "benchmarks/checkboxes/main.roc",
     "benchmarks/image/main.roc",
     "benchmarks/row-boundaries/main.roc",
@@ -13,13 +14,19 @@
     "benchmarks/textarea/main.roc",
     "benchmarks/tree-shape/main.roc",
     "benchmarks/virtual-list/main.roc",
+    "examples/animation-studio/main.roc",
+    "examples/clipboard-history/main.roc",
     "examples/counter/main.roc",
     "examples/database-browser/main.roc",
+    "examples/device-configurator/main.roc",
     "examples/file-explorer/main.roc",
     "examples/folder-browser/main.roc",
     "examples/http-workbench/main.roc",
     "examples/image-library/main.roc",
+    "examples/music-player/main.roc",
+    "examples/redis-explorer/main.roc",
     "examples/settings-center/main.roc",
-    "examples/system-monitor/main.roc"
+    "examples/system-monitor/main.roc",
+    "examples/terminal-workspace/main.roc"
   ]
 }
