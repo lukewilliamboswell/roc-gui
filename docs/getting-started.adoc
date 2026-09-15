@@ -5,6 +5,36 @@
 Install the Roc nightly named in the application's `app` header and Rust with
 Cargo. Run the commands from the repository root on Linux x86_64 under Wayland.
 
+With https://nixos.org[Nix], `nix develop` selects the Rust toolchain named in
+`rust-toolchain.toml`, the Zig release the linker inputs reproduce under, and
+the pinned Roc nightly. `flake.lock` pins those sources.
+
+A built application is an ordinary dynamically linked binary: it asks the kernel
+for a loader at the path its released inputs were built against, and names its
+shared libraries by soname. Nothing in this manual needs special treatment on a
+distribution that supplies both. NixOS answers that loader path with a stub that
+refuses the binary, so this shell offers `roc-gui-native`, which supplies a real
+loader for the command it is given:
+
+[source,sh]
+----
+roc build --output=counter examples/counter/main.roc
+roc-gui-native ./counter
+----
+
+`roc path/to/main.roc` runs an application as well as building it, and so do the
+specification driver and the window smoke check, each of which starts one.
+Prefix them the same way, or start one session that needs no prefix:
+
+[source,sh]
+----
+roc-gui-native bash
+----
+
+That session ends with the shell and changes nothing on the host. NixOS's own
+`programs.nix-ld` option answers the same need system-wide, for a host that
+would rather configure it once than per shell.
+
 The host archive is part of every Roc GUI executable. Build it first:
 
 [source,sh]
