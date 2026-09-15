@@ -12,6 +12,7 @@ platform ""
 	exposes []
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
+		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 	}
 	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch! }
 	hosted {
@@ -41,6 +42,7 @@ platform ""
 		"roc_gui_timer_next": HostGlue.timer_next!,
 		"roc_gui_timer_cancel": HostGlue.timer_cancel!,
 		"roc_http_send": HostGlue.http_send!,
+		"roc_http_acquire": HostGlue.http_acquire!,
 		"roc_gui_work_start": HostGlue.work_start!,
 		"roc_gui_work_end": HostGlue.work_end!,
 		"roc_gui_window_config": HostGlue.window_config!,
@@ -57,7 +59,6 @@ platform ""
 import HostGlue
 import Action
 import Files
-import HttpTypes
 import Resource
 
 gui_init! : () => {}

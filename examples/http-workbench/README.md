@@ -7,8 +7,9 @@ immediately useful with a bundled local sample service.
 The executable example sends bounded HTTP requests asynchronously: it provides
 a controlled URL and multiline request body, an inline portable-error surface,
 a read-only response view, and request-generation tracking so a superseded
-response cannot replace the latest one. Run it with
-`roc examples/http-workbench/main.roc` and run its colocated specifications with
+response cannot replace the latest one. Grant only its target origin with
+`roc examples/http-workbench/main.roc -- --host-cap-http-origin http://127.0.0.1:38191`.
+Run its colocated specifications with
 `python3 scripts/run_specs.py 'examples/http-workbench/specs/*.scm'`.
 
 ## Core capabilities

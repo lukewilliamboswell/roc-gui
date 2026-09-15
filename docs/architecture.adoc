@@ -202,14 +202,17 @@ Cancellation wakes the waiter, and cadence advances from the completion of the
 preceding pull, so a slow consumer cannot create an unbounded event backlog.
 
 HTTP requests also use `Action.task` and the canonical worker/completion route.
+An opaque `Box(U64)` client names a host registry entry for one explicitly
+granted origin. The initial URL and every redirect retain its scheme, host, and
+effective port.
 The host applies explicit scheme, timeout, redirect, header, request-body, and
 response-body limits before returning an owned reducer to the UI thread. It
-buffers one bounded UTF-8 response rather than exposing a streaming callback.
+buffers one bounded byte response rather than exposing a streaming callback.
 Applications suppress obsolete completions by comparing their request identity
 with latest state. URLs, headers, bodies, and response text never enter host
 captures or deterministic diagnostics.
 
-Directory and timer handles are typed nominal wrappers over `Box(U64)`. Each token names
+Directory, HTTP, and timer handles are typed nominal wrappers over `Box(U64)`. Each token names
 a host registry entry containing a `cap_std::fs::Dir`; final box deallocation
 removes that entry. The phantom resource kind leaves room for other handle
 families without allowing their types to be confused. Ambient filesystem

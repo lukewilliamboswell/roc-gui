@@ -5,6 +5,7 @@ platform ""
 	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
+		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 	}
 	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch!, "roc_gui_complete": gui_complete!, "roc_gui_run_task": gui_run_task! }
 	hosted {
@@ -34,6 +35,7 @@ platform ""
 		"roc_gui_timer_next": Host.timer_next!,
 		"roc_gui_timer_cancel": Host.timer_cancel!,
 		"roc_http_send": Host.http_send!,
+		"roc_http_acquire": Host.http_acquire!,
 		"roc_gui_work_start": Host.work_start!,
 		"roc_gui_work_end": Host.work_end!,
 		"roc_gui_window_config": Host.window_config!,

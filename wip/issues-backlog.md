@@ -91,12 +91,12 @@ names the evidence so a fix can be verified against the same case.
   operations and a bounded per-editor undo/redo history through the production
   GPUI input actions, with semantic specifications that never record contents.
 
-- [ ] **HTTP cancellation, streaming, and authority policy.** The bounded
+- [ ] **HTTP cancellation and streaming.** The bounded
   asynchronous HTTP foundation supports explicit scheme, redirect, timeout,
   header, request-body, and response-body policy, and the workbench suppresses
   stale completions. Add a typed request handle with cooperative transport
-  cancellation, bounded streamed upload/download progress, and a grant model
-  for restricting network destinations before applications depend on either.
+  cancellation and bounded streamed upload/download progress before
+  applications depend on either.
 
 - [ ] **Native accessibility roles and names are not exported.** Buttons,
   checkboxes, and scroll regions have stable semantics in the canonical graph,

@@ -1,17 +1,60 @@
 use crate::{roc_host, roc_platform_abi::*};
-use reqwest::blocking::Client;
+use reqwest::{Method, Url, blocking::Client};
 use std::{
+    collections::HashMap,
     io::Read,
     mem::ManuallyDrop,
     sync::{
-        Arc,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
-
-type Error = BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme;
-
+type Error = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme;
+struct Store {
+    next: u64,
+    granted: Option<Url>,
+    clients: HashMap<u64, Arc<Url>>,
+    allocations: HashMap<usize, u64>,
+}
+static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
+fn store() -> &'static Mutex<Store> {
+    STORE.get_or_init(|| {
+        Mutex::new(Store {
+            next: 1,
+            granted: None,
+            clients: HashMap::new(),
+            allocations: HashMap::new(),
+        })
+    })
+}
+fn same_origin(a: &Url, b: &Url) -> bool {
+    a.scheme() == b.scheme()
+        && a.host_str() == b.host_str()
+        && a.port_or_known_default() == b.port_or_known_default()
+}
+pub fn configure(origin: Option<&str>) -> Result<(), String> {
+    let granted = match origin {
+        None => None,
+        Some(raw) => {
+            let url =
+                Url::parse(raw).map_err(|_| "HTTP origin must be an absolute URL".to_string())?;
+            if !matches!(url.scheme(), "http" | "https")
+                || url.host_str().is_none()
+                || url.path() != "/"
+                || url.query().is_some()
+                || url.fragment().is_some()
+            {
+                return Err(
+                    "HTTP grant must be an http(s) origin without path, query, or fragment".into(),
+                );
+            }
+            Some(url)
+        }
+    };
+    store().lock().unwrap().granted = granted;
+    Ok(())
+}
 fn err(error: Error) -> HostGlueHttpSendResult {
     HostGlueHttpSendResult {
         payload: HostGlueHttpSendResultPayload {
@@ -20,141 +63,176 @@ fn err(error: Error) -> HostGlueHttpSendResult {
         tag: HostGlueHttpSendResultTag::Err,
     }
 }
-
+pub fn acquire() -> HostGlueHttpAcquireResult {
+    let mut g = store().lock().unwrap();
+    let Some(origin) = g.granted.clone() else {
+        return HostGlueHttpAcquireResult {
+            payload: HostGlueHttpAcquireResultPayload {
+                err: ManuallyDrop::new(Error::AccessDenied),
+            },
+            tag: HostGlueHttpAcquireResultTag::Err,
+        };
+    };
+    let id = g.next;
+    g.next += 1;
+    let handle = unsafe { allocate_box(8, 8, false, roc_host()) as *mut u64 };
+    unsafe { handle.write(id) };
+    let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
+    g.clients.insert(id, Arc::new(origin));
+    g.allocations.insert(base, id);
+    HostGlueHttpAcquireResult {
+        payload: HostGlueHttpAcquireResultPayload {
+            ok: ManuallyDrop::new(handle),
+        },
+        tag: HostGlueHttpAcquireResultTag::Ok,
+    }
+}
+fn lookup(handle: *mut u64) -> Option<Arc<Url>> {
+    let id = unsafe { handle.as_ref().copied()? };
+    store().lock().ok()?.clients.get(&id).cloned()
+}
+pub fn route_dealloc(base: *mut std::ffi::c_void) {
+    let mut g = store().lock().unwrap();
+    if let Some(id) = g.allocations.remove(&(base as usize)) {
+        g.clients.remove(&id);
+    }
+}
 pub fn send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {
+    let origin = lookup(args.client);
     let url = args.url.as_str().to_owned();
-    let body = args.body.as_str().as_bytes().to_vec();
+    let body = args.body.as_slice().to_vec();
     let headers: Vec<(String, String)> = args
         .headers
         .as_slice()
         .iter()
-        .map(|header| {
-            (
-                header.name.as_str().to_owned(),
-                header.value.as_str().to_owned(),
-            )
-        })
+        .map(|h| (h._0.as_str().to_owned(), h._1.as_str().to_owned()))
         .collect();
-    let method = args.method;
-    let timeout_ms = args.timeout_ms;
-    let max_bytes = args.max_response_bytes;
-    let max_redirects = args.max_redirects;
+    let method_code = args.method;
+    let method_ext = args.method_ext.as_str().to_owned();
+    let timeout = args.timeout_ms;
+    let limit = args.max_response_bytes;
+    let redirects = args.max_redirects;
     unsafe { args.decref(roc_host()) };
-
-    if !(1..=60_000).contains(&timeout_ms)
-        || !(1..=4 * 1024 * 1024).contains(&max_bytes)
-        || max_redirects > 10
+    let Some(origin) = origin else {
+        return err(Error::InvalidCapability);
+    };
+    if !(1..=60000).contains(&timeout)
+        || !(1..=4 * 1024 * 1024).contains(&limit)
+        || redirects > 10
         || body.len() > 1024 * 1024
         || headers.len() > 64
     {
         return err(Error::InvalidRequest);
     }
-    let parsed = match reqwest::Url::parse(&url) {
-        Ok(value) => value,
+    let parsed = match Url::parse(&url) {
+        Ok(v) => v,
         Err(_) => return err(Error::InvalidUrl),
     };
     if !matches!(parsed.scheme(), "http" | "https") {
         return err(Error::UnsupportedScheme);
     }
-    let header_bytes: usize = headers
+    if !same_origin(&origin, &parsed) {
+        return err(Error::AccessDenied);
+    }
+    if headers
         .iter()
-        .map(|(name, value)| name.len() + value.len())
-        .sum();
-    if header_bytes > 32 * 1024 {
+        .map(|(n, v)| n.len() + v.len())
+        .sum::<usize>()
+        > 32768
+    {
         return err(Error::InvalidHeader);
     }
-
-    let redirected = Arc::new(AtomicBool::new(false));
-    let marker = redirected.clone();
+    let method = match method_code {
+        0 => Method::CONNECT,
+        1 => Method::DELETE,
+        2 => Method::from_bytes(b"QUERY").unwrap(),
+        3 => Method::GET,
+        4 => Method::HEAD,
+        5 => Method::OPTIONS,
+        6 => Method::PATCH,
+        7 => Method::POST,
+        8 => Method::PUT,
+        9 => Method::TRACE,
+        10 => match Method::from_bytes(method_ext.as_bytes()) {
+            Ok(v) => v,
+            Err(_) => return err(Error::InvalidRequest),
+        },
+        _ => return err(Error::InvalidRequest),
+    };
+    let stopped = Arc::new(AtomicBool::new(false));
+    let marker = stopped.clone();
+    let allowed = origin.clone();
     let client = match Client::builder()
-        .timeout(Duration::from_millis(timeout_ms))
-        .redirect(reqwest::redirect::Policy::custom(move |attempt| {
-            if attempt.previous().len() >= max_redirects as usize {
+        .timeout(Duration::from_millis(timeout))
+        .redirect(reqwest::redirect::Policy::custom(move |a| {
+            if !same_origin(&allowed, a.url()) || a.previous().len() >= redirects as usize {
                 marker.store(true, Ordering::Relaxed);
-                attempt.stop()
+                a.stop()
             } else {
-                attempt.follow()
+                a.follow()
             }
         }))
         .build()
     {
-        Ok(value) => value,
+        Ok(v) => v,
         Err(_) => return err(Error::InvalidRequest),
     };
-    let mut request = match method {
-        GetOrPost::Get => client.get(parsed),
-        GetOrPost::Post => client.post(parsed).body(body),
-    };
-    for (name, value) in headers {
-        let name = match reqwest::header::HeaderName::from_bytes(name.as_bytes()) {
-            Ok(v) => v,
+    let mut request = client.request(method, parsed).body(body);
+    for (n, v) in headers {
+        let n = match reqwest::header::HeaderName::from_bytes(n.as_bytes()) {
+            Ok(x) => x,
             Err(_) => return err(Error::InvalidHeader),
         };
-        let value = match reqwest::header::HeaderValue::from_str(&value) {
-            Ok(v) => v,
+        let v = match reqwest::header::HeaderValue::from_str(&v) {
+            Ok(x) => x,
             Err(_) => return err(Error::InvalidHeader),
         };
-        request = request.header(name, value);
+        request = request.header(n, v)
     }
     let response = match request.send() {
-        Ok(value) => value,
-        Err(error) if error.is_timeout() => return err(Error::Timeout),
-        Err(error) if error.is_redirect() || redirected.load(Ordering::Relaxed) => {
-            return err(Error::RedirectLimit);
-        }
+        Ok(v) => v,
+        Err(e) if e.is_timeout() => return err(Error::Timeout),
         Err(_) => return err(Error::ConnectFailed),
     };
-    if redirected.load(Ordering::Relaxed) {
+    if stopped.load(Ordering::Relaxed) {
         return err(Error::RedirectLimit);
     }
-    if response
-        .content_length()
-        .is_some_and(|length| length > max_bytes)
-    {
+    if response.content_length().is_some_and(|n| n > limit) {
         return err(Error::BodyTooLarge);
     }
     if response.headers().len() > 64
         || response
             .headers()
             .iter()
-            .map(|(name, value)| name.as_str().len() + value.as_bytes().len())
+            .map(|(n, v)| n.as_str().len() + v.as_bytes().len())
             .sum::<usize>()
-            > 32 * 1024
+            > 32768
     {
         return err(Error::InvalidHeader);
     }
     let status = response.status().as_u16();
-    let output_headers: Vec<AnonStruct82a96c5d55d63488> = response
+    let hs: Vec<AnonStruct77eaba63dfee299d> = response
         .headers()
         .iter()
-        .map(|(name, value)| AnonStruct82a96c5d55d63488 {
-            name: RocStr::from_str(name.as_str(), roc_host()),
-            value: RocStr::from_str(value.to_str().unwrap_or("<non-text>"), roc_host()),
+        .map(|(n, v)| AnonStruct77eaba63dfee299d {
+            _0: RocStr::from_str(n.as_str(), roc_host()),
+            _1: RocStr::from_str(v.to_str().unwrap_or("<non-text>"), roc_host()),
         })
         .collect();
     let mut bytes = Vec::new();
-    if response
-        .take(max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .is_err()
-    {
+    if response.take(limit + 1).read_to_end(&mut bytes).is_err() {
         return err(Error::ConnectFailed);
     }
-    if bytes.len() as u64 > max_bytes {
+    if bytes.len() as u64 > limit {
         return err(Error::BodyTooLarge);
     }
-    let body = match String::from_utf8(bytes) {
-        Ok(value) => value,
-        Err(_) => return err(Error::InvalidUtf8),
-    };
-    let result = AnonStruct4cc00b7fc76acdb9 {
-        body: RocStr::from_str(&body, roc_host()),
-        headers: unsafe { RocList::from_slice(&output_headers, roc_host()) },
-        status,
-    };
     HostGlueHttpSendResult {
         payload: HostGlueHttpSendResultPayload {
-            ok: ManuallyDrop::new(result),
+            ok: ManuallyDrop::new(AnonStructBe6bcbc15f8a1360 {
+                body: unsafe { RocListWith::<u8, false>::from_slice(&bytes, roc_host()) },
+                headers: unsafe { RocList::from_slice(&hs, roc_host()) },
+                status,
+            }),
         },
         tag: HostGlueHttpSendResultTag::Ok,
     }

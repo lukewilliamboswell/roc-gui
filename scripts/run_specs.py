@@ -111,6 +111,8 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
     fixture = case.app.parent / "fixture"
     if fixture.is_dir():
         command.extend(["--host-cap-dir", str(fixture)])
+    if (case.app.parent / "fixture_server.py").is_file():
+        command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
     try:
         completed = subprocess.run(
             command,

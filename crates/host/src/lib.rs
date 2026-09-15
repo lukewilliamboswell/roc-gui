@@ -19,13 +19,13 @@ use bridge::{
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueHttpSendArgs, HostGlueHttpSendResult,
-    HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
-    HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueHttpAcquireResult, HostGlueHttpSendArgs,
+    HostGlueHttpSendResult, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs,
+    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs,
+    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
+    decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -172,6 +172,7 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     files::route_dealloc(pointer);
     sqlite::route_dealloc(pointer);
     timers::route_dealloc(pointer);
+    http::route_dealloc(pointer);
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
 
@@ -774,6 +775,11 @@ pub extern "C" fn roc_gui_timer_cancel(handle: *mut u64) -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_http_send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {
     http::send(args)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_http_acquire() -> HostGlueHttpAcquireResult {
+    http::acquire()
 }
 
 #[unsafe(no_mangle)]
@@ -1989,6 +1995,7 @@ struct HostArgs {
     stats_max_mib: u64,
     stats_job_count: usize,
     cap_dir: Option<PathBuf>,
+    cap_http_origin: Option<String>,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2011,6 +2018,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_max_mib: 4096,
         stats_job_count: 1,
         cap_dir: None,
+        cap_http_origin: None,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2036,6 +2044,14 @@ fn parse_host_args() -> Result<HostArgs, String> {
             );
         } else if let Some(path) = argument.strip_prefix("--host-cap-dir=") {
             parsed.cap_dir = Some(path.into());
+        } else if argument == "--host-cap-http-origin" {
+            parsed.cap_http_origin = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-cap-http-origin requires an origin".to_string())?,
+            );
+        } else if let Some(origin) = argument.strip_prefix("--host-cap-http-origin=") {
+            parsed.cap_http_origin = Some(origin.to_owned());
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -2078,6 +2094,7 @@ fn print_host_help(app_name: &str) {
          Host options:\n\
            --host-help                         Show this help and exit\n\
            --host-cap-dir PATH                 Grant read access to one directory\n\
+           --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2184,6 +2201,11 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         None => None,
     };
     if let Err(message) = files::configure(args.cap_dir.as_deref()) {
+        eprintln!("roc-gui capability error: {message}");
+        set_roc_host(core::ptr::null_mut());
+        return 2;
+    }
+    if let Err(message) = http::configure(args.cap_http_origin.as_deref()) {
         eprintln!("roc-gui capability error: {message}");
         set_roc_host(core::ptr::null_mut());
         return 2;

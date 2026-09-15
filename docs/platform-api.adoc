@@ -219,19 +219,25 @@ to asynchronous work so a superseded completion cannot replace a newer view.
 
 == HTTP requests
 
-`Http.send!(request)` performs one bounded HTTP request and returns a typed
-`Try(Http.Response, Http.Error)`. Call it from `Action.task` so connection,
+Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
+values. `Http.acquire!({})` returns an opaque `Http.Client` only when the host
+was launched with `--host-cap-http-origin ORIGIN`. The grant names one exact
+scheme, host, and effective port; requests and redirects cannot leave it.
+
+`Http.send!(client, config, request)` performs one bounded exchange and returns
+the package's canonical `Response`. Call it from `Action.task` so connection,
 TLS, and response work runs on the native worker pool and its reducer returns
 through the ordinary UI-thread completion dispatcher.
 
-Requests make policy explicit: method, URL, headers, body, timeout,
+Requests and config make policy explicit: method, URI, headers, body, timeout,
 `max_response_bytes`, and `max_redirects`. URLs must use `http` or `https`.
-The platform accepts `Get` and `Post`, at most 64 headers and 32 KiB of header
+The platform accepts standard methods, at most 64 headers and 32 KiB of header
 data, a request body up to 1 MiB, a timeout from 1 through 60,000 milliseconds,
 a response limit from 1 byte through 4 MiB, and from zero through ten redirects.
-Responses expose status, headers, and a UTF-8 body. Portable failures distinguish
-invalid inputs, unsupported schemes, connection and timeout failures, redirect
-and body limits, and invalid response text.
+Response bodies remain `List(U8)` so downstream packages share the same nominal
+types. Portable failures distinguish invalid inputs, denied or invalid
+capabilities, unsupported schemes, connection and timeout failures, and
+redirect and body limits.
 
 Give each submitted request a monotonically increasing identity. In the task
 resolver, compare that identity with the latest state and return `Action.none`
