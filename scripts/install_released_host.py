@@ -70,4 +70,7 @@ def install(lock: Path = HOST_LOCK, cache: Path = CACHE, root: Path = ROOT) -> b
 
 
 if __name__ == "__main__":
-    raise SystemExit(0 if install() else 1)
+    # Exit 3 means only that no published host can match changed source inputs.
+    # Verification, download, or staging failures retain their ordinary
+    # nonzero exit and must never be disguised by a local rebuild.
+    raise SystemExit(0 if install() else 3)
