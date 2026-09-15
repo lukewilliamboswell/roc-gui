@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 5
+SUPPORTED_SCHEMA = 6
 
 
 @dataclass(frozen=True)
