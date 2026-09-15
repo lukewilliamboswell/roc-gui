@@ -156,6 +156,30 @@ impl NodeKind {
         )
     }
 
+    /// Whether a pointer press on this control takes keyboard focus rather
+    /// than activating it. Text entry behaves this way.
+    pub fn focuses_on_pointer(&self) -> bool {
+        matches!(
+            self,
+            Self::TextInput { enabled: true, .. } | Self::Textarea { enabled: true, .. }
+        )
+    }
+
+    /// Whether this control accepts pointer activation.
+    ///
+    /// The production render path attaches a click handler only to enabled
+    /// controls, so a simulated click must honour the same condition.
+    pub fn accepts_pointer(&self) -> bool {
+        matches!(
+            self,
+            Self::Button { enabled: true, .. }
+                | Self::Checkbox { enabled: true, .. }
+                | Self::TextInput { enabled: true, .. }
+                | Self::Textarea { enabled: true, .. }
+                | Self::Canvas { .. }
+        )
+    }
+
     pub fn focus_identity(&self) -> Option<(u8, String)> {
         match self {
             Self::Button {
@@ -349,6 +373,28 @@ impl MountedGraph {
                 None => return false,
             }
         }
+    }
+
+    /// Every scrolling or virtual-list ancestor of `id`, nearest first.
+    ///
+    /// A node inside a scroll region is laid out whether or not it is scrolled
+    /// into view, so deciding visibility means clipping against these.
+    pub fn scroll_ancestors(&self, id: u64) -> Vec<u64> {
+        let mut found = Vec::new();
+        let mut current = self.nodes.get(&id).and_then(|entry| entry.parent);
+        while let Some(parent) = current {
+            let Some(entry) = self.nodes.get(&parent.0) else {
+                break;
+            };
+            if matches!(
+                entry.node.kind,
+                NodeKind::Scroll { .. } | NodeKind::VirtualList { .. }
+            ) {
+                found.push(parent.0);
+            }
+            current = entry.parent;
+        }
+        found
     }
 
     pub fn first_focusable_in(&self, ancestor: u64) -> Option<u64> {

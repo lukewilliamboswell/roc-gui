@@ -19,6 +19,56 @@ pub struct Benchmark {
     pub change_size: u64,
 }
 
+/// Which runner a step can execute on.
+///
+/// The semantic runner drives the mounted graph with no window; the window
+/// runner drives the real GPUI window. Some claims are only honest on one of
+/// them, so every command declares where it belongs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Capability {
+    /// Only meaningful without a window (benchmark lifecycles, patch shape).
+    Semantic,
+    /// Only meaningful against a real window (pixels, layout, real input).
+    Window,
+    /// Equally honest on either runner.
+    Both,
+}
+
+/// The runner a specification is about to execute on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Runner {
+    Semantic,
+    Window,
+}
+
+impl Capability {
+    pub fn permits(self, runner: Runner) -> bool {
+        match (self, runner) {
+            (Self::Both, _) => true,
+            (Self::Semantic, Runner::Semantic) => true,
+            (Self::Window, Runner::Window) => true,
+            _ => false,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Semantic => "semantic-only",
+            Self::Window => "window-only",
+            Self::Both => "both",
+        }
+    }
+
+    /// How to run a specification this capability rejected.
+    fn remedy(self) -> &'static str {
+        match self {
+            Self::Semantic => "run this specification with --host-run-spec",
+            Self::Window => "run this specification with --host-run-window-spec",
+            Self::Both => "",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Step {
     pub line: usize,
@@ -68,6 +118,94 @@ pub enum Command {
     ExpectBefore(Locator, Locator),
     ExpectPatch(PatchExpectation),
     MarkMetrics,
+    /// Wait for `frames` consecutive quiet presented frames, or fail.
+    Settle { frames: u32, timeout_ms: u32 },
+    /// Painted this frame and not clipped away by a scroll ancestor.
+    ExpectOnScreen(Locator),
+    /// How many instances actually took part in the last frame.
+    ExpectRenderedCount(Locator, usize),
+    /// Laid-out size within bounds. Deliberately min/max, never exact: exact
+    /// pixel geometry is font- and DPI-brittle.
+    ExpectBounds(Locator, BoundsExpectation),
+    /// Photograph the window, or one region of it.
+    Screenshot(Screenshot),
+    /// Type text one real keystroke at a time into the focused element.
+    Type(String),
+    /// Send one real key chord, such as "cmd-a", through the keymap.
+    Key(String),
+}
+
+/// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
+const CHORD_MODIFIERS: [&str; 6] = ["ctrl", "alt", "shift", "cmd", "super", "fn"];
+
+/// Check a chord's shape without reimplementing GPUI's parser.
+///
+/// `Keystroke::parse` stays the authority at dispatch; this only rejects
+/// obvious nonsense at parse time so a specification fails before it runs.
+fn valid_chord(chord: &str) -> bool {
+    let mut parts = chord.split('-').peekable();
+    let mut seen_modifier = false;
+    while let Some(part) = parts.next() {
+        if part.is_empty() {
+            return false;
+        }
+        if parts.peek().is_none() {
+            // The final token is the key itself, and may be a literal "-".
+            return !part.is_empty();
+        }
+        if !CHORD_MODIFIERS.contains(&part) {
+            return false;
+        }
+        seen_modifier = true;
+    }
+    seen_modifier
+}
+
+/// What part of the window a screenshot covers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Region {
+    /// The whole content area.
+    Window,
+    /// Cropped to a located element's laid-out bounds.
+    Locator(Locator),
+    /// An explicit content-relative rectangle.
+    Rect { x: u32, y: u32, width: u32, height: u32 },
+}
+
+/// A named screenshot request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Screenshot {
+    /// The file stem, and the key an agent correlates report to image by.
+    pub name: String,
+    pub region: Region,
+    pub pad: u32,
+}
+
+/// Names become file stems and report keys, so keep them boring and stable.
+fn valid_screenshot_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 48
+        && name
+            .chars()
+            .all(|value| value.is_ascii_lowercase() || value.is_ascii_digit() || value == '-')
+}
+
+/// Bounds on a laid-out element's size, in logical pixels.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BoundsExpectation {
+    pub min_width: Option<u32>,
+    pub max_width: Option<u32>,
+    pub min_height: Option<u32>,
+    pub max_height: Option<u32>,
+}
+
+impl BoundsExpectation {
+    pub fn is_empty(self) -> bool {
+        self.min_width.is_none()
+            && self.max_width.is_none()
+            && self.min_height.is_none()
+            && self.max_height.is_none()
+    }
 }
 
 impl Command {
@@ -114,6 +252,79 @@ impl Command {
             Self::ExpectBefore(_, _) => "expect-before",
             Self::ExpectPatch(_) => "expect-patch",
             Self::MarkMetrics => "mark-metrics",
+            Self::Settle { .. } => "settle",
+            Self::ExpectOnScreen(_) => "expect-on-screen",
+            Self::ExpectRenderedCount(_, _) => "expect-rendered-count",
+            Self::ExpectBounds(_, _) => "expect-bounds",
+            Self::Screenshot(_) => "screenshot",
+            Self::Type(_) => "type",
+            Self::Key(_) => "key",
+        }
+    }
+
+    /// Where this command may run.
+    ///
+    /// The match is deliberately exhaustive with no wildcard arm: a new
+    /// `Command` will not compile until someone decides where it is honest.
+    pub fn capability(&self) -> Capability {
+        match self {
+            // Benchmark-lifecycle and patch-shape claims depend on the
+            // semantic runner's per-iteration mount, which the window runner
+            // does not perform.
+            Self::ExpectPatch(_) | Self::MarkMetrics => Capability::Semantic,
+            // Settling on presented frames has no meaning without a window.
+            Self::Settle { .. }
+            | Self::ExpectOnScreen(_)
+            | Self::ExpectRenderedCount(_, _)
+            | Self::ExpectBounds(_, _)
+            | Self::Screenshot(_)
+            | Self::Type(_)
+            | Self::Key(_) => Capability::Window,
+            // Shared with the semantic runner, and implemented by both.
+            Self::Click(_)
+            | Self::Focus(_)
+            | Self::PressKey(_)
+            | Self::AwaitTask
+            | Self::ExpectVisible(_)
+            | Self::ExpectFocused(_)
+            | Self::ExpectNotVisible(_)
+            | Self::ExpectCount(_, _) => Capability::Both,
+            // Semantic-only because the window runner does not implement them.
+            // They are honest claims, made by one runner rather than two; the
+            // alternative of accepting a specification and then refusing a step
+            // mid-run would report a failure that is about the harness rather
+            // than about the application.
+            Self::Drag(..)
+            | Self::ReplaceText(_, _)
+            | Self::ClipboardText(_)
+            | Self::AwaitTicks(_)
+            | Self::Submit(_)
+            | Self::RevokeFileGrants
+            | Self::ExpectCanvasPrimitives(_, _)
+            | Self::ExpectValue(_, _)
+            | Self::ExpectValueBytes(_, _)
+            | Self::ExpectImageBytes(_, _)
+            | Self::ExpectBefore(_, _)
+            | Self::ExpectSubscriptions(_)
+            | Self::ExpectTcpStreams(_)
+            | Self::ExpectProcesses(_)
+            | Self::ExpectClipboardCounters(_)
+            | Self::ExpectSqliteCounters(_)
+            | Self::ExpectHttpCounters(_)
+            | Self::ExpectTcpCounters(_)
+            | Self::ExpectDeviceConnections(_)
+            | Self::ExpectDeviceTransactions(_)
+            | Self::ExpectSystemSamplers(_)
+            | Self::ExpectSystemSamples(_)
+            | Self::ExpectAudioCounters(_)
+            | Self::ExpectFilePicks(_)
+            | Self::ExpectFileLists(_)
+            | Self::ExpectFileOpens(_)
+            | Self::ExpectFileReads(_)
+            | Self::ExpectFileSelectionCounters(_)
+            | Self::ExpectFileLifecycleCounters(_)
+            | Self::ExpectFileAccess(_)
+            | Self::ExpectImageOwnerCounters(_) => Capability::Semantic,
         }
     }
 
@@ -161,6 +372,34 @@ pub enum Locator {
     CanvasItemName(String),
     CanvasItemPrefix(String),
     TextInputName(String),
+}
+
+impl fmt::Display for Locator {
+    /// Render a locator the way it is written in a specification, so a failure
+    /// message quotes the author's own words back to them.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (form, value) = match self {
+            Self::Text(value) => ("(text", value),
+            Self::TextPrefix(value) => ("(text-prefix", value),
+            Self::ButtonName(value) => ("(role button :name", value),
+            Self::ButtonPrefix(value) => ("(button-prefix", value),
+            Self::CheckboxName(value) => ("(role checkbox :name", value),
+            Self::CheckboxPrefix(value) => ("(checkbox-prefix", value),
+            Self::ColumnName(value) => ("(role column :name", value),
+            Self::DialogName(value) => ("(role dialog :name", value),
+            Self::PanelName(value) => ("(role panel :name", value),
+            Self::RowName(value) => ("(role row :name", value),
+            Self::ScrollName(value) => ("(role scroll :name", value),
+            Self::VirtualListName(value) => ("(role virtual-list :name", value),
+            Self::TextareaName(value) => ("(role textarea :name", value),
+            Self::ImageName(value) => ("(role image :name", value),
+            Self::CanvasName(value) => ("(role canvas :name", value),
+            Self::CanvasItemName(value) => ("(role canvas-item :name", value),
+            Self::CanvasItemPrefix(value) => ("(canvas-item-prefix", value),
+            Self::TextInputName(value) => ("(role textbox :name", value),
+        };
+        write!(formatter, "{form} {value:?})")
+    }
 }
 
 const MAX_SOURCE_BYTES: usize = 1024 * 1024;
@@ -404,6 +643,77 @@ fn parse_i32(node: &SExpr, description: &str) -> Result<i32, ParseError> {
         .map_err(|_| error(node, format!("{description} must be an integer")))
 }
 
+/// Keyword arguments (`:key value`) trailing a step's positional arguments.
+///
+/// Mirrors the pair walking `parse_benchmark` already performs, so step and
+/// benchmark keywords report the same way.
+struct Keywords<'a> {
+    head: &'a str,
+    pairs: Vec<(&'a str, &'a SExpr)>,
+}
+
+fn parse_keywords<'a>(
+    head: &'a str,
+    rest: &'a [SExpr],
+    allowed: &[&str],
+) -> Result<Keywords<'a>, ParseError> {
+    let mut pairs: Vec<(&'a str, &'a SExpr)> = Vec::new();
+    let mut index = 0;
+    while index < rest.len() {
+        let key = rest[index]
+            .atom()
+            .filter(|value| value.starts_with(':'))
+            .ok_or_else(|| error(&rest[index], format!("{head} expects :key value pairs")))?;
+        if !allowed.contains(&key) {
+            return Err(error(
+                &rest[index],
+                format!("unsupported key {key} for {head}; expected {}", allowed.join(", ")),
+            ));
+        }
+        if pairs.iter().any(|(seen, _)| *seen == key) {
+            return Err(error(&rest[index], format!("duplicate key {key} for {head}")));
+        }
+        let value = rest
+            .get(index + 1)
+            .ok_or_else(|| error(&rest[index], format!("{key} requires a value")))?;
+        pairs.push((key, value));
+        index += 2;
+    }
+    Ok(Keywords { head, pairs })
+}
+
+impl<'a> Keywords<'a> {
+    fn expr(&self, key: &str) -> Option<&'a SExpr> {
+        self.pairs
+            .iter()
+            .find(|(seen, _)| *seen == key)
+            .map(|(_, value)| *value)
+    }
+
+    fn u32_in(&self, key: &str, range: std::ops::RangeInclusive<u32>) -> Result<Option<u32>, ParseError> {
+        let Some(value) = self.expr(key) else {
+            return Ok(None);
+        };
+        let parsed: u32 = value
+            .atom()
+            .and_then(|text| text.parse().ok())
+            .ok_or_else(|| error(value, format!("{key} requires an integer")))?;
+        if !range.contains(&parsed) {
+            return Err(error(
+                value,
+                format!(
+                    "{key} for {} must be between {} and {}",
+                    self.head,
+                    range.start(),
+                    range.end()
+                ),
+            ));
+        }
+        Ok(Some(parsed))
+    }
+
+}
+
 fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
     let values = require_list(node, "step")?;
     let head = values
@@ -444,6 +754,91 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "await-task" if values.len() == 1 => Command::AwaitTask,
+        "type" if values.len() == 2 => {
+            let text = values[1]
+                .string()
+                .ok_or_else(|| error(&values[1], "type requires a string"))?;
+            if text.is_empty() {
+                return Err(error(&values[1], "type requires a non-empty string"));
+            }
+            Command::Type(text.to_owned())
+        }
+        "key" if values.len() == 2 => {
+            let chord = values[1]
+                .string()
+                .ok_or_else(|| error(&values[1], "key requires a chord string"))?;
+            if !valid_chord(chord) {
+                return Err(error(
+                    &values[1],
+                    "key requires a chord such as \"cmd-a\" or \"ctrl-shift-k\"",
+                ));
+            }
+            Command::Key(chord.to_owned())
+        }
+        "screenshot" if values.len() >= 2 => {
+            let name = values[1]
+                .string()
+                .ok_or_else(|| error(&values[1], "screenshot requires a name string"))?;
+            if !valid_screenshot_name(name) {
+                return Err(error(
+                    &values[1],
+                    "screenshot names use lowercase letters, digits, and hyphens, up to 48 characters",
+                ));
+            }
+            let keywords = parse_keywords(head, &values[2..], &[":region", ":pad"])?;
+            let region = match keywords.expr(":region") {
+                None => Region::Window,
+                Some(node) => parse_region(node)?,
+            };
+            Command::Screenshot(Screenshot {
+                name: name.to_owned(),
+                region,
+                pad: keywords.u32_in(":pad", 0..=256)?.unwrap_or(0),
+            })
+        }
+        "expect-on-screen" if values.len() == 2 => {
+            Command::ExpectOnScreen(parse_locator(&values[1])?)
+        }
+        "expect-rendered-count" if values.len() == 3 => Command::ExpectRenderedCount(
+            parse_locator(&values[1])?,
+            values[2]
+                .atom()
+                .and_then(|text| text.parse().ok())
+                .ok_or_else(|| {
+                    error(
+                        &values[2],
+                        "expect-rendered-count requires a non-negative integer",
+                    )
+                })?,
+        ),
+        "expect-bounds" if values.len() >= 2 => {
+            let locator = parse_locator(&values[1])?;
+            let keywords = parse_keywords(
+                head,
+                &values[2..],
+                &[":min-width", ":max-width", ":min-height", ":max-height"],
+            )?;
+            let expectation = BoundsExpectation {
+                min_width: keywords.u32_in(":min-width", 0..=100_000)?,
+                max_width: keywords.u32_in(":max-width", 0..=100_000)?,
+                min_height: keywords.u32_in(":min-height", 0..=100_000)?,
+                max_height: keywords.u32_in(":max-height", 0..=100_000)?,
+            };
+            if expectation.is_empty() {
+                return Err(error(
+                    node,
+                    "expect-bounds requires at least one of :min-width, :max-width, :min-height, :max-height",
+                ));
+            }
+            Command::ExpectBounds(locator, expectation)
+        }
+        "settle" => {
+            let keywords = parse_keywords(head, &values[1..], &[":frames", ":timeout-ms"])?;
+            Command::Settle {
+                frames: keywords.u32_in(":frames", 1..=60)?.unwrap_or(2),
+                timeout_ms: keywords.u32_in(":timeout-ms", 1..=60_000)?.unwrap_or(2_000),
+            }
+        }
         "clipboard-text" if values.len() == 2 => Command::ClipboardText(
             values[1]
                 .string()
@@ -798,7 +1193,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-value-bytes"
         | "expect-image-bytes"
         | "submit"
-        | "mark-metrics" => {
+        | "mark-metrics"
+        | "expect-on-screen"
+        | "expect-rendered-count"
+        | "expect-bounds"
+        | "screenshot"
+        | "type"
+        | "key" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -807,6 +1208,44 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         line: node.line(),
         command,
     })
+}
+
+fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
+    let values = require_list(node, "region")?;
+    if values.first().and_then(SExpr::atom) == Some("rect") {
+        if values.len() != 5 {
+            return Err(error(node, "rect region requires x, y, width, and height"));
+        }
+        let mut numbers = [0u32; 4];
+        for (slot, value) in numbers.iter_mut().zip(&values[1..]) {
+            *slot = value
+                .atom()
+                .and_then(|text| text.parse().ok())
+                .ok_or_else(|| error(value, "rect region requires non-negative integers"))?;
+        }
+        if numbers[2] == 0 || numbers[3] == 0 {
+            return Err(error(node, "rect region requires a non-zero width and height"));
+        }
+        return Ok(Region::Rect {
+            x: numbers[0],
+            y: numbers[1],
+            width: numbers[2],
+            height: numbers[3],
+        });
+    }
+    let locator = parse_locator(node)?;
+    // Only a canvas node's own rectangle is recorded, never its primitives, so
+    // a canvas-item region would silently photograph the whole canvas.
+    if matches!(
+        locator,
+        Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+    ) {
+        return Err(error(
+            node,
+            "canvas items have no recorded bounds; screenshot the canvas instead",
+        ));
+    }
+    Ok(Region::Locator(locator))
 }
 
 fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
@@ -1155,8 +1594,35 @@ fn utf8_width(first: u8) -> Option<usize> {
     }
 }
 
+/// Reject a specification whose steps cannot run honestly on `runner`.
+///
+/// Reports the first offending step so the message names one concrete fix
+/// rather than a list. Shared by both runners and their tests.
+pub fn check_runner(spec: &Spec, runner: Runner) -> Result<(), String> {
+    if runner == Runner::Window && spec.benchmark.is_some() {
+        return Err(
+            "benchmark clauses are semantic-only; the window runner runs one lifecycle".to_owned(),
+        );
+    }
+    for step in &spec.steps {
+        let capability = step.command.capability();
+        if !capability.permits(runner) {
+            return Err(format!(
+                "line {}: step `{}` is {}; {}",
+                step.line,
+                step.command.kind(),
+                capability.label(),
+                capability.remedy(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     #[test]
@@ -1457,5 +1923,264 @@ mod tests {
     fn rejects_window_scenarios_explicitly() {
         let error = parse(r#"(scenario "window" (steps))"#).unwrap_err();
         assert!(error.message.contains("must start with (test"));
+    }
+
+    #[test]
+    fn settle_defaults_and_accepts_keywords() {
+        let spec = parse(r#"(test "s" (steps (settle)))"#).unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Settle {
+                frames: 2,
+                timeout_ms: 2_000
+            }
+        );
+        let spec = parse(r#"(test "s" (steps (settle :frames 4 :timeout-ms 500)))"#).unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Settle {
+                frames: 4,
+                timeout_ms: 500
+            }
+        );
+    }
+
+    #[test]
+    fn settle_rejects_malformed_keywords() {
+        for (source, expected) in [
+            (r#"(test "s" (steps (settle :frames)))"#, "requires a value"),
+            (r#"(test "s" (steps (settle :frames 0)))"#, "must be between 1 and 60"),
+            (r#"(test "s" (steps (settle :frames 99)))"#, "must be between 1 and 60"),
+            (r#"(test "s" (steps (settle :frames x)))"#, "requires an integer"),
+            (r#"(test "s" (steps (settle :nope 1)))"#, "unsupported key :nope"),
+            (
+                r#"(test "s" (steps (settle :frames 1 :frames 2)))"#,
+                "duplicate key :frames",
+            ),
+            (r#"(test "s" (steps (settle 2)))"#, "expects :key value pairs"),
+        ] {
+            let error = parse(source).unwrap_err();
+            assert!(
+                error.message.contains(expected),
+                "{source}: expected {expected:?}, got {:?}",
+                error.message
+            );
+        }
+    }
+
+    #[test]
+    fn typing_and_chords_parse() {
+        let spec = parse(r#"(test "s" (steps (type "hello") (key "cmd-a") (key "escape")))"#).unwrap();
+        assert_eq!(spec.steps[0].command, Command::Type("hello".to_owned()));
+        assert_eq!(spec.steps[1].command, Command::Key("cmd-a".to_owned()));
+        assert_eq!(spec.steps[2].command, Command::Key("escape".to_owned()));
+    }
+
+    #[test]
+    fn malformed_typing_and_chords_are_refused() {
+        for (source, expected) in [
+            (r#"(test "s" (steps (type "")))"#, "non-empty string"),
+            (r#"(test "s" (steps (type x)))"#, "type requires a string"),
+            (r#"(test "s" (steps (key "cmd-")))"#, "key requires a chord"),
+            (r#"(test "s" (steps (key "nope-a")))"#, "key requires a chord"),
+            (r#"(test "s" (steps (key "")))"#, "key requires a chord"),
+        ] {
+            let error = parse(source).unwrap_err();
+            assert!(
+                error.message.contains(expected),
+                "{source}: expected {expected:?}, got {:?}",
+                error.message
+            );
+        }
+    }
+
+    /// A bare key with no modifier is a valid chord; GPUI parses it too.
+    #[test]
+    fn bare_keys_are_valid_chords() {
+        for chord in ["escape", "enter", "tab", "a"] {
+            let source = format!(r#"(test "s" (steps (key "{chord}")))"#);
+            assert!(parse(&source).is_ok(), "{chord} should parse");
+        }
+    }
+
+    #[test]
+    fn capabilities_partition_the_vocabulary() {
+        let semantic = parse(
+            r#"(test "s" (steps (mark-metrics) (expect-patch :kind replace :staged 6 :removed 6)))"#,
+        )
+        .unwrap();
+        for step in &semantic.steps {
+            assert_eq!(step.command.capability(), Capability::Semantic);
+        }
+        let window = parse(r#"(test "s" (steps (settle)))"#).unwrap();
+        assert_eq!(window.steps[0].command.capability(), Capability::Window);
+        let both = parse(r#"(test "s" (steps (expect-visible (text "x"))))"#).unwrap();
+        assert_eq!(both.steps[0].command.capability(), Capability::Both);
+    }
+
+    #[test]
+    fn each_runner_refuses_the_other_runners_steps() {
+        let windowed = parse(r#"(test "s" (steps (expect-visible (text "x")) (settle)))"#).unwrap();
+        let message = check_runner(&windowed, Runner::Semantic).unwrap_err();
+        assert!(message.contains("line 1: step `settle` is window-only"), "{message}");
+        assert!(message.contains("--host-run-window-spec"), "{message}");
+        assert!(check_runner(&windowed, Runner::Window).is_ok());
+
+        let measured = parse(r#"(test "s" (steps (mark-metrics)))"#).unwrap();
+        let message = check_runner(&measured, Runner::Window).unwrap_err();
+        assert!(message.contains("`mark-metrics` is semantic-only"), "{message}");
+        assert!(check_runner(&measured, Runner::Semantic).is_ok());
+    }
+
+    #[test]
+    fn benchmark_clauses_are_semantic_only() {
+        let spec = parse(
+            r#"(test "s" (benchmark :warmups 1 :samples 1 :iterations 1 :scale 1 :initial-size 1 :change-size 1) (steps (mark-metrics) (expect-count (text "row") 1)))"#,
+        )
+        .unwrap();
+        let message = check_runner(&spec, Runner::Window).unwrap_err();
+        assert!(message.contains("benchmark clauses are semantic-only"), "{message}");
+    }
+
+    #[test]
+    fn screenshot_regions_take_three_shapes() {
+        let spec = parse(
+            r#"(test "s" (steps
+                 (screenshot "whole")
+                 (screenshot "one" :region (text "x"))
+                 (screenshot "padded" :region (text "x") :pad 24)
+                 (screenshot "boxed" :region (rect 0 0 640 96))))"#,
+        )
+        .unwrap();
+        let expected = [
+            Region::Window,
+            Region::Locator(Locator::Text("x".to_owned())),
+            Region::Locator(Locator::Text("x".to_owned())),
+            Region::Rect {
+                x: 0,
+                y: 0,
+                width: 640,
+                height: 96,
+            },
+        ];
+        for (step, region) in spec.steps.iter().zip(expected) {
+            let Command::Screenshot(request) = &step.command else {
+                panic!("expected a screenshot, got {:?}", step.command);
+            };
+            assert_eq!(request.region, region);
+        }
+        let Command::Screenshot(padded) = &spec.steps[2].command else {
+            unreachable!()
+        };
+        assert_eq!(padded.pad, 24);
+    }
+
+    #[test]
+    fn screenshot_names_are_constrained_to_file_stems() {
+        for name in ["", "Has Capitals", "under_score", "a/b", &"x".repeat(49)] {
+            let source = format!(r#"(test "s" (steps (screenshot "{name}")))"#);
+            let error = parse(&source).unwrap_err();
+            assert!(
+                error.message.contains("screenshot names use lowercase"),
+                "{name:?}: {}",
+                error.message
+            );
+        }
+        assert!(parse(r#"(test "s" (steps (screenshot "step-02-list")))"#).is_ok());
+    }
+
+    #[test]
+    fn screenshot_rejects_malformed_regions_and_padding() {
+        for (source, expected) in [
+            (
+                r#"(test "s" (steps (screenshot "a" :region (rect 0 0 10))))"#,
+                "rect region requires x, y, width, and height",
+            ),
+            (
+                r#"(test "s" (steps (screenshot "a" :region (rect 0 0 0 10))))"#,
+                "non-zero width and height",
+            ),
+            (
+                r#"(test "s" (steps (screenshot "a" :pad 999)))"#,
+                "must be between 0 and 256",
+            ),
+            (
+                r#"(test "s" (steps (screenshot "a" :nope 1)))"#,
+                "unsupported key :nope",
+            ),
+            (r#"(test "s" (steps (screenshot)))"#, "invalid arguments"),
+        ] {
+            let error = parse(source).unwrap_err();
+            assert!(
+                error.message.contains(expected),
+                "{source}: expected {expected:?}, got {:?}",
+                error.message
+            );
+        }
+    }
+
+    /// Only a canvas node's own rectangle is recorded, so a canvas-item region
+    /// would silently photograph the whole canvas.
+    #[test]
+    fn screenshot_refuses_canvas_item_regions() {
+        let error = parse(
+            r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#,
+        )
+        .unwrap_err();
+        assert!(
+            error.message.contains("canvas items have no recorded bounds"),
+            "{}",
+            error.message
+        );
+    }
+
+    /// The guard for the committed suite: every specification parses, and
+    /// belongs to exactly one runner. Both kinds share a directory, so the file
+    /// contents are the only thing that decides which runner takes it.
+    #[test]
+    fn every_committed_spec_belongs_to_exactly_one_runner() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("workspace root");
+        let mut semantic = 0;
+        let mut window = 0;
+        for group in ["examples", "benchmarks"] {
+            let entries = match std::fs::read_dir(root.join(group)) {
+                Ok(entries) => entries,
+                Err(_) => continue,
+            };
+            for app in entries.filter_map(Result::ok) {
+                let Ok(files) = std::fs::read_dir(app.path().join("specs")) else {
+                    continue;
+                };
+                for file in files.filter_map(Result::ok) {
+                    let path = file.path();
+                    if path.extension().is_none_or(|ext| ext != "scm") {
+                        continue;
+                    }
+                    let source = std::fs::read_to_string(&path).expect("read spec");
+                    let spec = parse(&source)
+                        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+                    match (
+                        check_runner(&spec, Runner::Semantic),
+                        check_runner(&spec, Runner::Window),
+                    ) {
+                        (Ok(()), Err(_)) => semantic += 1,
+                        (Err(_), Ok(())) => window += 1,
+                        (Ok(()), Ok(())) => semantic += 1,
+                        (Err(first), Err(second)) => panic!(
+                            "{}: no runner accepts this specification: {first} / {second}",
+                            path.display()
+                        ),
+                    }
+                }
+            }
+        }
+        assert!(
+            semantic > 100,
+            "expected the committed semantic suite, found {semantic}"
+        );
+        assert!(window > 0, "expected committed window specifications");
     }
 }

@@ -64,6 +64,129 @@ the change lands; do not soften the docs to match the gap.
 - [ ] Add user-configurable shell-profile grants without exposing executable or
   environment selection as ambient application authority.
 
+## Element appearance
+
+- [ ] **Disabled and focus appearance are host constants an application cannot
+  reach.** `apply_disabled` paints `DISABLED_BG`/`DISABLED_FG` at a fixed 0.55
+  opacity and `apply_focus_ring` draws a fixed amber, both chosen for the
+  default dark ground. They made those states unmistakable, which was the
+  point, but they assume one palette: on a near-black application the amber ring
+  fights a deliberate accent, on a near-white one the blue-grey disabled fill is
+  foreign, and a disabled control on a saturated ground still reads as live at
+  0.55. Both should derive from the element's own style, or be overridable,
+  rather than being constants. Introduced with the control-state fixes.
+
+- [ ] **Panel labels are never painted.** `Elem.panel`'s `label` is a semantic
+  locator name, and several applications use it for a status phrase rather than
+  a heading, so painting it as a header would both duplicate body text and move
+  every existing layout. Close with an explicit heading on the panel element,
+  distinct from the locator name, rendered with its own weight and size.
+
+- [ ] **Lists carry no style of their own.** `Elem.virtual_list` and
+  `Elem.scroll` take only a name, a row height, and their content, so a list has
+  no ground, padding, radius, or row spacing. Found while giving `music-player`
+  a dark queue: the list had to be wrapped in a padded panel for its surface,
+  every row repaints that surface itself, and row spacing exists only because
+  each row button is deliberately shorter than `row_height`. Close by giving
+  both list elements the shared `Gui.Style` fields, with a separate row gap.
+- [ ] **`Elem.text` has no style.** Colour and size reach a string only by
+  inheritance from an enclosing row or column, so every typographic step costs a
+  wrapper element that exists for no other reason. `music-player`'s wordmark and
+  status line are each a one-child `row` whose only job is `fg` and `font_size`.
+  Close with a styled text element carrying the same colour and size fields.
+- [ ] **No font weight.** A wordmark, a small eyebrow label, and a primary
+  transport caption all want weight, not size or hue. With only `font_size` and
+  `fg`, hierarchy has to be spent on size and colour that were carrying other
+  meaning; `music-player` reserves its accent for the sounding track and the
+  primary transport, which leaves nothing for emphasis elsewhere. Close by
+  adding a weight field to `Gui.Style`.
+- [ ] **Padding is one scalar for all four sides.** Pill-shaped transport
+  controls want generous horizontal padding and tight vertical padding. The
+  single `padding` field makes that inexpressible, so `music-player`'s transport
+  row sets `height: Px(48)` to defeat the vertical component of the horizontal
+  padding it actually wanted. Close with per-side padding, keeping the scalar as
+  the shorthand.
+- [ ] **A disabled control's appearance is a fixed opacity.** Disabled elements
+  are painted at 0.55 opacity of the application's own colours, which is not a
+  colour an application can choose. On a near-black ground a saturated accent
+  pill at 55% still reads as live, so a media transport cannot honestly present
+  itself as inert before a library is loaded. Close with disabled colour fields
+  alongside `hover_bg` and `active_bg`.
+- [ ] **The focus ring is a host constant.** Keyboard focus paints
+  `FOCUS_RING` regardless of the application's palette, so a deliberate accent
+  is contradicted the moment a control is focused. Close with a focus colour in
+  `Gui.Style`, defaulting to the host constant.
+- [ ] **Text cannot be kept on one line, and cannot be truncated.** There is no
+  wrap, nowrap, or ellipsis control, so a string longer than its container
+  reflows and grows that container. `counter`'s oversized numeral pushed its own
+  buttons out of the card at five digits. The only expressible defences are
+  `overflow: Clip`, which silently drops the remaining digits with no indication
+  that a value is incomplete, and application-side font-size stepping by
+  magnitude, which is the example's present workaround. Close with a wrapping
+  mode and a truncation mode on text-bearing elements.
+- [ ] **The window ground is a host constant.** The root container paints
+  `0x16252c` and centres its child, so a light application cannot set the colour
+  behind its own content. `counter` paints its paper ground with a
+  `Fill`/`Fill` grown column, which covers the dark ground but also fills the
+  window, forfeiting the root's centring and still leaving the host colour
+  visible in the window's rounded corners and along its top edge. Close with an
+  application-settable window background, independent of the root element's own
+  size.
+- [ ] **No shadow or elevation.** Surfaces separate from their ground only by
+  `bg`, `border_color`, and `radius`. A raised card on a near-white ground wants
+  a soft shadow, which on paper-light palettes is the only separation with
+  enough contrast to read; `counter`'s cards fall back on a 1px rule that all
+  but disappears against the ground it was chosen to sit quietly against. Close
+  with a shadow field on `Gui.Style`.
+- [ ] **No letter spacing.** A small muted caption above a large numeral is
+  conventionally tracked out, and tracking is what distinguishes an eyebrow
+  label from ordinary body text once weight and family are unavailable.
+  `counter`'s per-card captions are plain small grey text instead. Close with a
+  letter-spacing field on `Gui.Style`, alongside the weight field above.
+- [ ] **A border is all four sides at one width and one colour.** A dense
+  instrument panel divides regions with hairline rules, not with boxes.
+  `terminal-workspace` can only give every region a complete 1-point box and set
+  the gap between regions to 1 point so adjacent edges read as a single rule;
+  the outer edges of the stack are drawn too, and the seam is two coincident
+  borders rather than one. Close with per-side border width and colour.
+- [ ] **`radius` does not round an image's pixels.** `Elem.image` applies the
+  shared style to its container, but the decoded picture is painted as a full-size
+  child that is not clipped to that radius, so `image-library`'s 16-point media
+  corners have square pictures sitting over them. This is the one shape the
+  gallery identity depends on. Close by clipping image content to the element's
+  radius.
+- [ ] **An image's `width`, `height`, and `fit` do not size the picture.** A
+  gallery wants one uniform thumbnail shape and one viewer image that fits the
+  space left for it. With `fit: Cover` and `width: Px(88), height: Px(88)` the
+  painted SVG keeps a size of its own inside the box, and with `height: Fill,
+  grow: True` the viewer image is laid out past the bottom of the window instead
+  of fitting it, so `examples/image-library/specs/window-gallery.scm` can only
+  assert `expect-visible` for the selected image where `expect-on-screen` is the
+  claim that matters. Close by making the declared box authoritative and `fit`
+  the rule that maps pixels into it.
+- [ ] **A fixed length is a shrinkable basis with no floor.** Sibling overflow
+  shrinks a `Px` width, and there is no minimum-size or no-shrink field, so
+  `image-library`'s thumbnails first rendered at a different width in each row
+  depending on how long the caption beside them was. The only expressible remedy
+  was to shorten the caption control until the row fitted. Close with minimum and
+  maximum length fields, or an explicit no-shrink flag.
+- [ ] **A checkbox's box and mark are host constants.** `fg` reaches the caption
+  only; the indicator paints fixed dark values. On `image-library`'s near-white
+  wall the grayscale toggle is the one dark chip in the window and the identity
+  cannot reach it. Close with indicator colour fields on `Elem.CheckboxProps`.
+- [ ] **A row cannot distribute its children along its main axis.** There is
+  `gap` and nothing else, so a trailing child cannot sit at the far edge.
+  `terminal-workspace` wants its session status at the right end of the toolbar
+  and its encoding readout at the right end of the header, which is what an
+  instrument panel does with a status field; both are left-packed instead,
+  because the alternative is a grown spacer element that exists only to push.
+  Close with a main-axis distribution field on rows and columns.
+- [ ] **No font family.** Terminal output is columnar: `terminal-workspace`'s
+  scrollback, its line counts, and its `pty 100x30` readout all want a monospace
+  face, and nothing in `Gui.Style` selects one. Digits in the footer shift width
+  as they change, and the scrollback cannot align a column. Close with a family
+  or a generic-face field on `Gui.Style`.
+
 ## Trust: measurements that can mislead a decision
 
 - [ ] **All benchmark captures come from the headless runner.** No GPUI stage is
@@ -98,17 +221,43 @@ names the evidence so a fix can be verified against the same case.
 
 ## Runner: test what we fly
 
-- [ ] **End-to-end GPUI spec runner.** The driver runs inside the production
-  `Application`, opens the real window, resolves a locator to a live node and its
-  laid-out bounds, synthesises the input event through GPUI, and closes the cycle
-  on the presented frame. Stages that cannot be timed honestly stay
-  `unavailable`. GPUI 0.2.2 exposes input injection only through its mock test
-  platform, so the driver must capture production prepaint bounds and inject through
-  the compositor (Sway's virtual-pointer/seat interface is a viable seam) rather
-  than call `Runtime::event_if_live`. The driver must also distinguish laid out
-  from actually visible: current large row cases place targets outside the
-  window and the platform has no scrolling feature with which to bring them on
-  screen.
+- [x] **End-to-end GPUI spec runner.** Delivered as window specifications:
+  `crates/host/src/window_runner.rs` drives the production window from inside
+  `Application::run`, `crates/host/src/probe.rs` records laid-out bounds from
+  the production render path, and `crates/host/src/screenshot.rs` photographs
+  the window or a located region. See `docs/specifications.adoc`. Real input
+  Keyboard input is real, through `Window::dispatch_keystroke`; pointer input is
+  simulated at the production handler, gated on real laid-out geometry, because
+  GPUI exposes no usable pointer seam. See `docs/specifications.adoc`.
+- [ ] **A real pointer seam.** Pointer input is currently simulated at the
+  production click handler. GPUI 0.2.2 offers no alternative:
+  `Window::dispatch_event` is `pub fn` but returns the crate-private
+  `DispatchEventResult`, so it cannot be called from outside GPUI even
+  discarding the result, and the simulated-mouse helpers are on
+  `TestAppContext` behind `test-support`. Real pointer input therefore needs
+  one of: making `DispatchEventResult` public upstream, OS-level event posting
+  (macOS `CGEvent`, which needs Accessibility permission and moves the physical
+  cursor), or a compositor seam on Wayland. Until then `click` cannot exercise
+  GPUI's dispatch tree, occlusion by unrelated elements, or hover styling, and
+  there is deliberately no `hover` step.
+- [ ] **Scroll and resize steps for window specifications.** Found by driving
+  `folder-browser` and `settings-center`: a list application's rows below the
+  fold cannot be reached, clicked, or photographed at all, and a specification
+  cannot prove a layout at a size other than the one `main.roc` asks for. A
+  `(scroll LOCATOR ...)` step and a `(resize W H)` step would close both. This
+  is the largest gap in the window vocabulary.
+- [ ] **Shared steps the window runner does not implement.** `drag`,
+  `replace-text`, `clipboard-text`, `submit`, `await-ticks`,
+  `revoke-file-grants`, the value and ordering assertions, and the owner
+  counter assertions are all classified semantic-only because the window runner
+  refuses them, not because they would be dishonest there. Implementing them
+  would let one specification assert semantic truth and photograph it.
+  `await-ticks` in particular must drive real timer ticks rather than settling,
+  which is what made it wrong before it was reclassified.
+- [ ] **Bring off-screen targets on screen.** `expect-on-screen` distinguishes
+  laid out from actually visible, but large row cases place targets outside the
+  window and the platform still has no scrolling feature to bring them into
+  view.
 - [ ] **Layout, paint, and presentation spans** owned by the GPUI side of the
   host. Presentation may need a Wayland frame callback.
 - [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
@@ -120,15 +269,46 @@ names the evidence so a fix can be verified against the same case.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
 
+- [ ] **Split the specification reference by audience.**
+  `docs/specifications.adoc` serves an application author and a platform
+  contributor from one 450-line file, so a user's path runs through fixture
+  metadata for this repository's own examples. `docs/testing-your-app.adoc`
+  now carries the user-facing path; the reference should lose the fixture block
+  to `development.adoc` and be retitled.
+- [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
+  screen rectangle, so anything drawn over the window lands in the evidence; a
+  1280x800 window on a display with the dock visible photographs the dock. A
+  window-targeted capture (`screencapture -l<windowid>`, which reads the
+  window's own contents) would be immune, at the cost of cropping in process
+  from the returned image rather than in the request. The `image` crate is
+  already a dependency; the missing piece is the window id, which GPUI does not
+  expose and which would need the pid-to-window mapping the capture currently
+  avoids needing.
+- [ ] **Per-canvas-item screenshot regions.** Only a canvas node's own
+  rectangle is recorded, so `(screenshot :region (role canvas-item ...))` is a
+  parse error rather than a silent whole-canvas photograph. Recording primitive
+  geometry would reuse `canvas_target`'s hit-testing arithmetic.
+- [ ] **Wayland window specifications in continuous integration.** The window
+  runner is platform-neutral and `grim` is wired for wlroots, but no Linux
+  runner has a compositor. This needs the headless lane (`sway --headless`,
+  `WLR_BACKENDS=headless`, software rendering) described above.
+- [ ] **Golden-image comparison.** Window specifications photograph state but
+  never compare images. Comparison needs a storage, review, and update story of
+  its own, and should not be bolted onto the capture step.
+- [ ] **Multi-display screenshots.** `gpui` 0.2.2 hard-zeroes the macOS display
+  origin (`platform/mac/display.rs`) and computes window bounds relative to the
+  window's own `NSScreen`, so a window on a secondary display has no recoverable
+  global coordinates. Capture reports `unavailable` rather than guessing.
+
 ## Release infrastructure
 
-- [ ] **Native macOS GPUI smoke shutdown.** The Apple Silicon host builds and
-  final-links against the project-generated interfaces, and semantic counter
-  specifications pass. The real-window smoke currently blocks while opening the
-  GPUI window on the development machine before its bounded render assertion is
-  scheduled. Make that production window path render and close deterministically;
-  CI invokes it through `scripts/run_gpui_smoke.py` so a block is a failure, never
-  an indefinite job.
+- [x] **Native macOS GPUI smoke shutdown.** The real-window smoke no longer
+  blocks: it renders and quits in ~2.3 s across repeated runs on Apple Silicon.
+  A block is now a failure inside the host itself rather than only in the driver
+  — `crates/host/src/watchdog.rs` arms a native thread before `Application::run`
+  that reports the last startup milestone reached (`app-run-entered`,
+  `window-opened`, `first-render`, `driver-started`) and exits 101 when the
+  deadline passes.
 - [ ] **Adopt roc-gui-owned content-addressed releases.** Run the dependency and
   host producer workflows from reviewed repository revisions, publish their
   attested archives, and replace the bootstrap `roc-signals` entries in
@@ -276,14 +456,21 @@ names the evidence so a fix can be verified against the same case.
   accessibility API. Close with platform accessibility nodes verified by an
   external accessibility client, while retaining the same semantic names used
   by specifications.
-- [ ] **Focus is not restored across replaced subtrees.** Keyboard focus works
-  for each live GPUI control, but a Roc state update replaces that control's
-  native entity. Dialog open/close is the deliberate exception: its runtime
-  policy restores the semantic opener. Close the general gap by carrying role and stable semantic name across a
-  successful patch when the corresponding control remains live, and specify
-  the destination when navigation removes the focused control.
+- [ ] **Focus has no destination when navigation removes the focused control.**
+  An ordinary patch now restores focus by role and stable semantic name when
+  the control remains live, and dialog open and close keep their own policy.
+  What is still unspecified is where focus goes when the focused control is
+  gone from the next graph: it is simply dropped.
 - [ ] **Composite directory navigation has no roving focus.** A user can reach
   and activate every folder with Tab and Enter or Space. Close with a semantic
   list/list-item element whose Up, Down, Home, and End behavior, selected state,
   scroll-into-view behavior, scaling case, and operating-system accessibility
   mapping all use the production event path.
+- [ ] **Rows and columns cannot align or justify their children.** `Gui.Style`
+  carries size, colour, border, and overflow, but no main- or cross-axis
+  alignment, so an application cannot centre a block in the space it was given.
+  Empty-state messages, which belong in the middle of an otherwise blank
+  content area, are left-aligned with padding instead. Close with an alignment
+  property on row, column, and panel props, mapped to the GPUI flex container
+  the host already builds, with a specification that photographs a centred
+  child.

@@ -8,6 +8,7 @@ import concurrent.futures
 import atexit
 from contextlib import closing, contextmanager
 import fnmatch
+import json
 import os
 import shutil
 import sqlite3
@@ -167,16 +168,91 @@ def validate_capture(path: Path) -> None:
             raise RuntimeError(f"capture contains foreign-key violations: {foreign_keys!r}")
 
 
-def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> tuple[Case, str | None]:
+def report_window_failure(artifacts: Path) -> None:
+    """Print the failing step and any screenshots, so the next look is one read away."""
+    try:
+        report = json.loads((artifacts / "report.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        print(f"    no report written to {artifacts / 'report.json'}", file=sys.stderr)
+        return
+    for step in report.get("steps", []):
+        if step.get("status") in {"fail", "unavailable"}:
+            print(f"    {step['status']}: {step.get('message', step.get('kind'))}", file=sys.stderr)
+    for shot in sorted(artifacts.glob("*.png")):
+        print(f"    screenshot: {shot}", file=sys.stderr)
+
+
+def classify(cases: list[Case]) -> dict[Path, str]:
+    """Ask the host which runner each specification needs.
+
+    Classification is pure parsing, so any built executable can answer for the
+    whole suite in one process. The host owns the vocabulary; duplicating it
+    here would be a second source of truth that could drift.
+    """
+    executable = next((case.executable for case in cases if case.executable.is_file()), None)
+    if executable is None:
+        raise RuntimeError("no built executable available to classify specifications")
+    completed = subprocess.run(
+        [str(executable), "--host-classify-specs", *[str(case.spec) for case in cases]],
+        cwd=ROOT,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed.returncode != 0:
+        diagnostic = completed.stderr.decode(errors="replace").strip()
+        raise RuntimeError(f"classification failed: {diagnostic}")
+    runners: dict[Path, str] = {}
+    for line in completed.stdout.decode(errors="replace").splitlines():
+        runner, separator, path = line.partition("\t")
+        if separator and runner in {"semantic", "window"}:
+            runners[Path(path)] = runner
+    missing = [case.spec for case in cases if case.spec not in runners]
+    if missing:
+        raise RuntimeError(f"host did not classify {len(missing)} specification(s)")
+    return runners
+
+
+def window_artifacts(case: Case) -> Path:
+    """Where a window case writes its report and screenshots."""
+    return case.capture.with_suffix("")
+
+
+def run_case(
+    case: Case,
+    timeout: float,
+    jobs: int,
+    detail: str = "summary",
+    runner: str = "semantic",
+    allow_missing_shots: bool = False,
+) -> tuple[Case, str | None]:
+    """Run one specification on the runner its steps require.
+
+    Both runners share this function so a case is wired to its fixtures exactly
+    once, whichever runner it needs.
+    """
     case.capture.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        str(case.executable),
-        "--host-run-spec",
-        str(case.spec),
-        f"--host-stats-output={case.capture}",
-        f"--host-stats-job-count={jobs}",
-        f"--host-stats-detail={detail}",
-    ]
+    if runner == "window":
+        artifacts = window_artifacts(case)
+        artifacts.mkdir(parents=True, exist_ok=True)
+        command = [
+            str(case.executable),
+            "--host-run-window-spec",
+            str(case.spec),
+            f"--host-window-report={artifacts / 'report.json'}",
+            f"--host-window-shot-dir={artifacts}",
+        ]
+        if allow_missing_shots:
+            command.append("--host-window-allow-missing-shots")
+    else:
+        command = [
+            str(case.executable),
+            "--host-run-spec",
+            str(case.spec),
+            f"--host-stats-output={case.capture}",
+            f"--host-stats-job-count={jobs}",
+            f"--host-stats-detail={detail}",
+        ]
     fixture_values = fixture_metadata(case)
     native_fixtures: dict[str, Path | None] = {}
     for key in ("directory", "clipboard"):
@@ -249,6 +325,17 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
     if completed.returncode != 0:
         diagnostic = completed.stderr.decode(errors="replace").strip()
         return case, f"exit {completed.returncode}: {diagnostic}"
+    if runner == "window":
+        # A window run's evidence is its report, not a SQLite capture, which it
+        # does not produce.
+        report = window_artifacts(case) / "report.json"
+        try:
+            outcome = json.loads(report.read_text(encoding="utf-8")).get("outcome")
+        except (OSError, json.JSONDecodeError) as error:
+            return case, f"unreadable window report: {error}"
+        if outcome != "pass":
+            return case, f"window report outcome {outcome!r}"
+        return case, None
     try:
         validate_capture(case.capture)
     except (OSError, sqlite3.Error, RuntimeError, ValueError) as error:
@@ -271,6 +358,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--skip-host-build", action="store_true")
+    parser.add_argument("--only", choices=("all", "semantic", "window"), default="all",
+                        help="run only the specifications a given runner handles")
+    parser.add_argument("--allow-missing-shots", action="store_true",
+                        help="report unavailable screenshots instead of failing; hosted CI "
+                             "runners cannot grant screen recording")
     parser.add_argument("--roc", default=os.environ.get("ROC", "roc"))
     args = parser.parse_args()
     if args.jobs < 1 or args.timeout <= 0:
@@ -295,30 +387,78 @@ def main() -> int:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 
+    # Ask the host which runner each specification needs, before the fixture
+    # services start, because the services a run needs come from the cases it
+    # will actually execute.
+    try:
+        runners = classify(cases)
+    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    semantic = [case for case in cases if runners[case.spec] == "semantic"]
+    window = [case for case in cases if runners[case.spec] == "window"]
+    if args.only == "semantic":
+        window = []
+    elif args.only == "window":
+        semantic = []
+    if not semantic and not window:
+        print(f"error: no .scm specs selected for --only {args.only}", file=sys.stderr)
+        return 2
+    selected = semantic + window
+
     results: list[tuple[Case, str | None]] = []
     failures = 0
+    window_specs = {case.spec for case in window}
     try:
-        with fixture_services(cases, output):
+        with fixture_services(selected, output):
             if args.fail_fast:
-                for case in cases:
+                for case in semantic:
                     result = run_case(case, args.timeout, args.jobs, args.detail)
                     results.append(result)
                     if result[1] is not None:
                         break
             else:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-                    futures = [pool.submit(run_case, case, args.timeout, args.jobs, args.detail) for case in cases]
+                    futures = [pool.submit(run_case, case, args.timeout, args.jobs, args.detail) for case in semantic]
                     results.extend(future.result() for future in concurrent.futures.as_completed(futures))
+
+            # Window cases are strictly serial: there is one screen and one
+            # focused application, so concurrent runs would photograph each
+            # other.
+            for case in window:
+                result = run_case(
+                    case,
+                    args.timeout,
+                    1,
+                    args.detail,
+                    runner="window",
+                    allow_missing_shots=args.allow_missing_shots,
+                )
+                results.append(result)
+                if args.fail_fast and result[1] is not None:
+                    break
 
             for case, error in results:
                 relative = case.spec.relative_to(ROOT)
+                evidence = (
+                    window_artifacts(case) / "report.json"
+                    if case.spec in window_specs
+                    else case.capture
+                )
                 if error is None:
-                    print(f"PASS {relative} -> {case.capture}")
+                    print(f"PASS {relative} -> {evidence}")
                 else:
                     failures += 1
                     print(f"FAIL {relative}: {error}", file=sys.stderr)
+                    if case.spec in window_specs:
+                        report_window_failure(window_artifacts(case))
+            # A/A repeats measure timing noise between two captures, which a
+            # window run does not produce.
             if args.aa and failures == 0:
-                for case, _ in sorted(results, key=lambda result: result[0].spec):
+                for case, _ in sorted(
+                    (result for result in results if result[0].spec not in window_specs),
+                    key=lambda result: result[0].spec,
+                ):
                     aa_case = replace(
                         case,
                         capture=case.capture.with_name(f"{case.capture.stem}-aa{case.capture.suffix}"),
@@ -336,7 +476,7 @@ def main() -> int:
         print(f"error: {error}", file=sys.stderr)
         return 1
     passed = len(results) - failures
-    print(f"{passed}/{len(cases)} specs passed; captures: {output}")
+    print(f"{passed}/{len(results)} specs passed; evidence: {output}")
     return 1 if failures else 0
 
 

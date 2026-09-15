@@ -40,7 +40,8 @@ jobs:
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \
-            scripts/test_macos_interfaces.py
+            scripts/test_macos_interfaces.py \
+            scripts/test_window_routing.py
       - name: Admit released host or test changed host
         run: |
           status=0
@@ -51,10 +52,16 @@ jobs:
             *) exit "$status" ;;
           esac
       - name: Full application specification suite
-        run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }}
+        run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }} --only semantic
       - name: Real GPUI window smoke
         if: runner.os == 'macOS'
         shell: bash
         run: |
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
+      # Screenshots stay unavailable here: hosted runners do not grant Screen
+      # Recording. Every behavioural window assertion still gates.
+      - name: Window specifications
+        if: runner.os == 'macOS'
+        shell: bash
+        run: python3 scripts/run_specs.py --only window --allow-missing-shots

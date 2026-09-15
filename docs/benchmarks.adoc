@@ -18,7 +18,7 @@ Add a `benchmark` clause before `steps`:
   (steps
     (mark-metrics)
     (click (role button :name "Create 10,000 rows"))
-    (expect-patch :kind replace :staged 60023 :removed 23)
+    (expect-patch :kind replace :staged 40015 :removed 15)
     (expect-count (text-prefix "Row ") 10000)
     (expect-visible (text "Rows: 10000"))))
 ----
@@ -91,26 +91,25 @@ decision reruns the bound on its comparison machine.
 The suite varies operations and shapes that applications naturally produce:
 
 Scroll:: Populate a named scroll region with 100, 1,000, and 10,000 ordinary
-text rows. This measures eager graph construction and host materialization; it
+text rows. This measures eager graph construction and host materialisation; it
 does not substitute a benchmark-only list or renderer.
 Virtual list:: Populate the production fixed-row virtual list with 100, 1,000,
 and 10,000 stable-keyed text rows. Semantic scale proves the complete logical
-graph; interactive captures separately report viewport-owned materialization
+graph; interactive captures separately report viewport-owned materialisation
 and recycling without treating offscreen rows as visible native entities.
 Settings search:: Populate the text-input benchmark's virtual catalogue with
-100, 1,000, and 10,000 categorized settings, then edit its controlled
-search field to retain one category. Exact semantic counts prove both the
+100, 1,000, and 10,000 categorised settings, then edit its controlled search
+field to retain one category. Exact semantic counts prove both the
 initial catalogue scale and the filtered result while the measured turn uses
 the ordinary text-change route.
-
 Rows:: Create, append, sparse update, select, idempotent reselect, delete,
 clear, swap, and repeated selection at 100, 1,000, and 10,000 rows, with a
 100,000-row sparse-update point for confirming large replace-with-removal
 scaling. Row actions are ordinary action-button nodes, so this ladder also
-exercises styled button lowering, native materialization, dispatch, and
+exercises styled button lowering, native materialisation, dispatch, and
 replacement at realistic application sizes.
-Row boundaries:: Update the first, middle, and last item when each row owns a
-translated state boundary, and exercise selection, deletion, swaps, and sparse
+Row boundaries:: Update the first, middle, and last item when each row owns its
+own render boundary, and exercise selection, deletion, swaps, and sparse
 updates whose invariants are owned by the collection. This contrasts local
 replacement with collection-wide work while exposing boundary lookup cost as
 collection position and size grow.

@@ -18,6 +18,13 @@ virtualized scrollback, and stale-completion protection.
 - Generate a realistic body of output with the ordinary `lines:N` fixture command.
 - Stop a live child while a read is waiting and receive a cancellation completion.
 
+## Appearance
+
+An instrument panel: a charcoal ground, regions divided by hairline borders and
+a one-point seam, 12-point body type over 18-point scrollback rows, a two-point
+radius, and one amber signal colour reserved for session status. `Theme.roc`
+holds every colour and measure the application uses.
+
 ## Error paths
 
 - Missing process grants are actionable.

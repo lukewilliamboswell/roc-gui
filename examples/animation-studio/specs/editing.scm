@@ -1,11 +1,15 @@
-(test "create, move, undo, and redo shapes through the canvas"
+(test "create, select, move, undo, and redo shapes"
   (steps
     (expect-visible (role canvas :name "Stage"))
     (expect-visible (role canvas-item :name "Title card"))
     (click (role button :name "Add rectangle"))
-    (expect-visible (text "Layers: 3"))
+    (expect-visible (text "LAYERS (3)"))
     (expect-visible (role canvas-item :name "Rectangle 3"))
-    (drag (role canvas :name "Stage") 150 130 230 190)
+    (click (role button :name "Select Title card"))
+    (expect-visible (text "Selected Title card"))
+    (click (role button :name "Select Rectangle 3"))
+    (expect-visible (text "Selected Rectangle 3"))
+    (drag (role canvas :name "Stage") 150 260 230 320)
     (expect-visible (text "Move committed"))
     (click (role button :name "Undo"))
     (expect-visible (text "Undid edit"))
