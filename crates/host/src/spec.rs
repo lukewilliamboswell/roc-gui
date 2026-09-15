@@ -2128,23 +2128,24 @@ mod tests {
         );
     }
 
-    /// The regression guard for the committed suite: adding a capability tag
-    /// must not change how any existing specification runs.
+    /// The guard for the committed suite: every specification parses, and
+    /// belongs to exactly one runner. Both kinds share a directory, so the file
+    /// contents are the only thing that decides which runner takes it.
     #[test]
-    fn every_committed_spec_is_semantic_runnable() {
+    fn every_committed_spec_belongs_to_exactly_one_runner() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(Path::parent)
             .expect("workspace root");
-        let mut checked = 0;
+        let mut semantic = 0;
+        let mut window = 0;
         for group in ["examples", "benchmarks"] {
             let entries = match std::fs::read_dir(root.join(group)) {
                 Ok(entries) => entries,
                 Err(_) => continue,
             };
             for app in entries.filter_map(Result::ok) {
-                let specs = app.path().join("specs");
-                let Ok(files) = std::fs::read_dir(&specs) else {
+                let Ok(files) = std::fs::read_dir(app.path().join("specs")) else {
                     continue;
                 };
                 for file in files.filter_map(Result::ok) {
@@ -2155,12 +2156,25 @@ mod tests {
                     let source = std::fs::read_to_string(&path).expect("read spec");
                     let spec = parse(&source)
                         .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-                    check_runner(&spec, Runner::Semantic)
-                        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-                    checked += 1;
+                    match (
+                        check_runner(&spec, Runner::Semantic),
+                        check_runner(&spec, Runner::Window),
+                    ) {
+                        (Ok(()), Err(_)) => semantic += 1,
+                        (Err(_), Ok(())) => window += 1,
+                        (Ok(()), Ok(())) => semantic += 1,
+                        (Err(first), Err(second)) => panic!(
+                            "{}: no runner accepts this specification: {first} / {second}",
+                            path.display()
+                        ),
+                    }
                 }
             }
         }
-        assert!(checked > 100, "expected the committed suite, found {checked}");
+        assert!(
+            semantic > 100,
+            "expected the committed semantic suite, found {semantic}"
+        );
+        assert!(window > 0, "expected committed window specifications");
     }
 }

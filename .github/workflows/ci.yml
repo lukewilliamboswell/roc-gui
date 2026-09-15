@@ -39,7 +39,7 @@ jobs:
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \
             scripts/test_macos_interfaces.py \
-            scripts/test_window_specs.py
+            scripts/test_window_routing.py
       - name: Admit released host or test changed host
         run: |
           status=0
@@ -50,7 +50,7 @@ jobs:
             *) exit "$status" ;;
           esac
       - name: Full application specification suite
-        run: python3 scripts/run_specs.py --jobs 2
+        run: python3 scripts/run_specs.py --jobs 2 --only semantic
       - name: Real GPUI window smoke
         if: runner.os == 'macOS'
         shell: bash
@@ -62,4 +62,4 @@ jobs:
       - name: Window specifications
         if: runner.os == 'macOS'
         shell: bash
-        run: python3 scripts/run_window_specs.py --allow-missing-shots
+        run: python3 scripts/run_specs.py --only window --allow-missing-shots

@@ -2346,6 +2346,7 @@ struct HostArgs {
     window_shot_dir: Option<PathBuf>,
     window_timeout_ms: u32,
     window_require_shots: bool,
+    classify_specs: Vec<PathBuf>,
     stats_record: bool,
     stats_output: Option<PathBuf>,
     stats_detail: observatory::Detail,
@@ -2383,6 +2384,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         window_shot_dir: None,
         window_timeout_ms: 15_000,
         window_require_shots: true,
+        classify_specs: Vec::new(),
         stats_record: false,
         stats_output: None,
         stats_detail: observatory::Detail::Summary,
@@ -2438,6 +2440,13 @@ fn parse_host_args() -> Result<HostArgs, String> {
                 })?;
         } else if argument == "--host-window-allow-missing-shots" {
             parsed.window_require_shots = false;
+        } else if argument == "--host-classify-specs" {
+            // Consumes the rest: classification is pure parsing, so one process
+            // can answer for the whole suite.
+            parsed.classify_specs.extend(pending.by_ref().map(PathBuf::from));
+            if parsed.classify_specs.is_empty() {
+                return Err("--host-classify-specs requires at least one .scm path".into());
+            }
         } else if argument == "--host-cap-dir" {
             parsed.cap_dir = Some(
                 pending
@@ -2536,10 +2545,12 @@ fn parse_host_args() -> Result<HostArgs, String> {
         + usize::from(parsed.host_gpui_smoke)
         + usize::from(parsed.spec_path.is_some())
         + usize::from(parsed.window_spec_path.is_some())
+        + usize::from(!parsed.classify_specs.is_empty())
         > 1
     {
         return Err(
-            "host smoke modes, --host-run-spec, and --host-run-window-spec are mutually exclusive"
+            "host smoke modes, --host-run-spec, --host-run-window-spec, and \
+             --host-classify-specs are mutually exclusive"
                 .into(),
         );
     }
@@ -2636,6 +2647,7 @@ fn print_host_help(app_name: &str) {
            --host-window-shot-dir=PATH         Write window screenshots into this directory\n\
            --host-window-timeout-ms=N          Per-step window deadline (1000..600000)\n\
            --host-window-allow-missing-shots   Report unavailable screenshots instead of failing\n\
+           --host-classify-specs PATH...       Print which runner each .scm needs\n\
            --host-smoke                        Run the built-in headless smoke check\n\
           --host-gpui-smoke                   Open, render, and close a real GPUI window\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2738,6 +2750,30 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 0;
     }
+    if !args.classify_specs.is_empty() {
+        let mut status = 0;
+        for path in &args.classify_specs {
+            match std::fs::read_to_string(path).map_err(|error| error.to_string()).and_then(
+                |text| spec::parse(&text).map_err(|error| error.to_string()),
+            ) {
+                Ok(case) => {
+                    let runner = if spec::check_runner(&case, spec::Runner::Semantic).is_ok() {
+                        "semantic"
+                    } else {
+                        "window"
+                    };
+                    println!("{runner}\t{}", path.display());
+                }
+                Err(message) => {
+                    eprintln!("{}: {message}", path.display());
+                    status = 2;
+                }
+            }
+        }
+        set_roc_host(core::ptr::null_mut());
+        return status;
+    }
+
     let parsed_spec = match args.spec_path.as_ref() {
         Some(path) => match std::fs::read(path) {
             Ok(source) => match std::str::from_utf8(&source) {

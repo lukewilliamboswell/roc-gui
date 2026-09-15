@@ -101,5 +101,6 @@ a GPUI window.
 == Where to go next
 
 Read <<_building_an_application>> to add interaction and split state into local
-components. Then add a `.scm` file using <<_specifying_behaviour>> so behaviour
-remains executable as the application changes.
+components. Then read <<_testing_your_application>> and add a `.scm` file, so
+behaviour remains executable as the application changes;
+<<_specification_reference>> has the full vocabulary.

@@ -1,8 +1,14 @@
-= Specifying behaviour
+= Specification reference
+
+The complete `.scm` vocabulary: locators, assertions, operations, window steps,
+and case selection. <<_testing_your_application>> is the shorter path if you
+are verifying an application for the first time.
 
 Specifications describe the application as a user sees it: find text, identify
 a button by its semantic name, press it, and check the result. Put `.scm` files
-in a `specs/` directory beside the `main.roc` they exercise:
+in a `specs/` directory beside the `main.roc` they exercise. Both runners read
+the same directory, because the steps a file contains decide which runner takes
+it:
 
 ....
 my-app/
@@ -45,80 +51,6 @@ Each specification gets a fresh process. This isolates application state and
 produces one `.rgstats` SQLite capture beneath a timestamped
 `.test-out/specs/` directory. A failing assertion makes the command fail and
 prints the specification line and reason.
-
-If an application has an adjacent `fixture/` directory, the runner grants that
-directory through the production `--host-cap-dir` boundary. Fixture contents
-are therefore exercised through the same opaque capability operations as an
-interactive grant, without giving the application ambient test-only I/O.
-
-Image specifications can assert the production image-data owner's staged-node,
-staged-byte, inspection, and failure totals with
-`expect-image-owner-counters`. These are numeric work counters only. Image
-names, paths, encoded values, dimensions, and rendered application text are not
-capture evidence.
-
-An adjacent `app-data-fixture/` grants a fresh private copy through
-`--host-cap-app-data` for each case, so writes use the production capability
-without mutating checked-in data. A subdirectory named after the spec selects
-case-specific initial state; otherwise `default/` is used. Neither the granted
-path nor preference contents become capture identity.
-
-`expect-file-selection-counters` compares seven host-owned numeric totals in
-order: portal requests, chosen results, cancellations, denials, unavailable
-results, suppressed prompts, and development provisions. The evidence contains
-no selected name, path, URI, or application text.
-
-`revoke-file-grants` invokes the trusted-host revocation seam; it is not an
-application event or Roc capability API. `expect-file-access` compares portal,
-provisioned, and revoked root counts. `expect-file-lifecycle-counters` compares
-root allocations, child allocations, live handles, revocation requests,
-successful revocations, and post-revocation operation rejections. All are
-numeric owner evidence without internal root identifiers.
-
-The Settings Center's 100-, 1,000-, and 10,000-byte profile-note cases exercise
-ordinary controlled editing followed by the same worker-backed atomic save used
-by the application. `expect-value-bytes` supplies deterministic, content-free
-scale evidence; task and patch counters remain owned by their production paths.
-
-Generic per-case fixture metadata may name a loopback server script, readiness
-port, and exact HTTP origin or TCP endpoint. The runner starts only services
-selected by that metadata, while applications use their production protocol
-packages, capabilities, worker pools, and completion routes. This avoids
-public-network availability and remote service state without introducing a
-test-only network path or application-name policy.
-
-A `process-fixture/SPEC_NAME` file containing `test-program` grants the fixed
-deterministic PTY child to that case through `--host-cap-process`. Cases without
-the file receive no process authority, which exercises denial without adding a
-test-only product control. The application uses the same `New terminal` action
-for both outcomes.
-
-A `device-fixture/SPEC_NAME` file grants a deterministic virtual HID device to
-that case through the same host capability used for physical hardware. An
-optional bounded control count selects the device model's ordinary capability
-size. The product performs the same discover, connect, and byte transaction
-operations for both transports; cases without a fixture exercise denial through
-the normal `Discover devices` action.
-
-A `system-monitor-fixture/SPEC_NAME` file grants a deterministic system sampler
-through the same snapshot ABI used by the physical `sysinfo` source. Its value
-is `standard`, `unavailable`, or `processes:N`; this is runner metadata, not an
-application switch. Cases without the file exercise permission denial through
-the ordinary `Resume sampling` action.
-
-An adjacent `audio-fixture` file containing `null` grants a paced null output
-to that application's cases. The harness-only grant is not advertised as a
-product option; it changes only the final sink while Rodio retains ownership of
-the production decoder, mixer, player, seeking, and status state. The
-`expect-audio-counters` assertion records live outputs, live tracks, and the
-seven operation-attempt counters as deterministic step evidence.
-
-Native file and clipboard fixtures are selected by `fixture-metadata/SPEC_NAME`.
-Each `directory=RELATIVE_PATH` or `clipboard=RELATIVE_PATH` entry grants that
-adjacent directory to the corresponding production capability. The metadata is
-generic to the harness and does not depend on an application directory name.
-Either value may be `none` to exercise denial through the same production
-acquisition call.
 
 == Locators
 
@@ -261,18 +193,32 @@ processes. The process subsystem records this lifecycle evidence.
 == Window specifications
 
 A window specification is an ordinary `(test ...)` file that uses window-only
-steps. It lives in `examples/<app>/window-specs/` rather than
-`examples/<app>/specs/`, and `scripts/run_window_specs.py` runs it:
+steps. It lives beside every other specification for its application, because
+the steps a file contains are what decide which runner takes it. Nothing about
+its location or its name carries that meaning.
+
+Your application runs one itself:
 
 [source,sh]
 ----
-python3 scripts/run_window_specs.py 'examples/counter/window-specs/*.scm'
+./my-app --host-run-window-spec specs/on-screen.scm \
+    --host-window-report=.test-out/report.json \
+    --host-window-shot-dir=.test-out
 ----
 
-Each case runs one host process with `--host-run-window-spec`. That process
-opens the production GPUI window, drives it through the same render path and
-event route an interactive session uses, and writes a JSON report the running
-agent can read.
+The process opens the production GPUI window, drives it through the same render
+path and event route an interactive session uses, and writes a JSON report. In
+this repository `scripts/run_specs.py` builds the host, builds each example, and
+routes each case to the runner its steps require:
+
+[source,sh]
+----
+python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
+python3 scripts/run_specs.py --only window
+----
+
+`--host-classify-specs PATH...` prints which runner each file needs, which is
+how the driver routes without keeping a second copy of the vocabulary.
 
 === One vocabulary, split by capability
 
@@ -359,33 +305,12 @@ assertion stopped at is usually the most useful evidence in the run.
 
 === What input is real
 
-Keyboard input is real. `focus` moves focus through the same `FocusHandle` the
-host uses, `press-key`, `key`, and `type` reach GPUI's `dispatch_keystroke` and
-the window's production keymap, and `expect-focused` asks the focus handle
-rather than a model of it.
-
-Pointer input is simulated, because GPUI 0.2.2 exposes no usable entry point
-for it: `Window::dispatch_event` returns a crate-private type and cannot be
-called from outside GPUI, and every simulated-mouse helper lives on
-`TestAppContext` behind `test-support`. A `click` therefore invokes the same
-handler the production click closure invokes.
-
-What is *not* simulated is whether the click could have landed. Before
-dispatching, the window runner requires from real laid-out geometry that the
-control:
-
-* has been laid out, not merely mounted;
-* survives clipping by the viewport and by every scrolling ancestor;
-* accepts pointer activation, which the production render path grants only to
-  enabled controls;
-* is not behind an active modal dialog.
-
-This is strictly stronger than a semantic `click`, which cannot tell that a
-control is scrolled out of view or was never laid out. It does not exercise
-GPUI's dispatch tree, occlusion by unrelated elements, or the click closure's
-own wiring. There is no `hover` step for the same reason: hover styling is
-driven by GPUI's internal pointer position, and a step that could not honestly
-move it would not mean what its name says.
+Keyboard steps send real keystrokes through the window's production keymap.
+Pointer steps are simulated at the production handler, but are refused unless
+the control was laid out, is unclipped, is enabled, and is not behind a modal
+dialog, so a `click` a real user could not have performed fails rather than
+passing quietly. There is no `hover` step. <<_testing_your_application>>
+explains why, and what each guarantee is worth.
 
 === What the probe cannot see
 
@@ -409,21 +334,6 @@ control whose state did not change is not re-rendered and records nothing that
 frame; treating that as "not laid out" would report a plainly visible control
 as missing. `expect-rendered-count` therefore counts nodes that have been laid
 out while mounted, which is the materialization evidence a virtual list needs.
-
-=== Reports are not captures
-
-A window run writes `report.json` into `.test-out/`. It is deliberately not a
-`.rgstats` capture and never becomes one. The two carry different kinds of
-fact:
-
-* A capture is durable, archived, and privacy-clean. It records that a step ran
-  and its status, and never application text, paths, or pixels.
-* A report is ephemeral working evidence for whoever is iterating, and it
-  carries exactly what a capture must not: the failing locator as written, the
-  message, and the screenshots.
-
-For the same reason screenshots are written beside the report in `.test-out/`
-and never into a capture.
 
 == Selecting and repeating cases
 

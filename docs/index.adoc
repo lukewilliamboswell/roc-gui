@@ -11,7 +11,8 @@
 Roc GUI is a small native GUI platform built around one predictable loop:
 state is rendered into elements, user events produce actions, and actions
 produce the next state. This manual takes an application from its first window
-through semantic specifications and repeatable scaling measurements.
+through specifications that verify it, and on to repeatable scaling
+measurements.
 
 ifdef::backend-html5[]
 link:roc-gui.pdf[Download the standalone PDF manual].
@@ -22,8 +23,11 @@ endif::[]
 New to Roc GUI:: Read <<_what_you_build>>, then follow <<_getting_started>> to
 build the counter and a minimal application.
 Application author:: Continue through <<_building_an_application>> for the
-state/action/render model, elements, layout, and local state boundaries. Use
-<<_specifying_behaviour>> to test through semantic user actions.
+state/action/render model, elements, layout, and local state boundaries.
+Verifying your own application:: Read <<_testing_your_application>>. The
+executable you build runs both specification runners itself, so checking
+behaviour, layout, and appearance needs no test framework and no second build.
+<<_specification_reference>> has the complete step vocabulary.
 Advanced application author:: Read <<_how_roc_gui_works>> for the rendering and
 event lifecycles, boundary replacement model, and comparison with other GUI
 architectures.
@@ -37,6 +41,8 @@ completeness.
 include::overview.adoc[leveloffset=+1]
 
 include::getting-started.adoc[leveloffset=+1]
+
+include::testing-your-app.adoc[leveloffset=+1]
 
 include::platform-api.adoc[leveloffset=+1]
 

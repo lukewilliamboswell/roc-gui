@@ -142,6 +142,12 @@ names the evidence so a fix can be verified against the same case.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
 
+- [ ] **Split the specification reference by audience.**
+  `docs/specifications.adoc` serves an application author and a platform
+  contributor from one 450-line file, so a user's path runs through fixture
+  metadata for this repository's own examples. `docs/testing-your-app.adoc`
+  now carries the user-facing path; the reference should lose the fixture block
+  to `development.adoc` and be retitled.
 - [ ] **Per-canvas-item screenshot regions.** Only a canvas node's own
   rectangle is recorded, so `(screenshot :region (role canvas-item ...))` is a
   parse error rather than a silent whole-canvas photograph. Recording primitive
