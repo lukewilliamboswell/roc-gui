@@ -653,7 +653,11 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
         }
     }
 
-    const NEGOTIATION: &[u8; 16] = b"\x1b[?9001h\x1b[?1004h";
+    /// Mode requests the pseudo console makes of the terminal reading it.
+    const NEGOTIATION: &[u8] = b"\x1b[?9001h\x1b[?1004h";
+    /// The negotiation followed by the console's first frame setup: hide the
+    /// cursor, clear, reset attributes, home. None of it is program output.
+    const STARTUP: &[u8] = b"\x1b[?9001h\x1b[?1004h\x1b[?25l\x1b[2J\x1b[m\x1b[H";
 
     pub struct Terminal {
         output: Mutex<Option<File>>,
@@ -885,34 +889,45 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
             }
         }
 
-        /// Before any client output, the pseudo console asks the terminal
-        /// reading it for win32-input and focus-event modes. That is the
-        /// console negotiating with this host, not program output.
-        fn discard_negotiation(&self, available: u32) -> io::Result<()> {
-            if available < NEGOTIATION.len() as u32 || !self.negotiating.load(Ordering::Acquire) {
-                return Ok(());
+        /// Before any client output, the pseudo console negotiates modes with
+        /// the terminal reading it and sets up its first frame. The console
+        /// may flush that setup on its own, ahead of the program's first
+        /// output, so it is held back until complete and then discarded.
+        /// Returns whether startup bytes are still incomplete.
+        fn startup_pending(&self, available: u32) -> io::Result<bool> {
+            if !self.negotiating.load(Ordering::Acquire) {
+                return Ok(false);
             }
-            self.negotiating.store(false, Ordering::Release);
             let mut guard = self.output.lock().expect("pty output poisoned");
             let Some(output) = guard.as_mut() else {
-                return Ok(());
+                return Ok(false);
             };
-            let mut peeked = [0u8; NEGOTIATION.len()];
+            let mut peeked = [0u8; STARTUP.len()];
             let mut read = 0u32;
-            let peek = unsafe {
+            if unsafe {
                 PeekNamedPipe(
                     output.as_raw_handle() as HANDLE,
                     peeked.as_mut_ptr() as *mut c_void,
-                    peeked.len() as u32,
+                    (available as usize).min(STARTUP.len()) as u32,
                     &mut read,
                     ptr::null_mut(),
                     ptr::null_mut(),
                 )
-            };
-            if peek != 0 && read as usize == peeked.len() && peeked == *NEGOTIATION {
-                output.read_exact(&mut peeked)?;
+            } == 0
+            {
+                self.negotiating.store(false, Ordering::Release);
+                return Ok(false);
             }
-            Ok(())
+            let seen = &peeked[..read as usize];
+            if seen == STARTUP {
+                output.read_exact(&mut peeked)?;
+            } else if STARTUP.starts_with(seen) {
+                return Ok(true);
+            } else if seen.starts_with(NEGOTIATION) {
+                output.read_exact(&mut peeked[..NEGOTIATION.len()])?;
+            }
+            self.negotiating.store(false, Ordering::Release);
+            Ok(false)
         }
 
         pub fn wait_readable(&self, timeout_ms: u64) -> io::Result<bool> {
@@ -921,8 +936,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
                 match self.available()? {
                     None => return Ok(true),
                     Some(count) if count > 0 => {
-                        self.discard_negotiation(count)?;
-                        if self.available()? != Some(0) {
+                        if !self.startup_pending(count)? && self.available()? != Some(0) {
                             return Ok(true);
                         }
                     }
@@ -1045,6 +1059,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
             let ready = read_until(&terminal, "terminal-ready");
             assert!(ready.contains("terminal-ready"));
             assert!(!ready.contains("\u{1b}[?9001h"), "console negotiation reached the reader");
+            assert!(!ready.contains("\u{1b}[2J"), "console frame setup reached the reader");
             terminal.resize(132, 43).unwrap();
             // Newlines are Enter, as they are for a POSIX line discipline.
             assert_eq!(terminal.write(b"hello\n").unwrap(), 6);
