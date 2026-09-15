@@ -48,6 +48,14 @@ Settings := [].{
 		{ id: 11, name: "Notifications — Do not disturb" },
 	]
 
+	preference_error_message = |error| match error {
+		OpenPreferencesErr(AccessDenied) => "Preferences storage was not granted"
+		OpenPreferencesErr(_) => "Preferences storage could not be opened"
+		ReadPreferenceErr(_) => "Saved preferences could not be read"
+		WritePreferenceErr(ResourceLimit) => "The preferences are too large to save"
+		WritePreferenceErr(_) => "Preferences could not be saved"
+	}
+
 	cancel_pending = |state| match state.status {
 		Loading(_) => { ..state, next_request: state.next_request + 1, status: Idle }
 		Saving(_) => { ..state, next_request: state.next_request + 1, status: Idle }
@@ -67,11 +75,11 @@ Settings := [].{
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Loading(id) },
 			run: || match Preferences.open!({}) {
-				Err(error) => LoadFailed(error.message)
+				Err(error) => LoadFailed(preference_error_message(error))
 				Ok(store) => match Preferences.read!(store, "profile-name") {
-					Err(error) => LoadFailed(error.message)
+					Err(error) => LoadFailed(preference_error_message(error))
 					Ok(name_result) => match Preferences.read!(store, "profile-notes") {
-						Err(error) => LoadFailed(error.message)
+						Err(error) => LoadFailed(preference_error_message(error))
 						Ok(notes_result) => {
 							name = match name_result {
 								Missing => "Default profile"
@@ -103,11 +111,11 @@ Settings := [].{
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
 			run: || match Preferences.open!({}) {
-				Err(error) => SaveFailed(error.message)
+				Err(error) => SaveFailed(preference_error_message(error))
 				Ok(store) => match Preferences.write_atomic!(store, "profile-name", state.draft_name) {
-					Err(error) => SaveFailed(error.message)
+					Err(error) => SaveFailed(preference_error_message(error))
 					Ok({}) => match Preferences.write_atomic!(store, "profile-notes", state.draft_notes) {
-						Err(error) => SaveFailed(error.message)
+						Err(error) => SaveFailed(preference_error_message(error))
 						Ok({}) => SaveSucceeded
 					}
 				}

@@ -2,4 +2,4 @@
   (steps
     (click (role button :name "Load saved profile"))
     (await-task)
-    (expect-visible (text "Preferences error: could not read preference"))))
+    (expect-visible (text "Preferences error: Saved preferences could not be read"))))

@@ -230,6 +230,9 @@ file before replacing the key in the same store. Keys are flat ASCII
 identifiers of at most 128 bytes, values are UTF-8 of at most one MiB, and
 portable errors distinguish denied or invalid capabilities, invalid keys, I/O,
 resource limits, and unavailable storage.
+`Preferences.PreferencesErr` uses `OpenPreferencesErr`, `ReadPreferenceErr`,
+and `WritePreferenceErr` to identify the failed operation directly; each tag
+carries a portable `Preferences.Reason`.
 
 Run these blocking operations inside `Action.task`, with a monotonic request
 identity when an edit can supersede pending work. The Settings Center uses this

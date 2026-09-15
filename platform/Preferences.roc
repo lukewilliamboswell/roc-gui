@@ -6,19 +6,20 @@ import Resource
 Preferences := [].{
 	Store : Resource.Preferences
 	Read : [Missing, Value(Str)]
-	Error : { code : [AccessDenied, InvalidCapability, InvalidKey, Io, ResourceLimit, Unavailable], message : Str }
+	Reason : [AccessDenied, InvalidCapability, InvalidKey, Io, ResourceLimit, Unavailable]
+	PreferencesErr : [OpenPreferencesErr(Reason), ReadPreferenceErr(Reason), WritePreferenceErr(Reason)]
 
-	open! : {} => Try(Store, Error)
-	open! = |{}| Host.preferences_open!({}).map_err(decode_error)
+	open! : {} => Try(Store, PreferencesErr)
+	open! = |{}| Host.preferences_open!({}).map_err(|raw| OpenPreferencesErr(decode_reason(raw.code)))
 
-	read! : Store, Str => Try(Read, Error)
-	read! = |store, key| Host.preferences_read!(store, key).map_ok(|raw| if raw.found Value(raw.value) else Missing).map_err(decode_error)
+	read! : Store, Str => Try(Read, PreferencesErr)
+	read! = |store, key| Host.preferences_read!(store, key).map_ok(|raw| if raw.found Value(raw.value) else Missing).map_err(|raw| ReadPreferenceErr(decode_reason(raw.code)))
 
-	write_atomic! : Store, Str, Str => Try({}, Error)
-	write_atomic! = |store, key, value| Host.preferences_write!(store, key, value).map_err(decode_error)
+	write_atomic! : Store, Str, Str => Try({}, PreferencesErr)
+	write_atomic! = |store, key, value| Host.preferences_write!(store, key, value).map_err(|raw| WritePreferenceErr(decode_reason(raw.code)))
 
-	decode_error = |raw| {
-		code = match raw.code {
+	decode_reason = |code| {
+		match code {
 			0 => AccessDenied
 			1 => InvalidCapability
 			2 => InvalidKey
@@ -26,6 +27,5 @@ Preferences := [].{
 			4 => ResourceLimit
 			_ => Unavailable
 		}
-		{ code, message: raw.message }
 	}
 }
