@@ -12,6 +12,7 @@ Host := [].{
 	node_row! : U64 => U64
 
 	node_column! : U64 => U64
+	node_scroll! : { axis : U8, child : U64, name : Str } => U64
 
 	node_button! : Str, U64 => U64
 

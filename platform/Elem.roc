@@ -11,8 +11,13 @@ Elem(a) :: [
 	Checkbox(CheckboxProps(a)),
 	Column(List(Elem(a))),
 	Row(List(Elem(a))),
+	Scroll(ScrollProps(a)),
 	Text(Str),
 ].{
+	## Properties for a vertically scrollable region. `name` is its stable
+	## semantic identity for specifications and accessibility.
+	ScrollAxis : [Both, Horizontal, Vertical]
+	ScrollProps(a) := { axis : ScrollAxis ?? Vertical, content : Elem(a), name : Str }
 
 	## Properties for `checkbox`. `label` is both visible text and the stable
 	## semantic name used by specifications. `on_change` receives the requested
@@ -62,12 +67,17 @@ Elem(a) :: [
 	col : List(Elem(a)) -> Elem(a)
 	col = |children| Column(children)
 
+	## Constrain `child` to the available height and allow vertical scrolling.
+	scroll : ScrollProps(a) -> Elem(a)
+	scroll = |props| Scroll(props)
+
 	## Adapt an already-built child tree to parent state.
 	lift : Elem(child), (parent -> child), (parent, child -> parent) -> Elem(parent)
 	lift = |elem, get_child, set_child| match elem {
 		Text(value) => Text(value)
 		Row(children) => Row(children.map(|child| lift(child, get_child, set_child)))
 		Column(children) => Column(children.map(|child| lift(child, get_child, set_child)))
+		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), name: scroll_value.name })
 		Button(button_value) => {
 			child_handler = button_value.on_press
 			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
@@ -126,6 +136,7 @@ Elem(a) :: [
 		Checkbox(CheckboxProps(a)),
 		Column(List(Elem(a))),
 		Row(List(Elem(a))),
+		Scroll(ScrollProps(a)),
 		Text(Str),
 	]
 	inspect = |value| match value {
@@ -134,6 +145,7 @@ Elem(a) :: [
 		Checkbox(checkbox_value) => Checkbox(checkbox_value)
 		Column(children) => Column(children)
 		Row(children) => Row(children)
+		Scroll(scroll_value) => Scroll(scroll_value)
 		Text(text_value) => Text(text_value)
 	}
 }

@@ -68,6 +68,7 @@ pub enum Locator {
     ButtonName(String),
     CheckboxName(String),
     CheckboxPrefix(String),
+    ScrollName(String),
 }
 
 const MAX_SOURCE_BYTES: usize = 1024 * 1024;
@@ -411,7 +412,20 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .map(|value| Locator::CheckboxName(value.to_owned()))
                 .ok_or_else(|| error(node, "checkbox name must be a string"))
         }
-        Some("role") => Err(error(node, "supported roles are button and checkbox")),
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("scroll")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::ScrollName(value.to_owned()))
+                .ok_or_else(|| error(node, "scroll name must be a string"))
+        }
+        Some("role") => Err(error(
+            node,
+            "supported roles are button, checkbox, and scroll",
+        )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
     }
@@ -610,6 +624,18 @@ mod tests {
         assert_eq!(spec.name, "counter");
         assert_eq!(spec.steps.len(), 2);
         assert_eq!(spec.steps[1].line, 5);
+    }
+
+    #[test]
+    fn parses_named_scroll_region() {
+        let spec = parse(
+            r#"(test "scroll" (steps (expect-visible (role scroll :name "Directory contents"))))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectVisible(Locator::ScrollName("Directory contents".into()))
+        );
     }
 
     #[test]

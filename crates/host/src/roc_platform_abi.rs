@@ -1181,6 +1181,35 @@ const _: () = assert!(core::mem::size_of::<AnonStruct4869dafad3498788>() == 16, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct4869dafad3498788>() == 4, "AnonStruct4869dafad3498788 alignment mismatch");
 
+/// Element type for __AnonStruct_6aa5c9965944c201
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct6aa5c9965944c201 {
+    pub child: u64,
+    pub name: RocStr,
+    pub axis: u8,
+}
+
+/// Element type for __AnonStruct_6aa5c9965944c201
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct6aa5c9965944c201 {
+    pub child: u64,
+    pub name: RocStr,
+    pub axis: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct6aa5c9965944c201>() == 40, "AnonStruct6aa5c9965944c201 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct6aa5c9965944c201>() == 8, "AnonStruct6aa5c9965944c201 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct6aa5c9965944c201>() == 24, "AnonStruct6aa5c9965944c201 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct6aa5c9965944c201>() == 8, "AnonStruct6aa5c9965944c201 alignment mismatch");
+
 /// Element type for __AnonStruct_8a6495c35d8ba3b6
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -2087,6 +2116,68 @@ pub struct HostGlueNodeColumnArgs {
     pub arg0: u64,
 }
 
+/// Arguments for HostGlue.node_scroll!
+/// Roc signature: { axis : U8, child : U64, name : Str } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeScrollArgs {
+    pub child: u64,
+    pub name: RocStr,
+    pub axis: u8,
+}
+
+/// Arguments for HostGlue.node_scroll!
+/// Roc signature: { axis : U8, child : U64, name : Str } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeScrollArgs {
+    pub child: u64,
+    pub name: RocStr,
+    pub axis: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeScrollArgs>() == 40, "HostGlueNodeScrollArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeScrollArgs>() == 8, "HostGlueNodeScrollArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeScrollArgs>() == 24, "HostGlueNodeScrollArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeScrollArgs>() == 8, "HostGlueNodeScrollArgs alignment mismatch");
+
+impl HostGlueNodeScrollArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct HostGlueNodeScrollArgsRelease;
+
+unsafe impl RocRelease<HostGlueNodeScrollArgs> for HostGlueNodeScrollArgsRelease {
+    unsafe fn release(value: HostGlueNodeScrollArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 /// Arguments for HostGlue.node_button!
 /// Roc signature: Str, U64 => U64
 /// Refcounted fields are owned by the hosted function.
@@ -2268,6 +2359,7 @@ pub struct FilesDirOpenReadDirArgs {
 
 // Platform Type Aliases
 
+pub type HostGlueNodeScrollArg0 = AnonStruct6aa5c9965944c201;
 pub type HostGlueNodeCheckboxArg0 = AnonStruct8a6495c35d8ba3b6;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
@@ -2692,6 +2784,35 @@ unsafe impl RocRelease<AnonStruct4869dafad3498788> for AnonStruct4869dafad349878
     }
 }
 
+impl AnonStruct6aa5c9965944c201 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct AnonStruct6aa5c9965944c201Release;
+
+unsafe impl RocRelease<AnonStruct6aa5c9965944c201> for AnonStruct6aa5c9965944c201Release {
+    unsafe fn release(value: AnonStruct6aa5c9965944c201, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl AnonStruct8a6495c35d8ba3b6 {
     /// Recursively decrement Roc-owned fields.
     ///
@@ -2925,6 +3046,13 @@ unsafe extern "C" {
     /// Hosted symbol for HostGlue.node_column!
     /// Roc signature: U64 => U64
     pub fn roc_gui_node_column(arg0: u64) -> u64;
+
+    /// Hosted symbol for HostGlue.node_scroll!
+    /// Roc signature: { axis : U8, child : U64, name : Str } => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_scroll(arg0: HostGlueNodeScrollArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_button!
     /// Roc signature: Str, U64 => U64

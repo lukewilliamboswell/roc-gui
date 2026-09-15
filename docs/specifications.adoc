@@ -59,6 +59,7 @@ interactive grant, without giving the application ambient test-only I/O.
 `(role button :name "name")`:: A button with the semantic `name` passed to
 `Elem.button`.
 `(role checkbox :name "label")`:: A checkbox identified by its visible label.
+`(role scroll :name "name")`:: A scroll region identified by its semantic name.
 
 A `click` locator must resolve to exactly one live node. Ambiguous and missing
 targets fail instead of choosing one by traversal order. Make button names

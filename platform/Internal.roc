@@ -52,6 +52,12 @@ Internal := [].{
 			id = Host.node_column!(builder)
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
+		Scroll(scroll_value) => {
+			child = lower!(scroll_value.content, state, next_boundary, active_boundary, boundary_path, routes, boundaries)
+			axis = match scroll_value.axis { Vertical => 0, Horizontal => 1, Both => 2 }
+			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.name })
+			{ root: id, next_boundary: child.next_boundary, routes: child.routes, boundaries: child.boundaries }
+		}
 		Button(button_value) => {
 			label_elem = button_value.label.first() ?? crash "button label missing"
 			label = lower!(label_elem, state, next_boundary, active_boundary, boundary_path, routes, boundaries)

@@ -54,6 +54,10 @@ pub enum NodeKind {
     },
     Column,
     Row,
+    Scroll {
+        name: String,
+        axis: ScrollAxis,
+    },
     Text(String),
 }
 
@@ -69,6 +73,13 @@ pub enum Overflow {
     Visible,
     Clip,
     Scroll,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScrollAxis {
+    Vertical,
+    Horizontal,
+    Both,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -536,6 +547,12 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
             NodeKind::Button { .. } if node.children.len() != 1 => {
                 return Err(format!("button node {} must have one label child", node.id));
             }
+            NodeKind::Scroll { .. } if node.children.len() != 1 => {
+                return Err(format!(
+                    "scroll node {} must have one content child",
+                    node.id
+                ));
+            }
             _ => {}
         }
         for child in &node.children {
@@ -598,6 +615,12 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
             }
             NodeKind::Button { .. } if node.children.len() != 1 => {
                 return Err(format!("button node {} must have one label child", node.id));
+            }
+            NodeKind::Scroll { .. } if node.children.len() != 1 => {
+                return Err(format!(
+                    "scroll node {} must have one content child",
+                    node.id
+                ));
             }
             _ => {}
         }
@@ -669,6 +692,23 @@ mod tests {
             children: vec![],
         }];
         assert!(validate_tree(1, &nodes).unwrap_err().contains("one label"));
+    }
+
+    #[test]
+    fn rejects_bad_scroll_shape() {
+        let nodes = [Node {
+            id: 1,
+            kind: NodeKind::Scroll {
+                name: "contents".into(),
+                axis: ScrollAxis::Vertical,
+            },
+            children: vec![],
+        }];
+        assert!(
+            validate_tree(1, &nodes)
+                .unwrap_err()
+                .contains("one content child")
+        );
     }
 
     #[test]

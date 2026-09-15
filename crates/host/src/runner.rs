@@ -35,6 +35,9 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (Locator::ScrollName(expected), NodeKind::Scroll { name, .. }) if expected == name => {
+                Some(node.id)
+            }
             _ => None,
         })
         .collect()

@@ -10,14 +10,14 @@ mod runner;
 mod spec;
 
 use bridge::{
-    BridgeState, CheckboxStyle, Length, MountedGraph, Node, NodeKind, Overflow, Patch,
+    BridgeState, CheckboxStyle, Length, MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis,
     decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueNodeCheckboxArgs, MountOrNoChangeOrReplace,
-    RocErasedCallable, RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch,
-    roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueNodeCheckboxArgs, HostGlueNodeScrollArgs,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
+    make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -223,6 +223,26 @@ pub extern "C" fn roc_gui_node_row(builder: u64) -> u64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_column(builder: u64) -> u64 {
     stage_node(NodeKind::Column, finish_children(builder))
+}
+
+/// Stage one named vertical scroll region whose child was already built.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
+    let owned_name = args.name.as_str().to_owned();
+    unsafe { args.name.decref(roc_host()) };
+    let axis = match args.axis {
+        0 => ScrollAxis::Vertical,
+        1 => ScrollAxis::Horizontal,
+        2 => ScrollAxis::Both,
+        other => panic!("invalid scroll axis {other}"),
+    };
+    stage_node(
+        NodeKind::Scroll {
+            name: owned_name,
+            axis,
+        },
+        vec![args.child],
+    )
 }
 
 /// Stage one semantically named button whose label was already built.
@@ -510,17 +530,38 @@ struct NodeView {
     node: Node,
     children: Vec<Entity<NodeView>>,
     runtime: WeakEntity<Runtime>,
+    is_root: bool,
 }
 
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let mut element = div().id(("node", self.node.id));
+        if self.is_root {
+            element = element.size_full().min_h_0().min_w_0();
+        }
         match &self.node.kind {
             NodeKind::Column => {
                 element = element.flex().flex_col().gap_3();
             }
             NodeKind::Row => {
                 element = element.flex().flex_row().items_center().gap_3();
+            }
+            NodeKind::Scroll { axis, .. } => {
+                element = element
+                    .flex()
+                    .flex_col()
+                    .flex_grow()
+                    .scrollbar_width(px(8.0));
+                element = match axis {
+                    ScrollAxis::Vertical => element.min_h_0().max_h_full().overflow_y_scroll(),
+                    ScrollAxis::Horizontal => element.min_w_0().max_w_full().overflow_x_scroll(),
+                    ScrollAxis::Both => element
+                        .min_h_0()
+                        .max_h_full()
+                        .min_w_0()
+                        .max_w_full()
+                        .overflow_scroll(),
+                };
             }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
@@ -781,6 +822,10 @@ impl Runtime {
                     cx.notify();
                 });
             } else {
+                new_root.update(cx, |view, cx| {
+                    view.is_root = true;
+                    cx.notify();
+                });
                 self.root = Some(new_root);
                 cx.notify();
             }
@@ -804,6 +849,7 @@ impl Runtime {
                 node: value,
                 children: vec![],
                 runtime,
+                is_root: false,
             });
             self.views.insert(node.id, view);
         }

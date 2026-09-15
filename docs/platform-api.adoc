@@ -50,6 +50,9 @@ presses. `label` is an element, so text is written as `Elem.text("Save")`.
 `Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and handle
 `Event.Check`. Props include enabled state, gap, padding, sizing, growth,
 foreground and interaction colours, border, radius, font size, and overflow.
+`Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
+available space and scroll it vertically, horizontally, or in both directions.
+The axis defaults to `Vertical`; `name` is the stable semantic identity.
 `Layout.row({}, children)`:: Lay out children horizontally.
 `Layout.col({}, children)`:: Lay out children vertically.
 
@@ -124,3 +127,8 @@ types. `Files.Dir.open_read_dir!(directory, name)` acquires a direct child
 directory without following the final symlink; names containing traversal or
 multiple path components are rejected. Run filesystem operations inside
 `Action.task`, as shown by `examples/folder-browser/main.roc`.
+
+Retain a root-to-current list of directory handles to implement Back and
+clickable breadcrumbs without exposing paths. Relist a retained handle before
+committing navigation, and attach a monotonically increasing request identity
+to asynchronous work so a superseded completion cannot replace a newer view.

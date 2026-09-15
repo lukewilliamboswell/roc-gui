@@ -48,7 +48,8 @@ the built-in test runner.
 
 `Program.run` supplies an initial state and a renderer. Calling the renderer
 produces an immutable `Elem(State)` description. Composition stays in Roc:
-`Layout.row`, `Layout.col`, `Elem.text`, and `Elem.button` build the tree, while
+`Layout.row`, `Layout.col`, `Elem.text`, `Elem.button`, and named
+`Elem.scroll` regions build the tree, while
 `Elem.translate` introduces a local-state boundary.
 
 An `Elem` is not a long-lived widget object, and rendering one does not draw
