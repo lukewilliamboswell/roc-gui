@@ -18,6 +18,22 @@ from dependency_artifacts import sha256, unpack_verified, verify_archive, read_l
 
 REPOSITORY = "lukewilliamboswell/roc-gui"
 KINDS = {
+    "alsa": {
+        "targets": ("x64glibc",),
+        "files": ("libasound.so",),
+        "licenses": (),
+        "extra_files": tuple("sources/alsa/" + name for name in (
+            "dependencies/alsa-interface.json",
+            "test/dependencies/alsa.c",
+            "scripts/build_alsa_interface.py",
+            "scripts/dependency_archive.py",
+            "scripts/dependency_artifacts.py",
+            "PROVENANCE.md",
+        )),
+        "workflow": "alsa-interface-dependencies.yml",
+        "inventory_error": "dependency release must include the tested ALSA linker interface",
+        "validation": "The generated interface had the reviewed symbol inventory and SONAME, linked by SONAME, and passed a runtime probe against the native ALSA provider; two independent generations produced identical archives. The recipe and reproduction inputs accompany the interface.",
+    },
     "macos-interfaces": {
         "targets": ("macos-sysroot",),
         "files": (),
