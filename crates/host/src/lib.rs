@@ -12,14 +12,18 @@ mod http;
 mod image_data;
 mod input;
 mod observatory;
+mod probe;
 mod process;
 mod roc_platform_abi;
 mod runner;
+mod screenshot;
 mod spec;
 mod sqlite;
 mod system_monitor;
 mod tcp;
 mod timers;
+mod watchdog;
+mod window_runner;
 
 use bridge::{
     BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
@@ -1632,6 +1636,9 @@ impl Render for NodeView {
                 }
             }
         }
+        if probe::enabled() {
+            element = element.child(probe::marker(self.node.id));
+        }
         if append_children {
             element.children(self.children.iter().cloned().map(AnyView::from))
         } else {
@@ -1923,8 +1930,10 @@ impl Runtime {
         }
     }
 
-    /// Return GPUI's most recently prepainted bounds for a live node. A node
-    /// has no actionable bounds until it has participated in a real frame.
+    /// Apply a patch to the mounted graph without recording a cycle.
+    ///
+    /// The counterpart to [`Self::apply_recorded`], for patches that are not
+    /// themselves a measurable interaction.
     fn apply_unrecorded(&mut self, patch: Patch, cx: &mut Context<Self>) {
         let applied = self
             .graph
@@ -2305,6 +2314,7 @@ impl Render for Runtime {
         if GPUI_SMOKE.load(Ordering::Relaxed) {
             GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
         }
+        watchdog::milestone(watchdog::Milestone::FirstRender);
         if let Some(target) = self.focus_after_render.take() {
             if let Some(handle) = self.focus_handles.get(&target) {
                 handle.focus(window);
@@ -2331,6 +2341,11 @@ struct HostArgs {
     host_smoke: bool,
     host_gpui_smoke: bool,
     spec_path: Option<PathBuf>,
+    window_spec_path: Option<PathBuf>,
+    window_report: Option<PathBuf>,
+    window_shot_dir: Option<PathBuf>,
+    window_timeout_ms: u32,
+    window_require_shots: bool,
     stats_record: bool,
     stats_output: Option<PathBuf>,
     stats_detail: observatory::Detail,
@@ -2363,6 +2378,11 @@ fn parse_host_args() -> Result<HostArgs, String> {
         host_smoke: false,
         host_gpui_smoke: false,
         spec_path: None,
+        window_spec_path: None,
+        window_report: None,
+        window_shot_dir: None,
+        window_timeout_ms: 15_000,
+        window_require_shots: true,
         stats_record: false,
         stats_output: None,
         stats_detail: observatory::Detail::Summary,
@@ -2397,6 +2417,27 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.spec_path = Some(path.into());
         } else if let Some(path) = argument.strip_prefix("--host-run-spec=") {
             parsed.spec_path = Some(path.into());
+        } else if argument == "--host-run-window-spec" {
+            let path = pending
+                .next()
+                .ok_or_else(|| "--host-run-window-spec requires a .scm path".to_string())?;
+            parsed.window_spec_path = Some(path.into());
+        } else if let Some(path) = argument.strip_prefix("--host-run-window-spec=") {
+            parsed.window_spec_path = Some(path.into());
+        } else if let Some(path) = argument.strip_prefix("--host-window-report=") {
+            parsed.window_report = Some(path.into());
+        } else if let Some(path) = argument.strip_prefix("--host-window-shot-dir=") {
+            parsed.window_shot_dir = Some(path.into());
+        } else if let Some(value) = argument.strip_prefix("--host-window-timeout-ms=") {
+            parsed.window_timeout_ms = value
+                .parse()
+                .ok()
+                .filter(|value| (1_000..=600_000).contains(value))
+                .ok_or_else(|| {
+                    "--host-window-timeout-ms requires 1000..=600000".to_string()
+                })?;
+        } else if argument == "--host-window-allow-missing-shots" {
+            parsed.window_require_shots = false;
         } else if argument == "--host-cap-dir" {
             parsed.cap_dir = Some(
                 pending
@@ -2494,9 +2535,20 @@ fn parse_host_args() -> Result<HostArgs, String> {
     if usize::from(parsed.host_smoke)
         + usize::from(parsed.host_gpui_smoke)
         + usize::from(parsed.spec_path.is_some())
+        + usize::from(parsed.window_spec_path.is_some())
         > 1
     {
-        return Err("host smoke modes and --host-run-spec are mutually exclusive".into());
+        return Err(
+            "host smoke modes, --host-run-spec, and --host-run-window-spec are mutually exclusive"
+                .into(),
+        );
+    }
+    if parsed.window_spec_path.is_none()
+        && (parsed.window_report.is_some()
+            || parsed.window_shot_dir.is_some()
+            || !parsed.window_require_shots)
+    {
+        return Err("--host-window-* options require --host-run-window-spec".into());
     }
     Ok(parsed)
 }
@@ -2579,6 +2631,11 @@ fn print_host_help(app_name: &str) {
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
 		   --host-cap-system-monitor           Grant read-only local system sampling\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
+           --host-run-window-spec PATH         Run one .scm specification against the real window\n\
+           --host-window-report=PATH           Write the window run's JSON report here\n\
+           --host-window-shot-dir=PATH         Write window screenshots into this directory\n\
+           --host-window-timeout-ms=N          Per-step window deadline (1000..600000)\n\
+           --host-window-allow-missing-shots   Report unavailable screenshots instead of failing\n\
            --host-smoke                        Run the built-in headless smoke check\n\
           --host-gpui-smoke                   Open, render, and close a real GPUI window\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2593,6 +2650,23 @@ fn print_host_help(app_name: &str) {
            roc app.roc -- --host-cap-dir ./documents\n\
            roc app.roc -- --host-cap-tcp 127.0.0.1:6379"
     );
+}
+
+/// Tear the host down and exit with `code`.
+///
+/// `cx.quit()` reaches `[NSApp terminate:]` on macOS, which ends the process
+/// without unwinding back to `main`, so a windowed run cannot report its status
+/// by returning. It must finalize here instead.
+pub(crate) fn finish_and_exit(code: i32) -> ! {
+    let outcome = if code == 0 { "success" } else { "failure" };
+    if observatory::active() {
+        if let Err(message) = observatory::finish(outcome) {
+            eprintln!("roc-gui stats error: {message}");
+        }
+    }
+    clear_bridge();
+    set_roc_host(core::ptr::null_mut());
+    std::process::exit(code)
 }
 
 fn start_requested_recorder(
@@ -2668,7 +2742,14 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         Some(path) => match std::fs::read(path) {
             Ok(source) => match std::str::from_utf8(&source) {
                 Ok(text) => match spec::parse(text) {
-                    Ok(case) => Some((case, observatory::stable_hash(&source))),
+                    Ok(case) => {
+                        if let Err(message) = spec::check_runner(&case, spec::Runner::Semantic) {
+                            eprintln!("{}: {message}", path.display());
+                            set_roc_host(core::ptr::null_mut());
+                            return 2;
+                        }
+                        Some((case, observatory::stable_hash(&source)))
+                    }
                     Err(error) => {
                         eprintln!("{}: {error}", path.display());
                         set_roc_host(core::ptr::null_mut());
@@ -2721,6 +2802,32 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     audio::configure(args.cap_audio);
     device::configure(args.cap_device);
     system_monitor::configure(args.cap_system_monitor);
+    let window_spec = match args.window_spec_path.as_ref() {
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(text) => match spec::parse(&text) {
+                Ok(case) => {
+                    if let Err(message) = spec::check_runner(&case, spec::Runner::Window) {
+                        eprintln!("{}: {message}", path.display());
+                        set_roc_host(core::ptr::null_mut());
+                        return 2;
+                    }
+                    Some(case)
+                }
+                Err(error) => {
+                    eprintln!("{}: {error}", path.display());
+                    set_roc_host(core::ptr::null_mut());
+                    return 2;
+                }
+            },
+            Err(error) => {
+                eprintln!("cannot read {}: {error}", path.display());
+                set_roc_host(core::ptr::null_mut());
+                return 2;
+            }
+        },
+        None => None,
+    };
+
     let stats_path = match start_requested_recorder(
         &args,
         parsed_spec.as_ref().map(|(case, _)| case),
@@ -2786,12 +2893,33 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         roc_work,
         roc_work_valid,
     };
+    let window_report = args
+        .window_report
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("report.json"));
+    let window_shot_dir = args
+        .window_shot_dir
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("."));
+    let window_timeout_ms = args.window_timeout_ms;
+    let window_require_shots = args.window_require_shots;
     let window_config = WINDOW_CONFIG.with(|config| config.borrow().clone());
     GPUI_SMOKE.store(args.host_gpui_smoke, Ordering::Relaxed);
     GPUI_SMOKE_RENDERS.store(0, Ordering::Relaxed);
     let gpui_smoke = args.host_gpui_smoke;
 
+    if gpui_smoke {
+        watchdog::arm(Duration::from_secs(10));
+    }
+    if window_spec.is_some() {
+        probe::enable();
+        // Generous relative to the per-step deadline: this only catches a host
+        // that never reaches its own reporting, not a slow specification.
+        watchdog::arm(Duration::from_millis(u64::from(args.window_timeout_ms)) + Duration::from_secs(30));
+    }
+
     Application::new().run(move |cx| {
+        watchdog::milestone(watchdog::Milestone::AppRunEntered);
         input::bind_keys(cx);
         cx.bind_keys([
             KeyBinding::new("tab", FocusNext, None),
@@ -2828,15 +2956,31 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                 move |_, cx| cx.new(|cx| Runtime::new(initial, cx)),
             )
             .expect("failed to open GPUI window");
+        watchdog::milestone(watchdog::Milestone::WindowOpened);
         cx.activate(true);
+        if let Some(case) = window_spec {
+            window_runner::spawn(
+                case,
+                window,
+                window_runner::Options {
+                    report_path: window_report,
+                    shot_dir: window_shot_dir,
+                    timeout: Duration::from_millis(u64::from(window_timeout_ms)),
+                    require_shots: window_require_shots,
+                },
+                cx,
+            );
+        }
         if gpui_smoke {
             cx.spawn(async move |cx| {
+                watchdog::milestone(watchdog::Milestone::DriverStarted);
                 cx.background_executor().timer(Duration::from_secs(2)).await;
                 let renders = window
                     .update(cx, |_, _, _| GPUI_SMOKE_RENDERS.load(Ordering::Relaxed))
                     .expect("GPUI smoke window closed before validation");
                 assert!(renders > 0, "no GPUI views rendered");
                 eprintln!("PASS: GPUI mounted and rendered {renders} frame(s)");
+                watchdog::disarm();
                 cx.update(|cx| cx.quit()).unwrap();
             })
             .detach();

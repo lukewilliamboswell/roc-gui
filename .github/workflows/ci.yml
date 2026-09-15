@@ -38,7 +38,8 @@ jobs:
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \
-            scripts/test_macos_interfaces.py
+            scripts/test_macos_interfaces.py \
+            scripts/test_window_specs.py
       - name: Admit released host or test changed host
         run: |
           status=0
@@ -56,3 +57,9 @@ jobs:
         run: |
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
+      # Screenshots stay unavailable here: hosted runners do not grant Screen
+      # Recording. Every behavioural window assertion still gates.
+      - name: Window specifications
+        if: runner.os == 'macOS'
+        shell: bash
+        run: python3 scripts/run_window_specs.py --allow-missing-shots

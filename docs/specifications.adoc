@@ -237,7 +237,8 @@ part of the contract, such as proving that an idempotent press returns
 The runner queries the same mounted graph the native host uses. It does not
 construct a separate test tree. Because it does not open a GPUI window, it is
 suited to deterministic semantic checks; pixels, layout, and presentation are
-outside this runner's evidence.
+outside this runner's evidence. Those claims belong to the window runner
+described in <<window-specifications>>.
 
 For a virtual list, text and control locators inspect all logically mounted
 items, including rows outside an interactive viewport. A headless
@@ -245,10 +246,9 @@ items, including rows outside an interactive viewport. A headless
 native visible-range and materialization evidence is recorded only by GPUI.
 
 `focus` and `press-key` model the production controls' accepted activation-key
-matrix and invoke their normal Roc event route. They do not inject a native
-GPUI key event or verify compositor delivery, tab traversal, focus painting, or
-operating-system accessibility. Those claims require the end-to-end GPUI
-runner tracked in the backlog.
+matrix and invoke their normal Roc event route. In the semantic runner they do
+not inject a native GPUI key event or verify compositor delivery, tab traversal,
+focus painting, or operating-system accessibility.
 
 Named rows and columns use `(role row :name "...")` and
 `(role column :name "...")`. These locators describe the mounted application
@@ -256,6 +256,174 @@ graph; they do not assert pixel geometry or operating-system accessibility.
 
 `(expect-processes N)` asserts the host-owned count of live PTY child
 processes. The process subsystem records this lifecycle evidence.
+
+[[window-specifications]]
+== Window specifications
+
+A window specification is an ordinary `(test ...)` file that uses window-only
+steps. It lives in `examples/<app>/window-specs/` rather than
+`examples/<app>/specs/`, and `scripts/run_window_specs.py` runs it:
+
+[source,sh]
+----
+python3 scripts/run_window_specs.py 'examples/counter/window-specs/*.scm'
+----
+
+Each case runs one host process with `--host-run-window-spec`. That process
+opens the production GPUI window, drives it through the same render path and
+event route an interactive session uses, and writes a JSON report the running
+agent can read.
+
+=== One vocabulary, split by capability
+
+There is one specification language. Every step declares where it can be
+honest, and each runner refuses the other's steps by name rather than skipping
+them silently:
+
+`semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses.
+These depend on the semantic runner's per-iteration mount; the window runner
+runs exactly one lifecycle and does not measure it.
+
+`window-only`:: `settle`, `screenshot`, `type`, `key`, `expect-on-screen`,
+`expect-rendered-count`, and `expect-bounds`. None of these mean anything
+without a presented frame.
+
+`both`:: everything else, including `expect-visible`, which asserts the same
+claim on either runner: presence in the mounted graph. The stronger pixel claim
+is `expect-on-screen`, so one word never means two different things.
+
+=== Window-only steps
+
+`(type "TEXT")`:: Send each character as a real keystroke into the focused
+element, through GPUI's own keystroke dispatch. The semantic `replace-text`
+sets a value directly and exercises none of the editing path.
+
+`(key "CHORD")`:: Send one real chord, such as `"cmd-a"` or `"escape"`, through
+the window's production keymap. The semantic `press-key` covers three
+activation keys and no modifiers.
+
+`(settle)` / `(settle :frames N :timeout-ms N)`:: Wait for `N` consecutive
+presented frames during which no host task started or finished. Defaults are
+`:frames 2 :timeout-ms 2000`. A timeout fails the step; it never proceeds
+quietly, because an assertion against a half-settled frame is not evidence.
+
+`(expect-on-screen LOCATOR)`:: The node was painted in the last completed frame
+and its rectangle survives clipping by the viewport and by every scrolling
+ancestor. This is the claim the semantic runner cannot make.
+
+`(expect-rendered-count LOCATOR N)`:: Exactly `N` matching nodes took part in
+the last frame. For a virtual list this is materialization evidence;
+`expect-count` counts logically mounted nodes instead.
+
+`(expect-bounds LOCATOR :min-width N :max-width N :min-height N :max-height N)`::
+The laid-out size falls within the given bounds. At least one bound is
+required. Deliberately minimum and maximum only, never exact: exact pixel
+geometry is font- and DPI-dependent and would rot the suite.
+
+=== Screenshots
+
+`(screenshot NAME)`:: Photograph the window's content area.
+
+`(screenshot NAME :region LOCATOR)`:: Crop to a located element's laid-out
+bounds. The same bounds `expect-on-screen` uses, so a shot frames what was
+asserted.
+
+`(screenshot NAME :region (rect X Y WIDTH HEIGHT))`:: Crop to an explicit
+content-relative rectangle.
+
+`:pad N`:: Expand the region by `N` points on every side, then clamp to the
+content area. A control cropped to its exact bounds is usually unreadable out
+of context.
+
+`NAME` is required and becomes the file stem, so it is limited to lowercase
+letters, digits, and hyphens. Files are written as `NN-NAME.png`, numbered by
+step, and indexed in the report's `screenshots` array. A `:region` locator that
+does not match exactly one node fails the step, as `click` does.
+
+The host asks the platform's capture tool for a screen rectangle, which it can
+compute because it knows its own window origin and where each node was laid
+out. Cropping is therefore part of the request rather than a post-processing
+step. On macOS this is `screencapture`; under a wlroots compositor it is
+`grim`.
+
+Capture is honest about not happening. A missing tool, a denied Screen
+Recording permission, or a region with no area on screen is reported as
+`unavailable` with a reason and a hint, never as a pass and never as an empty
+file. By default an unavailable screenshot fails the run;
+`--host-window-allow-missing-shots` downgrades it to a report entry, which is
+how continuous integration runs these specifications on machines that cannot
+grant screen recording. Every behavioural assertion still gates there.
+
+Screenshots taken before a failing step are kept. The image of the state an
+assertion stopped at is usually the most useful evidence in the run.
+
+=== What input is real
+
+Keyboard input is real. `focus` moves focus through the same `FocusHandle` the
+host uses, `press-key`, `key`, and `type` reach GPUI's `dispatch_keystroke` and
+the window's production keymap, and `expect-focused` asks the focus handle
+rather than a model of it.
+
+Pointer input is simulated, because GPUI 0.2.2 exposes no usable entry point
+for it: `Window::dispatch_event` returns a crate-private type and cannot be
+called from outside GPUI, and every simulated-mouse helper lives on
+`TestAppContext` behind `test-support`. A `click` therefore invokes the same
+handler the production click closure invokes.
+
+What is *not* simulated is whether the click could have landed. Before
+dispatching, the window runner requires from real laid-out geometry that the
+control:
+
+* has been laid out, not merely mounted;
+* survives clipping by the viewport and by every scrolling ancestor;
+* accepts pointer activation, which the production render path grants only to
+  enabled controls;
+* is not behind an active modal dialog.
+
+This is strictly stronger than a semantic `click`, which cannot tell that a
+control is scrolled out of view or was never laid out. It does not exercise
+GPUI's dispatch tree, occlusion by unrelated elements, or the click closure's
+own wiring. There is no `hover` step for the same reason: hover styling is
+driven by GPUI's internal pointer position, and a step that could not honestly
+move it would not mean what its name says.
+
+=== What the probe cannot see
+
+Bounds come from the production render path, through the same `canvas` prepaint
+closure the host already uses for canvas hit testing. Recording is off unless a
+window specification asked for it, gated by a runtime check rather than a
+compile-time one, so the shipped binary stays the tested binary.
+
+* A node that never renders has no bounds. That is the intended signal rather
+  than a gap: an unmaterialized virtual-list row is genuinely absent from the
+  frame.
+* Only a canvas node's own rectangle is recorded, never its primitives. A
+  canvas-item locator therefore has no geometry of its own.
+* Bounds are recorded for nodes scrolled out of view, because they are laid
+  out and merely clipped. `expect-on-screen` intersects against scrolling
+  ancestors for this reason; asking only whether bounds exist would call a
+  clipped element visible.
+
+Bounds persist until a node leaves the mounted graph. GPUI caches views, so a
+control whose state did not change is not re-rendered and records nothing that
+frame; treating that as "not laid out" would report a plainly visible control
+as missing. `expect-rendered-count` therefore counts nodes that have been laid
+out while mounted, which is the materialization evidence a virtual list needs.
+
+=== Reports are not captures
+
+A window run writes `report.json` into `.test-out/`. It is deliberately not a
+`.rgstats` capture and never becomes one. The two carry different kinds of
+fact:
+
+* A capture is durable, archived, and privacy-clean. It records that a step ran
+  and its status, and never application text, paths, or pixels.
+* A report is ephemeral working evidence for whoever is iterating, and it
+  carries exactly what a capture must not: the failing locator as written, the
+  message, and the screenshots.
+
+For the same reason screenshots are written beside the report in `.test-out/`
+and never into a capture.
 
 == Selecting and repeating cases
 

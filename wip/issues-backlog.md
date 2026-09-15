@@ -100,17 +100,37 @@ names the evidence so a fix can be verified against the same case.
 
 ## Runner: test what we fly
 
-- [ ] **End-to-end GPUI spec runner.** The driver runs inside the production
-  `Application`, opens the real window, resolves a locator to a live node and its
-  laid-out bounds, synthesises the input event through GPUI, and closes the cycle
-  on the presented frame. Stages that cannot be timed honestly stay
-  `unavailable`. GPUI 0.2.2 exposes input injection only through its mock test
-  platform, so the driver must capture production prepaint bounds and inject through
-  the compositor (Sway's virtual-pointer/seat interface is a viable seam) rather
-  than call `Runtime::event_if_live`. The driver must also distinguish laid out
-  from actually visible: current large row cases place targets outside the
-  window and the platform has no scrolling feature with which to bring them on
-  screen.
+- [x] **End-to-end GPUI spec runner.** Delivered as window specifications:
+  `crates/host/src/window_runner.rs` drives the production window from inside
+  `Application::run`, `crates/host/src/probe.rs` records laid-out bounds from
+  the production render path, and `crates/host/src/screenshot.rs` photographs
+  the window or a located region. See `docs/specifications.adoc`. Real input
+  Keyboard input is real, through `Window::dispatch_keystroke`; pointer input is
+  simulated at the production handler, gated on real laid-out geometry, because
+  GPUI exposes no usable pointer seam. See `docs/specifications.adoc`.
+- [ ] **A real pointer seam.** Pointer input is currently simulated at the
+  production click handler. GPUI 0.2.2 offers no alternative:
+  `Window::dispatch_event` is `pub fn` but returns the crate-private
+  `DispatchEventResult`, so it cannot be called from outside GPUI even
+  discarding the result, and the simulated-mouse helpers are on
+  `TestAppContext` behind `test-support`. Real pointer input therefore needs
+  one of: making `DispatchEventResult` public upstream, OS-level event posting
+  (macOS `CGEvent`, which needs Accessibility permission and moves the physical
+  cursor), or a compositor seam on Wayland. Until then `click` cannot exercise
+  GPUI's dispatch tree, occlusion by unrelated elements, or hover styling, and
+  there is deliberately no `hover` step.
+- [ ] **Keyboard focus is dropped by ordinary state updates.** Found by
+  `examples/counter/window-specs/keyboard.scm`: focusing a button and
+  activating it with a real `Space` works once, and the control has lost
+  keyboard focus by the next frame, so a second activation goes nowhere. Focus
+  restoration in `Runtime::apply_to_gpui` runs only on dialog open and close
+  transitions; a patch that re-mounts the focused control has no restoration
+  path, and `find_focus_identity` is never consulted for it. Keyboard-only
+  operation of any control that changes state is therefore broken.
+- [ ] **Bring off-screen targets on screen.** `expect-on-screen` distinguishes
+  laid out from actually visible, but large row cases place targets outside the
+  window and the platform still has no scrolling feature to bring them into
+  view.
 - [ ] **Layout, paint, and presentation spans** owned by the GPUI side of the
   host. Presentation may need a Wayland frame callback.
 - [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
@@ -122,15 +142,31 @@ names the evidence so a fix can be verified against the same case.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
 
+- [ ] **Per-canvas-item screenshot regions.** Only a canvas node's own
+  rectangle is recorded, so `(screenshot :region (role canvas-item ...))` is a
+  parse error rather than a silent whole-canvas photograph. Recording primitive
+  geometry would reuse `canvas_target`'s hit-testing arithmetic.
+- [ ] **Wayland window specifications in continuous integration.** The window
+  runner is platform-neutral and `grim` is wired for wlroots, but no Linux
+  runner has a compositor. This needs the headless lane (`sway --headless`,
+  `WLR_BACKENDS=headless`, software rendering) described above.
+- [ ] **Golden-image comparison.** Window specifications photograph state but
+  never compare images. Comparison needs a storage, review, and update story of
+  its own, and should not be bolted onto the capture step.
+- [ ] **Multi-display screenshots.** `gpui` 0.2.2 hard-zeroes the macOS display
+  origin (`platform/mac/display.rs`) and computes window bounds relative to the
+  window's own `NSScreen`, so a window on a secondary display has no recoverable
+  global coordinates. Capture reports `unavailable` rather than guessing.
+
 ## Release infrastructure
 
-- [ ] **Native macOS GPUI smoke shutdown.** The Apple Silicon host builds and
-  final-links against the project-generated interfaces, and semantic counter
-  specifications pass. The real-window smoke currently blocks while opening the
-  GPUI window on the development machine before its bounded render assertion is
-  scheduled. Make that production window path render and close deterministically;
-  CI invokes it through `scripts/run_gpui_smoke.py` so a block is a failure, never
-  an indefinite job.
+- [x] **Native macOS GPUI smoke shutdown.** The real-window smoke no longer
+  blocks: it renders and quits in ~2.3 s across repeated runs on Apple Silicon.
+  A block is now a failure inside the host itself rather than only in the driver
+  — `crates/host/src/watchdog.rs` arms a native thread before `Application::run`
+  that reports the last startup milestone reached (`app-run-entered`,
+  `window-opened`, `first-render`, `driver-started`) and exits 101 when the
+  deadline passes.
 - [ ] **Adopt roc-gui-owned content-addressed releases.** Run the dependency and
   host producer workflows from reviewed repository revisions, publish their
   attested archives, and replace the bootstrap `roc-signals` entries in

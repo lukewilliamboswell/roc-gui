@@ -9,7 +9,11 @@ use crate::{
 };
 use std::time::Instant;
 
-fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
+/// Resolve a locator against the mounted graph.
+///
+/// Shared with the window runner so both resolve locators identically rather
+/// than keeping two implementations in step by hand.
+pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
     if let Locator::CanvasItemPrefix(prefix) = locator {
         return graph
             .nodes_preorder()
@@ -214,6 +218,20 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         let mut tcp_counter_evidence = None;
         let mut patch_evidence = None;
         let result = match &step.command {
+            // Unreachable in practice: `spec::check_runner` rejects window-only
+            // steps before a case reaches this runner. Kept as a real arm so the
+            // refusal is stated here too rather than silently skipped.
+            Command::Settle { .. }
+            | Command::ExpectOnScreen(_)
+            | Command::ExpectRenderedCount(_, _)
+            | Command::ExpectBounds(_, _)
+            | Command::Screenshot(_)
+            | Command::Type(_)
+            | Command::Key(_) => Err(format!(
+                "line {}: step `{}` is window-only; run this specification with --host-run-window-spec",
+                step.line,
+                step.command.kind(),
+            )),
             Command::MarkMetrics => {
                 marked = true;
                 Ok(())
