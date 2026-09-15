@@ -5,6 +5,6 @@
     (expect-count (text-prefix "Row ") 100)
     (mark-metrics)
     (click (role button :name "Clear rows"))
-    (expect-patch :kind replace :staged 23 :removed 623)
+    (expect-patch :kind replace :staged 25 :removed 625)
     (expect-count (text-prefix "Row ") 0)
     (expect-visible (text "Rows: 0"))))
