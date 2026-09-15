@@ -79,6 +79,12 @@ editor and handle `Event.Input`, which carries the complete requested value.
 control editing behavior. A read-only textarea retains multiline layout and
 scrolling for response and log views. Textareas share the native style fields
 and default to a 160-logical-pixel editing viewport.
+`Elem.image(Elem.ImageProps.{ label, bytes, format, ... })`:: Decode and render
+capability-safe in-memory image bytes through GPUI. The explicit format is one
+of `Png`, `Jpeg`, `Webp`, `Gif`, `Svg`, `Bmp`, or `Tiff`; fit defaults to
+`Contain` and also supports `Cover`, `Fill`, `ScaleDown`, and `None`.
+`grayscale` applies a native rendering effect. Image sources are values, never
+ambient filesystem paths or URLs, and `label` is the stable semantic name.
 `Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `name` is the stable semantic identity.
@@ -185,7 +191,10 @@ representation, leaving the same ABI shape available to future resource APIs.
 UTF-8 names. Entries distinguish files, directories, symlinks, and other file
 types. `Files.Dir.open_read_dir!(directory, name)` acquires a direct child
 directory without following the final symlink; names containing traversal or
-multiple path components are rejected. Run filesystem operations inside
+multiple path components are rejected. `Files.Dir.read!(directory, name)` reads
+one direct ordinary file as a bounded `List(U8)` without following links. The
+64 MiB bound returns `ResourceLimit` instead of constructing an unbounded
+application value. Run filesystem operations inside
 `Action.task`, as shown by `examples/folder-browser/main.roc`.
 
 Retain a root-to-current list of directory handles to implement Back and

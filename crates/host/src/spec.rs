@@ -40,6 +40,7 @@ pub enum Command {
     ExpectCount(Locator, usize),
     ExpectValue(Locator, String),
     ExpectValueBytes(Locator, usize),
+    ExpectImageBytes(Locator, usize),
     ExpectBefore(Locator, Locator),
     ExpectPatch(PatchExpectation),
     MarkMetrics,
@@ -61,6 +62,7 @@ impl Command {
             Self::ExpectCount(_, _) => "expect-count",
             Self::ExpectValue(_, _) => "expect-value",
             Self::ExpectValueBytes(_, _) => "expect-value-bytes",
+            Self::ExpectImageBytes(_, _) => "expect-image-bytes",
             Self::ExpectBefore(_, _) => "expect-before",
             Self::ExpectPatch(_) => "expect-patch",
             Self::MarkMetrics => "mark-metrics",
@@ -102,6 +104,7 @@ pub enum Locator {
     ScrollName(String),
     VirtualListName(String),
     TextareaName(String),
+    ImageName(String),
 }
 
 const MAX_SOURCE_BYTES: usize = 1024 * 1024;
@@ -229,7 +232,7 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
             ));
         }
         let verifies_scale = steps.iter().any(|step| {
-            matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectValueBytes(_, expected) if expected as u64 == policy.scale)
+            matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
         });
         if !verifies_scale {
             return Err(error(
@@ -423,6 +426,14 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 .parse()
                 .map_err(|_| error(&values[2], "expect-value-bytes requires an integer"))?,
         ),
+        "expect-image-bytes" if values.len() == 3 => Command::ExpectImageBytes(
+            parse_locator(&values[1])?,
+            values[2]
+                .atom()
+                .ok_or_else(|| error(&values[2], "expect-image-bytes requires an integer"))?
+                .parse()
+                .map_err(|_| error(&values[2], "expect-image-bytes requires an integer"))?,
+        ),
         "expect-before" if values.len() == 3 => {
             Command::ExpectBefore(parse_locator(&values[1])?, parse_locator(&values[2])?)
         }
@@ -476,6 +487,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-patch"
         | "expect-value"
         | "expect-value-bytes"
+        | "expect-image-bytes"
         | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
@@ -535,6 +547,16 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .string()
                 .map(|value| Locator::TextareaName(value.to_owned()))
                 .ok_or_else(|| error(node, "textarea name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("image")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::ImageName(value.to_owned()))
+                .ok_or_else(|| error(node, "image name must be a string"))
         }
         Some("role")
             if values.len() == 4
@@ -598,7 +620,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, column, dialog, panel, row, scroll, textarea, and virtual-list",
+            "supported roles are button, checkbox, column, dialog, image, panel, row, scroll, textarea, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -851,6 +873,24 @@ mod tests {
         assert_eq!(
             spec.steps[0].command,
             Command::ExpectVisible(Locator::VirtualListName("Rows".into()))
+        );
+    }
+
+    #[test]
+    fn parses_image_identity_and_content_free_byte_evidence() {
+        let spec = parse(
+            r#"(test "image" (steps
+                (expect-visible (role image :name "Preview"))
+                (expect-image-bytes (role image :name "Preview") 100)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectVisible(Locator::ImageName("Preview".into()))
+        );
+        assert_eq!(
+            spec.steps[1].command,
+            Command::ExpectImageBytes(Locator::ImageName("Preview".into()), 100)
         );
     }
 

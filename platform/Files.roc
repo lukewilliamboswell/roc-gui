@@ -20,7 +20,7 @@ Files := [].{
 	Entry : { name : Str, kind : Kind, bytes : [None, Some(U64)] }
 
 	## The filesystem operation which failed.
-	Operation : [ListDirectory, OpenReadDirectory, PickDirectory]
+	Operation : [ListDirectory, OpenReadDirectory, PickDirectory, ReadFile]
 
 	## A stable, portable category for a filesystem failure.
 	Reason : [
@@ -53,6 +53,11 @@ Files := [].{
 		## Acquire one direct ordinary child directory as a new read handle. `name`
 		## must be a single ordinary entry name; traversal and links are rejected.
 		open_read_dir! : Resource.DirRead, Str => Try(Resource.DirRead, Error)
+
+		## Read one direct ordinary child file without following symbolic links.
+		## Reads are bounded by the host and return `ResourceLimit` when the file is
+		## too large for one in-memory value.
+		read! : Resource.DirRead, Str => Try(List(U8), Error)
 	}
 
 	## Acquire the directory handle granted when the application was launched.

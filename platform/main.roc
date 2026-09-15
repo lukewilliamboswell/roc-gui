@@ -21,6 +21,7 @@ platform ""
 		"roc_gui_node_virtual_list": Host.node_virtual_list!,
 		"roc_gui_node_checkbox": Host.node_checkbox!,
 		"roc_gui_node_textarea": Host.node_textarea!,
+		"roc_gui_node_image": Host.node_image!,
 		"roc_gui_input_value": Host.input_value!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
@@ -35,6 +36,7 @@ platform ""
 		"roc_files_pick_directory": Files.pick_directory!,
 		"roc_files_dir_list": Files.Dir.list!,
 		"roc_files_dir_open_read": Files.Dir.open_read_dir!,
+		"roc_files_dir_read": Files.Dir.read!,
 	}
 	targets: {
 		inputs_dir: "targets/",

@@ -68,6 +68,8 @@ semantic label.
 semantic name.
 `(role textarea :name "name")`:: A multiline editor identified by its semantic
 name. Locator matching never records its value.
+`(role image :name "name")`:: An encoded image identified by its application
+supplied semantic name. Neither encoded bytes nor source filenames are captured.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
 missing targets fail instead of choosing one by traversal order. Make button
@@ -106,6 +108,9 @@ observed counts.
 The value is compared in memory and is not copied into captures or diagnostics.
 `(expect-value-bytes LOCATOR N)`:: Require the textarea value to contain exactly
 `N` UTF-8 bytes and record the expected and observed deterministic counts.
+`(expect-image-bytes LOCATOR N)`:: Require an image node to own exactly `N`
+encoded bytes and record expected and observed deterministic counts without
+persisting image content.
 `(expect-before FIRST SECOND)`:: Require a match for `FIRST` to occur before a
 match for `SECOND` in mounted-tree order.
 `(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced

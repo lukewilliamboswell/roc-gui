@@ -63,6 +63,14 @@ pub enum NodeKind {
         read_only: bool,
         style: Style,
     },
+    Image {
+        label: String,
+        bytes: Vec<u8>,
+        format: ImageFormat,
+        fit: ImageFit,
+        grayscale: bool,
+        style: Style,
+    },
     Column {
         label: String,
         style: Style,
@@ -166,6 +174,26 @@ pub enum ScrollAxis {
     Vertical,
     Horizontal,
     Both,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImageFormat {
+    Bmp,
+    Gif,
+    Jpeg,
+    Png,
+    Svg,
+    Tiff,
+    Webp,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImageFit {
+    Contain,
+    Cover,
+    Fill,
+    None,
+    ScaleDown,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -737,6 +765,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
+            | NodeKind::Image { .. }
                 if !node.children.is_empty() =>
             {
                 return Err(format!("leaf node {} has children", node.id));
@@ -823,6 +852,7 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
+            | NodeKind::Image { .. }
                 if !node.children.is_empty() =>
             {
                 return Err(format!("leaf node {} has children", node.id));

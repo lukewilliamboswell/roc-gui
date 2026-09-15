@@ -75,6 +75,9 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (Locator::ImageName(expected), NodeKind::Image { label, .. }) if expected == label => {
+                Some(node.id)
+            }
             _ => None,
         })
         .collect()
@@ -517,6 +520,26 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 } else {
                     Err(format!(
                         "line {}: expected textarea value to contain {expected} bytes; observed {actual}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectImageBytes(locator, expected) => {
+                let found = matches(&graph, locator);
+                let actual = if found.len() == 1 {
+                    match graph.node(found[0]).map(|node| &node.kind) {
+                        Some(NodeKind::Image { bytes, .. }) => bytes.len(),
+                        _ => 0,
+                    }
+                } else {
+                    0
+                };
+                count_evidence = Some((*expected as u64, actual as u64));
+                if found.len() == 1 && actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected image source to contain {expected} bytes; observed {actual}",
                         step.line
                     ))
                 }

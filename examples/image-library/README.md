@@ -3,6 +3,11 @@
 A fast image browser and viewer for ordinary folders, suitable for reviewing
 photos and design assets without importing them into a proprietary library.
 
+The executable example establishes safe loading and viewing: it opens a
+host-granted directory, lists ordinary files, reads a selected child without
+following links, and renders its encoded bytes through GPUI. Unsupported
+formats and read failures remain visible without discarding the last image.
+
 ## Core capabilities
 
 - Folder and thumbnail browsing with sorting, filtering, favorites, and background metadata loading.

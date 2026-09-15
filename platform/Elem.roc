@@ -10,6 +10,7 @@ Elem(a) :: [
 	ActionButton(ActionButtonProps(a)),
 	Checkbox(CheckboxProps(a)),
 	Textarea(TextareaProps(a)),
+	Image(ImageProps),
 	Column({ children : List(Elem(a)), props : ColProps }),
 	Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 	Panel({ children : List(Elem(a)), props : PanelProps }),
@@ -197,6 +198,38 @@ Elem(a) :: [
 		overflow_y : Gui.Overflow ?? Scroll,
 	}
 
+	## Encoded image formats accepted by the native image decoder.
+	ImageFormat : [Bmp, Gif, Jpeg, Png, Svg, Tiff, Webp]
+
+	## How decoded pixels fit the image's styled bounds.
+	ImageFit : [Contain, Cover, Fill, None, ScaleDown]
+
+	## Properties for an encoded in-memory image. Bytes come from explicit
+	## application data or a capability operation; the host never resolves a
+	## path or URL. `label` is the stable semantic name.
+	ImageProps := {
+		label : Str,
+		bytes : List(U8),
+		format : ImageFormat,
+		fit : ImageFit ?? Contain,
+		grayscale : Bool ?? False,
+		gap : U32 ?? 0,
+		padding : U32 ?? 0,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Default,
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Default,
+		border_width : U32 ?? 0,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		overflow_x : Gui.Overflow ?? Clip,
+		overflow_y : Gui.Overflow ?? Clip,
+	}
+
 	## Display literal text.
 	text : Str -> Elem(a)
 	text = |value| Text(value)
@@ -219,6 +252,10 @@ Elem(a) :: [
 	## returned by `on_input`; use `read_only: True` for response viewers.
 	textarea : TextareaProps(a) -> Elem(a)
 	textarea = |props| Textarea(props)
+
+	## Render encoded image bytes without granting the host ambient I/O.
+	image : ImageProps -> Elem(a)
+	image = |props| Image(props)
 
 	## Lay out children horizontally in order.
 	row : RowProps, List(Elem(a)) -> Elem(a)
@@ -331,6 +368,7 @@ Elem(a) :: [
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, radius: textarea_value.radius, font_size: textarea_value.font_size, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y })
 		}
+		Image(image_value) => Image(image_value)
 		Boundary(child_renderer) => {
 			parent_renderer = |parent| lift(child_renderer(get_child(parent)), get_child, set_child)
 			Boundary(parent_renderer)
@@ -352,6 +390,7 @@ Elem(a) :: [
 		ActionButton(ActionButtonProps(a)),
 		Checkbox(CheckboxProps(a)),
 		Textarea(TextareaProps(a)),
+		Image(ImageProps),
 		Column({ children : List(Elem(a)), props : ColProps }),
 		Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 		Panel({ children : List(Elem(a)), props : PanelProps }),
@@ -365,6 +404,7 @@ Elem(a) :: [
 		ActionButton(button_value) => ActionButton(button_value)
 		Checkbox(checkbox_value) => Checkbox(checkbox_value)
 		Textarea(textarea_value) => Textarea(textarea_value)
+		Image(image_value) => Image(image_value)
 		Column(children) => Column(children)
 		Dialog(dialog_value) => Dialog(dialog_value)
 		Panel(children) => Panel(children)

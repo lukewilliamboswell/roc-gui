@@ -61,6 +61,18 @@ names the evidence so a fix can be verified against the same case.
   capability-detected OS CPU and memory samplers, chart/canvas elements,
   process-table sorting and privacy-safe export as complete later slices.
 
+- [ ] **Image decode status is not represented in the mounted graph.** GPUI's
+  image asset decoder owns asynchronous success and failure after mounting, but
+  does not expose that state to the host element. Add an owner callback that
+  records decoded dimensions/frames or a content-free failure category and
+  renders a semantic per-image fallback; do not duplicate GPUI's decoder in the
+  semantic runner.
+- [ ] **Image-library thumbnails and bounded decoded cache.** The foundation
+  reads and displays one capability-scoped image. Add background thumbnail
+  generation, cancellation/stale-result suppression, viewport-driven grids,
+  orientation metadata, and explicit decoded-byte eviction counters before
+  scaling to ordinary photo collections.
+
 - [ ] **Textarea selection, IME composition, and clipboard commands.** The
   production textarea accepts ordinary character, Enter, and Backspace input
   and routes complete controlled values through Roc. Close the desktop-editor

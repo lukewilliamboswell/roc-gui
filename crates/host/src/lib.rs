@@ -11,16 +11,17 @@ mod spec;
 mod timers;
 
 use bridge::{
-    BridgeState, ControlKey, Length, MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis,
-    Style, decode_commit, validate_tree,
+    BridgeState, ControlKey, ImageFit, ImageFormat as BridgeImageFormat, Length, MountedGraph,
+    Node, NodeKind, Overflow, Patch, ScrollAxis, Style, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs,
-    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
-    decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeTextareaArgs,
+    HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
+    RocErasedCallable, RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch,
+    roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -596,6 +597,61 @@ pub extern "C" fn roc_gui_node_textarea(args: HostGlueNodeTextareaArgs) -> u64 {
     )
 }
 
+/// Stage encoded image bytes; no path or URI is resolved by this node.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    let bytes = args.bytes.as_slice().to_vec();
+    let format = match args.format {
+        0 => BridgeImageFormat::Bmp,
+        1 => BridgeImageFormat::Gif,
+        2 => BridgeImageFormat::Jpeg,
+        3 => BridgeImageFormat::Png,
+        4 => BridgeImageFormat::Svg,
+        5 => BridgeImageFormat::Tiff,
+        6 => BridgeImageFormat::Webp,
+        other => panic!("invalid image format {other}"),
+    };
+    let fit = match args.fit {
+        0 => ImageFit::Contain,
+        1 => ImageFit::Cover,
+        2 => ImageFit::Fill,
+        3 => ImageFit::None,
+        4 => ImageFit::ScaleDown,
+        other => panic!("invalid image fit {other}"),
+    };
+    unsafe { args.decref(roc_host()) };
+    stage_node(
+        NodeKind::Image {
+            label,
+            bytes,
+            format,
+            fit,
+            grayscale: args.grayscale,
+            style: decode_layout_style(
+                args.gap,
+                args.padding,
+                args.width_kind,
+                args.width,
+                args.height_kind,
+                args.height,
+                args.grow,
+                args.bg,
+                args.hover_bg,
+                args.active_bg,
+                args.fg,
+                args.border_color,
+                args.border_width,
+                args.radius,
+                args.font_size,
+                args.overflow_x,
+                args.overflow_y,
+            ),
+        },
+        vec![],
+    )
+}
+
 /// Consume the content-free event slot installed immediately before dispatch.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_input_value() -> RocStr {
@@ -1046,6 +1102,40 @@ impl Render for NodeView {
                     element = element.opacity(0.5);
                 }
                 let _ = label;
+            }
+            NodeKind::Image {
+                bytes,
+                format,
+                fit,
+                grayscale,
+                style,
+                ..
+            } => {
+                let native_format = match format {
+                    BridgeImageFormat::Bmp => gpui::ImageFormat::Bmp,
+                    BridgeImageFormat::Gif => gpui::ImageFormat::Gif,
+                    BridgeImageFormat::Jpeg => gpui::ImageFormat::Jpeg,
+                    BridgeImageFormat::Png => gpui::ImageFormat::Png,
+                    BridgeImageFormat::Svg => gpui::ImageFormat::Svg,
+                    BridgeImageFormat::Tiff => gpui::ImageFormat::Tiff,
+                    BridgeImageFormat::Webp => gpui::ImageFormat::Webp,
+                };
+                let object_fit = match fit {
+                    ImageFit::Contain => ObjectFit::Contain,
+                    ImageFit::Cover => ObjectFit::Cover,
+                    ImageFit::Fill => ObjectFit::Fill,
+                    ImageFit::None => ObjectFit::None,
+                    ImageFit::ScaleDown => ObjectFit::ScaleDown,
+                };
+                element = apply_style(element, style).child(
+                    img(std::sync::Arc::new(gpui::Image::from_bytes(
+                        native_format,
+                        bytes.clone(),
+                    )))
+                    .size_full()
+                    .object_fit(object_fit)
+                    .grayscale(*grayscale),
+                );
             }
             NodeKind::Button {
                 caption,

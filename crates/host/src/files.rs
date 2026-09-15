@@ -1,8 +1,12 @@
 use crate::{roc_host, roc_platform_abi::*};
-use cap_fs_ext::DirExt;
-use cap_std::{ambient_authority, fs::Dir};
+use cap_fs_ext::{DirExt, FollowSymlinks, OpenOptionsFollowExt};
+use cap_std::{
+    ambient_authority,
+    fs::{Dir, OpenOptions},
+};
 use std::{
     collections::HashMap,
+    io::Read,
     mem::ManuallyDrop,
     path::{Component, Path},
     sync::{Arc, Mutex, OnceLock},
@@ -10,6 +14,7 @@ use std::{
 
 const MAX_ENTRIES: usize = 10_000;
 const MAX_NAME_BYTES: usize = 4 * 1024 * 1024;
+const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 struct Store {
     next: u64,
     initial: Option<(Arc<Dir>, String)>,
@@ -93,10 +98,10 @@ fn reason(error: &std::io::Error) -> AccessDeniedOrInvalidCapabilityOrInvalidNam
 }
 
 fn error(
-    operation: ListDirectoryOrOpenReadDirectoryOrPickDirectory,
+    operation: ListDirectoryOrOpenReadDirectoryOrPickDirectoryOrReadFile,
     reason: AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported,
-) -> AnonStruct5bc955a48fba90fa {
-    AnonStruct5bc955a48fba90fa { operation, reason }
+) -> FilesPickDirectoryErr {
+    FilesPickDirectoryErr { operation, reason }
 }
 
 fn valid_name(name: &str) -> bool {
@@ -113,7 +118,7 @@ pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
         .clone();
     match initial {
         None => FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload { err: ManuallyDrop::new(error(ListDirectoryOrOpenReadDirectoryOrPickDirectory::PickDirectory, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::AccessDenied)) },
+            payload: FilesPickDirectoryResultPayload { err: ManuallyDrop::new(error(ListDirectoryOrOpenReadDirectoryOrPickDirectoryOrReadFile::PickDirectory, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::AccessDenied)) },
             tag: FilesPickDirectoryResultTag::Err,
         },
         Some((dir, name)) => {
@@ -131,7 +136,7 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
     let dir = lookup(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let Some(dir) = dir else {
-        return FilesDirListResult { payload: FilesDirListResultPayload { err: ManuallyDrop::new(error(ListDirectoryOrOpenReadDirectoryOrPickDirectory::ListDirectory, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidCapability)) }, tag: FilesDirListResultTag::Err };
+        return FilesDirListResult { payload: FilesDirListResultPayload { err: ManuallyDrop::new(error(ListDirectoryOrOpenReadDirectoryOrPickDirectoryOrReadFile::ListDirectory, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidCapability)) }, tag: FilesDirListResultTag::Err };
     };
     let result = (|| -> std::io::Result<Vec<AnonStruct770b9d9b3d3d255>> {
         let mut values = Vec::new();
@@ -190,7 +195,7 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
         Err(io) => FilesDirListResult {
             payload: FilesDirListResultPayload {
                 err: ManuallyDrop::new(error(
-                    ListDirectoryOrOpenReadDirectoryOrPickDirectory::ListDirectory,
+                    ListDirectoryOrOpenReadDirectoryOrPickDirectoryOrReadFile::ListDirectory,
                     if io.kind() == std::io::ErrorKind::InvalidData {
                         AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidUtf8
                     } else if io.kind() == std::io::ErrorKind::Other {
@@ -229,11 +234,61 @@ pub extern "C" fn roc_files_dir_open_read(
         Err(value) => FilesDirOpenReadDirResult {
             payload: FilesDirOpenReadDirResultPayload {
                 err: ManuallyDrop::new(error(
-                    ListDirectoryOrOpenReadDirectoryOrPickDirectory::OpenReadDirectory,
+                    ListDirectoryOrOpenReadDirectoryOrPickDirectoryOrReadFile::OpenReadDirectory,
                     value,
                 )),
             },
             tag: FilesDirOpenReadDirResultTag::Err,
+        },
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirReadResult {
+    let owned_name = name.as_str().to_owned();
+    unsafe { name.decref(roc_host()) };
+    let dir = lookup(cap);
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    let result = (|| -> Result<Vec<u8>, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported> {
+        let dir = dir.ok_or(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidCapability)?;
+        if !valid_name(&owned_name) {
+            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidName);
+        }
+        let metadata = dir.symlink_metadata(&owned_name).map_err(|io| reason(&io))?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::Unsupported);
+        }
+        if metadata.len() > MAX_FILE_BYTES {
+            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::ResourceLimit);
+        }
+        let mut options = OpenOptions::new();
+        options.read(true).follow(FollowSymlinks::No);
+        let file = dir.open_with(&owned_name, &options).map_err(|io| reason(&io))?;
+        let mut bytes = Vec::with_capacity(metadata.len() as usize);
+        file.take(MAX_FILE_BYTES + 1).read_to_end(&mut bytes).map_err(|io| reason(&io))?;
+        if bytes.len() as u64 > MAX_FILE_BYTES {
+            Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::ResourceLimit)
+        } else {
+            Ok(bytes)
+        }
+    })();
+    match result {
+        Ok(bytes) => FilesDirReadResult {
+            payload: FilesDirReadResultPayload {
+                ok: ManuallyDrop::new(unsafe {
+                    RocListWith::<u8, false>::from_slice(&bytes, roc_host())
+                }),
+            },
+            tag: FilesDirReadResultTag::Ok,
+        },
+        Err(value) => FilesDirReadResult {
+            payload: FilesDirReadResultPayload {
+                err: ManuallyDrop::new(error(
+                    ListDirectoryOrOpenReadDirectoryOrPickDirectoryOrReadFile::ReadFile,
+                    value,
+                )),
+            },
+            tag: FilesDirReadResultTag::Err,
         },
     }
 }

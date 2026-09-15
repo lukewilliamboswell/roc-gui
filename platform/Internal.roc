@@ -222,6 +222,27 @@ Internal := [].{
 			}
 			{ root: id, next_boundary, routes: routes.append(route), boundaries }
 		}
+		Image(image_value) => {
+			style = style_args(image_value)
+			format = match image_value.format {
+				Bmp => 0
+				Gif => 1
+				Jpeg => 2
+				Png => 3
+				Svg => 4
+				Tiff => 5
+				Webp => 6
+			}
+			fit = match image_value.fit {
+				Contain => 0
+				Cover => 1
+				Fill => 2
+				None => 3
+				ScaleDown => 4
+			}
+			id = Host.node_image!({ label: image_value.label, bytes: image_value.bytes, format, fit, grayscale: image_value.grayscale, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			{ root: id, next_boundary, routes, boundaries }
+		}
 		Boundary(renderer) => {
 			key = next_boundary
 			child_path = boundary_path.append(key)
