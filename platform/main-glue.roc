@@ -38,6 +38,7 @@ platform ""
 		"roc_gui_timer_start": HostGlue.timer_start!,
 		"roc_gui_timer_next": HostGlue.timer_next!,
 		"roc_gui_timer_cancel": HostGlue.timer_cancel!,
+		"roc_http_send": HostGlue.http_send!,
 		"roc_gui_work_start": HostGlue.work_start!,
 		"roc_gui_work_end": HostGlue.work_end!,
 		"roc_gui_window_config": HostGlue.window_config!,
@@ -54,6 +55,7 @@ platform ""
 import HostGlue
 import Action
 import Files
+import HttpTypes
 
 gui_init! : () => {}
 gui_init! = || {}

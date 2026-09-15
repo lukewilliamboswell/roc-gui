@@ -4,6 +4,7 @@
 
 mod bridge;
 mod files;
+mod http;
 mod input;
 mod observatory;
 mod roc_platform_abi;
@@ -17,12 +18,13 @@ use bridge::{
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs,
-    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs,
-    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
-    decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueHttpSendArgs, HostGlueHttpSendResult,
+    HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
+    HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
+    HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
+    make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -765,6 +767,11 @@ pub extern "C" fn roc_gui_timer_next(handle: *mut u64) -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_timer_cancel(handle: *mut u64) -> bool {
     timers::cancel(handle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_http_send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {
+    http::send(args)
 }
 
 #[unsafe(no_mangle)]

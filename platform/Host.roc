@@ -1,5 +1,6 @@
 import Action exposing [Action]
 import Resource
+import HttpTypes
 
 Host := [].{
 	Patch : [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })]
@@ -237,6 +238,8 @@ Host := [].{
 	timer_next! : Resource.Timer => Bool
 
 	timer_cancel! : Resource.Timer => Bool
+
+	http_send! : HttpTypes.Request => Try(HttpTypes.Response, HttpTypes.Error)
 
 	work_start! : U8 => {}
 

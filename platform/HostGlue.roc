@@ -2,6 +2,7 @@
 # task callables parameterized by application state; Rust sees both forms as
 # the same erased callable pointer.
 import Resource
+import HttpTypes
 
 HostGlue := [].{
 	Patch : [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })]
@@ -219,6 +220,7 @@ HostGlue := [].{
 	timer_start! : U64 => Resource.Timer
 	timer_next! : Resource.Timer => Bool
 	timer_cancel! : Resource.Timer => Bool
+	http_send! : HttpTypes.Request => Try(HttpTypes.Response, HttpTypes.Error)
 	work_start! : U8 => {}
 	work_end! : U8 => {}
 	window_config! : Str, U32, U32 => {}

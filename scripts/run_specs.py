@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import atexit
 import fnmatch
 import os
 import sqlite3
+import socket
 import subprocess
 import sys
+import time
 from dataclasses import replace
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -167,6 +170,33 @@ def main() -> int:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 
+    fixture_process = None
+    fixture_scripts = {case.app.parent / "fixture_server.py" for case in cases}
+    fixture_scripts = {path for path in fixture_scripts if path.is_file()}
+    if fixture_scripts:
+        if len(fixture_scripts) != 1:
+            print("error: selected specs require different local fixture servers", file=sys.stderr)
+            return 1
+        fixture_process = subprocess.Popen(
+            [sys.executable, str(fixture_scripts.pop())], cwd=ROOT,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        atexit.register(lambda: fixture_process.poll() is None and fixture_process.terminate())
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                with socket.create_connection(("127.0.0.1", 38191), timeout=0.1):
+                    break
+            except OSError:
+                if fixture_process.poll() is not None:
+                    print("error: local HTTP fixture failed to start", file=sys.stderr)
+                    return 1
+                time.sleep(0.02)
+        else:
+            fixture_process.terminate()
+            print("error: local HTTP fixture did not become ready", file=sys.stderr)
+            return 1
+
     results: list[tuple[Case, str | None]] = []
     if args.fail_fast:
         for case in cases:
@@ -204,6 +234,9 @@ def main() -> int:
                 )
     passed = len(results) - failures
     print(f"{passed}/{len(cases)} specs passed; captures: {output}")
+    if fixture_process is not None:
+        fixture_process.terminate()
+        fixture_process.wait(timeout=5)
     return 1 if failures else 0
 
 

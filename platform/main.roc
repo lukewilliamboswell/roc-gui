@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Layout, Action, Event, Gui, Files, Timer]
+	exposes [Program, Elem, Layout, Action, Event, Gui, Files, Timer, Http]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 	}
@@ -31,6 +31,7 @@ platform ""
 		"roc_gui_timer_start": Host.timer_start!,
 		"roc_gui_timer_next": Host.timer_next!,
 		"roc_gui_timer_cancel": Host.timer_cancel!,
+		"roc_http_send": Host.http_send!,
 		"roc_gui_work_start": Host.work_start!,
 		"roc_gui_work_end": Host.work_end!,
 		"roc_gui_window_config": Host.window_config!,
@@ -52,6 +53,7 @@ import Event
 import Gui
 import Files
 import Timer
+import Http
 import Host
 
 gui_init! : () => {}

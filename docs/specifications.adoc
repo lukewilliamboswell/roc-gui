@@ -51,6 +51,13 @@ directory through the production `--host-cap-dir` boundary. Fixture contents
 are therefore exercised through the same opaque capability operations as an
 interactive grant, without giving the application ambient test-only I/O.
 
+An application may also provide `fixture_server.py`. The runner starts that
+loopback-only deterministic service for its cases, while the application still
+uses the production HTTP client, worker pool, and completion route. The HTTP
+workbench uses this to specify echo success, scheme rejection, response limits,
+stale-result suppression, and a 200,000-byte response without public-network
+availability or remote service state.
+
 == Locators
 
 `(text "value")`:: Text whose entire value equals `value`.

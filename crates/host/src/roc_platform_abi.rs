@@ -1706,6 +1706,99 @@ const _: () = assert!(core::mem::size_of::<AnonStruct8d3c9b3ac95ef074>() == 16, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct8d3c9b3ac95ef074>() == 8, "AnonStruct8d3c9b3ac95ef074 alignment mismatch");
 
+/// Element type for __AnonStruct_4cc00b7fc76acdb9
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct4cc00b7fc76acdb9 {
+    pub body: RocStr,
+    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub status: u16,
+}
+
+/// Element type for __AnonStruct_4cc00b7fc76acdb9
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct4cc00b7fc76acdb9 {
+    pub body: RocStr,
+    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub status: u16,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct4cc00b7fc76acdb9>() == 56, "AnonStruct4cc00b7fc76acdb9 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct4cc00b7fc76acdb9>() == 8, "AnonStruct4cc00b7fc76acdb9 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct4cc00b7fc76acdb9>() == 28, "AnonStruct4cc00b7fc76acdb9 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct4cc00b7fc76acdb9>() == 4, "AnonStruct4cc00b7fc76acdb9 alignment mismatch");
+
+/// Element type for __AnonStruct_82a96c5d55d63488
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct82a96c5d55d63488 {
+    pub name: RocStr,
+    pub value: RocStr,
+}
+
+/// Element type for __AnonStruct_82a96c5d55d63488
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct82a96c5d55d63488 {
+    pub name: RocStr,
+    pub value: RocStr,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct82a96c5d55d63488>() == 48, "AnonStruct82a96c5d55d63488 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct82a96c5d55d63488>() == 8, "AnonStruct82a96c5d55d63488 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct82a96c5d55d63488>() == 24, "AnonStruct82a96c5d55d63488 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct82a96c5d55d63488>() == 4, "AnonStruct82a96c5d55d63488 alignment mismatch");
+
+/// Element type for __AnonStruct_33f5020bd57cc2ec
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct33f5020bd57cc2ec {
+    pub max_response_bytes: u64,
+    pub timeout_ms: u64,
+    pub body: RocStr,
+    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub url: RocStr,
+    pub max_redirects: u8,
+    pub method: GetOrPost,
+}
+
+/// Element type for __AnonStruct_33f5020bd57cc2ec
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct33f5020bd57cc2ec {
+    pub max_response_bytes: u64,
+    pub timeout_ms: u64,
+    pub body: RocStr,
+    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub url: RocStr,
+    pub max_redirects: u8,
+    pub method: GetOrPost,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct33f5020bd57cc2ec>() == 96, "AnonStruct33f5020bd57cc2ec size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct33f5020bd57cc2ec>() == 8, "AnonStruct33f5020bd57cc2ec alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct33f5020bd57cc2ec>() == 56, "AnonStruct33f5020bd57cc2ec size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct33f5020bd57cc2ec>() == 8, "AnonStruct33f5020bd57cc2ec alignment mismatch");
+
 /// Tag discriminant for Try.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2587,6 +2680,174 @@ const _: () = assert!(core::mem::size_of::<MountOrNoChangeOrReplace>() == 24, "M
 const _: () = assert!(core::mem::align_of::<MountOrNoChangeOrReplace>() == 8, "MountOrNoChangeOrReplace alignment mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(MountOrNoChangeOrReplace, tag) == 16, "MountOrNoChangeOrReplace tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueHttpSendResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueHttpSendResultPayload {
+    pub err: core::mem::ManuallyDrop<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct4cc00b7fc76acdb9>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpSendResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpSendResult {
+    pub _payload_alignment: [HostGlueHttpSendResultPayloadAlignment; 0],
+    pub payload: [u8; 28],
+    pub tag: HostGlueHttpSendResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpSendResult {
+    pub payload: HostGlueHttpSendResultPayload,
+    pub tag: HostGlueHttpSendResultTag,
+}
+
+impl HostGlueHttpSendResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(self.payload.as_ptr() as *const BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme> as *const BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct4cc00b7fc76acdb9 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4cc00b7fc76acdb9) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct4cc00b7fc76acdb9 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct4cc00b7fc76acdb9> as *const AnonStruct4cc00b7fc76acdb9) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct4cc00b7fc76acdb9 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4cc00b7fc76acdb9) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpSendResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct4cc00b7fc76acdb9 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueHttpSendResult>() == 64, "HostGlueHttpSendResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueHttpSendResult>() == 8, "HostGlueHttpSendResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueHttpSendResult, tag) == 56, "HostGlueHttpSendResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueHttpSendResult>() == 32, "HostGlueHttpSendResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueHttpSendResult>() == 4, "HostGlueHttpSendResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueHttpSendResult, tag) == 28, "HostGlueHttpSendResult tag offset mismatch");
+
+/// Tag union: BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
+    BodyTooLarge = 0,
+    ConnectFailed = 1,
+    InvalidHeader = 2,
+    InvalidRequest = 3,
+    InvalidUrl = 4,
+    InvalidUtf8 = 5,
+    RedirectLimit = 6,
+    Timeout = 7,
+    UnsupportedScheme = 8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+
+/// Tag union: GetOrPost
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GetOrPost {
+    Get = 0,
+    Post = 1,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<GetOrPost>() == 1, "GetOrPost size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<GetOrPost>() == 1, "GetOrPost alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<GetOrPost>() == 1, "GetOrPost size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<GetOrPost>() == 1, "GetOrPost alignment mismatch");
 
 /// Return type record for HostGlue.node_text_input!
 /// Fields ordered by compiler-emitted ABI offsets.
@@ -3713,6 +3974,82 @@ pub struct HostGlueTimerCancelArgs {
     pub arg0: *mut u64,
 }
 
+/// Arguments for HostGlue.http_send!
+/// Roc signature: { body : Str, headers : List({ name : Str, value : Str }), max_redirects : U8, max_response_bytes : U64, method : [Get, Post], timeout_ms : U64, url : Str } => Try({ body : Str, headers : List({ name : Str, value : Str }), status : U16 }, [BodyTooLarge, ConnectFailed, InvalidHeader, InvalidRequest, InvalidUrl, InvalidUtf8, RedirectLimit, Timeout, UnsupportedScheme])
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpSendArgs {
+    pub max_response_bytes: u64,
+    pub timeout_ms: u64,
+    pub body: RocStr,
+    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub url: RocStr,
+    pub max_redirects: u8,
+    pub method: GetOrPost,
+}
+
+/// Arguments for HostGlue.http_send!
+/// Roc signature: { body : Str, headers : List({ name : Str, value : Str }), max_redirects : U8, max_response_bytes : U64, method : [Get, Post], timeout_ms : U64, url : Str } => Try({ body : Str, headers : List({ name : Str, value : Str }), status : U16 }, [BodyTooLarge, ConnectFailed, InvalidHeader, InvalidRequest, InvalidUrl, InvalidUtf8, RedirectLimit, Timeout, UnsupportedScheme])
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpSendArgs {
+    pub max_response_bytes: u64,
+    pub timeout_ms: u64,
+    pub body: RocStr,
+    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub url: RocStr,
+    pub max_redirects: u8,
+    pub method: GetOrPost,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueHttpSendArgs>() == 96, "HostGlueHttpSendArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueHttpSendArgs>() == 8, "HostGlueHttpSendArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueHttpSendArgs>() == 56, "HostGlueHttpSendArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueHttpSendArgs>() == 8, "HostGlueHttpSendArgs alignment mismatch");
+
+impl HostGlueHttpSendArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.body.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct82a96c5d55d63488(value.headers, roc_host); }
+        unsafe { value.url.decref(roc_host); }
+        unsafe { value.method.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.body.incref(amount); }
+        unsafe { value.headers.incref(amount); }
+        unsafe { value.url.incref(amount); }
+        unsafe { value.method.incref(amount); }
+    }
+}
+
+pub struct HostGlueHttpSendArgsRelease;
+
+unsafe impl RocRelease<HostGlueHttpSendArgs> for HostGlueHttpSendArgsRelease {
+    unsafe fn release(value: HostGlueHttpSendArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 /// Arguments for HostGlue.work_start!
 /// Roc signature: U8 => {}
 /// Refcounted fields are owned by the hosted function.
@@ -3787,6 +4124,11 @@ pub type HostGlueNodeTextInputArg0 = AnonStructFd9886ad38d7b792;
 pub type HostGlueNodeTextInput = AnonStructDc4c26f806dfc5bf;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
+pub type HostGlueHttpSendArg0 = AnonStruct33f5020bd57cc2ec;
+pub type HostGlueHttpSendArg0Headers = AnonStruct82a96c5d55d63488;
+pub type HostGlueHttpSendErr = BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme;
+pub type HostGlueHttpSendOk = AnonStruct4cc00b7fc76acdb9;
+pub type HostGlueHttpSendOkHeaders = AnonStruct82a96c5d55d63488;
 pub type FilesPickDirectoryErr = AnonStruct1c6577ed57527e58;
 pub type FilesPickDirectoryOk = CanceledOrChosen;
 pub type FilesPickDirectoryOkPayload = CanceledOrChosenPayload;
@@ -4646,6 +4988,210 @@ unsafe impl RocRelease<AnonStruct8d3c9b3ac95ef074> for AnonStruct8d3c9b3ac95ef07
     }
 }
 
+impl HostGlueHttpSendResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueHttpSendResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueHttpSendResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueHttpSendResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueHttpSendResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueHttpSendResultRelease;
+
+unsafe impl RocRelease<HostGlueHttpSendResult> for HostGlueHttpSendResultRelease {
+    unsafe fn release(value: HostGlueHttpSendResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let _ = self;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let _ = self;
+        let _ = amount;
+    }
+}
+
+pub struct BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease;
+
+unsafe impl RocRelease<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme> for BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease {
+    unsafe fn release(value: BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct4cc00b7fc76acdb9 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.body.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct82a96c5d55d63488(value.headers, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.body.incref(amount); }
+        unsafe { value.headers.incref(amount); }
+    }
+}
+
+pub struct AnonStruct4cc00b7fc76acdb9Release;
+
+unsafe impl RocRelease<AnonStruct4cc00b7fc76acdb9> for AnonStruct4cc00b7fc76acdb9Release {
+    unsafe fn release(value: AnonStruct4cc00b7fc76acdb9, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct82a96c5d55d63488 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+        unsafe { value.value.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+        unsafe { value.value.incref(amount); }
+    }
+}
+
+pub struct AnonStruct82a96c5d55d63488Release;
+
+unsafe impl RocRelease<AnonStruct82a96c5d55d63488> for AnonStruct82a96c5d55d63488Release {
+    unsafe fn release(value: AnonStruct82a96c5d55d63488, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct33f5020bd57cc2ec {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.body.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct82a96c5d55d63488(value.headers, roc_host); }
+        unsafe { value.url.decref(roc_host); }
+        unsafe { value.method.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.body.incref(amount); }
+        unsafe { value.headers.incref(amount); }
+        unsafe { value.url.incref(amount); }
+        unsafe { value.method.incref(amount); }
+    }
+}
+
+pub struct AnonStruct33f5020bd57cc2ecRelease;
+
+unsafe impl RocRelease<AnonStruct33f5020bd57cc2ec> for AnonStruct33f5020bd57cc2ecRelease {
+    unsafe fn release(value: AnonStruct33f5020bd57cc2ec, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl GetOrPost {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let _ = self;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let _ = self;
+        let _ = amount;
+    }
+}
+
+pub struct GetOrPostRelease;
+
+unsafe impl RocRelease<GetOrPost> for GetOrPostRelease {
+    unsafe fn release(value: GetOrPost, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 /// Release one owned reference to a `RocList<AnonStruct770b9d9b3d3d255>`.
 ///
 /// The allocation's final reference is claimed atomically before any element
@@ -4655,6 +5201,17 @@ unsafe impl RocRelease<AnonStruct8d3c9b3ac95ef074> for AnonStruct8d3c9b3ac95ef07
 /// `value` must own one live Roc list reference.
 pub unsafe fn decref_list_of_anon_struct770b9d9b3d3d255(value: RocList<AnonStruct770b9d9b3d3d255>, roc_host: &RocHost) {
     unsafe { value.release_with::<AnonStruct770b9d9b3d3d255Release>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStruct82a96c5d55d63488>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct82a96c5d55d63488(value: RocList<AnonStruct82a96c5d55d63488>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct82a96c5d55d63488Release>(roc_host); }
 }
 
 
@@ -4862,6 +5419,14 @@ unsafe extern "C" {
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     pub fn roc_gui_timer_cancel(arg0: *mut u64) -> bool;
+
+    /// Hosted symbol for HostGlue.http_send!
+    /// Roc signature: { body : Str, headers : List({ name : Str, value : Str }), max_redirects : U8, max_response_bytes : U64, method : [Get, Post], timeout_ms : U64, url : Str } => Try({ body : Str, headers : List({ name : Str, value : Str }), status : U16 }, [BodyTooLarge, ConnectFailed, InvalidHeader, InvalidRequest, InvalidUrl, InvalidUtf8, RedirectLimit, Timeout, UnsupportedScheme])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_http_send(arg0: HostGlueHttpSendArgs) -> HostGlueHttpSendResult;
 
     /// Hosted symbol for HostGlue.work_start!
     /// Roc signature: U8 => {}

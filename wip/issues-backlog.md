@@ -78,15 +78,18 @@ names the evidence so a fix can be verified against the same case.
   and routes complete controlled values through Roc. Close the desktop-editor
   gap with GPUI `EntityInputHandler` selection/marked-text ownership, mouse hit
   testing, copy/cut/paste, and specifications driven through the same route.
-- [ ] **HTTP client capability for the workbench.** The example validates and
-  previews request bodies locally. Add a capability-scoped asynchronous HTTP
-  API with redirect, timeout, cancellation, body limits, secret-redacted
-  evidence, and stale-response suppression before enabling network Send.
 - [ ] **Text editing has no clipboard or undo history.** The native text input
   supports focus, caret motion, selection, keyboard deletion, controlled
   updates, submission, and IME composition. Close by routing platform clipboard
   operations and a bounded per-editor undo/redo history through the production
   GPUI input actions, with semantic specifications that never record contents.
+
+- [ ] **HTTP cancellation, streaming, and authority policy.** The bounded
+  asynchronous HTTP foundation supports explicit scheme, redirect, timeout,
+  header, request-body, and response-body policy, and the workbench suppresses
+  stale completions. Add a typed request handle with cooperative transport
+  cancellation, bounded streamed upload/download progress, and a grant model
+  for restricting network destinations before applications depend on either.
 
 - [ ] **Native accessibility roles and names are not exported.** Buttons,
   checkboxes, and scroll regions have stable semantics in the canonical graph,

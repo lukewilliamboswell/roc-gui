@@ -211,3 +211,24 @@ Retain a root-to-current list of directory handles to implement Back and
 clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
+
+== HTTP requests
+
+`Http.send!(request)` performs one bounded HTTP request and returns a typed
+`Try(Http.Response, Http.Error)`. Call it from `Action.task` so connection,
+TLS, and response work runs on the native worker pool and its reducer returns
+through the ordinary UI-thread completion dispatcher.
+
+Requests make policy explicit: method, URL, headers, body, timeout,
+`max_response_bytes`, and `max_redirects`. URLs must use `http` or `https`.
+The platform accepts `Get` and `Post`, at most 64 headers and 32 KiB of header
+data, a request body up to 1 MiB, a timeout from 1 through 60,000 milliseconds,
+a response limit from 1 byte through 4 MiB, and from zero through ten redirects.
+Responses expose status, headers, and a UTF-8 body. Portable failures distinguish
+invalid inputs, unsupported schemes, connection and timeout failures, redirect
+and body limits, and invalid response text.
+
+Give each submitted request a monotonically increasing identity. In the task
+resolver, compare that identity with the latest state and return `Action.none`
+for an obsolete result. This prevents a slow earlier response from replacing a
+newer response without creating a second completion route.
