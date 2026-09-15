@@ -81,6 +81,7 @@ jobs:
       - name: Exercise a real macOS window
         if: runner.os == 'macOS'
         run: |
+          mkdir -p platform/targets/arm64mac
           cp "$RUNNER_TEMP/host-output/libhost.a" platform/targets/arm64mac/libhost.a
           python3 scripts/build_macos_stubs.py --archives platform/targets/arm64mac --output "$RUNNER_TEMP/macos-sysroot"
           rm -rf platform/targets/macos-sysroot
