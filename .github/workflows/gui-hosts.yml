@@ -59,6 +59,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+      - name: Install Linux test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
       - name: Check host evidence and notice admission
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
