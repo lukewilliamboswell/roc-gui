@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import atexit
+from contextlib import closing
 import fnmatch
 import os
 import shutil
@@ -87,7 +88,7 @@ def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
 
 def validate_capture(path: Path) -> None:
     uri = path.resolve().as_uri() + "?mode=ro"
-    with sqlite3.connect(uri, uri=True) as database:
+    with closing(sqlite3.connect(uri, uri=True)) as database:
         database.execute("PRAGMA query_only=ON")
         database.execute("PRAGMA trusted_schema=OFF")
         metadata = dict(database.execute("SELECT key,value FROM metadata"))

@@ -193,6 +193,140 @@
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
     },
     {
+      "name": "AudioToolbox",
+      "path": "System/Library/Frameworks/AudioToolbox.framework/AudioToolbox.tbd",
+      "install_name": "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
+      "path_sources": [
+        "https://developer.apple.com/documentation/audiotoolbox"
+      ],
+      "symbols": [
+        {
+          "name": "_AudioComponentFindNext",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/AudioComponent.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioComponentFindNext",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "c11086ada58330fdd5bd027ba5b2e48364c488fd08dd245610d6d0fb8e91c2dc"
+            }
+          ]
+        },
+        {
+          "name": "_AudioComponentInstanceDispose",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/audiotoolbox/audiocomponentinstancedispose(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/audiotoolbox/audiocomponentinstancedispose(_:).json",
+              "external_id": "c:@F@AudioComponentInstanceDispose",
+              "title": "AudioComponentInstanceDispose(_:)",
+              "documented_modules": [
+                "Audio Toolbox"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "95ce1094d4c48b3c07dc4659342a7f2e777b1c0ed10cfd22d02de58b381f8d45"
+            }
+          ]
+        },
+        {
+          "name": "_AudioComponentInstanceNew",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/AudioComponent.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioComponentInstanceNew",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "c11086ada58330fdd5bd027ba5b2e48364c488fd08dd245610d6d0fb8e91c2dc"
+            }
+          ]
+        },
+        {
+          "name": "_AudioOutputUnitStart",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/AudioOutputUnit.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioOutputUnitStart",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "cc4277644760eda46e27633b4f4ce3a9b3e30acaac5c3c8269fa27d05fb7c723"
+            }
+          ]
+        },
+        {
+          "name": "_AudioOutputUnitStop",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/audiotoolbox/audiooutputunitstop(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/audiotoolbox/audiooutputunitstop(_:).json",
+              "external_id": "c:@F@AudioOutputUnitStop",
+              "title": "AudioOutputUnitStop(_:)",
+              "documented_modules": [
+                "Audio Toolbox"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "f36e34b37f2c5d4b6045a8500d82552bda58fbf06a7a883d5fdbb0c3d9307d62"
+            }
+          ]
+        },
+        {
+          "name": "_AudioUnitGetProperty",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioUnitGetProperty",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "02c69fcc7b8272d926134963bd024b057d2d4cec9d37821c6ae44d3f3f5c4212"
+            }
+          ]
+        },
+        {
+          "name": "_AudioUnitInitialize",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/AUAudioUnit.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioUnitInitialize",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "2f2359a66176fa7d68c939bda80c625945492a3f1c451004a62b04399313c9ad"
+            }
+          ]
+        },
+        {
+          "name": "_AudioUnitSetProperty",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioUnitSetProperty",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "02c69fcc7b8272d926134963bd024b057d2d4cec9d37821c6ae44d3f3f5c4212"
+            }
+          ]
+        },
+        {
+          "name": "_AudioUnitUninitialize",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/audiotoolbox/audiounituninitialize(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/audiotoolbox/audiounituninitialize(_:).json",
+              "external_id": "c:@F@AudioUnitUninitialize",
+              "title": "AudioUnitUninitialize(_:)",
+              "documented_modules": [
+                "Audio Toolbox"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "84efecd46b74683aef5f10a8e9313abe67afaa922781b6722201c067765e5606"
+            }
+          ]
+        }
+      ],
+      "load_requirement": "Required by the host audio capability"
+    },
+    {
       "name": "Carbon",
       "path": "System/Library/Frameworks/Carbon.framework/Carbon.tbd",
       "install_name": "/System/Library/Frameworks/Carbon.framework/Carbon",
@@ -294,6 +428,99 @@
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
     },
     {
+      "name": "CoreAudio",
+      "path": "System/Library/Frameworks/CoreAudio.framework/CoreAudio.tbd",
+      "install_name": "/System/Library/Frameworks/CoreAudio.framework/CoreAudio",
+      "path_sources": [
+        "https://developer.apple.com/documentation/coreaudio"
+      ],
+      "symbols": [
+        {
+          "name": "_AudioHardwareDestroyAggregateDevice",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreaudio/audiohardwaredestroyaggregatedevice(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreaudio/audiohardwaredestroyaggregatedevice(_:).json",
+              "external_id": "c:@F@AudioHardwareDestroyAggregateDevice",
+              "title": "AudioHardwareDestroyAggregateDevice(_:)",
+              "documented_modules": [
+                "Core Audio"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "d65450a8310f1f15d6b2e57a203665cc23279db73b6f7eb1ba6f1601eae0c2bc"
+            }
+          ]
+        },
+        {
+          "name": "_AudioHardwareDestroyProcessTap",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreaudio/audiohardwaredestroyprocesstap(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreaudio/audiohardwaredestroyprocesstap(_:).json",
+              "external_id": "c:@F@AudioHardwareDestroyProcessTap",
+              "title": "AudioHardwareDestroyProcessTap(_:)",
+              "documented_modules": [
+                "Core Audio"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "479156a9adc0087bdbbe77209d12d72b5c111f53436ea27b14d9fc6b937d92cf"
+            }
+          ]
+        },
+        {
+          "name": "_AudioObjectAddPropertyListener",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-core-audio/0.3.2/source/src/generated/AudioHardwareDeprecated.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioObjectAddPropertyListener",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "d9ec1fb8f400a23288f9e9300fc54dfbec1a8b3270271b55f7012553f8c3f37a"
+            }
+          ]
+        },
+        {
+          "name": "_AudioObjectGetPropertyData",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-core-audio/0.3.2/source/src/generated/AudioHardwareDeprecated.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioObjectGetPropertyData",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "d9ec1fb8f400a23288f9e9300fc54dfbec1a8b3270271b55f7012553f8c3f37a"
+            }
+          ]
+        },
+        {
+          "name": "_AudioObjectGetPropertyDataSize",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-core-audio/0.3.2/source/src/generated/AudioHardwareDeprecated.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioObjectGetPropertyDataSize",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "d9ec1fb8f400a23288f9e9300fc54dfbec1a8b3270271b55f7012553f8c3f37a"
+            }
+          ]
+        },
+        {
+          "name": "_AudioObjectRemovePropertyListener",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-core-audio/0.3.2/source/src/generated/AudioHardwareDeprecated.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "AudioObjectRemovePropertyListener",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "d9ec1fb8f400a23288f9e9300fc54dfbec1a8b3270271b55f7012553f8c3f37a"
+            }
+          ]
+        }
+      ],
+      "load_requirement": "Required by the host audio capability"
+    },
+    {
       "name": "CoreFoundation",
       "path": "System/Library/Frameworks/CoreFoundation.framework/CoreFoundation.tbd",
       "install_name": "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
@@ -367,6 +594,18 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:06.406172+00:00",
               "response_sha256": "3df712f51cb95a0437ba690ee900dabe73e884882b7328232c01b1a0f20cdd8f"
+            }
+          ]
+        },
+        {
+          "name": "_CFArrayGetTypeID",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/array.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFArrayGetTypeID",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "14f346ac0baf2737478cb81bdd9aed38f0b1dd2f79b20a30f88af38d4dc6f6c9"
             }
           ]
         },
@@ -486,6 +725,18 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:09.110940+00:00",
               "response_sha256": "ed218a266c13d05862f1473a078b05e6e0cfdbdfa31124e7c1812903177ffa05"
+            }
+          ]
+        },
+        {
+          "name": "_CFDataGetBytes",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/data.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFDataGetBytes",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "45be1d1a4366f649f40053a8afaca9199a936d098fad08ec20e4e95b88c6fa6b"
             }
           ]
         },
@@ -741,6 +992,42 @@
           ]
         },
         {
+          "name": "_CFRunLoopAddSource",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/runloop.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopAddSource",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "f6d5e3d39274a4fece15d8509baad47626cc2d9a03cbfbbf2fc47031e1fed03f"
+            }
+          ]
+        },
+        {
+          "name": "_CFRunLoopGetCurrent",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/AudioUnitUtilities.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopGetCurrent",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "e489c85ed3a00f39aea4e6e56dc79badfee4c84f6879264791b2a1461893b220"
+            }
+          ]
+        },
+        {
+          "name": "_CFRunLoopGetMain",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/runloop.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopGetMain",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "f6d5e3d39274a4fece15d8509baad47626cc2d9a03cbfbbf2fc47031e1fed03f"
+            }
+          ]
+        },
+        {
           "name": "_CFRunLoopRun",
           "sources": [
             {
@@ -754,6 +1041,102 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:14.688545+00:00",
               "response_sha256": "2372ff36f37d890dd5113ce61ae653c39f85fd5027d33f3005f2e31430c568af"
+            }
+          ]
+        },
+        {
+          "name": "_CFRunLoopRunInMode",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/runloop.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopRunInMode",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "f6d5e3d39274a4fece15d8509baad47626cc2d9a03cbfbbf2fc47031e1fed03f"
+            }
+          ]
+        },
+        {
+          "name": "_CFRunLoopSourceCreate",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/runloop.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopSourceCreate",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "f6d5e3d39274a4fece15d8509baad47626cc2d9a03cbfbbf2fc47031e1fed03f"
+            }
+          ]
+        },
+        {
+          "name": "_CFRunLoopSourceSignal",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/runloop.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopSourceSignal",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "f6d5e3d39274a4fece15d8509baad47626cc2d9a03cbfbbf2fc47031e1fed03f"
+            }
+          ]
+        },
+        {
+          "name": "_CFRunLoopStop",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/runloop.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopStop",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "f6d5e3d39274a4fece15d8509baad47626cc2d9a03cbfbbf2fc47031e1fed03f"
+            }
+          ]
+        },
+        {
+          "name": "_CFRunLoopWakeUp",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/runloop.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFRunLoopWakeUp",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "f6d5e3d39274a4fece15d8509baad47626cc2d9a03cbfbbf2fc47031e1fed03f"
+            }
+          ]
+        },
+        {
+          "name": "_CFSetGetCount",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/set.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFSetGetCount",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "ca8fa256c6275b2362816984b968aee8555b6a500a1820b2a15e2359d645dd87"
+            }
+          ]
+        },
+        {
+          "name": "_CFSetGetValues",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/set.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFSetGetValues",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "ca8fa256c6275b2362816984b968aee8555b6a500a1820b2a15e2359d645dd87"
+            }
+          ]
+        },
+        {
+          "name": "_CFStringCompare",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/string.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFStringCompare",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "eed04d5dc40795186feb6d179b60f64d78dee1ba9b64bc6b8546b0760eb1e8de"
             }
           ]
         },
@@ -788,6 +1171,30 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:15.751712+00:00",
               "response_sha256": "9c925e7027584f04684992ec567c44d2e891322d8a17abf74438e278808d2ef3"
+            }
+          ]
+        },
+        {
+          "name": "_CFStringCreateWithCString",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/string.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFStringCreateWithCString",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "eed04d5dc40795186feb6d179b60f64d78dee1ba9b64bc6b8546b0760eb1e8de"
+            }
+          ]
+        },
+        {
+          "name": "_CFStringCreateWithCStringNoCopy",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/string.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFStringCreateWithCStringNoCopy",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "eed04d5dc40795186feb6d179b60f64d78dee1ba9b64bc6b8546b0760eb1e8de"
             }
           ]
         },
@@ -860,6 +1267,18 @@
           ]
         },
         {
+          "name": "_CFStringHasPrefix",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/string.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFStringHasPrefix",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "eed04d5dc40795186feb6d179b60f64d78dee1ba9b64bc6b8546b0760eb1e8de"
+            }
+          ]
+        },
+        {
           "name": "_CFUUIDGetUUIDBytes",
           "sources": [
             {
@@ -873,6 +1292,19 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:18.296659+00:00",
               "response_sha256": "da0e6686864d3f31e050ec694f863be4cec1957176058ea870146245cdceb677"
+            }
+          ]
+        },
+        {
+          "name": "___CFConstantStringClassReference",
+          "sources": [
+            {
+              "url": "https://github.com/apple-oss-distributions/CF/blob/dc54c6bb1c1e5e0b9486c1d26dd5bef110b20bf3/CFInternal.h",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "__CFConstantStringClassReference",
+              "revision": "dc54c6bb1c1e5e0b9486c1d26dd5bef110b20bf3",
+              "source_license": "APSL-2.0; additional source notices may apply",
+              "response_sha256": "502f0e8976217693c0c725a06a23dab86e33cbd8a7e3e04c4be3ad2cb76bf0a5"
             }
           ]
         },
@@ -937,6 +1369,30 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:18.194096+00:00",
               "response_sha256": "19b029c2bcde88c7eaa01cbb9d3a954069e5f8328bc22e4faaef8a3f75032382"
+            }
+          ]
+        },
+        {
+          "name": "_kCFCoreFoundationVersionNumber",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "kCFCoreFoundationVersionNumber",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_kCFRunLoopDefaultMode",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/AudioSession.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "kCFRunLoopDefaultMode",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "d61de3240ff7d154690ee08ecae6e7bf4ddf0559d46121a24be462ab521aa6cc"
             }
           ]
         },
@@ -2835,7 +3291,332 @@
         "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/OSX_Technology_Overview/SystemFrameworks/SystemFrameworks.html",
         "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html"
       ],
-      "symbols": [],
+      "symbols": [
+        {
+          "name": "_IOHIDDeviceClose",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceClose",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceCreate",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceCreate",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceGetProperty",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceGetProperty",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceGetReport",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceGetReport",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceGetService",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceGetService",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceOpen",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceOpen",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceRegisterInputReportCallback",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceRegisterInputReportCallback",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceRegisterRemovalCallback",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceRegisterRemovalCallback",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceScheduleWithRunLoop",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceScheduleWithRunLoop",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceSetReport",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceSetReport",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDDeviceUnscheduleFromRunLoop",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDDeviceUnscheduleFromRunLoop",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDManagerClose",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDManagerClose",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDManagerCopyDevices",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDManagerCopyDevices",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDManagerCreate",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDManagerCreate",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDManagerScheduleWithRunLoop",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDManagerScheduleWithRunLoop",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOHIDManagerSetDeviceMatching",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOHIDManagerSetDeviceMatching",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOIteratorNext",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/sysinfo/0.31.4/source/src/unix/apple/macos/cpu.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOIteratorNext",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "256757379cbf20840bab24f5f8ec8876d7b507327572f6dac18c2f25d71f1b1b"
+            }
+          ]
+        },
+        {
+          "name": "_IOObjectRelease",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOObjectRelease",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IORegistryEntryCreateCFProperty",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IORegistryEntryCreateCFProperty",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IORegistryEntryFromPath",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IORegistryEntryFromPath",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IORegistryEntryGetName",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/sysinfo/0.31.4/source/src/unix/apple/macos/cpu.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IORegistryEntryGetName",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "256757379cbf20840bab24f5f8ec8876d7b507327572f6dac18c2f25d71f1b1b"
+            }
+          ]
+        },
+        {
+          "name": "_IORegistryEntryGetParentEntry",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IORegistryEntryGetParentEntry",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IORegistryEntryGetRegistryEntryID",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IORegistryEntryGetRegistryEntryID",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IORegistryEntryIDMatching",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IORegistryEntryIDMatching",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOServiceGetMatchingService",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOServiceGetMatchingService",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_IOServiceGetMatchingServices",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/sysinfo/0.31.4/source/src/unix/apple/macos/cpu.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOServiceGetMatchingServices",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "256757379cbf20840bab24f5f8ec8876d7b507327572f6dac18c2f25d71f1b1b"
+            }
+          ]
+        },
+        {
+          "name": "_IOServiceMatching",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/sysinfo/0.31.4/source/src/unix/apple/macos/cpu.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "IOServiceMatching",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "256757379cbf20840bab24f5f8ec8876d7b507327572f6dac18c2f25d71f1b1b"
+            }
+          ]
+        }
+      ],
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
     },
     {
@@ -4022,6 +4803,18 @@
           ]
         },
         {
+          "name": "_asinf",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/asinf.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "abd0e14ee5bfd28191f822386b2c836c47d69e39f8fd7aae9b7cbeaa7fb55602"
+            }
+          ]
+        },
+        {
           "name": "_atan2",
           "sources": [
             {
@@ -5123,6 +5916,18 @@
           ]
         },
         {
+          "name": "_freeifaddrs",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getifaddrs.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "931293a053e531fe59ba441455363ee5cbd3959e1a7e6dd52188b64aaf045a8b"
+            }
+          ]
+        },
+        {
           "name": "_fsctl",
           "sources": [
             {
@@ -5354,6 +6159,30 @@
           ]
         },
         {
+          "name": "_getifaddrs",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getifaddrs.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "931293a053e531fe59ba441455363ee5cbd3959e1a7e6dd52188b64aaf045a8b"
+            }
+          ]
+        },
+        {
+          "name": "_getpeereid",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getpeereid.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "50d218043dc068138539e3d1f70ccf5601da642d5b7836e4b022c4842625bfbc"
+            }
+          ]
+        },
+        {
           "name": "_getpeername",
           "sources": [
             {
@@ -5433,6 +6262,42 @@
               "evidence_kind": "exact_function_name_in_manpage_synopsis",
               "retrieved_at": "2026-09-09T10:07:01.107095+00:00",
               "response_sha256": "1bfc3663bd482786d2ece82421cfeec11b919febc371e4118a3fca559e0d7af6"
+            }
+          ]
+        },
+        {
+          "name": "_host_processor_info",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "host_processor_info",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
+            }
+          ]
+        },
+        {
+          "name": "_host_statistics64",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "host_statistics64",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
+            }
+          ]
+        },
+        {
+          "name": "_if_indextoname",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/if_indextoname.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "7c4202fe9e6f7bf27105d9ac0ed1ab03b904a2894d800bd722b5bd08908c4ba8"
             }
           ]
         },
@@ -5622,6 +6487,23 @@
           ]
         },
         {
+          "name": "_log2f",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/kernel/1557332-log2f",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/kernel/1557332-log2f.json",
+              "external_id": "c:@F@log2f",
+              "title": "log2f",
+              "documented_modules": [
+                "Kernel"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "8e11cc12c45e6c12df12cee7a786b95c8add38bd9ebf371f7a5cc98f870d449d"
+            }
+          ]
+        },
+        {
           "name": "_lseek",
           "sources": [
             {
@@ -5656,6 +6538,66 @@
               "evidence_kind": "exact_function_name_in_manpage_synopsis",
               "retrieved_at": "2026-09-09T10:07:30.589506+00:00",
               "response_sha256": "7061e093257e5c2038b2544b35f0563cbeeb19885b73ecbf3ad91d75ff1a3908"
+            }
+          ]
+        },
+        {
+          "name": "_mach_absolute_time",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-audio-toolbox/0.3.2/source/src/generated/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "mach_absolute_time",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "02c69fcc7b8272d926134963bd024b057d2d4cec9d37821c6ae44d3f3f5c4212"
+            }
+          ]
+        },
+        {
+          "name": "_mach_error_string",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "mach_error_string",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_mach_host_self",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "mach_host_self",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
+            }
+          ]
+        },
+        {
+          "name": "_mach_task_self_",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "mach_task_self_",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "5da3b42f2f822c96f0aeb1ee5be5b626650b23610b6982dded0c7de7ff4b01a1"
+            }
+          ]
+        },
+        {
+          "name": "_mach_timebase_info",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "mach_timebase_info",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
             }
           ]
         },
@@ -5787,6 +6729,18 @@
               "revision": "c49dafa25f1efe8607701ae6014a663ad2ee437f",
               "source_license": "APSL-2.0; additional source notices may apply",
               "response_sha256": "43f0e117c173f3460bb4883ff32af34266bab0cc1b57f9e845f26fcaea3fb65b"
+            }
+          ]
+        },
+        {
+          "name": "_mbstowcs",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "mbstowcs",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
             }
           ]
         },
@@ -6058,6 +7012,18 @@
               "evidence_kind": "exact_function_name_in_manpage_synopsis",
               "retrieved_at": "2026-09-09T10:07:22.589583+00:00",
               "response_sha256": "fe265e38b400fe06347ababa68cbe0828e7c135b7c9c5dcf50cc63fbb31dda54"
+            }
+          ]
+        },
+        {
+          "name": "_openpty",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "openpty",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "5da3b42f2f822c96f0aeb1ee5be5b626650b23610b6982dded0c7de7ff4b01a1"
             }
           ]
         },
@@ -6392,6 +7358,54 @@
           ]
         },
         {
+          "name": "_proc_listallpids",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "proc_listallpids",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
+            }
+          ]
+        },
+        {
+          "name": "_proc_pid_rusage",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "proc_pid_rusage",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
+            }
+          ]
+        },
+        {
+          "name": "_proc_pidinfo",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "proc_pidinfo",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
+            }
+          ]
+        },
+        {
+          "name": "_proc_pidpath",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "proc_pidpath",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "37652df9c3a4c24ba65e17eb08cd03d8d94c06742e8eb5dd4d98be7eb13a7338"
+            }
+          ]
+        },
+        {
           "name": "_pthread_attr_destroy",
           "sources": [
             {
@@ -6504,6 +7518,18 @@
               "evidence_kind": "exact_function_name_in_manpage_synopsis",
               "retrieved_at": "2026-09-09T10:07:16.297974+00:00",
               "response_sha256": "fb37b6e084e3ce752db53bc32d28aac1e6361ae260cbe3b649bb8ffdfd09c497"
+            }
+          ]
+        },
+        {
+          "name": "_pthread_cond_init",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "pthread_cond_init",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
             }
           ]
         },
@@ -7487,6 +8513,18 @@
           ]
         },
         {
+          "name": "_snprintf",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "snprintf",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
           "name": "_socket",
           "sources": [
             {
@@ -7593,6 +8631,18 @@
           ]
         },
         {
+          "name": "_strcpy",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/strcpy.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-15T08:00:00+00:00",
+              "response_sha256": "d2aa8fd0946f760fad3a99da129690227fc652dab67859fcadfc281e856e02bc"
+            }
+          ]
+        },
+        {
           "name": "_strcspn",
           "sources": [
             {
@@ -7603,6 +8653,30 @@
               "revision": "71bbe350ab79eef58113991d817ccc6165061a64",
               "source_license": "APSL-2.0; additional source notices may apply",
               "response_sha256": "e95ef7486c2c8a4903868c72140d71b43b1d3f1ca8ff39edc9d5beabc3f623ea"
+            }
+          ]
+        },
+        {
+          "name": "_strdup",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "strdup",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_strerror",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "strerror",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
             }
           ]
         },
@@ -7685,6 +8759,18 @@
           ]
         },
         {
+          "name": "_strtoull",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "strtoull",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
           "name": "_symlinkat",
           "sources": [
             {
@@ -7721,6 +8807,18 @@
               "evidence_kind": "exact_function_name_in_manpage_synopsis",
               "retrieved_at": "2026-09-09T10:07:32.612478+00:00",
               "response_sha256": "f7b3f0df40400c4054a09c42d012014fb94d242ad16db4b1256068f04caddcc9"
+            }
+          ]
+        },
+        {
+          "name": "_sysctl",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "sysctl",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "5da3b42f2f822c96f0aeb1ee5be5b626650b23610b6982dded0c7de7ff4b01a1"
             }
           ]
         },
@@ -7870,6 +8968,42 @@
           ]
         },
         {
+          "name": "_vm_deallocate",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "vm_deallocate",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "5da3b42f2f822c96f0aeb1ee5be5b626650b23610b6982dded0c7de7ff4b01a1"
+            }
+          ]
+        },
+        {
+          "name": "_vm_page_size",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "vm_page_size",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "5da3b42f2f822c96f0aeb1ee5be5b626650b23610b6982dded0c7de7ff4b01a1"
+            }
+          ]
+        },
+        {
+          "name": "_vsnprintf",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "vsnprintf",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
           "name": "_wait4",
           "sources": [
             {
@@ -7892,6 +9026,66 @@
               "evidence_kind": "exact_function_name_in_manpage_synopsis",
               "retrieved_at": "2026-09-09T10:07:34.904098+00:00",
               "response_sha256": "9c92fc20fcc9ef8823225e35bad1fc398b7e5557353ecf349ca24e5857d63e67"
+            }
+          ]
+        },
+        {
+          "name": "_wcscmp",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "wcscmp",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_wcscpy",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "wcscpy",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_wcsdup",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "wcsdup",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_wcslen",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "wcslen",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_wcsncpy",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/hidapi/2.6.5/source/etc/hidapi/mac/hid.c",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "wcsncpy",
+              "source_license": "See linked crate license metadata",
+              "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
             }
           ]
         },

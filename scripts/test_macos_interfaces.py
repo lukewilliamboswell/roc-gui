@@ -13,7 +13,11 @@ class MacosInterfaceTests(unittest.TestCase):
         catalog = build_macos_stubs.read_catalog()
         paths = {library["path"] for library in catalog["libraries"]}
         self.assertTrue({"usr/lib/libSystem.tbd", "usr/lib/libobjc.tbd", "usr/lib/libc++.tbd"} <= paths)
-        self.assertEqual(sum(len(library["symbols"]) for library in catalog["libraries"]), 481)
+        self.assertTrue({
+            "System/Library/Frameworks/AudioToolbox.framework/AudioToolbox.tbd",
+            "System/Library/Frameworks/CoreAudio.framework/CoreAudio.tbd",
+        } <= paths)
+        self.assertEqual(sum(len(library["symbols"]) for library in catalog["libraries"]), 576)
 
     def test_generation_binds_exact_host_bytes_without_reading_system_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:

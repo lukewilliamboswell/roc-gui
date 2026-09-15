@@ -109,13 +109,15 @@ Settings := [].{
 		Action.none
 	} else {
 		id = state.next_request
+		name_to_save = state.draft_name
+		notes_to_save = state.draft_notes
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
 			run: || match Files.app_data!({}) {
 				Err(error) => SaveFailed(preference_error_message(error))
-				Ok(store) => match Files.Dir.write_utf8_atomic!(store, "profile-name", state.draft_name) {
+				Ok(store) => match Files.Dir.write_utf8_atomic!(store, "profile-name", name_to_save) {
 					Err(error) => SaveFailed(preference_error_message(error))
-					Ok({}) => match Files.Dir.write_utf8_atomic!(store, "profile-notes", state.draft_notes) {
+					Ok({}) => match Files.Dir.write_utf8_atomic!(store, "profile-notes", notes_to_save) {
 						Err(error) => SaveFailed(preference_error_message(error))
 						Ok({}) => SaveSucceeded
 					}
