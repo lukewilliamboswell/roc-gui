@@ -1,6 +1,4 @@
 [env]
-PKG_CONFIG_PATH = { value = "third_party/alsa/lib/pkgconfig", relative = true }
-LIBRARY_PATH = { value = "third_party/alsa/lib", relative = true }
 ROC_GUI_HOST_SOURCE_ROOT = { value = ".", relative = true, force = true }
 
 # FreeType is supplied as an independently released platform link input. Do not

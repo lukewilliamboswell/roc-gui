@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 import platform
@@ -17,6 +18,33 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "scripts"))
 TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac"}
 
+
+@contextmanager
+def cargo_environment(environment: dict, target: str):
+    """Expose locked build-time interfaces without a repository-owned binary shim."""
+    if target != "x64glibc":
+        yield
+        return
+    from scripts.prepare_dependencies import install_alsa
+    with tempfile.TemporaryDirectory(prefix="roc-gui-cargo-inputs-") as temporary:
+        root = Path(temporary)
+        library = root / "lib"
+        install_alsa(library)
+        pkgconfig = library / "pkgconfig"
+        pkgconfig.mkdir()
+        (pkgconfig / "alsa.pc").write_text(
+            "prefix=${pcfiledir}/../..\n"
+            "libdir=${prefix}/lib\n\n"
+            "Name: alsa\n"
+            "Description: Verified roc-gui ALSA linker interface\n"
+            "Version: 2\n"
+            "Libs: -L${libdir} -lasound\n"
+            "Cflags:\n"
+        )
+        environment["PKG_CONFIG_PATH"] = str(pkgconfig)
+        environment["LIBRARY_PATH"] = str(library)
+        yield
+
 def output(*command: str) -> str:
     result = subprocess.run(command, cwd=ROOT, check=False, capture_output=True, text=True)
     return result.stdout.strip() if result.returncode == 0 else ""
@@ -28,7 +56,7 @@ def native_target() -> str:
         raise SystemExit(f"Unsupported native host: {platform.system()} {platform.machine()}") from error
 
 def stage_external_inputs(target: str, destination: Path, profile: str) -> dict:
-    from scripts.prepare_dependencies import install_freetype, install_glibc, install_unwind, install_xkbcommon
+    from scripts.prepare_dependencies import install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon
     receipts: dict = {}
     if target == "arm64mac":
         from scripts.build_macos_stubs import generate
@@ -42,7 +70,7 @@ def stage_external_inputs(target: str, destination: Path, profile: str) -> dict:
         }}
     else:
         destination.mkdir(parents=True)
-        for install in (install_freetype, install_glibc, install_unwind, install_xkbcommon):
+        for install in (install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon):
             receipt = install(destination)
             receipts.update(receipt["artifacts"])
     return {"schema_version": 1, "artifacts": receipts}
@@ -53,20 +81,14 @@ def main() -> None:
     parser.add_argument("--skip-inputs", action="store_true", help="reuse already staged external inputs")
     args = parser.parse_args()
     target = native_target()
-    if target == "x64glibc":
-        alsa_runtime = Path("/usr/lib/x86_64-linux-gnu/libasound.so.2")
-        if not alsa_runtime.is_file():
-            raise SystemExit(
-                "Audio support requires the system ALSA runtime at "
-                "/usr/lib/x86_64-linux-gnu/libasound.so.2."
-            )
     environment = os.environ.copy()
     environment["ROC_GUI_HOST_COMMIT"] = output("git", "rev-parse", "HEAD") or "unavailable"
     environment["ROC_GUI_HOST_DIRTY"] = "1" if output("git", "status", "--porcelain") else "0"
     command = ["cargo", "build", "--locked", "--package", "roc-gui-host"]
     if not args.debug:
         command.append("--release")
-    subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    with cargo_environment(environment, target):
+        subprocess.run(command, cwd=ROOT, env=environment, check=True)
     profile = "debug" if args.debug else "release"
     platform_targets = ROOT / "platform/targets"
     platform_targets.mkdir(parents=True, exist_ok=True)
@@ -77,8 +99,6 @@ def main() -> None:
             staged_target = staged_targets / target
             receipt = stage_external_inputs(target, staged_target, profile)
             staged_target.mkdir(parents=True, exist_ok=True)
-            if target == "x64glibc":
-                shutil.copy2(ROOT / "third_party/alsa/lib/libasound.so", staged_target / "libasound.so")
             shutil.copy2(ROOT / f"target/{profile}/libhost.a", staged_target / "libhost.a")
             (staged_target / "link-inputs.json").write_text(json.dumps(receipt, indent=2) + "\n")
             if destination.exists():
