@@ -1112,6 +1112,12 @@ mod tests {
             sqlite.steps[0].command,
             Command::ExpectSqliteCounters([1, 2, 3])
         ));
+        let http =
+            parse(r#"(test "HTTP counters" (steps (expect-http-counters 1 2 3 4)))"#).unwrap();
+        assert!(matches!(
+            http.steps[0].command,
+            Command::ExpectHttpCounters([1, 2, 3, 4])
+        ));
     }
 
     #[test]
