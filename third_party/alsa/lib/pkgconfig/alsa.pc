@@ -1,8 +1,0 @@
-prefix=${pcfiledir}/../..
-libdir=${prefix}/lib
-
-Name: alsa
-Description: System ALSA runtime resolved through the roc-gui build shim
-Version: 1.2.0
-Libs: -L${libdir} -lasound
-Cflags:

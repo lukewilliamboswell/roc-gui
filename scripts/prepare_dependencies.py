@@ -44,6 +44,44 @@ UNWIND_SOURCE_FILES = (
 )
 
 MACOS_INTERFACES = "macos-interfaces-macos-sysroot"
+ALSA = "alsa-x64glibc"
+ALSA_SOURCE_FILES = (
+    "dependencies/alsa-interface.json",
+    "test/dependencies/alsa.c",
+    "scripts/build_alsa_interface.py",
+    "scripts/dependency_archive.py",
+    "scripts/dependency_artifacts.py",
+    "PROVENANCE.md",
+)
+
+
+@contextmanager
+def verified_alsa(lock=LOCK, cache=CACHE):
+    """Admit the generated ALSA interface without assuming a provider path."""
+    with tempfile.TemporaryDirectory(prefix="roc-gui-verified-alsa-") as temporary:
+        destination = Path(temporary) / "inputs"
+        materialize(lock, (ALSA,), cache, destination)
+        manifest = json.loads((destination / ALSA / "dependency.json").read_text())
+        expected = {"targets/x64glibc/libasound.so"}
+        expected.update("sources/alsa/" + name for name in ALSA_SOURCE_FILES)
+        if set(manifest["files"]) != expected:
+            raise ValueError("incomplete or unexpected ALSA interface inputs")
+        yield destination
+
+
+def install_alsa(destination, lock=LOCK, cache=CACHE):
+    """Stage the verified path-independent ALSA linker interface."""
+    with verified_alsa(lock, cache) as inputs:
+        source = inputs / ALSA / "targets/x64glibc/libasound.so"
+        destination.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=destination, delete=False) as pending:
+            path = Path(pending.name)
+        try:
+            shutil.copyfile(source, path)
+            path.replace(destination / "libasound.so")
+        finally:
+            path.unlink(missing_ok=True)
+        return json.loads((inputs / "dependencies.lock.json").read_text())
 
 
 @contextmanager

@@ -137,9 +137,9 @@ def verified_hosts(lock_path, cache, root=ROOT, targets=None):
 
 def stage_candidate_dependencies(target, destination, root=ROOT):
     """Fetch independently verified link inputs into an empty candidate target."""
-    from prepare_dependencies import install_freetype, install_glibc, install_unwind, install_xkbcommon
+    from prepare_dependencies import install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon
 
-    installers = {"x64glibc": (install_freetype, install_glibc, install_unwind, install_xkbcommon)}
+    installers = {"x64glibc": (install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon)}
     if target not in installers:
         raise ValueError("candidate target has no independent dependency release policy")
     destination.mkdir(parents=True, exist_ok=False)
