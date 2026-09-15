@@ -23,9 +23,9 @@ roc build examples/counter/main.roc
 ./counter
 ----
 
-The window contains two independent counters. Their buttons demonstrate the
-normal application cycle: a press runs a Roc handler, the handler returns a new
-counter state, and only that counter's translated boundary is rendered again.
+The window contains two independent counters. Their buttons show the normal
+application cycle: a press runs a Roc handler, the handler returns a new counter
+state, and only that counter's render boundary is rendered again.
 
 == Start an application
 
@@ -66,8 +66,8 @@ Pass `--host-help` after Roc's argument separator to list native host options:
 roc path/to/main.roc -- --host-help
 ----
 
-Host powers are absent by default. For example, grant the terminal workspace a
-local interactive shell profile explicitly:
+Capabilities are absent by default. Grant each one explicitly. For example, the
+terminal workspace needs a local interactive shell profile:
 
 [source,sh]
 ----
@@ -79,12 +79,13 @@ executable, arguments, or inherited environment.
 
 `--host-cap-*` options provision development and automation authority. They use
 the production registries and operations but are not trusted user consent.
-Interactive resource access uses the trusted broker workflows described in
-<<_resource_access_and_trusted_grants>>.
+Interactive resource access uses the trusted broker workflows described in the
+resource access chapter.
 
-== Check behaviour without opening a window
+== Run the specifications
 
-The counter includes a semantic specification:
+Every application keeps its specifications in one `specs/` directory beside
+`main.roc`. The counter has five:
 
 [source,sh]
 ----
@@ -92,15 +93,16 @@ python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 ----
 
 The driver verifies and stages a compatible released host, or builds the host
-when its source inputs changed. It then builds the application, runs each
-selected `.scm` file in a fresh process, and prints the capture path for every
-passing case. Semantic
-specifications use the production event route and mounted graph without opening
-a GPUI window.
+when its source inputs changed. It then builds the application, classifies each
+selected `.scm` file by the steps it contains, runs it in a fresh process, and
+prints the capture path for every passing case. Semantic specifications use the
+production event route and mounted graph without opening a GPUI window; window
+specifications open the real window. Pass `--only semantic` or `--only window`
+to run one kind.
 
 == Where to go next
 
 Read <<_building_an_application>> to add interaction and split state into local
 components. Then read <<_testing_your_application>> and add a `.scm` file, so
-behaviour remains executable as the application changes;
-<<_specification_reference>> has the full vocabulary.
+behaviour remains executable as the application changes.
+<<_specification_reference>> has the full step vocabulary.

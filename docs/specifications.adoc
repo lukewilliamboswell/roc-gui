@@ -1,8 +1,8 @@
 = Specification reference
 
-The complete `.scm` vocabulary: locators, assertions, operations, window steps,
-and case selection. <<_testing_your_application>> is the shorter path if you
-are verifying an application for the first time.
+The complete `.scm` vocabulary: locators, operations, assertions, window steps,
+and case selection. The Testing your application chapter is the shorter path if
+you are verifying an application for the first time.
 
 Specifications describe the application as a user sees it: find text, identify
 a button by its semantic name, press it, and check the result. Put `.scm` files
@@ -54,140 +54,157 @@ prints the specification line and reason.
 
 == Locators
 
+Text and prefix locators come first, then role locators in alphabetical order
+by role.
+
 `(text "value")`:: Text whose entire value equals `value`.
 `(text-prefix "prefix")`:: Text beginning with `prefix`.
-`(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
 `(button-prefix "prefix")`:: Button names beginning with `prefix`.
+`(canvas-item-prefix "prefix")`:: Keyed canvas primitives whose labels begin
+with `prefix`. This locator supports deterministic primitive counts in scaling
+specifications.
+`(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
 `(role button :name "name")`:: A button with the semantic `name` passed to
 `Elem.button` or `Elem.action_button`.
-`(role checkbox :name "label")`:: A checkbox identified by its visible label.
-`(role panel :name "label")`:: A panel identified by its semantic label.
-`(role dialog :name "label")`:: The active modal dialog identified by its
-semantic label.
-`(role scroll :name "name")`:: A scroll region identified by its semantic name.
-`(role virtual-list :name "name")`:: A fixed-row virtual list identified by its
-semantic name.
-`(role textarea :name "name")`:: A multiline editor identified by its semantic
-name. Locator matching never records its value.
-`(role image :name "name")`:: An encoded image identified by its application
-supplied semantic name. Neither encoded bytes nor source filenames are captured.
 `(role canvas :name "name")`:: A retained drawing surface identified by its
 stable semantic name.
 `(role canvas-item :name "name")`:: A keyed canvas primitive identified by its
 stable semantic label.
-
+`(role checkbox :name "label")`:: A checkbox identified by its visible label.
+`(role column :name "name")`:: A column identified by its semantic name.
+`(role dialog :name "label")`:: The active modal dialog identified by its
+semantic label.
+`(role image :name "name")`:: An encoded image identified by its
+application-supplied semantic name. Neither encoded bytes nor source filenames
+are captured.
+`(role panel :name "label")`:: A panel identified by its semantic label.
+`(role row :name "name")`:: A row identified by its semantic name.
+`(role scroll :name "name")`:: A scroll region identified by its semantic name.
+`(role textarea :name "name")`:: A multiline editor identified by its semantic
+name. Locator matching never records its value.
 `(role textbox :name "label")`:: A controlled text input identified by its
 semantic label.
+`(role virtual-list :name "name")`:: A fixed-row virtual list identified by its
+semantic name.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
 missing targets fail instead of choosing one by traversal order. Make button
 names unique wherever the buttons are visible together.
 
-== Assertions and operations
+Row and column locators describe the mounted application graph. They do not
+assert pixel geometry or operating-system accessibility.
 
-`(click LOCATOR)`:: Press exactly one matching enabled control through the
-application's normal Roc event route. A disabled control consumes no event and
-does not call Roc, matching the interactive host.
-`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
-gesture through a canvas's production event route. Coordinates are integer
-logical pixels in canvas space. `(canvas-item-prefix "prefix")` supports
-deterministic primitive counts in scaling specifications.
-`(expect-canvas-primitives LOCATOR COUNT)`:: Require one canvas owner to report
-the exact retained primitive count. The expected and observed values are stored
-as deterministic scale evidence.
-`(replace-text LOCATOR "value")`:: Replace an editable textarea's controlled
-value through its production Roc input route. Disabled and read-only textareas
-fail as non-editable.
-`(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
-or checkbox. Focus remains valid only while that mounted node is live.
-`(press-key Enter)`:: Activate the focused button through the normal Roc event
-route.
-`(press-key Space)`:: Activate the focused button or toggle the focused enabled
-checkbox through the normal Roc event route.
-`(press-key Escape)`:: Dismiss the active dialog through its `on_dismiss` route.
-`(replace-text LOCATOR "value")`:: Replace an enabled text input's complete
-value and deliver `Event.TextChange` through the normal Roc event route. A
-disabled input consumes no edit and dispatches nothing.
-`(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
-`Event.TextSubmit` through the normal Roc event route.
-`(clipboard-text "value")`:: Change the clipboard source granted to a semantic
-fixture. This command is rejected without an explicit fixture grant. The next
-application timer pull observes it through the production capability and host
-read route; the value is neither copied into capture evidence nor emitted as a
-diagnostic.
-`(expect-clipboard-counters LIVE ACQUIRE READ WRITE)`:: Assert the owner-recorded
-live handle count and attempted Clipboard operations.
-`(expect-sqlite-counters LIVE OPEN QUERY)`:: Assert the owner-recorded live
-connection count and attempted SQLite operations.
-`(expect-http-counters LIVE ACQUIRE SEND DENIED)`:: Assert the owner-recorded
-live client count, operation attempts, and authority denials.
+== Operations
+
+Steps that act on the application, in alphabetical order.
+
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.
 `(await-ticks N)`:: Apply `N` successive timer wait completions through that
 same worker and latest-state route. `N` must be positive.
-`(expect-subscriptions N)`:: Require exactly `N` active host timer handles.
-This assertion reads the timer registry that owns cancellation state.
-`(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
-`(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Assert the complete
-owner-recorded TCP resource and attempted-operation vector.
-`(expect-device-connections N)`:: Require exactly `N` host-owned device connection handles.
-`(expect-device-transactions N)`:: Require exactly `N` completed host-owned device transactions.
-`(expect-system-samplers N)`:: Require exactly `N` active host-owned system samplers.
-`(expect-system-samples N)`:: Require exactly `N` completed host-owned system samples.
-This assertion reads the capability registry that owns stream lifecycle and
-records expected and observed deterministic counts.
+`(click LOCATOR)`:: Press exactly one matching enabled control through the
+application's normal Roc event route. A disabled control consumes no event and
+does not call Roc, matching the interactive host.
+`(clipboard-text "value")`:: Change the clipboard source granted to a semantic
+fixture. This step is rejected without an explicit fixture grant. The next
+application timer pull observes the new value through the production capability
+and host read route; the value is neither copied into capture evidence nor
+emitted as a diagnostic.
+`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
+gesture through a canvas's production event route. Coordinates are integer
+logical pixels in canvas space.
+`(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
+or checkbox. Focus remains valid only while that mounted node is live.
+`(mark-metrics)`:: Separate benchmark setup from the operation being measured.
+`(press-key Enter)`:: Activate the focused button through the normal Roc event
+route.
+`(press-key Escape)`:: Dismiss the active dialog through its `on_dismiss` route.
+`(press-key Space)`:: Activate the focused button, or toggle the focused enabled
+checkbox, through the normal Roc event route.
+`(replace-text LOCATOR "value")`:: Replace the complete controlled value of one
+editable text input or textarea through its production Roc input route. A text
+input delivers `Event.TextChange`; a textarea delivers `Event.Input`. A
+disabled text input consumes no edit and dispatches nothing. A disabled or
+read-only textarea fails as non-editable.
+`(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
+`Event.TextSubmit` through the normal Roc event route.
+
+== Assertions
+
+Steps that check the application, in alphabetical order.
+
+`(expect-before FIRST SECOND)`:: Require a match for `FIRST` to occur before a
+match for `SECOND` in mounted-tree order.
+`(expect-canvas-primitives LOCATOR N)`:: Require one canvas owner to report
+exactly `N` retained primitives. The expected and observed values are stored as
+deterministic scale evidence.
+`(expect-clipboard-counters LIVE ACQUIRE READ WRITE)`:: Require the
+owner-recorded live handle count and attempted clipboard operations.
+`(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
+observed counts.
+`(expect-device-connections N)`:: Require exactly `N` host-owned device
+connection handles.
+`(expect-device-transactions N)`:: Require exactly `N` completed host-owned
+device transactions.
 `(expect-file-picks N)`, `(expect-file-lists N)`, `(expect-file-opens N)`, and
 `(expect-file-reads N)`:: Require exact cumulative counts recorded by the Files
-owner. Each scalar assertion preserves its expected and observed value in the
-ordinary deterministic step evidence.
-`(expect-visible LOCATOR)`:: Require at least one match.
+owner.
 `(expect-focused LOCATOR)`:: Require semantic focus to be on exactly one
 matching enabled control. This proves the host's dialog focus policy, not a
 compositor-delivered focus event.
+`(expect-http-counters LIVE ACQUIRE SEND DENIED)`:: Require the owner-recorded
+live client count, operation attempts, and authority denials.
+`(expect-image-bytes LOCATOR N)`:: Require an image node to own exactly `N`
+encoded bytes, and record expected and observed deterministic counts without
+persisting image content.
 `(expect-not-visible LOCATOR)`:: Require no matches.
-`(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
-observed counts.
+`(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced
+by the preceding click. `KIND` is `mount`, `replace`, or `no_change`.
+`(expect-processes N)`:: Require exactly `N` live host-owned PTY child
+processes.
+`(expect-sqlite-counters LIVE OPEN QUERY)`:: Require the owner-recorded live
+connection count and attempted SQLite operations.
+`(expect-subscriptions N)`:: Require exactly `N` active host timer handles. This
+assertion reads the timer registry that owns cancellation state.
+`(expect-system-samplers N)`:: Require exactly `N` active host-owned system
+samplers.
+`(expect-system-samples N)`:: Require exactly `N` completed host-owned system
+samples.
+`(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Require the complete
+owner-recorded TCP resource and attempted-operation vector.
+`(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
 `(expect-value LOCATOR "value")`:: Require an exact controlled textarea value.
 The value is compared in memory and is not copied into captures or diagnostics.
 `(expect-value-bytes LOCATOR N)`:: Require the textarea value to contain exactly
-`N` UTF-8 bytes and record the expected and observed deterministic counts.
-`(expect-image-bytes LOCATOR N)`:: Require an image node to own exactly `N`
-encoded bytes and record expected and observed deterministic counts without
-persisting image content.
-`(expect-before FIRST SECOND)`:: Require a match for `FIRST` to occur before a
-match for `SECOND` in mounted-tree order.
-`(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced
-by the preceding click. `KIND` is `mount`, `replace`, or `no_change`.
-`(mark-metrics)`:: Separate benchmark setup from the operation being measured.
+`N` UTF-8 bytes, and record the expected and observed deterministic counts.
+`(expect-visible LOCATOR)`:: Require at least one match.
+
+Each counter assertion reads the capability registry that owns the resource's
+lifecycle, and records its expected and observed values as ordinary
+deterministic step evidence.
 
 Prefer semantic results—visible text, counts, and order—for application
 behaviour. Use `expect-patch` when the amount or absence of host work is itself
 part of the contract, such as proving that an idempotent press returns
 `no_change` and stages no nodes.
 
-The runner queries the same mounted graph the native host uses. It does not
-construct a separate test tree. Because it does not open a GPUI window, it is
-suited to deterministic semantic checks; pixels, layout, and presentation are
-outside this runner's evidence. Those claims belong to the window runner
-described in <<window-specifications>>.
+== What the semantic runner proves
+
+The semantic runner queries the same mounted graph the native host uses. It
+does not construct a separate test tree. Because it opens no GPUI window, it
+suits deterministic semantic checks; pixels, layout, and presentation are
+outside its evidence. Those claims belong to the window runner.
 
 For a virtual list, text and control locators inspect all logically mounted
 items, including rows outside an interactive viewport. A headless
-`expect-visible` therefore proves logical presence, not viewport intersection;
-native visible-range and materialization evidence is recorded only by GPUI.
+`expect-visible` therefore proves logical presence, not viewport intersection.
+Only GPUI records native visible-range and materialisation evidence.
 
 `focus` and `press-key` model the production controls' accepted activation-key
-matrix and invoke their normal Roc event route. In the semantic runner they do
-not inject a native GPUI key event or verify compositor delivery, tab traversal,
-focus painting, or operating-system accessibility.
-
-Named rows and columns use `(role row :name "...")` and
-`(role column :name "...")`. These locators describe the mounted application
-graph; they do not assert pixel geometry or operating-system accessibility.
-
-`(expect-processes N)` asserts the host-owned count of live PTY child
-processes. The process subsystem records this lifecycle evidence.
+matrix and invoke their normal Roc event route. In the semantic runner they
+inject no native GPUI key event and verify neither compositor delivery, tab
+traversal, focus painting, nor operating-system accessibility.
 
 [[window-specifications]]
 == Window specifications
@@ -229,10 +246,9 @@ them silently:
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount. Also every step the
 window runner does not implement: `drag`, `replace-text`, `clipboard-text`,
-`submit`, `await-ticks`, `revoke-file-grants`, the value and ordering
-assertions, and the owner counter assertions. They are classified by what a
-runner actually does, so a specification is refused before the window opens
-rather than part-way through a run.
+`submit`, `await-ticks`, `expect-canvas-primitives`, `expect-image-bytes`, the
+value and ordering assertions, the live-resource and owner counter assertions,
+and the repository fixture steps the Contributing chapter describes.
 
 `window-only`:: `settle`, `screenshot`, `type`, `key`, `expect-on-screen`,
 `expect-rendered-count`, and `expect-bounds`. None of these mean anything
@@ -241,49 +257,45 @@ without a presented frame.
 `both`:: `click`, `focus`, `press-key`, `await-task`, `expect-visible`,
 `expect-focused`, `expect-not-visible`, and `expect-count`.
 
-`both`:: everything else, including `expect-visible`, which asserts the same
-claim on either runner: presence in the mounted graph. The stronger pixel claim
-is `expect-on-screen`, so one word never means two different things.
+A step is classified by what a runner actually does, so a specification is
+refused before the window opens rather than part-way through a run.
+`expect-visible` asserts the same claim on either runner: presence in the
+mounted graph. The stronger pixel claim is `expect-on-screen`, so one word never
+means two different things.
 
 === Window-only steps
 
-`(type "TEXT")`:: Send each character as a real keystroke into the focused
-element, through GPUI's own keystroke dispatch. The semantic `replace-text`
-sets a value directly and exercises none of the editing path.
+Input steps first, then waiting, then assertions in alphabetical order.
 
 `(key "CHORD")`:: Send one real chord, such as `"cmd-a"` or `"escape"`, through
 the window's production keymap. The semantic `press-key` covers three
 activation keys and no modifiers.
-
+`(type "TEXT")`:: Send each character as a real keystroke into the focused
+element, through GPUI's own keystroke dispatch. The semantic `replace-text`
+sets a value directly and exercises none of the editing path.
 `(settle)` / `(settle :frames N :timeout-ms N)`:: Wait for `N` consecutive
 presented frames during which no host task started or finished. Defaults are
 `:frames 2 :timeout-ms 2000`. A timeout fails the step; it never proceeds
 quietly, because an assertion against a half-settled frame is not evidence.
-
-`(expect-on-screen LOCATOR)`:: The node was painted in the last completed frame
-and its rectangle survives clipping by the viewport and by every scrolling
-ancestor. This is the claim the semantic runner cannot make.
-
-`(expect-rendered-count LOCATOR N)`:: Exactly `N` matching nodes took part in
-the last frame. For a virtual list this is materialization evidence;
-`expect-count` counts logically mounted nodes instead.
-
 `(expect-bounds LOCATOR :min-width N :max-width N :min-height N :max-height N)`::
 The laid-out size falls within the given bounds. At least one bound is
 required. Deliberately minimum and maximum only, never exact: exact pixel
 geometry is font- and DPI-dependent and would rot the suite.
+`(expect-on-screen LOCATOR)`:: The node was painted in the last completed frame
+and its rectangle survives clipping by the viewport and by every scrolling
+ancestor. This is the claim the semantic runner cannot make.
+`(expect-rendered-count LOCATOR N)`:: Exactly `N` matching nodes took part in
+the last frame. For a virtual list this is materialisation evidence;
+`expect-count` counts logically mounted nodes instead.
 
 === Screenshots
 
 `(screenshot NAME)`:: Photograph the window's content area.
-
 `(screenshot NAME :region LOCATOR)`:: Crop to a located element's laid-out
-bounds. The same bounds `expect-on-screen` uses, so a shot frames what was
+bounds. These are the bounds `expect-on-screen` uses, so a shot frames what was
 asserted.
-
 `(screenshot NAME :region (rect X Y WIDTH HEIGHT))`:: Crop to an explicit
 content-relative rectangle.
-
 `:pad N`:: Expand the region by `N` points on every side, then clamp to the
 content area. A control cropped to its exact bounds is usually unreadable out
 of context.
@@ -316,8 +328,8 @@ Keyboard steps send real keystrokes through the window's production keymap.
 Pointer steps are simulated at the production handler, but are refused unless
 the control was laid out, is unclipped, is enabled, and is not behind a modal
 dialog, so a `click` a real user could not have performed fails rather than
-passing quietly. There is no `hover` step. <<_testing_your_application>>
-explains why, and what each guarantee is worth.
+passing quietly. There is no `hover` step. The Testing your
+application chapter explains why, and what each guarantee is worth.
 
 === What the probe cannot see
 
@@ -327,7 +339,7 @@ window specification asked for it, gated by a runtime check rather than a
 compile-time one, so the shipped binary stays the tested binary.
 
 * A node that never renders has no bounds. That is the intended signal rather
-  than a gap: an unmaterialized virtual-list row is genuinely absent from the
+  than a gap: an unmaterialised virtual-list row is genuinely absent from the
   frame.
 * Only a canvas node's own rectangle is recorded, never its primitives. A
   canvas-item locator therefore has no geometry of its own.
@@ -340,7 +352,7 @@ Bounds persist until a node leaves the mounted graph. GPUI caches views, so a
 control whose state did not change is not re-rendered and records nothing that
 frame; treating that as "not laid out" would report a plainly visible control
 as missing. `expect-rendered-count` therefore counts nodes that have been laid
-out while mounted, which is the materialization evidence a virtual list needs.
+out while mounted, which is the materialisation evidence a virtual list needs.
 
 == Selecting and repeating cases
 

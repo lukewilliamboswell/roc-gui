@@ -1,11 +1,11 @@
 = Testing your application
 
-Every Roc GUI executable can test itself. Both specification runners are part of
-the host archive, so they are part of the binary `roc build` produces for your
-application. There is no test binary, no test framework, no extra dependency,
-and nothing to add to your `app` header.
+Every Roc GUI executable can test itself. Both specification runners live in the
+host archive, so `roc build` links them into your application. There is no test
+binary, no test framework, no extra dependency, and nothing to add to your `app`
+header.
 
-A runner is selected by a command-line flag at startup, so an application
+You select a runner with a command-line flag at startup, so an application
 launched without one behaves exactly as it does for anyone using it. Geometry
 recording is off unless a window specification asked for it, gated at runtime
 rather than at compile time, so the binary you ship is the binary the
@@ -17,7 +17,7 @@ A specification is an S-expression file describing what a user does and what
 should be true afterwards. The steps a file contains decide which runner takes
 it; nothing about its location or its name carries that meaning.
 
-The *semantic runner* drives the mounted element graph with no window. It is
+The *semantic runner* drives the mounted graph with no window. It is
 fast, deterministic, and answers questions about state and structure.
 
 The *window runner* opens your real window, drives it through the same render
@@ -69,13 +69,14 @@ needs, one `runner<tab>path` line per specification.
 | Print which runner each specification needs.
 |===
 
-`--host-help` lists these along with the capability and measurement flags.
+`--host-help` lists these flags along with the capability and measurement
+flags.
 
 == Granting capabilities
 
 An application that reads files, reaches the network, or drives a terminal does
 nothing useful without the authority to do it, and a specification run is no
-exception: the same `--host-cap-*` flags that grant a capability to an
+exception. The same `--host-cap-*` flags that grant a capability to an
 interactive session grant it to a specification run. Running without a grant is
 the supported way to exercise a denial path, because the application takes the
 same refusal it would take from a real broker.
@@ -89,10 +90,10 @@ same refusal it would take from a real broker.
 confers authority; the flags do, which is why what a run may touch is visible
 in the command that started it.
 
-== Five minutes
+== A first window specification
 
-Start from the greeting application in the getting-started chapter, with one
-button:
+Start from the greeting application in the getting-started chapter and give it
+one button:
 
 [source,roc]
 ----
@@ -164,7 +165,7 @@ specification used:
 The exit status is 0 when every step passed and 1 when one did not, so a
 specification is usable directly from a shell script or a build rule.
 
-== What is actually being driven
+== What the window runner drives
 
 Keyboard input is real. `focus` moves focus through the same handle the host
 uses, `press-key`, `key`, and `type` reach the window's production keymap, and
@@ -181,7 +182,7 @@ passing quietly. There is no `hover` step, because hover styling is driven by
 GPUI's own pointer position and a step that could not honestly move it would
 not mean what its name says.
 
-See <<window-specifications>> for the full step vocabulary and for what the
+The specification reference has the full step vocabulary and describes what
 geometry recording cannot see.
 
 == Screenshots need a capture tool
@@ -211,11 +212,11 @@ window specification a usable feedback loop for an AI agent changing your
 interface. The agent runs the specification, reads the report and the images,
 changes the application, and runs it again.
 
-Three details exist for that loop. Failing steps name the locator as it was
+Three details serve that loop. A failing step names the locator as it was
 written, so the message points at the specification rather than at an internal
 identifier. Screenshots taken before a failing step are kept, so the image of
-the state an assertion stopped at is available. The `screenshots` array is a
-flat index, so images can be found without walking the steps.
+the state an assertion stopped at survives. The `screenshots` array is a flat
+index, so the agent finds images without walking the steps.
 
 The loop verifies the assertions you wrote and hands back images. It does not
 judge whether the result looks good.

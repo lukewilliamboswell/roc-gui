@@ -62,7 +62,7 @@ impl Capability {
     /// How to run a specification this capability rejected.
     fn remedy(self) -> &'static str {
         match self {
-            Self::Semantic => "the window runner runs one lifecycle and does not measure it",
+            Self::Semantic => "run this specification with --host-run-spec",
             Self::Window => "run this specification with --host-run-window-spec",
             Self::Both => "",
         }

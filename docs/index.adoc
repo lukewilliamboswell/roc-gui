@@ -28,9 +28,9 @@ New to Roc GUI:: Read <<_what_you_build>>, then follow <<_getting_started>> to
 build the counter and a minimal application.
 Application author:: Continue through <<_building_an_application>> for the
 state/action/render model, elements, layout, and local state boundaries.
-Verifying your own application:: Read <<_testing_your_application>>. The
-executable you build runs both specification runners itself, so checking
-behaviour, layout, and appearance needs no test framework and no second build.
+Specification author:: Read <<_testing_your_application>>. The executable you
+build runs both specification runners itself, so checking behaviour, layout, and
+appearance needs no test framework and no second build.
 <<_specification_reference>> has the complete step vocabulary.
 Advanced application author:: Read <<_how_roc_gui_works>> for the rendering and
 event lifecycles, boundary replacement model, and comparison with other GUI

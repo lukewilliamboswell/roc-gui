@@ -17,7 +17,7 @@ case identity, run and cycle counts, and the distribution of measured operation
 duration. A capture with lost events, writer failure, output truncation, or an
 unclean shutdown is rejected as incomplete.
 
-The analyzer opens databases read-only. You can also inspect them with any
+The analyser opens databases read-only. You can also inspect them with any
 SQLite client; application-facing reports should use the supplied views so the
 evidence-status rules remain visible.
 
@@ -43,7 +43,7 @@ activity occurred inside each owned span?
 available GPUI materialisation consume?
 `virtual_list_materialization`:: For interactive GPUI frames, how many logical
 items intersected each viewport and how many native entities were
-materialized, recycled, and retained? Semantic-headless captures report this
+materialised, recycled, and retained? Semantic-headless captures report this
 family as `not_recorded` because they have no viewport.
 `process_resources`:: How did process CPU time, peak RSS, and Roc allocation
 counters change across runs?
@@ -86,9 +86,8 @@ dispatcher, and patches still enter the host's canonical mounted graph. The
 runner does not open a GPUI window. Consequently its captures can attribute
 platform routing and lowering, application update and render, allocation
 activity within each span, the enclosing Roc callback, host validation, graph
-application, CPU, RSS, and
-deterministic graph work, while GPUI layout, paint, and presentation are
-unavailable.
+application, CPU, RSS, and deterministic graph work, while GPUI layout, paint,
+and presentation are unavailable.
 
 This distinction matters: headless graph application is useful host evidence,
 but it is not a proxy for rendering a frame.
@@ -112,7 +111,7 @@ Choose a destination explicitly when captures are part of an experiment:
 Additional controls are:
 
 `--host-stats-detail=summary|full`:: Select the recorder detail policy. Summary
-omits setup cycles while retaining measured, initialization, and interactive
+omits setup cycles while retaining measured, initialisation, and interactive
 cycles together with all semantic evidence. Full additionally records setup
 cycles, making the extra observer work explicit.
 `--host-stats-buffer-mib=N`:: Set the bounded in-memory admission buffer.

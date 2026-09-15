@@ -23,7 +23,7 @@ identified as development authority, and never represents user consent.
 
 [cols="2,3,2"]
 |===
-|Service |Authorization and scope |Lifetime
+|Service |Authorisation and scope |Lifetime
 
 |UI, ordinary clocks, secure randomness
 |Automatically provisioned narrow services with documented precision and quotas
@@ -50,7 +50,7 @@ identified as development authority, and never represents user consent.
 |Playback or session
 
 |Microphone and system capture
-|In-context trusted authorization with a protected activity indicator
+|In-context trusted authorisation with a protected activity indicator
 |Recording or call session
 
 |USB and device services
@@ -69,7 +69,7 @@ destination grant, and a selected file does not reveal siblings.
 Cancellation is a successful selection outcome. Denial, revocation, expiry,
 unavailability, invalid handles, and resource limits are distinct typed
 failures. Refcount cleanup releases a handle but is not revocation. Revocation
-has one broker-owned linearization point: operations accepted before it follow
+has one broker-owned linearisation point: operations accepted before it follow
 their documented commit/cancellation rule; later operations and descendants
 fail. Bytes already returned to application state cannot be recalled.
 
@@ -82,7 +82,7 @@ decision, and refusal is rate-limited so an application cannot nag repeatedly.
 
 Open document and Open project are broker interactions, not application-rendered
 confirmation dialogs. Save As brokers an atomic destination replacement and
-defines cancellation, target races, temporary-file cleanup, disk-full behavior,
+defines cancellation, target races, temporary-file cleanup, disk-full behaviour,
 and the commit boundary. Project imports, sidecars, multiple roots,
 drag-and-drop, sharing, and file clipboard operations use the same grant rules.
 
@@ -103,8 +103,8 @@ computing base unless isolated behind the same broker boundary.
 
 == Verification
 
-Every resource slice includes its Roc API and hosted ABI, broker/host behavior,
-semantic locators, owner-recorded deterministic counters, failure specs, a
+Every resource slice includes its Roc API and hosted ABI, broker/host behaviour,
+semantic locators, owner-recorded deterministic counters, failure specifications, a
 normal-use scaling case, and documentation. Security assertions additionally
 exercise minimal authority, trusted selection and cancellation, sibling and
 parent denial, traversal and symlinks, expiry, root and child revocation,
@@ -112,5 +112,5 @@ queued/running work, races, identity changes, and privacy-safe evidence.
 
 Headless semantic specifications prove the mounted graph and normal Roc event
 route. They do not certify protected consent UI, compositor delivery, OS
-confinement, accessibility, or native portal behavior. Those claims require the
+confinement, accessibility, or native portal behaviour. Those claims require the
 production GPUI path and external platform tests.
