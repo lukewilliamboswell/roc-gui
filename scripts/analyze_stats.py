@@ -100,7 +100,15 @@ def compare(before: Path, after: Path) -> str:
         )
 
 
-def perspective(path: Path, view: str) -> str:
+AA_COMPATIBILITY_KEYS = (
+    "spec_hash", "benchmark_scale", "benchmark_samples", "benchmark_iterations",
+    "benchmark_initial_size", "benchmark_change_size", "backend", "target_profile",
+    "host_os", "host_arch", "cpu_model", "logical_cpu_count", "requested_detail",
+    "job_count", "buffer_mib",
+)
+
+
+def perspective(path: Path, view: str, aa_bound: Path | None = None) -> str:
     query_path = QUERY_DIR / f"{view}.sql"
     query = query_path.read_text(encoding="utf-8")
     with open_readonly(path) as database:
@@ -109,6 +117,22 @@ def perspective(path: Path, view: str) -> str:
         metadata = dict(database.execute("SELECT key,value FROM metadata"))
         if metadata.get("schema_version") != "3":
             raise RuntimeError("unsupported schema version")
+        aa_sql = "SELECT NULL AS trigger, NULL AS spread_ns WHERE 0"
+        if aa_bound is not None:
+            with open_readonly(aa_bound) as aa_database:
+                validate(aa_database)
+            aa_uri = aa_bound.resolve().as_uri() + "?mode=ro"
+            database.execute("ATTACH DATABASE ? AS aa", (aa_uri,))
+            aa_metadata = dict(database.execute("SELECT key,value FROM aa.metadata"))
+            if any(metadata.get(key) != aa_metadata.get(key) for key in AA_COMPATIBILITY_KEYS):
+                raise RuntimeError("A/A bound capture is not mechanically comparable")
+            aa_sql = (
+                "SELECT cycles.trigger, max(cycles.duration_ns)-min(cycles.duration_ns) spread_ns "
+                "FROM aa.cycles JOIN aa.runs ON aa.runs.id=cycles.run_id "
+                "WHERE cycles.measurement_phase='measured' AND aa.runs.phase='sample' "
+                "GROUP BY cycles.trigger"
+            )
+        query = query.replace("/* AA_BOUND */", aa_sql)
         cursor = database.execute(query)
         columns = [description[0] for description in cursor.description]
         rows = cursor.fetchall()
@@ -125,14 +149,18 @@ def main() -> int:
     parser.add_argument("capture", type=Path)
     parser.add_argument("--compare", type=Path, help="compare CAPTURE with this after capture")
     parser.add_argument("--view", choices=VIEWS, help="run a focused, read-only SQLite perspective")
+    parser.add_argument("--aa-bound", type=Path,
+                        help="validated unchanged-executable capture supplying the scaling A/A spread bound")
     args = parser.parse_args()
     if args.compare and args.view:
         parser.error("--compare and --view are mutually exclusive")
+    if args.aa_bound and args.view != "scaling":
+        parser.error("--aa-bound requires --view scaling")
     try:
         if args.compare:
             result = compare(args.capture, args.compare)
         elif args.view:
-            result = perspective(args.capture, args.view)
+            result = perspective(args.capture, args.view, args.aa_bound)
         else:
             result = summary(args.capture)
         print(result)

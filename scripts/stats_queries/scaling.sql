@@ -16,6 +16,8 @@ measured AS (
   sum(CASE WHEN expected_count<>observed_count THEN 1 ELSE 0 END) mismatches
  FROM steps JOIN runs ON runs.id=steps.run_id
  WHERE runs.phase='sample' AND expected_count IS NOT NULL
+), aa_bound AS (
+ /* AA_BOUND */
 )
 SELECT evidence.status evidence_status,evidence.reason evidence_reason,
  scale_evidence.status scale_evidence_status,scale_evidence.reason scale_evidence_reason,
@@ -27,6 +29,10 @@ SELECT evidence.status evidence_status,evidence.reason evidence_reason,
  verified.*,summary.trigger,summary.samples,
  CASE WHEN evidence.status='complete' AND scale_evidence.status='complete' THEN summary.min_ns END min_ns,
  CASE WHEN evidence.status='complete' AND scale_evidence.status='complete' THEN summary.median_ns END median_ns,
- CASE WHEN evidence.status='complete' AND scale_evidence.status='complete' THEN summary.spread_ns END spread_ns
+ CASE WHEN evidence.status='complete' AND scale_evidence.status='complete' THEN summary.spread_ns END spread_ns,
+ aa_bound.spread_ns aa_bound_ns,
+ CASE WHEN aa_bound.spread_ns IS NOT NULL
+      THEN summary.spread_ns > aa_bound.spread_ns END spread_exceeds_aa_bound
 FROM evidence CROSS JOIN scale_evidence CROSS JOIN verified
-LEFT JOIN summary ON evidence.status='complete' AND scale_evidence.status='complete';
+LEFT JOIN summary ON evidence.status='complete' AND scale_evidence.status='complete'
+LEFT JOIN aa_bound ON aa_bound.trigger=summary.trigger;

@@ -95,4 +95,14 @@ python3 scripts/analyze_stats.py BEFORE.rgstats --compare AFTER.rgstats
 
 The comparison checks capture identity and workload compatibility before
 showing a ratio. Use `--aa` to establish the natural spread of an unchanged
-executable. Treat a change smaller than that spread as noise.
+executable. Supply that validated capture to the scaling view to expose the
+A/A spread bound and whether the measured spread exceeds it:
+
+[source,sh]
+----
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view scaling --aa-bound CAPTURE-aa.rgstats
+----
+
+Without `--aa-bound`, `aa_bound_ns` and `spread_exceeds_aa_bound` are `NULL`:
+the capture contains no A/A evidence from which to infer them. Treat a change
+smaller than an available bound as noise.
