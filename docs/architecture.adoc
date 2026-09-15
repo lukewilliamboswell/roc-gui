@@ -205,6 +205,11 @@ HTTP requests also use `Action.task` and the canonical worker/completion route.
 An opaque `Box(U64)` client names a host registry entry for one explicitly
 granted origin. The initial URL and every redirect retain its scheme, host, and
 effective port.
+Preferences use that route as well. Roc retains only an opaque typed handle;
+the host confines flat keys to the granted application root, bounds values,
+and commits each write by synchronizing a private temporary file before an
+in-root rename. Application request identities decide whether a completion is
+still current on the UI thread.
 The host applies explicit scheme, timeout, redirect, header, request-body, and
 response-body limits before returning an owned reducer to the UI thread. It
 buffers one bounded byte response rather than exposing a streaming callback.

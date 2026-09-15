@@ -10,7 +10,7 @@ roc build examples/counter/main.roc
 ```
 
 The platform provides text, controlled native text inputs, buttons, styled checkboxes, row and column layout,
-local state boundaries, worker tasks, read-only directory capabilities,
+local state boundaries, worker tasks, read-only directory capabilities, app-scoped durable preferences,
 semantic `.scm` specifications, and SQLite performance captures.
 It targets Linux x86_64 with Wayland.
 

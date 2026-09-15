@@ -8,10 +8,12 @@ import concurrent.futures
 import atexit
 import fnmatch
 import os
+import shutil
 import sqlite3
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import replace
 from dataclasses import dataclass
@@ -113,16 +115,31 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         command.extend(["--host-cap-dir", str(fixture)])
     if (case.app.parent / "fixture_server.py").is_file():
         command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=ROOT,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return case, f"timed out after {timeout:g}s"
+    preferences_fixture = case.app.parent / "preferences-fixture"
+    with tempfile.TemporaryDirectory(prefix="roc-gui-preferences-") as temporary:
+        storage = Path(temporary)
+        if preferences_fixture.is_dir():
+            case_fixture = preferences_fixture / case.spec.stem
+            default_fixture = preferences_fixture / "default"
+            source = (
+                case_fixture
+                if case_fixture.is_dir()
+                else default_fixture
+                if default_fixture.is_dir()
+                else preferences_fixture
+            )
+            shutil.copytree(source, storage, dirs_exist_ok=True)
+            command.extend(["--host-cap-preferences", str(storage)])
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return case, f"timed out after {timeout:g}s"
     if completed.returncode != 0:
         diagnostic = completed.stderr.decode(errors="replace").strip()
         return case, f"exit {completed.returncode}: {diagnostic}"

@@ -217,6 +217,24 @@ clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
 
+== Durable application preferences
+
+`Preferences.open!({})` acquires the application's private preference store
+granted by `--host-cap-preferences PATH`. The result is an opaque typed
+`Box(U64)` handle; applications cannot recover the host path or use the handle
+as a general filesystem capability.
+
+`Preferences.read!(store, key)` distinguishes `Missing` from `Value(Str)`.
+`Preferences.write_atomic!(store, key, value)` synchronizes a private temporary
+file before replacing the key in the same store. Keys are flat ASCII
+identifiers of at most 128 bytes, values are UTF-8 of at most one MiB, and
+portable errors distinguish denied or invalid capabilities, invalid keys, I/O,
+resource limits, and unavailable storage.
+
+Run these blocking operations inside `Action.task`, with a monotonic request
+identity when an edit can supersede pending work. The Settings Center uses this
+route and retains a newer draft when an older load completes.
+
 == HTTP requests
 
 Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
