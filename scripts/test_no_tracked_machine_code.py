@@ -1,6 +1,9 @@
 import unittest
+from pathlib import Path
+import sys
 
-from scripts.check_no_tracked_machine_code import machine_code_kind
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_no_tracked_machine_code import machine_code_kind
 
 
 class MachineCodeKindTests(unittest.TestCase):
