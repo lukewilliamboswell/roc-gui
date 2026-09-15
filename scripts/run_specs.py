@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import atexit
-from contextlib import closing
+from contextlib import closing, contextmanager
 import fnmatch
 import os
 import shutil
@@ -43,6 +43,56 @@ def fixture_metadata(case: Case) -> dict[str, str]:
             raise RuntimeError(f"invalid fixture metadata in {metadata}")
         values[key] = value
     return values
+
+
+@contextmanager
+def fixture_services(cases: list[Case], output: Path):
+    """Run the local servers declared by cases for any production-path spec runner."""
+    output.mkdir(parents=True, exist_ok=True)
+    processes: list[subprocess.Popen[bytes]] = []
+    servers = set()
+    for case in cases:
+        values = fixture_metadata(case)
+        if script_name := values.get("server"):
+            port = values.get("server-port")
+            if port is None or not port.isdigit():
+                raise RuntimeError(f"fixture server port missing for {case.spec}")
+            servers.add((case.app.parent / script_name, int(port)))
+    try:
+        for script, port in sorted(servers):
+            if not script.is_file():
+                raise RuntimeError(f"fixture server does not exist: {script}")
+            ready_file = output / f"fixture-ready-{port}"
+            environment = os.environ.copy()
+            environment["ROC_GUI_FIXTURE_READY_FILE"] = str(ready_file)
+            process = subprocess.Popen(
+                [sys.executable, str(script)], cwd=ROOT,
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                env=environment,
+            )
+            processes.append(process)
+            atexit.register(lambda process=process: process.poll() is None and process.terminate())
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if ready_file.is_file():
+                    break
+                if process.poll() is not None:
+                    diagnostic = process.stderr.read().decode(errors="replace").strip()
+                    suffix = f": {diagnostic}" if diagnostic else ""
+                    raise RuntimeError(f"local fixture failed to start{suffix}")
+                time.sleep(0.02)
+            else:
+                process.terminate()
+                process.wait(timeout=5)
+                diagnostic = process.stderr.read().decode(errors="replace").strip()
+                suffix = f": {diagnostic}" if diagnostic else ""
+                raise RuntimeError(f"local fixture did not report readiness{suffix}")
+        yield
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
 
 
 def discover(patterns: list[str], output: Path) -> list[Case]:
@@ -245,86 +295,48 @@ def main() -> int:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 
-    fixture_processes: list[subprocess.Popen[bytes]] = []
-    fixture_servers = set()
-    for case in cases:
-        values = fixture_metadata(case)
-        if script_name := values.get("server"):
-            port = values.get("server-port")
-            if port is None or not port.isdigit():
-                raise RuntimeError(f"fixture server port missing for {case.spec}")
-            fixture_servers.add((case.app.parent / script_name, int(port)))
-    for script, port in sorted(fixture_servers):
-        if not script.is_file():
-            raise RuntimeError(f"fixture server does not exist: {script}")
-        ready_file = output / f"fixture-ready-{port}"
-        fixture_environment = os.environ.copy()
-        fixture_environment["ROC_GUI_FIXTURE_READY_FILE"] = str(ready_file)
-        fixture_process = subprocess.Popen(
-            [sys.executable, str(script)], cwd=ROOT,
-            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-            env=fixture_environment,
-        )
-        fixture_processes.append(fixture_process)
-        atexit.register(lambda process=fixture_process: process.poll() is None and process.terminate())
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
-            if ready_file.is_file():
-                break
-            if fixture_process.poll() is not None:
-                diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
-                suffix = f": {diagnostic}" if diagnostic else ""
-                print(f"error: local fixture failed to start{suffix}", file=sys.stderr)
-                return 1
-            time.sleep(0.02)
-        else:
-            fixture_process.terminate()
-            fixture_process.wait(timeout=5)
-            diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
-            suffix = f": {diagnostic}" if diagnostic else ""
-            print(f"error: local fixture did not report readiness{suffix}", file=sys.stderr)
-            return 1
-
     results: list[tuple[Case, str | None]] = []
-    if args.fail_fast:
-        for case in cases:
-            result = run_case(case, args.timeout, args.jobs, args.detail)
-            results.append(result)
-            if result[1] is not None:
-                break
-    else:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-            futures = [pool.submit(run_case, case, args.timeout, args.jobs, args.detail) for case in cases]
-            results.extend(future.result() for future in concurrent.futures.as_completed(futures))
-
     failures = 0
-    for case, error in results:
-        relative = case.spec.relative_to(ROOT)
-        if error is None:
-            print(f"PASS {relative} -> {case.capture}")
-        else:
-            failures += 1
-            print(f"FAIL {relative}: {error}", file=sys.stderr)
-    if args.aa and failures == 0:
-        for case, _ in sorted(results, key=lambda result: result[0].spec):
-            aa_case = replace(
-                case,
-                capture=case.capture.with_name(f"{case.capture.stem}-aa{case.capture.suffix}"),
-            )
-            _, error = run_case(aa_case, args.timeout, 1, args.detail)
-            if error is not None:
-                failures += 1
-                print(f"FAIL A/A {case.spec.relative_to(ROOT)}: {error}", file=sys.stderr)
+    try:
+        with fixture_services(cases, output):
+            if args.fail_fast:
+                for case in cases:
+                    result = run_case(case, args.timeout, args.jobs, args.detail)
+                    results.append(result)
+                    if result[1] is not None:
+                        break
             else:
-                print(
-                    f"A/A {case.spec.relative_to(ROOT)}: "
-                    f"python3 scripts/analyze_stats.py {case.capture} --compare {aa_case.capture}"
-                )
+                with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+                    futures = [pool.submit(run_case, case, args.timeout, args.jobs, args.detail) for case in cases]
+                    results.extend(future.result() for future in concurrent.futures.as_completed(futures))
+
+            for case, error in results:
+                relative = case.spec.relative_to(ROOT)
+                if error is None:
+                    print(f"PASS {relative} -> {case.capture}")
+                else:
+                    failures += 1
+                    print(f"FAIL {relative}: {error}", file=sys.stderr)
+            if args.aa and failures == 0:
+                for case, _ in sorted(results, key=lambda result: result[0].spec):
+                    aa_case = replace(
+                        case,
+                        capture=case.capture.with_name(f"{case.capture.stem}-aa{case.capture.suffix}"),
+                    )
+                    _, error = run_case(aa_case, args.timeout, 1, args.detail)
+                    if error is not None:
+                        failures += 1
+                        print(f"FAIL A/A {case.spec.relative_to(ROOT)}: {error}", file=sys.stderr)
+                    else:
+                        print(
+                            f"A/A {case.spec.relative_to(ROOT)}: "
+                            f"python3 scripts/analyze_stats.py {case.capture} --compare {aa_case.capture}"
+                        )
+    except RuntimeError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
     passed = len(results) - failures
     print(f"{passed}/{len(cases)} specs passed; captures: {output}")
-    for fixture_process in fixture_processes:
-        fixture_process.terminate()
-        fixture_process.wait(timeout=5)
     return 1 if failures else 0
 
 

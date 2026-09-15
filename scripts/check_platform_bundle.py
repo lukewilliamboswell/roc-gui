@@ -12,6 +12,7 @@ import tempfile
 import threading
 
 from toolchain import replace_platform
+from run_specs import Case, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac"}
@@ -33,6 +34,7 @@ def check(directory: Path, roc: str) -> None:
         with tempfile.TemporaryDirectory(prefix="roc-gui-release-check-") as temporary:
             stage = Path(temporary)
             applications = sorted([*ROOT.glob("examples/*/main.roc"), *ROOT.glob("benchmarks/*/main.roc")])
+            cases = []
             for source in applications:
                 app = stage / source.parent.parent.name / source.parent.name
                 shutil.copytree(source.parent, app)
@@ -43,9 +45,19 @@ def check(directory: Path, roc: str) -> None:
                 subprocess.run([roc, "build", "--no-cache", f"--target={target}", "--opt=dev",
                                 f"--output={executable}", str(main)], check=True, timeout=180)
                 for spec in sorted(app.glob("specs/*.scm")):
-                    subprocess.run([str(executable), "--host-run-spec", str(spec)], check=True, timeout=180)
+                    cases.append(Case(
+                        spec=spec,
+                        app=main,
+                        executable=executable,
+                        capture=stage / "captures" / source.parent.parent.name / source.parent.name / f"{spec.stem}.rgstats",
+                    ))
                 if source.parent.name == "counter" and platform.system() == "Darwin":
                     subprocess.run([str(executable), "--host-gpui-smoke"], check=True, timeout=30)
+            with fixture_services(cases, stage / "fixtures"):
+                for case in cases:
+                    _, error = run_case(case, 180, 1)
+                    if error is not None:
+                        raise RuntimeError(f"{case.spec}: {error}")
     finally:
         server.shutdown()
         thread.join()
