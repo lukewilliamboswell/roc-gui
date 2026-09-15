@@ -2,6 +2,7 @@
 """Publish tested complete Windows stubs under an independent content-addressed release."""
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -42,6 +43,10 @@ def prepare(directory, tag, environment):
         required.update('sources/' + KIND + '/' + name for name in (*REPRODUCTION, 'source.tar.xz', 'coverage.json'))
         if set(manifest['files']) != required or manifest['source'] != recipe:
             raise ValueError('candidate source or payload differs from reviewed producer inventory')
+        identity = {key: value for key, value in manifest.items() if key != 'files'}
+        entry['input_fingerprint'] = hashlib.sha256(
+            json.dumps(identity, sort_keys=True, separators=(',', ':')).encode()
+        ).hexdigest()
         for name, expected in recipe['notices_sha256'].items():
             if sha256(stage / 'licenses' / KIND / name) != expected:
                 raise ValueError('candidate license differs from original source')
