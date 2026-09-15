@@ -1,0 +1,15 @@
+(test "a denied terminal can be asked for again and starts no session"
+  (steps
+    (expect-visible (text "gen 0"))
+    (click (role button :name "New terminal"))
+    (await-task)
+    (expect-visible (text "Process access denied"))
+    (expect-visible (text "gen 1"))
+    (expect-processes 0)
+    (click (role button :name "New terminal"))
+    (await-task)
+    (expect-visible (text "Process access denied"))
+    (expect-visible (text "gen 2"))
+    (expect-processes 0)
+    (expect-count (text-prefix "Terminal line: ") 0)
+    (expect-visible (text "0/0 lines"))))
