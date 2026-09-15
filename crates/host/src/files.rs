@@ -10,6 +10,7 @@ use std::{
     mem::ManuallyDrop,
     path::{Component, Path},
     sync::{Arc, Mutex, OnceLock},
+    time::{Duration, Instant},
 };
 
 const MAX_ENTRIES: usize = 10_000;
@@ -20,7 +21,45 @@ struct Store {
     initial: Option<(Arc<Dir>, String)>,
     dirs: HashMap<u64, Arc<Dir>>,
     allocations: HashMap<usize, u64>,
+    metadata: HashMap<u64, GrantMetadata>,
     operations: [u64; 4],
+    selection: [u64; 7],
+    portal_enabled: bool,
+    chooser_in_flight: bool,
+    refusal_until: Option<Instant>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GrantSource {
+    Portal,
+    Provisioned,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GrantLifetime {
+    Session,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct GrantMetadata {
+    source: GrantSource,
+    lifetime: GrantLifetime,
+    parent: Option<u64>,
+}
+const REFUSAL_COOLDOWN: Duration = Duration::from_secs(2);
+
+fn derived_metadata(parent: u64, metadata: GrantMetadata) -> GrantMetadata {
+    GrantMetadata {
+        parent: Some(parent),
+        ..metadata
+    }
+}
+
+fn prompt_is_allowed(
+    portal_enabled: bool,
+    in_flight: bool,
+    refusal_until: Option<Instant>,
+    now: Instant,
+) -> bool {
+    portal_enabled && !in_flight && refusal_until.is_none_or(|until| until <= now)
 }
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
@@ -32,12 +71,17 @@ fn store() -> &'static Mutex<Store> {
             initial: None,
             dirs: HashMap::new(),
             allocations: HashMap::new(),
+            metadata: HashMap::new(),
             operations: [0; 4],
+            selection: [0; 7],
+            portal_enabled: false,
+            chooser_in_flight: false,
+            refusal_until: None,
         })
     })
 }
 
-pub fn configure(path: Option<&Path>) -> Result<(), String> {
+pub fn configure(path: Option<&Path>, portal_enabled: bool) -> Result<(), String> {
     let initial = match path {
         None => None,
         Some(path) => {
@@ -54,7 +98,18 @@ pub fn configure(path: Option<&Path>) -> Result<(), String> {
     let mut guard = store().lock().expect("capability store poisoned");
     guard.initial = initial;
     guard.operations = [0; 4];
+    guard.selection = [0; 7];
+    guard.portal_enabled = portal_enabled;
+    guard.chooser_in_flight = false;
+    guard.refusal_until = None;
+    if guard.initial.is_some() {
+        guard.selection[6] = 1;
+    }
     Ok(())
+}
+
+pub fn selection_counts() -> [u64; 7] {
+    store().lock().expect("capability store poisoned").selection
 }
 
 pub fn operation_counts() -> [u64; 4] {
@@ -69,7 +124,7 @@ fn record_operation(index: usize) {
     guard.operations[index] = guard.operations[index].saturating_add(1);
 }
 
-fn capability(dir: Arc<Dir>) -> *mut u64 {
+fn capability(dir: Arc<Dir>, metadata: GrantMetadata) -> *mut u64 {
     let mut guard = store().lock().expect("capability store poisoned");
     let id = guard.next;
     guard.next = guard
@@ -87,6 +142,7 @@ fn capability(dir: Arc<Dir>) -> *mut u64 {
     unsafe { handle.write(id) };
     let allocation_base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.dirs.insert(id, dir);
+    guard.metadata.insert(id, metadata);
     guard.allocations.insert(allocation_base as usize, id);
     handle
 }
@@ -96,10 +152,17 @@ pub(crate) fn lookup(handle: *mut u64) -> Option<Arc<Dir>> {
     store().lock().ok()?.dirs.get(&id).cloned()
 }
 
+fn grant_metadata(handle: *mut u64) -> Option<(u64, GrantMetadata)> {
+    let id = unsafe { handle.as_ref().copied()? };
+    let metadata = store().lock().ok()?.metadata.get(&id).copied()?;
+    Some((id, metadata))
+}
+
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("capability store poisoned");
     if let Some(id) = guard.allocations.remove(&(allocation_base as usize)) {
         guard.dirs.remove(&id);
+        guard.metadata.remove(&id);
     }
 }
 
@@ -186,6 +249,96 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
     Ok(bytes)
 }
 
+fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryResult {
+    let directory = capability(
+        dir,
+        GrantMetadata {
+            source,
+            lifetime: GrantLifetime::Session,
+            parent: None,
+        },
+    );
+    let value = FilesPickDirectoryOkChosen {
+        directory,
+        name: RocStr::from_str(name, roc_host()),
+    };
+    FilesPickDirectoryResult {
+        payload: FilesPickDirectoryResultPayload {
+            ok: ManuallyDrop::new(CanceledOrChosen {
+                payload: CanceledOrChosenPayload {
+                    chosen: ManuallyDrop::new(value),
+                },
+                tag: CanceledOrChosenTag::Chosen,
+            }),
+        },
+        tag: FilesPickDirectoryResultTag::Ok,
+    }
+}
+
+fn canceled() -> FilesPickDirectoryResult {
+    FilesPickDirectoryResult {
+        payload: FilesPickDirectoryResultPayload {
+            ok: ManuallyDrop::new(CanceledOrChosen {
+                payload: CanceledOrChosenPayload { canceled: [] },
+                tag: CanceledOrChosenTag::Canceled,
+            }),
+        },
+        tag: FilesPickDirectoryResultTag::Ok,
+    }
+}
+
+enum PortalSelection {
+    Chosen(Arc<Dir>, String),
+    Canceled,
+    Denied,
+    Unavailable,
+}
+
+fn portal_directory() -> PortalSelection {
+    async_std::task::block_on(async {
+        use ashpd::desktop::{ResponseError, file_chooser::SelectedFiles};
+        let request = match SelectedFiles::open_file()
+            .title("Open project")
+            .accept_label("Open")
+            .directory(true)
+            .multiple(false)
+            .modal(true)
+            .send()
+            .await
+        {
+            Ok(value) => value,
+            Err(_) => return PortalSelection::Unavailable,
+        };
+        let files = match request.response() {
+            Ok(value) => value,
+            Err(ashpd::Error::Response(ResponseError::Cancelled)) => {
+                return PortalSelection::Canceled;
+            }
+            Err(ashpd::Error::Response(_)) => return PortalSelection::Denied,
+            Err(_) => return PortalSelection::Unavailable,
+        };
+        let [uri] = files.uris() else {
+            return PortalSelection::Unavailable;
+        };
+        let path = match uri.to_file_path() {
+            Ok(value) => value,
+            Err(_) => return PortalSelection::Unavailable,
+        };
+        let name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("directory")
+            .to_owned();
+        match Dir::open_ambient_dir(path, ambient_authority()) {
+            Ok(dir) => PortalSelection::Chosen(Arc::new(dir), name),
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                PortalSelection::Denied
+            }
+            Err(_) => PortalSelection::Unavailable,
+        }
+    })
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
     record_operation(0);
@@ -195,17 +348,70 @@ pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
         .initial
         .clone();
     match initial {
-        None => FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload { err: ManuallyDrop::new(pick_directory_err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::AccessDenied)) },
+        Some((dir, name)) => chosen(dir, &name, GrantSource::Provisioned),
+        None => select_portal(),
+    }
+}
+
+fn select_portal() -> FilesPickDirectoryResult {
+    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported as R;
+    let allowed = {
+        let mut guard = store().lock().expect("capability store poisoned");
+        if !guard.portal_enabled {
+            false
+        } else if !prompt_is_allowed(
+            true,
+            guard.chooser_in_flight,
+            guard.refusal_until,
+            Instant::now(),
+        ) {
+            guard.selection[5] += 1;
+            false
+        } else {
+            guard.chooser_in_flight = true;
+            guard.selection[0] += 1;
+            true
+        }
+    };
+    if !allowed {
+        return FilesPickDirectoryResult {
+            payload: FilesPickDirectoryResultPayload {
+                err: ManuallyDrop::new(pick_directory_err(R::AccessDenied)),
+            },
+            tag: FilesPickDirectoryResultTag::Err,
+        };
+    }
+    let result = portal_directory();
+    let mut guard = store().lock().expect("capability store poisoned");
+    guard.chooser_in_flight = false;
+    match &result {
+        PortalSelection::Chosen(..) => guard.selection[1] += 1,
+        PortalSelection::Canceled => {
+            guard.selection[2] += 1;
+            guard.refusal_until = Some(Instant::now() + REFUSAL_COOLDOWN);
+        }
+        PortalSelection::Denied => {
+            guard.selection[3] += 1;
+            guard.refusal_until = Some(Instant::now() + REFUSAL_COOLDOWN);
+        }
+        PortalSelection::Unavailable => guard.selection[4] += 1,
+    }
+    drop(guard);
+    match result {
+        PortalSelection::Chosen(dir, name) => chosen(dir, &name, GrantSource::Portal),
+        PortalSelection::Canceled => canceled(),
+        PortalSelection::Denied => FilesPickDirectoryResult {
+            payload: FilesPickDirectoryResultPayload {
+                err: ManuallyDrop::new(pick_directory_err(R::AccessDenied)),
+            },
             tag: FilesPickDirectoryResultTag::Err,
         },
-        Some((dir, name)) => {
-            let chosen = FilesPickDirectoryOkChosen { directory: capability(dir), name: RocStr::from_str(&name, roc_host()) };
-            FilesPickDirectoryResult {
-                payload: FilesPickDirectoryResultPayload { ok: ManuallyDrop::new(CanceledOrChosen { payload: CanceledOrChosenPayload { chosen: ManuallyDrop::new(chosen) }, tag: CanceledOrChosenTag::Chosen }) },
-                tag: FilesPickDirectoryResultTag::Ok,
-            }
-        }
+        PortalSelection::Unavailable => FilesPickDirectoryResult {
+            payload: FilesPickDirectoryResultPayload {
+                err: ManuallyDrop::new(pick_directory_err(R::Unavailable)),
+            },
+            tag: FilesPickDirectoryResultTag::Err,
+        },
     }
 }
 
@@ -296,6 +502,7 @@ pub extern "C" fn roc_files_dir_open_read(
     record_operation(2);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
+    let inherited = grant_metadata(cap);
     let dir = lookup(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = match dir {
@@ -306,7 +513,16 @@ pub extern "C" fn roc_files_dir_open_read(
     match result {
         Ok(dir) => FilesDirOpenReadDirResult {
             payload: FilesDirOpenReadDirResultPayload {
-                ok: ManuallyDrop::new(capability(dir)),
+                ok: ManuallyDrop::new(capability(
+                    dir,
+                    inherited
+                        .map(|(parent, value)| derived_metadata(parent, value))
+                        .unwrap_or(GrantMetadata {
+                            source: GrantSource::Provisioned,
+                            lifetime: GrantLifetime::Session,
+                            parent: None,
+                        }),
+                )),
             },
             tag: FilesDirOpenReadDirResultTag::Ok,
         },
@@ -369,7 +585,7 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
 
 #[cfg(test)]
 mod tests {
-    use super::valid_name;
+    use super::*;
 
     #[test]
     fn child_names_cannot_escape_or_add_components() {
@@ -380,5 +596,37 @@ mod tests {
         assert!(!valid_name("../outside"));
         assert!(!valid_name("nested/child"));
         assert!(!valid_name("/absolute"));
+    }
+
+    #[test]
+    fn derived_grants_keep_source_and_immediate_parent() {
+        let root = GrantMetadata {
+            source: GrantSource::Portal,
+            lifetime: GrantLifetime::Session,
+            parent: None,
+        };
+        assert_eq!(
+            derived_metadata(7, root),
+            GrantMetadata {
+                source: GrantSource::Portal,
+                lifetime: GrantLifetime::Session,
+                parent: Some(7)
+            }
+        );
+    }
+
+    #[test]
+    fn prompt_policy_is_single_flight_and_cooldown_bounded() {
+        let now = Instant::now();
+        assert!(prompt_is_allowed(true, false, None, now));
+        assert!(!prompt_is_allowed(true, true, None, now));
+        assert!(!prompt_is_allowed(
+            true,
+            false,
+            Some(now + Duration::from_secs(1)),
+            now
+        ));
+        assert!(prompt_is_allowed(true, false, Some(now), now));
+        assert!(!prompt_is_allowed(false, false, None, now));
     }
 }

@@ -63,6 +63,11 @@ without mutating checked-in data. A subdirectory named after the spec selects
 case-specific initial state; otherwise `default/` is used. Neither the granted
 path nor preference contents become capture identity.
 
+`expect-file-selection-counters` compares seven host-owned numeric totals in
+order: portal requests, chosen results, cancellations, denials, unavailable
+results, suppressed prompts, and development provisions. The evidence contains
+no selected name, path, URI, or application text.
+
 The Settings Center's 100-, 1,000-, and 10,000-byte profile-note cases exercise
 ordinary controlled editing followed by the same worker-backed atomic save used
 by the application. `expect-value-bytes` supplies deterministic, content-free

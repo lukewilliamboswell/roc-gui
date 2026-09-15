@@ -50,6 +50,7 @@ pub enum Command {
     ExpectFileLists(u64),
     ExpectFileOpens(u64),
     ExpectFileReads(u64),
+    ExpectFileSelectionCounters([u64; 7]),
     ExpectImageOwnerCounters([u64; 4]),
     Submit(Locator),
     ExpectVisible(Locator),
@@ -91,6 +92,7 @@ impl Command {
             Self::ExpectFileLists(_) => "expect-file-lists",
             Self::ExpectFileOpens(_) => "expect-file-opens",
             Self::ExpectFileReads(_) => "expect-file-reads",
+            Self::ExpectFileSelectionCounters(_) => "expect-file-selection-counters",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
@@ -611,6 +613,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectImageOwnerCounters(expected)
         }
+        "expect-file-selection-counters" if values.len() == 8 => {
+            let mut expected = [0u64; 7];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "file selection counters must be integers"))?
+                    .parse()
+                    .map_err(|_| {
+                        error(
+                            value,
+                            "file selection counters must be non-negative integers",
+                        )
+                    })?;
+            }
+            Command::ExpectFileSelectionCounters(expected)
+        }
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -728,6 +746,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-lists"
         | "expect-file-opens"
         | "expect-file-reads"
+        | "expect-file-selection-counters"
         | "expect-image-owner-counters"
         | "expect-visible"
         | "expect-not-visible"

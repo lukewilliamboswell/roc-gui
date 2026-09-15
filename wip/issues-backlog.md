@@ -17,12 +17,18 @@ the change lands; do not soften the docs to match the gap.
   expiry, an App access surface, rate-limited refusal, grant ancestry, and one
   revocation linearization rule covering roots, descendants, queued/running
   operations and already-returned bytes.
-- [ ] **Trusted Open/Save workflows are not implemented.** Replace interactive
-  development provisioning with native/portal Open Document and Open Project
-  selection, then add edit grants and brokered atomic Save As with overwrite,
-  race, disk-full, cleanup, cancellation and retry semantics. Migrate every file
-  consumer through the same broker; keep `--host-cap-dir` explicitly limited to
-  development and automation.
+- [ ] **Trusted file workflows remain incomplete.** Linux Wayland Open Project
+  uses the production XDG Desktop Portal and records session/source/parent
+  lineage, while `--host-cap-dir` remains development provisioning. Add Open
+  Document's smallest single-file grant, persistent grants, revocation, edit
+  grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
+  cancellation and retry semantics.
+- [ ] **Portal parenting and protected consent need external certification.**
+  GPUI 0.2.2 does not expose an xdg-foreign Wayland surface handle to this host,
+  so the portal request cannot yet name its parent window. Export that handle,
+  attribute focus, and certify compositor placement, protected portal identity,
+  cancellation and accessibility on a packaged confined application. Headless
+  semantic specifications cannot supply this evidence.
 - [ ] **Platform enforcement remains unverified.** Implement and test the
   complete confinement/broker boundary on Linux Wayland. Define and verify
   macOS sandbox, entitlement, trusted-panel, signing and notarization behavior

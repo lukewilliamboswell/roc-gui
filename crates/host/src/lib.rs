@@ -2671,7 +2671,10 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         },
         None => None,
     };
-    if let Err(message) = files::configure(args.cap_dir.as_deref()) {
+    if let Err(message) = files::configure(
+        args.cap_dir.as_deref(),
+        args.spec_path.is_none() && !args.host_smoke,
+    ) {
         eprintln!("roc-gui capability error: {message}");
         set_roc_host(core::ptr::null_mut());
         return 2;

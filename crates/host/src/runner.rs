@@ -832,6 +832,18 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 crate::files::operation_counts()[3] - file_counter_baseline[3],
                 &mut count_evidence,
             ),
+            Command::ExpectFileSelectionCounters(expected) => {
+                let observed = crate::files::selection_counts();
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected file selection counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
             Command::ExpectImageOwnerCounters(expected) => {
                 let observed = crate::image_data::counters();
                 count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
