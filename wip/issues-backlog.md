@@ -72,6 +72,14 @@ the change lands; do not soften the docs to match the gap.
 - [ ] Add user-configurable shell-profile grants without exposing executable or
   environment selection as ambient application authority.
 
+## Element appearance
+
+- [ ] **Panel labels are never painted.** `Elem.panel`'s `label` is a semantic
+  locator name, and several applications use it for a status phrase rather than
+  a heading, so painting it as a header would both duplicate body text and move
+  every existing layout. Close with an explicit heading on the panel element,
+  distinct from the locator name, rendered with its own weight and size.
+
 ## Trust: measurements that can mislead a decision
 
 - [ ] **All benchmark captures come from the headless runner.** No GPUI stage is
@@ -119,14 +127,6 @@ names the evidence so a fix can be verified against the same case.
   cursor), or a compositor seam on Wayland. Until then `click` cannot exercise
   GPUI's dispatch tree, occlusion by unrelated elements, or hover styling, and
   there is deliberately no `hover` step.
-- [ ] **Keyboard focus is dropped by ordinary state updates.** Found by
-  `examples/counter/window-specs/keyboard.scm`: focusing a button and
-  activating it with a real `Space` works once, and the control has lost
-  keyboard focus by the next frame, so a second activation goes nowhere. Focus
-  restoration in `Runtime::apply_to_gpui` runs only on dialog open and close
-  transitions; a patch that re-mounts the focused control has no restoration
-  path, and `find_focus_identity` is never consulted for it. Keyboard-only
-  operation of any control that changes state is therefore broken.
 - [ ] **Scroll and resize steps for window specifications.** Found by driving
   `folder-browser` and `settings-center`: a list application's rows below the
   fold cannot be reached, clicked, or photographed at all, and a specification
@@ -343,14 +343,21 @@ names the evidence so a fix can be verified against the same case.
   accessibility API. Close with platform accessibility nodes verified by an
   external accessibility client, while retaining the same semantic names used
   by specifications.
-- [ ] **Focus is not restored across replaced subtrees.** Keyboard focus works
-  for each live GPUI control, but a Roc state update replaces that control's
-  native entity. Dialog open/close is the deliberate exception: its runtime
-  policy restores the semantic opener. Close the general gap by carrying role and stable semantic name across a
-  successful patch when the corresponding control remains live, and specify
-  the destination when navigation removes the focused control.
+- [ ] **Focus has no destination when navigation removes the focused control.**
+  An ordinary patch now restores focus by role and stable semantic name when
+  the control remains live, and dialog open and close keep their own policy.
+  What is still unspecified is where focus goes when the focused control is
+  gone from the next graph: it is simply dropped.
 - [ ] **Composite directory navigation has no roving focus.** A user can reach
   and activate every folder with Tab and Enter or Space. Close with a semantic
   list/list-item element whose Up, Down, Home, and End behavior, selected state,
   scroll-into-view behavior, scaling case, and operating-system accessibility
   mapping all use the production event path.
+- [ ] **Rows and columns cannot align or justify their children.** `Gui.Style`
+  carries size, colour, border, and overflow, but no main- or cross-axis
+  alignment, so an application cannot centre a block in the space it was given.
+  Empty-state messages, which belong in the middle of an otherwise blank
+  content area, are left-aligned with padding instead. Close with an alignment
+  property on row, column, and panel props, mapped to the GPUI flex container
+  the host already builds, with a specification that photographs a centred
+  child.

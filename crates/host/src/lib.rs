@@ -1218,6 +1218,59 @@ pub(crate) fn canvas_target(primitives: &[CanvasPrimitive], x: i32, y: i32) -> O
     })
 }
 
+const FOCUS_RING: u32 = 0xf2a65a;
+const DISABLED_BG: u32 = 0x24333c;
+const DISABLED_FG: u32 = 0x6d7d87;
+const CHECKBOX_BORDER: u32 = 0x8fa3ad;
+const CHECKBOX_BG: u32 = 0x1b2b33;
+const CHECKBOX_CHECKED_BG: u32 = 0x9bdcf0;
+const CHECKBOX_CHECKED_FG: u32 = 0x13222a;
+
+fn trace_ellipse(builder: &mut PathBuilder, center: Point<Pixels>, radii: Size<f32>) {
+    const KAPPA: f32 = 0.5522848;
+    let cx = f32::from(center.x);
+    let cy = f32::from(center.y);
+    let (rx, ry) = (radii.width, radii.height);
+    if rx <= 0.0 || ry <= 0.0 {
+        return;
+    }
+    let (ox, oy) = (rx * KAPPA, ry * KAPPA);
+    builder.move_to(point(px(cx - rx), px(cy)));
+    builder.cubic_bezier_to(
+        point(px(cx), px(cy - ry)),
+        point(px(cx - rx), px(cy - oy)),
+        point(px(cx - ox), px(cy - ry)),
+    );
+    builder.cubic_bezier_to(
+        point(px(cx + rx), px(cy)),
+        point(px(cx + ox), px(cy - ry)),
+        point(px(cx + rx), px(cy - oy)),
+    );
+    builder.cubic_bezier_to(
+        point(px(cx), px(cy + ry)),
+        point(px(cx + rx), px(cy + oy)),
+        point(px(cx + ox), px(cy + ry)),
+    );
+    builder.cubic_bezier_to(
+        point(px(cx - rx), px(cy)),
+        point(px(cx - ox), px(cy + ry)),
+        point(px(cx - rx), px(cy + oy)),
+    );
+    builder.close();
+}
+
+fn apply_disabled(element: Stateful<Div>) -> Stateful<Div> {
+    element
+        .bg(rgb(DISABLED_BG))
+        .text_color(rgb(DISABLED_FG))
+        .opacity(0.55)
+        .cursor_default()
+}
+
+fn apply_focus_ring(element: Stateful<Div>) -> Stateful<Div> {
+    element.focus(|style| style.border_2().border_color(rgb(FOCUS_RING)))
+}
+
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let mut element = div().id(("node", self.node.id));
@@ -1246,7 +1299,7 @@ impl Render for NodeView {
                     move |bounds, _, window, _| {
                         for item in &paint_items {
                             match item.kind {
-                                CanvasPrimitiveKind::Rectangle | CanvasPrimitiveKind::Ellipse => {
+                                CanvasPrimitiveKind::Rectangle => {
                                     let item_bounds = Bounds::new(
                                         point(
                                             bounds.origin.x + px(item.x as f32),
@@ -1254,19 +1307,41 @@ impl Render for NodeView {
                                         ),
                                         size(px(item.width as f32), px(item.height as f32)),
                                     );
-                                    let radius = if item.kind == CanvasPrimitiveKind::Ellipse {
-                                        px(item.width.min(item.height) as f32 / 2.0)
-                                    } else {
-                                        px(item.radius as f32)
-                                    };
                                     window.paint_quad(quad(
                                         item_bounds,
-                                        radius,
+                                        px(item.radius as f32),
                                         item.fill.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
                                         px(item.stroke_width as f32),
                                         item.stroke.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
                                         Default::default(),
                                     ));
+                                }
+                                CanvasPrimitiveKind::Ellipse => {
+                                    let center = point(
+                                        bounds.origin.x
+                                            + px(item.x as f32 + item.width as f32 / 2.0),
+                                        bounds.origin.y
+                                            + px(item.y as f32 + item.height as f32 / 2.0),
+                                    );
+                                    let radii =
+                                        size(item.width as f32 / 2.0, item.height as f32 / 2.0);
+                                    if let Some(fill) = item.fill {
+                                        let mut builder = PathBuilder::fill();
+                                        trace_ellipse(&mut builder, center, radii);
+                                        if let Ok(path) = builder.build() {
+                                            window.paint_path(path, rgb(fill));
+                                        }
+                                    }
+                                    if let (Some(stroke), true) =
+                                        (item.stroke, item.stroke_width > 0)
+                                    {
+                                        let mut builder =
+                                            PathBuilder::stroke(px(item.stroke_width as f32));
+                                        trace_ellipse(&mut builder, center, radii);
+                                        if let Ok(path) = builder.build() {
+                                            window.paint_path(path, rgb(stroke));
+                                        }
+                                    }
                                 }
                                 CanvasPrimitiveKind::Line => {
                                     let mut builder =
@@ -1429,9 +1504,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = element
-                        .cursor(CursorStyle::IBeam)
-                        .focus(|s| s.border_2().border_color(rgb(0x9bdcf0)))
+                    element = apply_focus_ring(element.cursor(CursorStyle::IBeam))
                         .on_key_down(move |event, _, cx| {
                             let mut next = current.clone();
                             if event.keystroke.key == "backspace" {
@@ -1448,7 +1521,7 @@ impl Render for NodeView {
                                 .update(cx, |runtime, cx| runtime.input_if_live(node_id, next, cx));
                         });
                 } else if !*enabled {
-                    element = element.opacity(0.5);
+                    element = apply_disabled(element);
                 }
                 let _ = label;
             }
@@ -1489,7 +1562,7 @@ impl Render for NodeView {
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
                 if !enabled || !self.input_enabled {
-                    element = element.opacity(0.5);
+                    element = apply_disabled(element);
                 }
                 if let Some(editor) = &self.input {
                     element = element.child(editor.clone());
@@ -1517,8 +1590,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = element
-                        .focus(|style| style.border_2().border_color(rgb(0x9bdcf0)))
+                    element = apply_focus_ring(element)
                         .on_action(move |_: &ActivateEnter, _, cx| {
                             let _ = enter_runtime.update(cx, |runtime, cx| {
                                 runtime.activate_if_live(node_id, ControlKey::Enter, cx)
@@ -1537,7 +1609,7 @@ impl Render for NodeView {
                             }
                         });
                 } else {
-                    element = element.opacity(0.5).cursor_default();
+                    element = apply_disabled(element);
                 }
             }
             NodeKind::Checkbox {
@@ -1548,7 +1620,18 @@ impl Render for NodeView {
             } => {
                 let node_id = self.node.id;
                 let runtime = self.runtime.clone();
+                let enabled_box = *enabled && self.input_enabled;
                 let mark = if *checked { "✓" } else { "" };
+                let box_bg = if *checked {
+                    CHECKBOX_CHECKED_BG
+                } else {
+                    CHECKBOX_BG
+                };
+                let box_fg = if *checked {
+                    CHECKBOX_CHECKED_FG
+                } else {
+                    CHECKBOX_BORDER
+                };
                 element = element
                     .flex()
                     .flex_row()
@@ -1560,6 +1643,13 @@ impl Render for NodeView {
                             .w(px(18.0))
                             .h(px(18.0))
                             .border_1()
+                            .border_color(rgb(if enabled_box {
+                                CHECKBOX_BORDER
+                            } else {
+                                DISABLED_FG
+                            }))
+                            .bg(rgb(box_bg))
+                            .text_color(rgb(box_fg))
                             .rounded(px(3.0))
                             .flex()
                             .items_center()
@@ -1619,8 +1709,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = element
-                        .focus(|refinement| refinement.border_2().border_color(rgb(0x9bdcf0)))
+                    element = apply_focus_ring(element)
                         .on_action(move |_: &ActivateSpace, _, cx| {
                             let _ = space_runtime.update(cx, |runtime, cx| {
                                 runtime.activate_if_live(node_id, ControlKey::Space, cx)
@@ -1633,6 +1722,8 @@ impl Render for NodeView {
                                     .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
                             }
                         });
+                } else {
+                    element = apply_disabled(element);
                 }
             }
         }
@@ -1657,6 +1748,7 @@ struct Runtime {
     active_dialog: Option<u64>,
     dialog_return_focus: Option<(u8, String)>,
     last_trigger_focus: Option<(u8, String)>,
+    focused_identity: Option<(u64, (u8, String))>,
     focus_after_render: Option<u64>,
     editors: HashMap<String, Entity<input::TextInput>>,
     canvas_drag: Option<(String, u64)>,
@@ -1687,6 +1779,7 @@ impl Runtime {
             active_dialog: None,
             dialog_return_focus: None,
             last_trigger_focus: None,
+            focused_identity: None,
             focus_after_render: None,
             editors: HashMap::new(),
             canvas_drag: None,
@@ -2011,7 +2104,13 @@ impl Runtime {
                     .take()
                     .and_then(|identity| self.graph.find_focus_identity(&identity));
             }
-            _ => {}
+            _ => {
+                if let Some((id, identity)) = self.focused_identity.clone() {
+                    if self.graph.node(id).is_none() {
+                        self.focus_after_render = self.graph.find_focus_identity(&identity);
+                    }
+                }
+            }
         }
         self.active_dialog = next_dialog;
         for (id, view) in &self.views {
@@ -2320,6 +2419,17 @@ impl Render for Runtime {
                 handle.focus(window);
             }
         }
+        self.focused_identity = self
+            .focus_handles
+            .iter()
+            .find(|(_, handle)| handle.is_focused(window))
+            .map(|(id, _)| *id)
+            .and_then(|id| {
+                self.graph
+                    .node(id)
+                    .and_then(|node| node.kind.focus_identity())
+                    .map(|identity| (id, identity))
+            });
         div()
             .id("roc-gui-root")
             .on_action(|_: &FocusNext, window, _| window.focus_next())
