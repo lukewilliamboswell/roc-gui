@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import http.server
+import os
+from pathlib import Path
 import time
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -20,4 +22,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-http.server.ThreadingHTTPServer(("127.0.0.1", 38191), Handler).serve_forever()
+server = http.server.ThreadingHTTPServer(("127.0.0.1", 38191), Handler)
+ready_file = os.environ.get("ROC_GUI_FIXTURE_READY_FILE")
+if ready_file is not None:
+    Path(ready_file).touch()
+server.serve_forever()
