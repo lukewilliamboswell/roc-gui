@@ -11,4 +11,5 @@
     (expect-not-visible (text "while paused"))
     (click (role button :name "Start clipboard capture"))
     (await-ticks 1)
-    (expect-visible (text "while paused"))))
+    (expect-visible (text "while paused"))
+    (expect-clipboard-counters 1 2 4 0)))

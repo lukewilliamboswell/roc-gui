@@ -59,6 +59,12 @@ Audio counter assertions retain their complete expected and observed vectors in
 then acquire, load, play, pause, seek, status, and stop operations. Each row is
 owned by the assertion step that sampled the production audio host.
 
+Clipboard and SQLite assertions likewise retain complete vectors in
+`clipboard_counter_assertions` and `database_counter_assertions`. Clipboard rows
+record live handles and acquire, read, and write attempts. SQLite rows record
+live connections and open and query attempts. These are correctness counters
+sampled directly from the capability owners; unavailable evidence is absent.
+
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.

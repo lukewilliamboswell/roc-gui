@@ -6,4 +6,5 @@
     (await-ticks 1)
     (expect-visible (text "Private item discarded"))
     (expect-not-visible (text "comparison-safe-secret-fixture"))
-    (expect-visible (text "0 matching items"))))
+    (expect-visible (text "0 matching items"))
+    (expect-clipboard-counters 1 1 1 0)))

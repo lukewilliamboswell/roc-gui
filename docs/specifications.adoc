@@ -90,6 +90,11 @@ the production decoder, mixer, player, seeking, and status state. The
 `expect-audio-counters` assertion records live outputs, live tracks, and the
 seven operation-attempt counters as deterministic step evidence.
 
+Native file and clipboard fixtures are selected by `fixture-metadata/SPEC_NAME`.
+Each `directory=RELATIVE_PATH` or `clipboard=RELATIVE_PATH` entry grants that
+adjacent directory to the corresponding production capability. The metadata is
+generic to the harness and does not depend on an application directory name.
+
 == Locators
 
 `(text "value")`:: Text whose entire value equals `value`.
@@ -153,6 +158,10 @@ fixture. This command is rejected without an explicit fixture grant. The next
 application timer pull observes it through the production capability and host
 read route; the value is neither copied into capture evidence nor emitted as a
 diagnostic.
+`(expect-clipboard-counters LIVE ACQUIRE READ WRITE)`:: Assert the owner-recorded
+live handle count and attempted Clipboard operations.
+`(expect-sqlite-counters LIVE OPEN QUERY)`:: Assert the owner-recorded live
+connection count and attempted SQLite operations.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.

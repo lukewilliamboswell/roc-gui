@@ -17,4 +17,5 @@
     (expect-not-visible (text "beta task"))
     (click (role button :name "Restore item 1"))
     (await-task)
-    (expect-visible (text "Selected item restored"))))
+    (expect-visible (text "Selected item restored"))
+    (expect-clipboard-counters 1 1 2 1)))
