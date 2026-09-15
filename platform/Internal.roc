@@ -4,7 +4,7 @@ import Elem exposing [Elem]
 import Gui
 
 Internal := [].{
-	Route(a) : { boundary : U64, boundary_path : List(U64), id : U64, fire : (a, Str -> Action(a)) }
+	Route(a) : { boundary : U64, boundary_path : List(U64), id : U64, fire : (a, Str => Action(a)) }
 
 	BoundaryInfo(a) : { key : U64, parent : [None, Some(U64)], path : List(U64), render : (a -> Elem(a)), root : U64 }
 

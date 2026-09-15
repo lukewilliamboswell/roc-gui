@@ -8,6 +8,7 @@ mod observatory;
 mod roc_platform_abi;
 mod runner;
 mod spec;
+mod timers;
 
 use bridge::{
     BridgeState, ControlKey, Length, MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis,
@@ -162,6 +163,7 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
     files::route_dealloc(pointer);
+    timers::route_dealloc(pointer);
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
 
@@ -640,6 +642,21 @@ pub extern "C" fn roc_gui_set_task_dispatch(dispatcher: RocErasedCallable) {
             unsafe { decref_erased_callable(previous, roc_host()) };
         }
     });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_timer_start(interval_ms: u64) -> *mut u64 {
+    timers::start(interval_ms)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_timer_next(handle: *mut u64) -> bool {
+    timers::next(handle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_timer_cancel(handle: *mut u64) -> bool {
+    timers::cancel(handle)
 }
 
 #[unsafe(no_mangle)]

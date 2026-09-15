@@ -3162,6 +3162,33 @@ pub struct HostGlueEnqueueTaskArgs {
     pub arg0: RocErasedCallable,
 }
 
+/// Arguments for HostGlue.timer_start!
+/// Roc signature: U64 => Resource.Handle([TimerResource])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTimerStartArgs {
+    pub arg0: u64,
+}
+
+/// Arguments for HostGlue.timer_next!
+/// Roc signature: Resource.Handle([TimerResource]) => Bool
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTimerNextArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.timer_cancel!
+/// Roc signature: Resource.Handle([TimerResource]) => Bool
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTimerCancelArgs {
+    pub arg0: *mut u64,
+}
+
 /// Arguments for HostGlue.work_start!
 /// Roc signature: U8 => {}
 /// Refcounted fields are owned by the hosted function.
@@ -4120,6 +4147,25 @@ unsafe extern "C" {
     /// moved into storage or into the result:
     ///     unsafe { decref_erased_callable(arg0, roc_host); }
     pub fn roc_gui_enqueue_task(arg0: RocErasedCallable);
+
+    /// Hosted symbol for HostGlue.timer_start!
+    /// Roc signature: U64 => Resource.Handle([TimerResource])
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_gui_timer_start(arg0: u64) -> *mut u64;
+
+    /// Hosted symbol for HostGlue.timer_next!
+    /// Roc signature: Resource.Handle([TimerResource]) => Bool
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_gui_timer_next(arg0: *mut u64) -> bool;
+
+    /// Hosted symbol for HostGlue.timer_cancel!
+    /// Roc signature: Resource.Handle([TimerResource]) => Bool
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_gui_timer_cancel(arg0: *mut u64) -> bool;
 
     /// Hosted symbol for HostGlue.work_start!
     /// Roc signature: U8 => {}

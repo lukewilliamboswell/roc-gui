@@ -42,6 +42,19 @@ Use `Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
 returning an unchanged state with `Action.update`.
 
+== Timers and subscriptions
+
+`Timer.start!({ interval_ms })` creates an opaque `Timer.Handle` for intervals
+from 1 through 60,000 milliseconds. `Timer.next!(handle)` waits for one tick
+and belongs inside `Action.task`; the next wait is started only after the
+previous completion has been applied. This pull contract bounds backpressure
+at one in-flight wait and does not accumulate missed ticks.
+
+`Timer.cancel!(handle)` is idempotent, wakes an outstanding wait, and makes it
+resolve as `Canceled`. Dropping the last typed `Box(U64)` handle also releases
+the host registry entry. Applications retain the handle in state and decide
+whether a `Fired` result schedules another wait.
+
 == Elements and layout
 
 `Elem.text(value)`:: Display a string.

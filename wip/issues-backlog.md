@@ -56,6 +56,11 @@ names the evidence so a fix can be verified against the same case.
 
 ## Input and accessibility
 
+- [ ] **System monitor sensors and charts.** The system-monitor example proves
+  bounded live updates, cancellation, and explicit unavailable values. Add
+  capability-detected OS CPU and memory samplers, chart/canvas elements,
+  process-table sorting and privacy-safe export as complete later slices.
+
 - [ ] **Textarea selection, IME composition, and clipboard commands.** The
   production textarea accepts ordinary character, Enter, and Backspace input
   and routes complete controlled values through Roc. Close the desktop-editor

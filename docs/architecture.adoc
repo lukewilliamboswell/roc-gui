@@ -190,7 +190,13 @@ installed task dispatcher, renders the root boundary, commits one ordinary
 patch, and installs successor dispatchers. Roc values cross threads only as
 owned erased callables; generic state and actions remain boxed across the ABI.
 
-Directory handles are typed nominal wrappers over `Box(U64)`. Each token names
+Periodic subscriptions use the same route. A timer has at most one waiting
+`Timer.next!` task. Its wait parks on a worker and returns a normal boxed
+reducer; the UI thread applies that reducer with the installed task dispatcher.
+Cancellation wakes the waiter, and cadence advances from the completion of the
+preceding pull, so a slow consumer cannot create an unbounded event backlog.
+
+Directory and timer handles are typed nominal wrappers over `Box(U64)`. Each token names
 a host registry entry containing a `cap_std::fs::Dir`; final box deallocation
 removes that entry. The phantom resource kind leaves room for other handle
 families without allowing their types to be confused. Ambient filesystem

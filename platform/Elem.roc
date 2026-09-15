@@ -65,7 +65,7 @@ Elem(a) :: [
 	## `on_dismiss` handles Escape. Dialogs center above an input-blocking scrim.
 	DialogProps(a) := {
 		label : Str,
-		on_dismiss : (a, Event.Dismiss -> Action(a)),
+		on_dismiss : (a, Event.Dismiss => Action(a)),
 		gap : U32 ?? 16,
 		padding : U32 ?? 24,
 		width : Gui.Length ?? Px(520),
@@ -112,7 +112,7 @@ Elem(a) :: [
 		caption : Str,
 		label : Str,
 		enabled : Bool ?? True,
-		on_press : (a, Event.Press -> Action(a)),
+		on_press : (a, Event.Press => Action(a)),
 		gap : U32 ?? 8,
 		padding : U32 ?? 8,
 		width : Gui.Length ?? Auto,
@@ -151,7 +151,7 @@ Elem(a) :: [
 		label : Str,
 		checked : Bool,
 		enabled : Bool ?? True,
-		on_change : (a, Event.Check -> Action(a)),
+		on_change : (a, Event.Check => Action(a)),
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
 		width : Gui.Length ?? Auto,
@@ -179,7 +179,7 @@ Elem(a) :: [
 		placeholder : Str ?? "",
 		enabled : Bool ?? True,
 		read_only : Bool ?? False,
-		on_input : (a, Event.Input -> Action(a)),
+		on_input : (a, Event.Input => Action(a)),
 		gap : U32 ?? 8,
 		padding : U32 ?? 8,
 		width : Gui.Length ?? Fill,
@@ -203,7 +203,7 @@ Elem(a) :: [
 
 	## Display a named text button and handle presses. `name` is its stable
 	## semantic locator; `label` is its visible caption.
-	button : { label : Str, name : Str, on_press : a, Event.Press -> Action(a) } -> Elem(a)
+	button : { label : Str, name : Str, on_press : a, Event.Press => Action(a) } -> Elem(a)
 	button = |props| ActionButton(ActionButtonProps.{ caption: props.label, label: props.name, on_press: props.on_press })
 
 	## Display a controlled, styled action button.
@@ -257,10 +257,10 @@ Elem(a) :: [
 		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Dialog(value) => {
 			child_handler = value.props.on_dismiss
-			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			Dialog({
 				children: value.children.map(|child| lift(child, get_child, set_child)),
-				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler, gap: value.props.gap, padding: value.props.padding, width: value.props.width, height: value.props.height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, radius: value.props.radius, font_size: value.props.font_size, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y },
+				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, width: value.props.width, height: value.props.height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, radius: value.props.radius, font_size: value.props.font_size, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y },
 			})
 		}
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
@@ -274,13 +274,13 @@ Elem(a) :: [
 		)
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
-			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			ActionButton(
 				ActionButtonProps.{
 					caption: button_value.caption,
 					label: button_value.label,
 					enabled: button_value.enabled,
-					on_press: parent_handler,
+					on_press: parent_handler!,
 					gap: button_value.gap,
 					padding: button_value.padding,
 					width: button_value.width,
@@ -301,13 +301,13 @@ Elem(a) :: [
 		}
 		Checkbox(checkbox_value) => {
 			child_handler = checkbox_value.on_change
-			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			Checkbox(
 				CheckboxProps.{
 					label: checkbox_value.label,
 					checked: checkbox_value.checked,
 					enabled: checkbox_value.enabled,
-					on_change: parent_handler,
+					on_change: parent_handler!,
 					gap: checkbox_value.gap,
 					padding: checkbox_value.padding,
 					width: checkbox_value.width,
@@ -328,8 +328,8 @@ Elem(a) :: [
 		}
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
-			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
-			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler, gap: textarea_value.gap, padding: textarea_value.padding, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, radius: textarea_value.radius, font_size: textarea_value.font_size, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y })
+			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, radius: textarea_value.radius, font_size: textarea_value.font_size, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y })
 		}
 		Boundary(child_renderer) => {
 			parent_renderer = |parent| lift(child_renderer(get_child(parent)), get_child, set_child)

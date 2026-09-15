@@ -91,6 +91,10 @@ checkbox through the normal Roc event route.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.
+`(await-ticks N)`:: Apply `N` successive timer wait completions through that
+same worker and latest-state route. `N` must be positive.
+`(expect-subscriptions N)`:: Require exactly `N` active host timer handles.
+This assertion reads the timer registry that owns cancellation state.
 `(expect-visible LOCATOR)`:: Require at least one match.
 `(expect-focused LOCATOR)`:: Require semantic focus to be on exactly one
 matching enabled control. This proves the host's dialog focus policy, not a

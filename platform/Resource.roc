@@ -5,4 +5,5 @@ Resource := [].{
 	Handle(_resource) :: Box(U64)
 
 	DirRead : Handle([DirReadResource])
+	Timer : Handle([TimerResource])
 }

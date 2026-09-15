@@ -1,6 +1,8 @@
 # Fixed-layout mirror used only by `main-glue.roc`. The real Host module keeps
 # task callables parameterized by application state; Rust sees both forms as
 # the same erased callable pointer.
+import Resource
+
 HostGlue := [].{
 	Patch : [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })]
 	node_text! : Str => U64
@@ -167,6 +169,9 @@ HostGlue := [].{
 	set_dispatch! : Box((U64 => {})) => {}
 	set_task_dispatch! : Box((U64 => {})) => {}
 	enqueue_task! : Box((U64 => {})) => {}
+	timer_start! : U64 => Resource.Timer
+	timer_next! : Resource.Timer => Bool
+	timer_cancel! : Resource.Timer => Bool
 	work_start! : U8 => {}
 	work_end! : U8 => {}
 	window_config! : Str, U32, U32 => {}

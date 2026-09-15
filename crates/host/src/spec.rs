@@ -32,6 +32,8 @@ pub enum Command {
     Focus(Locator),
     PressKey(ControlKey),
     AwaitTask,
+    AwaitTicks(u32),
+    ExpectSubscriptions(usize),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
     ExpectNotVisible(Locator),
@@ -51,6 +53,8 @@ impl Command {
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
+            Self::AwaitTicks(_) => "await-ticks",
+            Self::ExpectSubscriptions(_) => "expect-subscriptions",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
             Self::ExpectNotVisible(_) => "expect-not-visible",
@@ -71,6 +75,7 @@ impl Command {
                 | Self::Focus(_)
                 | Self::PressKey(_)
                 | Self::AwaitTask
+                | Self::AwaitTicks(_)
         )
     }
 }
@@ -366,6 +371,30 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "await-task" if values.len() == 1 => Command::AwaitTask,
+        "await-ticks" if values.len() == 2 => Command::AwaitTicks(
+            values[1]
+                .atom()
+                .ok_or_else(|| error(&values[1], "await-ticks requires a positive integer"))?
+                .parse()
+                .map_err(|_| error(&values[1], "await-ticks requires a positive integer"))?,
+        ),
+        "expect-subscriptions" if values.len() == 2 => Command::ExpectSubscriptions(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-subscriptions requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-subscriptions requires a non-negative integer",
+                    )
+                })?,
+        ),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
         "expect-not-visible" if values.len() == 2 => {
@@ -433,9 +462,21 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
-        "click" | "replace-text" | "focus" | "press-key" | "await-task" | "expect-visible"
-        | "expect-not-visible" | "expect-count" | "expect-before" | "expect-patch"
-        | "expect-value" | "expect-value-bytes" | "mark-metrics" => {
+        "click"
+        | "replace-text"
+        | "focus"
+        | "press-key"
+        | "await-task"
+        | "await-ticks"
+        | "expect-subscriptions"
+        | "expect-visible"
+        | "expect-not-visible"
+        | "expect-count"
+        | "expect-before"
+        | "expect-patch"
+        | "expect-value"
+        | "expect-value-bytes"
+        | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -757,6 +798,14 @@ mod tests {
         assert_eq!(spec.name, "counter");
         assert_eq!(spec.steps.len(), 2);
         assert_eq!(spec.steps[1].line, 5);
+    }
+
+    #[test]
+    fn parses_subscription_lifecycle_steps() {
+        let spec =
+            parse(r#"(test "timer" (steps (expect-subscriptions 1) (await-ticks 12)))"#).unwrap();
+        assert_eq!(spec.steps[0].command, Command::ExpectSubscriptions(1));
+        assert_eq!(spec.steps[1].command, Command::AwaitTicks(12));
     }
 
     #[test]

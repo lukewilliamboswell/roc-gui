@@ -145,6 +145,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut cycle_ordinal = 1u64;
     let mut last_patch: Option<ApplyFacts> = None;
     let mut focused: Option<u64> = None;
+    let mut timer_fired_seen = crate::timers::fired_count();
     let mut dialog_return_focus: Option<(u8, String)> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
         let role = match &step.command {
@@ -407,6 +408,38 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 ));
                 cycle_ordinal += 1;
                 Ok(())
+            }
+            Command::AwaitTicks(count) => {
+                if *count == 0 {
+                    return Err(format!(
+                        "line {}: await-ticks count must be positive",
+                        step.line
+                    ));
+                }
+                for _ in 0..*count {
+                    let patch = complete(await_task_completion()?);
+                    let fired = crate::timers::fired_count();
+                    if fired <= timer_fired_seen {
+                        return Err(format!(
+                            "line {}: completed task was not a fired timer wait",
+                            step.line
+                        ));
+                    }
+                    timer_fired_seen += 1;
+                    last_patch = Some(graph.apply_measured(patch)?.facts);
+                }
+                Ok(())
+            }
+            Command::ExpectSubscriptions(expected) => {
+                let active = crate::timers::active_count();
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active subscriptions, observed {active}",
+                        step.line
+                    ))
+                }
             }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
