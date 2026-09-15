@@ -232,6 +232,16 @@ class DependencyTests(unittest.TestCase):
             f"repos/{release_dependencies.REPOSITORY}/releases?per_page=100",
         ], text=True)
 
+    def test_draft_release_lookup_retries_eventual_visibility(self):
+        draft = {"id": 7, "tag_name": "deps-musl-1", "draft": True}
+        with patch.object(
+                release_dependencies.subprocess, "check_output",
+                side_effect=["[]", json.dumps([draft])]
+        ) as query, patch.object(release_dependencies.time, "sleep") as pause:
+            self.assertEqual(release_dependencies.release_by_tag("deps-musl-1"), draft)
+        self.assertEqual(query.call_count, 2)
+        pause.assert_called_once_with(1)
+
 
 if __name__ == "__main__":
     unittest.main()
