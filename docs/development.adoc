@@ -85,8 +85,7 @@ texts do.
 Native artifacts have three independent release layers:
 
 . External linker-input producers build one independently versioned dependency
-  from pinned sources or, for macOS, from the reviewed interface
-  catalog.
+  from pinned sources or a reviewed system-library interface catalog.
 . Host producers build `libhost.a` for each target and bind it to the exact host
   source, Cargo lock, configuration, profile, and toolchain inputs.
 . Platform release assembly admits released external and host inputs, runs the
@@ -109,6 +108,20 @@ Final platform releases accept only locked, released, and attested inputs.
 Change an external input through its owning recipe and tests. Publish it from the
 default branch, then adopt the generated lock candidate in a separate review.
 Ordinary platform and host changes reuse existing dependency releases.
+
+=== Generated system-library interfaces
+
+When an application links to a library supplied by the target environment, its
+producer emits only the reviewed symbols and the runtime library's stable name.
+The archive does not contain an implementation or an absolute provider path.
+Production verifies the exact exported symbol inventory and stable library name,
+links a probe through the generated interface, and runs that probe against a
+native provider. The release carries the interface recipe, probe, producer, and
+archive verification inputs needed to reproduce it.
+
+The target system or package environment supplies the implementation at runtime.
+This keeps linker inputs independent of a distribution's filesystem layout while
+preserving normal runtime library resolution.
 
 === Generated macOS interfaces
 
