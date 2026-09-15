@@ -133,6 +133,9 @@ pub enum Command {
     Type(String),
     /// Send one real key chord, such as "cmd-a", through the keymap.
     Key(String),
+    /// Resize the production window, so a layout can be proved at a size other
+    /// than the one `main.roc` asks for.
+    Resize { width: u32, height: u32 },
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
@@ -259,6 +262,7 @@ impl Command {
             Self::Screenshot(_) => "screenshot",
             Self::Type(_) => "type",
             Self::Key(_) => "key",
+            Self::Resize { .. } => "resize",
         }
     }
 
@@ -279,7 +283,8 @@ impl Command {
             | Self::ExpectBounds(_, _)
             | Self::Screenshot(_)
             | Self::Type(_)
-            | Self::Key(_) => Capability::Window,
+            | Self::Key(_)
+            | Self::Resize { .. } => Capability::Window,
             // Shared with the semantic runner, and implemented by both.
             Self::Click(_)
             | Self::Focus(_)
@@ -831,6 +836,24 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 ));
             }
             Command::ExpectBounds(locator, expectation)
+        }
+        "resize" if values.len() == 3 => {
+            let dimension = |index: usize, name: &str| -> Result<u32, ParseError> {
+                values[index]
+                    .atom()
+                    .and_then(|value| value.parse::<u32>().ok())
+                    .filter(|value| (64..=8192).contains(value))
+                    .ok_or_else(|| {
+                        error(
+                            &values[index],
+                            &format!("resize {name} is 64 to 8192 logical pixels"),
+                        )
+                    })
+            };
+            Command::Resize {
+                width: dimension(1, "width")?,
+                height: dimension(2, "height")?,
+            }
         }
         "settle" => {
             let keywords = parse_keywords(head, &values[1..], &[":frames", ":timeout-ms"])?;
@@ -2137,6 +2160,29 @@ mod tests {
     /// The guard for the committed suite: every specification parses, and
     /// belongs to exactly one runner. Both kinds share a directory, so the file
     /// contents are the only thing that decides which runner takes it.
+    #[test]
+    fn resize_takes_a_bounded_logical_size() {
+        let parsed = parse("(test \"t\" (steps (resize 900 600)))").expect("valid resize");
+        assert!(matches!(
+            parsed.steps[0].command,
+            Command::Resize {
+                width: 900,
+                height: 600
+            }
+        ));
+        assert!(matches!(
+            parsed.steps[0].command.capability(),
+            Capability::Window
+        ));
+        for bad in [
+            "(test \"t\" (steps (resize 32 600)))",
+            "(test \"t\" (steps (resize 900 9000)))",
+            "(test \"t\" (steps (resize 900)))",
+        ] {
+            assert!(parse(bad).is_err(), "accepted {bad}");
+        }
+    }
+
     #[test]
     fn every_committed_spec_belongs_to_exactly_one_runner() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))

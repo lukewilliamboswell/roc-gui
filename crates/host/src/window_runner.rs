@@ -13,7 +13,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use gpui::{App, AppContext, AsyncApp, Keystroke, WindowHandle};
+use gpui::{App, AppContext, AsyncApp, Keystroke, WindowHandle, px, size};
 
 use crate::probe::{self, Rect};
 use crate::screenshot::{self, ShotError};
@@ -501,6 +501,13 @@ async fn run_step(
         Command::Key(chord) => {
             dispatch_chord(window, chord, cx)?;
             settle(window, 1, options.timeout, cx).await
+        }
+        Command::Resize { width, height } => {
+            cx.update_window(window.into(), |_, window, _| {
+                window.resize(size(px(*width as f32), px(*height as f32)));
+            })
+            .map_err(|_| StepError::WindowClosed)?;
+            settle(window, 2, options.timeout, cx).await
         }
         // Deliberately the same claim the semantic runner makes: present in
         // the mounted graph. The stronger pixel claim is `expect-on-screen`, so

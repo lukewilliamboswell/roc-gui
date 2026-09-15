@@ -252,12 +252,12 @@ names the evidence so a fix can be verified against the same case.
   cursor), or a compositor seam on Wayland. Until then `click` cannot exercise
   GPUI's dispatch tree, occlusion by unrelated elements, or hover styling, and
   there is deliberately no `hover` step.
-- [ ] **Scroll and resize steps for window specifications.** Found by driving
-  `folder-browser` and `settings-center`: a list application's rows below the
-  fold cannot be reached, clicked, or photographed at all, and a specification
-  cannot prove a layout at a size other than the one `main.roc` asks for. A
-  `(scroll LOCATOR ...)` step and a `(resize W H)` step would close both. This
-  is the largest gap in the window vocabulary.
+- [ ] **A scroll step for window specifications.** Found by driving
+  `folder-browser`: a list application's rows below the fold cannot be reached,
+  clicked, or photographed at all. A `(scroll LOCATOR ...)` step would close
+  this. `(resize W H)` has landed and `settings-center`'s
+  `specs/window-narrow.scm` proves a layout at two sizes `main.roc` never asks
+  for.
 - [ ] **Shared steps the window runner does not implement.** `drag`,
   `replace-text`, `clipboard-text`, `submit`, `await-ticks`,
   `revoke-file-grants`, the value and ordering assertions, and the owner

@@ -227,7 +227,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectBounds(_, _)
             | Command::Screenshot(_)
             | Command::Type(_)
-            | Command::Key(_) => Err(format!(
+            | Command::Key(_)
+            | Command::Resize { .. } => Err(format!(
                 "line {}: step `{}` is window-only; run this specification with --host-run-window-spec",
                 step.line,
                 step.command.kind(),
