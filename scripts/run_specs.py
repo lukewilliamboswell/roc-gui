@@ -182,7 +182,7 @@ def main() -> int:
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
         )
         atexit.register(lambda: fixture_process.poll() is None and fixture_process.terminate())
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             try:
                 with socket.create_connection(("127.0.0.1", 38191), timeout=0.1):
