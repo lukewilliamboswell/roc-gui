@@ -300,7 +300,8 @@ pub struct Style {
     pub active_bg: Option<u32>,
     pub fg: Option<u32>,
     pub border_color: Option<u32>,
-    pub border_width: u32,
+    /// Top, right, bottom, left, already resolved from the shorthand.
+    pub border_width: [u32; 4],
     pub radius: u32,
     pub font_size: u32,
     pub font_weight: u32,

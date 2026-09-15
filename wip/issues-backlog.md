@@ -138,12 +138,12 @@ the change lands; do not soften the docs to match the gap.
   concept at all: neither `TextStyle` nor `TextStyleRefinement` carries one, and
   the shaper takes none, so this needs an upstream field before a
   `Gui.Style` letter-spacing field can mean anything.
-- [ ] **A border is all four sides at one width and one colour.** A dense
-  instrument panel divides regions with hairline rules, not with boxes.
-  `terminal-workspace` can only give every region a complete 1-point box and set
-  the gap between regions to 1 point so adjacent edges read as a single rule;
-  the outer edges of the stack are drawn too, and the seam is two coincident
-  borders rather than one. Close with per-side border width and colour.
+- [ ] **A border is one colour on all four sides.** Per-side widths have
+  landed, and `terminal-workspace` now draws one hairline on the edge that faces
+  the next region instead of boxing every region and holding the boxes apart
+  with a 1-point seam. Per-side colour is not expressible: GPUI 0.2.2's `Style`
+  carries `border_widths` as `Edges` but a single `border_color`, so a side
+  cannot have a colour of its own without an upstream change.
 - [ ] **`radius` does not round an image's pixels.** `Elem.image` applies the
   shared style to its container, but the decoded picture is painted as a full-size
   child that is not clipped to that radius, so `image-library`'s 16-point media

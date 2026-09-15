@@ -48,7 +48,8 @@ Theme := [].{
 	## Padding inside a region, and the gap between controls in one region.
 	inset = 6.U32
 
-	## The gap between regions. One point, so adjacent hairlines read as a
-	## single rule dividing the panel.
-	seam = 1.U32
+	## The gap between stacked regions. Zero: a region draws the rule on the one
+	## edge that faces the next region, so the division is a single hairline
+	## rather than two coincident borders with a gap holding them apart.
+	seam = 0.U32
 }

@@ -139,7 +139,7 @@ key_cap = |caption, label, enabled, on_press| Elem.action_button(Elem.ActionButt
 })
 
 field_row = |label, caption, field| Elem.row(
-	Elem.RowProps.{ label, width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+	Elem.RowProps.{ label, width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 	[
 		Elem.row(Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Elem.text(caption)]),
 		field,
@@ -155,7 +155,7 @@ render = |state| {
 	shown = visible_lines(state)
 	filtered = if Str.is_empty(state.query) { "filter off" } else { "filter \"${state.query}\"" }
 	Elem.col(Elem.ColProps.{ label: "Terminal pane", width: Fill, height: Fill, grow: True, gap: Theme.seam, fg: Theme.text, font_size: Theme.body }, [
-		Elem.row(Elem.RowProps.{ label: "Session controls", width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 1, radius: Theme.radius }, [
+		Elem.row(Elem.RowProps.{ label: "Session controls", width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) }, [
 			key_cap("New terminal", "New terminal", !live, |current, _| start(current)),
 			key_cap("Stop", "Stop terminal", live, |current, _| cancel(current)),
 			Elem.row(Elem.RowProps.{ label: "Session status", padding: 4, gap: 0, grow: True, justify: End, fg: Theme.signal, font_size: Theme.meta }, [Elem.text(state.status)]),
@@ -165,7 +165,7 @@ render = |state| {
 		Elem.col(Elem.ColProps.{ label: "Scrollback well", width: Fill, height: Fill, grow: True, padding: 4, gap: 0, bg: Theme.well, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip }, [
 			Elem.virtual_list(Elem.VirtualListProps.{ name: "Terminal scrollback", row_height: Theme.row_height, items: shown }),
 		]),
-		Elem.row(Elem.RowProps.{ label: "Workspace footer", width: Fill, padding: Theme.inset, gap: 8, bg: Theme.region, border_color: Theme.line, border_width: 1, radius: Theme.radius, fg: Theme.dim, font_size: Theme.meta }, [
+		Elem.row(Elem.RowProps.{ label: "Workspace footer", width: Fill, padding: Theme.inset, gap: 8, bg: Theme.region, border_color: Theme.line, border_width: 0, border_top: Px(1), fg: Theme.dim, font_size: Theme.meta }, [
 			Elem.text("${shown.len().to_str()}/${state.lines.len().to_str()} lines"),
 			Elem.text("|"),
 			Elem.text(filtered),

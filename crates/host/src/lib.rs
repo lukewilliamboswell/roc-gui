@@ -332,7 +332,12 @@ macro_rules! decode_layout_style {
             active_bg: decode_color($args.active_bg),
             fg: decode_color($args.fg),
             border_color: decode_color($args.border_color),
-            border_width: $args.border_width,
+            border_width: [
+                $args.border_top,
+                $args.border_right,
+                $args.border_bottom,
+                $args.border_left,
+            ],
             radius: $args.radius,
             font_size: $args.font_size,
             font_weight: $args.font_weight,
@@ -615,7 +620,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         grow: args.grow,
         bg: decode_color(args.bg),
         border_color: decode_color(args.border_color),
-        border_width: args.border_width,
+        border_width: [args.border_width; 4],
         radius: args.radius,
         overflow_x: Overflow::Clip,
         overflow_y: Overflow::Clip,
@@ -1042,9 +1047,11 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     if let Some(value) = style.border_color {
         element = element.border_color(rgb(value));
     }
-    if style.border_width > 0 {
-        element = element.border(px(style.border_width as f32));
-    }
+    element = element
+        .border_t(px(style.border_width[0] as f32))
+        .border_r(px(style.border_width[1] as f32))
+        .border_b(px(style.border_width[2] as f32))
+        .border_l(px(style.border_width[3] as f32));
     if style.radius > 0 {
         element = element.rounded(px(style.radius as f32));
     }
@@ -1569,9 +1576,11 @@ impl Render for NodeView {
                 if let Some(value) = style.border_color {
                     element = element.border_color(rgb(value));
                 }
-                if style.border_width > 0 {
-                    element = element.border(px(style.border_width as f32));
-                }
+                element = element
+                    .border_t(px(style.border_width[0] as f32))
+                    .border_r(px(style.border_width[1] as f32))
+                    .border_b(px(style.border_width[2] as f32))
+                    .border_l(px(style.border_width[3] as f32));
                 if style.radius > 0 {
                     element = element.rounded(px(style.radius as f32));
                 }
