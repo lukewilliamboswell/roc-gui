@@ -74,7 +74,19 @@ def assemble(output: Path, roc: str, dependency_lock: Path, host_lock: Path, cac
         shutil.copyfile(ROOT / "THIRD_PARTY_LICENSES.md", platform / "THIRD_PARTY_LICENSES.md")
         (platform / "dependencies.lock.json").write_text(json.dumps(external_lock, indent=2) + "\n")
         (platform / "host.lock.json").write_text(json.dumps(hosts_lock, indent=2) + "\n")
-        subprocess.run([roc, "bundle", "--output-dir", str(output), str(platform / "main.roc")], check=True)
+        bundle_files = [
+            "main.roc",
+            *sorted(
+                path.relative_to(platform).as_posix()
+                for path in platform.rglob("*")
+                if path.is_file() and path != platform / "main.roc"
+            ),
+        ]
+        subprocess.run(
+            [roc, "bundle", *bundle_files, "--output-dir", str(output)],
+            cwd=platform,
+            check=True,
+        )
     bundles = [path for path in output.iterdir() if path.is_file() and path.name.endswith(".tar.zst")]
     if len(bundles) != 1:
         raise ValueError("roc bundle must emit exactly one content-addressed .tar.zst")
