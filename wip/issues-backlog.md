@@ -56,6 +56,14 @@ names the evidence so a fix can be verified against the same case.
 
 ## Input and accessibility
 
+- [ ] **Clipboard image formats, durable pins, and global activation.** The
+  clipboard-history slice provides explicitly granted, bounded text capture,
+  privacy exclusion, restore, cancellation, stale suppression, virtualization,
+  and content-free semantic evidence. Add bounded image representations,
+  encrypted durable pinned entries, compositor-level change notifications, and
+  a globally activated overlay with focus restoration as complete production
+  slices before presenting it as a full desktop clipboard manager.
+
 - [ ] **SQLite write transactions and parameters.** The database capability is
   deliberately read-only and executes one statement without bindings. Add a
   separately granted read-write capability, typed parameters, cancellation,
