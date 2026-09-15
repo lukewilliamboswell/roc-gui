@@ -9,6 +9,7 @@ Elem(a) :: [
 	Boundary(a -> Elem(a)),
 	ActionButton(ActionButtonProps(a)),
 	Checkbox(CheckboxProps(a)),
+	Textarea(TextareaProps(a)),
 	Column({ children : List(Elem(a)), props : ColProps }),
 	Panel({ children : List(Elem(a)), props : PanelProps }),
 	Row({ children : List(Elem(a)), props : RowProps }),
@@ -145,6 +146,34 @@ Elem(a) :: [
 		overflow_y : Gui.Overflow ?? Visible,
 	}
 
+	## Properties for a controlled multiline editor. `label` is its stable
+	## semantic name. `value` remains application-owned; every edit delivers the
+	## complete requested value to `on_input`. Read-only editors expose and scroll
+	## text without dispatching edits.
+	TextareaProps(a) := {
+		label : Str,
+		value : Str,
+		placeholder : Str ?? "",
+		enabled : Bool ?? True,
+		read_only : Bool ?? False,
+		on_input : (a, Event.Input -> Action(a)),
+		gap : U32 ?? 8,
+		padding : U32 ?? 8,
+		width : Gui.Length ?? Fill,
+		height : Gui.Length ?? Px(160),
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Rgb(0x10252b),
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Rgb(0x48666b),
+		border_width : U32 ?? 1,
+		radius : U32 ?? 6,
+		font_size : U32 ?? 15,
+		overflow_x : Gui.Overflow ?? Scroll,
+		overflow_y : Gui.Overflow ?? Scroll,
+	}
+
 	## Display literal text.
 	text : Str -> Elem(a)
 	text = |value| Text(value)
@@ -162,6 +191,11 @@ Elem(a) :: [
 	## the next `checked` value for the visual state to change.
 	checkbox : CheckboxProps(a) -> Elem(a)
 	checkbox = |props| Checkbox(props)
+
+	## Edit controlled multiline text. The application installs the next value
+	## returned by `on_input`; use `read_only: True` for response viewers.
+	textarea : TextareaProps(a) -> Elem(a)
+	textarea = |props| Textarea(props)
 
 	## Lay out children horizontally in order.
 	row : RowProps, List(Elem(a)) -> Elem(a)
@@ -256,6 +290,11 @@ Elem(a) :: [
 				},
 			)
 		}
+		Textarea(textarea_value) => {
+			child_handler = textarea_value.on_input
+			parent_handler = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler, gap: textarea_value.gap, padding: textarea_value.padding, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, radius: textarea_value.radius, font_size: textarea_value.font_size, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y })
+		}
 		Boundary(child_renderer) => {
 			parent_renderer = |parent| lift(child_renderer(get_child(parent)), get_child, set_child)
 			Boundary(parent_renderer)
@@ -276,6 +315,7 @@ Elem(a) :: [
 		Boundary(a -> Elem(a)),
 		ActionButton(ActionButtonProps(a)),
 		Checkbox(CheckboxProps(a)),
+		Textarea(TextareaProps(a)),
 		Column({ children : List(Elem(a)), props : ColProps }),
 		Panel({ children : List(Elem(a)), props : PanelProps }),
 		Row({ children : List(Elem(a)), props : RowProps }),
@@ -287,6 +327,7 @@ Elem(a) :: [
 		Boundary(renderer) => Boundary(renderer)
 		ActionButton(button_value) => ActionButton(button_value)
 		Checkbox(checkbox_value) => Checkbox(checkbox_value)
+		Textarea(textarea_value) => Textarea(textarea_value)
 		Column(children) => Column(children)
 		Panel(children) => Panel(children)
 		Row(children) => Row(children)

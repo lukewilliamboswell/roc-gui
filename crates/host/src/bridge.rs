@@ -55,6 +55,14 @@ pub enum NodeKind {
         enabled: bool,
         style: Style,
     },
+    Textarea {
+        label: String,
+        value: String,
+        placeholder: String,
+        enabled: bool,
+        read_only: bool,
+        style: Style,
+    },
     Column {
         label: String,
         style: Style,
@@ -636,7 +644,10 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     let mut parent_count = 0;
     for node in nodes {
         match node.kind {
-            NodeKind::Text(_) | NodeKind::Checkbox { .. } | NodeKind::Button { .. }
+            NodeKind::Text(_)
+            | NodeKind::Checkbox { .. }
+            | NodeKind::Button { .. }
+            | NodeKind::Textarea { .. }
                 if !node.children.is_empty() =>
             {
                 return Err(format!("leaf node {} has children", node.id));
@@ -719,7 +730,10 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
     let mut parent_count = 0;
     for node in nodes {
         match node.kind {
-            NodeKind::Text(_) | NodeKind::Checkbox { .. } | NodeKind::Button { .. }
+            NodeKind::Text(_)
+            | NodeKind::Checkbox { .. }
+            | NodeKind::Button { .. }
+            | NodeKind::Textarea { .. }
                 if !node.children.is_empty() =>
             {
                 return Err(format!("leaf node {} has children", node.id));

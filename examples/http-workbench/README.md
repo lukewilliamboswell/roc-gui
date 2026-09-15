@@ -4,6 +4,12 @@ A local-first desktop client for composing, sending, inspecting, and organizing
 HTTP requests. It should be credible for everyday API development while remaining
 immediately useful with a bundled local sample service.
 
+The executable example establishes the request/response editing foundation: a
+controlled multiline request body, local validation and preview, an inline
+error surface, and a read-only multiline response view. Run it with
+`roc examples/http-workbench/main.roc` and run its colocated specifications with
+`python3 scripts/run_specs.py 'examples/http-workbench/specs/*.scm'`.
+
 ## Core capabilities
 
 - Tabbed request documents with method, URL, query, headers, authentication, and body editors.

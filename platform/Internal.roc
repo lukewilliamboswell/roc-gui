@@ -4,7 +4,7 @@ import Elem exposing [Elem]
 import Gui
 
 Internal := [].{
-	Route(a) : { boundary : U64, boundary_path : List(U64), id : U64, fire : (a -> Action(a)) }
+	Route(a) : { boundary : U64, boundary_path : List(U64), id : U64, fire : (a, Str -> Action(a)) }
 
 	BoundaryInfo(a) : { key : U64, parent : [None, Some(U64)], path : List(U64), render : (a -> Elem(a)), root : U64 }
 
@@ -155,7 +155,7 @@ Internal := [].{
 				id,
 				boundary: active_boundary,
 				boundary_path,
-				fire: |current| if button_value.enabled {
+				fire: |current, _| if button_value.enabled {
 					(button_value.on_press)(current, {})
 				} else {
 					Action.none
@@ -191,12 +191,18 @@ Internal := [].{
 				id,
 				boundary: active_boundary,
 				boundary_path,
-				fire: |current| if checkbox_value.enabled {
+				fire: |current, _| if checkbox_value.enabled {
 					(checkbox_value.on_change)(current, { checked: !checkbox_value.checked })
 				} else {
 					Action.none
 				},
 			}
+			{ root: id, next_boundary, routes: routes.append(route), boundaries }
+		}
+		Textarea(textarea_value) => {
+			style = style_args(textarea_value)
+			id = Host.node_textarea!({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			route = { id, boundary: active_boundary, boundary_path, fire: |current, input| if textarea_value.enabled and !textarea_value.read_only { (textarea_value.on_input)(current, { value: input }) } else { Action.none } }
 			{ root: id, next_boundary, routes: routes.append(route), boundaries }
 		}
 		Boundary(renderer) => {
@@ -251,7 +257,8 @@ Internal := [].{
 			match route_result {
 				Ok(route) => {
 					Host.work_start!(1)
-					action = (route.fire)(state)
+					input = Host.input_value!({})
+					action = (route.fire)(state, input)
 					Host.work_end!(1)
 					apply_action!(action, state, route.boundary, root_renderer, routes, boundaries, next_boundary)
 				}

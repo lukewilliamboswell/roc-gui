@@ -117,6 +117,14 @@ HostGlue := [].{
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
+	node_textarea! : {
+		label : Str, value : Str, placeholder : Str, enabled : Bool, read_only : Bool,
+		gap : U32, padding : U32, width_kind : U8, width : U32,
+		height_kind : U8, height : U32, grow : Bool, bg : U32, hover_bg : U32,
+		active_bg : U32, fg : U32, border_color : U32, border_width : U32,
+		radius : U32, font_size : U32, overflow_x : U8, overflow_y : U8,
+	} => U64
+	input_value! : {} => Str
 	apply! : Patch => {}
 	set_dispatch! : Box((U64 => {})) => {}
 	set_task_dispatch! : Box((U64 => {})) => {}

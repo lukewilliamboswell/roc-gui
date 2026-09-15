@@ -60,6 +60,12 @@ the same native action-button node. Its `label` is a string; use
 foreground and interaction colours, border, radius, font size, and overflow.
 Enabled checkboxes participate in keyboard tab order and toggle with Space;
 disabled checkboxes do not accept focus or activation.
+`Elem.textarea(Elem.TextareaProps.{ ... })`:: Display a controlled multiline text
+editor and handle `Event.Input`, which carries the complete requested value.
+`label` is the stable semantic name; `placeholder`, `enabled`, and `read_only`
+control editing behavior. A read-only textarea retains multiline layout and
+scrolling for response and log views. Textareas share the native style fields
+and default to a 160-logical-pixel editing viewport.
 `Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `name` is the stable semantic identity.

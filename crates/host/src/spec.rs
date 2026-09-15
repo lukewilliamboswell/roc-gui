@@ -28,12 +28,15 @@ pub struct Step {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Click(Locator),
+    ReplaceText(Locator, String),
     Focus(Locator),
     PressKey(ControlKey),
     AwaitTask,
     ExpectVisible(Locator),
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
+    ExpectValue(Locator, String),
+    ExpectValueBytes(Locator, usize),
     ExpectBefore(Locator, Locator),
     ExpectPatch(PatchExpectation),
     MarkMetrics,
@@ -43,12 +46,15 @@ impl Command {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Click(_) => "click",
+            Self::ReplaceText(_, _) => "replace-text",
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
+            Self::ExpectValue(_, _) => "expect-value",
+            Self::ExpectValueBytes(_, _) => "expect-value-bytes",
             Self::ExpectBefore(_, _) => "expect-before",
             Self::ExpectPatch(_) => "expect-patch",
             Self::MarkMetrics => "mark-metrics",
@@ -58,7 +64,11 @@ impl Command {
     pub fn is_operation(&self) -> bool {
         matches!(
             self,
-            Self::Click(_) | Self::Focus(_) | Self::PressKey(_) | Self::AwaitTask
+            Self::Click(_)
+                | Self::ReplaceText(_, _)
+                | Self::Focus(_)
+                | Self::PressKey(_)
+                | Self::AwaitTask
         )
     }
 }
@@ -83,6 +93,7 @@ pub enum Locator {
     RowName(String),
     ScrollName(String),
     VirtualListName(String),
+    TextareaName(String),
 }
 
 const MAX_SOURCE_BYTES: usize = 1024 * 1024;
@@ -210,7 +221,7 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
             ));
         }
         let verifies_scale = steps.iter().any(|step| {
-            matches!(step.command, Command::ExpectCount(_, expected) if expected as u64 == policy.scale)
+            matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectValueBytes(_, expected) if expected as u64 == policy.scale)
         });
         if !verifies_scale {
             return Err(error(
@@ -327,6 +338,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         .ok_or_else(|| error(node, "step requires a command name"))?;
     let command = match head {
         "click" if values.len() == 2 => Command::Click(parse_locator(&values[1])?),
+        "replace-text" if values.len() == 3 => Command::ReplaceText(
+            parse_locator(&values[1])?,
+            values[2]
+                .string()
+                .ok_or_else(|| error(&values[2], "replace-text requires a string"))?
+                .to_owned(),
+        ),
         "focus" if values.len() == 2 => Command::Focus(parse_locator(&values[1])?),
         "press-key" if values.len() == 2 => {
             let key = values[1]
@@ -351,6 +369,21 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 .map_err(|_| error(&values[2], "expect-count requires a non-negative integer"))?;
             Command::ExpectCount(parse_locator(&values[1])?, expected)
         }
+        "expect-value" if values.len() == 3 => Command::ExpectValue(
+            parse_locator(&values[1])?,
+            values[2]
+                .string()
+                .ok_or_else(|| error(&values[2], "expect-value requires a string"))?
+                .to_owned(),
+        ),
+        "expect-value-bytes" if values.len() == 3 => Command::ExpectValueBytes(
+            parse_locator(&values[1])?,
+            values[2]
+                .atom()
+                .ok_or_else(|| error(&values[2], "expect-value-bytes requires an integer"))?
+                .parse()
+                .map_err(|_| error(&values[2], "expect-value-bytes requires an integer"))?,
+        ),
         "expect-before" if values.len() == 3 => {
             Command::ExpectBefore(parse_locator(&values[1])?, parse_locator(&values[2])?)
         }
@@ -390,9 +423,9 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
-        "click" | "focus" | "press-key" | "await-task" | "expect-visible"
+        "click" | "replace-text" | "focus" | "press-key" | "await-task" | "expect-visible"
         | "expect-not-visible" | "expect-count" | "expect-before" | "expect-patch"
-        | "mark-metrics" => {
+        | "expect-value" | "expect-value-bytes" | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -431,6 +464,16 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .string()
                 .map(|value| Locator::PanelName(value.to_owned()))
                 .ok_or_else(|| error(node, "panel name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("textarea")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::TextareaName(value.to_owned()))
+                .ok_or_else(|| error(node, "textarea name must be a string"))
         }
         Some("role")
             if values.len() == 4
@@ -494,7 +537,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, column, panel, row, scroll, and virtual-list",
+            "supported roles are button, checkbox, column, panel, row, scroll, textarea, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),

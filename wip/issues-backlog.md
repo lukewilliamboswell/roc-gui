@@ -56,6 +56,16 @@ names the evidence so a fix can be verified against the same case.
 
 ## Input and accessibility
 
+- [ ] **Textarea selection, IME composition, and clipboard commands.** The
+  production textarea accepts ordinary character, Enter, and Backspace input
+  and routes complete controlled values through Roc. Close the desktop-editor
+  gap with GPUI `EntityInputHandler` selection/marked-text ownership, mouse hit
+  testing, copy/cut/paste, and specifications driven through the same route.
+- [ ] **HTTP client capability for the workbench.** The example validates and
+  previews request bodies locally. Add a capability-scoped asynchronous HTTP
+  API with redirect, timeout, cancellation, body limits, secret-redacted
+  evidence, and stale-response suppression before enabling network Send.
+
 - [ ] **Native accessibility roles and names are not exported.** Buttons,
   checkboxes, and scroll regions have stable semantics in the canonical graph,
   but the GPUI host does not yet publish them to each operating system's

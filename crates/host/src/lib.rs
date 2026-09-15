@@ -17,9 +17,9 @@ use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
     HostGlueNodeColumnArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
-    HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
-    RocErasedCallable, RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch,
-    roc_gui_init,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
+    make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -87,6 +87,7 @@ static mut ROC_HOST: *mut RocHost = core::ptr::null_mut();
 thread_local! {
     static BRIDGE: RefCell<BridgeState> = const { RefCell::new(BridgeState::new()) };
     static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
+    static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -519,6 +520,53 @@ pub extern "C" fn roc_gui_node_checkbox(args: HostGlueNodeCheckboxArgs) -> u64 {
     )
 }
 
+/// Stage one controlled multiline text editor.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_textarea(args: HostGlueNodeTextareaArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    let value = args.value.as_str().to_owned();
+    let placeholder = args.placeholder.as_str().to_owned();
+    unsafe { args.decref(roc_host()) };
+    stage_node(
+        NodeKind::Textarea {
+            label,
+            value,
+            placeholder,
+            enabled: args.enabled,
+            read_only: args.read_only,
+            style: decode_layout_style(
+                args.gap,
+                args.padding,
+                args.width_kind,
+                args.width,
+                args.height_kind,
+                args.height,
+                args.grow,
+                args.bg,
+                args.hover_bg,
+                args.active_bg,
+                args.fg,
+                args.border_color,
+                args.border_width,
+                args.radius,
+                args.font_size,
+                args.overflow_x,
+                args.overflow_y,
+            ),
+        },
+        vec![],
+    )
+}
+
+/// Consume the content-free event slot installed immediately before dispatch.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_input_value() -> RocStr {
+    let value = INPUT_VALUE
+        .with(|slot| slot.borrow_mut().take())
+        .unwrap_or_default();
+    RocStr::from_str(&value, roc_host())
+}
+
 /// Commit the nodes staged by builder effects as one mount or replacement.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_apply(patch: MountOrNoChangeOrReplace) {
@@ -635,6 +683,20 @@ fn dispatch(event_id: u64) -> Patch {
     take_patch()
 }
 
+fn dispatch_input(event_id: u64, value: String) -> Patch {
+    INPUT_VALUE.with(|slot| {
+        assert!(
+            slot.borrow_mut().replace(value).is_none(),
+            "nested textarea input dispatch"
+        );
+    });
+    let patch = dispatch(event_id);
+    INPUT_VALUE.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
 fn complete(completion: RocErasedCallable) -> Patch {
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
@@ -665,6 +727,9 @@ fn clear_bridge() {
         }
     });
     WINDOW_CONFIG.with(|config| *config.borrow_mut() = WindowConfig::default());
+    INPUT_VALUE.with(|slot| {
+        slot.borrow_mut().take();
+    });
 }
 
 fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
@@ -855,6 +920,50 @@ impl Render for NodeView {
             }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
+            }
+            NodeKind::Textarea {
+                label,
+                value,
+                placeholder,
+                enabled,
+                read_only,
+                style,
+            } => {
+                let node_id = self.node.id;
+                let runtime = self.runtime.clone();
+                let current = value.clone();
+                let shown = if value.is_empty() {
+                    placeholder.clone()
+                } else {
+                    value.clone()
+                };
+                element = apply_style(element.flex().flex_col().child(shown), style)
+                    .scrollbar_width(px(8.0));
+                if *enabled && !*read_only {
+                    element = element
+                        .focusable()
+                        .tab_index(0)
+                        .cursor(CursorStyle::IBeam)
+                        .focus(|s| s.border_2().border_color(rgb(0x9bdcf0)))
+                        .on_key_down(move |event, _, cx| {
+                            let mut next = current.clone();
+                            if event.keystroke.key == "backspace" {
+                                next.pop();
+                            } else if event.keystroke.key == "enter" {
+                                next.push('\n');
+                            } else if let Some(text) = &event.keystroke.key_char {
+                                next.push_str(text);
+                            } else {
+                                return;
+                            }
+                            cx.stop_propagation();
+                            let _ = runtime
+                                .update(cx, |runtime, cx| runtime.input_if_live(node_id, next, cx));
+                        });
+                } else if !*enabled {
+                    element = element.opacity(0.5);
+                }
+                let _ = label;
             }
             NodeKind::Button {
                 caption,
@@ -1086,6 +1195,39 @@ impl Runtime {
             );
         } else {
             let patch = dispatch(id);
+            self.apply_unrecorded(patch, cx);
+        }
+    }
+
+    fn input_if_live(&mut self, id: u64, value: String, cx: &mut Context<Self>) {
+        if !matches!(
+            self.graph.node(id).map(|node| &node.kind),
+            Some(NodeKind::Textarea {
+                enabled: true,
+                read_only: false,
+                ..
+            })
+        ) {
+            return;
+        }
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_input(id, value);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "input",
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_input(id, value);
             self.apply_unrecorded(patch, cx);
         }
     }

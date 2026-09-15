@@ -65,6 +65,11 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (Locator::TextareaName(expected), NodeKind::Textarea { label, .. })
+                if expected == label =>
+            {
+                Some(node.id)
+            }
             _ => None,
         })
         .collect()
@@ -193,6 +198,51 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Ok(())
                 }
             }
+            Command::ReplaceText(locator, value) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: replace-text locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if !matches!(
+                    graph.node(found[0]).map(|node| &node.kind),
+                    Some(NodeKind::Textarea {
+                        enabled: true,
+                        read_only: false,
+                        ..
+                    })
+                ) {
+                    Err(format!(
+                        "line {}: locator is not an editable textarea",
+                        step.line
+                    ))
+                } else {
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
+                    let roc_started = Instant::now();
+                    let patch = crate::dispatch_input(found[0], value.clone());
+                    let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    let facts = graph.apply_measured(patch)?.facts;
+                    last_patch = Some(facts);
+                    pending_cycle = Some(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "input",
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
+                    Ok(())
+                }
+            }
             Command::Focus(locator) => {
                 let matches = matches(&graph, locator);
                 if matches.len() != 1 {
@@ -206,6 +256,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Some(
                         NodeKind::Button { enabled: true, .. }
                             | NodeKind::Checkbox { enabled: true, .. }
+                            | NodeKind::Textarea {
+                                enabled: true,
+                                read_only: false,
+                                ..
+                            }
                     )
                 ) {
                     Err(format!("line {}: locator is not focusable", step.line))
@@ -318,6 +373,41 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 } else {
                     Err(format!(
                         "line {}: expected locator to match {expected} nodes, but it matched {actual}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectValue(locator, expected) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: expect-value locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if matches!(graph.node(found[0]).map(|node| &node.kind), Some(NodeKind::Textarea { value, .. }) if value == expected)
+                {
+                    Ok(())
+                } else {
+                    Err(format!("line {}: textarea value differed", step.line))
+                }
+            }
+            Command::ExpectValueBytes(locator, expected) => {
+                let found = matches(&graph, locator);
+                let actual = if found.len() == 1 {
+                    match graph.node(found[0]).map(|node| &node.kind) {
+                        Some(NodeKind::Textarea { value, .. }) => value.len(),
+                        _ => 0,
+                    }
+                } else {
+                    0
+                };
+                count_evidence = Some((*expected as u64, actual as u64));
+                if found.len() == 1 && actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected textarea value to contain {expected} bytes; observed {actual}",
                         step.line
                     ))
                 }

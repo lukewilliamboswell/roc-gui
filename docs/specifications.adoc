@@ -64,6 +64,8 @@ interactive grant, without giving the application ambient test-only I/O.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
 `(role virtual-list :name "name")`:: A fixed-row virtual list identified by its
 semantic name.
+`(role textarea :name "name")`:: A multiline editor identified by its semantic
+name. Locator matching never records its value.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
 missing targets fail instead of choosing one by traversal order. Make button
@@ -74,6 +76,9 @@ names unique wherever the buttons are visible together.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
+`(replace-text LOCATOR "value")`:: Replace an editable textarea's controlled
+value through its production Roc input route. Disabled and read-only textareas
+fail as non-editable.
 `(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
 or checkbox. Focus remains valid only while that mounted node is live.
 `(press-key Enter)`:: Activate the focused button through the normal Roc event
@@ -87,6 +92,10 @@ another task requires another `await-task` step.
 `(expect-not-visible LOCATOR)`:: Require no matches.
 `(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
 observed counts.
+`(expect-value LOCATOR "value")`:: Require an exact controlled textarea value.
+The value is compared in memory and is not copied into captures or diagnostics.
+`(expect-value-bytes LOCATOR N)`:: Require the textarea value to contain exactly
+`N` UTF-8 bytes and record the expected and observed deterministic counts.
 `(expect-before FIRST SECOND)`:: Require a match for `FIRST` to occur before a
 match for `SECOND` in mounted-tree order.
 `(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced

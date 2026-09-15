@@ -26,6 +26,8 @@ platform ""
 		"roc_gui_node_virtual_item": HostGlue.node_virtual_item!,
 		"roc_gui_node_virtual_list": HostGlue.node_virtual_list!,
 		"roc_gui_node_checkbox": HostGlue.node_checkbox!,
+		"roc_gui_node_textarea": HostGlue.node_textarea!,
+		"roc_gui_input_value": HostGlue.input_value!,
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
 		"roc_gui_set_task_dispatch": HostGlue.set_task_dispatch!,
