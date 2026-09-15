@@ -19,10 +19,8 @@ jobs:
         include:
           - os: ubuntu-24.04
             target: x64glibc
-            spec_jobs: 2
           - os: macos-15
             target: arm64mac
-            spec_jobs: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -51,7 +49,22 @@ jobs:
             *) exit "$status" ;;
           esac
       - name: Full application specification suite
-        run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }}
+        id: specs
+        continue-on-error: true
+        run: python3 scripts/run_specs.py --jobs 2
+      - name: Diagnose macOS audio specification crash
+        if: runner.os == 'macOS' && steps.specs.outcome == 'failure'
+        run: |
+          roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/music-player" examples/music-player/main.roc
+          lldb --batch -o run -o "thread backtrace all" -- \
+            "$RUNNER_TEMP/music-player" \
+            --host-run-spec examples/music-player/specs/decode-error.scm \
+            --host-stats-output="$RUNNER_TEMP/music-player.rgstats" \
+            --host-cap-dir examples/music-player/fixture \
+            --host-cap-audio-null
+      - name: Require application specification success
+        if: steps.specs.outcome == 'failure'
+        run: exit 1
       - name: Real GPUI window smoke
         if: runner.os == 'macOS'
         shell: bash
