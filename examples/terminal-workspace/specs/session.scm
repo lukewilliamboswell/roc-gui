@@ -1,0 +1,18 @@
+(test "real PTY accepts input and returns output"
+  (steps
+    (expect-processes 0)
+    (click (role button :name "Start test terminal"))
+    (await-task)
+    (expect-processes 1)
+    (await-task)
+    (expect-visible (text-prefix "Terminal line: terminal-ready"))
+    (replace-text (role textbox :name "Terminal command") "hello")
+    (submit (role textbox :name "Terminal command"))
+    (await-task)
+    (await-task)
+    (expect-visible (text-prefix "Terminal line: echo:hello"))
+    (click (role button :name "Stop terminal"))
+    (await-task)
+    (await-task)
+    (expect-visible (text "Session canceled"))
+    (expect-processes 0)))

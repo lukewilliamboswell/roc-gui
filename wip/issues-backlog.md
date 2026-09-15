@@ -4,6 +4,15 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Terminal workspace follow-on features
+
+- [ ] Add ANSI/VT cell parsing, wide and combining glyph layout, selection,
+  clipboard policy, and URL recognition on top of the ordered PTY byte stream.
+- [ ] Add tabs, nested split panes, focus navigation, pane zoom, and persisted
+  workspace layouts using the existing mounted graph and event route.
+- [ ] Add user-configurable shell-profile grants without exposing executable or
+  environment selection as ambient application authority.
+
 ## Trust: measurements that can mislead a decision
 
 - [ ] **All benchmark captures come from the headless runner.** No GPUI stage is
