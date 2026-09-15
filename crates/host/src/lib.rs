@@ -10,6 +10,7 @@ mod observatory;
 mod roc_platform_abi;
 mod runner;
 mod spec;
+mod sqlite;
 mod timers;
 
 use bridge::{
@@ -169,6 +170,7 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
     files::route_dealloc(pointer);
+    sqlite::route_dealloc(pointer);
     timers::route_dealloc(pointer);
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }

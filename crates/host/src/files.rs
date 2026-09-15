@@ -75,7 +75,7 @@ fn capability(dir: Arc<Dir>) -> *mut u64 {
     handle
 }
 
-fn lookup(handle: *mut u64) -> Option<Arc<Dir>> {
+pub(crate) fn lookup(handle: *mut u64) -> Option<Arc<Dir>> {
     let id = unsafe { handle.as_ref().copied()? };
     store().lock().ok()?.dirs.get(&id).cloned()
 }
@@ -104,7 +104,7 @@ fn error(
     FilesPickDirectoryErr { operation, reason }
 }
 
-fn valid_name(name: &str) -> bool {
+pub(crate) fn valid_name(name: &str) -> bool {
     let mut parts = Path::new(name).components();
     matches!(parts.next(), Some(Component::Normal(_))) && parts.next().is_none()
 }

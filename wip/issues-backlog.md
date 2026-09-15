@@ -56,6 +56,13 @@ names the evidence so a fix can be verified against the same case.
 
 ## Input and accessibility
 
+- [ ] **SQLite write transactions and parameters.** The database capability is
+  deliberately read-only and executes one statement without bindings. Add a
+  separately granted read-write capability, typed parameters, cancellation,
+  transactions, paging, editable grids, and export with lifecycle and resource
+  counters before presenting the example as a general database administration
+  tool.
+
 - [ ] **System monitor sensors and charts.** The system-monitor example proves
   bounded live updates, cancellation, and explicit unavailable values. Add
   capability-detected OS CPU and memory samplers, chart/canvas elements,

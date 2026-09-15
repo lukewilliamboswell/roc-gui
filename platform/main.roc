@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Layout, Action, Event, Gui, Files, Timer, Http]
+	exposes [Program, Elem, Layout, Action, Event, Gui, Files, Timer, Http, Sqlite]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 	}
@@ -24,6 +24,8 @@ platform ""
 		"roc_gui_node_image": Host.node_image!,
 		"roc_gui_input_value": Host.input_value!,
 		"roc_gui_node_text_input": Host.node_text_input!,
+		"roc_sqlite_open_read": Host.sqlite_open_read!,
+		"roc_sqlite_query": Host.sqlite_query!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,
@@ -54,6 +56,7 @@ import Gui
 import Files
 import Timer
 import Http
+import Sqlite
 import Host
 
 gui_init! : () => {}

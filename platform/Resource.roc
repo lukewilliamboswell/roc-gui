@@ -6,4 +6,5 @@ Resource := [].{
 
 	DirRead : Handle([DirReadResource])
 	Timer : Handle([TimerResource])
+	SqliteRead : Handle([SqliteReadResource])
 }

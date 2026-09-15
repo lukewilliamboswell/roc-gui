@@ -213,6 +213,8 @@ HostGlue := [].{
 		overflow_x : U8,
 		overflow_y : U8,
 	} => { change : U64, id : U64, submit : U64 }
+	sqlite_open_read! : Resource.DirRead, Str => Try(Resource.SqliteRead, { code : U8, message : Str })
+	sqlite_query! : Resource.SqliteRead, Str => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
 	apply! : Patch => {}
 	set_dispatch! : Box((U64 => {})) => {}
 	set_task_dispatch! : Box((U64 => {})) => {}
