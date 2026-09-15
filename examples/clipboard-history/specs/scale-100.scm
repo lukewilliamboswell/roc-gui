@@ -204,4 +204,3 @@
     (await-ticks 1)
     (mark-metrics)
     (expect-count (text-prefix "ordinary item ") 100)))
-
