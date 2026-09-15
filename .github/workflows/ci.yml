@@ -19,8 +19,10 @@ jobs:
         include:
           - os: ubuntu-24.04
             target: x64glibc
+            spec_jobs: 2
           - os: macos-15
             target: arm64mac
+            spec_jobs: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -49,7 +51,7 @@ jobs:
             *) exit "$status" ;;
           esac
       - name: Full application specification suite
-        run: python3 scripts/run_specs.py --jobs 2
+        run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }}
       - name: Real GPUI window smoke
         if: runner.os == 'macOS'
         shell: bash
