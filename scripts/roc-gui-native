@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if (( $# == 0 )); then
+    echo "usage: scripts/roc-gui-native COMMAND [ARGUMENT ...]" >&2
+    exit 2
+fi
+
+needs_loader() {
+    case $(readlink -f /lib64/ld-linux-x86-64.so.2 2>/dev/null) in
+        "" | *-stub-ld-*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+if [[ $1 == --needs-loader ]]; then
+    needs_loader
+    exit $?
+fi
+
+runtime_library_path=
+for linker_flag in ${NIX_LDFLAGS:-}; do
+    case $linker_flag in
+        -L/*)
+            library_dir=${linker_flag#-L}
+            runtime_library_path="${runtime_library_path:+$runtime_library_path:}$library_dir"
+            ;;
+    esac
+done
+if [[ -n $runtime_library_path ]]; then
+    export LD_LIBRARY_PATH="$runtime_library_path${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
+needs_loader || exec "$@"
+
+if [[ -z ${NIX_CC:-} || ! -r $NIX_CC/nix-support/dynamic-linker ]]; then
+    echo "roc-gui-native: enter the Kai development shell first" >&2
+    exit 1
+fi
+
+loader_dir=$(mktemp -d)
+trap 'rm -rf "$loader_dir"' EXIT
+ln -s "$(<"$NIX_CC/nix-support/dynamic-linker")" \
+    "$loader_dir/ld-linux-x86-64.so.2"
+
+bwrap \
+    --die-with-parent \
+    --bind / / \
+    --ro-bind "$loader_dir" /lib64 \
+    --dev-bind /dev /dev \
+    --proc /proc \
+    "$@"

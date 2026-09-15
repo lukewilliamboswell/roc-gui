@@ -1,0 +1,93 @@
+# TODO: add configurable package sources so the shell can retain unstable-small:
+# backend nix { packages: "github:NixOS/nixpkgs/nixos-unstable-small" }
+#
+# TODO: add architecture predicates so unsupported hosts are rejected:
+# on linux x86_64 { ... }
+# on macos aarch64 { ... }
+#
+# TODO: add overlay input following so overlays share the selected package source:
+# overlays: [{
+#   url: "github:roc-lang/roc-overlay"
+#   follows: { nixpkgs: "packages" }
+# }]
+#
+# TODO: add expression-backed packages so Rust is part of Kaifile.lock:
+# packages: [{
+#   overlay: "github:oxalica/rust-overlay"
+#   expression: "rust-bin.fromRustupToolchainFile ./rust-toolchain.toml"
+# }]
+#
+# TODO: add file-derived variables so the Roc package follows the platform pin:
+# variables: {
+#   roc_nightly: { file: "platform/main.roc", regex: "roc: \"([^\"]+)\"" }
+# }
+# packages: ["rocpkgs.${roc_nightly}"]
+
+on linux {
+  environment development {
+    packages: [
+      "rustup",
+      "zig_0_16",
+      "python3",
+      "git",
+      "pkg-config",
+      "rocpkgs.nightly-2026-09-12-220fd47",
+      "bubblewrap",
+      "alsa-lib",
+      "freetype",
+      "libxkbcommon",
+      "libxcb",
+      "wayland",
+      "libdrm",
+      "mesa",
+      "vulkan-loader",
+      "dbus",
+      "udev",
+      "libusb1",
+      "fontconfig"
+    ]
+    overlays: [
+      "github:roc-lang/roc-overlay/7338b792527a5025fdcccc431c0bb6aacdd5e240"
+    ]
+  }
+}
+
+on macos {
+  environment development {
+    packages: [
+      "rustup",
+      "zig_0_16",
+      "python3",
+      "git",
+      "pkg-config",
+      "rocpkgs.nightly-2026-09-12-220fd47"
+    ]
+    overlays: [
+      "github:roc-lang/roc-overlay/7338b792527a5025fdcccc431c0bb6aacdd5e240"
+    ]
+  }
+}
+
+# TODO: add a shell prehook feature:
+# shell development {
+#   prehook: "python3 scripts/check_toolchains.py"
+# }
+# TODO: add local executable paths so roc-gui-native is available directly:
+# shell development {
+#   path: ["./scripts"]
+# }
+# TODO: add package-derived environment variables for direct app execution:
+# shell development {
+#   variables: { LD_LIBRARY_PATH: { library_path: "environment.packages" } }
+# }
+
+task check-toolchains {
+  environment: "development"
+  run: ["python3", "scripts/check_toolchains.py"]
+}
+
+# TODO: add cross-platform checks so one invocation verifies every supported host:
+# check toolchains {
+#   systems: ["x86_64-linux", "aarch64-darwin"]
+#   run: ["python3", "scripts/check_toolchains.py"]
+# }
