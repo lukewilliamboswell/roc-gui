@@ -264,6 +264,16 @@ pub fn capture_window(
         }
         pixels
     };
+    // A pseudo console-free window still renders through DirectComposition, and
+    // `PrintWindow` can report success while copying nothing at all. A client
+    // area of one single colour is that failure, not a window worth recording.
+    if pixels.chunks_exact(4).all(|pixel| pixel == &pixels[..4]) {
+        return Err(ShotError::ToolFailed {
+            tool: TOOL,
+            status: None,
+            detail: "the window rendered as a single colour".to_owned(),
+        });
+    }
 
     // Points to device pixels, rounding outward and clamping to the client area.
     let left = ((client.x as f32 * scale).floor() as i32).clamp(0, width);

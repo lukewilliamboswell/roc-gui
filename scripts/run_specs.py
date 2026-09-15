@@ -123,6 +123,14 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
     return cases
 
 
+# TODO: build every application the same way once the Roc optimizing backend
+# stops miscompiling this one. An optimized `folder-browser` fails a few runs in
+# ten, on every platform: it segfaults, crashes with "hit a runtime error", or
+# silently loses a directory listing. `--opt=dev` is clean over 40 runs, and the
+# application measures no benchmark, so its timings are nobody's evidence.
+DEV_BUILD_APPS = frozenset({"folder-browser"})
+
+
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
     subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
     if not skip_host_build:
@@ -133,8 +141,9 @@ def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
+        workaround = ["--opt=dev"] if app.parent.name in DEV_BUILD_APPS else []
         subprocess.run(
-            [roc, "build", f"--output={executable}", str(app)],
+            [roc, "build", *workaround, f"--output={executable}", str(app)],
             cwd=ROOT,
             check=True,
         )

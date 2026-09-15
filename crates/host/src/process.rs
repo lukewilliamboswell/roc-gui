@@ -10,11 +10,21 @@ use std::{
 
 const MAX_ACTIVE: usize = 64;
 const MAX_IO_BYTES: usize = 65_536;
-/// How long a read waits for more output before delivering what it holds. A
-/// window specification calls the window quiet after two frames, so this stays
-/// under that: a longer gap lets a spec assert before the terminal's own output
-/// has arrived. Control-only output is held regardless, however long it takes.
+/// How long output carrying no program text is held back before it is
+/// delivered anyway. Long enough to coalesce a terminal's own redraw with the
+/// text that follows it, short enough that a drawing-only program still reads.
+const CONTROL_HOLD: std::time::Duration = std::time::Duration::from_millis(500);
+/// How long a read waits for more output before delivering what it holds.
+///
+/// A Windows pseudo console paints on its own frame timer and echoes a typed
+/// line as its own frame, ahead of the reply the program writes; a gap as short
+/// as a POSIX terminal's splits that echo from its reply, and a reader waiting
+/// on one read sees neither. A window specification therefore waits for the
+/// terminal in frames of its own rather than assuming one repaint covers it.
+#[cfg(not(windows))]
 const READ_IDLE_MS: u64 = 20;
+#[cfg(windows)]
+const READ_IDLE_MS: u64 = 60;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GrantedProfile {
@@ -238,6 +248,7 @@ pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostGlue
     }
     let _reading = Reading(&pty.reading);
     let mut collected = Vec::with_capacity(max_bytes as usize);
+    let mut held_since: Option<std::time::Instant> = None;
     loop {
         if pty.canceled.load(Ordering::Acquire) {
             return read_ok(CanceledOrDataOrEndOfFile {
@@ -247,7 +258,17 @@ pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostGlue
         }
         match pty.terminal.wait_readable(READ_IDLE_MS) {
             Err(_) => return read_err(Reason::Io),
-            Ok(false) if !pty.terminal.worth_delivering(&collected) => continue,
+            Ok(false) if collected.is_empty() => continue,
+            Ok(false) if !pty.terminal.worth_delivering(&collected) => {
+                // A program may draw with control sequences alone and then wait
+                // for input, so the hold ends on its own rather than keeping
+                // output, and this thread, indefinitely.
+                let since = *held_since.get_or_insert_with(std::time::Instant::now);
+                if since.elapsed() >= CONTROL_HOLD {
+                    return data(&collected);
+                }
+                continue;
+            }
             Ok(false) => return data(&collected),
             Ok(true) => {}
         }
@@ -1003,7 +1024,14 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
             let Some(available) = self.available()? else {
                 return Ok(0);
             };
-            let count = (available.max(1) as usize).min(bytes.len());
+            if available == 0 {
+                // Reading anyway would block on the pipe while holding the
+                // lock. Callers read only after `wait_readable`, so this says
+                // "nothing yet" rather than `Ok(0)`, which would mean the
+                // terminal had closed.
+                return Err(io::ErrorKind::WouldBlock.into());
+            }
+            let count = (available as usize).min(bytes.len());
             match self.output.lock().expect("pty output poisoned").as_mut() {
                 Some(output) => output.read(&mut bytes[..count]),
                 None => Ok(0),

@@ -91,15 +91,14 @@ def missing_prerequisites(which=shutil.which, exists=None, environ=None, output=
 def pins_required(environ=None):
     """Whether this build must use the reviewed FXC pins.
 
-    CI and release builds always do. A development machine receives SDK
-    servicing updates that re-sign and re-hash FXC, so requiring the pins there
-    would break every local build until someone re-reviews them; local builds
-    still require valid Microsoft Authenticode signatures and record what they
-    loaded. `ROC_GUI_PINNED_SHADER_TOOLS=1` asks for the pins anyway.
+    CI and release builds always do, and no environment variable can lower
+    that. A development machine receives SDK servicing updates that re-sign and
+    re-hash FXC, so requiring the pins there would break every local build until
+    someone re-reviews them; local builds still require a Microsoft Authenticode
+    signature and record what they loaded. `ROC_GUI_PINNED_SHADER_TOOLS=1` asks
+    for the pins on a development machine as well.
     """
     environ = os.environ if environ is None else environ
-    if environ.get("ROC_GUI_UNPINNED_SHADER_TOOLS") == "1":
-        return False
     return bool(environ.get("CI")) or environ.get("ROC_GUI_PINNED_SHADER_TOOLS") == "1"
 
 
@@ -117,12 +116,17 @@ def shader_tools(output, pinned=True):
     inventory["pinned"] = pinned
     signatures = json.loads(subprocess.check_output(["pwsh", "-NoProfile", "-Command",
         "$ErrorActionPreference='Stop'; Get-AuthenticodeSignature -LiteralPath '" + str(fxc) + "','" + str(dll)
-        + "' | Select-Object Path,Status,@{n='Thumbprint';e={$_.SignerCertificate.Thumbprint}} | ConvertTo-Json"],
+        + "' | Select-Object Path,Status,@{n='Thumbprint';e={$_.SignerCertificate.Thumbprint}},"
+        + "@{n='Subject';e={$_.SignerCertificate.Subject}} | ConvertTo-Json"],
         text=True))
     inventory["authenticode"] = signatures
+    # Unpinned, the signature still has to be Microsoft's own: a valid signature
+    # alone would admit anything chaining to a trusted root.
     if (len(signatures) != 2
             or {Path(record["Path"]).resolve() for record in signatures} != {fxc.resolve(), dll.resolve()}
-            or any(record["Status"] != 0 or (pinned and record["Thumbprint"] != SIGNER) for record in signatures)):
+            or any(record["Status"] != 0
+                   or "O=Microsoft Corporation" not in (record.get("Subject") or "")
+                   or (pinned and record["Thumbprint"] != SIGNER) for record in signatures)):
         raise ValueError(
             f"Windows shader tools in {sdk} require valid Microsoft Authenticode signatures"
             + (", matching the reviewed pins this build requires" if pinned else "")

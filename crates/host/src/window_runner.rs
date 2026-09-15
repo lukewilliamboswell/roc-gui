@@ -757,6 +757,9 @@ fn take_screenshot(
 
     let file_name = format!("{ordinal:02}-{}.png", request.name);
     let destination = options.shot_dir.join(&file_name);
+    // Windows captures by asking the window to render, which is a message the
+    // window's own thread answers. This step runs on that thread; driving it
+    // from the background executor would wait for a pump that may never come.
     let result = match (geometry, native) {
         (None, _) => Err(screenshot::ShotError::DegenerateRegion),
         #[cfg(windows)]
