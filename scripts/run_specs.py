@@ -260,7 +260,7 @@ def main() -> int:
         )
         fixture_processes.append(fixture_process)
         atexit.register(lambda process=fixture_process: process.poll() is None and process.terminate())
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=0.1):
