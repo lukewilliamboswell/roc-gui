@@ -56,7 +56,7 @@ scan = |state| Action.task({
 	resolve: |latest, result| match result {
 		ScanFailed(message) => Action.update({ ..latest, status: message })
 		ScanCanceled => Action.update({ ..latest, status: "Folder choice canceled" })
-		Scanned(library) => Action.update({ ..latest, library: Loaded(library), playback: Idle, status: "${U64.to_str(List.len(library.tracks))} tracks" })
+		Scanned(library) => Action.update({ ..latest, chosen: Nothing, library: Loaded(library), playback: Idle, status: "${U64.to_str(List.len(library.tracks))} tracks" })
 	},
 })
 
@@ -65,7 +65,7 @@ play_index = |state, library, index| match library.tracks.get(index) {
 	Ok(item) => {
 		generation = state.generation + 1
 		Action.task({
-		pending: { ..state, generation, status: "Loading ${item.name}…" },
+		pending: { ..state, chosen: At(index), generation, status: "Loading ${item.name}…" },
 		run: || match Audio.load!(library.output, library.directory, item.name) {
 			Err(err) => PlayFailed(generation, audio_error(err))
 			Ok(loaded) => match Audio.play!(loaded.track) {
@@ -116,24 +116,50 @@ toggle = |state| match state.playback {
 	}
 }
 
-step = |state, delta| match (state.library, state.playback) {
-	(Loaded(library), Active(current)) => {
-		len = List.len(library.tracks)
-		next = if delta < 0 { if current.index == 0 0 else current.index - 1 } else if current.index + 1 >= len current.index else current.index + 1
-		Action.task({
-			pending: { ..state, generation: state.generation + 1, status: "Changing track…" },
-			run: || Audio.stop!(current.track),
-			resolve: |latest, result| match result {
-				Err(err) => Action.update({ ..latest, status: audio_error(err) })
-				Ok(_) => match latest.library {
-					Empty => Action.update(latest)
-					Loaded(latest_library) => play_index(latest, latest_library, next)
-				}
-			},
-		})
-	}
-	_ => Action.update(state)
+## The row Next and Previous step away from. A transport is not inert just
+## because nothing is sounding: after a track failed to load, or before anything
+## has played, the chosen row is the one a person is standing on, and an empty
+## queue starts from the top.
+step_origin = |state| match state.playback {
+	Active(current) => At(current.index)
+	_ => state.chosen
 }
+
+## Step from the origin without running off either end of the queue.
+step_target = |origin, len, delta| match origin {
+	Nothing => if delta < 0 { len - 1 } else { 0 }
+	At(index) => if delta < 0 {
+		if index == 0 { 0 } else { index - 1 }
+	} else if index + 1 >= len { index } else { index + 1 }
+}
+
+step = |state, delta| match state.library {
+	Empty => Action.update(state)
+	Loaded(library) => {
+		len = List.len(library.tracks)
+		if len == 0 {
+			Action.update(state)
+		} else {
+			next = step_target(step_origin(state), len, delta)
+			match state.playback {
+				Active(current) => stop_then_play(state, current.track, next)
+				_ => play_index(state, library, next)
+			}
+		}
+	}
+}
+
+stop_then_play = |state, track, next| Action.task({
+	pending: { ..state, generation: state.generation + 1, status: "Changing track…" },
+	run: || Audio.stop!(track),
+	resolve: |latest, result| match result {
+		Err(err) => Action.update({ ..latest, status: audio_error(err) })
+		Ok(_) => match latest.library {
+			Empty => Action.update(latest)
+			Loaded(latest_library) => play_index(latest, latest_library, next)
+		}
+	},
+})
 
 
 ## High-contrast night. A near-black ground, one vivid ember accent reserved
