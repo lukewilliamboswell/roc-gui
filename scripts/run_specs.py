@@ -9,7 +9,6 @@ import atexit
 import fnmatch
 import os
 import sqlite3
-import socket
 import subprocess
 import sys
 import time
@@ -177,24 +176,31 @@ def main() -> int:
         if len(fixture_scripts) != 1:
             print("error: selected specs require different local fixture servers", file=sys.stderr)
             return 1
+        ready_file = output / "fixture-ready"
+        fixture_environment = os.environ.copy()
+        fixture_environment["ROC_GUI_FIXTURE_READY_FILE"] = str(ready_file)
         fixture_process = subprocess.Popen(
             [sys.executable, str(fixture_scripts.pop())], cwd=ROOT,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            env=fixture_environment,
         )
         atexit.register(lambda: fixture_process.poll() is None and fixture_process.terminate())
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
-            try:
-                with socket.create_connection(("127.0.0.1", 38191), timeout=0.1):
-                    break
-            except OSError:
-                if fixture_process.poll() is not None:
-                    print("error: local HTTP fixture failed to start", file=sys.stderr)
-                    return 1
-                time.sleep(0.02)
+            if ready_file.is_file():
+                break
+            if fixture_process.poll() is not None:
+                diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
+                suffix = f": {diagnostic}" if diagnostic else ""
+                print(f"error: local HTTP fixture failed to start{suffix}", file=sys.stderr)
+                return 1
+            time.sleep(0.02)
         else:
             fixture_process.terminate()
-            print("error: local HTTP fixture did not become ready", file=sys.stderr)
+            fixture_process.wait(timeout=5)
+            diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
+            suffix = f": {diagnostic}" if diagnostic else ""
+            print(f"error: local HTTP fixture did not report readiness{suffix}", file=sys.stderr)
             return 1
 
     results: list[tuple[Case, str | None]] = []

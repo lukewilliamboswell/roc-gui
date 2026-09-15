@@ -246,7 +246,11 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
     if apple_tools is not None:
         # A release receipt cannot attribute cached shaders to today's tools.
         # Keep this target alive until build_gui has copied the resulting host.
-        scratch = tempfile.TemporaryDirectory(prefix=".macos-cargo-", dir=output.parent)
+        # Metal records paths from its Cargo output directory inside the
+        # compiled shader payload. Keep that directory outside the runner's
+        # user home so the distributable archive cannot retain private
+        # checkout identity that Apple's strip tool cannot remove.
+        scratch = tempfile.TemporaryDirectory(prefix="roc-gui-macos-cargo-")
         # Registering the bound cleanup retains the directory until build_gui
         # has copied the returned host, then removes it when that process exits.
         atexit.register(scratch.cleanup)

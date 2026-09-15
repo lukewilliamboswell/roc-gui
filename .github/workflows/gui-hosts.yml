@@ -56,6 +56,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+      - name: Install Linux test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
       - name: Check host evidence and notice admission
         run: |
           python3 scripts/test_host_release_policy.py
@@ -76,6 +81,7 @@ jobs:
       - name: Exercise a real macOS window
         if: runner.os == 'macOS'
         run: |
+          mkdir -p platform/targets/arm64mac
           cp "$RUNNER_TEMP/host-output/libhost.a" platform/targets/arm64mac/libhost.a
           python3 scripts/build_macos_stubs.py --archives platform/targets/arm64mac --output "$RUNNER_TEMP/macos-sysroot"
           rm -rf platform/targets/macos-sysroot
