@@ -1,0 +1,17 @@
+(test "root revocation rejects future read open and list operations"
+  (steps
+    (click (role button :name "Open project"))
+    (await-task)
+    (expect-file-access 0 1 0)
+    (expect-file-lifecycle-counters 1 0 1 0 0 0)
+    (revoke-file-grants)
+    (expect-file-access 0 0 1)
+    (expect-file-lifecycle-counters 1 0 1 1 1 0)
+    (click (role button :name "Read file alpha.txt"))
+    (await-task)
+    (expect-visible (text "The directory grant was revoked"))
+    (click (role button :name "Open folder nested"))
+    (await-task)
+    (click (role button :name "Refresh directory"))
+    (await-task)
+    (expect-file-lifecycle-counters 1 0 1 1 1 3)))

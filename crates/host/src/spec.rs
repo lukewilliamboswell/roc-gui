@@ -52,6 +52,9 @@ pub enum Command {
     ExpectFileOpens(u64),
     ExpectFileReads(u64),
     ExpectFileSelectionCounters([u64; 7]),
+    ExpectFileLifecycleCounters([u64; 6]),
+    ExpectFileAccess([u64; 3]),
+    RevokeFileGrants,
     ExpectImageOwnerCounters([u64; 4]),
     Submit(Locator),
     ExpectVisible(Locator),
@@ -95,6 +98,9 @@ impl Command {
             Self::ExpectFileOpens(_) => "expect-file-opens",
             Self::ExpectFileReads(_) => "expect-file-reads",
             Self::ExpectFileSelectionCounters(_) => "expect-file-selection-counters",
+            Self::ExpectFileLifecycleCounters(_) => "expect-file-lifecycle-counters",
+            Self::ExpectFileAccess(_) => "expect-file-access",
+            Self::RevokeFileGrants => "revoke-file-grants",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
@@ -123,6 +129,7 @@ impl Command {
                 | Self::ClipboardText(_)
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
+                | Self::RevokeFileGrants
         )
     }
 }
@@ -642,6 +649,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectFileSelectionCounters(expected)
         }
+        "expect-file-lifecycle-counters" if values.len() == 7 => {
+            let mut expected = [0u64; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] =
+                    parse_non_negative(value, "expect-file-lifecycle-counters")? as u64;
+            }
+            Command::ExpectFileLifecycleCounters(expected)
+        }
+        "expect-file-access" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-file-access")? as u64;
+            }
+            Command::ExpectFileAccess(expected)
+        }
+        "revoke-file-grants" if values.len() == 1 => Command::RevokeFileGrants,
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -761,6 +784,9 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-opens"
         | "expect-file-reads"
         | "expect-file-selection-counters"
+        | "expect-file-lifecycle-counters"
+        | "expect-file-access"
+        | "revoke-file-grants"
         | "expect-image-owner-counters"
         | "expect-visible"
         | "expect-not-visible"

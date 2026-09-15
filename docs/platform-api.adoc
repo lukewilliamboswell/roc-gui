@@ -231,6 +231,19 @@ Filesystem failures use the `Files.FileErr` tag union. Its
 `ReadFileErr` tags identify the failed operation directly; each carries a
 portable `Files.Reason` value.
 
+`Revoked` is distinct from an invalid handle. Each directory operation resolves
+the opaque handle and its immutable root lineage while holding the broker
+registry mutex. That check is the revocation linearization point. Revocation
+that wins the mutex causes that root and every derived child to reject future
+list, child-open, and read operations as `Revoked`. An operation that already
+won the check owns an `Arc<Dir>` and completes under its ordinary bounds;
+revocation does not close that accepted resource. Task submission alone is not
+acceptance, so queued work that has not reached the check is rejected.
+
+The trusted host access snapshot exposes only counts grouped by source,
+session lifetime, read rights, and active or revoked state. Root identifiers,
+names, paths, and URIs remain internal and never enter capture evidence.
+
 Retain a root-to-current list of directory handles to implement Back and
 clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity

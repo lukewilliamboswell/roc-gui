@@ -14,9 +14,10 @@ the change lands; do not soften the docs to match the gap.
   platform matrix are in `wip/resource-access-inventory.md`.
 - [ ] **Trusted identity, access review, and revocation are absent.** Define
   stable publisher/package identity, remembered-grant storage and migration,
-  expiry, an App access surface, rate-limited refusal, grant ancestry, and one
-  revocation linearization rule covering roots, descendants, queued/running
-  operations and already-returned bytes.
+  expiry and a protected App access surface. Files now carry root/child ancestry
+  and a host-owned revocation linearization rule; extend that rule to other
+  resources and certify cross-process queued/running races and already-returned
+  byte policy under confinement.
 - [ ] **Trusted file workflows remain incomplete.** Linux Wayland Open Project
   uses the production XDG Desktop Portal and records session/source/parent
   lineage, while `--host-cap-dir` remains development provisioning. Add Open

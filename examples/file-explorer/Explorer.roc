@@ -22,15 +22,22 @@ describe = |error| match error {
 	PickDirectoryErr(AccessDenied) => "Directory access was denied"
 	PickDirectoryErr(_) => "The directory chooser failed"
 	ListDirectoryErr(AccessDenied) => "The directory can no longer be read"
+	ListDirectoryErr(Revoked) => "The directory grant was revoked"
 	ListDirectoryErr(ResourceLimit) => "The directory contains too many entries"
 	ListDirectoryErr(InvalidUtf8) => "The directory contains a name that is not valid UTF-8"
 	ListDirectoryErr(_) => "The directory could not be listed"
 	OpenReadDirectoryErr(NotFound) => "The selected folder no longer exists"
 	OpenReadDirectoryErr(NotDirectory) => "The selected entry is no longer a folder"
 	OpenReadDirectoryErr(AccessDenied) => "The selected folder cannot be read"
+	OpenReadDirectoryErr(Revoked) => "The directory grant was revoked"
+	ReadFileErr(Revoked) => "The directory grant was revoked"
 	OpenReadDirectoryErr(_) => "The selected folder could not be opened"
 	_ => "The filesystem operation failed"
 }
+
+refresh = |state, folder| Action.task({ pending: { ..state, status: Busy }, run: || Files.Dir.list!(folder.directory), resolve: |latest, result| match result { Err(error) => Action.update({ ..latest, status: Failed(describe(error)) }), Ok(entries) => Action.update({ ..latest, status: Ready, view: Showing({ ..folder, entries }) }) } })
+
+read_file = |state, folder, name| Action.task({ pending: { ..state, status: Busy }, run: || Files.Dir.read!(folder.directory, name), resolve: |latest, result| match result { Err(error) => Action.update({ ..latest, status: Failed(describe(error)) }), Ok(_) => Action.update({ ..latest, status: Ready }) } })
 
 choose_directory = |state| Action.task({
 	pending: { ..state, status: Busy },
@@ -86,6 +93,8 @@ entry_items = |folder| folder.entries.map_with_index(|entry, key| {
 	select = Elem.action_button(Elem.ActionButtonProps.{ caption: "Entry: ${label}", label: "Select ${label}", on_press: |current, _| Action.update({ ..current, selection: Selected(entry), status: Ready }) })
 	content = if entry.kind == Directory {
 		Elem.row(Elem.RowProps.{ label: "Folder entry ${entry.name}" }, [select, Elem.action_button(Elem.ActionButtonProps.{ caption: "Open", label: "Open folder ${entry.name}", on_press: |current, _| open_folder(current, folder, entry.name) })])
+	} else if entry.kind == File {
+		Elem.row(Elem.RowProps.{ label: "File entry ${entry.name}" }, [select, Elem.action_button(Elem.ActionButtonProps.{ caption: "Read", label: "Read file ${entry.name}", on_press: |current, _| read_file(current, folder, entry.name) })])
 	} else select
 	Elem.VirtualListItem.{ key, content }
 })
@@ -99,6 +108,7 @@ render = |state| {
 				Elem.action_button(Elem.ActionButtonProps.{ caption: "Back", label: "Back", enabled: !state.back.is_empty(), on_press: |current, _| go_back(current, folder) }),
 				Elem.action_button(Elem.ActionButtonProps.{ caption: "Forward", label: "Forward", enabled: !state.forward.is_empty(), on_press: |current, _| go_forward(current, folder) }),
 				Elem.action_button(Elem.ActionButtonProps.{ caption: "Root", label: "Breadcrumb root", on_press: |current, _| go_root(current, folder) }),
+				Elem.action_button(Elem.ActionButtonProps.{ caption: "Refresh", label: "Refresh directory", on_press: |current, _| refresh(current, folder) }),
 				Elem.text(Str.join_with(folder.trail, " / ")),
 				Elem.action_button(Elem.ActionButtonProps.{ caption: "Close directory", label: "Close directory", on_press: |current, _| Action.update({ ..current, dialog: ConfirmClose(folder.name) }) }),
 			]),

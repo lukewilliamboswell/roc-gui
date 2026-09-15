@@ -30,6 +30,7 @@ Files := [].{
 		NotDirectory,
 		NotFound,
 		ResourceLimit,
+		Revoked,
 		Unavailable,
 		Unsupported,
 	]
@@ -91,6 +92,7 @@ Files := [].{
 		2 => InvalidName
 		3 => Io
 		4 => ResourceLimit
+		6 => Revoked
 		_ => Unavailable
 	}
 }

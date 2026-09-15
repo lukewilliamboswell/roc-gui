@@ -5,7 +5,7 @@ use cap_std::{
     fs::{Dir, OpenOptions},
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::Read,
     mem::ManuallyDrop,
     path::{Component, Path},
@@ -22,11 +22,13 @@ struct Store {
     dirs: HashMap<u64, Arc<Dir>>,
     allocations: HashMap<usize, u64>,
     metadata: HashMap<u64, GrantMetadata>,
+    revoked_roots: HashSet<u64>,
     operations: [u64; 4],
     selection: [u64; 7],
     portal_enabled: bool,
     chooser_in_flight: bool,
     refusal_until: Option<Instant>,
+    lifecycle: [u64; 6],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +45,7 @@ struct GrantMetadata {
     source: GrantSource,
     lifetime: GrantLifetime,
     parent: Option<u64>,
+    root: u64,
 }
 const REFUSAL_COOLDOWN: Duration = Duration::from_secs(2);
 
@@ -72,11 +75,13 @@ fn store() -> &'static Mutex<Store> {
             dirs: HashMap::new(),
             allocations: HashMap::new(),
             metadata: HashMap::new(),
+            revoked_roots: HashSet::new(),
             operations: [0; 4],
             selection: [0; 7],
             portal_enabled: false,
             chooser_in_flight: false,
             refusal_until: None,
+            lifecycle: [0; 6],
         })
     })
 }
@@ -102,6 +107,8 @@ pub fn configure(path: Option<&Path>, portal_enabled: bool) -> Result<(), String
     guard.portal_enabled = portal_enabled;
     guard.chooser_in_flight = false;
     guard.refusal_until = None;
+    guard.revoked_roots.clear();
+    guard.lifecycle = [0; 6];
     if guard.initial.is_some() {
         guard.selection[6] = 1;
     }
@@ -119,18 +126,76 @@ pub fn operation_counts() -> [u64; 4] {
         .operations
 }
 
+pub fn lifecycle_counts() -> [u64; 6] {
+    store().lock().expect("capability store poisoned").lifecycle
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AccessSnapshot {
+    pub portal_session_read: u64,
+    pub provisioned_session_read: u64,
+    pub revoked: u64,
+}
+
+pub fn access_snapshot() -> AccessSnapshot {
+    let guard = store().lock().expect("capability store poisoned");
+    let mut snapshot = AccessSnapshot::default();
+    for metadata in guard
+        .metadata
+        .values()
+        .filter(|value| value.parent.is_none())
+    {
+        if guard.revoked_roots.contains(&metadata.root) {
+            snapshot.revoked += 1;
+        } else {
+            match metadata.source {
+                GrantSource::Portal => snapshot.portal_session_read += 1,
+                GrantSource::Provisioned => snapshot.provisioned_session_read += 1,
+            }
+        }
+    }
+    snapshot
+}
+
+pub fn revoke_all_roots() -> usize {
+    let mut guard = store().lock().expect("capability store poisoned");
+    guard.lifecycle[3] += 1;
+    let roots: Vec<u64> = guard
+        .metadata
+        .values()
+        .filter(|value| value.parent.is_none())
+        .map(|value| value.root)
+        .collect();
+    let mut changed = 0;
+    for root in roots {
+        if guard.revoked_roots.insert(root) {
+            changed += 1;
+        }
+    }
+    if changed > 0 {
+        guard.lifecycle[4] += 1;
+    }
+    changed
+}
+
 fn record_operation(index: usize) {
     let mut guard = store().lock().expect("capability store poisoned");
     guard.operations[index] = guard.operations[index].saturating_add(1);
 }
 
-fn capability(dir: Arc<Dir>, metadata: GrantMetadata) -> *mut u64 {
+fn capability(dir: Arc<Dir>, mut metadata: GrantMetadata) -> *mut u64 {
     let mut guard = store().lock().expect("capability store poisoned");
     let id = guard.next;
     guard.next = guard
         .next
         .checked_add(1)
         .expect("directory capability ids exhausted");
+    if metadata.parent.is_none() {
+        metadata.root = id;
+        guard.lifecycle[0] += 1;
+    } else {
+        guard.lifecycle[1] += 1;
+    }
     let handle = unsafe {
         allocate_box(
             core::mem::size_of::<u64>(),
@@ -144,12 +209,30 @@ fn capability(dir: Arc<Dir>, metadata: GrantMetadata) -> *mut u64 {
     guard.dirs.insert(id, dir);
     guard.metadata.insert(id, metadata);
     guard.allocations.insert(allocation_base as usize, id);
+    guard.lifecycle[2] += 1;
     handle
 }
 
 pub(crate) fn lookup(handle: *mut u64) -> Option<Arc<Dir>> {
-    let id = unsafe { handle.as_ref().copied()? };
-    store().lock().ok()?.dirs.get(&id).cloned()
+    lookup_state(handle).ok()
+}
+
+#[derive(Clone, Copy)]
+enum LookupError {
+    Invalid,
+    Revoked,
+}
+
+fn lookup_state(handle: *mut u64) -> Result<Arc<Dir>, LookupError> {
+    let id = unsafe { handle.as_ref().copied() }.ok_or(LookupError::Invalid)?;
+    let mut guard = store().lock().map_err(|_| LookupError::Invalid)?;
+    let metadata = guard.metadata.get(&id).ok_or(LookupError::Invalid)?;
+    if guard.revoked_roots.contains(&metadata.root) {
+        guard.lifecycle[5] += 1;
+        Err(LookupError::Revoked)
+    } else {
+        guard.dirs.get(&id).cloned().ok_or(LookupError::Invalid)
+    }
 }
 
 fn grant_metadata(handle: *mut u64) -> Option<(u64, GrantMetadata)> {
@@ -163,11 +246,12 @@ pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     if let Some(id) = guard.allocations.remove(&(allocation_base as usize)) {
         guard.dirs.remove(&id);
         guard.metadata.remove(&id);
+        guard.lifecycle[2] = guard.lifecycle[2].saturating_sub(1);
     }
 }
 
-fn reason(error: &std::io::Error) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported{
-    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported as R;
+fn reason(error: &std::io::Error) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported{
+    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
     match error.kind() {
         std::io::ErrorKind::NotFound => R::NotFound,
         std::io::ErrorKind::PermissionDenied => R::AccessDenied,
@@ -176,7 +260,7 @@ fn reason(error: &std::io::Error) -> AccessDeniedOrInvalidCapabilityOrInvalidNam
     }
 }
 
-type FileReason = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
+type FileReason = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 type FileErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
 type FileErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
 type FileErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
@@ -256,6 +340,7 @@ fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryR
             source,
             lifetime: GrantLifetime::Session,
             parent: None,
+            root: 0,
         },
     );
     let value = FilesPickDirectoryOkChosen {
@@ -354,7 +439,7 @@ pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
 }
 
 fn select_portal() -> FilesPickDirectoryResult {
-    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported as R;
+    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
     let allowed = {
         let mut guard = store().lock().expect("capability store poisoned");
         if !guard.portal_enabled {
@@ -418,10 +503,11 @@ fn select_portal() -> FilesPickDirectoryResult {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
     record_operation(1);
-    let dir = lookup(cap);
+    let dir = lookup_state(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
-    let Some(dir) = dir else {
-        return FilesDirListResult { payload: FilesDirListResultPayload { err: ManuallyDrop::new(list_directory_err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidCapability)) }, tag: FilesDirListResultTag::Err };
+    let dir = match dir {
+        Ok(dir) => dir,
+        Err(error) => return FilesDirListResult { payload: FilesDirListResultPayload { err: ManuallyDrop::new(list_directory_err(match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })) }, tag: FilesDirListResultTag::Err },
     };
     let result = (|| -> std::io::Result<Vec<AnonStruct770b9d9b3d3d255>> {
         let mut values = Vec::new();
@@ -481,9 +567,9 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
             payload: FilesDirListResultPayload {
                 err: ManuallyDrop::new(list_directory_err(
                     if io.kind() == std::io::ErrorKind::InvalidData {
-                        AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidUtf8
+                        AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidUtf8
                     } else if io.kind() == std::io::ErrorKind::Other {
-                        AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::ResourceLimit
+                        AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::ResourceLimit
                     } else {
                         reason(&io)
                     },
@@ -503,12 +589,13 @@ pub extern "C" fn roc_files_dir_open_read(
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
     let inherited = grant_metadata(cap);
-    let dir = lookup(cap);
+    let dir = lookup_state(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = match dir {
-        None => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidCapability),
-        Some(_) if !valid_name(&owned_name) => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidName),
-        Some(dir) => dir.open_dir_nofollow(&owned_name).map(Arc::new).map_err(|io| reason(&io)),
+        Err(LookupError::Invalid) => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability),
+        Err(LookupError::Revoked) => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked),
+        Ok(_) if !valid_name(&owned_name) => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidName),
+        Ok(dir) => dir.open_dir_nofollow(&owned_name).map(Arc::new).map_err(|io| reason(&io)),
     };
     match result {
         Ok(dir) => FilesDirOpenReadDirResult {
@@ -521,6 +608,7 @@ pub extern "C" fn roc_files_dir_open_read(
                             source: GrantSource::Provisioned,
                             lifetime: GrantLifetime::Session,
                             parent: None,
+                            root: 0,
                         }),
                 )),
             },
@@ -540,19 +628,19 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
     record_operation(3);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
-    let dir = lookup(cap);
+    let dir = lookup_state(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
-    let result = (|| -> Result<Vec<u8>, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported> {
-        let dir = dir.ok_or(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidCapability)?;
+    let result = (|| -> Result<Vec<u8>, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> {
+        let dir = dir.map_err(|error| match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })?;
         if !valid_name(&owned_name) {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::InvalidName);
+            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidName);
         }
         let metadata = dir.symlink_metadata(&owned_name).map_err(|io| reason(&io))?;
         if metadata.file_type().is_symlink() || !metadata.is_file() {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::Unsupported);
+            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Unsupported);
         }
         if metadata.len() > MAX_FILE_BYTES {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::ResourceLimit);
+            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::ResourceLimit);
         }
         let mut options = OpenOptions::new();
         options.read(true).follow(FollowSymlinks::No);
@@ -560,7 +648,7 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
         let mut bytes = Vec::with_capacity(metadata.len() as usize);
         file.take(MAX_FILE_BYTES + 1).read_to_end(&mut bytes).map_err(|io| reason(&io))?;
         if bytes.len() as u64 > MAX_FILE_BYTES {
-            Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported::ResourceLimit)
+            Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::ResourceLimit)
         } else {
             Ok(bytes)
         }
@@ -604,13 +692,15 @@ mod tests {
             source: GrantSource::Portal,
             lifetime: GrantLifetime::Session,
             parent: None,
+            root: 11,
         };
         assert_eq!(
             derived_metadata(7, root),
             GrantMetadata {
                 source: GrantSource::Portal,
                 lifetime: GrantLifetime::Session,
-                parent: Some(7)
+                parent: Some(7),
+                root: 11,
             }
         );
     }

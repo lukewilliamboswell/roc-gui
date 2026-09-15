@@ -865,6 +865,39 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectFileLifecycleCounters(expected) => {
+                let observed = crate::files::lifecycle_counts();
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected file lifecycle counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectFileAccess(expected) => {
+                let access = crate::files::access_snapshot();
+                let observed = [
+                    access.portal_session_read,
+                    access.provisioned_session_read,
+                    access.revoked,
+                ];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected file access {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::RevokeFileGrants => {
+                crate::files::revoke_all_roots();
+                Ok(())
+            }
             Command::ExpectImageOwnerCounters(expected) => {
                 let observed = crate::image_data::counters();
                 count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
