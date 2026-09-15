@@ -14,7 +14,10 @@ from gui_host_artifacts import validate_host, validate_publication_notices
 from host_build_identity import source_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
-EXTERNAL = ("freetype-x64glibc", "glibc-x64glibc", "unwind-x64glibc", "xkbcommon-x64glibc", "macos-interfaces-macos-sysroot")
+EXTERNAL = (
+    "alsa-x64glibc", "freetype-x64glibc", "glibc-x64glibc", "unwind-x64glibc",
+    "xkbcommon-x64glibc", "macos-interfaces-macos-sysroot",
+)
 HOSTS = ("gui-host-x64glibc", "gui-host-arm64mac")
 HOST_SOURCES = ("gui-host-sources-x64glibc", "gui-host-sources-arm64mac")
 
@@ -71,7 +74,19 @@ def assemble(output: Path, roc: str, dependency_lock: Path, host_lock: Path, cac
         shutil.copyfile(ROOT / "THIRD_PARTY_LICENSES.md", platform / "THIRD_PARTY_LICENSES.md")
         (platform / "dependencies.lock.json").write_text(json.dumps(external_lock, indent=2) + "\n")
         (platform / "host.lock.json").write_text(json.dumps(hosts_lock, indent=2) + "\n")
-        subprocess.run([roc, "bundle", "--output-dir", str(output), str(platform / "main.roc")], check=True)
+        bundle_files = [
+            "main.roc",
+            *sorted(
+                path.relative_to(platform).as_posix()
+                for path in platform.rglob("*")
+                if path.is_file() and path != platform / "main.roc"
+            ),
+        ]
+        subprocess.run(
+            [roc, "bundle", *bundle_files, "--output-dir", str(output)],
+            cwd=platform,
+            check=True,
+        )
     bundles = [path for path in output.iterdir() if path.is_file() and path.name.endswith(".tar.zst")]
     if len(bundles) != 1:
         raise ValueError("roc bundle must emit exactly one content-addressed .tar.zst")

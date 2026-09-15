@@ -40,6 +40,19 @@
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/glibc-dependencies.yml",
       "input_fingerprint": "c6ea26c6543c74eb593283843c03beb3239f840757591e363423351ac2e28cb1"
     },
+    "macos-interfaces-macos-sysroot": {
+      "name": "macos-interfaces",
+      "target": "macos-sysroot",
+      "repository": "lukewilliamboswell/roc-gui",
+      "release": "deps-macos-interfaces-1-20260915.1",
+      "asset": "macos-interfaces-macos-sysroot.tar",
+      "sha256": "7fc8f2ceabb29b1df9634c94509208e1a540349dba3e57f1907aca3d702d7ed2",
+      "size": 501760,
+      "source_sha": "7192e7a112bef0e30878b00b3dbe080cb32e0532",
+      "source_ref": "refs/heads/main",
+      "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/macos-interface-dependencies.yml",
+      "input_fingerprint": "3cfa59e64ff5e3ab6c8a0bd20ac51667bf1187ae17d92a4616fb24afbb65a650"
+    },
     "musl-x64musl": {
       "name": "musl",
       "target": "x64musl",

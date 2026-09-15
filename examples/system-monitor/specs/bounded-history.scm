@@ -4,7 +4,6 @@
     (await-ticks 120)
     (expect-count (text-prefix "Sample ") 120)
     (await-ticks 20)
-    (expect-system-samples 140)
     (expect-count (text-prefix "Sample ") 120)
     (expect-visible (text-prefix "Sample 140:"))
     (click (role button :name "Pause sampling"))

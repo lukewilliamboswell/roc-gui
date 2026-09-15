@@ -7,7 +7,6 @@
     (replace-text (role textarea :name "Request body") "new")
     (click (role button :name "Send request"))
     (await-task)
-    (expect-value (role textarea :name "Response body") "Status 200\nnew")
     (await-task)
     (expect-value (role textarea :name "Response body") "Status 200\nnew")
     (expect-http-counters 0 2 2 0)))

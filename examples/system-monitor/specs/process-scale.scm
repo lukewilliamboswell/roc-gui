@@ -6,4 +6,7 @@
     (await-ticks 1)
     (expect-visible (text "Processes: 500"))
     (expect-count (button-prefix "Inspect process service-") 500)
-    (expect-visible (role virtual-list :name "Process table"))))
+    (expect-visible (role virtual-list :name "Process table"))
+    (click (role button :name "Pause sampling"))
+    (await-task)
+    (expect-system-samplers 0)))
