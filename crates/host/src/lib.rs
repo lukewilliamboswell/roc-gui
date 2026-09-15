@@ -2426,10 +2426,33 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.window_spec_path = Some(path.into());
         } else if let Some(path) = argument.strip_prefix("--host-run-window-spec=") {
             parsed.window_spec_path = Some(path.into());
+        } else if argument == "--host-window-report" {
+            parsed.window_report = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-window-report requires a path".to_string())?
+                    .into(),
+            );
         } else if let Some(path) = argument.strip_prefix("--host-window-report=") {
             parsed.window_report = Some(path.into());
+        } else if argument == "--host-window-shot-dir" {
+            parsed.window_shot_dir = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-window-shot-dir requires a directory path".to_string())?
+                    .into(),
+            );
         } else if let Some(path) = argument.strip_prefix("--host-window-shot-dir=") {
             parsed.window_shot_dir = Some(path.into());
+        } else if argument == "--host-window-timeout-ms" {
+            let value = pending
+                .next()
+                .ok_or_else(|| "--host-window-timeout-ms requires 1000..=600000".to_string())?;
+            parsed.window_timeout_ms = value
+                .parse()
+                .ok()
+                .filter(|value| (1_000..=600_000).contains(value))
+                .ok_or_else(|| "--host-window-timeout-ms requires 1000..=600000".to_string())?;
         } else if let Some(value) = argument.strip_prefix("--host-window-timeout-ms=") {
             parsed.window_timeout_ms = value
                 .parse()

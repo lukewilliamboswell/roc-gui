@@ -127,6 +127,20 @@ names the evidence so a fix can be verified against the same case.
   transitions; a patch that re-mounts the focused control has no restoration
   path, and `find_focus_identity` is never consulted for it. Keyboard-only
   operation of any control that changes state is therefore broken.
+- [ ] **Scroll and resize steps for window specifications.** Found by driving
+  `folder-browser` and `settings-center`: a list application's rows below the
+  fold cannot be reached, clicked, or photographed at all, and a specification
+  cannot prove a layout at a size other than the one `main.roc` asks for. A
+  `(scroll LOCATOR ...)` step and a `(resize W H)` step would close both. This
+  is the largest gap in the window vocabulary.
+- [ ] **Shared steps the window runner does not implement.** `drag`,
+  `replace-text`, `clipboard-text`, `submit`, `await-ticks`,
+  `revoke-file-grants`, the value and ordering assertions, and the owner
+  counter assertions are all classified semantic-only because the window runner
+  refuses them, not because they would be dishonest there. Implementing them
+  would let one specification assert semantic truth and photograph it.
+  `await-ticks` in particular must drive real timer ticks rather than settling,
+  which is what made it wrong before it was reclassified.
 - [ ] **Bring off-screen targets on screen.** `expect-on-screen` distinguishes
   laid out from actually visible, but large row cases place targets outside the
   window and the platform still has no scrolling feature to bring them into

@@ -53,6 +53,8 @@ pub enum StepError {
     NotClickable(String),
     /// A modal dialog is capturing interaction.
     BehindDialog(String),
+    /// A step this runner does not implement reached it anyway.
+    Unsupported(&'static str),
 }
 
 impl StepError {
@@ -89,6 +91,9 @@ impl StepError {
             Self::BehindDialog(locator) => {
                 format!("{locator} is behind an active dialog and cannot be clicked")
             }
+            Self::Unsupported(kind) => format!(
+                "step `{kind}` is semantic-only; run this specification with --host-run-spec"
+            ),
         };
         format!("line {line}: {detail}")
     }
@@ -423,10 +428,30 @@ async fn run_step(
         Command::Click(locator) => {
             let viewport = viewport_rect(window, cx)?;
             window
-                .update(cx, |runtime, _, cx| {
+                .update(cx, |runtime, window, cx| {
                     let id = clickable_target(runtime, locator, viewport)?;
-                    // The same call the production `on_click` closure makes.
-                    runtime.event_if_live(id, cx);
+                    let takes_focus = runtime
+                        .graph
+                        .node(id)
+                        .is_some_and(|node| node.kind.focuses_on_pointer());
+                    if takes_focus {
+                        // Clicking a text field focuses it. Without this the
+                        // step would pass having done nothing, and a later
+                        // `type` would go to whatever held focus before.
+                        let handle = runtime.focus_handles.get(&id).cloned();
+                        match handle {
+                            Some(handle) => handle.focus(window),
+                            None => {
+                                return Err(StepError::Geometry(format!(
+                                    "{} accepts pointer focus but has no focus handle",
+                                    describe(locator)
+                                )));
+                            }
+                        }
+                    } else {
+                        // The same call the production `on_click` closure makes.
+                        runtime.event_if_live(id, cx);
+                    }
                     Ok::<(), StepError>(())
                 })
                 .map_err(|_| StepError::WindowClosed)??;
@@ -560,17 +585,10 @@ async fn run_step(
         Command::AwaitTask | Command::AwaitTicks(_) => {
             settle(window, 2, options.timeout, cx).await
         }
-        // Canvas drag dispatch is a three-phase patch sequence the semantic
-        // runner already owns; running it here would duplicate that route for
-        // no additional evidence, since the geometry it needs is asserted by
-        // `expect-bounds` and `expect-on-screen`.
-        // Everything else below is a shared step not yet ported.
-        // `spec::check_runner` has already accepted the file, so refusing keeps
-        // the gap visible rather than silently passing a step that never ran.
-        other => Err(StepError::Geometry(format!(
-            "step `{}` is not implemented by the window runner yet",
-            other.kind()
-        ))),
+        // Unreachable: `spec::check_runner` refuses a specification whose
+        // steps this runner does not implement, so the refusal happens before
+        // the window opens rather than part-way through a run.
+        other => Err(StepError::Unsupported(other.kind())),
     }
     .map(|()| None)
 }

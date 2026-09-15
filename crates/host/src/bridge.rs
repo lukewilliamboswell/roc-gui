@@ -156,6 +156,15 @@ impl NodeKind {
         )
     }
 
+    /// Whether a pointer press on this control takes keyboard focus rather
+    /// than activating it. Text entry behaves this way.
+    pub fn focuses_on_pointer(&self) -> bool {
+        matches!(
+            self,
+            Self::TextInput { enabled: true, .. } | Self::Textarea { enabled: true, .. }
+        )
+    }
+
     /// Whether this control accepts pointer activation.
     ///
     /// The production render path attaches a click handler only to enabled

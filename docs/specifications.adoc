@@ -226,13 +226,20 @@ There is one specification language. Every step declares where it can be
 honest, and each runner refuses the other's steps by name rather than skipping
 them silently:
 
-`semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses.
-These depend on the semantic runner's per-iteration mount; the window runner
-runs exactly one lifecycle and does not measure it.
+`semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
+which depend on the semantic runner's per-iteration mount. Also every step the
+window runner does not implement: `drag`, `replace-text`, `clipboard-text`,
+`submit`, `await-ticks`, `revoke-file-grants`, the value and ordering
+assertions, and the owner counter assertions. They are classified by what a
+runner actually does, so a specification is refused before the window opens
+rather than part-way through a run.
 
 `window-only`:: `settle`, `screenshot`, `type`, `key`, `expect-on-screen`,
 `expect-rendered-count`, and `expect-bounds`. None of these mean anything
 without a presented frame.
+
+`both`:: `click`, `focus`, `press-key`, `await-task`, `expect-visible`,
+`expect-focused`, `expect-not-visible`, and `expect-count`.
 
 `both`:: everything else, including `expect-visible`, which asserts the same
 claim on either runner: presence in the mounted graph. The stronger pixel claim

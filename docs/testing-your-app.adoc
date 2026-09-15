@@ -71,6 +71,24 @@ needs, one `runner<tab>path` line per specification.
 
 `--host-help` lists these along with the capability and measurement flags.
 
+== Granting capabilities
+
+An application that reads files, reaches the network, or drives a terminal does
+nothing useful without the authority to do it, and a specification run is no
+exception: the same `--host-cap-*` flags that grant a capability to an
+interactive session grant it to a specification run. Running without a grant is
+the supported way to exercise a denial path, because the application takes the
+same refusal it would take from a real broker.
+
+[source,sh]
+----
+./my-app --host-run-spec specs/saving.scm --host-cap-dir ./documents
+----
+
+`--host-help` lists every capability flag. Nothing about a specification file
+confers authority; the flags do, which is why what a run may touch is visible
+in the command that started it.
+
 == Five minutes
 
 Start from the greeting application in <<_getting_started>>, with one button:
@@ -150,7 +168,8 @@ uses, `press-key`, `key`, and `type` reach the window's production keymap, and
 `expect-focused` asks the focus handle rather than a model of it.
 
 Pointer input is simulated. `click` invokes the same handler the production
-click closure invokes, because GPUI exposes no usable pointer entry point.
+click closure invokes, because GPUI exposes no usable pointer entry point. On a
+text field it takes focus instead, which is what a pointer press does there.
 What is *not* simulated is whether the click could have landed: the control
 must have been laid out, must survive clipping by the window and by every
 scrolling region around it, must be enabled, and must not be behind a modal

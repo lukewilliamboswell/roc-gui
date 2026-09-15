@@ -280,14 +280,31 @@ impl Command {
             | Self::Screenshot(_)
             | Self::Type(_)
             | Self::Key(_) => Capability::Window,
+            // Shared with the semantic runner, and implemented by both.
             Self::Click(_)
-            | Self::Drag(..)
-            | Self::ReplaceText(_, _)
             | Self::Focus(_)
             | Self::PressKey(_)
             | Self::AwaitTask
+            | Self::ExpectVisible(_)
+            | Self::ExpectFocused(_)
+            | Self::ExpectNotVisible(_)
+            | Self::ExpectCount(_, _) => Capability::Both,
+            // Semantic-only because the window runner does not implement them.
+            // They are honest claims, made by one runner rather than two; the
+            // alternative of accepting a specification and then refusing a step
+            // mid-run would report a failure that is about the harness rather
+            // than about the application.
+            Self::Drag(..)
+            | Self::ReplaceText(_, _)
             | Self::ClipboardText(_)
             | Self::AwaitTicks(_)
+            | Self::Submit(_)
+            | Self::RevokeFileGrants
+            | Self::ExpectCanvasPrimitives(_, _)
+            | Self::ExpectValue(_, _)
+            | Self::ExpectValueBytes(_, _)
+            | Self::ExpectImageBytes(_, _)
+            | Self::ExpectBefore(_, _)
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
             | Self::ExpectProcesses(_)
@@ -307,18 +324,7 @@ impl Command {
             | Self::ExpectFileSelectionCounters(_)
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
-            | Self::RevokeFileGrants
-            | Self::ExpectImageOwnerCounters(_)
-            | Self::Submit(_)
-            | Self::ExpectVisible(_)
-            | Self::ExpectFocused(_)
-            | Self::ExpectNotVisible(_)
-            | Self::ExpectCount(_, _)
-            | Self::ExpectCanvasPrimitives(_, _)
-            | Self::ExpectValue(_, _)
-            | Self::ExpectValueBytes(_, _)
-            | Self::ExpectImageBytes(_, _)
-            | Self::ExpectBefore(_, _) => Capability::Both,
+            | Self::ExpectImageOwnerCounters(_) => Capability::Semantic,
         }
     }
 
