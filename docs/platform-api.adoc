@@ -204,16 +204,23 @@ state or captured by tasks, but applications cannot forge it or recover an
 ambient path. Internally it uses the platform-wide typed `Resource.Handle`
 representation, leaving the same ABI shape available to future resource APIs.
 
-On Linux Wayland the host presents Open Project through the XDG Desktop Portal
-with directory, single-selection, read-only and modal options. It accepts one
-portal-returned `file://` directory, opens that directory once at the trusted
-broker boundary, and places only the resulting capability in the registry.
-Portal or D-Bus absence is `PickDirectoryErr(Unavailable)`. One chooser may be
-active at a time, and cancellation or refusal starts a short host-owned cooldown
-that prevents application-driven prompt loops. An already provisioned
-development grant never prompts and is not affected by that cooldown.
+Open Project is presented by the operating system, never by application code.
+On Linux Wayland the host asks the XDG Desktop Portal with directory,
+single-selection, read-only and modal options and accepts one portal-returned
+`file://` directory. On macOS the host asks the running window for the native
+directory panel, and the window owning that panel is the only thread that shows
+it. Either way the host opens the selected directory once at the trusted broker
+boundary and places only the resulting capability in the registry.
 
-Every root grant records whether its source was trusted portal selection or
+An absent chooser is `PickDirectoryErr(Unavailable)`: a missing portal or D-Bus
+on Linux, and on macOS a request made before the window exists or from the
+window's own thread, which is the thread that would have to show the panel. One
+chooser may be active at a time, and cancellation or refusal starts a short
+host-owned cooldown that prevents application-driven prompt loops. An already
+provisioned development grant never prompts and is not affected by that
+cooldown.
+
+Every root grant records whether its source was trusted chooser selection or
 development provisioning and has session lifetime. Derived child handles carry
 their immediate parent and inherited source. This metadata is host-private; no
 path or grant identity enters captures. `--host-cap-dir` remains development

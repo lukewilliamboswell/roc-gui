@@ -18,9 +18,14 @@ the change lands; do not soften the docs to match the gap.
   and a host-owned revocation linearization rule; extend that rule to other
   resources and certify cross-process queued/running races and already-returned
   byte policy under confinement.
-- [ ] **Trusted file workflows remain incomplete.** Linux Wayland Open Project
-  uses the production XDG Desktop Portal and records session/source/parent
-  lineage, while `--host-cap-dir` remains development provisioning. Add Open
+- [ ] **Trusted file workflows remain incomplete.** Open Project is presented by
+  the operating system on both hosts: the production XDG Desktop Portal on Linux
+  Wayland and the window-owned native directory panel on macOS. Both record
+  session/source/parent lineage, and `--host-cap-dir` remains development
+  provisioning. The macOS panel is a native chooser, not a sandbox powerbox: it
+  grants no authority the unsandboxed process does not already hold, so it is
+  honest consent but not enforcement until the macOS sandbox work below lands.
+  Add Open
   Document's smallest single-file grant, persistent grants, revocation, edit
   grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
   cancellation and retry semantics.

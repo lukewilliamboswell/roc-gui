@@ -1646,6 +1646,37 @@ impl Runtime {
             }
         })
         .detach();
+        let (chooser_requests, chooser_pending) = std::sync::mpsc::channel::<files::ChooserRequest>();
+        files::install_chooser(chooser_requests);
+        let chooser_executor = cx.background_executor().clone();
+        cx.spawn(async move |_, cx| {
+            loop {
+                chooser_executor
+                    .timer(std::time::Duration::from_millis(50))
+                    .await;
+                let Ok(request) = chooser_pending.try_recv() else {
+                    if cx.update(|_| ()).is_err() {
+                        break;
+                    }
+                    continue;
+                };
+                let prompt = cx.update(|cx| {
+                    cx.prompt_for_paths(PathPromptOptions {
+                        files: false,
+                        directories: true,
+                        multiple: false,
+                        prompt: Some("Open".into()),
+                    })
+                });
+                let Ok(prompt) = prompt else { break };
+                let chosen = match prompt.await {
+                    Ok(Ok(Some(paths))) => paths.into_iter().next(),
+                    _ => None,
+                };
+                let _ = request.reply.send(chosen);
+            }
+        })
+        .detach();
         let executor = cx.background_executor().clone();
         cx.spawn(async move |_, cx| {
             loop {
@@ -2772,9 +2803,12 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         },
         None => None,
     };
+    // A specification never opens an interactive chooser: a window case drives
+    // the production window, so an operating-system panel would wait for a
+    // person who is not there.
     if let Err(message) = files::configure(
         args.cap_dir.as_deref(),
-        args.spec_path.is_none() && !args.host_smoke,
+        args.spec_path.is_none() && args.window_spec_path.is_none() && !args.host_smoke,
     ) {
         eprintln!("roc-gui capability error: {message}");
         set_roc_host(core::ptr::null_mut());

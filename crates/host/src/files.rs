@@ -379,6 +379,81 @@ enum PortalSelection {
     Unavailable,
 }
 
+/// One outstanding trusted-chooser request. The platform window thread owns the
+/// native panel, so a task thread hands it a reply channel and waits.
+pub struct ChooserRequest {
+    pub reply: std::sync::mpsc::SyncSender<Option<std::path::PathBuf>>,
+}
+
+struct ChooserSeam {
+    requests: std::sync::mpsc::Sender<ChooserRequest>,
+    window_thread: std::thread::ThreadId,
+}
+
+static CHOOSER: OnceLock<Mutex<Option<ChooserSeam>>> = OnceLock::new();
+
+fn chooser() -> &'static Mutex<Option<ChooserSeam>> {
+    CHOOSER.get_or_init(|| Mutex::new(None))
+}
+
+/// Register the running window as the owner of the native chooser. Called from
+/// the window thread, whose identity is recorded so a request made from that
+/// same thread reports `Unavailable` instead of waiting for a panel that the
+/// waiting thread is the one responsible for showing.
+pub fn install_chooser(requests: std::sync::mpsc::Sender<ChooserRequest>) {
+    *chooser().lock().expect("chooser seam poisoned") = Some(ChooserSeam {
+        requests,
+        window_thread: std::thread::current().id(),
+    });
+}
+
+fn open_selected(path: std::path::PathBuf) -> PortalSelection {
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("directory")
+        .to_owned();
+    match Dir::open_ambient_dir(path, ambient_authority()) {
+        Ok(dir) => PortalSelection::Chosen(Arc::new(dir), name),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            PortalSelection::Denied
+        }
+        Err(_) => PortalSelection::Unavailable,
+    }
+}
+
+/// Ask the running window for a directory through the operating system's own
+/// chooser. Used where the host has no portal broker to ask.
+fn native_directory() -> PortalSelection {
+    let requests = {
+        let guard = chooser().lock().expect("chooser seam poisoned");
+        match guard.as_ref() {
+            None => return PortalSelection::Unavailable,
+            Some(seam) if seam.window_thread == std::thread::current().id() => {
+                return PortalSelection::Unavailable;
+            }
+            Some(seam) => seam.requests.clone(),
+        }
+    };
+    let (reply, answer) = std::sync::mpsc::sync_channel(1);
+    if requests.send(ChooserRequest { reply }).is_err() {
+        return PortalSelection::Unavailable;
+    }
+    match answer.recv() {
+        Err(_) => PortalSelection::Unavailable,
+        Ok(None) => PortalSelection::Canceled,
+        Ok(Some(path)) => open_selected(path),
+    }
+}
+
+fn chooser_directory() -> PortalSelection {
+    if cfg!(target_os = "macos") {
+        native_directory()
+    } else {
+        portal_directory()
+    }
+}
+
 fn portal_directory() -> PortalSelection {
     async_std::task::block_on(async {
         use ashpd::desktop::{ResponseError, file_chooser::SelectedFiles};
@@ -409,18 +484,7 @@ fn portal_directory() -> PortalSelection {
             Ok(value) => value,
             Err(_) => return PortalSelection::Unavailable,
         };
-        let name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("directory")
-            .to_owned();
-        match Dir::open_ambient_dir(path, ambient_authority()) {
-            Ok(dir) => PortalSelection::Chosen(Arc::new(dir), name),
-            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
-                PortalSelection::Denied
-            }
-            Err(_) => PortalSelection::Unavailable,
-        }
+        open_selected(path)
     })
 }
 
@@ -466,7 +530,7 @@ fn select_portal() -> FilesPickDirectoryResult {
             tag: FilesPickDirectoryResultTag::Err,
         };
     }
-    let result = portal_directory();
+    let result = chooser_directory();
     let mut guard = store().lock().expect("capability store poisoned");
     guard.chooser_in_flight = false;
     match &result {
@@ -674,6 +738,27 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The seam is one process-wide registration, so both of its outcomes are
+    /// exercised in one test rather than racing each other.
+    #[test]
+    fn the_native_chooser_answers_a_waiting_task_and_refuses_the_window_thread() {
+        let (requests, pending) = std::sync::mpsc::channel();
+        install_chooser(requests);
+        assert!(matches!(native_directory(), PortalSelection::Unavailable));
+        assert!(pending.try_recv().is_err());
+
+        let task = std::thread::spawn(native_directory);
+        let request = pending
+            .recv_timeout(Duration::from_secs(5))
+            .expect("the waiting task never asked for a chooser");
+        request.reply.send(None).expect("nobody was waiting");
+        assert!(matches!(
+            task.join().expect("task thread panicked"),
+            PortalSelection::Canceled
+        ));
+        *chooser().lock().expect("chooser seam poisoned") = None;
+    }
 
     #[test]
     fn child_names_cannot_escape_or_add_components() {

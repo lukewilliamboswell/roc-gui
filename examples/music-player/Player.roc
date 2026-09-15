@@ -34,6 +34,7 @@ audio_error = |err| match err {
 scan = |state| Action.task({
 	pending: { ..state, status: "Scanning…" },
 	run: || match Files.pick_directory!({}) {
+		Err(PickDirectoryErr(Unavailable)) => ScanFailed("This system offers no folder chooser")
 		Err(_) => ScanFailed("Music folder access was denied")
 		Ok(Canceled) => ScanCanceled
 		Ok(Chosen(selection)) => match Audio.acquire!({}) {
