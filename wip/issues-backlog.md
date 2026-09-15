@@ -74,11 +74,126 @@ the change lands; do not soften the docs to match the gap.
 
 ## Element appearance
 
+- [ ] **Disabled and focus appearance are host constants an application cannot
+  reach.** `apply_disabled` paints `DISABLED_BG`/`DISABLED_FG` at a fixed 0.55
+  opacity and `apply_focus_ring` draws a fixed amber, both chosen for the
+  default dark ground. They made those states unmistakable, which was the
+  point, but they assume one palette: on a near-black application the amber ring
+  fights a deliberate accent, on a near-white one the blue-grey disabled fill is
+  foreign, and a disabled control on a saturated ground still reads as live at
+  0.55. Both should derive from the element's own style, or be overridable,
+  rather than being constants. Introduced with the control-state fixes.
+
 - [ ] **Panel labels are never painted.** `Elem.panel`'s `label` is a semantic
   locator name, and several applications use it for a status phrase rather than
   a heading, so painting it as a header would both duplicate body text and move
   every existing layout. Close with an explicit heading on the panel element,
   distinct from the locator name, rendered with its own weight and size.
+
+- [ ] **Lists carry no style of their own.** `Elem.virtual_list` and
+  `Elem.scroll` take only a name, a row height, and their content, so a list has
+  no ground, padding, radius, or row spacing. Found while giving `music-player`
+  a dark queue: the list had to be wrapped in a padded panel for its surface,
+  every row repaints that surface itself, and row spacing exists only because
+  each row button is deliberately shorter than `row_height`. Close by giving
+  both list elements the shared `Gui.Style` fields, with a separate row gap.
+- [ ] **`Elem.text` has no style.** Colour and size reach a string only by
+  inheritance from an enclosing row or column, so every typographic step costs a
+  wrapper element that exists for no other reason. `music-player`'s wordmark and
+  status line are each a one-child `row` whose only job is `fg` and `font_size`.
+  Close with a styled text element carrying the same colour and size fields.
+- [ ] **No font weight.** A wordmark, a small eyebrow label, and a primary
+  transport caption all want weight, not size or hue. With only `font_size` and
+  `fg`, hierarchy has to be spent on size and colour that were carrying other
+  meaning; `music-player` reserves its accent for the sounding track and the
+  primary transport, which leaves nothing for emphasis elsewhere. Close by
+  adding a weight field to `Gui.Style`.
+- [ ] **Padding is one scalar for all four sides.** Pill-shaped transport
+  controls want generous horizontal padding and tight vertical padding. The
+  single `padding` field makes that inexpressible, so `music-player`'s transport
+  row sets `height: Px(48)` to defeat the vertical component of the horizontal
+  padding it actually wanted. Close with per-side padding, keeping the scalar as
+  the shorthand.
+- [ ] **A disabled control's appearance is a fixed opacity.** Disabled elements
+  are painted at 0.55 opacity of the application's own colours, which is not a
+  colour an application can choose. On a near-black ground a saturated accent
+  pill at 55% still reads as live, so a media transport cannot honestly present
+  itself as inert before a library is loaded. Close with disabled colour fields
+  alongside `hover_bg` and `active_bg`.
+- [ ] **The focus ring is a host constant.** Keyboard focus paints
+  `FOCUS_RING` regardless of the application's palette, so a deliberate accent
+  is contradicted the moment a control is focused. Close with a focus colour in
+  `Gui.Style`, defaulting to the host constant.
+- [ ] **Text cannot be kept on one line, and cannot be truncated.** There is no
+  wrap, nowrap, or ellipsis control, so a string longer than its container
+  reflows and grows that container. `counter`'s oversized numeral pushed its own
+  buttons out of the card at five digits. The only expressible defences are
+  `overflow: Clip`, which silently drops the remaining digits with no indication
+  that a value is incomplete, and application-side font-size stepping by
+  magnitude, which is the example's present workaround. Close with a wrapping
+  mode and a truncation mode on text-bearing elements.
+- [ ] **The window ground is a host constant.** The root container paints
+  `0x16252c` and centres its child, so a light application cannot set the colour
+  behind its own content. `counter` paints its paper ground with a
+  `Fill`/`Fill` grown column, which covers the dark ground but also fills the
+  window, forfeiting the root's centring and still leaving the host colour
+  visible in the window's rounded corners and along its top edge. Close with an
+  application-settable window background, independent of the root element's own
+  size.
+- [ ] **No shadow or elevation.** Surfaces separate from their ground only by
+  `bg`, `border_color`, and `radius`. A raised card on a near-white ground wants
+  a soft shadow, which on paper-light palettes is the only separation with
+  enough contrast to read; `counter`'s cards fall back on a 1px rule that all
+  but disappears against the ground it was chosen to sit quietly against. Close
+  with a shadow field on `Gui.Style`.
+- [ ] **No letter spacing.** A small muted caption above a large numeral is
+  conventionally tracked out, and tracking is what distinguishes an eyebrow
+  label from ordinary body text once weight and family are unavailable.
+  `counter`'s per-card captions are plain small grey text instead. Close with a
+  letter-spacing field on `Gui.Style`, alongside the weight field above.
+- [ ] **A border is all four sides at one width and one colour.** A dense
+  instrument panel divides regions with hairline rules, not with boxes.
+  `terminal-workspace` can only give every region a complete 1-point box and set
+  the gap between regions to 1 point so adjacent edges read as a single rule;
+  the outer edges of the stack are drawn too, and the seam is two coincident
+  borders rather than one. Close with per-side border width and colour.
+- [ ] **`radius` does not round an image's pixels.** `Elem.image` applies the
+  shared style to its container, but the decoded picture is painted as a full-size
+  child that is not clipped to that radius, so `image-library`'s 16-point media
+  corners have square pictures sitting over them. This is the one shape the
+  gallery identity depends on. Close by clipping image content to the element's
+  radius.
+- [ ] **An image's `width`, `height`, and `fit` do not size the picture.** A
+  gallery wants one uniform thumbnail shape and one viewer image that fits the
+  space left for it. With `fit: Cover` and `width: Px(88), height: Px(88)` the
+  painted SVG keeps a size of its own inside the box, and with `height: Fill,
+  grow: True` the viewer image is laid out past the bottom of the window instead
+  of fitting it, so `examples/image-library/specs/window-gallery.scm` can only
+  assert `expect-visible` for the selected image where `expect-on-screen` is the
+  claim that matters. Close by making the declared box authoritative and `fit`
+  the rule that maps pixels into it.
+- [ ] **A fixed length is a shrinkable basis with no floor.** Sibling overflow
+  shrinks a `Px` width, and there is no minimum-size or no-shrink field, so
+  `image-library`'s thumbnails first rendered at a different width in each row
+  depending on how long the caption beside them was. The only expressible remedy
+  was to shorten the caption control until the row fitted. Close with minimum and
+  maximum length fields, or an explicit no-shrink flag.
+- [ ] **A checkbox's box and mark are host constants.** `fg` reaches the caption
+  only; the indicator paints fixed dark values. On `image-library`'s near-white
+  wall the grayscale toggle is the one dark chip in the window and the identity
+  cannot reach it. Close with indicator colour fields on `Elem.CheckboxProps`.
+- [ ] **A row cannot distribute its children along its main axis.** There is
+  `gap` and nothing else, so a trailing child cannot sit at the far edge.
+  `terminal-workspace` wants its session status at the right end of the toolbar
+  and its encoding readout at the right end of the header, which is what an
+  instrument panel does with a status field; both are left-packed instead,
+  because the alternative is a grown spacer element that exists only to push.
+  Close with a main-axis distribution field on rows and columns.
+- [ ] **No font family.** Terminal output is columnar: `terminal-workspace`'s
+  scrollback, its line counts, and its `pty 100x30` readout all want a monospace
+  face, and nothing in `Gui.Style` selects one. Digits in the footer shift width
+  as they change, and the scrollback cannot align a column. Close with a family
+  or a generic-face field on `Gui.Style`.
 
 ## Trust: measurements that can mislead a decision
 
