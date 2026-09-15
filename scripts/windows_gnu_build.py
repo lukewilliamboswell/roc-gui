@@ -88,6 +88,21 @@ def missing_prerequisites(which=shutil.which, exists=None, environ=None, output=
     return missing
 
 
+def pins_required(environ=None):
+    """Whether this build must use the reviewed FXC pins.
+
+    CI and release builds always do. A development machine receives SDK
+    servicing updates that re-sign and re-hash FXC, so requiring the pins there
+    would break every local build until someone re-reviews them; local builds
+    still require valid Microsoft Authenticode signatures and record what they
+    loaded. `ROC_GUI_PINNED_SHADER_TOOLS=1` asks for the pins anyway.
+    """
+    environ = os.environ if environ is None else environ
+    if environ.get("ROC_GUI_UNPINNED_SHADER_TOOLS") == "1":
+        return False
+    return bool(environ.get("CI")) or environ.get("ROC_GUI_PINNED_SHADER_TOOLS") == "1"
+
+
 def shader_tools(output, pinned=True):
     """Admit the reviewed, Microsoft-signed FXC pair and record what loaded.
 
@@ -108,9 +123,10 @@ def shader_tools(output, pinned=True):
     if (len(signatures) != 2
             or {Path(record["Path"]).resolve() for record in signatures} != {fxc.resolve(), dll.resolve()}
             or any(record["Status"] != 0 or (pinned and record["Thumbprint"] != SIGNER) for record in signatures)):
-        raise ValueError("Windows shader tools require reviewed valid Authenticode signatures; "
-                         "for a local development build with a serviced SDK set "
-                         "ROC_GUI_UNPINNED_SHADER_TOOLS=1")
+        raise ValueError(
+            f"Windows shader tools in {sdk} require valid Microsoft Authenticode signatures"
+            + (", matching the reviewed pins this build requires" if pinned else "")
+        )
     if pinned:
         verify(fxc, FXC_SHA)
         verify(dll, COMPILER_SHA)
@@ -167,7 +183,11 @@ def execute(output, *, jobs=2, cargo_target=None, debug=False):
     output.mkdir(parents=True, exist_ok=False)
     profile = "debug" if debug else "release"
     cargo_target = (cargo_target or output / "cargo-target").resolve()
-    fxc, inventory = shader_tools(output, pinned=os.environ.get("ROC_GUI_UNPINNED_SHADER_TOOLS") != "1")
+    pinned = pins_required()
+    if not pinned:
+        print("Local build: admitting this machine's Microsoft-signed shader tools "
+              "instead of the reviewed pins; the identities are recorded.")
+    fxc, inventory = shader_tools(output, pinned=pinned)
     zig = zig_toolchain(output / "tools")
     env = cargo_environment(output / "tools", zig, fxc, cargo_target)
     versions = {"rustc": subprocess.check_output(["rustc", "-vV"], env=env, text=True),

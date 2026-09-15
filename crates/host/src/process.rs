@@ -10,12 +10,11 @@ use std::{
 
 const MAX_ACTIVE: usize = 64;
 const MAX_IO_BYTES: usize = 65_536;
-/// A Windows pseudo console paints output on its own frame timer, so a quiet
-/// gap between its frames is longer than a POSIX terminal's between writes.
-#[cfg(not(windows))]
+/// How long a read waits for more output before delivering what it holds. A
+/// window specification calls the window quiet after two frames, so this stays
+/// under that: a longer gap lets a spec assert before the terminal's own output
+/// has arrived. Control-only output is held regardless, however long it takes.
 const READ_IDLE_MS: u64 = 20;
-#[cfg(windows)]
-const READ_IDLE_MS: u64 = 60;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GrantedProfile {

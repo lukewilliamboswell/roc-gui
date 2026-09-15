@@ -2971,9 +2971,11 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         },
         None => None,
     };
+    // A specification run never shows a native chooser: window runs would open
+    // a real dialog nobody can answer, so both spec runners refuse instead.
     if let Err(message) = files::configure(
         args.cap_dir.as_deref(),
-        args.spec_path.is_none() && !args.host_smoke,
+        args.spec_path.is_none() && args.window_spec_path.is_none() && !args.host_smoke,
     ) {
         eprintln!("roc-gui capability error: {message}");
         set_roc_host(core::ptr::null_mut());
