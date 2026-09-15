@@ -9,6 +9,11 @@ roc build examples/counter/main.roc
 ./counter
 ```
 
+With [Kai](https://github.com/thebrandonlucas/kai), the `Kaifile` provides the
+Rust, Zig, Roc, and native dependencies. Use Nix only to bootstrap Kai; on a
+host with no generic Linux loader, start an application with
+`scripts/roc-gui-native`. See [Getting started](docs/getting-started.adoc).
+
 The platform provides text, controlled native text inputs, buttons, styled checkboxes, row and column layout,
 local state boundaries, worker tasks, capability-scoped directory I/O,
 semantic `.scm` specifications, and SQLite performance captures.

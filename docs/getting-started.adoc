@@ -5,6 +5,45 @@
 Install the Roc nightly named in the application's `app` header and Rust with
 Cargo. Run the commands from the repository root on Linux x86_64 under Wayland.
 
+Use https://github.com/thebrandonlucas/kai[Kai] for the repository's development
+environment. Nix is needed only to bootstrap Kai:
+
+[source,sh]
+----
+nix run github:thebrandonlucas/kai -- shell development
+----
+
+Once Kai is installed, `kai shell development` enters the same environment. Kai
+selects the Rust toolchain named in `rust-toolchain.toml`, the Zig release the
+linker inputs reproduce under, the pinned Roc nightly, and the native build and
+runtime dependencies. `Kaifile.lock` pins the package sources, while
+`rust-toolchain.toml` pins the Rust release and components. Run
+`kai run check-toolchains` to report those versions and reject drift from the
+repository pins.
+
+A built application is an ordinary dynamically linked binary: it asks the kernel
+for a loader at the path its released inputs were built against, and names its
+shared libraries by soname. Nothing in this manual needs special treatment on a
+distribution that supplies both. A NixOS host without a generic Linux loader
+instead starts the application through the repository runner:
+
+[source,sh]
+----
+roc build --output=counter examples/counter/main.roc
+scripts/roc-gui-native ./counter
+----
+
+`roc path/to/main.roc` runs an application as well as building it, and so do the
+specification driver and the window smoke check, each of which starts one.
+Prefix them the same way, or start one session that needs no prefix:
+
+[source,sh]
+----
+scripts/roc-gui-native bash
+----
+
+That session ends with the shell and changes nothing on the host.
+
 The host archive is part of every Roc GUI executable. Build it first:
 
 [source,sh]
