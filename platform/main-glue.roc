@@ -52,6 +52,7 @@ platform ""
 	targets: {
 		inputs_dir: "targets/",
 		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
+		arm64mac: { inputs: ["libhost.a", app, "../macos-sysroot/usr/lib/libSystem.tbd", "../macos-sysroot/usr/lib/libobjc.tbd", "../macos-sysroot/usr/lib/libc++.tbd"] },
 	}
 
 import HostGlue

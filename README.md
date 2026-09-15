@@ -12,7 +12,9 @@ roc build examples/counter/main.roc
 The platform provides text, controlled native text inputs, buttons, styled checkboxes, row and column layout,
 local state boundaries, worker tasks, read-only directory capabilities,
 semantic `.scm` specifications, and SQLite performance captures.
-It targets Linux x86_64 with Wayland.
+It targets Linux x86_64 with Wayland and Apple Silicon macOS. Native linker
+inputs and host archives are reproducible, independently released artifacts;
+generated binaries are not stored in Git.
 
 Read the [manual](docs/index.adoc), begin with
 [Getting started](docs/getting-started.adoc), or explore the

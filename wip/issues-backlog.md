@@ -54,6 +54,21 @@ names the evidence so a fix can be verified against the same case.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
 
+## Release infrastructure
+
+- [ ] **Native macOS GPUI smoke shutdown.** The Apple Silicon host builds and
+  final-links against the project-generated interfaces, and semantic counter
+  specifications pass. The real-window smoke currently blocks while opening the
+  GPUI window on the development machine before its bounded render assertion is
+  scheduled. Make that production window path render and close deterministically;
+  CI invokes it through `scripts/run_gpui_smoke.py` so a block is a failure, never
+  an indefinite job.
+- [ ] **Adopt roc-gui-owned content-addressed releases.** Run the dependency and
+  host producer workflows from reviewed repository revisions, publish their
+  attested archives, and replace the bootstrap `roc-signals` entries in
+  `dependencies.lock.json` with the exact roc-gui release identities before the
+  first platform release.
+
 ## Input and accessibility
 
 - [ ] **SQLite write transactions and parameters.** The database capability is
