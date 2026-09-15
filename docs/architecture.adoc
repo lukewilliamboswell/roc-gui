@@ -312,6 +312,9 @@ and builders must close in nesting order.
 |Native appearance, click input, and entity materialisation
 |GPUI host
 
+|Tab order, visible focus, and Enter/Space control activation
+|GPUI host over the canonical button and checkbox nodes
+
 |Headless semantic driving and locators
 |Host runner using production structures
 

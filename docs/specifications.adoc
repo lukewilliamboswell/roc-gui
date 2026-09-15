@@ -61,14 +61,20 @@ interactive grant, without giving the application ambient test-only I/O.
 `(role checkbox :name "label")`:: A checkbox identified by its visible label.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
 
-A `click` locator must resolve to exactly one live node. Ambiguous and missing
-targets fail instead of choosing one by traversal order. Make button names
-unique wherever the buttons are visible together.
+An interaction locator must resolve to exactly one live node. Ambiguous and
+missing targets fail instead of choosing one by traversal order. Make button
+names unique wherever the buttons are visible together.
 
 == Assertions and operations
 
 `(click LOCATOR)`:: Press exactly one matching button through the application's
 normal Roc event route.
+`(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
+or checkbox. Focus remains valid only while that mounted node is live.
+`(press-key Enter)`:: Activate the focused button through the normal Roc event
+route.
+`(press-key Space)`:: Activate the focused button or toggle the focused enabled
+checkbox through the normal Roc event route.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.
@@ -91,6 +97,12 @@ The runner queries the same mounted graph the native host uses. It does not
 construct a separate test tree. Because it does not open a GPUI window, it is
 suited to deterministic semantic checks; pixels, layout, and presentation are
 outside this runner's evidence.
+
+`focus` and `press-key` model the production controls' accepted activation-key
+matrix and invoke their normal Roc event route. They do not inject a native
+GPUI key event or verify compositor delivery, tab traversal, focus painting, or
+operating-system accessibility. Those claims require the end-to-end GPUI
+runner tracked in the backlog.
 
 == Selecting and repeating cases
 

@@ -10,8 +10,8 @@ mod runner;
 mod spec;
 
 use bridge::{
-    BridgeState, CheckboxStyle, Length, MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis,
-    decode_commit, validate_tree,
+    BridgeState, CheckboxStyle, ControlKey, Length, MountedGraph, Node, NodeKind, Overflow, Patch,
+    ScrollAxis, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -28,6 +28,11 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::Instant,
 };
+
+actions!(
+    roc_gui,
+    [FocusNext, FocusPrevious, ActivateEnter, ActivateSpace]
+);
 
 unsafe extern "C" {
     fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable);
@@ -569,6 +574,8 @@ impl Render for NodeView {
             NodeKind::Button { .. } => {
                 let node_id = self.node.id;
                 let runtime = self.runtime.clone();
+                let enter_runtime = self.runtime.clone();
+                let space_runtime = self.runtime.clone();
                 element = element
                     .flex()
                     .items_center()
@@ -579,10 +586,25 @@ impl Render for NodeView {
                     .bg(rgb(0x315469))
                     .hover(|style| style.bg(rgb(0x3e6a83)))
                     .active(|style| style.bg(rgb(0x274453)))
+                    .focusable()
+                    .tab_index(0)
+                    .focus(|style| style.border_2().border_color(rgb(0x9bdcf0)))
+                    .on_action(move |_: &ActivateEnter, _, cx| {
+                        let _ = enter_runtime.update(cx, |runtime, cx| {
+                            runtime.activate_if_live(node_id, ControlKey::Enter, cx)
+                        });
+                    })
+                    .on_action(move |_: &ActivateSpace, _, cx| {
+                        let _ = space_runtime.update(cx, |runtime, cx| {
+                            runtime.activate_if_live(node_id, ControlKey::Space, cx)
+                        });
+                    })
                     .cursor_pointer()
-                    .on_click(move |_, _, cx| {
-                        let _ =
-                            runtime.update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
+                    .on_click(move |event, _, cx| {
+                        if event.mouse_position().is_some() {
+                            let _ = runtime
+                                .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
+                        }
                     });
             }
             NodeKind::Checkbox {
@@ -660,10 +682,23 @@ impl Render for NodeView {
                     element = element.active(move |refinement| refinement.bg(rgb(value)));
                 }
                 if *enabled {
-                    element = element.cursor_pointer().on_click(move |_, _, cx| {
-                        let _ =
-                            runtime.update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
-                    });
+                    let space_runtime = self.runtime.clone();
+                    element = element
+                        .focusable()
+                        .tab_index(0)
+                        .focus(|refinement| refinement.border_2().border_color(rgb(0x9bdcf0)))
+                        .on_action(move |_: &ActivateSpace, _, cx| {
+                            let _ = space_runtime.update(cx, |runtime, cx| {
+                                runtime.activate_if_live(node_id, ControlKey::Space, cx)
+                            });
+                        })
+                        .cursor_pointer()
+                        .on_click(move |event, _, cx| {
+                            if event.mouse_position().is_some() {
+                                let _ = runtime
+                                    .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
+                            }
+                        });
                 }
             }
         }
@@ -753,6 +788,16 @@ impl Runtime {
         } else {
             let patch = dispatch(id);
             self.apply_unrecorded(patch, cx);
+        }
+    }
+
+    fn activate_if_live(&mut self, id: u64, key: ControlKey, cx: &mut Context<Self>) {
+        if self
+            .graph
+            .node(id)
+            .is_some_and(|node| node.kind.accepts_key(key))
+        {
+            self.event_if_live(id, cx);
         }
     }
 
@@ -878,6 +923,8 @@ impl Render for Runtime {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         div()
             .id("roc-gui-root")
+            .on_action(|_: &FocusNext, window, _| window.focus_next())
+            .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
             .size_full()
             .flex()
             .items_center()
@@ -1153,6 +1200,12 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     }
 
     Application::new().run(|cx| {
+        cx.bind_keys([
+            KeyBinding::new("tab", FocusNext, None),
+            KeyBinding::new("shift-tab", FocusPrevious, None),
+            KeyBinding::new("enter", ActivateEnter, None),
+            KeyBinding::new("space", ActivateSpace, None),
+        ]);
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
                 cx.quit();

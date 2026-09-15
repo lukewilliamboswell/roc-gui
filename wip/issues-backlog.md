@@ -59,3 +59,22 @@ names the evidence so a fix can be verified against the same case.
   are accepted; merely opening a window is insufficient.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
+
+## Input and accessibility
+
+- [ ] **Native accessibility roles and names are not exported.** Buttons,
+  checkboxes, and scroll regions have stable semantics in the canonical graph,
+  but the GPUI host does not yet publish them to each operating system's
+  accessibility API. Close with platform accessibility nodes verified by an
+  external accessibility client, while retaining the same semantic names used
+  by specifications.
+- [ ] **Focus is not restored across replaced subtrees.** Keyboard focus works
+  for each live GPUI control, but a Roc state update replaces that control's
+  native entity. Close by carrying role and stable semantic name across a
+  successful patch when the corresponding control remains live, and specify
+  the destination when navigation removes the focused control.
+- [ ] **Composite directory navigation has no roving focus.** A user can reach
+  and activate every folder with Tab and Enter or Space. Close with a semantic
+  list/list-item element whose Up, Down, Home, and End behavior, selected state,
+  scroll-into-view behavior, scaling case, and operating-system accessibility
+  mapping all use the production event path.

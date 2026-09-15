@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::bridge::ControlKey;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spec {
     pub name: String,
@@ -26,6 +28,8 @@ pub struct Step {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Click(Locator),
+    Focus(Locator),
+    PressKey(ControlKey),
     AwaitTask,
     ExpectVisible(Locator),
     ExpectNotVisible(Locator),
@@ -39,6 +43,8 @@ impl Command {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Click(_) => "click",
+            Self::Focus(_) => "focus",
+            Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectNotVisible(_) => "expect-not-visible",
@@ -50,7 +56,10 @@ impl Command {
     }
 
     pub fn is_operation(&self) -> bool {
-        matches!(self, Self::Click(_) | Self::AwaitTask)
+        matches!(
+            self,
+            Self::Click(_) | Self::Focus(_) | Self::PressKey(_) | Self::AwaitTask
+        )
     }
 }
 
@@ -313,6 +322,17 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         .ok_or_else(|| error(node, "step requires a command name"))?;
     let command = match head {
         "click" if values.len() == 2 => Command::Click(parse_locator(&values[1])?),
+        "focus" if values.len() == 2 => Command::Focus(parse_locator(&values[1])?),
+        "press-key" if values.len() == 2 => {
+            let key = values[1]
+                .atom()
+                .ok_or_else(|| error(&values[1], "press-key requires Enter or Space"))?;
+            Command::PressKey(match key {
+                "Enter" => ControlKey::Enter,
+                "Space" => ControlKey::Space,
+                _ => return Err(error(&values[1], "press-key requires Enter or Space")),
+            })
+        }
         "await-task" if values.len() == 1 => Command::AwaitTask,
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-not-visible" if values.len() == 2 => {
@@ -365,8 +385,9 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
-        "click" | "await-task" | "expect-visible" | "expect-not-visible" | "expect-count"
-        | "expect-before" | "expect-patch" | "mark-metrics" => {
+        "click" | "focus" | "press-key" | "await-task" | "expect-visible"
+        | "expect-not-visible" | "expect-count" | "expect-before" | "expect-patch"
+        | "mark-metrics" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -636,6 +657,27 @@ mod tests {
             spec.steps[0].command,
             Command::ExpectVisible(Locator::ScrollName("Directory contents".into()))
         );
+    }
+
+    #[test]
+    fn parses_keyboard_activation() {
+        let spec = parse(
+            r#"(test "keyboard"
+              (steps
+                (focus (role button :name "Open"))
+                (press-key Enter)
+                (press-key Space)))"#,
+        )
+        .unwrap();
+        assert!(matches!(spec.steps[0].command, Command::Focus(_)));
+        assert_eq!(spec.steps[1].command, Command::PressKey(ControlKey::Enter));
+        assert_eq!(spec.steps[2].command, Command::PressKey(ControlKey::Space));
+    }
+
+    #[test]
+    fn rejects_unsupported_semantic_key() {
+        let error = parse(r#"(test "keyboard" (steps (press-key Escape)))"#).unwrap_err();
+        assert!(error.message.contains("Enter or Space"));
     }
 
     #[test]

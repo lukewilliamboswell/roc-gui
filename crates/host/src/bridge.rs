@@ -62,6 +62,22 @@ pub enum NodeKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ControlKey {
+    Enter,
+    Space,
+}
+
+impl NodeKind {
+    pub fn accepts_key(&self, key: ControlKey) -> bool {
+        matches!(
+            (self, key),
+            (Self::Button { .. }, ControlKey::Enter | ControlKey::Space)
+                | (Self::Checkbox { enabled: true, .. }, ControlKey::Space)
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Length {
     Auto,
     Fill,
@@ -648,6 +664,55 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn controls_accept_only_their_native_activation_keys() {
+        let button = NodeKind::Button {
+            name: "Open".into(),
+        };
+        assert!(button.accepts_key(ControlKey::Enter));
+        assert!(button.accepts_key(ControlKey::Space));
+
+        let enabled = NodeKind::Checkbox {
+            label: "Show files".into(),
+            checked: false,
+            enabled: true,
+            style: CheckboxStyle {
+                gap: 0,
+                padding: 0,
+                width: Length::Auto,
+                height: Length::Auto,
+                grow: false,
+                bg: None,
+                hover_bg: None,
+                active_bg: None,
+                fg: None,
+                border_color: None,
+                border_width: 0,
+                radius: 0,
+                font_size: 0,
+                overflow_x: Overflow::Visible,
+                overflow_y: Overflow::Visible,
+            },
+        };
+        let disabled = match &enabled {
+            NodeKind::Checkbox {
+                label,
+                checked,
+                style,
+                ..
+            } => NodeKind::Checkbox {
+                label: label.clone(),
+                checked: *checked,
+                enabled: false,
+                style: *style,
+            },
+            _ => unreachable!(),
+        };
+        assert!(!enabled.accepts_key(ControlKey::Enter));
+        assert!(enabled.accepts_key(ControlKey::Space));
+        assert!(!disabled.accepts_key(ControlKey::Space));
+    }
 
     fn text(id: u64, value: &str) -> Node {
         Node {

@@ -46,10 +46,13 @@ returning an unchanged state with `Action.update`.
 
 `Elem.text(value)`:: Display a string.
 `Elem.button({ label, name, on_press })`:: Display a clickable label and handle
-presses. `label` is an element, so text is written as `Elem.text("Save")`.
+presses. Buttons participate in keyboard tab order and activate with Enter or
+Space. `label` is an element, so text is written as `Elem.text("Save")`.
 `Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and handle
 `Event.Check`. Props include enabled state, gap, padding, sizing, growth,
 foreground and interaction colours, border, radius, font size, and overflow.
+Enabled checkboxes participate in keyboard tab order and toggle with Space;
+disabled checkboxes do not accept focus or activation.
 `Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `name` is the stable semantic identity.
@@ -69,6 +72,11 @@ The empty `{}` argument reserves the layout configuration position. Semantic
 button names are not visible labels. Give each simultaneously visible button a
 unique, stable name such as `"Delete row ${row.id.to_str()}"`; specifications
 use that identity instead of screen position.
+
+Keyboard focus has a visible outline. Tab and Shift+Tab traverse enabled
+buttons and checkboxes in rendered child order, so application layout order is
+also the default keyboard order. Keep labels concise and semantic names stable
+across state updates.
 
 == Local state with `Elem.translate`
 

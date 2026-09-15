@@ -107,6 +107,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut marked = spec.benchmark.is_none();
     let mut cycle_ordinal = 1u64;
     let mut last_patch: Option<ApplyFacts> = None;
+    let mut focused: Option<u64> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
         let role = match &step.command {
             Command::MarkMetrics => "boundary",
@@ -153,6 +154,68 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ));
                     cycle_ordinal += 1;
                     Ok(())
+                }
+            }
+            Command::Focus(locator) => {
+                let matches = matches(&graph, locator);
+                if matches.len() != 1 {
+                    Err(format!(
+                        "line {}: focus locator matched {} nodes; expected exactly one",
+                        step.line,
+                        matches.len()
+                    ))
+                } else if !matches!(
+                    graph.node(matches[0]).map(|node| &node.kind),
+                    Some(NodeKind::Button { .. } | NodeKind::Checkbox { enabled: true, .. })
+                ) {
+                    Err(format!("line {}: locator is not focusable", step.line))
+                } else {
+                    focused = Some(matches[0]);
+                    Ok(())
+                }
+            }
+            Command::PressKey(key) => {
+                let focused_id = focused.ok_or_else(|| {
+                    format!("line {}: press-key requires a focused control", step.line)
+                });
+                match focused_id {
+                    Err(message) => Err(message),
+                    Ok(id) if graph.node(id).is_none() => Err(format!(
+                        "line {}: the focused control is no longer live",
+                        step.line
+                    )),
+                    Ok(id) => {
+                        let activates = graph.node(id).unwrap().kind.accepts_key(*key);
+                        if !activates {
+                            Err(format!(
+                                "line {}: key does not activate the focused control",
+                                step.line
+                            ))
+                        } else {
+                            let cycle_started = Instant::now();
+                            observatory::reset_roc_work();
+                            let roc_started = Instant::now();
+                            let patch = dispatch(id);
+                            let roc_ns = elapsed_ns(roc_started);
+                            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                            let facts = graph.apply_measured(patch)?.facts;
+                            last_patch = Some(facts);
+                            pending_cycle = Some(make_cycle(
+                                run_id,
+                                cycle_ordinal,
+                                Some(ordinal),
+                                if marked { "measured" } else { "setup" },
+                                "keyboard",
+                                cycle_started,
+                                roc_ns,
+                                roc_work,
+                                &facts,
+                                roc_work_valid,
+                            ));
+                            cycle_ordinal += 1;
+                            Ok(())
+                        }
+                    }
                 }
             }
             Command::AwaitTask => {

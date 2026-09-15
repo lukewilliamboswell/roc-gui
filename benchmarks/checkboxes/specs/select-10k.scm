@@ -4,4 +4,5 @@
     (expect-count (role checkbox :name "Option 0") 1)
     (expect-count (checkbox-prefix "Option ") 10000)
     (mark-metrics)
-    (click (role checkbox :name "Option 9999"))))
+    (focus (role checkbox :name "Option 9999"))
+    (press-key Space)))
