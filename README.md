@@ -11,7 +11,11 @@ roc build examples/counter/main.roc
 
 The platform provides text, controlled native text inputs, buttons, styled checkboxes, row and column layout,
 local state boundaries, worker tasks, capability-scoped directory I/O,
-semantic `.scm` specifications, and SQLite performance captures.
+`.scm` specifications, and SQLite performance captures. Specifications run
+headlessly against the element graph, or against the real window where they can
+assert layout and take screenshots; every application you build carries both
+runners in its own binary, so verifying it needs no test framework and no
+second build. See [Testing your application](docs/testing-your-app.adoc).
 It targets Linux x86_64 with Wayland, Apple Silicon macOS, and Windows x86_64
 (`python build.py`, then `roc build --target=x64mingw --output=counter.exe`). Native linker
 inputs and host archives are reproducible, independently released artifacts;

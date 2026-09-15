@@ -1,8 +1,8 @@
 = Building an application
 
-Resource-bearing APIs consume opaque grants under the policy in
-<<_resource_access_and_trusted_grants>>. A path, URL, or application-rendered
-dialog is never a substitute for trusted authorization.
+Resource-bearing APIs consume opaque grants under the policy set out in the
+resource access chapter. A path, URL, or application-rendered dialog is never a
+substitute for trusted authorisation.
 
 == State, render, and actions
 
@@ -20,7 +20,7 @@ render : State -> Elem(State)
 render = |state| Elem.col({}, [
     Elem.text("Count: ${state.count.to_str()}"),
     Elem.button({
-        label: Elem.text("Add one"),
+        label: "Add one",
         name: "Increment count",
         on_press: |previous, _event|
             Action.update({ count: previous.count + 1.I64 }),
@@ -69,17 +69,18 @@ with a subdued appearance and accept neither pointer nor keyboard activation.
 Props include padding, sizing, growth, foreground and interaction colours,
 border, radius, font size, and overflow.
 `Elem.button({ label, name, on_press })`:: Concise text-button constructor over
-the same native action-button node. Its `label` is a string; use
-`Elem.action_button` for styling and explicit caption/semantic-label naming.
-`Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and handle
-`Event.Check`. Props include enabled state, gap, padding, sizing, growth,
+the same native action-button node. `label` is the visible text and `name` is
+the stable semantic name; use `Elem.action_button` for styling.
+`Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and
+handle `Event.Check`. Props include enabled state, gap, padding, sizing, growth,
 foreground and interaction colours, border, radius, font size, and overflow.
 Enabled checkboxes participate in keyboard tab order and toggle with Space;
 disabled checkboxes do not accept focus or activation.
-`Elem.textarea(Elem.TextareaProps.{ ... })`:: Display a controlled multiline text
-editor and handle `Event.Input`, which carries the complete requested value.
+`Elem.textarea(Elem.TextareaProps.{ ... })`:: Display a controlled multiline
+text editor and handle `Event.Input`, which carries the complete requested
+value.
 `label` is the stable semantic name; `placeholder`, `enabled`, and `read_only`
-control editing behavior. A read-only textarea retains multiline layout and
+control editing behaviour. A read-only textarea retains multiline layout and
 scrolling for response and log views. Textareas share the native style fields
 and default to a 160-logical-pixel editing viewport.
 `Elem.image(Elem.ImageProps.{ label, bytes, format, ... })`:: Decode and render
@@ -88,7 +89,6 @@ of `Png`, `Jpeg`, `Webp`, `Gif`, `Svg`, `Bmp`, or `Tiff`; fit defaults to
 `Contain` and also supports `Cover`, `Fill`, `ScaleDown`, and `None`.
 `grayscale` applies a native rendering effect. Image sources are values, never
 ambient filesystem paths or URLs, and `label` is the stable semantic name.
-
 `Elem.text_input(Elem.TextInputProps.{ ... })`:: Display a controlled,
 single-line native editor. `label` is its stable semantic name, `value` is the
 authoritative application value, and `placeholder` is shown only while empty.
@@ -105,7 +105,7 @@ The axis defaults to `Vertical`; `name` is the stable semantic identity.
 stable-keyed rows at one fixed logical height. Each item is an
 `Elem.VirtualListItem.{ key, content }`; keys must be unique within the list.
 The complete item graph remains available to semantic inspection and event
-routing, while GPUI materializes only the current viewport range.
+routing, while GPUI materialises only the current viewport range.
 `Elem.row(Elem.RowProps.{ ... }, children)`:: Lay out children horizontally.
 `Elem.col(Elem.ColProps.{ ... }, children)`:: Lay out children vertically.
 `Elem.panel(Elem.PanelProps.{ ... }, children)`:: Group children vertically in
@@ -116,8 +116,9 @@ focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and
 closing the dialog restores its opener by stable semantic identity. Render at
 most one dialog at a time.
 
-Row, column, panel, dialog, and action-button props share the native `Gui.Style` fields: gap, padding, width,
-height, growth, colours, borders, radius, font size, and per-axis overflow.
+Row, column, panel, dialog, and action-button props share the native
+`Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
+radius, font size, and per-axis overflow.
 `Auto`, `Fill`, and `Px(n)` express dimensions. An optional non-empty `label`
 provides a stable semantic locator, such as
 `(role panel :name "Directory view")`; it does not add visible text.
@@ -135,9 +136,9 @@ render_names = |names| Elem.col(
 ----
 
 The empty `{}` retains neutral defaults. Semantic element names are not visible
-labels. Give each simultaneously visible button a
-unique, stable name such as `"Delete row ${row.id.to_str()}"`; specifications
-use that identity instead of screen position.
+labels. Give each simultaneously visible button a unique, stable name such as
+`"Delete row ${row.id.to_str()}"`; specifications use that identity instead of
+screen position.
 
 Keyboard focus has a visible outline. Tab and Shift+Tab traverse enabled
 buttons, checkboxes, and text inputs in rendered child order, so application
@@ -185,8 +186,8 @@ Use a boundary around a component that owns a coherent slice of state and
 changes independently. Do not add boundaries merely to group layout; use rows
 and columns for visual grouping.
 
-See <<_boundaries_determine_update_scope>> for what is retained and replaced,
-and why this is a boundary operation rather than a virtual-tree diff.
+The architecture chapter describes what a boundary retains and replaces, and why
+this is a boundary operation rather than a virtual-tree diff.
 
 For a complete reusable component, see `examples/counter/Counter.roc` and its
 composition in `examples/counter/main.roc`.
@@ -223,8 +224,8 @@ directory without following the final symlink; names containing traversal or
 multiple path components are rejected. `Files.Dir.read!(directory, name)` reads
 one direct ordinary file as a bounded `List(U8)` without following links. The
 64 MiB bound returns `ResourceLimit` instead of constructing an unbounded
-application value. Run filesystem operations inside
-`Action.task`, as shown by `examples/folder-browser/main.roc`.
+application value. Run filesystem operations inside `Action.task`, as
+`examples/folder-browser/main.roc` shows.
 
 Filesystem failures use the `Files.FileErr` tag union. Its
 `ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, and
@@ -290,7 +291,7 @@ kinds.
 
 == HID device capabilities
 
-`Device.acquire!` returns an opaque grant only when the host has authorized one
+`Device.acquire!` returns an opaque grant only when the host has authorised one
 exact virtual device or physical USB vendor/product identity. Applications
 cannot request arbitrary hardware, inspect operating-system device paths, or
 read serial numbers. `Device.discover!` lists only comparison-safe identity
@@ -316,7 +317,7 @@ another machine or broaden the grant.
 
 Every snapshot field is a tagged `Value` or `Unavailable(Unsupported)` value.
 Permission denial is an `AcquireSystemErr(AccessDenied)` operation failure, not
-a fabricated unavailable sensor. Overall CPU is normalized across the machine
+a fabricated unavailable sensor. Overall CPU is normalised across the machine
 and uses tenths of one percent in `0..1000`. Per-process CPU uses the same unit
 and can exceed `1000` for multi-core use. Memory and I/O counters are bytes as
 reported by `sysinfo`; the platform does not infer unavailable measurements.
@@ -333,7 +334,7 @@ granted by `--host-cap-app-data PATH`. The result is an opaque typed
 
 `Files.Dir.read_utf8!(directory, name)` distinguishes `Missing` from
 `Value(Str)`. `Files.Dir.write_utf8_atomic!(directory, name, value)`
-synchronizes a private temporary file before replacing the direct child in the
+synchronises a private temporary file before replacing the direct child in the
 same directory. Names are flat ASCII identifiers of at most 128 bytes, values
 are UTF-8 of at most one MiB, and the ordinary operation-tagged `Files.FileErr`
 surface reports acquisition, read, and write failures.
@@ -465,6 +466,7 @@ on the byte transport rather than being reimplemented by the platform. The
 Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
 command encoding, bounded RESP2 decoding, typed commands, and exchange policy
 remain the responsibility of the established platform-independent package.
+
 == Retained canvas
 
 `Elem.canvas` paints an ordered list of keyed `Rectangle`, `Ellipse`, and

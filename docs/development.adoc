@@ -23,7 +23,7 @@ the complete specification suite before integrating a cross-cutting change.
 
 When changing an effect, update `wip/resource-access-inventory.md` after reading
 the public API, hosted ABI, native owner, configuration source, and verifying
-specs. Mark missing enforcement or evidence `Unverified`; never infer security
+specifications. Mark missing enforcement or evidence `Unverified`; never infer security
 from an absent public function or an opaque Roc type.
 
 == Complete a platform feature
@@ -39,13 +39,91 @@ A new element, property, event, or state mechanism is complete when it has:
 . focused SQLite reporting for evidence that production code populates;
 . application-facing documentation.
 
-A resource feature additionally requires trusted authorization, OS-enforced
+A resource feature additionally requires trusted authorisation, OS-enforced
 scope, derivation and lifetime rules, revocation semantics, privacy review, and
-platform-boundary tests described in <<_resource_access_and_trusted_grants>>.
+platform-boundary tests. The Resource access and trusted grants chapter
+describes them.
 
 Exercise recorder-disabled, enabled, saturated, output-limited, interrupted,
 and writer-failure paths when changing capture infrastructure. Timing is not a
 correctness assertion.
+
+== Fixtures for this repository's examples
+
+`scripts/run_specs.py` wires the specifications in this repository to
+deterministic fixtures, so a case exercises a real capability without depending
+on the machine it runs on. Fixture directories sit beside the application and
+are keyed by specification name, which is why specification names are unique
+within an application. Every grant crosses the production capability boundary;
+none of them gives an application ambient test-only I/O.
+
+=== Fixture sources
+
+An adjacent `fixture/` directory:: The runner grants the directory through the
+production `--host-cap-dir` boundary, so its contents are reached through the
+same opaque capability operations as an interactive grant.
+An adjacent `app-data-fixture/` directory:: Each case receives a fresh private
+copy through `--host-cap-app-data`, so writes use the production capability
+without mutating checked-in data. A subdirectory named after the specification
+selects case-specific initial state; otherwise `default/` is used. Neither the
+granted path nor preference contents become capture identity.
+An adjacent `audio-fixture` file containing `null`:: The application's cases
+receive a paced null output. This harness-only grant is not advertised as a
+product option; it changes only the final sink, while Rodio retains ownership
+of the production decoder, mixer, player, seeking, and status state.
+`device-fixture/SPEC_NAME`:: The case receives a deterministic virtual HID
+device through the same host capability used for physical hardware. An optional
+bounded control count selects the device model's ordinary capability size. The
+product performs the same discover, connect, and byte transaction operations
+for both transports. A case without the file exercises denial through the
+ordinary `Discover devices` action.
+`fixture-metadata/SPEC_NAME`:: Each `directory=RELATIVE_PATH` or
+`clipboard=RELATIVE_PATH` entry grants that adjacent directory to the
+corresponding production capability. The metadata is generic to the harness and
+does not depend on an application directory name. Either value may be `none` to
+exercise denial through the same production acquisition call. Per-case metadata
+may also name a loopback server script, readiness port, and exact HTTP origin
+or TCP endpoint; the runner starts only the services that metadata selects,
+while applications use their production protocol packages, capabilities, worker
+pools, and completion routes. This avoids depending on public-network
+availability and remote service state without introducing a test-only network
+path or an application-name policy.
+`process-fixture/SPEC_NAME` containing `test-program`:: The case receives the
+fixed deterministic PTY child through `--host-cap-process`. A case without the
+file receives no process authority, which exercises denial without adding a
+test-only product control. The application uses the same `New terminal` action
+for both outcomes.
+`system-monitor-fixture/SPEC_NAME`:: The case receives a deterministic system
+sampler through the same snapshot ABI used by the physical `sysinfo` source.
+Its value is `standard`, `unavailable`, or `processes:N`; this is runner
+metadata, not an application switch. A case without the file exercises
+permission denial through the ordinary `Resume sampling` action.
+
+=== Fixture-backed assertions
+
+These steps are available to any specification, and this repository's fixtures
+are what make their counts deterministic. All of them are numeric owner
+evidence: no name, path, URI, identifier, or application text is recorded.
+
+`expect-audio-counters`:: Live outputs, live tracks, and the seven
+operation-attempt counters.
+`expect-file-access`:: Portal, provisioned, and revoked root counts.
+`expect-file-lifecycle-counters`:: Root allocations, child allocations, live
+handles, revocation requests, successful revocations, and post-revocation
+operation rejections.
+`expect-file-selection-counters`:: Seven host-owned totals, in order: portal
+requests, chosen results, cancellations, denials, unavailable results,
+suppressed prompts, and development provisions.
+`expect-image-owner-counters`:: The production image-data owner's staged-node,
+staged-byte, inspection, and failure totals. Image names, paths, encoded
+values, and dimensions are not capture evidence.
+`revoke-file-grants`:: Invokes the trusted-host revocation seam. It is not an
+application event or a Roc capability API.
+
+The Settings Center's 100-, 1,000-, and 10,000-byte profile-note cases exercise
+ordinary controlled editing followed by the same worker-backed atomic save the
+application uses. `expect-value-bytes` supplies deterministic, content-free
+scale evidence; task and patch counters remain owned by their production paths.
 
 == Generated bindings
 
@@ -88,7 +166,7 @@ texts do.
 Native artifacts have three independent release layers:
 
 . External linker-input producers build one independently versioned dependency
-  from pinned sources or a reviewed system-library interface catalog.
+  from pinned sources or a reviewed system-library interface catalogue.
 . Host producers build `libhost.a` for each target and bind it to the exact host
   source, Cargo lock, configuration, profile, and toolchain inputs.
 . Platform release assembly admits released external and host inputs, runs the
@@ -129,18 +207,18 @@ preserving normal runtime library resolution.
 === Generated macOS interfaces
 
 Read `dependencies/macos-interfaces/README.md` and `PROVENANCE.md` before changing
-the macOS catalog. No Apple SDK binary, header, TBD, framework binary, dylib,
+the macOS catalogue. No Apple SDK binary, header, TBD, framework binary, dylib,
 object file, symbol table, generated SDK metadata, or other installed macOS
 software may supply interface data.
 
 The project-built `libhost.a` may be inspected only to inventory unresolved
 references. That inventory does not establish library ownership, public API
-status, weak-link behavior, or final-link reachability and never populates the
-catalog automatically. Every selected symbol and owning library requires reviewed
+status, weak-link behaviour, or final-link reachability and never populates the
+catalogue automatically. Every selected symbol and owning library requires reviewed
 public documentation or identified public open-source evidence. Prefix-based
 classification and installed system artifacts do not establish library ownership.
 
-Generation is deterministic and offline from the reviewed catalog. Native macOS
+Generation is deterministic and offline from the reviewed catalogue. Native macOS
 may then final-link and run applications to validate the candidate. This uses the
 operating system as the implementation under test; it does not derive the
 interfaces from installed Apple software.

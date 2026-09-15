@@ -2,6 +2,7 @@ import pf.Action
 import pf.Elem exposing [Elem]
 import pf.Files
 import Gallery
+import Theme
 import Viewer
 
 Library := [].{
@@ -31,14 +32,40 @@ pick = |state| {
 	})
 }
 
+## Secondary text: soft grey, one step down in size, never outlined.
+quiet_text = |label, caption| Elem.row(
+	Elem.RowProps.{ label, padding: 0, gap: 0, fg: Theme.muted, font_size: Theme.small },
+	[Elem.text(caption)],
+)
+
+## A control that shows nothing at rest and warms under the pointer.
+quiet_button = |caption, label, on_press| Elem.action_button(Elem.ActionButtonProps.{
+	caption,
+	label,
+	on_press,
+	padding: 12,
+	font_size: Theme.body,
+	radius: Theme.control_radius,
+	bg: Theme.quiet,
+	hover_bg: Theme.quiet_hover,
+	active_bg: Theme.quiet_active,
+	fg: Theme.ink,
+})
+
 item_rows = |items| {
 	var $key = 0
 	var $rows = []
 	for item in items {
 		key = $key
 		content = match item {
-			Failed(failure) => Elem.text("${failure.name} — ${failure.reason}")
-			Ready(asset) => Elem.row(Elem.RowProps.{ label: "Image ${asset.name}", gap: 8 }, [Elem.image(Elem.ImageProps.{ label: "Thumbnail ${asset.name}", bytes: asset.bytes, format: asset.format, fit: Cover, width: Px(72), height: Px(54) }), Elem.action_button(Elem.ActionButtonProps.{ caption: asset.name, label: "View image ${asset.name}", on_press: |current, _| Action.update({ ..current, selected: Some(asset) }) })])
+			Failed(failure) => quiet_text("Failed entry ${failure.name}", "${failure.name} — ${failure.reason}")
+			Ready(asset) => Elem.row(
+				Elem.RowProps.{ label: "Image ${asset.name}", gap: Theme.within, padding: 0 },
+				[
+					Elem.image(Elem.ImageProps.{ label: "Thumbnail ${asset.name}", bytes: asset.bytes, format: asset.format, fit: Cover, width: Px(88), height: Px(88), radius: Theme.media_radius }),
+					Elem.action_button(Elem.ActionButtonProps.{ caption: asset.name, label: "View image ${asset.name}", on_press: |current, _| Action.update({ ..current, selected: Some(asset) }), width: Px(196), height: Px(88), padding: 10, font_size: Theme.body, radius: Theme.control_radius, bg: Theme.quiet, hover_bg: Theme.quiet_hover, active_bg: Theme.quiet_active, fg: Theme.ink, overflow_x: Clip }),
+				],
+			)
 		}
 		$rows = $rows.append(Elem.VirtualListItem.{ key, content })
 		$key = key + 1
@@ -46,19 +73,89 @@ item_rows = |items| {
 	$rows
 }
 
+viewer_controls = |state| Elem.row(
+	Elem.RowProps.{ label: "Image transform controls", gap: 12, padding: 0 },
+	[
+		quiet_button("Fit", "Fit image", |current, _| Action.update({ ..current, transform: { ..current.transform, fit: Contain } })),
+		quiet_button("Fill", "Fill image bounds", |current, _| Action.update({ ..current, transform: { ..current.transform, fit: Cover } })),
+		quiet_button("Actual", "Show actual image size", |current, _| Action.update({ ..current, transform: { ..current.transform, fit: None } })),
+		Elem.checkbox(Elem.CheckboxProps.{ label: "Grayscale preview", checked: state.transform.grayscale, padding: 12, gap: 10, font_size: Theme.body, fg: Theme.ink, on_change: |current, event| Action.update({ ..current, transform: { ..current.transform, grayscale: event.checked } }) }),
+	],
+)
+
 viewer = |state| match state.selected {
-	None => Elem.panel(Elem.PanelProps.{ label: "Image viewer", width: Fill, height: Fill, grow: True }, [Elem.text("Choose an image from the gallery")])
-	Some(asset) => Elem.panel(Elem.PanelProps.{ label: "Image viewer", width: Fill, height: Fill, grow: True }, [Elem.text(asset.name), Elem.text("${asset.width.to_str()} × ${asset.height.to_str()} pixels; ${asset.bytes.len().to_str()} encoded bytes"), Elem.row(Elem.RowProps.{ label: "Image transform controls", gap: 8 }, [Elem.action_button(Elem.ActionButtonProps.{ caption: "Fit", label: "Fit image", on_press: |current, _| Action.update({ ..current, transform: { ..current.transform, fit: Contain } }) }), Elem.action_button(Elem.ActionButtonProps.{ caption: "Fill", label: "Fill image bounds", on_press: |current, _| Action.update({ ..current, transform: { ..current.transform, fit: Cover } }) }), Elem.action_button(Elem.ActionButtonProps.{ caption: "Actual", label: "Show actual image size", on_press: |current, _| Action.update({ ..current, transform: { ..current.transform, fit: None } }) }), Elem.checkbox(Elem.CheckboxProps.{ label: "Grayscale preview", checked: state.transform.grayscale, on_change: |current, event| Action.update({ ..current, transform: { ..current.transform, grayscale: event.checked } }) })]), Elem.text("View: ${Viewer.fit_label(state.transform.fit)}"), Viewer.render_image(asset, state.transform)])
+	None => Elem.col(
+		Elem.ColProps.{ label: "Image viewer", width: Fill, height: Fill, grow: True, gap: Theme.within, padding: 0 },
+		[quiet_text("Viewer placeholder", "Choose an image from the gallery")],
+	)
+	Some(asset) => Elem.col(
+		Elem.ColProps.{ label: "Image viewer", width: Fill, height: Fill, grow: True, gap: Theme.within, padding: 0 },
+		[
+			Elem.row(Elem.RowProps.{ label: "Image title", padding: 0, gap: 0, font_size: Theme.heading, fg: Theme.ink }, [Elem.text(asset.name)]),
+			quiet_text("Image metadata", "${asset.width.to_str()} × ${asset.height.to_str()} pixels; ${asset.bytes.len().to_str()} encoded bytes"),
+			viewer_controls(state),
+			quiet_text("Image view mode", "View: ${Viewer.fit_label(state.transform.fit)}"),
+			Viewer.render_image(asset, state.transform),
+		],
+	)
 }
 
-render = |state| {
-	gallery = match state.scan {
-		None => Elem.panel(Elem.PanelProps.{ label: "Gallery", width: Px(320), height: Fill }, [Elem.text("No folder open")])
-		Some(scan) => {
-			visible = Gallery.visible(scan.items, state.filter)
-			Elem.col(Elem.ColProps.{ label: "Gallery", width: Px(320), height: Fill, gap: 8 }, [Elem.text_input(Elem.TextInputProps.{ label: "Filter images", value: state.filter, on_change: |current, event| Action.update({ ..current, filter: event.value }), on_submit: |current, _| Action.update(current), width: Fill }), Elem.text("${visible.len().to_str()} of ${scan.items.len().to_str()} entries"), Elem.virtual_list(Elem.VirtualListProps.{ name: "Image thumbnails", row_height: 68, items: item_rows(visible) })])
-		}
+gallery = |state| match state.scan {
+	None => Elem.col(
+		Elem.ColProps.{ label: "Gallery", width: Px(320), height: Fill, gap: Theme.within, padding: 0 },
+		[quiet_text("Gallery placeholder", "No folder open")],
+	)
+	Some(scan) => {
+		visible = Gallery.visible(scan.items, state.filter)
+		Elem.col(
+			Elem.ColProps.{ label: "Gallery", width: Px(320), height: Fill, gap: Theme.within, padding: 0 },
+			[
+				Elem.text_input(Elem.TextInputProps.{ label: "Filter images", value: state.filter, placeholder: "Search this folder", on_change: |current, event| Action.update({ ..current, filter: event.value }), on_submit: |current, _| Action.update(current), width: Fill, height: Px(44), padding: 14, font_size: Theme.body, bg: Theme.card, fg: Theme.ink, border_width: 0, radius: Theme.control_radius }),
+				quiet_text("Gallery count", "${visible.len().to_str()} of ${scan.items.len().to_str()} entries"),
+				Elem.virtual_list(Elem.VirtualListProps.{ name: "Image thumbnails", row_height: Theme.row_height, items: item_rows(visible) }),
+			],
+		)
 	}
-	status = match state.status { Ready => [], Busy(_) => [Elem.text("Scanning images…")], Failed(message) => [Elem.panel(Elem.PanelProps.{ label: "Image error", width: Fill }, [Elem.text(message)])] }
-	Elem.col(Elem.ColProps.{ label: "Image library", width: Fill, height: Fill, grow: True, padding: 20, gap: 12 }, [Elem.text("Image Library"), Elem.action_button(Elem.ActionButtonProps.{ caption: "Open folder", label: "Open image folder", on_press: |current, _| pick(current) })].concat(status).concat([Elem.row(Elem.RowProps.{ label: "Library workspace", width: Fill, height: Fill, grow: True, gap: 12 }, [gallery, viewer(state)])]))
 }
+
+status_band = |state| match state.status {
+	Ready => []
+	Busy(_) => [quiet_text("Scan status", "Scanning images…")]
+	Failed(message) => [
+		Elem.col(
+			Elem.ColProps.{ label: "Image error", width: Fill, padding: 20, gap: 0, bg: Theme.alarm, fg: Theme.alarm_ink, border_width: 0, radius: Theme.control_radius, font_size: Theme.body },
+			[Elem.text(message)],
+		),
+	]
+}
+
+header = Elem.row(
+	Elem.RowProps.{ label: "Library header", width: Fill, gap: Theme.between, padding: 0 },
+	[
+		Elem.row(Elem.RowProps.{ label: "Library title", padding: 0, gap: 0, font_size: Theme.title, fg: Theme.ink }, [Elem.text("Image Library")]),
+		Elem.action_button(Elem.ActionButtonProps.{
+			caption: "Open folder",
+			label: "Open image folder",
+			on_press: |current, _| pick(current),
+			padding: 12,
+			font_size: Theme.body,
+			radius: Theme.control_radius,
+			bg: Theme.accent,
+			hover_bg: Theme.accent_hover,
+			active_bg: Theme.accent_active,
+			fg: Theme.on_accent,
+		}),
+	],
+)
+
+render = |state| Elem.col(
+	Elem.ColProps.{ label: "Image library", width: Fill, height: Fill, grow: True, padding: Theme.margin, gap: Theme.between, bg: Theme.paper, fg: Theme.ink, font_size: Theme.body },
+	[header]
+		.concat(status_band(state))
+		.concat([
+			Elem.row(
+				Elem.RowProps.{ label: "Library workspace", width: Fill, height: Fill, grow: True, gap: Theme.between, padding: 0 },
+				[gallery(state), viewer(state)],
+			),
+		]),
+)

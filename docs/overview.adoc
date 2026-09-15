@@ -37,22 +37,30 @@ Element:: An immutable Roc value describing one piece of UI, such as text, a
 button, a row, or a column.
 Element tree:: The nested elements returned by `render`; for example, a column
 whose children are text and a row of buttons.
-Mounted graph:: The host-owned representation of the element tree displayed by
-the application.
+Mounted graph:: The host-owned representation of the element tree the
+application displays.
 Render boundary:: A subtree created with `Elem.translate` that can update
 without rebuilding its siblings.
-Specification:: A `.scm` file that drives semantic user actions and assertions
-against an application.
+Specification:: A `.scm` file that drives user actions and assertions against an
+application. The steps it contains decide whether the semantic runner or the
+window runner takes it.
+Capability:: Authority to reach one resource outside the application, such as a
+directory, an HTTP origin, or the clipboard.
+Grant:: The opaque handle that carries a capability into application code. A
+grant cannot be forged, widened, or turned back into a path or a URL.
 Observatory:: The opt-in recorder embedded in the host. It writes semantic and
 performance evidence to a SQLite `.rgstats` capture.
 
 == What the platform provides
 
 * text;
-* semantically named buttons;
-* horizontal rows and vertical columns;
-* translated state boundaries for independently changing parts of a UI;
-* semantic `.scm` specifications stored beside each application;
+* semantically named buttons and checkboxes;
+* single-line and multiline text editors;
+* images decoded from in-memory bytes;
+* horizontal rows, vertical columns, panels, and modal dialogs;
+* scrolling regions, virtual lists, and a retained canvas;
+* render boundaries for independently changing parts of a UI;
+* `.scm` specifications stored beside each application;
 * opt-in SQLite captures for correctness and performance evidence.
 
-The supported target is Linux x86_64 with Wayland.
+The supported targets are Linux x86_64 with Wayland and Apple Silicon macOS.

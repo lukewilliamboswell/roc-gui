@@ -1,0 +1,15 @@
+(test "the studio window shows toolbar, layers, stage, timeline, and status"
+  (steps
+    (settle)
+    (expect-on-screen (role button :name "Add rectangle"))
+    (expect-on-screen (role scroll :name "Layer list"))
+    (expect-on-screen (role canvas :name "Stage"))
+    (expect-on-screen (role canvas :name "Timeline track"))
+    (expect-on-screen (role button :name "Add keyframe"))
+    (expect-on-screen (role row :name "Status bar"))
+    (expect-bounds (role canvas :name "Timeline track") :min-width 1000)
+    (screenshot "window")
+    (screenshot "timeline" :region (role panel :name "Timeline") :pad 8)
+    (screenshot "layers" :region (role panel :name "Layers") :pad 8)
+    (screenshot "inspector" :region (role panel :name "Inspector") :pad 8)
+    (screenshot "toolbar" :region (role row :name "Toolbar") :pad 8)))

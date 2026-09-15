@@ -6,7 +6,7 @@ state, and the replacement model that joins them. You do not need to know GPUI
 internals to follow it.
 
 The crucial detail is that roc-gui does not diff two virtual trees. An update
-renders and replaces one explicit state-boundary subtree with fresh node IDs
+renders and replaces one explicit render-boundary subtree with fresh node IDs
 and GPUI entities. Nodes and entities outside that boundary remain mounted.
 
 == The model in one page
@@ -15,9 +15,9 @@ roc-gui has three representations of a UI:
 
 `Elem` value:: A short-lived Roc description produced by a renderer. It carries
 text, layout, buttons, checkboxes, controlled text inputs, handlers, and
-explicit local-state boundaries.
+explicit render boundaries.
 Mounted graph:: The host's canonical, validated tree of native nodes. It is the
-source of truth shared by the interactive window and semantic specs.
+source of truth shared by the interactive window and semantic specifications.
 GPUI entities:: Retained native views materialised from mounted nodes. GPUI uses
 them to perform its rendering-system work and deliver input.
 
@@ -41,25 +41,23 @@ flowchart TB
 The application never mutates the mounted graph or GPUI entities directly. It
 returns an `Action`; the platform turns that action into exactly one patch; and
 the host applies it through the same graph implementation in every GUI host and
-the built-in test runner.
+the semantic runner.
 
 Resource security has a separate boundary from graph ownership. The application
 process is confined by the operating system; trusted broker services own
 protected selection, persistent identity, and revocation. Opaque Roc handles
-cross that boundary, while raw paths and platform persistence mechanics do not.
-See <<_resource_access_and_trusted_grants>>.
+cross that boundary, while raw paths and platform persistence mechanics do not. The
+Resource access and trusted grants chapter describes that boundary.
 
 == From state to pixels
 
 === The application renders a value
 
 `Program.run` supplies an initial state, a renderer, and initial resizable-window
-metadata. Calling the renderer
-produces an immutable `Elem(State)` description. Composition stays in Roc:
+metadata. Calling the renderer produces an immutable `Elem(State)` description. Composition stays in Roc:
 styled and semantically named `Elem.row`, `Elem.col`, `Elem.panel`,
-`Elem.text`, `Elem.action_button`, and named
-`Elem.scroll` regions build the tree, while
-`Elem.translate` introduces a local-state boundary.
+`Elem.text`, `Elem.action_button`, and named `Elem.scroll` regions build the tree, while `Elem.translate`
+introduces a render boundary.
 
 An `Elem` is not a long-lived widget object, and rendering one does not draw
 pixels. It is an intermediate value consumed immediately by platform lowering.
@@ -72,8 +70,8 @@ The platform lowers the `Elem` description into native nodes with host-issued
 identities. The result is staged separately from the visible graph so it can be
 validated as a complete change before commit.
 
-During the same walk, the platform builds an event route for every action button and
-records each state boundary's renderer, native root, and parent boundary. A
+During the same walk, the platform builds an event route for every action
+button and records each render boundary's renderer, native root, and parent boundary. A
 route connects a semantic button name and native node ID to a Roc handler and
 the boundary that owns its update.
 
@@ -99,15 +97,14 @@ is stale and cannot later identify another control.
 
 Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
 and columns become flex containers, panels become styled surfaces, dialogs
-become centered modal layers with input-blocking scrims, text becomes
-a text child, and enabled action buttons add focus, keyboard, and pointer
+become centred modal layers with input-blocking scrims, text becomes a text
+child, and enabled action buttons add focus, keyboard, and pointer
 listeners. Disabled action buttons add no event listener or tab stop. Text input
 entities retain native focus, caret, selection, and IME preedit state while
 committed values cross the same controlled Roc replacement boundary. IME
 preedit remains transient in the editor and dispatches one change when the
-composition commits. A virtual
-list is the deliberate exception: its
-complete keyed item subtrees remain in the canonical graph, but GPUI's
+composition commits. A virtual list is the deliberate exception: its complete
+keyed item subtrees remain in the canonical graph, but GPUI's
 viewport callback creates entities only for intersecting fixed-height rows and
 recycles entities that leave the range. The host connects the new native
 subtree to retained entities around its boundary and releases replaced views.
@@ -127,7 +124,7 @@ correspond to one presented frame.
 [mermaid]
 ....
 sequenceDiagram
-    participant U as User or spec
+    participant U as User or specification
     participant G as GPUI or semantic locator
     participant H as Host
     participant P as Roc dispatcher
@@ -158,7 +155,7 @@ dispatch. A delayed callback for a removed button cannot reach Roc.
 == Boundaries determine update scope
 
 `Elem.translate(render_child, get_child, set_child)` adapts a child component's
-handlers to parent state and creates a replacement boundary around its renderer.
+handlers to parent state and creates a render boundary around its renderer.
 The application renderer itself is the root boundary.
 
 When a button returns `Update`, the platform selects the boundary recorded for
@@ -214,7 +211,7 @@ effective port.
 Application-data file operations use that route as well. Roc retains only an
 opaque typed read-write directory handle; the host confines flat child names to
 the granted application root, bounds values, and commits each atomic write by
-synchronizing a private temporary file before an in-root rename. Application
+synchronising a private temporary file before an in-root rename. Application
 request identities decide whether a completion is still current on the UI
 thread.
 Clipboard observation follows the same capability and task boundary. GPUI's UI
@@ -229,8 +226,8 @@ Applications suppress obsolete completions by comparing their request identity
 with latest state. URLs, headers, bodies, and response text never enter host
 captures or deterministic diagnostics.
 
-Directory, HTTP, and timer handles are typed nominal wrappers over `Box(U64)`. Each token names
-a host registry entry containing a `cap_std::fs::Dir`; final box deallocation
+Directory, HTTP, and timer handles are typed nominal wrappers over `Box(U64)`.
+Each token names a host registry entry containing a `cap_std::fs::Dir`; final box deallocation
 removes that entry. The phantom resource kind leaves room for other handle
 families without allowing their types to be confused. The trusted resource
 broker creates a grant only for the selected project. Listing and child
@@ -285,21 +282,21 @@ remain visible as the implementation evolves.
 
 roc-gui combines a declarative Roc front end with retained native state. It is
 not immediate mode because the application does not redraw the interface every
-frame. It is not virtual-DOM reconciliation because replacement boundaries,
+frame. It is not virtual-DOM reconciliation because render boundaries,
 not a diff algorithm, choose what survives. GPUI may perform its own internal
 rendering invalidation; that is separate from roc-gui's application graph
 replacement model.
 
 == Semantic tests use the production graph
 
-The built-in `.scm` runner stops after the mounted-graph layer because it needs
+The semantic runner stops after the mounted-graph layer because it needs
 no display server to locate semantic controls or assert text. It invokes the
 real Roc renderer and dispatcher, consumes the real patches, and uses the same
 `MountedGraph` implementation for validation, replacement, event routing, and
 node accounting. It does not reproduce those behaviours in a test-only graph.
 
 The interactive host continues by materialising GPUI entities. Consequently,
-semantic specs prove application behaviour and mounted topology, but do not
+semantic specifications prove application behaviour and mounted topology, but do not
 exercise `NodeView`, display frames, layout, paint, GPU work, or presentation.
 Those require the interactive production path.
 
@@ -316,9 +313,9 @@ accept evidence, the capture records that loss rather than presenting partial
 data as complete.
 
 A timer means only the phase that owns it. Host application timing is not a
-substitute for later layout, paint, GPU execution, or presentation. See
-<<_understanding_captures>> for availability and report views and
-<<_measuring_scaling>> for representative workloads.
+substitute for later layout, paint, GPU execution, or presentation. The
+Understanding captures chapter covers availability and report views, and the
+Measuring scaling chapter covers representative workloads.
 
 == Correctness boundaries
 
@@ -367,14 +364,14 @@ and builders must close in nesting order.
 |GPUI host over the canonical button and checkbox nodes
 
 |Headless semantic driving and locators
-|Host runner using production structures
+|Semantic runner using production structures
 
 |Capture lifecycle, batching, SQLite schema, and reports
 |Observatory
 |===
 
 A new feature crosses every owner it needs: public API, lowering and ABI, graph
-representation and validation, GPUI behaviour, semantic locators and specs,
+representation and validation, GPUI behaviour, semantic locators and specifications,
 scaling coverage, and documentation. The governing rule is one mounted graph,
 one event route, and one production path: tests and measurements drive those
 structures; they do not imitate them.

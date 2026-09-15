@@ -95,3 +95,47 @@ module Rouge
     end
   end
 end
+
+# The manual's own highlighting palette, so the PDF's code blocks belong to the
+# same warm-sage scheme as the rest of the theme instead of Rouge's default
+# primaries. The HTML output restates these colours in docs/theme/roc-gui.css,
+# which keeps the class-based markup Asciidoctor emits.
+module Rouge
+  module Themes
+    class RocGui < CSSTheme
+      name "rocgui"
+
+      style Text, fg: "#3b4238"
+      style Error, fg: "#8c4434"
+      style Comment, fg: "#616a5d", italic: true
+      style Comment::Preproc, fg: "#616a5d", italic: true
+      style Keyword, fg: "#8a4b7d", bold: true
+      style Keyword::Constant, fg: "#8a4b7d", bold: true
+      style Keyword::Type, fg: "#2f6b52", bold: true
+      style Operator, fg: "#3b4238"
+      style Operator::Word, fg: "#8a4b7d", bold: true
+      style Punctuation, fg: "#3b4238"
+      style Name, fg: "#3b4238"
+      style Name::Builtin, fg: "#1f6a86"
+      style Name::Builtin::Pseudo, fg: "#1f6a86"
+      style Name::Function, fg: "#1f6a86"
+      style Name::Class, fg: "#2f6b52"
+      style Name::Namespace, fg: "#2f6b52"
+      style Name::Constant, fg: "#2f6b52"
+      style Name::Tag, fg: "#2f6b52"
+      style Name::Attribute, fg: "#7a5a1e"
+      style Name::Label, fg: "#7a5a1e"
+      style Name::Variable, fg: "#7a5a1e"
+      style Literal::String, fg: "#97562f"
+      style Literal::String::Escape, fg: "#8a4b7d"
+      style Literal::String::Interpol, fg: "#8a4b7d"
+      style Literal::Number, fg: "#97562f"
+      style Generic::Deleted, fg: "#8c4434"
+      style Generic::Inserted, fg: "#4a6b4f"
+      style Generic::Emph, italic: true
+      style Generic::Strong, bold: true
+      style Generic::Heading, fg: "#616a5d", bold: true
+      style Generic::Subheading, fg: "#616a5d", bold: true
+    end
+  end
+end

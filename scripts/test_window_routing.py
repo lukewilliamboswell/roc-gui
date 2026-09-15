@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""Unit tests for window-specification routing in the specification driver."""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import run_specs
+from run_specs import ROOT, Case, discover, report_window_failure, window_artifacts
+
+
+class DiscoveryTests(unittest.TestCase):
+    def test_one_directory_holds_both_kinds_of_spec(self) -> None:
+        cases = discover(["examples/counter/specs/*.scm"], Path("/tmp/out"))
+        stems = {case.spec.stem for case in cases}
+        # A semantic case and window cases, discovered together.
+        self.assertIn("counting", stems)
+        self.assertIn("pointer", stems)
+        for case in cases:
+            self.assertEqual(case.spec.parent.name, "specs")
+
+    def test_stems_are_unique_within_an_app(self) -> None:
+        """Fixtures are keyed by stem under the app directory, so a duplicate
+        stem would silently share another case's fixtures."""
+        for app in sorted(ROOT.glob("examples/*/specs")):
+            stems = [spec.stem for spec in app.glob("*.scm")]
+            self.assertEqual(
+                len(stems), len(set(stems)), f"duplicate spec stem in {app}"
+            )
+
+
+class ArtifactTests(unittest.TestCase):
+    def case(self, output: Path) -> Case:
+        return Case(
+            spec=ROOT / "examples/counter/specs/pointer.scm",
+            app=ROOT / "examples/counter/main.roc",
+            executable=output / "bin" / "counter",
+            capture=output / "examples/counter/specs/pointer.rgstats",
+        )
+
+    def test_window_artifacts_sit_beside_the_capture_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = self.case(Path(directory))
+            artifacts = window_artifacts(case)
+            self.assertEqual(artifacts.name, "pointer")
+            self.assertEqual(artifacts.parent, case.capture.parent)
+
+
+class ReportTests(unittest.TestCase):
+    def test_failing_steps_and_screenshots_are_printed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            (artifacts / "report.json").write_text(
+                json.dumps(
+                    {
+                        "outcome": "fail",
+                        "steps": [
+                            {"ordinal": 0, "kind": "settle", "status": "pass"},
+                            {
+                                "ordinal": 1,
+                                "kind": "expect-on-screen",
+                                "status": "fail",
+                                "message": 'line 4: (text "x") is not on screen',
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (artifacts / "00-initial.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+            captured = io.StringIO()
+            with contextlib.redirect_stderr(captured):
+                report_window_failure(artifacts)
+            printed = captured.getvalue()
+            self.assertIn("is not on screen", printed)
+            self.assertIn("00-initial.png", printed)
+
+    def test_an_unavailable_screenshot_is_surfaced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            (artifacts / "report.json").write_text(
+                json.dumps(
+                    {
+                        "outcome": "pass",
+                        "steps": [
+                            {
+                                "ordinal": 0,
+                                "kind": "screenshot",
+                                "status": "unavailable",
+                                "message": "screenshot unavailable (tool_missing)",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            captured = io.StringIO()
+            with contextlib.redirect_stderr(captured):
+                report_window_failure(artifacts)
+            self.assertIn("tool_missing", captured.getvalue())
+
+    def test_a_missing_report_is_reported_not_raised(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            captured = io.StringIO()
+            with contextlib.redirect_stderr(captured):
+                report_window_failure(Path(directory) / "absent")
+            self.assertIn("no report written", captured.getvalue())
+
+
+class ClassificationTests(unittest.TestCase):
+    def test_classification_requires_a_built_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = Case(
+                spec=ROOT / "examples/counter/specs/counting.scm",
+                app=ROOT / "examples/counter/main.roc",
+                executable=Path(directory) / "bin" / "counter",
+                capture=Path(directory) / "counting.rgstats",
+            )
+            with self.assertRaises(RuntimeError):
+                run_specs.classify([case])
+
+
+if __name__ == "__main__":
+    unittest.main()

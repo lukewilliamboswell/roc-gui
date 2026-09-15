@@ -1,6 +1,7 @@
 import pf.Action
 import pf.Elem
 import pf.Process
+import Theme
 
 Terminal := [].{
 	State : State
@@ -149,22 +150,55 @@ visible_lines = |state| {
 	$items
 }
 
+key_cap = |caption, label, enabled, on_press| Elem.action_button(Elem.ActionButtonProps.{
+	caption,
+	label,
+	enabled,
+	on_press,
+	padding: 5,
+	font_size: Theme.meta,
+	radius: Theme.radius,
+	bg: Theme.key,
+	hover_bg: Theme.key_hover,
+	active_bg: Theme.key_active,
+	fg: Theme.text,
+	border_color: Theme.edge,
+	border_width: 1,
+})
+
+field_row = |label, caption, field| Elem.row(
+	Elem.RowProps.{ label, width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+	[
+		Elem.row(Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Elem.text(caption)]),
+		field,
+	],
+)
+
 render : State -> Elem.Elem(State)
 render = |state| {
 	live = match state.phase {
 		Live(_) => True
 		_ => False
 	}
-	Elem.col(Elem.ColProps.{ label: "Terminal pane", width: Fill, height: Fill, grow: True, gap: 12 }, [
-		Elem.row(Elem.RowProps.{ label: "Session controls" }, [
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "New terminal", label: "New terminal", enabled: !live, on_press: |current, _| start(current) }),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Stop", label: "Stop terminal", enabled: live, on_press: |current, _| cancel(current) }),
-			Elem.text(state.status),
+	shown = visible_lines(state)
+	filtered = if Str.is_empty(state.query) { "filter off" } else { "filter \"${state.query}\"" }
+	Elem.col(Elem.ColProps.{ label: "Terminal pane", width: Fill, height: Fill, grow: True, gap: Theme.seam, fg: Theme.text, font_size: Theme.body }, [
+		Elem.row(Elem.RowProps.{ label: "Session controls", width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 1, radius: Theme.radius }, [
+			key_cap("New terminal", "New terminal", !live, |current, _| start(current)),
+			key_cap("Stop", "Stop terminal", live, |current, _| cancel(current)),
+			Elem.row(Elem.RowProps.{ label: "Session status", padding: 4, gap: 0, fg: Theme.signal, font_size: Theme.meta }, [Elem.text(state.status)]),
 		]),
-		Elem.row(Elem.RowProps.{ label: "Command controls", width: Fill }, [
-			Elem.text_input(Elem.TextInputProps.{ label: "Terminal command", value: state.command, enabled: live, on_change: |current, event| Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True }),
+		field_row("Command bar", "cmd", Elem.text_input(Elem.TextInputProps.{ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
+		field_row("Filter bar", "find", Elem.text_input(Elem.TextInputProps.{ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Action.update(set_query(current, event.value)), on_submit: |current, _| Action.update(current), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
+		Elem.col(Elem.ColProps.{ label: "Scrollback well", width: Fill, height: Fill, grow: True, padding: 4, gap: 0, bg: Theme.well, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip }, [
+			Elem.virtual_list(Elem.VirtualListProps.{ name: "Terminal scrollback", row_height: Theme.row_height, items: shown }),
 		]),
-		Elem.text_input(Elem.TextInputProps.{ label: "Search terminal", value: state.query, on_change: |current, event| Action.update(set_query(current, event.value)), on_submit: |current, _| Action.update(current), width: Fill }),
-		Elem.virtual_list(Elem.VirtualListProps.{ name: "Terminal scrollback", row_height: 28, items: visible_lines(state) }),
+		Elem.row(Elem.RowProps.{ label: "Workspace footer", width: Fill, padding: Theme.inset, gap: 8, bg: Theme.region, border_color: Theme.line, border_width: 1, radius: Theme.radius, fg: Theme.dim, font_size: Theme.meta }, [
+			Elem.text("${shown.len().to_str()}/${state.lines.len().to_str()} lines"),
+			Elem.text("|"),
+			Elem.text(filtered),
+			Elem.text("|"),
+			Elem.text("gen ${state.generation.to_str()}"),
+		]),
 	])
 }

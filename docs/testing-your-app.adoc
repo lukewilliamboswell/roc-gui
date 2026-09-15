@@ -1,0 +1,234 @@
+= Testing your application
+
+Every Roc GUI executable can test itself. Both specification runners live in the
+host archive, so `roc build` links them into your application. There is no test
+binary, no test framework, no extra dependency, and nothing to add to your `app`
+header.
+
+You select a runner with a command-line flag at startup, so an application
+launched without one behaves exactly as it does for anyone using it. Geometry
+recording is off unless a window specification asked for it, gated at runtime
+rather than at compile time, so the binary you ship is the binary the
+specification drives.
+
+== Two runners
+
+A specification is an S-expression file describing what a user does and what
+should be true afterwards. The steps a file contains decide which runner takes
+it; nothing about its location or its name carries that meaning.
+
+The *semantic runner* drives the mounted graph with no window. It is
+fast, deterministic, and answers questions about state and structure.
+
+The *window runner* opens your real window, drives it through the same render
+path and event route an interactive session uses, and answers questions the
+semantic runner cannot: whether a control was actually laid out, whether it is
+on screen rather than merely mounted, how large it is, and what it looks like.
+
+[source,sh]
+----
+roc build my-app.roc
+
+./my-app --host-run-spec specs/greeting.scm
+./my-app --host-run-window-spec specs/greeting-window.scm \
+    --host-window-report=.test-out/report.json \
+    --host-window-shot-dir=.test-out
+----
+
+`./my-app --host-classify-specs specs/*.scm` prints which runner each file
+needs, one `runner<tab>path` line per specification.
+
+=== Host flags
+
+[cols="2,3"]
+|===
+| Flag | Meaning
+
+| `--host-run-spec PATH`
+| Run one specification on the semantic runner.
+
+| `--host-run-window-spec PATH`
+| Run one specification against the real window.
+
+| `--host-window-report=PATH`
+| Where the window run writes its JSON report.
+
+| `--host-window-shot-dir=PATH`
+| Where screenshots are written.
+
+| `--host-window-timeout-ms=N`
+| Per-step deadline for the window runner, 1000 to 600000, default 15000. This
+  bounds a step that never settles; `(settle)` carries its own smaller default.
+
+| `--host-window-allow-missing-shots`
+| Report a screenshot that could not be taken as `unavailable` instead of
+  failing the run. Use it where capture is impossible, such as a continuous
+  integration runner that cannot grant screen recording.
+
+| `--host-classify-specs PATH...`
+| Print which runner each specification needs.
+|===
+
+`--host-help` lists these flags along with the capability and measurement
+flags.
+
+== Granting capabilities
+
+An application that reads files, reaches the network, or drives a terminal does
+nothing useful without the authority to do it, and a specification run is no
+exception. The same `--host-cap-*` flags that grant a capability to an
+interactive session grant it to a specification run. Running without a grant is
+the supported way to exercise a denial path, because the application takes the
+same refusal it would take from a real broker.
+
+[source,sh]
+----
+./my-app --host-run-spec specs/saving.scm --host-cap-dir ./documents
+----
+
+`--host-help` lists every capability flag. Nothing about a specification file
+confers authority; the flags do, which is why what a run may touch is visible
+in the command that started it.
+
+== A first window specification
+
+Start from the greeting application in the getting-started chapter and give it
+one button:
+
+[source,roc]
+----
+greet = |_, _| Action.update({ message: "Hello from Roc" })
+
+Elem.col({}, [
+    Elem.text(state.message),
+    Elem.button({ label: "Greet", name: "Greet", on_press: greet }),
+])
+----
+
+Write `specs/greeting.scm` beside it:
+
+[source,scheme]
+----
+(test "Greeting appears when the button is pressed"
+  (steps
+    (settle)
+    (expect-on-screen (role button :name "Greet"))
+    (screenshot "before")
+    (click (role button :name "Greet"))
+    (expect-visible (text "Hello from Roc"))
+    (screenshot "after" :region (text "Hello from Roc") :pad 16)))
+----
+
+Run it:
+
+[source,sh]
+----
+roc build my-app.roc
+./my-app --host-run-window-spec specs/greeting.scm \
+    --host-window-report=.test-out/report.json \
+    --host-window-shot-dir=.test-out
+----
+
+The report names every step and points at every image:
+
+[source,json]
+----
+{
+  "schema_version": 1,
+  "spec": { "name": "Greeting appears when the button is pressed" },
+  "run_mode": "window-scenario",
+  "outcome": "pass",
+  "window": { "width_points": 480, "height_points": 240, "scale_factor": 2.0 },
+  "steps": [
+    { "ordinal": 0, "line": 3, "kind": "settle", "status": "pass" },
+    { "ordinal": 2, "line": 5, "kind": "screenshot", "status": "pass",
+      "name": "before", "file": "02-before.png", "bytes": 22064 }
+  ],
+  "screenshots": [
+    { "name": "before", "file": "02-before.png", "bytes": 22064 }
+  ]
+}
+----
+
+Images are named `NN-NAME.png`, numbered by step. Paths in the report are
+relative to the report itself, so it contains no home directory.
+
+A failing step stops the run, and says what was expected in the words the
+specification used:
+
+[source,json]
+----
+{ "ordinal": 3, "line": 6, "kind": "expect-visible", "status": "fail",
+  "message": "line 6: (text \"Hello from Roc\") matched 0 nodes; expected exactly one" }
+----
+
+The exit status is 0 when every step passed and 1 when one did not, so a
+specification is usable directly from a shell script or a build rule.
+
+== What the window runner drives
+
+Keyboard input is real. `focus` moves focus through the same handle the host
+uses, `press-key`, `key`, and `type` reach the window's production keymap, and
+`expect-focused` asks the focus handle rather than a model of it.
+
+Pointer input is simulated. `click` invokes the same handler the production
+click closure invokes, because GPUI exposes no usable pointer entry point. On a
+text field it takes focus instead, which is what a pointer press does there.
+What is *not* simulated is whether the click could have landed: the control
+must have been laid out, must survive clipping by the window and by every
+scrolling region around it, must be enabled, and must not be behind a modal
+dialog. A `click` that a real user could not have performed fails rather than
+passing quietly. There is no `hover` step, because hover styling is driven by
+GPUI's own pointer position and a step that could not honestly move it would
+not mean what its name says.
+
+The specification reference has the full step vocabulary and describes what
+geometry recording cannot see.
+
+== Screenshots need a capture tool
+
+Screenshots are taken by the platform's own capture tool: `screencapture` on
+macOS, `grim` under a wlroots-based Wayland compositor. Elsewhere, and on a
+window that is not on the primary display, capture reports `unavailable` with a
+reason rather than guessing. On macOS the tool needs Screen Recording
+permission for whatever launched your application; without it the run reports
+`unavailable` and names the permission.
+
+A screenshot is a photograph of that region of the screen, not of the window's
+own buffer, so anything drawn over your window is in the picture: the dock, a
+notification, another application's window. Keep the window unobstructed while
+a specification runs, and treat a shot containing something you did not expect
+as evidence about the screen rather than about your application.
+
+An unavailable screenshot fails the run unless
+`--host-window-allow-missing-shots` is given. Every other assertion still runs
+either way, so a machine that cannot photograph anything can still verify
+behaviour.
+
+== Iterating with an agent
+
+The report is meant to be read by a program as well as a person, which makes a
+window specification a usable feedback loop for an AI agent changing your
+interface. The agent runs the specification, reads the report and the images,
+changes the application, and runs it again.
+
+Three details serve that loop. A failing step names the locator as it was
+written, so the message points at the specification rather than at an internal
+identifier. Screenshots taken before a failing step are kept, so the image of
+the state an assertion stopped at survives. The `screenshots` array is a flat
+index, so the agent finds images without walking the steps.
+
+The loop verifies the assertions you wrote and hands back images. It does not
+judge whether the result looks good.
+
+== Reports are not captures
+
+A window run writes a JSON report and images into a working directory. A
+measurement run writes a `.rgstats` SQLite capture. They are different kinds of
+evidence and neither replaces the other.
+
+A capture is durable and archived, and records that a step ran and how it went.
+It never contains application text, paths, or pixels. A report is working
+evidence for whoever is iterating, and carries exactly what a capture must not:
+the failing locator as written, the message, and the screenshots. Keep reports
+and images out of version control; they describe one run on one machine.

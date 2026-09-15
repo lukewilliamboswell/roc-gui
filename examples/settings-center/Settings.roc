@@ -15,7 +15,7 @@ Settings := [].{
 		saved_notes : Str,
 		search : Str,
 		next_request : U64,
-		status : [Failed(Str), Idle, Loading(U64), Saved, Saving(U64)],
+		status : [Applied, Failed(Str), Idle, Loaded, Loading(U64), Saving(U64)],
 	}
 
 	initial : State
@@ -60,6 +60,7 @@ Settings := [].{
 	cancel_pending = |state| match state.status {
 		Loading(_) => { ..state, next_request: state.next_request + 1, status: Idle }
 		Saving(_) => { ..state, next_request: state.next_request + 1, status: Idle }
+		Failed(_) => { ..state, status: Idle }
 		_ => state
 	}
 
@@ -90,7 +91,7 @@ Settings := [].{
 								Missing => ""
 								Value(value) => value
 							}
-							Loaded({ name, notes })
+							LoadSucceeded({ name, notes })
 						}
 					}
 				}
@@ -98,7 +99,7 @@ Settings := [].{
 			resolve: |latest, result| match latest.status {
 				Loading(active) if active == id => match result {
 					LoadFailed(message) => Action.update({ ..latest, status: Failed(message) })
-					Loaded(profile) => Action.update({ ..latest, draft_name: profile.name, saved_name: profile.name, draft_notes: profile.notes, saved_notes: profile.notes, status: Saved })
+					LoadSucceeded(profile) => Action.update({ ..latest, draft_name: profile.name, saved_name: profile.name, draft_notes: profile.notes, saved_notes: profile.notes, status: Loaded })
 				}
 				_ => Action.none
 			},
@@ -126,7 +127,7 @@ Settings := [].{
 			resolve: |latest, result| match latest.status {
 				Saving(active) if active == id => match result {
 					SaveFailed(message) => Action.update({ ..latest, status: Failed(message) })
-					SaveSucceeded => Action.update({ ..latest, saved_name: latest.draft_name, saved_notes: latest.draft_notes, status: Saved })
+					SaveSucceeded => Action.update({ ..latest, saved_name: latest.draft_name, saved_notes: latest.draft_notes, status: Applied })
 				}
 				_ => Action.none
 			},

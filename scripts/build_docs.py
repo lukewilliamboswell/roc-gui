@@ -26,25 +26,46 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
         shutil.rmtree(site)
     site.mkdir(parents=True)
 
+    # The theme is embedded in each page rather than linked, so a page keeps
+    # working when opened straight from disk and Rouge's own stylesheet is
+    # never left dangling by `linkcss`.
+    theme_dir = DOCS / "theme"
+    fonts_dir = theme_dir / "fonts"
+    theme = ["-a", f"stylesdir={theme_dir}", "-a", "stylesheet=roc-gui.css"]
     diagram = [
         "-r", "asciidoctor-diagram",
-        "-r", "/documents/rouge_roc.rb",
+        "-r", "/documents/docs/rouge_roc.rb",
         "-a", "mermaid-format=svg",
+        # Diagrams carry the manual's palette and sit on the same warm
+        # ground as the page, so no white plate shows around them.
+        "-a", "mermaid-background=FAFAF7",
+        "-a", "mermaid-scale=2",
+        "-a", f"mermaid-config={DOCS / 'theme' / 'mermaid-config.json'}",
         "-a", "mermaid-puppeteer-config=/documents/.github/mermaid-puppeteer.json",
     ]
     for source in sorted(DOCS.glob("*.adoc")):
         run(
-            "asciidoctor", *diagram, "-a", "source-highlighter=rouge",
+            "asciidoctor", *diagram, *theme, "-a", "source-highlighter=rouge",
             "-a", "toc=left", "-a", "sectanchors", "-D", str(site), str(source),
         )
 
     images = DOCS / "images"
     if images.is_dir():
         shutil.copytree(images, site / "images", dirs_exist_ok=True)
+    # The stylesheet is embedded in each page, so its @font-face URLs are
+    # resolved relative to the page. The faces ship beside the pages.
+    if fonts_dir.is_dir():
+        shutil.copytree(fonts_dir, site / "fonts", dirs_exist_ok=True)
+    for face in ("SpaceGrotesk-Regular.ttf", "PlusJakartaSans-Regular.ttf"):
+        if not (site / "fonts" / face).is_file():
+            raise SystemExit(f"web font {face} was not published beside the pages")
     architecture = site / "architecture.html"
     architecture_html = architecture.read_text(encoding="utf-8") if architecture.is_file() else ""
     if '<img src="diag-mermaid-' not in architecture_html or ".svg" not in architecture_html:
         raise SystemExit("architecture Mermaid diagram was not rendered to SVG")
+    index_html = (site / "index.html").read_text(encoding="utf-8")
+    if "Roc GUI documentation theme" not in index_html:
+        raise SystemExit("custom stylesheet was not embedded in the page")
     roc_html = (site / "getting-started.html").read_text(encoding="utf-8")
     scm_html = (site / "specifications.html").read_text(encoding="utf-8")
     if 'data-lang="roc"' not in roc_html or '<span class="k">' not in roc_html:
@@ -56,7 +77,19 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
     if want_pdf:
         manual = output / "roc-gui.pdf"
         run(
-            "asciidoctor-pdf", *diagram[:-2], "-a", "mermaid-format=png",
+            "asciidoctor-pdf", *diagram[:-2],
+            "-a", "source-highlighter=rouge",
+            "-a", "rouge-style=rocgui",
+            "-a", f"pdf-themesdir={theme_dir}",
+            "-a", "pdf-theme=roc-gui",
+            # Two levels in print. At three, the contents outran the pages
+            # asciidoctor-pdf reserves for it and the preface was drawn over
+            # its last page. The web contents keeps all three.
+            "-a", "toclevels=2",
+            # Vendored faces first, then the gem's own directory so the
+            # bundled M+ 1mn mono and fallback faces stay resolvable.
+            "-a", f"pdf-fontsdir={fonts_dir};GEM_FONTS_DIR",
+            "-a", "mermaid-format=png",
             "-a", "mermaid-puppeteer-config=/documents/.github/mermaid-puppeteer.json",
             "-o", str(manual), str(DOCS / "index.adoc"),
         )
