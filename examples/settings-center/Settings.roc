@@ -1,6 +1,6 @@
 ## Settings Center state and pure preference operations.
 import pf.Action
-import pf.Preferences
+import pf.Files
 
 Settings := [].{
 	Setting : { id : U64, name : Str }
@@ -49,11 +49,12 @@ Settings := [].{
 	]
 
 	preference_error_message = |error| match error {
-		OpenPreferencesErr(AccessDenied) => "Preferences storage was not granted"
-		OpenPreferencesErr(_) => "Preferences storage could not be opened"
-		ReadPreferenceErr(_) => "Saved preferences could not be read"
-		WritePreferenceErr(ResourceLimit) => "The preferences are too large to save"
-		WritePreferenceErr(_) => "Preferences could not be saved"
+		OpenAppDataErr(AccessDenied) => "Preferences storage was not granted"
+		OpenAppDataErr(_) => "Preferences storage could not be opened"
+		ReadFileErr(_) => "Saved preferences could not be read"
+		WriteFileErr(ResourceLimit) => "The preferences are too large to save"
+		WriteFileErr(_) => "Preferences could not be saved"
+		_ => "Preferences storage failed"
 	}
 
 	cancel_pending = |state| match state.status {
@@ -74,11 +75,11 @@ Settings := [].{
 		id = state.next_request
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Loading(id) },
-			run: || match Preferences.open!({}) {
+			run: || match Files.app_data!({}) {
 				Err(error) => LoadFailed(preference_error_message(error))
-				Ok(store) => match Preferences.read!(store, "profile-name") {
+				Ok(store) => match Files.Dir.read_utf8!(store, "profile-name") {
 					Err(error) => LoadFailed(preference_error_message(error))
-					Ok(name_result) => match Preferences.read!(store, "profile-notes") {
+					Ok(name_result) => match Files.Dir.read_utf8!(store, "profile-notes") {
 						Err(error) => LoadFailed(preference_error_message(error))
 						Ok(notes_result) => {
 							name = match name_result {
@@ -110,11 +111,11 @@ Settings := [].{
 		id = state.next_request
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
-			run: || match Preferences.open!({}) {
+			run: || match Files.app_data!({}) {
 				Err(error) => SaveFailed(preference_error_message(error))
-				Ok(store) => match Preferences.write_atomic!(store, "profile-name", state.draft_name) {
+				Ok(store) => match Files.Dir.write_utf8_atomic!(store, "profile-name", state.draft_name) {
 					Err(error) => SaveFailed(preference_error_message(error))
-					Ok({}) => match Preferences.write_atomic!(store, "profile-notes", state.draft_notes) {
+					Ok({}) => match Files.Dir.write_utf8_atomic!(store, "profile-notes", state.draft_notes) {
 						Err(error) => SaveFailed(preference_error_message(error))
 						Ok({}) => SaveSucceeded
 					}

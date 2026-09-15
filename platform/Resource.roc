@@ -5,8 +5,8 @@ Resource := [].{
 	Handle(_resource) :: Box(U64)
 
 	DirRead : Handle([DirReadResource])
+	DirReadWrite : Handle([DirReadWriteResource])
 	Timer : Handle([TimerResource])
 	SqliteRead : Handle([SqliteReadResource])
 	HttpClient : Handle([HttpClientResource])
-	Preferences : Handle([PreferencesResource])
 }

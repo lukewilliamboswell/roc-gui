@@ -51,8 +51,8 @@ directory through the production `--host-cap-dir` boundary. Fixture contents
 are therefore exercised through the same opaque capability operations as an
 interactive grant, without giving the application ambient test-only I/O.
 
-An adjacent `preferences-fixture/` grants a fresh private copy through
-`--host-cap-preferences` for each case, so writes use the production capability
+An adjacent `app-data-fixture/` grants a fresh private copy through
+`--host-cap-app-data` for each case, so writes use the production capability
 without mutating checked-in data. A subdirectory named after the spec selects
 case-specific initial state; otherwise `default/` is used. Neither the granted
 path nor preference contents become capture identity.

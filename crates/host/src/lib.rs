@@ -2,12 +2,12 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 #![cfg_attr(test, allow(dead_code, unused_imports))]
 
+mod app_data;
 mod bridge;
 mod files;
 mod http;
 mod input;
 mod observatory;
-mod preferences;
 mod roc_platform_abi;
 mod runner;
 mod spec;
@@ -172,7 +172,7 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
     files::route_dealloc(pointer);
     sqlite::route_dealloc(pointer);
-    preferences::route_dealloc(pointer);
+    app_data::route_dealloc(pointer);
     timers::route_dealloc(pointer);
     http::route_dealloc(pointer);
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
@@ -1998,7 +1998,7 @@ struct HostArgs {
     stats_job_count: usize,
     cap_dir: Option<PathBuf>,
     cap_http_origin: Option<String>,
-    cap_preferences: Option<PathBuf>,
+    cap_app_data: Option<PathBuf>,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2022,7 +2022,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_job_count: 1,
         cap_dir: None,
         cap_http_origin: None,
-        cap_preferences: None,
+        cap_app_data: None,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2056,15 +2056,15 @@ fn parse_host_args() -> Result<HostArgs, String> {
             );
         } else if let Some(origin) = argument.strip_prefix("--host-cap-http-origin=") {
             parsed.cap_http_origin = Some(origin.to_owned());
-        } else if argument == "--host-cap-preferences" {
-            parsed.cap_preferences = Some(
+        } else if argument == "--host-cap-app-data" {
+            parsed.cap_app_data = Some(
                 pending
                     .next()
-                    .ok_or_else(|| "--host-cap-preferences requires a directory path".to_string())?
+                    .ok_or_else(|| "--host-cap-app-data requires a directory path".to_string())?
                     .into(),
             );
-        } else if let Some(path) = argument.strip_prefix("--host-cap-preferences=") {
-            parsed.cap_preferences = Some(path.into());
+        } else if let Some(path) = argument.strip_prefix("--host-cap-app-data=") {
+            parsed.cap_app_data = Some(path.into());
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -2108,7 +2108,7 @@ fn print_host_help(app_name: &str) {
            --host-help                         Show this help and exit\n\
            --host-cap-dir PATH                 Grant read access to one directory\n\
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
-           --host-cap-preferences PATH         Grant private app preferences storage\n\
+           --host-cap-app-data PATH         Grant private application-data storage\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2224,8 +2224,8 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 2;
     }
-    if let Err(message) = preferences::configure(args.cap_preferences.as_deref()) {
-        eprintln!("roc-gui preferences capability error: {message}");
+    if let Err(message) = app_data::configure(args.cap_app_data.as_deref()) {
+        eprintln!("roc-gui application-data capability error: {message}");
         set_roc_host(core::ptr::null_mut());
         return 2;
     }

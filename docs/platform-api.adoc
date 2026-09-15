@@ -217,22 +217,18 @@ clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
 
-== Durable application preferences
+== Durable application data
 
-`Preferences.open!({})` acquires the application's private preference store
-granted by `--host-cap-preferences PATH`. The result is an opaque typed
-`Box(U64)` handle; applications cannot recover the host path or use the handle
-as a general filesystem capability.
+`Files.app_data!({})` acquires the application's private read-write directory
+granted by `--host-cap-app-data PATH`. The result is an opaque typed
+`Files.Dir.ReadWrite` handle; applications cannot recover the host path.
 
-`Preferences.read!(store, key)` distinguishes `Missing` from `Value(Str)`.
-`Preferences.write_atomic!(store, key, value)` synchronizes a private temporary
-file before replacing the key in the same store. Keys are flat ASCII
-identifiers of at most 128 bytes, values are UTF-8 of at most one MiB, and
-portable errors distinguish denied or invalid capabilities, invalid keys, I/O,
-resource limits, and unavailable storage.
-`Preferences.PreferencesErr` uses `OpenPreferencesErr`, `ReadPreferenceErr`,
-and `WritePreferenceErr` to identify the failed operation directly; each tag
-carries a portable `Preferences.Reason`.
+`Files.Dir.read_utf8!(directory, name)` distinguishes `Missing` from
+`Value(Str)`. `Files.Dir.write_utf8_atomic!(directory, name, value)`
+synchronizes a private temporary file before replacing the direct child in the
+same directory. Names are flat ASCII identifiers of at most 128 bytes, values
+are UTF-8 of at most one MiB, and the ordinary operation-tagged `Files.FileErr`
+surface reports acquisition, read, and write failures.
 
 Run these blocking operations inside `Action.task`, with a monotonic request
 identity when an edit can supersede pending work. The Settings Center uses this

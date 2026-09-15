@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Preferences]
+	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -27,9 +27,9 @@ platform ""
 		"roc_gui_node_text_input": Host.node_text_input!,
 		"roc_sqlite_open_read": Host.sqlite_open_read!,
 		"roc_sqlite_query": Host.sqlite_query!,
-		"roc_preferences_open": Host.preferences_open!,
-		"roc_preferences_read": Host.preferences_read!,
-		"roc_preferences_write": Host.preferences_write!,
+		"roc_files_app_data": InternalFiles.app_data!,
+		"roc_files_dir_read_utf8": InternalFiles.read_utf8!,
+		"roc_files_dir_write_utf8_atomic": InternalFiles.write_utf8_atomic!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,
@@ -61,7 +61,7 @@ import Files
 import Timer
 import Http
 import Sqlite
-import Preferences
+import InternalFiles
 import Host
 
 gui_init! : () => {}

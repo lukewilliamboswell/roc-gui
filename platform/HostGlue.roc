@@ -215,9 +215,6 @@ HostGlue := [].{
 	} => { change : U64, id : U64, submit : U64 }
 	sqlite_open_read! : Resource.DirRead, Str => Try(Resource.SqliteRead, { code : U8, message : Str })
 	sqlite_query! : Resource.SqliteRead, Str => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
-	preferences_open! : {} => Try(Resource.Preferences, { code : U8, message : Str })
-	preferences_read! : Resource.Preferences, Str => Try({ found : Bool, value : Str }, { code : U8, message : Str })
-	preferences_write! : Resource.Preferences, Str, Str => Try({}, { code : U8, message : Str })
 	apply! : Patch => {}
 	set_dispatch! : Box((U64 => {})) => {}
 	set_task_dispatch! : Box((U64 => {})) => {}

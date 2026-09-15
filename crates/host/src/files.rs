@@ -98,9 +98,9 @@ fn reason(error: &std::io::Error) -> AccessDeniedOrInvalidCapabilityOrInvalidNam
 }
 
 type FileReason = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-type FileErr = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr;
-type FileErrPayload = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayload;
-type FileErrTag = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag;
+type FileErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
+type FileErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
+type FileErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
 
 fn list_directory_err(reason: FileReason) -> FileErr {
     FileErr {

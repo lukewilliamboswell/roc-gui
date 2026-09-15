@@ -6,3 +6,4 @@
 /*.rgstats
 /.docs-out
 __pycache__
+/generated-docs

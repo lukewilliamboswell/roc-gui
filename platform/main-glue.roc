@@ -34,9 +34,9 @@ platform ""
 		"roc_gui_node_text_input": HostGlue.node_text_input!,
 		"roc_sqlite_open_read": HostGlue.sqlite_open_read!,
 		"roc_sqlite_query": HostGlue.sqlite_query!,
-		"roc_preferences_open": HostGlue.preferences_open!,
-		"roc_preferences_read": HostGlue.preferences_read!,
-		"roc_preferences_write": HostGlue.preferences_write!,
+		"roc_files_app_data": InternalFiles.app_data!,
+		"roc_files_dir_read_utf8": InternalFiles.read_utf8!,
+		"roc_files_dir_write_utf8_atomic": InternalFiles.write_utf8_atomic!,
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
 		"roc_gui_set_task_dispatch": HostGlue.set_task_dispatch!,
@@ -62,6 +62,7 @@ platform ""
 import HostGlue
 import Action
 import Files
+import InternalFiles
 import Resource
 
 gui_init! : () => {}

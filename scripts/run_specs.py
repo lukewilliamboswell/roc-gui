@@ -115,21 +115,21 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         command.extend(["--host-cap-dir", str(fixture)])
     if (case.app.parent / "fixture_server.py").is_file():
         command.extend(["--host-cap-http-origin", "http://127.0.0.1:38191"])
-    preferences_fixture = case.app.parent / "preferences-fixture"
-    with tempfile.TemporaryDirectory(prefix="roc-gui-preferences-") as temporary:
+    app_data_fixture = case.app.parent / "app-data-fixture"
+    with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
         storage = Path(temporary)
-        if preferences_fixture.is_dir():
-            case_fixture = preferences_fixture / case.spec.stem
-            default_fixture = preferences_fixture / "default"
+        if app_data_fixture.is_dir():
+            case_fixture = app_data_fixture / case.spec.stem
+            default_fixture = app_data_fixture / "default"
             source = (
                 case_fixture
                 if case_fixture.is_dir()
                 else default_fixture
                 if default_fixture.is_dir()
-                else preferences_fixture
+                else app_data_fixture
             )
             shutil.copytree(source, storage, dirs_exist_ok=True)
-            command.extend(["--host-cap-preferences", str(storage)])
+            command.extend(["--host-cap-app-data", str(storage)])
         try:
             completed = subprocess.run(
                 command,
