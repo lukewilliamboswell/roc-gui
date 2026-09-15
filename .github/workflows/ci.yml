@@ -62,6 +62,13 @@ jobs:
             --host-stats-output="$RUNNER_TEMP/music-player.rgstats" \
             --host-cap-dir examples/music-player/fixture \
             --host-cap-audio-null
+          roc build --no-cache --specialize=no --target=arm64mac --opt=dev \
+            --output="$RUNNER_TEMP/music-player-boxy" examples/music-player/main.roc
+          "$RUNNER_TEMP/music-player-boxy" \
+            --host-run-spec examples/music-player/specs/decode-error.scm \
+            --host-stats-output="$RUNNER_TEMP/music-player-boxy.rgstats" \
+            --host-cap-dir examples/music-player/fixture \
+            --host-cap-audio-null
       - name: Require application specification success
         if: steps.specs.outcome == 'failure'
         run: exit 1
