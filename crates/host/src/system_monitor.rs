@@ -28,7 +28,7 @@ struct VirtualSampler {
     sequence: u64,
 }
 enum Source {
-    Real(Mutex<RealSampler>),
+    Real(Box<Mutex<RealSampler>>),
     Virtual(Mutex<VirtualSampler>),
 }
 struct Sampler {
@@ -129,11 +129,11 @@ pub extern "C" fn roc_system_acquire() -> HostGlueSystemAcquireResult {
     let grant = store().lock().expect("system monitor store poisoned").grant;
     let source = match grant {
         Grant::Denied => return acquire_err(0),
-        Grant::Real => Source::Real(Mutex::new(RealSampler {
+        Grant::Real => Source::Real(Box::new(Mutex::new(RealSampler {
             system: System::new_all(),
             networks: Networks::new_with_refreshed_list(),
             sequence: 0,
-        })),
+        }))),
         Grant::Virtual {
             processes,
             unavailable,
@@ -152,6 +152,8 @@ pub extern "C" fn roc_system_acquire() -> HostGlueSystemAcquireResult {
     }
 }
 
+// Flat constructor mirroring the generated glue snapshot record fields.
+#[allow(clippy::too_many_arguments)]
 fn snapshot(
     sequence: u64,
     available: bool,

@@ -12,6 +12,13 @@ use std::{
 };
 
 const TIMEOUT: Duration = Duration::from_secs(2);
+/// Windows retransmits SYNs to a refusing loopback port for about two seconds
+/// before it reports the refusal, so a shorter budget turns "nothing listens
+/// there" into a timeout.
+#[cfg(windows)]
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+#[cfg(not(windows))]
+const CONNECT_TIMEOUT: Duration = TIMEOUT;
 const MAX_READ_BYTES: u64 = 1024 * 1024;
 const MAX_WRITE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -136,7 +143,7 @@ pub extern "C" fn roc_tcp_connect() -> HostGlueTcpConnectResult {
     let Some(endpoint) = endpoint else {
         return connect_err(Failure::AccessDenied);
     };
-    match TcpStream::connect_timeout(&endpoint, TIMEOUT) {
+    match TcpStream::connect_timeout(&endpoint, CONNECT_TIMEOUT) {
         Ok(stream) => {
             if stream.set_read_timeout(Some(TIMEOUT)).is_err()
                 || stream.set_write_timeout(Some(TIMEOUT)).is_err()

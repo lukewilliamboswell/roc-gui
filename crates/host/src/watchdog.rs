@@ -131,8 +131,16 @@ mod tests {
 
     #[test]
     fn an_unfinished_host_expires_once_the_deadline_passes() {
-        assert!(!expired(false, Duration::from_millis(10), Duration::from_secs(5)));
-        assert!(expired(false, Duration::from_secs(5), Duration::from_secs(5)));
+        assert!(!expired(
+            false,
+            Duration::from_millis(10),
+            Duration::from_secs(5)
+        ));
+        assert!(expired(
+            false,
+            Duration::from_secs(5),
+            Duration::from_secs(5)
+        ));
         assert!(expired(false, Duration::ZERO, Duration::ZERO));
     }
 }

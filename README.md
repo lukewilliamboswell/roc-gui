@@ -16,7 +16,8 @@ headlessly against the element graph, or against the real window where they can
 assert layout and take screenshots; every application you build carries both
 runners in its own binary, so verifying it needs no test framework and no
 second build. See [Testing your application](docs/testing-your-app.adoc).
-It targets Linux x86_64 with Wayland and Apple Silicon macOS. Native linker
+It targets Linux x86_64 with Wayland, Apple Silicon macOS, and Windows x86_64
+(`python build.py`, then `roc build --target=x64mingw --output=counter.exe`). Native linker
 inputs and host archives are reproducible, independently released artifacts;
 generated binaries are not stored in Git.
 

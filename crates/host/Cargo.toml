@@ -4,26 +4,44 @@ version = "0.1.0"
 edition = "2024"
 license = "UPL-1.0"
 
-[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
-gpui = { version = "=0.2.2", default-features = false, features = ["wayland"] }
+[target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))'.dependencies]
 rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled", "limits", "serialize"] }
-libc = "=0.2.189"
 sha2 = "=0.10.9"
 sysinfo = "=0.31.4"
 image = "=0.25.10"
 usvg = "=0.45.1"
-hidapi = { version = "=2.6.5", default-features = false, features = ["linux-native-basic-udev"] }
 async-channel = "=2.5.0"
 async-std = "=1.13.2"
-ashpd = { version = "=0.12.3", default-features = false, features = ["async-std"] }
 cap-std = "=4.0.3"
 cap-fs-ext = "=4.0.3"
 unicode-segmentation = "=1.13.3"
 reqwest = { package = "zed-reqwest", version = "=0.12.15-zed", default-features = false, features = ["blocking", "rustls-tls-webpki-roots"] }
 rodio = { version = "=0.22.2", default-features = false, features = ["playback", "wav"] }
 
+# GPUI's Wayland backend is the supported Linux presentation layer.
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+gpui = { version = "=0.2.2", default-features = false, features = ["wayland"] }
+libc = "=0.2.189"
+hidapi = { version = "=2.6.5", default-features = false, features = ["linux-native-basic-udev"] }
+
+# The XDG desktop portal backs the Linux directory chooser; other platforms use
+# GPUI's native dialog.
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "=0.12.3", default-features = false, features = ["async-std"] }
+
+# Windows uses GPUI's DirectX/DirectWrite backend. The manifest is embedded
+# through crates/host/windows because Roc, not Cargo, performs the final link.
+[target.'cfg(target_os = "windows")'.dependencies]
+gpui = { version = "=0.2.2", default-features = false }
+hidapi = { version = "=2.6.5", default-features = false, features = ["windows-native"] }
+raw-window-handle = "=0.6.2"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Storage_FileSystem", "Win32_Storage_Xps", "Win32_System_Console", "Win32_System_IO", "Win32_System_Pipes", "Win32_System_ProcessStatus", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dev-dependencies]
 gpui = { version = "=0.2.2", default-features = false, features = ["wayland", "test-support"] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+gpui = { version = "=0.2.2", default-features = false, features = ["test-support"] }
 
 [lib]
 name = "host"

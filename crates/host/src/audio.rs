@@ -108,13 +108,13 @@ fn id(handle: *mut u64) -> Option<u64> {
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
-    if let Ok(mut guard) = store().lock() {
-        if let Some((id, track)) = guard.allocations.remove(&(base as usize)) {
-            if track {
-                guard.tracks.remove(&id);
-            } else {
-                guard.outputs.remove(&id);
-            }
+    if let Ok(mut guard) = store().lock()
+        && let Some((id, track)) = guard.allocations.remove(&(base as usize))
+    {
+        if track {
+            guard.tracks.remove(&id);
+        } else {
+            guard.outputs.remove(&id);
         }
     }
 }

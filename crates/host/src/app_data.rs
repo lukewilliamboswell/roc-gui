@@ -1,8 +1,10 @@
 use crate::{roc_host, roc_platform_abi::*};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
+#[cfg(unix)]
+use cap_std::fs::OpenOptionsExt;
 use cap_std::{
     ambient_authority,
-    fs::{Dir, OpenOptions, OpenOptionsExt},
+    fs::{Dir, OpenOptions},
 };
 use std::{
     collections::HashMap,
@@ -95,10 +97,10 @@ fn allocate_handle(guard: &mut Store, directory: Arc<Dir>) -> *mut u64 {
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
-    if let Ok(mut guard) = store().lock() {
-        if let Some(id) = guard.allocations.remove(&(base as usize)) {
-            guard.handles.remove(&id);
-        }
+    if let Ok(mut guard) = store().lock()
+        && let Some(id) = guard.allocations.remove(&(base as usize))
+    {
+        guard.handles.remove(&id);
     }
 }
 
@@ -238,8 +240,9 @@ pub extern "C" fn roc_files_dir_write_utf8_atomic(
         options
             .write(true)
             .create_new(true)
-            .mode(0o600)
             .follow(FollowSymlinks::No);
+        #[cfg(unix)]
+        options.mode(0o600);
         let mut file = root
             .open_with(&temporary, &options)
             .map_err(|_| (3, "could not create atomic application data file"))?;

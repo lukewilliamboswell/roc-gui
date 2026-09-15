@@ -71,13 +71,20 @@ impl StepError {
                 bounds.left, bounds.top, bounds.right, bounds.bottom
             ),
             Self::Geometry(detail) => detail.clone(),
-            Self::Timeout { waited, outstanding } => format!(
+            Self::Timeout {
+                waited,
+                outstanding,
+            } => format!(
                 "settle timed out after {}ms with {outstanding} task(s) outstanding",
                 waited.as_millis()
             ),
             Self::WindowClosed => "the window closed before the step ran".to_owned(),
             Self::Screenshot(error) => {
-                format!("screenshot unavailable ({}): {}", error.reason(), error.hint())
+                format!(
+                    "screenshot unavailable ({}): {}",
+                    error.reason(),
+                    error.hint()
+                )
             }
             Self::Keystroke { chord, detail } => {
                 format!("GPUI rejected the key chord {chord:?}: {detail}")
@@ -85,9 +92,9 @@ impl StepError {
             Self::Untypable(character) => {
                 format!("cannot type {character:?} as a keystroke")
             }
-            Self::NotClickable(locator) => format!(
-                "{locator} does not accept pointer activation; it may be disabled"
-            ),
+            Self::NotClickable(locator) => {
+                format!("{locator} does not accept pointer activation; it may be disabled")
+            }
             Self::BehindDialog(locator) => {
                 format!("{locator} is behind an active dialog and cannot be clicked")
             }
@@ -195,25 +202,25 @@ pub(crate) fn check_bounds(
     let width = bounds.width();
     let height = bounds.height();
     let mut violations = Vec::new();
-    if let Some(min) = expectation.min_width {
-        if width < min as f32 {
-            violations.push(format!("width {width:.1} is below :min-width {min}"));
-        }
+    if let Some(min) = expectation.min_width
+        && width < min as f32
+    {
+        violations.push(format!("width {width:.1} is below :min-width {min}"));
     }
-    if let Some(max) = expectation.max_width {
-        if width > max as f32 {
-            violations.push(format!("width {width:.1} is above :max-width {max}"));
-        }
+    if let Some(max) = expectation.max_width
+        && width > max as f32
+    {
+        violations.push(format!("width {width:.1} is above :max-width {max}"));
     }
-    if let Some(min) = expectation.min_height {
-        if height < min as f32 {
-            violations.push(format!("height {height:.1} is below :min-height {min}"));
-        }
+    if let Some(min) = expectation.min_height
+        && height < min as f32
+    {
+        violations.push(format!("height {height:.1} is below :min-height {min}"));
     }
-    if let Some(max) = expectation.max_height {
-        if height > max as f32 {
-            violations.push(format!("height {height:.1} is above :max-height {max}"));
-        }
+    if let Some(max) = expectation.max_height
+        && height > max as f32
+    {
+        violations.push(format!("height {height:.1} is above :max-height {max}"));
     }
     if violations.is_empty() {
         Ok(())
@@ -291,7 +298,11 @@ async fn next_frame(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<
             window.refresh();
         })
         .map_err(|_| StepError::WindowClosed)?;
-    receiver.recv().await.map_err(|_| StepError::WindowClosed).map(|_| ())
+    receiver
+        .recv()
+        .await
+        .map_err(|_| StepError::WindowClosed)
+        .map(|_| ())
 }
 
 /// Write the agent-facing report.
@@ -582,9 +593,7 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
-        Command::AwaitTask | Command::AwaitTicks(_) => {
-            settle(window, 2, options.timeout, cx).await
-        }
+        Command::AwaitTask | Command::AwaitTicks(_) => settle(window, 2, options.timeout, cx).await,
         // Unreachable: `spec::check_runner` refuses a specification whose
         // steps this runner does not implement, so the refusal happens before
         // the window opens rather than part-way through a run.
@@ -710,7 +719,7 @@ fn take_screenshot(
     options: &Options,
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
-    let geometry = window
+    let (geometry, native) = window
         .update(cx, |runtime, window, _| {
             let size = window.viewport_size();
             let viewport = Rect {
@@ -720,26 +729,47 @@ fn take_screenshot(
                 bottom: f32::from(size.height),
             };
             let region = region_rect(runtime, &request.region, viewport)?;
-            let frame = window.bounds();
-            Ok::<_, StepError>(screenshot::screen_rect(
+            // Windows photographs the client area itself, so the region stays
+            // relative to it; elsewhere the capture tool takes screen space.
+            #[cfg(windows)]
+            let frame = (0.0, 0.0, viewport.right, viewport.bottom);
+            #[cfg(not(windows))]
+            let frame = {
+                let frame = window.bounds();
                 (
                     f32::from(frame.origin.x),
                     f32::from(frame.origin.y),
                     f32::from(frame.size.width),
                     f32::from(frame.size.height),
+                )
+            };
+            Ok::<_, StepError>((
+                screenshot::screen_rect(
+                    frame,
+                    (viewport.right, viewport.bottom),
+                    region,
+                    request.pad as f32,
                 ),
-                (viewport.right, viewport.bottom),
-                region,
-                request.pad as f32,
+                native_window(window),
             ))
         })
         .map_err(|_| StepError::WindowClosed)??;
 
     let file_name = format!("{ordinal:02}-{}.png", request.name);
     let destination = options.shot_dir.join(&file_name);
-    let result = match geometry {
-        Some(geometry) => screenshot::capture(geometry, &destination),
-        None => Err(screenshot::ShotError::DegenerateRegion),
+    // Windows captures by asking the window to render, which is a message the
+    // window's own thread answers. This step runs on that thread; driving it
+    // from the background executor would wait for a pump that may never come.
+    let result = match (geometry, native) {
+        (None, _) => Err(screenshot::ShotError::DegenerateRegion),
+        #[cfg(windows)]
+        (Some(geometry), Some((hwnd, scale))) => {
+            screenshot::capture_window(hwnd, scale, geometry, &destination)
+        }
+        #[cfg(windows)]
+        (Some(_), None) => Err(screenshot::ShotError::UnsupportedPlatform),
+        #[cfg(not(windows))]
+        (Some(geometry), ()) => screenshot::capture(geometry, &destination),
     };
     match result {
         Ok(bytes) => Ok(Some(ShotRecord {
@@ -759,6 +789,20 @@ fn take_screenshot(
         })),
     }
 }
+
+/// The native window and its scale factor, which a Windows capture needs.
+#[cfg(windows)]
+fn native_window(window: &gpui::Window) -> Option<(isize, f32)> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    // `Window` has an inherent `window_handle` for GPUI's own handle.
+    match HasWindowHandle::window_handle(window).ok()?.as_raw() {
+        RawWindowHandle::Win32(handle) => Some((handle.hwnd.get(), window.scale_factor())),
+        _ => None,
+    }
+}
+
+#[cfg(not(windows))]
+fn native_window(_window: &gpui::Window) {}
 
 fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rect, StepError> {
     window
@@ -905,4 +949,3 @@ mod tests {
         assert!(message.contains("not on screen"), "{message}");
     }
 }
-
