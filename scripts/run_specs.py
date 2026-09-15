@@ -10,7 +10,6 @@ import fnmatch
 import os
 import shutil
 import sqlite3
-import socket
 import subprocess
 import sys
 import tempfile
@@ -254,25 +253,32 @@ def main() -> int:
     for script, port in sorted(fixture_servers):
         if not script.is_file():
             raise RuntimeError(f"fixture server does not exist: {script}")
+        ready_file = output / f"fixture-ready-{port}"
+        fixture_environment = os.environ.copy()
+        fixture_environment["ROC_GUI_FIXTURE_READY_FILE"] = str(ready_file)
         fixture_process = subprocess.Popen(
             [sys.executable, str(script)], cwd=ROOT,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            env=fixture_environment,
         )
         fixture_processes.append(fixture_process)
         atexit.register(lambda process=fixture_process: process.poll() is None and process.terminate())
-        deadline = time.monotonic() + 20
+        deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
-            try:
-                with socket.create_connection(("127.0.0.1", port), timeout=0.1):
-                    break
-            except OSError:
-                if fixture_process.poll() is not None:
-                    print(f"error: local fixture failed to start: {script}", file=sys.stderr)
-                    return 1
-                time.sleep(0.02)
+            if ready_file.is_file():
+                break
+            if fixture_process.poll() is not None:
+                diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
+                suffix = f": {diagnostic}" if diagnostic else ""
+                print(f"error: local fixture failed to start{suffix}", file=sys.stderr)
+                return 1
+            time.sleep(0.02)
         else:
             fixture_process.terminate()
-            print(f"error: local fixture did not become ready: {script}", file=sys.stderr)
+            fixture_process.wait(timeout=5)
+            diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
+            suffix = f": {diagnostic}" if diagnostic else ""
+            print(f"error: local fixture did not report readiness{suffix}", file=sys.stderr)
             return 1
 
     results: list[tuple[Case, str | None]] = []
