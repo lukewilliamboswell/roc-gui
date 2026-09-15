@@ -9,6 +9,7 @@ gpui = { version = "=0.2.2", default-features = false, features = ["wayland"] }
 rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled", "limits", "serialize"] }
 libc = "=0.2.189"
 sha2 = "=0.10.9"
+hidapi = { version = "=2.6.5", default-features = false, features = ["linux-native-basic-udev"] }
 async-channel = "=2.5.0"
 cap-std = "=4.0.3"
 cap-fs-ext = "=4.0.3"

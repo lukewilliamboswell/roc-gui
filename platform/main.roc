@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio]
+	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio, Device]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -52,6 +52,11 @@ platform ""
 		"roc_process_write": Host.process_write!,
 		"roc_process_resize": Host.process_resize!,
 		"roc_process_cancel": Host.process_cancel!,
+		"roc_device_acquire": Host.device_acquire!,
+		"roc_device_discover": Host.device_discover!,
+		"roc_device_connect": Host.device_connect!,
+		"roc_device_transact": Host.device_transact!,
+		"roc_device_close": Host.device_close!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,
@@ -88,6 +93,7 @@ import Clipboard
 import Tcp
 import Process
 import Audio
+import Device
 import Host
 
 gui_init! : () => {}

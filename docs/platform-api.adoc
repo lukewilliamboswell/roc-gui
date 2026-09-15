@@ -238,6 +238,24 @@ Failures carry their operation in the tag, such as
 PTYs are opaque `Box(U64)` resources and cannot be confused with other handle
 kinds.
 
+== HID device capabilities
+
+`Device.acquire!` returns an opaque grant only when the host has authorized one
+exact virtual device or physical USB vendor/product identity. Applications
+cannot request arbitrary hardware, inspect operating-system device paths, or
+read serial numbers. `Device.discover!` lists only comparison-safe identity
+within that grant, and `Device.connect!` connects exactly the granted device.
+
+Connections are typed `Box(U64)` resources. `Device.transact!` exchanges one
+bounded byte request and response; device-specific framing and values belong in
+an application or protocol package rather than the platform. Physical HID and
+deterministic virtual transports enter this same operation. Blocking discovery,
+connection, and transactions run through `Action.task`.
+
+Failures retain their operation in tags such as
+`DiscoverDeviceErr(NotFound)` and `TransactDeviceErr(Protocol)`. Connection and
+transaction lifecycle counts are recorded by the host that owns those events.
+
 == Durable application data
 
 `Files.app_data!({})` acquires the application's private read-write directory

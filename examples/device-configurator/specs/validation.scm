@@ -1,0 +1,18 @@
+(test "configuration remains bounded before apply"
+  (steps
+    (click (role button :name "Discover devices"))
+    (await-task)
+    (click (role button :name "Connect device"))
+    (await-task)
+    (click (role button :name "Decrease sensitivity"))
+    (click (role button :name "Decrease sensitivity"))
+    (click (role button :name "Decrease sensitivity"))
+    (click (role button :name "Decrease sensitivity"))
+    (click (role button :name "Decrease sensitivity"))
+    (click (role button :name "Decrease sensitivity"))
+    (click (role button :name "Decrease sensitivity"))
+    (click (role button :name "Decrease sensitivity"))
+    (expect-visible (text "Sensitivity: 100 DPI"))
+    (click (role button :name "Apply configuration"))
+    (await-task)
+    (expect-visible (text "Configuration applied"))))

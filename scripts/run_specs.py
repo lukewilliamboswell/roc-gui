@@ -121,6 +121,12 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         if profile not in {"local-shell", "test-program"}:
             raise RuntimeError(f"invalid process fixture profile in {process_fixture}")
         command.extend(["--host-cap-process", profile])
+    device_fixture = case.app.parent / "device-fixture" / case.spec.stem
+    if device_fixture.is_file():
+        grant = device_fixture.read_text(encoding="utf-8").strip()
+        if grant != "virtual" and not (grant.startswith("virtual:") and grant[8:].isdigit()):
+            raise RuntimeError(f"invalid deterministic device fixture in {device_fixture}")
+        command.extend(["--host-cap-device", grant])
     app_data_fixture = case.app.parent / "app-data-fixture"
     clipboard_fixture = case.app.parent / "clipboard-fixture" / case.spec.stem
     if case.app.parent.name == "redis-explorer":

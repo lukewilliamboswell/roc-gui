@@ -76,6 +76,13 @@ the file receive no process authority, which exercises denial without adding a
 test-only product control. The application uses the same `New terminal` action
 for both outcomes.
 
+A `device-fixture/SPEC_NAME` file grants a deterministic virtual HID device to
+that case through the same host capability used for physical hardware. An
+optional bounded control count selects the device model's ordinary capability
+size. The product performs the same discover, connect, and byte transaction
+operations for both transports; cases without a fixture exercise denial through
+the normal `Discover devices` action.
+
 == Locators
 
 `(text "value")`:: Text whose entire value equals `value`.
@@ -147,6 +154,8 @@ same worker and latest-state route. `N` must be positive.
 `(expect-subscriptions N)`:: Require exactly `N` active host timer handles.
 This assertion reads the timer registry that owns cancellation state.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
+`(expect-device-connections N)`:: Require exactly `N` host-owned device connection handles.
+`(expect-device-transactions N)`:: Require exactly `N` completed host-owned device transactions.
 This assertion reads the capability registry that owns stream lifecycle and
 records expected and observed deterministic counts.
 `(expect-visible LOCATOR)`:: Require at least one match.

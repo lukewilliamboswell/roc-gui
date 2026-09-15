@@ -658,6 +658,34 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
+            Command::ExpectDeviceConnections(expected) => {
+                let active = crate::device::active_count();
+                let (_, connected, _, closed) = crate::device::counters();
+                if closed > connected {
+                    return Err("device lifecycle counters violated ownership invariants".into());
+                }
+                count_evidence = Some((*expected as u64, active as u64));
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active device connections, observed {active}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectDeviceTransactions(expected) => {
+                let (_, _, transactions, _) = crate::device::counters();
+                count_evidence = Some((*expected as u64, transactions));
+                if transactions == *expected as u64 {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} device transactions, observed {transactions}",
+                        step.line
+                    ))
+                }
+            }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
                 if count == 0 {

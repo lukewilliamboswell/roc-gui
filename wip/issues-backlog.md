@@ -4,6 +4,17 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Device Configurator follow-on features
+
+- [ ] Add hot-plug notifications and reconnect policy to the host-owned HID
+  connection lifecycle, preserving stale-completion suppression in the app.
+- [ ] Add persistent named mapping profiles and per-control remapping once the
+  protocol represents those fields; retain atomic acknowledged apply.
+- [ ] Add a signed, integrity-checked firmware-update protocol with explicit
+  cancellable and non-cancellable phases before exposing firmware controls.
+- [ ] Validate physical HID behavior on macOS and Windows and add target-specific
+  `hidapi` backends before advertising those hosts as supported.
+
 ## Terminal workspace follow-on features
 
 - [ ] Propagate live pane dimensions through the layout owner to

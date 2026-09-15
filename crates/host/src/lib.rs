@@ -6,6 +6,7 @@ mod app_data;
 mod audio;
 mod bridge;
 mod clipboard;
+mod device;
 mod files;
 mod http;
 mod input;
@@ -190,6 +191,7 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     sqlite::route_dealloc(pointer);
     app_data::route_dealloc(pointer);
     clipboard::route_dealloc(pointer);
+    device::route_dealloc(pointer);
     tcp::route_dealloc(pointer);
     process::route_dealloc(pointer);
     timers::route_dealloc(pointer);
@@ -2333,6 +2335,7 @@ struct HostArgs {
     cap_tcp: Option<std::net::SocketAddr>,
     cap_process: Option<process::GrantedProfile>,
     cap_audio: audio::Grant,
+    cap_device: Option<device::GrantedDevice>,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -2362,6 +2365,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_tcp: None,
         cap_process: None,
         cap_audio: audio::Grant::Denied,
+        cap_device: None,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -2431,6 +2435,12 @@ fn parse_host_args() -> Result<HostArgs, String> {
             )?)?);
         } else if let Some(profile) = argument.strip_prefix("--host-cap-process=") {
             parsed.cap_process = Some(parse_process_profile(profile)?);
+        } else if argument == "--host-cap-device" {
+            parsed.cap_device = Some(parse_device_grant(&pending.next().ok_or_else(|| {
+                "--host-cap-device requires virtual[:COUNT] or VID:PID".to_string()
+            })?)?);
+        } else if let Some(value) = argument.strip_prefix("--host-cap-device=") {
+            parsed.cap_device = Some(parse_device_grant(value)?);
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -2474,6 +2484,32 @@ fn parse_process_profile(value: &str) -> Result<process::GrantedProfile, String>
     }
 }
 
+fn parse_device_grant(value: &str) -> Result<device::GrantedDevice, String> {
+    if value == "virtual" {
+        return Ok(device::GrantedDevice::Virtual { controls: 12 });
+    }
+    if let Some(count) = value.strip_prefix("virtual:") {
+        let controls = count
+            .parse::<u16>()
+            .map_err(|_| "virtual device control count must be an integer".to_string())?;
+        if !(1..=1000).contains(&controls) {
+            return Err("virtual device control count must be 1..1000".into());
+        }
+        return Ok(device::GrantedDevice::Virtual { controls });
+    }
+    let Some((vendor, product)) = value.split_once(':') else {
+        return Err("device capability must be virtual[:COUNT] or hexadecimal VID:PID".into());
+    };
+    let vendor_id = u16::from_str_radix(vendor, 16)
+        .map_err(|_| "device vendor id must be hexadecimal".to_string())?;
+    let product_id = u16::from_str_radix(product, 16)
+        .map_err(|_| "device product id must be hexadecimal".to_string())?;
+    Ok(device::GrantedDevice::Hid {
+        vendor_id,
+        product_id,
+    })
+}
+
 fn print_host_help(app_name: &str) {
     println!(
         "Usage: {app_name} [HOST OPTIONS]\n\
@@ -2488,6 +2524,7 @@ fn print_host_help(app_name: &str) {
            --host-cap-audio-null               Grant a deterministic null audio sink\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
+		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-smoke                        Run the built-in headless smoke check\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2620,6 +2657,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     tcp::configure(args.cap_tcp);
     process::configure(args.cap_process);
     audio::configure(args.cap_audio);
+    device::configure(args.cap_device);
     let stats_path = match start_requested_recorder(
         &args,
         parsed_spec.as_ref().map(|(case, _)| case),

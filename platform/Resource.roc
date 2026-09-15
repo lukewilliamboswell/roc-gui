@@ -15,4 +15,6 @@ Resource := [].{
 	Pty : Handle([PtyResource])
 	AudioOutput : Handle([AudioOutputResource])
 	AudioTrack : Handle([AudioTrackResource])
+	DeviceGrant : Handle([DeviceGrantResource])
+	DeviceConnection : Handle([DeviceConnectionResource])
 }

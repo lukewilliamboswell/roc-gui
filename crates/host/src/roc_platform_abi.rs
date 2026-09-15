@@ -1949,6 +1949,37 @@ const _: () = assert!(core::mem::size_of::<AnonStruct93136bf334c2a2fc>() == 4, "
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct93136bf334c2a2fc>() == 2, "AnonStruct93136bf334c2a2fc alignment mismatch");
 
+/// Element type for __AnonStruct_27556b2f7cb4f65f
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct27556b2f7cb4f65f {
+    pub manufacturer: RocStr,
+    pub product: RocStr,
+    pub product_id: u16,
+    pub vendor_id: u16,
+}
+
+/// Element type for __AnonStruct_27556b2f7cb4f65f
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct27556b2f7cb4f65f {
+    pub manufacturer: RocStr,
+    pub product: RocStr,
+    pub product_id: u16,
+    pub vendor_id: u16,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct27556b2f7cb4f65f>() == 56, "AnonStruct27556b2f7cb4f65f size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct27556b2f7cb4f65f>() == 8, "AnonStruct27556b2f7cb4f65f alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct27556b2f7cb4f65f>() == 28, "AnonStruct27556b2f7cb4f65f size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct27556b2f7cb4f65f>() == 4, "AnonStruct27556b2f7cb4f65f alignment mismatch");
+
 /// Element type for __AnonStruct_8ae3ad5a5c0e22dc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -5601,6 +5632,873 @@ const _: () = assert!(core::mem::size_of::<AlreadyStoppedOrCanceled>() == 1, "Al
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AlreadyStoppedOrCanceled>() == 1, "AlreadyStoppedOrCanceled alignment mismatch");
 
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceAcquireResult {
+    pub _payload_alignment: [HostGlueDeviceAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueDeviceAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceAcquireResult {
+    pub payload: HostGlueDeviceAcquireResultPayload,
+    pub tag: HostGlueDeviceAcquireResultTag,
+}
+
+impl HostGlueDeviceAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceAcquireResult>() == 16, "HostGlueDeviceAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceAcquireResult>() == 8, "HostGlueDeviceAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceAcquireResult, tag) == 8, "HostGlueDeviceAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceAcquireResult>() == 8, "HostGlueDeviceAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceAcquireResult>() == 4, "HostGlueDeviceAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceAcquireResult, tag) == 4, "HostGlueDeviceAcquireResult tag offset mismatch");
+
+/// Tag discriminant for AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag {
+    AcquireDeviceErr = 0,
+    CloseDeviceErr = 1,
+    ConnectDeviceErr = 2,
+    DiscoverDeviceErr = 3,
+    TransactDeviceErr = 4,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload {
+    pub acquire_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub close_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub connect_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub discover_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub transact_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayloadAlignment;
+
+/// Tag union: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    pub _payload_alignment: [AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayloadAlignment; 0],
+    pub payload: [u8; 1],
+    pub tag: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag,
+}
+
+/// Tag union: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    pub payload: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload,
+    pub tag: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag,
+}
+
+impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    /// Borrow the `AcquireDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `AcquireDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.acquire_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `AcquireDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `AcquireDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.acquire_device_err) }
+    }
+
+    /// Borrow the `CloseDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `CloseDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.close_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `CloseDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `CloseDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.close_device_err) }
+    }
+
+    /// Borrow the `ConnectDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `ConnectDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.connect_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `ConnectDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `ConnectDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.connect_device_err) }
+    }
+
+    /// Borrow the `DiscoverDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `DiscoverDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.discover_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `DiscoverDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `DiscoverDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.discover_device_err) }
+    }
+
+    /// Borrow the `TransactDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `TransactDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.transact_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `TransactDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `TransactDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.transact_device_err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 2, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr, tag) == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 2, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr, tag) == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr tag offset mismatch");
+
+/// Tag union: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    AccessDenied = 0,
+    Busy = 1,
+    Closed = 2,
+    Disconnected = 3,
+    InvalidCapability = 4,
+    InvalidRequest = 5,
+    Io = 6,
+    NotFound = 7,
+    Protocol = 8,
+    ResourceLimit = 9,
+    Timeout = 10,
+    Unsupported = 11,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported alignment mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceDiscoverResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceDiscoverResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<RocList<AnonStruct27556b2f7cb4f65f>>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverResult {
+    pub _payload_alignment: [HostGlueDeviceDiscoverResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: HostGlueDeviceDiscoverResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverResult {
+    pub payload: HostGlueDeviceDiscoverResultPayload,
+    pub tag: HostGlueDeviceDiscoverResultTag,
+}
+
+impl HostGlueDeviceDiscoverResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { &*(self.payload.as_ptr() as *const RocList<AnonStruct27556b2f7cb4f65f>) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocList<AnonStruct27556b2f7cb4f65f>> as *const RocList<AnonStruct27556b2f7cb4f65f>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocList<AnonStruct27556b2f7cb4f65f>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceDiscoverResult>() == 32, "HostGlueDeviceDiscoverResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceDiscoverResult>() == 8, "HostGlueDeviceDiscoverResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceDiscoverResult, tag) == 24, "HostGlueDeviceDiscoverResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceDiscoverResult>() == 16, "HostGlueDeviceDiscoverResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceDiscoverResult>() == 4, "HostGlueDeviceDiscoverResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceDiscoverResult, tag) == 12, "HostGlueDeviceDiscoverResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceConnectResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceConnectResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectResult {
+    pub _payload_alignment: [HostGlueDeviceConnectResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueDeviceConnectResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectResult {
+    pub payload: HostGlueDeviceConnectResultPayload,
+    pub tag: HostGlueDeviceConnectResultTag,
+}
+
+impl HostGlueDeviceConnectResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceConnectResult>() == 16, "HostGlueDeviceConnectResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceConnectResult>() == 8, "HostGlueDeviceConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceConnectResult, tag) == 8, "HostGlueDeviceConnectResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceConnectResult>() == 8, "HostGlueDeviceConnectResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceConnectResult>() == 4, "HostGlueDeviceConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceConnectResult, tag) == 4, "HostGlueDeviceConnectResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceTransactResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceTransactResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<RocListWith<u8, false>>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactResult {
+    pub _payload_alignment: [HostGlueDeviceTransactResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: HostGlueDeviceTransactResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactResult {
+    pub payload: HostGlueDeviceTransactResultPayload,
+    pub tag: HostGlueDeviceTransactResultTag,
+}
+
+impl HostGlueDeviceTransactResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocListWith<u8, false>> as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceTransactResult>() == 32, "HostGlueDeviceTransactResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceTransactResult>() == 8, "HostGlueDeviceTransactResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceTransactResult, tag) == 24, "HostGlueDeviceTransactResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceTransactResult>() == 16, "HostGlueDeviceTransactResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceTransactResult>() == 4, "HostGlueDeviceTransactResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceTransactResult, tag) == 12, "HostGlueDeviceTransactResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceCloseResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceCloseResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseResult {
+    pub _payload_alignment: [HostGlueDeviceCloseResultPayloadAlignment; 0],
+    pub payload: [u8; 2],
+    pub tag: HostGlueDeviceCloseResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseResult {
+    pub payload: HostGlueDeviceCloseResultPayload,
+    pub tag: HostGlueDeviceCloseResultTag,
+}
+
+impl HostGlueDeviceCloseResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceCloseResult>() == 3, "HostGlueDeviceCloseResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceCloseResult>() == 1, "HostGlueDeviceCloseResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceCloseResult, tag) == 2, "HostGlueDeviceCloseResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceCloseResult>() == 3, "HostGlueDeviceCloseResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceCloseResult>() == 1, "HostGlueDeviceCloseResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceCloseResult, tag) == 2, "HostGlueDeviceCloseResult tag offset mismatch");
+
 /// Tag discriminant for MountOrNoChangeOrReplace.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7724,6 +8622,43 @@ pub struct HostGlueProcessCancelArgs {
     pub arg0: *mut u64,
 }
 
+/// Arguments for HostGlue.device_discover!
+/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.device_connect!
+/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.device_transact!
+/// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.device_close!
+/// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseArgs {
+    pub arg0: *mut u64,
+}
+
 /// Arguments for HostGlue.apply!
 /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
 /// Refcounted fields are owned by the hosted function.
@@ -8046,6 +8981,52 @@ pub type HostGlueProcessCancelErrResizeProcessErr = AccessDeniedOrBusyOrExitedOr
 pub type HostGlueProcessCancelErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
 pub type HostGlueProcessCancelErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
 pub type HostGlueProcessCancelOk = AlreadyStoppedOrCanceled;
+pub type HostGlueDeviceAcquireErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceAcquireErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceAcquireErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceAcquireErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceDiscoverErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceDiscoverErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceDiscoverErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverOk = AnonStruct27556b2f7cb4f65f;
+pub type HostGlueDeviceConnectErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceConnectErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceConnectErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceConnectErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceTransactErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceTransactErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceTransactErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceCloseErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceCloseErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceCloseErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
 pub type HostGlueHttpSendArg0 = AnonStructE6f574a7975f5cda;
@@ -10136,6 +11117,378 @@ unsafe impl RocRelease<AlreadyStoppedOrCanceled> for AlreadyStoppedOrCanceledRel
     }
 }
 
+impl HostGlueDeviceAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceAcquireResult> for HostGlueDeviceAcquireResultRelease {
+    unsafe fn release(value: HostGlueDeviceAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr => {
+                let payload = unsafe { value.take_payload_acquire_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr => {
+                let payload = unsafe { value.take_payload_close_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr => {
+                let payload = unsafe { value.take_payload_connect_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr => {
+                let payload = unsafe { value.take_payload_discover_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr => {
+                let payload = unsafe { value.take_payload_transact_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_acquire_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_close_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_connect_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_discover_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_transact_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrRelease;
+
+unsafe impl RocRelease<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> for AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrRelease {
+    unsafe fn release(value: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let _ = self;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let _ = self;
+        let _ = amount;
+    }
+}
+
+pub struct AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupportedRelease;
+
+unsafe impl RocRelease<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> for AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupportedRelease {
+    unsafe fn release(value: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceDiscoverResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceDiscoverResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceDiscoverResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_list_of_anon_struct27556b2f7cb4f65f(payload, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceDiscoverResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceDiscoverResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceDiscoverResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceDiscoverResult> for HostGlueDeviceDiscoverResultRelease {
+    unsafe fn release(value: HostGlueDeviceDiscoverResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct27556b2f7cb4f65f {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.manufacturer.decref(roc_host); }
+        unsafe { value.product.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.manufacturer.incref(amount); }
+        unsafe { value.product.incref(amount); }
+    }
+}
+
+pub struct AnonStruct27556b2f7cb4f65fRelease;
+
+unsafe impl RocRelease<AnonStruct27556b2f7cb4f65f> for AnonStruct27556b2f7cb4f65fRelease {
+    unsafe fn release(value: AnonStruct27556b2f7cb4f65f, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceConnectResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceConnectResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceConnectResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceConnectResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceConnectResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceConnectResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceConnectResult> for HostGlueDeviceConnectResultRelease {
+    unsafe fn release(value: HostGlueDeviceConnectResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceTransactResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceTransactResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceTransactResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceTransactResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceTransactResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceTransactResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceTransactResult> for HostGlueDeviceTransactResultRelease {
+    unsafe fn release(value: HostGlueDeviceTransactResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceCloseResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceCloseResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceCloseResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceCloseResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceCloseResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueDeviceCloseResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceCloseResult> for HostGlueDeviceCloseResultRelease {
+    unsafe fn release(value: HostGlueDeviceCloseResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl MountOrNoChangeOrReplace {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -10700,6 +12053,17 @@ pub unsafe fn decref_list_of_anon_struct_bff7bc5a4faa26ae(value: RocList<AnonStr
     unsafe { value.release_with::<AnonStructBff7bc5a4faa26aeRelease>(roc_host); }
 }
 
+/// Release one owned reference to a `RocList<AnonStruct27556b2f7cb4f65f>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct27556b2f7cb4f65f(value: RocList<AnonStruct27556b2f7cb4f65f>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct27556b2f7cb4f65fRelease>(roc_host); }
+}
+
 /// Release one owned reference to a `RocList<AnonStruct77eaba63dfee299d>`.
 ///
 /// The allocation's final reference is claimed atomically before any element
@@ -11072,6 +12436,43 @@ unsafe extern "C" {
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     pub fn roc_process_cancel(arg0: *mut u64) -> HostGlueProcessCancelResult;
+
+    /// Hosted symbol for HostGlue.device_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([DeviceGrantResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_acquire() -> HostGlueDeviceAcquireResult;
+
+    /// Hosted symbol for HostGlue.device_discover!
+    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_discover(arg0: *mut u64) -> HostGlueDeviceDiscoverResult;
+
+    /// Hosted symbol for HostGlue.device_connect!
+    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_connect(arg0: *mut u64) -> HostGlueDeviceConnectResult;
+
+    /// Hosted symbol for HostGlue.device_transact!
+    /// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_transact(arg0: *mut u64, arg1: RocListWith<u8, false>) -> HostGlueDeviceTransactResult;
+
+    /// Hosted symbol for HostGlue.device_close!
+    /// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_device_close(arg0: *mut u64) -> HostGlueDeviceCloseResult;
 
     /// Hosted symbol for HostGlue.apply!
     /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}

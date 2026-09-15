@@ -38,6 +38,8 @@ pub enum Command {
     ExpectSubscriptions(usize),
     ExpectTcpStreams(usize),
     ExpectProcesses(usize),
+    ExpectDeviceConnections(usize),
+    ExpectDeviceTransactions(usize),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -66,6 +68,8 @@ impl Command {
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
             Self::ExpectTcpStreams(_) => "expect-tcp-streams",
             Self::ExpectProcesses(_) => "expect-processes",
+            Self::ExpectDeviceConnections(_) => "expect-device-connections",
+            Self::ExpectDeviceTransactions(_) => "expect-device-transactions",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -471,6 +475,40 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?,
         ),
+        "expect-device-connections" if values.len() == 2 => Command::ExpectDeviceConnections(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-device-connections requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-device-connections requires a non-negative integer",
+                    )
+                })?,
+        ),
+        "expect-device-transactions" if values.len() == 2 => Command::ExpectDeviceTransactions(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-device-transactions requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-device-transactions requires a non-negative integer",
+                    )
+                })?,
+        ),
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -576,6 +614,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-subscriptions"
         | "expect-tcp-streams"
         | "expect-processes"
+        | "expect-device-connections"
+        | "expect-device-transactions"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
