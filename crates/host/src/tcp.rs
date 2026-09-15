@@ -4,7 +4,10 @@ use std::{
     io::{Read, Write},
     mem::ManuallyDrop,
     net::{Shutdown, SocketAddr, TcpStream},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{
+        Arc, Mutex, OnceLock,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Duration,
 };
 
@@ -23,6 +26,7 @@ struct Store {
 }
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
+static OPERATIONS: [AtomicU64; 4] = [const { AtomicU64::new(0) }; 4];
 
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
@@ -34,10 +38,18 @@ fn store() -> &'static Mutex<Store> {
 }
 
 pub fn configure(endpoint: Option<SocketAddr>) {
-    store()
-        .lock()
-        .expect("TCP capability store poisoned")
-        .endpoint = endpoint;
+    let mut guard = store().lock().expect("TCP capability store poisoned");
+    guard.endpoint = endpoint;
+    guard.streams.clear();
+    guard.allocations.clear();
+    for counter in &OPERATIONS {
+        counter.store(0, Ordering::Relaxed);
+    }
+}
+
+pub fn counters() -> ([u64; 4], usize) {
+    let operations = std::array::from_fn(|index| OPERATIONS[index].load(Ordering::Relaxed));
+    (operations, active_count())
 }
 
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
@@ -116,6 +128,7 @@ fn connect_err(error: Failure) -> HostGlueTcpConnectResult {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_tcp_connect() -> HostGlueTcpConnectResult {
+    OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let endpoint = store()
         .lock()
         .expect("TCP capability store poisoned")
@@ -155,6 +168,7 @@ pub extern "C" fn roc_tcp_read_up_to(
     handle: *mut u64,
     max_bytes: u64,
 ) -> HostGlueTcpReadUpToResult {
+    OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let shared = lookup(handle);
     unsafe {
         decref_box(handle as RocBox, roc_host());
@@ -207,6 +221,7 @@ pub extern "C" fn roc_tcp_write_all(
     handle: *mut u64,
     bytes: RocListWith<u8, false>,
 ) -> HostGlueTcpWriteAllResult {
+    OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
     let owned = bytes.as_slice().to_vec();
     unsafe {
         bytes.decref(roc_host());
@@ -233,6 +248,7 @@ pub extern "C" fn roc_tcp_write_all(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_tcp_close(handle: *mut u64) -> HostGlueTcpWriteAllResult {
+    OPERATIONS[3].fetch_add(1, Ordering::Relaxed);
     let shared = lookup(handle);
     unsafe {
         decref_box(handle as RocBox, roc_host());

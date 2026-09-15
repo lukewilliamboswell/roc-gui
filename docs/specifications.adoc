@@ -190,6 +190,8 @@ same worker and latest-state route. `N` must be positive.
 `(expect-subscriptions N)`:: Require exactly `N` active host timer handles.
 This assertion reads the timer registry that owns cancellation state.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
+`(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Assert the complete
+owner-recorded TCP resource and attempted-operation vector.
 `(expect-device-connections N)`:: Require exactly `N` host-owned device connection handles.
 `(expect-device-transactions N)`:: Require exactly `N` completed host-owned device transactions.
 `(expect-system-samplers N)`:: Require exactly `N` active host-owned system samplers.

@@ -442,6 +442,11 @@ reads, and writes have finite native timeouts, and failures use the
 operation-tagged `Tcp.TcpErr` union: `ConnectErr`, `ReadErr`, `WriteErr`, or
 `CloseErr` wraps a portable reason.
 
+The numeric endpoint has no DNS resolution or ambient destination selection.
+The command-line grant provisions development and automation authority; a
+user-facing client obtains trusted connection authority through a named,
+revocable destination broker rather than treating that flag as user consent.
+
 TCP operations block and belong inside `Action.task`. Protocol packages build
 on the byte transport rather than being reimplemented by the platform. The
 Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so

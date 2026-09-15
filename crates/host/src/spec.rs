@@ -41,6 +41,7 @@ pub enum Command {
     ExpectClipboardCounters([u64; 4]),
     ExpectSqliteCounters([u64; 3]),
     ExpectHttpCounters([u64; 4]),
+    ExpectTcpCounters([u64; 5]),
     ExpectDeviceConnections(usize),
     ExpectDeviceTransactions(usize),
     ExpectSystemSamplers(usize),
@@ -83,6 +84,7 @@ impl Command {
             Self::ExpectClipboardCounters(_) => "expect-clipboard-counters",
             Self::ExpectSqliteCounters(_) => "expect-sqlite-counters",
             Self::ExpectHttpCounters(_) => "expect-http-counters",
+            Self::ExpectTcpCounters(_) => "expect-tcp-counters",
             Self::ExpectDeviceConnections(_) => "expect-device-connections",
             Self::ExpectDeviceTransactions(_) => "expect-device-transactions",
             Self::ExpectSystemSamplers(_) => "expect-system-samplers",
@@ -534,6 +536,17 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectHttpCounters(expected)
         }
+        "expect-tcp-counters" if values.len() == 6 => {
+            let mut expected = [0u64; 5];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "TCP counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "TCP counters must be non-negative integers"))?;
+            }
+            Command::ExpectTcpCounters(expected)
+        }
         "expect-device-connections" if values.len() == 2 => Command::ExpectDeviceConnections(
             values[1]
                 .atom()
@@ -737,6 +750,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-clipboard-counters"
         | "expect-sqlite-counters"
         | "expect-http-counters"
+        | "expect-tcp-counters"
         | "expect-device-connections"
         | "expect-device-transactions"
         | "expect-system-samplers"
@@ -1152,6 +1166,12 @@ mod tests {
         assert!(matches!(
             http.steps[0].command,
             Command::ExpectHttpCounters([1, 2, 3, 4])
+        ));
+        let tcp =
+            parse(r#"(test "TCP counters" (steps (expect-tcp-counters 1 2 3 4 5)))"#).unwrap();
+        assert!(matches!(
+            tcp.steps[0].command,
+            Command::ExpectTcpCounters([1, 2, 3, 4, 5])
         ));
     }
 

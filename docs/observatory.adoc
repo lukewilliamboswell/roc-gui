@@ -70,6 +70,10 @@ counters in `http_counter_assertions`. Transport cancellation is not recorded
 because the HTTP capability does not expose it; stale reducer suppression does
 not fabricate cancellation evidence.
 
+TCP assertions retain live streams and connect, read, write, and close attempts
+in `tcp_counter_assertions`. Endpoint, Redis key, and Redis value text are not
+capture fields.
+
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.
