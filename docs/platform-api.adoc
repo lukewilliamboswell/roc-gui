@@ -67,13 +67,14 @@ name, and `enabled` defaults to `True`. Enabled buttons participate in keyboard
 tab order and activate with Enter or Space. Disabled buttons remain visible
 with a subdued appearance and accept neither pointer nor keyboard activation.
 Props include padding, sizing, growth, foreground and interaction colours,
-border, radius, font size, and overflow.
+border, radius, font size, font weight, and overflow.
 `Elem.button({ label, name, on_press })`:: Concise text-button constructor over
 the same native action-button node. `label` is the visible text and `name` is
 the stable semantic name; use `Elem.action_button` for styling.
 `Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and
 handle `Event.Check`. Props include enabled state, gap, padding, sizing, growth,
-foreground and interaction colours, border, radius, font size, and overflow.
+foreground and interaction colours, border, radius, font size, font weight,
+and overflow.
 Enabled checkboxes participate in keyboard tab order and toggle with Space;
 disabled checkboxes do not accept focus or activation.
 `Elem.textarea(Elem.TextareaProps.{ ... })`:: Display a controlled multiline
@@ -118,7 +119,8 @@ most one dialog at a time.
 
 Row, column, panel, dialog, and action-button props share the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
-radius, font size, and per-axis overflow.
+radius, font size, font weight, and per-axis overflow. `font_weight` is zero for
+the native default, or 100 through 900; 700 is bold.
 `Auto`, `Fill`, and `Px(n)` express dimensions. An optional non-empty `label`
 provides a stable semantic locator, such as
 `(role panel :name "Directory view")`; it does not add visible text.

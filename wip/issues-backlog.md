@@ -94,12 +94,6 @@ the change lands; do not soften the docs to match the gap.
   wrapper element that exists for no other reason. `music-player`'s wordmark and
   status line are each a one-child `row` whose only job is `fg` and `font_size`.
   Close with a styled text element carrying the same colour and size fields.
-- [ ] **No font weight.** A wordmark, a small eyebrow label, and a primary
-  transport caption all want weight, not size or hue. With only `font_size` and
-  `fg`, hierarchy has to be spent on size and colour that were carrying other
-  meaning; `music-player` reserves its accent for the sounding track and the
-  primary transport, which leaves nothing for emphasis elsewhere. Close by
-  adding a weight field to `Gui.Style`.
 - [ ] **Padding is one scalar for all four sides.** Pill-shaped transport
   controls want generous horizontal padding and tight vertical padding. The
   single `padding` field makes that inexpressible, so `music-player`'s transport
@@ -140,9 +134,11 @@ the change lands; do not soften the docs to match the gap.
   with a shadow field on `Gui.Style`.
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
-  label from ordinary body text once weight and family are unavailable.
-  `counter`'s per-card captions are plain small grey text instead. Close with a
-  letter-spacing field on `Gui.Style`, alongside the weight field above.
+  label from ordinary body text once family is unavailable. `counter`'s per-card
+  captions are plain small grey text instead. GPUI 0.2.2 has no letter-spacing
+  concept at all: neither `TextStyle` nor `TextStyleRefinement` carries one, and
+  the shaper takes none, so this needs an upstream field before a
+  `Gui.Style` letter-spacing field can mean anything.
 - [ ] **A border is all four sides at one width and one colour.** A dense
   instrument panel divides regions with hairline rules, not with boxes.
   `terminal-workspace` can only give every region a complete 1-point box and set

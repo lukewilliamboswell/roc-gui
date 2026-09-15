@@ -27,6 +27,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -48,6 +49,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -69,6 +71,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -90,6 +93,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -113,6 +117,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -138,6 +143,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -162,6 +168,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -186,6 +193,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
@@ -217,6 +225,7 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 		font_size : U32,
+		font_weight : U32,
 		overflow_x : U8,
 		overflow_y : U8,
 	} => { change : U64, id : U64, submit : U64 }

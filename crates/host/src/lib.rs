@@ -310,68 +310,39 @@ fn finish_children(builder: u64) -> Vec<u64> {
     })
 }
 
-fn decode_layout_style(
-    gap: u32,
-    padding: u32,
-    width_kind: u8,
-    width: u32,
-    height_kind: u8,
-    height: u32,
-    grow: bool,
-    bg: u32,
-    hover_bg: u32,
-    active_bg: u32,
-    fg: u32,
-    border_color: u32,
-    border_width: u32,
-    radius: u32,
-    font_size: u32,
-    overflow_x: u8,
-    overflow_y: u8,
-) -> Style {
-    Style {
-        gap,
-        padding,
-        width: decode_length(width_kind, width),
-        height: decode_length(height_kind, height),
-        grow,
-        bg: decode_color(bg),
-        hover_bg: decode_color(hover_bg),
-        active_bg: decode_color(active_bg),
-        fg: decode_color(fg),
-        border_color: decode_color(border_color),
-        border_width,
-        radius,
-        font_size,
-        overflow_x: decode_overflow(overflow_x),
-        overflow_y: decode_overflow(overflow_y),
-    }
+/// Decode the flat hosted style fields of any styled node argument record into
+/// the canonical `Style`. Every styled node passes the same field names, so one
+/// macro keeps them in step as the style vocabulary grows.
+macro_rules! decode_layout_style {
+    ($args:expr) => {
+        Style {
+            gap: $args.gap,
+            padding: $args.padding,
+            width: decode_length($args.width_kind, $args.width),
+            height: decode_length($args.height_kind, $args.height),
+            grow: $args.grow,
+            bg: decode_color($args.bg),
+            hover_bg: decode_color($args.hover_bg),
+            active_bg: decode_color($args.active_bg),
+            fg: decode_color($args.fg),
+            border_color: decode_color($args.border_color),
+            border_width: $args.border_width,
+            radius: $args.radius,
+            font_size: $args.font_size,
+            font_weight: $args.font_weight,
+            overflow_x: decode_overflow($args.overflow_x),
+            overflow_y: decode_overflow($args.overflow_y),
+        }
+    };
 }
+
 
 /// Stage one styled, semantically named row.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_row(args: HostGlueNodeRowArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Row { label, style },
         finish_children(args.builder),
@@ -383,25 +354,7 @@ pub extern "C" fn roc_gui_node_row(args: HostGlueNodeRowArgs) -> u64 {
 pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Column { label, style },
         finish_children(args.builder),
@@ -413,25 +366,7 @@ pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
 pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Dialog { label, style },
         finish_children(args.builder),
@@ -443,25 +378,7 @@ pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
 pub extern "C" fn roc_gui_node_panel(args: HostGlueNodePanelArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Panel { label, style },
         finish_children(args.builder),
@@ -520,25 +437,7 @@ pub extern "C" fn roc_gui_node_action_button(args: HostGlueNodeActionButtonArgs)
             caption,
             label,
             enabled: args.enabled,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -575,25 +474,7 @@ pub extern "C" fn roc_gui_node_checkbox(args: HostGlueNodeCheckboxArgs) -> u64 {
             label,
             checked: args.checked,
             enabled: args.enabled,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -613,25 +494,7 @@ pub extern "C" fn roc_gui_node_textarea(args: HostGlueNodeTextareaArgs) -> u64 {
             placeholder,
             enabled: args.enabled,
             read_only: args.read_only,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -669,25 +532,7 @@ pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
             format,
             fit,
             grayscale: args.grayscale,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -794,25 +639,7 @@ pub extern "C" fn roc_gui_node_text_input(
             value,
             placeholder,
             enabled: args.enabled,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     );
@@ -1163,6 +990,9 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     }
     if style.font_size > 0 {
         element = element.text_size(px(style.font_size as f32));
+    }
+    if style.font_weight > 0 {
+        element = element.font_weight(FontWeight(style.font_weight as f32));
     }
     element = match style.overflow_x {
         Overflow::Visible => element,
@@ -1687,6 +1517,9 @@ impl Render for NodeView {
                 }
                 if style.font_size > 0 {
                     element = element.text_size(px(style.font_size as f32));
+                }
+                if style.font_weight > 0 {
+                    element = element.font_weight(FontWeight(style.font_weight as f32));
                 }
                 element = match style.overflow_x {
                     Overflow::Visible => element,

@@ -14,8 +14,9 @@ Gui := [].{
 	Length : Length
 	Overflow : Overflow
 
-	## Common visual properties. A zero value for `font_size` selects the native
-	## default; `hover_bg` and `active_bg` apply during pointer interaction.
+	## Common visual properties. A zero value for `font_size` or `font_weight`
+	## selects the native default, and a non-zero `font_weight` is 100 through
+	## 900; `hover_bg` and `active_bg` apply during pointer interaction.
 	Style := {
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
@@ -30,6 +31,7 @@ Gui := [].{
 		border_width : U32 ?? 0,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Overflow ?? Visible,
 		overflow_y : Overflow ?? Visible,
 	}

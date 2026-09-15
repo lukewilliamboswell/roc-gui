@@ -215,6 +215,7 @@ primary_transport = |caption| Elem.action_button(Elem.ActionButtonProps.{
 	padding: 18,
 	radius: 24,
 	font_size: 16,
+	font_weight: 600,
 	bg: accent,
 	hover_bg: accent_hot,
 	active_bg: accent_deep,
@@ -239,7 +240,7 @@ render = |state| {
 	}
 	Elem.col(Elem.ColProps.{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 }, [
 		Elem.row(Elem.RowProps.{ label: "Header", width: Fill, gap: 16 }, [
-			Elem.row(Elem.RowProps.{ label: "Wordmark", grow: True, fg: accent, font_size: 28 }, [Elem.text("NOCTURNE")]),
+			Elem.row(Elem.RowProps.{ label: "Wordmark", grow: True, fg: accent, font_size: 28, font_weight: 700 }, [Elem.text("NOCTURNE")]),
 			Elem.action_button(Elem.ActionButtonProps.{
 				caption: "Choose folder",
 				label: "Choose music folder",
@@ -256,7 +257,7 @@ render = |state| {
 				border_width: 1,
 			}),
 		]),
-		Elem.panel(Elem.PanelProps.{ label: "Playback status", width: Fill, padding: 18, radius: 16, bg: surface, border_color: hairline, fg: muted, font_size: 13 }, [
+		Elem.panel(Elem.PanelProps.{ label: "Playback status", width: Fill, padding: 18, radius: 16, bg: surface, border_color: hairline, fg: muted, font_size: 13, font_weight: 600 }, [
 			Elem.text("NOW PLAYING"),
 			Elem.row(Elem.RowProps.{ label: "Status line", fg: ink, font_size: 19 }, [Elem.text(state.status)]),
 		]),

@@ -39,6 +39,7 @@ Elem(a) :: [
 		border_width : U32 ?? 0,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
 	}
@@ -60,6 +61,7 @@ Elem(a) :: [
 		border_width : U32 ?? 0,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
 	}
@@ -82,6 +84,7 @@ Elem(a) :: [
 		border_width : U32 ?? 1,
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
 	}
@@ -103,6 +106,7 @@ Elem(a) :: [
 		border_width : U32 ?? 1,
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
 	}
@@ -129,6 +133,7 @@ Elem(a) :: [
 		border_width : U32 ?? 0,
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
 	}
@@ -157,6 +162,7 @@ Elem(a) :: [
 		border_width : U32 ?? 1,
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Clip,
 		overflow_y : Gui.Overflow ?? Clip,
 	}
@@ -196,6 +202,7 @@ Elem(a) :: [
 		border_width : U32 ?? 0,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Visible,
 		overflow_y : Gui.Overflow ?? Visible,
 	}
@@ -224,6 +231,7 @@ Elem(a) :: [
 		border_width : U32 ?? 1,
 		radius : U32 ?? 6,
 		font_size : U32 ?? 15,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Scroll,
 		overflow_y : Gui.Overflow ?? Scroll,
 	}
@@ -256,6 +264,7 @@ Elem(a) :: [
 		border_width : U32 ?? 0,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
 		overflow_x : Gui.Overflow ?? Clip,
 		overflow_y : Gui.Overflow ?? Clip,
 	}
@@ -362,7 +371,7 @@ Elem(a) :: [
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			Dialog({
 				children: value.children.map(|child| lift(child, get_child, set_child)),
-				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, width: value.props.width, height: value.props.height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, radius: value.props.radius, font_size: value.props.font_size, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y },
+				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, width: value.props.width, height: value.props.height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y },
 			})
 		}
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
@@ -379,7 +388,7 @@ Elem(a) :: [
 			child_submit = input_value.on_submit
 			parent_change! = |parent, event| Action.lift(child_change(get_child(parent), event), parent, get_child, set_child)
 			parent_submit! = |parent, event| Action.lift(child_submit(get_child(parent), event), parent, get_child, set_child)
-			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, width: input_value.width, height: input_value.height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, radius: input_value.radius, font_size: input_value.font_size, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y })
+			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, width: input_value.width, height: input_value.height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y })
 		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
@@ -403,6 +412,7 @@ Elem(a) :: [
 					border_width: button_value.border_width,
 					radius: button_value.radius,
 					font_size: button_value.font_size,
+					font_weight: button_value.font_weight,
 					overflow_x: button_value.overflow_x,
 					overflow_y: button_value.overflow_y,
 				},
@@ -430,6 +440,7 @@ Elem(a) :: [
 					border_width: checkbox_value.border_width,
 					radius: checkbox_value.radius,
 					font_size: checkbox_value.font_size,
+					font_weight: checkbox_value.font_weight,
 					overflow_x: checkbox_value.overflow_x,
 					overflow_y: checkbox_value.overflow_y,
 				},
@@ -438,7 +449,7 @@ Elem(a) :: [
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
-			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, radius: textarea_value.radius, font_size: textarea_value.font_size, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y })
+			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y })
 		}
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => {

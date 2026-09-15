@@ -276,6 +276,7 @@ pub struct Style {
     pub border_width: u32,
     pub radius: u32,
     pub font_size: u32,
+    pub font_weight: u32,
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,
 }
@@ -1052,23 +1053,7 @@ mod tests {
             label: "Show files".into(),
             checked: false,
             enabled: true,
-            style: Style {
-                gap: 0,
-                padding: 0,
-                width: Length::Auto,
-                height: Length::Auto,
-                grow: false,
-                bg: None,
-                hover_bg: None,
-                active_bg: None,
-                fg: None,
-                border_color: None,
-                border_width: 0,
-                radius: 0,
-                font_size: 0,
-                overflow_x: Overflow::Visible,
-                overflow_y: Overflow::Visible,
-            },
+            style: Style::default(),
         };
         let disabled = match &enabled {
             NodeKind::Checkbox {
