@@ -302,7 +302,7 @@ Render := [].{
 								hover_bg: Gui.rgb(0x25404e),
 								border_width: 1,
 								border_color: Gui.rgb(0x48666b),
-								on_press: |current, _| Action.update({ ..current, dialog_open: True }),
+								on_press: |current, _| Action.update({ ..current, dialog_open: True, modal_draft: current.modal_value }),
 							},
 						),
 					],
@@ -350,11 +350,15 @@ Render := [].{
 								Elem.text_input(
 									Elem.TextInputProps.{
 										label: "Workspace name",
-										value: state.modal_value,
+										value: state.modal_draft,
 										width: Fill,
 										placeholder: "Workspace name",
-										on_change: |current, event| Action.update({ ..current, modal_value: event.value }),
-										on_submit: |current, _| Action.update({ ..current, dialog_open: False }),
+										on_change: |current, event| Action.update({ ..current, modal_draft: event.value }),
+										on_submit: |current, _| if current.modal_draft.is_empty() {
+											Action.none
+										} else {
+											Action.update({ ..current, dialog_open: False, modal_value: current.modal_draft })
+										},
 									},
 								),
 							),
@@ -377,8 +381,8 @@ Render := [].{
 										Elem.ActionButtonProps.{
 											caption: "Rename",
 											label: "Confirm rename",
-											enabled: !state.modal_value.is_empty(),
-											on_press: |current, _| Action.update({ ..current, dialog_open: False }),
+											enabled: !state.modal_draft.is_empty(),
+											on_press: |current, _| Action.update({ ..current, dialog_open: False, modal_value: current.modal_draft }),
 										},
 									),
 								],

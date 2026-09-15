@@ -1,0 +1,18 @@
+(test "cancelling the rename dialog leaves the workspace name alone"
+  (steps
+    (expect-visible (text "Workspace: My workspace"))
+    (click (role button :name "Open rename dialog"))
+    (replace-text (role textbox :name "Workspace name") "Discarded name")
+    (click (role button :name "Cancel rename"))
+    (expect-not-visible (role dialog :name "Rename workspace"))
+    (expect-visible (text "Workspace: My workspace"))
+    (click (role button :name "Open rename dialog"))
+    (replace-text (role textbox :name "Workspace name") "Also discarded")
+    (press-key Escape)
+    (expect-not-visible (role dialog :name "Rename workspace"))
+    (expect-visible (text "Workspace: My workspace"))
+    (click (role button :name "Open rename dialog"))
+    (replace-text (role textbox :name "Workspace name") "Team workspace")
+    (click (role button :name "Confirm rename"))
+    (expect-not-visible (role dialog :name "Rename workspace"))
+    (expect-visible (text "Workspace: Team workspace"))))
