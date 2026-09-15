@@ -99,12 +99,6 @@ the change lands; do not soften the docs to match the gap.
   wrapper element that exists for no other reason. `music-player`'s wordmark and
   status line are each a one-child `row` whose only job is `fg` and `font_size`.
   Close with a styled text element carrying the same colour and size fields.
-- [ ] **Padding is one scalar for all four sides.** Pill-shaped transport
-  controls want generous horizontal padding and tight vertical padding. The
-  single `padding` field makes that inexpressible, so `music-player`'s transport
-  row sets `height: Px(48)` to defeat the vertical component of the horizontal
-  padding it actually wanted. Close with per-side padding, keeping the scalar as
-  the shorthand.
 - [ ] **A disabled control's appearance is a fixed opacity.** Disabled elements
   are painted at 0.55 opacity of the application's own colours, which is not a
   colour an application can choose. On a near-black ground a saturated accent

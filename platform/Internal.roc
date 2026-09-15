@@ -42,6 +42,15 @@ Internal := [].{
 		Scroll => 2
 	}
 
+	inset = |value, fallback| match value {
+		Same => fallback
+		Px(pixels) => if pixels <= max_style_value {
+			pixels
+		} else {
+			crash "Gui per-side padding is at most 16384 logical pixels"
+		}
+	}
+
 	align = |value| match value {
 		Default => 0
 		Start => 1
@@ -71,7 +80,10 @@ Internal := [].{
 		height = length(style.height)
 		{
 			gap: style.gap,
-			padding: style.padding,
+			padding_top: inset(style.padding_top, style.padding),
+			padding_right: inset(style.padding_right, style.padding),
+			padding_bottom: inset(style.padding_bottom, style.padding),
+			padding_left: inset(style.padding_left, style.padding),
 			width_kind: width.kind,
 			width: width.value,
 			height_kind: height.kind,
@@ -129,21 +141,21 @@ Internal := [].{
 			builder = Host.children_begin!({})
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_row!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			id = Host.node_row!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Column(value) => {
 			builder = Host.children_begin!({})
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_column!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			id = Host.node_column!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Dialog(value) => {
 			builder = Host.children_begin!({})
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_dialog!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			id = Host.node_dialog!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = { id, boundary: active_boundary, boundary_path, fire: |current, _| (value.props.on_dismiss)(current, {}) }
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes.append(route), boundaries: lowered.boundaries }
 		}
@@ -151,7 +163,7 @@ Internal := [].{
 			builder = Host.children_begin!({})
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_panel!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			id = Host.node_panel!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Scroll(scroll_value) => {
@@ -182,7 +194,7 @@ Internal := [].{
 		}
 		ActionButton(button_value) => {
 			style = style_args(button_value)
-			id = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			id = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = {
 				id,
 				boundary: active_boundary,
@@ -202,7 +214,10 @@ Internal := [].{
 				checked: checkbox_value.checked,
 				enabled: checkbox_value.enabled,
 				gap: style.gap,
-				padding: style.padding,
+				padding_top: style.padding_top,
+				padding_right: style.padding_right,
+				padding_bottom: style.padding_bottom,
+				padding_left: style.padding_left,
 				width_kind: style.width_kind,
 				width: style.width,
 				height_kind: style.height_kind,
@@ -236,7 +251,7 @@ Internal := [].{
 		}
 		Textarea(textarea_value) => {
 			style = style_args(textarea_value)
-			id = Host.node_textarea!({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			id = Host.node_textarea!({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = {
 				id,
 				boundary: active_boundary,
@@ -267,7 +282,7 @@ Internal := [].{
 				None => 3
 				ScaleDown => 4
 			}
-			id = Host.node_image!({ label: image_value.label, bytes: image_value.bytes, format, fit, grayscale: image_value.grayscale, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			id = Host.node_image!({ label: image_value.label, bytes: image_value.bytes, format, fit, grayscale: image_value.grayscale, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary, routes, boundaries }
 		}
 		Canvas(canvas_value) => {
@@ -297,7 +312,7 @@ Internal := [].{
 		}
 		TextInput(input_value) => {
 			style = style_args(input_value)
-			ids = Host.node_text_input!({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			ids = Host.node_text_input!({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			change_route : Route(a)
 			change_route = {
 				id: ids.change,

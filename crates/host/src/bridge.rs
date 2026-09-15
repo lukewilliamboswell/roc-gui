@@ -290,7 +290,8 @@ pub enum Justify {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Style {
     pub gap: u32,
-    pub padding: u32,
+    /// Top, right, bottom, left, already resolved from the shorthand.
+    pub padding: [u32; 4],
     pub width: Length,
     pub height: Length,
     pub grow: bool,

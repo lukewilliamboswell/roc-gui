@@ -122,6 +122,12 @@ Row, column, panel, dialog, and action-button props share the native
 radius, font size, font weight, per-axis overflow, and the two axis placements.
 `font_weight` is zero for the native default, or 100 through 900; 700 is bold.
 
+`padding` is the shorthand for all four sides. `padding_top`, `padding_right`,
+`padding_bottom`, and `padding_left` each override one side with `Px(n)` and
+default to `Same`, which takes the shorthand. A pill-shaped control wants
+generous horizontal and tight vertical padding, which is the shorthand plus two
+sides rather than a fixed height chosen to cancel the padding out.
+
 `justify` distributes children along the container's own layout axis and `align`
 places them across it. `justify` is `Start`, `Center`, `End`, `Between`, or
 `Around`; `align` is `Start`, `Center`, `End`, `Baseline`, or `Stretch`. Both

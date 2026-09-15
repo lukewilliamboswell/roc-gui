@@ -8,6 +8,9 @@ Length : [Auto, Fill, Px(U32)]
 ## How content outside a control's bounds is presented on one axis.
 Overflow : [Visible, Clip, Scroll]
 
+## One side's inset. `Same` takes the element's `padding` scalar.
+Inset : [Same, Px(U32)]
+
 ## Where a container places its children across its layout axis. `Default` keeps
 ## the element's own native alignment.
 Align : [Default, Start, Center, End, Baseline, Stretch]
@@ -20,6 +23,7 @@ Justify : [Default, Start, Center, End, Between, Around]
 Gui := [].{
 	Align : Align
 	Color : Color
+	Inset : Inset
 	Justify : Justify
 	Length : Length
 	Overflow : Overflow
@@ -30,6 +34,10 @@ Gui := [].{
 	Style := {
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
+		padding_top : Inset ?? Same,
+		padding_right : Inset ?? Same,
+		padding_bottom : Inset ?? Same,
+		padding_left : Inset ?? Same,
 		width : Length ?? Auto,
 		height : Length ?? Auto,
 		grow : Bool ?? False,
@@ -51,6 +59,10 @@ Gui := [].{
 	## Construct an RGB color from a `0xRRGGBB` integer.
 	rgb : U32 -> Color
 	rgb = |value| Rgb(value)
+
+	## Construct a fixed per-side inset.
+	inset : U32 -> Inset
+	inset = |value| Px(value)
 
 	## Construct a fixed pixel length.
 	px : U32 -> Length

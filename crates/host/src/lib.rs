@@ -318,7 +318,12 @@ macro_rules! decode_layout_style {
     ($args:expr) => {
         Style {
             gap: $args.gap,
-            padding: $args.padding,
+            padding: [
+                $args.padding_top,
+                $args.padding_right,
+                $args.padding_bottom,
+                $args.padding_left,
+            ],
             width: decode_length($args.width_kind, $args.width),
             height: decode_length($args.height_kind, $args.height),
             grow: $args.grow,
@@ -1005,7 +1010,10 @@ fn apply_axes(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
 fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     element = apply_axes(element, style)
         .gap(px(style.gap as f32))
-        .p(px(style.padding as f32));
+        .pt(px(style.padding[0] as f32))
+        .pr(px(style.padding[1] as f32))
+        .pb(px(style.padding[2] as f32))
+        .pl(px(style.padding[3] as f32));
     element = match style.width {
         Length::Auto => element,
         Length::Fill => element.w_full(),
@@ -1516,7 +1524,10 @@ impl Render for NodeView {
                 };
                 element = apply_axes(element.flex().flex_row().items_center(), style)
                     .gap(px(style.gap as f32))
-                    .p(px(style.padding as f32))
+                    .pt(px(style.padding[0] as f32))
+                    .pr(px(style.padding[1] as f32))
+                    .pb(px(style.padding[2] as f32))
+                    .pl(px(style.padding[3] as f32))
                     .child(
                         div()
                             .w(px(18.0))
