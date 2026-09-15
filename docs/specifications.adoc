@@ -260,8 +260,9 @@ processes. The process subsystem records this lifecycle evidence.
 == Selecting and repeating cases
 
 Patterns match repository-relative specification paths. Multiple patterns may
-be supplied. Use `--skip-host-build` while iterating after the host archive is
-already up to date:
+be supplied. Compatible released hosts are verified and staged automatically.
+Use `--skip-host-build` only to reuse an already staged local host while
+iterating:
 
 [source,sh]
 ----

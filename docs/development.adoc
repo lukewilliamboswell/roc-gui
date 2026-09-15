@@ -8,11 +8,14 @@ never reproduce it.
 
 [source,sh]
 ----
-cargo test --package roc-gui-host
-python3 build.py
+python3 scripts/run_cargo.py test --locked --package roc-gui-host
 roc check examples/counter/main.roc
-python3 scripts/run_specs.py 'examples/counter/specs/*.scm' --skip-host-build
+python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 ----
+
+The specification runner verifies and stages the independently released native
+host when its recorded source fingerprint matches the checkout. A host-source
+change automatically builds and exercises the changed production host instead.
 
 Run the affected benchmark family when a change touches rendering, routing,
 graph work, allocation, recording, or a scaling-sensitive data structure. Run

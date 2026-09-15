@@ -31,15 +31,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
-      - name: Unit tests
+      - name: Repository policy and artifact tests
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
-          python3 scripts/run_cargo.py test --locked --workspace
           python3 -m unittest \
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \
             scripts/test_macos_interfaces.py
+      - name: Admit released host or test changed host
+        run: |
+          status=0
+          python3 scripts/install_released_host.py || status=$?
+          case "$status" in
+            0) echo "Released host matches the committed host inputs; Cargo build skipped." ;;
+            3) python3 scripts/run_cargo.py test --locked --workspace ;;
+            *) exit "$status" ;;
+          esac
       - name: Full application specification suite
         run: python3 scripts/run_specs.py --jobs 2
       - name: Real GPUI window smoke
