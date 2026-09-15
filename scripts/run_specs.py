@@ -73,6 +73,7 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
+    subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
     if not skip_host_build:
         subprocess.run(["python3", str(ROOT / "build.py")], cwd=ROOT, check=True)
     by_app = {case.app: case.executable for case in cases}

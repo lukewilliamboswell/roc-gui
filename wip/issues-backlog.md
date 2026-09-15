@@ -4,6 +4,14 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Linker-input release adoption
+
+- [ ] **ALSA still uses a bootstrap linker recipe.** Add an independently
+  versioned ALSA interface producer and native probe, publish its tested archive
+  from `main`, adopt its generated lock entry, and remove `third_party/alsa` and
+  the ambient system-runtime check. Ordinary builds must then download and
+  verify the locked archive exactly like every other external linker input.
+
 ## Resource broker and confinement foundation
 
 - [ ] **The linked process is not an untrusted-application boundary.** Implement

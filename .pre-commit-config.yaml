@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: no-tracked-machine-code
+        name: Reject tracked machine code
+        entry: python3 scripts/check_no_tracked_machine_code.py
+        language: system
+        pass_filenames: false
