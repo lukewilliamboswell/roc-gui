@@ -13,12 +13,9 @@ Studio := [].{
 
 	## The timeline runs from frame zero through `last_frame`, drawn across a
 	## track that starts at `track_x0` and spans `track_span` logical pixels.
-	last_frame : U32
-	last_frame = 120
-	track_x0 : I32
-	track_x0 = 8
-	track_span : I32
-	track_span = 1144
+	last_frame = 120.U32
+	track_x0 = 8.I32
+	track_span = 1144.I32
 
 	frame_to_x : U32 -> I32
 	frame_to_x = |frame| track_x0 + (U32.to_i32_wrap(frame) * track_span) / U32.to_i32_wrap(last_frame)
