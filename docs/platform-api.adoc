@@ -45,6 +45,13 @@ Use `Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
 returning an unchanged state with `Action.update`.
 
+An action is a value describing a transition, not a transition performed.
+Constructing one changes nothing; returning it from a handler is what asks the
+platform to apply it. Every transition is applied on one thread, one at a time,
+so a handler's first argument is always the state that precedes it. This model
+is Richard Feldman's, from his design document _Design Idea: Action-State_; the
+architecture chapter records that origin and the reasoning behind it.
+
 == Timers and subscriptions
 
 `Timer.start!({ interval_ms })` creates an opaque `Timer.Handle` for intervals
