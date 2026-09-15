@@ -171,6 +171,16 @@ pub extern "C" fn roc_gui_set_dispatch(dispatcher: RocErasedCallable) {
     });
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_work_start(kind: u8) {
+    observatory::start_roc_work(kind);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_work_end(kind: u8) {
+    observatory::end_roc_work(kind);
+}
+
 fn take_patch() -> Patch {
     BRIDGE.with(|bridge| {
         bridge
@@ -342,11 +352,21 @@ impl Runtime {
         };
         if observatory::active() {
             let cycle_started = Instant::now();
+            observatory::reset_roc_work();
             let roc_started = Instant::now();
             unsafe { roc_gui_init() };
             let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
             let patch = take_patch();
-            runtime.apply_recorded(patch, "init", cycle_started, roc_callback_ns, cx);
+            runtime.apply_recorded(
+                patch,
+                "init",
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
         } else {
             unsafe { roc_gui_init() };
             let patch = take_patch();
@@ -364,10 +384,20 @@ impl Runtime {
         }
         if observatory::active() {
             let cycle_started = Instant::now();
+            observatory::reset_roc_work();
             let roc_started = Instant::now();
             let patch = dispatch(id);
             let roc_callback_ns = elapsed_ns(roc_started);
-            self.apply_recorded(patch, "click", cycle_started, roc_callback_ns, cx);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "click",
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
         } else {
             let patch = dispatch(id);
             self.apply_unrecorded(patch, cx);
@@ -390,6 +420,8 @@ impl Runtime {
         trigger: &'static str,
         cycle_started: Instant,
         roc_callback_ns: u64,
+        roc_work: [observatory::RocWork; 4],
+        roc_work_valid: bool,
         cx: &mut Context<Self>,
     ) {
         let applied = self
@@ -417,11 +449,16 @@ impl Runtime {
             removed_nodes: applied.facts.removed,
             live_nodes: applied.facts.live,
             parent_nodes_scanned: applied.facts.scanned,
+            roc_work,
+            roc_work_valid,
         });
         self.cycle_ordinal += 1;
     }
 
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+        if applied.retired_root {
+            self.views.clear();
+        }
         self.materialize(&applied.staged_ids, cx);
         if let Some(root_id) = applied.root {
             let new_root = self.views[&root_id].clone();
@@ -521,7 +558,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         spec_path: None,
         stats_record: false,
         stats_output: None,
-        stats_detail: observatory::Detail::Standard,
+        stats_detail: observatory::Detail::Summary,
         stats_buffer_mib: 4,
         stats_max_mib: 4096,
         stats_job_count: 1,
@@ -544,7 +581,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.stats_record = true;
         } else if let Some(value) = argument.strip_prefix("--host-stats-detail=") {
             parsed.stats_detail = observatory::Detail::parse(value)
-                .ok_or_else(|| "stats detail must be summary, standard, or full".to_string())?;
+                .ok_or_else(|| "stats detail must be summary or full".to_string())?;
             parsed.stats_record = true;
         } else if let Some(value) = argument.strip_prefix("--host-stats-buffer-mib=") {
             parsed.stats_buffer_mib = value

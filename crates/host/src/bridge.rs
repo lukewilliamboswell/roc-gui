@@ -55,6 +55,7 @@ pub struct GraphApply {
     pub root: Option<u64>,
     pub staged_ids: Vec<u64>,
     pub removed_ids: Vec<u64>,
+    pub retired_root: bool,
     pub parent: Option<(u64, usize)>,
 }
 
@@ -108,65 +109,83 @@ impl MountedGraph {
         let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
         let apply_started = MEASURE.then(Instant::now);
 
-        let (kind, root, staged_ids, removed_ids, parent, scanned) = match patch {
-            Patch::NoChange => ("no_change", None, vec![], vec![], None, 0),
-            Patch::Mount { root, nodes } => {
-                if !self.nodes.is_empty() {
-                    return Err("application attempted to mount twice".into());
-                }
-                let staged_ids = nodes.iter().map(|node| node.id).collect();
-                self.parents.extend(parent_entries(&nodes));
-                self.nodes
-                    .extend(nodes.into_iter().map(|node| (node.id, node)));
-                self.root = Some(root);
-                ("mount", Some(root), staged_ids, vec![], None, 0)
-            }
-            Patch::Replace {
-                old_root,
-                root,
-                nodes,
-            } => {
-                let removed_ids = self.subtree_ids(old_root)?.into_iter().collect::<Vec<_>>();
-                if nodes.iter().any(|node| self.nodes.contains_key(&node.id)) {
-                    return Err("replacement reused a live node id".into());
-                }
-                let parent = self.parents.get(&old_root).copied();
-                let scanned = u64::from(parent.is_some());
-                let replacing_root = self.root == Some(old_root);
-                if parent.is_none() && !replacing_root {
-                    return Err("replacement target is detached".into());
-                }
-                let staged_ids = nodes.iter().map(|node| node.id).collect();
-                self.parents.extend(parent_entries(&nodes));
-                self.nodes
-                    .extend(nodes.into_iter().map(|node| (node.id, node)));
-                if let Some((parent_id, position)) = parent {
+        let (kind, root, staged_ids, removed_ids, removed, retired_root, parent, scanned) =
+            match patch {
+                Patch::NoChange => ("no_change", None, vec![], vec![], 0, false, None, 0),
+                Patch::Mount { root, nodes } => {
+                    if !self.nodes.is_empty() {
+                        return Err("application attempted to mount twice".into());
+                    }
+                    let staged_ids = nodes.iter().map(|node| node.id).collect();
+                    self.parents.extend(parent_entries(&nodes));
                     self.nodes
-                        .get_mut(&parent_id)
-                        .expect("located parent disappeared")
-                        .children[position] = root;
-                    self.parents.insert(root, (parent_id, position));
-                } else {
+                        .extend(nodes.into_iter().map(|node| (node.id, node)));
                     self.root = Some(root);
+                    ("mount", Some(root), staged_ids, vec![], 0, false, None, 0)
                 }
-                for id in &removed_ids {
-                    self.nodes.remove(id);
-                    self.parents.remove(id);
+                Patch::Replace {
+                    old_root,
+                    root,
+                    nodes,
+                } => {
+                    let replacing_root = self.root == Some(old_root);
+                    let (removed_ids, removed) = if replacing_root {
+                        (vec![], self.nodes.len() as u64)
+                    } else {
+                        let ids = self.subtree_ids(old_root)?.into_iter().collect::<Vec<_>>();
+                        let count = ids.len() as u64;
+                        (ids, count)
+                    };
+                    if nodes.iter().any(|node| self.nodes.contains_key(&node.id)) {
+                        return Err("replacement reused a live node id".into());
+                    }
+                    let parent = self.parents.get(&old_root).copied();
+                    let scanned = u64::from(parent.is_some());
+                    if parent.is_none() && !replacing_root {
+                        return Err("replacement target is detached".into());
+                    }
+                    let staged_ids = nodes.iter().map(|node| node.id).collect();
+                    // Retire the old subtree before admitting its replacement. Node ids have
+                    // already been checked for overlap, and removing first lets both maps reuse
+                    // their existing allocation instead of briefly growing to hold two complete
+                    // roots at once.
+                    if replacing_root {
+                        self.nodes.clear();
+                        self.parents.clear();
+                    } else {
+                        for id in &removed_ids {
+                            self.nodes.remove(id);
+                            self.parents.remove(id);
+                        }
+                    }
+                    self.parents.extend(parent_entries(&nodes));
+                    self.nodes
+                        .extend(nodes.into_iter().map(|node| (node.id, node)));
+                    if let Some((parent_id, position)) = parent {
+                        self.nodes
+                            .get_mut(&parent_id)
+                            .expect("located parent disappeared")
+                            .children[position] = root;
+                        self.parents.insert(root, (parent_id, position));
+                    } else {
+                        self.root = Some(root);
+                    }
+                    (
+                        "replace",
+                        Some(root),
+                        staged_ids,
+                        removed_ids,
+                        removed,
+                        replacing_root,
+                        parent,
+                        scanned,
+                    )
                 }
-                (
-                    "replace",
-                    Some(root),
-                    staged_ids,
-                    removed_ids,
-                    parent,
-                    scanned,
-                )
-            }
-        };
+            };
         let facts = ApplyFacts {
             kind,
             staged: staged_ids.len() as u64,
-            removed: removed_ids.len() as u64,
+            removed,
             live: self.nodes.len() as u64,
             scanned,
             validate_ns,
@@ -177,6 +196,7 @@ impl MountedGraph {
             root,
             staged_ids,
             removed_ids,
+            retired_root,
             parent,
         })
     }
@@ -311,21 +331,23 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
         return Err(format!("native subtree exceeds {MAX_STAGED_NODES} nodes"));
     }
 
-    let mut ids = HashSet::with_capacity(nodes.len());
+    // Keep membership and ownership in one table. Validation still runs in two
+    // passes so duplicate/root errors retain precedence over shape and edge
+    // errors, but edges no longer require separate id, lookup, and parent sets.
+    let mut ownership = HashMap::with_capacity(nodes.len());
     for node in nodes {
         if node.id == 0 {
             return Err("node id 0 is reserved".into());
         }
-        if !ids.insert(node.id) {
+        if ownership.insert(node.id, false).is_some() {
             return Err(format!("duplicate node id {}", node.id));
         }
     }
-    if !ids.contains(&root) {
+    if !ownership.contains_key(&root) {
         return Err(format!("subtree root {root} is missing"));
     }
 
-    let by_id: HashMap<_, _> = nodes.iter().map(|node| (node.id, node)).collect();
-    let mut parents = HashSet::new();
+    let mut parent_count = 0;
     for node in nodes {
         match node.kind {
             NodeKind::Text(_) if !node.children.is_empty() => {
@@ -337,18 +359,24 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
             _ => {}
         }
         for child in &node.children {
-            if !by_id.contains_key(child) {
-                return Err(format!("node {} references missing child {child}", node.id));
-            }
-            if !parents.insert(*child) {
-                return Err(format!("node {child} has more than one parent"));
+            match ownership.get_mut(child) {
+                None => {
+                    return Err(format!("node {} references missing child {child}", node.id));
+                }
+                Some(has_parent @ false) => {
+                    *has_parent = true;
+                    parent_count += 1;
+                }
+                Some(true) => {
+                    return Err(format!("node {child} has more than one parent"));
+                }
             }
         }
     }
-    if parents.contains(&root) {
+    if ownership[&root] {
         return Err(format!("subtree root {root} has a parent"));
     }
-    if parents.len() + 1 != nodes.len() {
+    if parent_count + 1 != nodes.len() {
         return Err("native subtree is disconnected".into());
     }
     Ok(())
@@ -401,6 +429,108 @@ mod tests {
             children: vec![],
         }];
         assert!(validate_tree(1, &nodes).unwrap_err().contains("one label"));
+    }
+
+    #[test]
+    fn validation_preserves_edge_and_ownership_errors() {
+        assert_eq!(
+            validate_tree(
+                1,
+                &[
+                    Node {
+                        id: 1,
+                        kind: NodeKind::Column,
+                        children: vec![2],
+                    },
+                    text(2, "child"),
+                    Node {
+                        id: 3,
+                        kind: NodeKind::Row,
+                        children: vec![2],
+                    },
+                ],
+            ),
+            Err("node 2 has more than one parent".into())
+        );
+        assert_eq!(
+            validate_tree(
+                1,
+                &[Node {
+                    id: 1,
+                    kind: NodeKind::Column,
+                    children: vec![99],
+                }],
+            ),
+            Err("node 1 references missing child 99".into())
+        );
+        assert_eq!(
+            validate_tree(
+                1,
+                &[
+                    Node {
+                        id: 1,
+                        kind: NodeKind::Column,
+                        children: vec![2],
+                    },
+                    Node {
+                        id: 2,
+                        kind: NodeKind::Row,
+                        children: vec![1],
+                    },
+                ],
+            ),
+            Err("subtree root 1 has a parent".into())
+        );
+    }
+
+    #[test]
+    fn validation_preserves_id_and_shape_error_precedence() {
+        assert_eq!(validate_tree(0, &[]), Err("node id 0 is reserved".into()));
+        assert_eq!(
+            validate_tree(7, &[text(1, "only")]),
+            Err("subtree root 7 is missing".into())
+        );
+        assert_eq!(
+            validate_tree(
+                1,
+                &[
+                    text(1, "first"),
+                    Node {
+                        id: 1,
+                        kind: NodeKind::Text("duplicate with child".into()),
+                        children: vec![99],
+                    },
+                ],
+            ),
+            Err("duplicate node id 1".into())
+        );
+        assert_eq!(
+            validate_tree(
+                1,
+                &[Node {
+                    id: 1,
+                    kind: NodeKind::Text("bad".into()),
+                    children: vec![99],
+                }],
+            ),
+            Err("text node 1 has children".into())
+        );
+    }
+
+    #[test]
+    fn validation_rejects_subtrees_above_the_staging_guard() {
+        let nodes = vec![
+            Node {
+                id: 1,
+                kind: NodeKind::Column,
+                children: vec![],
+            };
+            MAX_STAGED_NODES + 1
+        ];
+        assert_eq!(
+            validate_tree(1, &nodes),
+            Err(format!("native subtree exceeds {MAX_STAGED_NODES} nodes"))
+        );
     }
 
     #[test]
@@ -528,6 +658,7 @@ mod tests {
         assert_eq!(replaced.facts.staged, 2);
         assert_eq!(replaced.facts.removed, 2);
         assert_eq!(replaced.facts.live, 3);
+        assert!(!replaced.retired_root);
         assert_eq!(replaced.facts.scanned, 1);
         assert_eq!(replaced.parent, Some((3, 0)));
         assert_eq!(graph.node(3).unwrap().children, vec![5]);
@@ -544,5 +675,48 @@ mod tests {
         assert_eq!(replaced_again.parent, Some((5, 0)));
         assert_eq!(replaced_again.facts.scanned, 1);
         assert_eq!(graph.node(5).unwrap().children, vec![6]);
+    }
+
+    #[test]
+    fn root_replacement_retires_the_complete_old_graph() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 2,
+                nodes: vec![
+                    text(1, "old"),
+                    Node {
+                        id: 2,
+                        kind: NodeKind::Column,
+                        children: vec![1],
+                    },
+                ],
+            })
+            .unwrap();
+
+        let replaced = graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 4,
+                nodes: vec![
+                    text(3, "new"),
+                    Node {
+                        id: 4,
+                        kind: NodeKind::Row,
+                        children: vec![3],
+                    },
+                ],
+            })
+            .unwrap();
+
+        assert_eq!(replaced.facts.removed, 2);
+        assert_eq!(replaced.facts.live, 2);
+        assert!(replaced.retired_root);
+        assert!(replaced.removed_ids.is_empty());
+        assert_eq!(replaced.parent, None);
+        assert_eq!(graph.root(), Some(4));
+        assert!(graph.node(1).is_none());
+        assert!(graph.node(2).is_none());
+        assert_eq!(graph.node(4).unwrap().children, vec![3]);
     }
 }

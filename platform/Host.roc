@@ -12,4 +12,8 @@ Host := [].{
 	apply! : Patch => {}
 
 	set_dispatch! : Box((U64 => {})) => {}
+
+	work_start! : U8 => {}
+
+	work_end! : U8 => {}
 }

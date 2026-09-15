@@ -14,6 +14,8 @@ platform ""
 		"roc_gui_node_button": Host.node_button!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
+		"roc_gui_work_start": Host.work_start!,
+		"roc_gui_work_end": Host.work_end!,
 	}
 	targets: {
 		inputs_dir: "targets/",

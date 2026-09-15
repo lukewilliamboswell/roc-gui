@@ -6,23 +6,55 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex, OnceLock,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
         mpsc::{Receiver, RecvTimeoutError, SyncSender, sync_channel},
     },
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
 static ENABLED: AtomicBool = AtomicBool::new(false);
+static DETAIL: AtomicU8 = AtomicU8::new(0);
 static ROC_ALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
 static ROC_ALLOC_REQUESTED_BYTES: AtomicU64 = AtomicU64::new(0);
 static ROC_DEALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
 static ROC_REALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
 static ROC_REALLOC_REQUESTED_BYTES: AtomicU64 = AtomicU64::new(0);
+const ROC_WORK_KINDS: usize = 4;
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RocWork {
+    pub occurred: bool,
+    pub duration_ns: u64,
+    pub alloc_calls: u64,
+    pub allocated_bytes: u64,
+    pub dealloc_calls: u64,
+    pub realloc_calls: u64,
+    pub reallocated_bytes: u64,
+}
+
+#[derive(Default)]
+struct ActiveRocWork {
+    kind: Option<usize>,
+    started: Option<Instant>,
+    totals: [RocWork; ROC_WORK_KINDS],
+    valid: bool,
+}
+
+thread_local! {
+    static ROC_WORK: std::cell::RefCell<ActiveRocWork> = Default::default();
+}
+
+pub const ROC_WORK_NAMES: [&str; ROC_WORK_KINDS] = [
+    "routing",
+    "application_update",
+    "application_render",
+    "platform_lowering",
+];
 const TRANSACTION_EVENTS: usize = 1024;
 const TRANSACTION_COALESCE: Duration = Duration::from_millis(2);
 const TERMINAL_RESERVE_MAX_BYTES: u64 = 1024 * 1024;
@@ -40,7 +72,6 @@ pub fn now_ns() -> u64 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Detail {
     Summary,
-    Standard,
     Full,
 }
 
@@ -48,7 +79,6 @@ impl Detail {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "summary" => Some(Self::Summary),
-            "standard" => Some(Self::Standard),
             "full" => Some(Self::Full),
             _ => None,
         }
@@ -57,9 +87,19 @@ impl Detail {
     fn as_str(self) -> &'static str {
         match self {
             Self::Summary => "summary",
-            Self::Standard => "standard",
             Self::Full => "full",
         }
+    }
+
+    fn code(self) -> u8 {
+        match self {
+            Self::Summary => 0,
+            Self::Full => 1,
+        }
+    }
+
+    fn records_cycle(self, measurement_phase: &str) -> bool {
+        self == Self::Full || measurement_phase != "setup"
     }
 }
 
@@ -96,6 +136,89 @@ pub struct Cycle {
     pub removed_nodes: u64,
     pub live_nodes: u64,
     pub parent_nodes_scanned: u64,
+    pub roc_work: [RocWork; ROC_WORK_KINDS],
+    pub roc_work_valid: bool,
+}
+
+pub fn reset_roc_work() {
+    if !active() {
+        return;
+    }
+    ROC_WORK.with(|work| {
+        *work.borrow_mut() = ActiveRocWork {
+            valid: true,
+            ..Default::default()
+        }
+    });
+}
+
+pub fn start_roc_work(kind: u8) {
+    if !active() {
+        return;
+    }
+    let kind = kind as usize;
+    ROC_WORK.with(|work| {
+        let mut work = work.borrow_mut();
+        if kind >= ROC_WORK_KINDS || work.kind.is_some() {
+            work.valid = false;
+            work.kind = None;
+            work.started = None;
+            return;
+        }
+        work.totals[kind].occurred = true;
+        work.kind = Some(kind);
+        work.started = Some(Instant::now());
+    });
+}
+
+pub fn end_roc_work(kind: u8) {
+    if !active() {
+        return;
+    }
+    ROC_WORK.with(|work| {
+        let mut work = work.borrow_mut();
+        if kind as usize >= ROC_WORK_KINDS || work.kind != Some(kind as usize) {
+            work.valid = false;
+            work.kind = None;
+            work.started = None;
+            return;
+        }
+        let elapsed = work
+            .started
+            .take()
+            .map(|start| now_elapsed_ns(start))
+            .unwrap_or(0);
+        work.totals[kind as usize].duration_ns = work.totals[kind as usize]
+            .duration_ns
+            .saturating_add(elapsed);
+        work.kind = None;
+    });
+}
+
+pub fn take_roc_work() -> ([RocWork; ROC_WORK_KINDS], bool) {
+    if !active() {
+        return ([RocWork::default(); ROC_WORK_KINDS], false);
+    }
+    ROC_WORK.with(|work| {
+        let mut work = work.borrow_mut();
+        if work.kind.is_some() {
+            work.valid = false;
+        }
+        (std::mem::take(&mut work.totals), work.valid)
+    })
+}
+
+fn now_elapsed_ns(start: Instant) -> u64 {
+    start.elapsed().as_nanos().try_into().unwrap_or(u64::MAX)
+}
+
+fn attribute_alloc(update: impl FnOnce(&mut RocWork)) {
+    ROC_WORK.with(|work| {
+        let mut work = work.borrow_mut();
+        if let Some(kind) = work.kind {
+            update(&mut work.totals[kind]);
+        }
+    });
 }
 
 #[derive(Clone, Debug)]
@@ -171,12 +294,17 @@ pub fn note_roc_alloc(requested_bytes: usize) {
     if ENABLED.load(Ordering::Relaxed) {
         ROC_ALLOC_CALLS.fetch_add(1, Ordering::Relaxed);
         ROC_ALLOC_REQUESTED_BYTES.fetch_add(requested_bytes as u64, Ordering::Relaxed);
+        attribute_alloc(|work| {
+            work.alloc_calls += 1;
+            work.allocated_bytes = work.allocated_bytes.saturating_add(requested_bytes as u64);
+        });
     }
 }
 
 pub fn note_roc_dealloc() {
     if ENABLED.load(Ordering::Relaxed) {
         ROC_DEALLOC_CALLS.fetch_add(1, Ordering::Relaxed);
+        attribute_alloc(|work| work.dealloc_calls += 1);
     }
 }
 
@@ -184,6 +312,12 @@ pub fn note_roc_realloc(requested_bytes: usize) {
     if ENABLED.load(Ordering::Relaxed) {
         ROC_REALLOC_CALLS.fetch_add(1, Ordering::Relaxed);
         ROC_REALLOC_REQUESTED_BYTES.fetch_add(requested_bytes as u64, Ordering::Relaxed);
+        attribute_alloc(|work| {
+            work.realloc_calls += 1;
+            work.reallocated_bytes = work
+                .reallocated_bytes
+                .saturating_add(requested_bytes as u64);
+        });
     }
 }
 
@@ -297,6 +431,7 @@ pub fn start(config: Config) -> Result<(), String> {
     if config.max_mib == 0 {
         return Err("stats maximum database size must be positive".into());
     }
+    DETAIL.store(config.detail.code(), Ordering::Relaxed);
     OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -451,6 +586,17 @@ fn bounded_diagnostic(mut value: String) -> String {
 }
 
 pub fn cycle(cycle: Cycle) {
+    // Setup cycles are useful for diagnosing full execution but are outside
+    // the operation selected for measurement. Summary keeps the measured and
+    // interactive paths plus all semantic result rows.
+    let detail = if DETAIL.load(Ordering::Relaxed) == Detail::Full.code() {
+        Detail::Full
+    } else {
+        Detail::Summary
+    };
+    if !detail.records_cycle(cycle.measurement_phase) {
+        return;
+    }
     submit(Event::Cycle(cycle), false);
 }
 
@@ -604,10 +750,7 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         ("clean_shutdown", "0".into()),
         ("final_state", "recording".into()),
         ("requested_detail", config.detail.as_str().into()),
-        // Schema v2 has one event family. Preserve the request for forward
-        // compatibility, but do not claim that currently identical levels
-        // changed what was captured.
-        ("effective_detail", "summary".into()),
+        ("effective_detail", config.detail.as_str().into()),
         ("backend", config.backend.into()),
         ("app_name", config.app_name.clone()),
         ("spec_name", config.spec_name.clone().unwrap_or_default()),
@@ -702,6 +845,12 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         ),
         (
             "host_cycles",
+            "summary",
+            "unfinalized",
+            "capture has not finalized",
+        ),
+        (
+            "roc_work_spans",
             "summary",
             "unfinalized",
             "capture has not finalized",
@@ -822,10 +971,24 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             "INSERT INTO steps(run_id,ordinal,source_line,kind,role,status,duration_ns,expected_count,observed_count,expected_patch_kind,observed_patch_kind,expected_staged_nodes,observed_staged_nodes,expected_removed_nodes,observed_removed_nodes,diagnostic) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
             params![result.run_id, result.ordinal as i64, result.source_line as i64, result.kind, result.role, result.status, result.duration_ns.map(as_i64), result.expected_count.map(as_i64), result.observed_count.map(as_i64), result.expected_patch_kind, result.observed_patch_kind, result.expected_staged_nodes.map(as_i64), result.observed_staged_nodes.map(as_i64), result.expected_removed_nodes.map(as_i64), result.observed_removed_nodes.map(as_i64), result.diagnostic],
         ),
-        Event::Cycle(cycle) => connection.execute(
-            "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
-            params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned)],
-        ),
+        Event::Cycle(cycle) => {
+            connection.execute(
+                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
+                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid)],
+            )
+            .map_err(|error| format!("cannot write cycle row: {error}"))?;
+            let cycle_id = connection.last_insert_rowid();
+            for (kind, work) in ROC_WORK_NAMES.iter().zip(cycle.roc_work) {
+                if !work.occurred {
+                    continue;
+                }
+                connection.execute(
+                    "INSERT INTO roc_work_spans(cycle_id,kind,duration_ns,alloc_calls,allocated_bytes,dealloc_calls,realloc_calls,reallocated_bytes) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+                    params![cycle_id, kind, as_i64(work.duration_ns), as_i64(work.alloc_calls), as_i64(work.allocated_bytes), as_i64(work.dealloc_calls), as_i64(work.realloc_calls), as_i64(work.reallocated_bytes)],
+                ).map_err(|error| format!("cannot write Roc work span: {error}"))?;
+            }
+            Ok(1)
+        },
         Event::Finish { .. } => return Err("internal recorder finalization ordering error".into()),
     }
     .map(|_| ())
@@ -878,9 +1041,13 @@ fn finalize(
         .map_err(|error| format!("cannot finalize drain metadata: {error}"))?;
     let partial = omitted > 0 || output_limited;
     connection.execute(
-        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
+        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize measurement status: {error}"))?;
+    connection.execute(
+        "UPDATE measurement_status SET status=CASE WHEN ?1 THEN 'partial' WHEN NOT EXISTS(SELECT 1 FROM cycles) THEN 'unavailable' WHEN EXISTS(SELECT 1 FROM cycles WHERE roc_work_valid=0) THEN 'partial' WHEN NOT EXISTS(SELECT 1 FROM roc_work_spans) THEN 'unavailable' ELSE 'complete' END, reason=CASE WHEN ?1 THEN 'recorder omitted events' WHEN NOT EXISTS(SELECT 1 FROM cycles) THEN 'no host cycles were recorded' WHEN EXISTS(SELECT 1 FROM cycles WHERE roc_work_valid=0) THEN 'one or more callbacks had invalid or incomplete work spans' WHEN NOT EXISTS(SELECT 1 FROM roc_work_spans) THEN 'no attributed Roc work span occurred' ELSE 'every recorded callback has valid span evidence' END, rows_recorded=(SELECT count(*) FROM roc_work_spans), omitted_events=?2 WHERE name='roc_work_spans'",
+        params![partial, as_i64(omitted)],
+    ).map_err(|error| format!("cannot finalize Roc work status: {error}"))?;
     let orphan_count: i64 = connection
         .query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |row| {
             row.get(0)
@@ -941,7 +1108,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=3;
+PRAGMA user_version=4;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1017,6 +1184,7 @@ CREATE TABLE cycles(
     removed_nodes INTEGER NOT NULL,
     live_nodes INTEGER NOT NULL,
     parent_nodes_scanned INTEGER NOT NULL,
+    roc_work_valid INTEGER NOT NULL CHECK(roc_work_valid IN (0,1)),
     UNIQUE(run_id,ordinal),
     FOREIGN KEY(run_id,step_ordinal) REFERENCES steps(run_id,ordinal)
 );
@@ -1025,6 +1193,17 @@ CREATE TABLE recording_gaps(
     family TEXT NOT NULL,
     lost_count INTEGER NOT NULL,
     reason TEXT NOT NULL
+);
+CREATE TABLE roc_work_spans(
+    cycle_id INTEGER NOT NULL REFERENCES cycles(id),
+    kind TEXT NOT NULL CHECK(kind IN ('routing','application_update','application_render','platform_lowering')),
+    duration_ns INTEGER NOT NULL,
+    alloc_calls INTEGER NOT NULL,
+    allocated_bytes INTEGER NOT NULL,
+    dealloc_calls INTEGER NOT NULL,
+    realloc_calls INTEGER NOT NULL,
+    reallocated_bytes INTEGER NOT NULL,
+    PRIMARY KEY(cycle_id,kind)
 );
 CREATE TABLE recorder_health(
     id INTEGER PRIMARY KEY CHECK(id=1),
@@ -1040,6 +1219,7 @@ CREATE TABLE recorder_health(
 CREATE INDEX runs_by_phase_sample ON runs(phase,sample_index,iteration_index);
 CREATE INDEX steps_by_run_ordinal ON steps(run_id,ordinal);
 CREATE INDEX cycles_by_run_ordinal ON cycles(run_id,ordinal);
+CREATE INDEX roc_work_spans_by_kind ON roc_work_spans(kind,cycle_id);
 "#;
 
 #[cfg(test)]
@@ -1048,10 +1228,123 @@ mod tests {
 
     static RECORDER_TEST: Mutex<()> = Mutex::new(());
 
+    fn test_cycle(phase: &'static str, ordinal: u64, patch_kind: &'static str) -> Cycle {
+        Cycle {
+            run_id: 1,
+            ordinal,
+            step_ordinal: None,
+            measurement_phase: phase,
+            trigger: "click",
+            patch_kind,
+            duration_ns: 100,
+            roc_callback_ns: 50,
+            validate_ns: 10,
+            apply_ns: 20,
+            graph_apply_ns: 20,
+            gpui_apply_ns: None,
+            staged_nodes: 1,
+            removed_nodes: 0,
+            live_nodes: 1,
+            parent_nodes_scanned: 1,
+            roc_work: [RocWork::default(); ROC_WORK_KINDS],
+            roc_work_valid: true,
+        }
+    }
+
+    fn detail_capture(detail: Detail) -> (PathBuf, Connection) {
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-detail-{}-{}-{}.rgstats",
+            detail.as_str(),
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        start(Config {
+            path: path.clone(),
+            detail,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "semantic-headless",
+            app_name: "test".into(),
+            spec_name: Some("detail".into()),
+            spec_hash: Some(stable_hash(b"detail")),
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        run_start(1, "sample", Some(0), 0, 1);
+        cycle(test_cycle("setup", 0, "replace"));
+        cycle(test_cycle("measured", 1, "no_change"));
+        run_end(1, "pass", 2, None);
+        finish("success").unwrap();
+        let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        (path, db)
+    }
+
     #[test]
     fn stable_hash_is_repeatable() {
         assert_eq!(stable_hash(b"abc"), stable_hash(b"abc"));
         assert_ne!(stable_hash(b"abc"), stable_hash(b"abd"));
+    }
+
+    #[test]
+    fn detail_policy_is_explicit_and_setup_is_full_only() {
+        assert_eq!(Detail::parse("summary"), Some(Detail::Summary));
+        assert_eq!(Detail::parse("full"), Some(Detail::Full));
+        assert_eq!(Detail::parse("standard"), None);
+        assert!(Detail::Summary.records_cycle("measured"));
+        assert!(Detail::Summary.records_cycle("interactive"));
+        assert!(!Detail::Summary.records_cycle("setup"));
+        assert!(Detail::Full.records_cycle("setup"));
+    }
+
+    #[test]
+    fn detail_policy_controls_persisted_setup_cycles() {
+        let _guard = RECORDER_TEST.lock().unwrap();
+        for (detail, expected_cycles) in [(Detail::Summary, 1), (Detail::Full, 2)] {
+            let (path, db) = detail_capture(detail);
+            assert_eq!(
+                db.query_row("SELECT count(*) FROM cycles", [], |row| row
+                    .get::<_, i64>(0))
+                    .unwrap(),
+                expected_cycles
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT value FROM metadata WHERE key='effective_detail'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                detail.as_str()
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT status FROM measurement_status WHERE name='roc_work_spans'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                "unavailable"
+            );
+            let mut report = db
+                .prepare(include_str!("../../../scripts/stats_queries/roc_work.sql"))
+                .unwrap();
+            let rows = report
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(13)?))
+                })
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            assert_eq!(rows, vec![("unavailable".into(), None)]);
+            drop(report);
+            drop(db);
+            std::fs::remove_file(path).unwrap();
+        }
     }
 
     #[test]
@@ -1067,7 +1360,7 @@ mod tests {
         ));
         start(Config {
             path: path.clone(),
-            detail: Detail::Standard,
+            detail: Detail::Summary,
             buffer_mib: 1,
             max_mib: 16,
             backend: "semantic-headless",
@@ -1079,7 +1372,22 @@ mod tests {
             patch_expected: false,
         })
         .unwrap();
-        run_start(1, "test", None, 0, 1);
+        run_start(1, "sample", Some(0), 0, 1);
+        reset_roc_work();
+        start_roc_work(2);
+        note_roc_alloc(32);
+        note_roc_realloc(48);
+        note_roc_dealloc();
+        end_roc_work(2);
+        let (attributed, valid) = take_roc_work();
+        assert!(valid);
+        assert!(attributed[2].duration_ns > 0);
+        assert_eq!(attributed[2].alloc_calls, 1);
+        assert_eq!(attributed[2].allocated_bytes, 32);
+        assert_eq!(attributed[2].dealloc_calls, 1);
+        assert_eq!(attributed[2].realloc_calls, 1);
+        assert_eq!(attributed[2].reallocated_bytes, 48);
+        assert_eq!(attributed[0].alloc_calls, 0);
         note_roc_alloc(64);
         note_roc_realloc(128);
         note_roc_dealloc();
@@ -1101,6 +1409,21 @@ mod tests {
             observed_removed_nodes: Some(2),
             diagnostic: None,
         });
+        let mut update = test_cycle("measured", 0, "replace");
+        update.roc_work = attributed;
+        update.roc_work[0] = RocWork {
+            occurred: true,
+            duration_ns: 7,
+            ..RocWork::default()
+        };
+        cycle(update);
+        let mut stale = test_cycle("measured", 1, "no_change");
+        stale.roc_work[0] = RocWork {
+            occurred: true,
+            duration_ns: 3,
+            ..RocWork::default()
+        };
+        cycle(stale);
         run_end(1, "pass", 2, None);
         finish("success").unwrap();
         let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
@@ -1113,10 +1436,51 @@ mod tests {
             .unwrap(),
             "1"
         );
+        for key in ["requested_detail", "effective_detail"] {
+            assert_eq!(
+                db.query_row("SELECT value FROM metadata WHERE key=?1", [key], |row| {
+                    row.get::<_, String>(0)
+                })
+                .unwrap(),
+                "summary"
+            );
+        }
         assert_eq!(
             db.query_row("SELECT count(*) FROM steps", [], |row| row.get::<_, i64>(0))
                 .unwrap(),
             1
+        );
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM roc_work_spans", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            3,
+            "absent render/lowering work must not be persisted as zero-valued occurrence"
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT count(*) FROM roc_work_spans WHERE kind='platform_lowering'",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        let roc_work_query = include_str!("../../../scripts/stats_queries/roc_work.sql");
+        let mut report = db.prepare(roc_work_query).unwrap();
+        let rows = report
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(13)?))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                ("complete".into(), Some("application_render".into())),
+                ("complete".into(), Some("routing".into()))
+            ]
         );
         assert_eq!(
             db.query_row(
@@ -1142,7 +1506,7 @@ mod tests {
                 |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?, row.get::<_, i64>(3)?, row.get::<_, i64>(4)?)),
             )
             .unwrap(),
-            (1, 64, 1, 1, 128)
+            (2, 96, 2, 2, 176)
         );
         assert_eq!(
             db.query_row(
@@ -1210,7 +1574,7 @@ mod tests {
         ));
         start(Config {
             path: path.clone(),
-            detail: Detail::Standard,
+            detail: Detail::Summary,
             buffer_mib: 1,
             max_mib: 16,
             backend: "semantic-headless",

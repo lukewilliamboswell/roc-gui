@@ -70,20 +70,33 @@ Internal := [].{
 	install! : a, (a -> Elem(a)), List(Route(a)), List(BoundaryInfo(a)), U64 => {}
 	install! = |state, root_renderer, routes, boundaries, next_boundary| {
 		dispatch! = |event_id| {
-			match routes.find_first(|route| route.id == event_id) {
+			Host.work_start!(0)
+			route_result = routes.find_first(|route| route.id == event_id)
+			Host.work_end!(0)
+			match route_result {
 				Ok(route) => {
 					handler = route.on_press
-					match Action.inspect(handler(state, {})) {
+					Host.work_start!(1)
+					action = Action.inspect(handler(state, {}))
+					Host.work_end!(1)
+					match action {
 						NoChange => {
 							Host.apply!(NoChange)
 							install!(state, root_renderer, routes, boundaries, next_boundary)
 						}
 						Update(next_state) => {
+							Host.work_start!(0)
 							boundary = boundaries.find_first(|entry| entry.key == route.boundary) ?? crash "missing render boundary"
 							renderer = boundary.render
 							kept_routes = routes.keep_if(|entry| !entry.boundary_path.contains(boundary.key))
 							kept_boundaries = boundaries.keep_if(|entry| !entry.path.contains(boundary.key))
-							lowered = lower!(renderer(next_state), next_state, next_boundary, boundary.key, boundary.path, kept_routes, kept_boundaries)
+							Host.work_end!(0)
+							Host.work_start!(2)
+							rendered = renderer(next_state)
+							Host.work_end!(2)
+							Host.work_start!(3)
+							lowered = lower!(rendered, next_state, next_boundary, boundary.key, boundary.path, kept_routes, kept_boundaries)
+							Host.work_end!(3)
 							next_boundary_info = { ..boundary, root: lowered.root }
 							next_boundaries = lowered.boundaries.append(next_boundary_info)
 							Host.apply!(Replace({ old_root: boundary.root, root: lowered.root }))
@@ -103,7 +116,12 @@ Internal := [].{
 	start! : a, (a -> Elem(a)) => {}
 	start! = |initial, render| {
 		root_renderer = render
-		lowered = lower!(render(initial), initial, 1, 0, [0], [], [])
+		Host.work_start!(2)
+		rendered = render(initial)
+		Host.work_end!(2)
+		Host.work_start!(3)
+		lowered = lower!(rendered, initial, 1, 0, [0], [], [])
+		Host.work_end!(3)
 		root_boundary = { key: 0, parent: None, path: [0], render: root_renderer, root: lowered.root }
 		Host.apply!(Mount({ root: lowered.root }))
 		install!(initial, root_renderer, lowered.routes, lowered.boundaries.append(root_boundary), lowered.next_boundary)

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 3
+SUPPORTED_SCHEMA = 4
 
 
 @dataclass(frozen=True)
@@ -95,7 +95,7 @@ def validate_capture(path: Path) -> None:
             raise RuntimeError(f"capture contains foreign-key violations: {foreign_keys!r}")
 
 
-def run_case(case: Case, timeout: float, jobs: int, detail: str = "standard") -> tuple[Case, str | None]:
+def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> tuple[Case, str | None]:
     case.capture.parent.mkdir(parents=True, exist_ok=True)
     command = [
         str(case.executable),
@@ -131,6 +131,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--jobs", type=int, default=1,
                         help="concurrent cases (default: 1; values above 1 make timing evidence partial)")
     parser.add_argument("--timeout", type=float, default=120.0)
+    parser.add_argument("--detail", choices=("summary", "full"), default="summary",
+                        help="omit setup cycles (summary) or record them too (full)")
     parser.add_argument("--fail-fast", action="store_true")
     parser.add_argument("--aa", action="store_true",
                         help="repeat each passing case with the same executable for an A/A noise capture")
@@ -165,13 +167,13 @@ def main() -> int:
     results: list[tuple[Case, str | None]] = []
     if args.fail_fast:
         for case in cases:
-            result = run_case(case, args.timeout, args.jobs)
+            result = run_case(case, args.timeout, args.jobs, args.detail)
             results.append(result)
             if result[1] is not None:
                 break
     else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-            futures = [pool.submit(run_case, case, args.timeout, args.jobs) for case in cases]
+            futures = [pool.submit(run_case, case, args.timeout, args.jobs, args.detail) for case in cases]
             results.extend(future.result() for future in concurrent.futures.as_completed(futures))
 
     failures = 0
@@ -188,7 +190,7 @@ def main() -> int:
                 case,
                 capture=case.capture.with_name(f"{case.capture.stem}-aa{case.capture.suffix}"),
             )
-            _, error = run_case(aa_case, args.timeout, 1)
+            _, error = run_case(aa_case, args.timeout, 1, args.detail)
             if error is not None:
                 failures += 1
                 print(f"FAIL A/A {case.spec.relative_to(ROOT)}: {error}", file=sys.stderr)

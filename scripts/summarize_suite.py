@@ -17,7 +17,7 @@ def value(db: sqlite3.Connection, key: str) -> str:
 def summarize(path: Path) -> tuple[object, ...] | None:
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
         db.execute("PRAGMA query_only=ON")
-        if value(db, "schema_version") != "3":
+        if value(db, "schema_version") != "4":
             raise RuntimeError(f"{path}: unsupported schema")
         if value(db, "clean_shutdown") != "1":
             raise RuntimeError(f"{path}: incomplete capture")

@@ -70,9 +70,11 @@ fn run_lifecycle(
 fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut graph = MountedGraph::default();
     let cycle_started = Instant::now();
+    observatory::reset_roc_work();
     let roc_started = Instant::now();
     unsafe { roc_gui_init() };
     let roc_ns = elapsed_ns(roc_started);
+    let (roc_work, roc_work_valid) = observatory::take_roc_work();
     let patch = take_patch();
     let facts = graph.apply_measured(patch)?.facts;
     observatory::cycle(make_cycle(
@@ -83,7 +85,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         "init",
         cycle_started,
         roc_ns,
+        roc_work,
         &facts,
+        roc_work_valid,
     ));
 
     let mut marked = spec.benchmark.is_none();
@@ -114,9 +118,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 } else {
                     let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
                     let roc_started = Instant::now();
                     let patch = dispatch(matches[0]);
                     let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
                     let facts = graph.apply_measured(patch)?.facts;
                     last_patch = Some(facts);
                     pending_cycle = Some(make_cycle(
@@ -127,7 +133,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         "click",
                         cycle_started,
                         roc_ns,
+                        roc_work,
                         &facts,
+                        roc_work_valid,
                     ));
                     cycle_ordinal += 1;
                     Ok(())
@@ -262,7 +270,9 @@ fn make_cycle(
     trigger: &'static str,
     cycle_started: Instant,
     roc_callback_ns: u64,
+    roc_work: [observatory::RocWork; 4],
     facts: &ApplyFacts,
+    roc_work_valid: bool,
 ) -> Cycle {
     Cycle {
         run_id,
@@ -281,6 +291,8 @@ fn make_cycle(
         removed_nodes: facts.removed,
         live_nodes: facts.live,
         parent_nodes_scanned: facts.scanned,
+        roc_work,
+        roc_work_valid,
     }
 }
 

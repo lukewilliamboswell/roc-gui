@@ -1334,6 +1334,24 @@ pub struct HostSetDispatchArgs {
     pub arg0: RocErasedCallable,
 }
 
+/// Arguments for Host.work_start!
+/// Roc signature: U8 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostWorkStartArgs {
+    pub arg0: u8,
+}
+
+/// Arguments for Host.work_end!
+/// Roc signature: U8 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostWorkEndArgs {
+    pub arg0: u8,
+}
+
 // Platform Type Aliases
 
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
@@ -1553,6 +1571,14 @@ unsafe extern "C" {
     /// moved into storage or into the result:
     ///     unsafe { decref_erased_callable(arg0, roc_host); }
     pub fn roc_gui_set_dispatch(arg0: RocErasedCallable);
+
+    /// Hosted symbol for Host.work_start!
+    /// Roc signature: U8 => {}
+    pub fn roc_gui_work_start(arg0: u8);
+
+    /// Hosted symbol for Host.work_end!
+    /// Roc signature: U8 => {}
+    pub fn roc_gui_work_end(arg0: u8);
 
 }
 
