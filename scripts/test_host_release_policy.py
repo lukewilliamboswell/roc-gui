@@ -56,9 +56,10 @@ class HostReleasePolicyTests(unittest.TestCase):
             root = Path(temporary) / "checkout"
             root.mkdir()
             reject_private_paths(b"ordinary archive", root, Path(temporary) / "home")
-            with self.assertRaisesRegex(ValueError, "private checkout"):
+            # A refusal names the identity it found, so a build log says which.
+            with self.assertRaisesRegex(ValueError, "private path: the checkout"):
                 reject_private_paths((str(root) + "/src/lib.rs").encode(), root, Path(temporary) / "home")
-            with self.assertRaisesRegex(ValueError, "private checkout"):
+            with self.assertRaisesRegex(ValueError, "private path: a user home"):
                 reject_private_paths(b"/Users/runner/upstream/toolchain.rs", root, Path(temporary) / "home")
 
 

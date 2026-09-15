@@ -1,3 +1,12 @@
 # Example fixtures are byte-exact test inputs; specs assert their sizes, so a
 # Windows checkout must not convert their line endings.
 examples/*/fixture/** -text
+
+# Dependency recipes and the notices they admit are identified by the hash of
+# their exact bytes. A Windows checkout that rewrote their line endings would
+# compute different digests and could neither reproduce nor publish a host.
+dependencies/** -text
+
+# The Windows resource is compiled from these and released beside the host, so
+# its bytes must not depend on how a checkout wrote their line endings.
+crates/host/windows/** -text

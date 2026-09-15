@@ -12,10 +12,11 @@ import tempfile
 from dependency_artifacts import sha256, unpack_verified, verify_archive, read_lock
 from release_dependencies import REPOSITORY, publish_assets
 
-POLICY = {"targets": ("x64glibc", "arm64mac"),
+POLICY = {"targets": ("x64glibc", "arm64mac", "x64mingw"),
                  "files_by_target": {
                      "x64glibc": ("libhost.a",),
                      "arm64mac": ("libhost.a",),
+                     "x64mingw": ("libhost.a", "roc-gui.res"),
                  },
                  "licenses": ("LICENSE", "LICENSE-GPUI", "NOTICE.md", "NOTICE.json", "third-party-notices.tar.xz"),
                  "workflow": "gui-hosts.yml",

@@ -17,6 +17,8 @@ on:
       - scripts/prepare_gui_host_release.py
       - scripts/prepare_host_build.py
       - scripts/normalize_host_archive.py
+      - scripts/windows_gnu_build.py
+      - scripts/windows_gnu_coff.py
       - scripts/rust_license_inventory.py
       - scripts/toolchain_license_inventory.py
       - scripts/release_host_artifacts.py
@@ -46,6 +48,9 @@ jobs:
     name: Build and exercise ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +59,8 @@ jobs:
             target: x64glibc
           - os: macos-15
             target: arm64mac
+          - os: windows-2025
+            target: x64mingw
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -64,6 +71,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
+      - name: Install the Windows GNU host target
+        if: runner.os == 'Windows'
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
       - name: Check host evidence and notice admission
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
@@ -125,4 +137,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
-        run: python3 scripts/release_host_artifacts.py --directory "$RUNNER_TEMP/host" --tag "$RELEASE_TAG" --target x64glibc --target arm64mac
+        run: python3 scripts/release_host_artifacts.py --directory "$RUNNER_TEMP/host" --tag "$RELEASE_TAG" --target x64glibc --target arm64mac --target x64mingw

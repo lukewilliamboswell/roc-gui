@@ -10,6 +10,7 @@ import shutil
 import tempfile
 
 from gui_host_artifacts import lock_matches_sources, verified_hosts
+from host_build_identity import HOST_FILES
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_LOCK = ROOT / "host.lock.json"
@@ -48,11 +49,19 @@ def install(lock: Path = HOST_LOCK, cache: Path = CACHE, root: Path = ROOT) -> b
                     receipt = installer(staged_target, lock=root / "dependencies.lock.json", cache=cache)
                     artifacts.update(receipt["artifacts"])
                 link_inputs = {"schema_version": 1, "artifacts": artifacts}
+            elif target == "x64mingw":
+                # Roc links the released GNU runtime and system imports beside
+                # the host, exactly as a source build stages them.
+                from prepare_dependencies import install_windows_gnu
+                from windows_gnu_build import TRIPLE
+                dependencies = install_windows_gnu(staged_target, lock=root / "dependencies.lock.json", cache=cache)
+                link_inputs = {"schema_version": 1, "dependencies": dependencies, "rust_target": TRIPLE,
+                               "manifest": "crates/host/windows/roc-gui.manifest.xml"}
             else:
                 staged_target.mkdir(parents=True)
                 link_inputs = {"schema_version": 1, "artifacts": {}, "source_inputs": {}}
-            shutil.copyfile(hosts / f"gui-host-{target}" / "targets" / target / "libhost.a",
-                            staged_target / "libhost.a")
+            for name in HOST_FILES[target]:
+                shutil.copyfile(hosts / f"gui-host-{target}" / "targets" / target / name, staged_target / name)
             if target == "arm64mac":
                 from build_macos_stubs import generate
                 manifest = generate(staged_target, staged_targets / "macos-sysroot")

@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST_FILES = {
     "x64glibc": ("libhost.a",),
     "arm64mac": ("libhost.a",),
+    # Roc links the Windows manifest resource beside the archive, so a released
+    # Windows host is incomplete without it.
+    "x64mingw": ("libhost.a", "roc-gui.res"),
 }
 SOURCE_PATHS = (
     "crates/host", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", "build.py",
@@ -19,6 +22,9 @@ SOURCE_PATHS = (
     "scripts/host_notice_payload.py", "scripts/prepare_gui_host_release.py",
     "scripts/prepare_host_build.py", "scripts/release_host_artifacts.py",
     "scripts/normalize_host_archive.py",
+    # The Windows host's build recipe and archive normalizer decide its bytes
+    # as surely as the Cargo sources do.
+    "scripts/windows_gnu_build.py", "scripts/windows_gnu_coff.py",
     "scripts/rust_license_inventory.py", "scripts/toolchain_license_inventory.py",
 )
 
