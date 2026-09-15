@@ -8,19 +8,21 @@ import Summary
 Monitor := [].{
 	State : State
 	init : State
-	init = { filter: "", history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: "Paused" }
+	init = { filter: "", generation: 0, history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: "Paused" }
 	render : State -> Elem.Elem(State)
 	render = render
 }
 
 RunState : [Paused, Running({ sampler : SystemMonitor.Sampler, timer : Timer.Handle })]
-State : { filter : Str, history : List(SystemMonitor.Snapshot), latest : [None, Some(SystemMonitor.Snapshot)], run_state : RunState, selected : [None, Some(U64)], sort : Processes.Sort, status : Str }
+State : { filter : Str, generation : U64, history : List(SystemMonitor.Snapshot), latest : [None, Some(SystemMonitor.Snapshot)], run_state : RunState, selected : [None, Some(U64)], sort : Processes.Sort, status : Str }
 err_text = |err| match err { AcquireSystemErr(AccessDenied) => "System observation access denied", SampleSystemErr(Busy) => "A sample is already in progress", SampleSystemErr(Closed) => "Sampler closed", _ => "System sampling failed" }
 
-wait_next = |state, session| Action.task({
+## A session owns its generation, so a cancelled one cannot pause, fail, or
+## extend the session that replaced it.
+wait_next = |state, session, generation| Action.task({
 	pending: { ..state, run_state: Running(session), status: "Live" },
 	run: || match Timer.next!(session.timer) { Canceled => Stopped, Fired => match SystemMonitor.sample!(session.sampler) { Ok(snapshot) => Sampled(snapshot), Err(err) => SampleFailed(err) } },
-	resolve: |latest, result| match result {
+	resolve: |latest, result| if latest.generation != generation Action.none else match result {
 		Stopped => Action.update({ ..latest, run_state: Paused, status: "Paused" })
 		SampleFailed(err) => Action.update({ ..latest, run_state: Paused, status: err_text(err) })
 		Sampled(snapshot) => match latest.run_state {
@@ -28,28 +30,33 @@ wait_next = |state, session| Action.task({
 			Running(_) => {
 				next = latest.history.append(snapshot)
 				bounded = if next.len() > 120 next.drop_first(next.len() - 120) else next
-				wait_next({ ..latest, history: bounded, latest: Some(snapshot) }, session)
+				wait_next({ ..latest, history: bounded, latest: Some(snapshot) }, session, generation)
 			}
 		}
 	},
 })
 
-start! = |state| match SystemMonitor.acquire!() {
-	Err(err) => Action.update({ ..state, status: err_text(err) })
-	Ok(sampler) => match Timer.start!({ interval_ms: 1 }) {
-		Err(_) => {
-			_ = SystemMonitor.close!(sampler)
-			Action.update({ ..state, status: "Timer configuration rejected" })
+start! = |state| {
+	generation = state.generation + 1
+	match SystemMonitor.acquire!() {
+		Err(err) => Action.update({ ..state, status: err_text(err) })
+		Ok(sampler) => match Timer.start!({ interval_ms: 1 }) {
+			Err(_) => {
+				_ = SystemMonitor.close!(sampler)
+				Action.update({ ..state, status: "Timer configuration rejected" })
+			}
+			Ok(timer) => wait_next({ ..state, generation }, { sampler, timer }, generation)
 		}
-		Ok(timer) => wait_next(state, { sampler, timer })
 	}
 }
 pause! = |state, session| {
 	_ = Timer.cancel!(session.timer)
 	_ = SystemMonitor.close!(session.sampler)
-	Action.update({ ..state, run_state: Paused, status: "Paused" })
+	Action.update({ ..state, generation: state.generation + 1, run_state: Paused, status: "Paused" })
 }
-history_items = |history| history.map(|snapshot| Elem.VirtualListItem.{ key: snapshot.sequence, content: Elem.text(Summary.history_text(snapshot)) })
+## History rows are keyed by position: a resumed session restarts the sampler's
+## own sequence, so the sequence is a label rather than an identity.
+history_items = |history| history.map_with_index(|snapshot, index| Elem.VirtualListItem.{ key: index, content: Elem.text(Summary.history_text(snapshot)) })
 process_items = |state, processes| Processes.filter_sort(processes, state.filter, state.sort).map(|process| Elem.VirtualListItem.{ key: process.pid, content: Elem.action_button(Elem.ActionButtonProps.{ caption: "${process.name} — CPU ${(process.cpu_tenths / 10).to_str()}.${(process.cpu_tenths % 10).to_str()}%, ${process.memory_bytes.to_str()} bytes", label: "Inspect process ${process.name}", on_press: |current, _| Action.update({ ..current, selected: Some(process.pid) }) }) })
 
 process_panel = |state| match state.latest {
