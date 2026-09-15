@@ -192,6 +192,30 @@ names the evidence so a fix can be verified against the same case.
   mode and a build differing only by omission of `--opt=dev` pass. Minimize and
   report this compiler regression, then update the pinned compiler when fixed.
 
+- [ ] **A guarded match over a local tag value segfaults the built
+  application.** Reaching for a chosen-row marker in `examples/music-player`,
+  this shape crashed the built executable with SIGSEGV in
+  `specs/stale-load.scm`, `specs/window-decode-error.scm` and
+  `specs/window-identity.scm`:
+
+  ----
+  match state.chosen {
+      Nothing => sounding
+      At(index) => match sounding {
+          Sounding(active) if active == index => sounding
+          Held(active) if active == index => sounding
+          _ => Waiting(index)
+      }
+  }
+  ----
+
+  The same function rewritten to compare an index instead of re-matching the
+  local tag value passes all nine cases, which is what the example now does. The
+  shape extracted into a module and exercised with `roc test` does **not**
+  reproduce it, so the trigger needs the full application build and is not yet
+  minimized. Minimize it against the pinned compiler, report it, and update the
+  pin when fixed.
+
 - [ ] **Full-root replacement remains superlinear at 100,000 rows.** The
   production 100,000-row sparse-update case confirms the effect after dense
   validation, host-owned child streaming, and consolidation of mounted node

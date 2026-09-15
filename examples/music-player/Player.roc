@@ -7,7 +7,7 @@ import pf.Gui
 Player := [].{
 	State : State
 	init : State
-	init = { generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
+	init = { chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
 	render : State -> Elem(State)
 	render = render
 }
@@ -15,7 +15,12 @@ Player := [].{
 Track : { name : Str }
 Library : [Empty, Loaded({ directory : Files.Dir.Read, output : Audio.Output, tracks : List(Track) })]
 Playback : [Idle, Active({ index : U64, paused : Bool, track : Audio.Track }), Stopped]
-State : { generation : U64, library : Library, playback : Playback, status : Str }
+
+## The row a person last asked for. It is not the sounding row: a track is
+## chosen the moment it is clicked and only starts once it has loaded, and a
+## track that fails to decode stays chosen so the failure has a place to sit.
+Chosen : [Nothing, At(U64)]
+State : { chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
 
 is_audio = |name| Str.ends_with(name, ".wav")
 
@@ -76,7 +81,7 @@ play_index = |state, library, index| match library.tracks.get(index) {
 }
 
 stop = |state| match state.playback {
-	Active(current) => Action.task({ pending: { ..state, generation: state.generation + 1, status: "Stopping…" }, run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, playback: Stopped, status: "Stopped" })
+	Active(current) => Action.task({ pending: { ..state, generation: state.generation + 1, status: "Stopping…" }, run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, chosen: Nothing, playback: Stopped, status: "Stopped" })
 		Err(_) => Action.update({ ..latest, status: "Stop failed" }) } })
 	_ => Action.update(state)
 }
@@ -150,15 +155,28 @@ accent_tint_hot = Gui.rgb(0x3a1710)
 accent_tint_press = Gui.rgb(0x4a1d13)
 on_accent = Gui.rgb(0x0a0a0c)
 
-active_index = |state| match state.playback {
-	Active(current) => if current.paused Held(current.index) else Sounding(current.index)
-	_ => Silent
+## A chosen row that is not yet the sounding one is Waiting, which is what makes
+## a click visible while the next track loads or after one failed to decode.
+active_index = |state| {
+	live = match state.playback {
+		Active(current) => { index: At(current.index), paused: current.paused }
+		_ => { index: Nothing, paused: False }
+	}
+	mark = |index| if live.paused Held(index) else Sounding(index)
+	match state.chosen {
+		At(index) => if live.index == At(index) mark(index) else Waiting(index)
+		Nothing => match live.index {
+			At(index) => mark(index)
+			Nothing => Silent
+		}
+	}
 }
 
 track_row = |library, index, track, marker| {
 	tone = match marker {
 		Sounding(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: accent, border_color: accent, border_width: 1 }
 		Held(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: accent_hot, border_color: accent_deep, border_width: 1 }
+		Waiting(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: muted, border_color: hairline, border_width: 1 }
 		_ => { bg: row_rest, hover_bg: row_hover, active_bg: row_press, fg: ink, border_color: hairline, border_width: 0 }
 	}
 	Elem.action_button(Elem.ActionButtonProps.{
