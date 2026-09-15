@@ -9,6 +9,11 @@ roc build examples/counter/main.roc
 ./counter
 ```
 
+With [Nix](https://nixos.org), `nix develop` provides the pinned Rust, Zig and
+Roc toolchains. Building needs nothing else; on a host with no generic Linux
+loader, such as NixOS, start an application with the shell's `roc-gui-native`.
+See [Getting started](docs/getting-started.adoc).
+
 The platform provides text, controlled native text inputs, buttons, styled checkboxes, row and column layout,
 local state boundaries, worker tasks, capability-scoped directory I/O,
 semantic `.scm` specifications, and SQLite performance captures.
