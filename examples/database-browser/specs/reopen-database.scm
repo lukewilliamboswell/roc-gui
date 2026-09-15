@@ -1,0 +1,18 @@
+(test "reopening a database clears the previous result"
+  (steps
+    (click (role button :name "Choose database folder"))
+    (await-task)
+    (click (role button :name "Open database bookstore.db"))
+    (await-task)
+    (click (role button :name "Run query"))
+    (await-task)
+    (expect-visible (text "Rows: 100"))
+    (click (role button :name "Open database bookstore.db"))
+    (await-task)
+    (expect-visible (text "Run a query to inspect rows"))
+    (expect-count (text-prefix "Result row ") 0)
+    (expect-visible (text "Table: books"))
+    (click (role button :name "Choose database folder"))
+    (await-task)
+    (expect-count (button-prefix "Open database ") 2)
+    (expect-sqlite-counters 1 2 3)))

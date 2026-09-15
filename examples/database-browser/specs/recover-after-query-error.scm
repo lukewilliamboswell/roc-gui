@@ -1,0 +1,18 @@
+(test "a rejected query is followed by a working one"
+  (steps
+    (click (role button :name "Choose database folder"))
+    (await-task)
+    (click (role button :name "Open database bookstore.db"))
+    (await-task)
+    (replace-text (role textarea :name "SQL query") "DELETE FROM books")
+    (click (role button :name "Run query"))
+    (await-task)
+    (expect-visible (role panel :name "Database error"))
+    (expect-visible (text "Run a query to inspect rows"))
+    (replace-text (role textarea :name "SQL query") "SELECT id, title FROM books ORDER BY id LIMIT 3")
+    (click (role button :name "Run query"))
+    (await-task)
+    (expect-not-visible (role panel :name "Database error"))
+    (expect-visible (text "Rows: 3"))
+    (expect-count (text-prefix "Result row ") 3)
+    (expect-sqlite-counters 1 1 3)))

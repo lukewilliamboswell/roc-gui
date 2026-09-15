@@ -1,0 +1,15 @@
+(test "a search that matches nothing is reversible"
+  (steps
+    (click (role button :name "Start clipboard capture"))
+    (clipboard-text "alpha note")
+    (await-ticks 1)
+    (clipboard-text "beta task")
+    (await-ticks 1)
+    (replace-text (role textbox :name "Search history") "no such entry")
+    (expect-visible (text "0 matching items"))
+    (expect-not-visible (text "alpha note"))
+    (expect-not-visible (text "beta task"))
+    (replace-text (role textbox :name "Search history") "")
+    (expect-visible (text "2 matching items"))
+    (expect-visible (text "alpha note"))
+    (expect-visible (text "beta task"))))
