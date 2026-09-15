@@ -91,13 +91,16 @@ in the command that started it.
 
 == Five minutes
 
-Start from the greeting application in <<_getting_started>>, with one button:
+Start from the greeting application in the getting-started chapter, with one
+button:
 
 [source,roc]
 ----
+greet = |_, _| Action.update({ message: "Hello from Roc" })
+
 Elem.col({}, [
     Elem.text(state.message),
-    Elem.button({ label: "Greet", name: "Greet", on_press: |_, _| Action.update({ message: "Hello from Roc" }) }),
+    Elem.button({ label: "Greet", name: "Greet", on_press: greet }),
 ])
 ----
 

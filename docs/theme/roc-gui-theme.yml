@@ -87,7 +87,7 @@ code:
 codespan:
   font-color: #15505F
 
-literal:
+codespan:
   font-color: #4A453E
 
 quote:
