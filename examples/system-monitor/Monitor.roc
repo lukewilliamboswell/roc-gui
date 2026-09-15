@@ -23,10 +23,13 @@ wait_next = |state, session| Action.task({
 	resolve: |latest, result| match result {
 		Stopped => Action.update({ ..latest, run_state: Paused, status: "Paused" })
 		SampleFailed(err) => Action.update({ ..latest, run_state: Paused, status: err_text(err) })
-		Sampled(snapshot) => {
-			next = latest.history.append(snapshot)
-			bounded = if next.len() > 120 next.drop_first(next.len() - 120) else next
-			wait_next({ ..latest, history: bounded, latest: Some(snapshot) }, session)
+		Sampled(snapshot) => match latest.run_state {
+			Paused => Action.update(latest)
+			Running(_) => {
+				next = latest.history.append(snapshot)
+				bounded = if next.len() > 120 next.drop_first(next.len() - 120) else next
+				wait_next({ ..latest, history: bounded, latest: Some(snapshot) }, session)
+			}
 		}
 	},
 })

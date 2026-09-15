@@ -6,4 +6,5 @@
     (click (role button :name "Play track-002.wav"))
     (await-task)
     (await-task)
+    (await-task)
     (expect-visible (text "Playing track-002.wav"))))

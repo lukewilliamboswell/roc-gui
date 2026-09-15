@@ -14,7 +14,10 @@ from gui_host_artifacts import validate_host, validate_publication_notices
 from host_build_identity import source_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
-EXTERNAL = ("freetype-x64glibc", "glibc-x64glibc", "unwind-x64glibc", "xkbcommon-x64glibc", "macos-interfaces-macos-sysroot")
+EXTERNAL = (
+    "alsa-x64glibc", "freetype-x64glibc", "glibc-x64glibc", "unwind-x64glibc",
+    "xkbcommon-x64glibc", "macos-interfaces-macos-sysroot",
+)
 HOSTS = ("gui-host-x64glibc", "gui-host-arm64mac")
 HOST_SOURCES = ("gui-host-sources-x64glibc", "gui-host-sources-arm64mac")
 
