@@ -1,8 +1,10 @@
 use crate::{roc_host, roc_platform_abi::*};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
+#[cfg(unix)]
+use cap_std::fs::OpenOptionsExt;
 use cap_std::{
     ambient_authority,
-    fs::{Dir, OpenOptions, OpenOptionsExt},
+    fs::{Dir, OpenOptions},
 };
 use std::{
     collections::HashMap,
@@ -238,8 +240,9 @@ pub extern "C" fn roc_files_dir_write_utf8_atomic(
         options
             .write(true)
             .create_new(true)
-            .mode(0o600)
             .follow(FollowSymlinks::No);
+        #[cfg(unix)]
+        options.mode(0o600);
         let mut file = root
             .open_with(&temporary, &options)
             .map_err(|_| (3, "could not create atomic application data file"))?;

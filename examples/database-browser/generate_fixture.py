@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate the deterministic database-browser fixture."""
 
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -12,7 +13,9 @@ destination = fixture / "bookstore.db"
 with tempfile.NamedTemporaryFile(dir=fixture, suffix=".db", delete=False) as pending:
     generated = Path(pending.name)
 try:
-    with sqlite3.connect(generated) as database:
+    # The connection context manager only commits; Windows cannot replace a
+    # database file until its connection is closed.
+    with closing(sqlite3.connect(generated)) as database, database:
         database.executescript("""
             CREATE TABLE books(id INTEGER PRIMARY KEY, title TEXT NOT NULL, price REAL, cover BLOB, note TEXT);
             CREATE TABLE authors(id INTEGER PRIMARY KEY, name TEXT);

@@ -348,13 +348,67 @@ fn resource_snapshot() -> ResourceSnapshot {
     }
 }
 
+#[cfg(unix)]
+fn page_size_bytes() -> i64 {
+    unsafe { libc::sysconf(libc::_SC_PAGESIZE) as i64 }
+}
+
+#[cfg(windows)]
+fn page_size_bytes() -> i64 {
+    use windows_sys::Win32::System::SystemInformation::{GetSystemInfo, SYSTEM_INFO};
+    let mut info = unsafe { std::mem::zeroed::<SYSTEM_INFO>() };
+    unsafe { GetSystemInfo(&mut info) };
+    info.dwPageSize as i64
+}
+
+#[cfg(unix)]
 fn current_rss_bytes() -> Option<u64> {
     let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
     let resident_pages = statm.split_whitespace().nth(1)?.parse::<u64>().ok()?;
-    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    let page_size = page_size_bytes();
     (page_size > 0).then(|| resident_pages.saturating_mul(page_size as u64))
 }
 
+#[cfg(windows)]
+fn memory_counters() -> Option<windows_sys::Win32::System::ProcessStatus::PROCESS_MEMORY_COUNTERS> {
+    use windows_sys::Win32::System::{
+        ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
+        Threading::GetCurrentProcess,
+    };
+    let mut counters = unsafe { std::mem::zeroed::<PROCESS_MEMORY_COUNTERS>() };
+    counters.cb = size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
+    (unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, counters.cb) } != 0)
+        .then_some(counters)
+}
+
+#[cfg(windows)]
+fn current_rss_bytes() -> Option<u64> {
+    memory_counters().map(|counters| counters.WorkingSetSize as u64)
+}
+
+#[cfg(windows)]
+fn process_resources() -> (u64, u64, u64) {
+    use windows_sys::Win32::{
+        Foundation::FILETIME,
+        System::Threading::{GetCurrentProcess, GetProcessTimes},
+    };
+    let mut times = unsafe { std::mem::zeroed::<[FILETIME; 4]>() };
+    let [creation, exit, kernel, user] = &mut times;
+    if unsafe { GetProcessTimes(GetCurrentProcess(), creation, exit, kernel, user) } == 0 {
+        return (0, 0, 0);
+    }
+    // FILETIME durations count 100-nanosecond intervals.
+    let filetime_ns = |value: &FILETIME| {
+        ((value.dwHighDateTime as u64) << 32 | value.dwLowDateTime as u64).saturating_mul(100)
+    };
+    (
+        filetime_ns(user),
+        filetime_ns(kernel),
+        memory_counters().map_or(0, |counters| counters.PeakWorkingSetSize as u64),
+    )
+}
+
+#[cfg(unix)]
 fn process_resources() -> (u64, u64, u64) {
     let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
     if unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) } != 0 {
@@ -779,7 +833,7 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
     let logical_cpus = std::thread::available_parallelism()
         .map(|value| value.get().to_string())
         .unwrap_or_else(|_| "unavailable".into());
-    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    let page_size = page_size_bytes();
     let metadata = [
         ("schema_version", SCHEMA_VERSION.to_string()),
         ("clean_shutdown", "0".into()),
@@ -1749,6 +1803,10 @@ mod tests {
             );
         }
         assert!(!active());
+        // Windows cannot delete a database that still has open handles.
+        drop(process_resources);
+        drop(report);
+        drop(db);
         std::fs::remove_file(path).unwrap();
     }
 

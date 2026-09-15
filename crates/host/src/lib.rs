@@ -63,6 +63,18 @@ unsafe extern "C" {
     fn roc_gui_run_task(task: RocErasedCallable) -> RocErasedCallable;
 }
 
+// Unit tests link without a Roc application. ELF linkers drop the unreferenced
+// worker loop, but MSVC's link resolves every symbol the test binary retains.
+#[cfg(all(test, windows))]
+mod test_application {
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_run_task(
+        _task: crate::RocErasedCallable,
+    ) -> crate::RocErasedCallable {
+        unreachable!("unit tests never run Roc tasks")
+    }
+}
+
 struct TaskRuntime {
     jobs: async_channel::Sender<usize>,
     completions: async_channel::Receiver<usize>,
@@ -485,8 +497,10 @@ pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_virtual_item(args: HostGlueNodeVirtualItemArgs) -> u64 {
-    stage_node(NodeKind::VirtualItem { key: args.arg0 }, vec![args.arg1])
+pub extern "C" fn roc_gui_node_virtual_item(key: u64, content: u64) -> u64 {
+    // Roc passes `U64, U64` as two arguments. The glue's two-field struct only
+    // shares that layout under SysV/AAPCS64; Win64 passes it by reference.
+    stage_node(NodeKind::VirtualItem { key }, vec![content])
 }
 
 #[unsafe(no_mangle)]
@@ -1713,12 +1727,16 @@ impl Runtime {
             }
         })
         .detach();
+        #[cfg(not(target_os = "linux"))]
+        files::serve_directory_prompts(cx);
         let executor = cx.background_executor().clone();
         cx.spawn(async move |_, cx| {
             loop {
                 executor.timer(std::time::Duration::from_millis(100)).await;
                 if cx
                     .update(|cx| {
+                        #[cfg(not(target_os = "linux"))]
+                        files::serve_directory_prompts(cx);
                         clipboard::observe_system(
                             cx.read_from_clipboard().and_then(|item| item.text()),
                         );
@@ -2627,6 +2645,8 @@ fn start_requested_recorder(
         } else {
             if cfg!(target_os = "macos") {
                 "gpui-macos"
+            } else if cfg!(target_os = "windows") {
+                "gpui-windows"
             } else {
                 "gpui-wayland"
             }

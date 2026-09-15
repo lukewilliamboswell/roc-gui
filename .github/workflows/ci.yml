@@ -13,6 +13,9 @@ jobs:
     name: Native suite (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -22,6 +25,9 @@ jobs:
             spec_jobs: 2
           - os: macos-15
             target: arm64mac
+            spec_jobs: 1
+          - os: windows-2025
+            target: x64mingw
             spec_jobs: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -33,6 +39,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
+      - name: Install the Windows GNU host target
+        if: runner.os == 'Windows'
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
       - name: Repository policy and artifact tests
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
@@ -58,3 +69,8 @@ jobs:
         run: |
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
+      - name: Real GPUI window smoke (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          roc build --no-cache --target=x64mingw --opt=dev --output="$RUNNER_TEMP/counter.exe" examples/counter/main.roc
+          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter.exe"

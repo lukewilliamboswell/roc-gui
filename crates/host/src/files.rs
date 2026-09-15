@@ -379,6 +379,22 @@ enum PortalSelection {
     Unavailable,
 }
 
+fn open_selected(path: std::path::PathBuf) -> PortalSelection {
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("directory")
+        .to_owned();
+    match Dir::open_ambient_dir(path, ambient_authority()) {
+        Ok(dir) => PortalSelection::Chosen(Arc::new(dir), name),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            PortalSelection::Denied
+        }
+        Err(_) => PortalSelection::Unavailable,
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn portal_directory() -> PortalSelection {
     async_std::task::block_on(async {
         use ashpd::desktop::{ResponseError, file_chooser::SelectedFiles};
@@ -405,23 +421,65 @@ fn portal_directory() -> PortalSelection {
         let [uri] = files.uris() else {
             return PortalSelection::Unavailable;
         };
-        let path = match uri.to_file_path() {
-            Ok(value) => value,
-            Err(_) => return PortalSelection::Unavailable,
-        };
-        let name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("directory")
-            .to_owned();
-        match Dir::open_ambient_dir(path, ambient_authority()) {
-            Ok(dir) => PortalSelection::Chosen(Arc::new(dir), name),
-            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
-                PortalSelection::Denied
-            }
+        match uri.to_file_path() {
+            Ok(path) => open_selected(path),
             Err(_) => PortalSelection::Unavailable,
         }
     })
+}
+
+/// Choosers answered by GPUI's native dialog on the UI thread. `None` means the
+/// user dismissed the dialog; `Err` that the platform could not show one.
+#[cfg(not(target_os = "linux"))]
+type DirectoryAnswer = Result<Option<std::path::PathBuf>, ()>;
+#[cfg(not(target_os = "linux"))]
+static DIRECTORY_PROMPTS: Mutex<Vec<std::sync::mpsc::Sender<DirectoryAnswer>>> =
+    Mutex::new(Vec::new());
+#[cfg(not(target_os = "linux"))]
+static NATIVE_PROMPTS_SERVED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Shows every queued directory chooser. Called from the GPUI thread; until it
+/// first runs (as in headless spec runs) choosers report `Unavailable`.
+#[cfg(not(target_os = "linux"))]
+pub fn serve_directory_prompts(cx: &mut gpui::App) {
+    NATIVE_PROMPTS_SERVED.store(true, std::sync::atomic::Ordering::Release);
+    let pending = std::mem::take(&mut *DIRECTORY_PROMPTS.lock().expect("directory prompts poisoned"));
+    for reply in pending {
+        let receiver = cx.prompt_for_paths(gpui::PathPromptOptions {
+            files: false,
+            directories: true,
+            multiple: false,
+            prompt: None,
+        });
+        cx.background_executor()
+            .spawn(async move {
+                let answer = match receiver.await {
+                    Ok(Ok(Some(mut paths))) if paths.len() == 1 => Ok(Some(paths.remove(0))),
+                    Ok(Ok(None)) => Ok(None),
+                    _ => Err(()),
+                };
+                let _ = reply.send(answer);
+            })
+            .detach();
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn portal_directory() -> PortalSelection {
+    if !NATIVE_PROMPTS_SERVED.load(std::sync::atomic::Ordering::Acquire) {
+        return PortalSelection::Unavailable;
+    }
+    let (reply, answer) = std::sync::mpsc::channel();
+    DIRECTORY_PROMPTS
+        .lock()
+        .expect("directory prompts poisoned")
+        .push(reply);
+    match answer.recv() {
+        Ok(Ok(Some(path))) => open_selected(path),
+        Ok(Ok(None)) => PortalSelection::Canceled,
+        _ => PortalSelection::Unavailable,
+    }
 }
 
 #[unsafe(no_mangle)]

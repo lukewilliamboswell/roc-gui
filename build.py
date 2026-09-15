@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "scripts"))
-TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac"}
+TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac", ("Windows", "AMD64"): "x64mingw"}
 
 
 def output(*command: str) -> str:
@@ -48,12 +48,46 @@ def stage_external_inputs(target: str, destination: Path, profile: str) -> dict:
             receipts.update(receipt["artifacts"])
     return {"schema_version": 1, "artifacts": receipts}
 
+def build_windows(debug: bool) -> None:
+    """Build the GNU host with pinned tools, then reuse verified Windows link inputs."""
+    from prepare_dependencies import install_windows_gnu, verified_windows_gnu, windows_gnu_inventory
+    from windows_gnu_build import TRIPLE, execute
+    from windows_gnu_coff import normalize
+
+    destination = ROOT / "platform/targets/x64mingw"
+    dependencies = install_windows_gnu(destination)
+    cargo_target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+    if not cargo_target.is_absolute():
+        cargo_target = ROOT / cargo_target
+    outputs = ("libhost.a", "roc-gui.res", "normalization.json", "link-inputs.json")
+    with tempfile.TemporaryDirectory(prefix="roc-gui-windows-build-") as temporary, \
+            tempfile.TemporaryDirectory(dir=destination, prefix=".host-") as staged_path:
+        staged = Path(staged_path)
+        payload, zig = execute(Path(temporary) / "build", jobs=os.cpu_count() or 2,
+                               cargo_target=cargo_target, debug=debug)
+        # Roc's link supplies DLL imports from the verified import libraries, so
+        # the Rust archive's own import members are separated out byte-for-byte.
+        with verified_windows_gnu() as verified:
+            receipt = normalize(payload / "libhost.a", staged / "libhost.a", windows_gnu_inventory(verified), zig)
+        shutil.copyfile(payload / "roc-gui.res", staged / "roc-gui.res")
+        (staged / "normalization.json").write_text(json.dumps(receipt, indent=2) + "\n")
+        (staged / "link-inputs.json").write_text(json.dumps({
+            "schema_version": 1, "dependencies": dependencies, "rust_target": TRIPLE,
+            "manifest": "crates/host/windows/roc-gui.manifest.xml",
+        }, indent=2) + "\n")
+        for name in outputs:
+            (staged / name).replace(destination / name)
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--debug", action="store_true", help="build the Cargo development profile")
     parser.add_argument("--skip-inputs", action="store_true", help="reuse already staged external inputs")
     args = parser.parse_args()
     target = native_target()
+    if target == "x64mingw":
+        build_windows(args.debug)
+        print(f"Built platform/targets/{target}/libhost.a ({'debug' if args.debug else 'release'})")
+        return
     environment = os.environ.copy()
     environment["ROC_GUI_HOST_COMMIT"] = output("git", "rev-parse", "HEAD") or "unavailable"
     environment["ROC_GUI_HOST_DIRTY"] = "1" if output("git", "status", "--porcelain") else "0"
