@@ -11,11 +11,70 @@
  *     so they win on specificity without touching Rouge's class names.
  */
 
+/* ----------------------------------------------------------------- fonts */
+
+/*
+ * Vendored faces (SIL OFL 1.1, licences beside the files in docs/theme/fonts).
+ * scripts/build_docs.py copies that directory to `fonts/` beside the generated
+ * pages, and the stylesheet is embedded in each page, so these relative URLs
+ * resolve both on a server and from disk. Every stack names real fallbacks so
+ * a missing file degrades instead of breaking.
+ */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("fonts/SpaceGrotesk-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("fonts/SpaceGrotesk-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("fonts/PlusJakartaSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("fonts/PlusJakartaSans-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("fonts/PlusJakartaSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("fonts/PlusJakartaSans-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 /* ---------------------------------------------------------------- palette */
 
 :root {
-  --font-text: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-text: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Space Grotesk", "Plus Jakarta Sans", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", "DejaVu Sans Mono", monospace;
 
@@ -23,49 +82,50 @@
   --toc-width: 17.5rem;
   --radius: 4px;
 
-  /* Warm neutrals: paper rather than white, ink rather than black. */
-  --bg: #fbfaf7;
-  --bg-sunken: #f3f0ea;
+  /* Warm sage: paper rather than white, ink rather than black. The PDF
+     theme in roc-gui-theme.yml carries the same values. */
+  --bg: #fafaf7;
+  --bg-sunken: #f6f1e4;
   --bg-raised: #ffffff;
-  --ink: #26231f;
-  --ink-soft: #4a453e;
-  --ink-muted: #756e64;
-  --rule: #e2ddd3;
-  --rule-strong: #cfc8bb;
+  --ink: #17221b;
+  --ink-soft: #3b4238;
+  --ink-muted: #616a5d;
+  --rule: #ded8c6;
+  --rule-strong: #c2bda9;
 
-  --accent: #1f6a86;
-  --accent-strong: #15505f;
-  --accent-wash: #e9f1f4;
+  --accent: #53685a;
+  --accent-strong: #2f4136;
+  --accent-wash: #eaecdc;
 
-  --note: #3f6b8a;
-  --tip: #47714f;
-  --warning: #9a6a1c;
-  --important: #9c4a33;
-  --caution: #7c5090;
+  --note: #53685a;
+  --tip: #4a6b4f;
+  --warning: #8a6a2a;
+  --important: #8c4434;
+  --caution: #5f5570;
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a1917;
-    --bg-sunken: #232120;
-    --bg-raised: #201e1c;
-    --ink: #e6e1d8;
-    --ink-soft: #cdc6ba;
-    --ink-muted: #9b9386;
-    --rule: #34312c;
-    --rule-strong: #4a463f;
+    --bg: #151914;
+    --bg-sunken: #1e231d;
+    --bg-raised: #1a1f19;
+    --ink: #ecede3;
+    --ink-soft: #d3d6c8;
+    --ink-muted: #9aa394;
+    --rule: #333a31;
+    --rule-strong: #4a5347;
 
-    --accent: #79b6cd;
-    --accent-strong: #a3d0e2;
-    --accent-wash: #1d2a30;
+    --accent: #a8c0a9;
+    --accent-strong: #c6d6c2;
+    --accent-wash: #232b23;
 
-    --note: #7ea9c4;
-    --tip: #8bb894;
-    --warning: #d2a457;
-    --important: #dd8f79;
-    --caution: #bb96cd;
+    --note: #a8c0a9;
+    --tip: #9dc3a2;
+    --warning: #d3ac66;
+    --important: #dc9583;
+    --caution: #b3a7c6;
 
     color-scheme: dark;
   }
@@ -176,6 +236,7 @@ hr {
 
 #header > h1,
 #content > h1 {
+  font-family: var(--font-display);
   font-size: 2.4rem;
   line-height: 1.15;
   letter-spacing: -0.015em;
@@ -305,7 +366,7 @@ hr {
 /* ------------------------------------------------------------- headings */
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-text);
+  font-family: var(--font-display);
   color: var(--ink);
   font-weight: 650;
   line-height: 1.25;
@@ -919,13 +980,21 @@ kbd {
  * generated palette stays light, so the diagram keeps a paper panel behind it
  * in both schemes instead of becoming unreadable.
  */
+/* A diagram is a figure, not a banner. `width: 100%` stretched a tall
+   flowchart to the full column and made every node enormous, so the natural
+   size is capped and centred instead. The plate stays light in both schemes
+   because Mermaid draws the diagram in the light palette; a dark ground would
+   leave its edge labels unreadable. */
 #content .imageblock img[src*="diag-mermaid"],
 #content .imageblock object[data*="diag-mermaid"] {
-  background: #ffffff;
-  padding: 1rem;
+  display: block;
+  margin-inline: auto;
+  max-width: min(100%, 34rem);
+  height: auto;
+  background: #faf9f6;
+  padding: 1.25rem;
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  width: 100%;
 }
 
 #content .literalblock.output pre { color: var(--ink-muted); }

@@ -1,5 +1,8 @@
-= Roc GUI
+= Roc GUI: A manual for building native applications
 :doctype: book
+:author: The Roc GUI contributors
+:revnumber: nightly-2026-09-12
+:revremark: Linux x86_64, Wayland
 :toc: left
 :toclevels: 3
 :sectnums:
@@ -8,6 +11,7 @@
 :source-highlighter: rouge
 :imagesdir: images
 
+[.lead]
 Roc GUI is a small native GUI platform built around one predictable loop:
 state is rendered into elements, user events produce actions, and actions
 produce the next state. This manual takes an application from its first window

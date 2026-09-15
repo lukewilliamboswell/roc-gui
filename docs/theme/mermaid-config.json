@@ -1,0 +1,22 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "background": "transparent",
+    "fontFamily": "Plus Jakarta Sans, Helvetica, Arial, sans-serif",
+    "fontSize": "15px",
+    "primaryColor": "#EAECDC",
+    "primaryTextColor": "#17221B",
+    "primaryBorderColor": "#53685A",
+    "secondaryColor": "#F6F1E4",
+    "secondaryBorderColor": "#C2BDA9",
+    "tertiaryColor": "#FAFAF7",
+    "tertiaryBorderColor": "#C2BDA9",
+    "lineColor": "#53685A",
+    "textColor": "#3B4238",
+    "nodeBorder": "#53685A",
+    "clusterBkg": "#FAFAF7",
+    "clusterBorder": "#C2BDA9",
+    "edgeLabelBackground": "#FAFAF7",
+    "titleColor": "#17221B"
+  }
+}
