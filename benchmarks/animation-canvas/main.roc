@@ -2,7 +2,7 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem
-import pf.Program exposing [Program]
+import pf.Program
 
 Shape : { id : U64, x : I32, y : I32, color : U32 }
 Drag : [Idle, Moving({ id : U64, start_x : I32, start_y : I32, origin_x : I32, origin_y : I32 })]

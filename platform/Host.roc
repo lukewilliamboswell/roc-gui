@@ -1,4 +1,4 @@
-import Action exposing [Action]
+import Action
 import Resource
 import InternalHttp
 

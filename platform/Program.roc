@@ -1,4 +1,4 @@
-import Elem exposing [Elem]
+import Elem
 import Internal
 
 ## A GUI application with initial state and a pure renderer for that state.

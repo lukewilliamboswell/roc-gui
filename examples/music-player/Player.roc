@@ -1,6 +1,6 @@
 import pf.Action
 import pf.Audio
-import pf.Elem exposing [Elem]
+import pf.Elem
 import pf.Files
 import pf.Gui
 

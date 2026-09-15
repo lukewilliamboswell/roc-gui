@@ -1,5 +1,5 @@
 import pf.Action
-import pf.Elem exposing [Elem]
+import pf.Elem
 import pf.Tcp
 import redis.Bytes
 import redis.Client

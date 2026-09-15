@@ -11,8 +11,8 @@ An application exports a state type and `main : Program(State)`:
 [source,roc]
 ----
 import pf.Action
-import pf.Elem exposing [Elem]
-import pf.Program exposing [Program]
+import pf.Elem
+import pf.Program
 
 State : { count : I64 }
 

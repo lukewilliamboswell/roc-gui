@@ -1,5 +1,5 @@
 import pf.Action
-import pf.Elem exposing [Elem]
+import pf.Elem
 import pf.Gui
 
 ## A counter card in the "quiet paper" identity: an oversized numeral on a

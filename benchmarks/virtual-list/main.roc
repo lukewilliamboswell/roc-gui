@@ -3,7 +3,7 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 import pf.Action
 import pf.Elem
 import pf.Gui
-import pf.Program exposing [Program]
+import pf.Program
 
 State : { rows : List(U64), selected : U64 }
 

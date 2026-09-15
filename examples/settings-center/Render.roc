@@ -1,6 +1,6 @@
 ## Settings Center presentation and control event wiring.
 import pf.Action
-import pf.Elem exposing [Elem]
+import pf.Elem
 import pf.Gui
 import Settings
 

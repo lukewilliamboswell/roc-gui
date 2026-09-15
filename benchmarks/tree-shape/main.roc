@@ -1,8 +1,8 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
 import pf.Action
-import pf.Elem exposing [Elem]
-import pf.Program exposing [Program]
+import pf.Elem
+import pf.Program
 
 Shape : [Empty, Deep(U64), Balanced(U64)]
 

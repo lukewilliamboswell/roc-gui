@@ -36,8 +36,8 @@ repository's `platform/main.roc` and use the same Roc nightly as the platform:
 ----
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
-import pf.Elem exposing [Elem]
-import pf.Program exposing [Program]
+import pf.Elem
+import pf.Program
 
 State : { greeting : Str }
 

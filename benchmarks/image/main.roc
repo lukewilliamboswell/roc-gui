@@ -2,7 +2,7 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem
-import pf.Program exposing [Program]
+import pf.Program
 
 State : { bytes : List(U8) }
 

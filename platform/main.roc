@@ -84,8 +84,8 @@ platform ""
 		arm64mac: { inputs: ["libhost.a", app, "../macos-sysroot/usr/lib/libSystem.tbd", "../macos-sysroot/usr/lib/libobjc.tbd", "../macos-sysroot/usr/lib/libc++.tbd"] },
 	}
 
-import Program exposing [Program]
-import Elem exposing [Elem]
+import Program
+import Elem
 import Action
 import Event
 import Gui

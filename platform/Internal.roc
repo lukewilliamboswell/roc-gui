@@ -1,6 +1,6 @@
 import Host
-import Action exposing [Action]
-import Elem exposing [Elem]
+import Action
+import Elem
 import Gui
 
 Internal := [].{
