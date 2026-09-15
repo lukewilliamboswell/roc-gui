@@ -1457,15 +1457,30 @@ impl Render for NodeView {
                     ImageFit::None => ObjectFit::None,
                     ImageFit::ScaleDown => ObjectFit::ScaleDown,
                 };
-                element = apply_style(element, style).child(
-                    img(std::sync::Arc::new(gpui::Image::from_bytes(
-                        native_format,
-                        bytes.clone(),
-                    )))
-                    .size_full()
-                    .object_fit(object_fit)
-                    .grayscale(*grayscale),
-                );
+                // The declared box is authoritative and `fit` maps pixels into
+                // it. A Fill or fixed side also needs its flex minimum
+                // released, or the picture lays out past the space it was
+                // given instead of fitting it.
+                let mut picture = img(std::sync::Arc::new(gpui::Image::from_bytes(
+                    native_format,
+                    bytes.clone(),
+                )))
+                .size_full()
+                .min_w_0()
+                .min_h_0()
+                .object_fit(object_fit)
+                .grayscale(*grayscale);
+                // Clip the decoded picture to the element's own radius. The
+                // container's rounded quad is painted behind the child, so
+                // without this a 16-point media corner has a square picture
+                // sitting over it.
+                if style.radius > 0 {
+                    picture = picture.rounded(px(style.radius as f32));
+                }
+                element = apply_style(element, style)
+                    .min_w_0()
+                    .min_h_0()
+                    .child(picture);
             }
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);

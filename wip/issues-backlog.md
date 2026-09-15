@@ -124,12 +124,6 @@ the change lands; do not soften the docs to match the gap.
   with a 1-point seam. Per-side colour is not expressible: GPUI 0.2.2's `Style`
   carries `border_widths` as `Edges` but a single `border_color`, so a side
   cannot have a colour of its own without an upstream change.
-- [ ] **`radius` does not round an image's pixels.** `Elem.image` applies the
-  shared style to its container, but the decoded picture is painted as a full-size
-  child that is not clipped to that radius, so `image-library`'s 16-point media
-  corners have square pictures sitting over them. This is the one shape the
-  gallery identity depends on. Close by clipping image content to the element's
-  radius.
 - [ ] **An image's `width`, `height`, and `fit` do not size the picture.** A
   gallery wants one uniform thumbnail shape and one viewer image that fits the
   space left for it. With `fit: Cover` and `width: Px(88), height: Px(88)` the
