@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native suite (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x64glibc
+          - os: macos-15
+            target: arm64mac
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
+      - name: Unit tests
+        run: |
+          cargo test --locked --workspace
+          python3 -m unittest \
+            scripts/test_dependency_artifacts.py \
+            scripts/test_host_release_policy.py \
+            scripts/test_macos_interfaces.py
+      - name: Full application specification suite
+        run: python3 scripts/run_specs.py --jobs 2
+      - name: Real GPUI window smoke
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
+          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"

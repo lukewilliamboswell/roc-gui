@@ -66,3 +66,56 @@ is written beneath `.docs-out/`.
 Documentation describes the product and its enduring contracts. Put defects,
 missing capabilities, and implementation tasks in `wip/issues-backlog.md`, then
 remove entries when they are resolved.
+
+== Native linker inputs and releases
+
+Generated objects, libraries, TBD files, host archives, and platform bundles do
+not belong in Git. Reviewed recipes, catalogs, provenance, locks, and license
+texts do.
+
+Native artifacts have three independent release layers:
+
+. External linker-input producers build one independently versioned dependency
+  from pinned sources or, for macOS, from the reviewed interface
+  catalog.
+. Host producers build `libhost.a` for each target and bind it to the exact host
+  source, Cargo lock, configuration, profile, and toolchain inputs.
+. Platform release assembly admits released external and host inputs, runs the
+  supported consumer matrix, and publishes those same tested bytes under Roc's
+  content-addressed bundle name.
+
+Producer releases and consumer adoption are separate reviews. A producer
+workflow publishes a deterministic archive, complete inventory, licenses and
+reproduction material, and signed build-provenance attestation. It creates the
+release as a draft, verifies the tag and complete asset inventory, and then
+publishes it immutably. The consumer lock records the release, target, digest,
+size, source revision, signer workflow, and source fingerprint.
+
+Consumers verify locked bytes before extraction and on cache hits. A digest,
+size, manifest, target, provenance, or attestation mismatch is a hard failure and
+must never fall back to a local build. Developers may explicitly select a native
+source build when an artifact is absent or its source fingerprint is stale.
+Final platform releases accept only locked, released, and attested inputs.
+
+Change an external input through its owning recipe and tests. Publish it from the
+default branch, then adopt the generated lock candidate in a separate review.
+Ordinary platform and host changes reuse existing dependency releases.
+
+=== Generated macOS interfaces
+
+Read `dependencies/macos-interfaces/README.md` and `PROVENANCE.md` before changing
+the macOS catalog. No Apple SDK binary, header, TBD, framework binary, dylib,
+object file, symbol table, generated SDK metadata, or other installed macOS
+software may supply interface data.
+
+The project-built `libhost.a` may be inspected only to inventory unresolved
+references. That inventory does not establish library ownership, public API
+status, weak-link behavior, or final-link reachability and never populates the
+catalog automatically. Every selected symbol and owning library requires reviewed
+public documentation or identified public open-source evidence. Prefix-based
+classification and installed system artifacts do not establish library ownership.
+
+Generation is deterministic and offline from the reviewed catalog. Native macOS
+may then final-link and run applications to validate the candidate. This uses the
+operating system as the implementation under test; it does not derive the
+interfaces from installed Apple software.

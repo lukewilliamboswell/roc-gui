@@ -1,0 +1,7 @@
+[env]
+ROC_GUI_HOST_SOURCE_ROOT = { value = ".", relative = true, force = true }
+
+# FreeType is supplied as an independently released platform link input. Do not
+# let freetype-sys select an ambient pkg-config library or bundled C fallback.
+[target.x86_64-unknown-linux-gnu.freetype]
+rustc-link-lib = ["dylib=freetype"]

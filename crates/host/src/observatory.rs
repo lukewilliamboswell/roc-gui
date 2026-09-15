@@ -361,11 +361,15 @@ fn process_resources() -> (u64, u64, u64) {
             .saturating_mul(1_000_000_000)
             .saturating_add((value.tv_usec.max(0) as u64).saturating_mul(1_000))
     };
-    // Linux reports ru_maxrss in KiB.
+    #[cfg(target_os = "linux")]
+    let max_rss_bytes = (usage.ru_maxrss.max(0) as u64).saturating_mul(1024);
+    // Darwin reports ru_maxrss in bytes.
+    #[cfg(target_os = "macos")]
+    let max_rss_bytes = usage.ru_maxrss.max(0) as u64;
     (
         timeval_ns(usage.ru_utime),
         timeval_ns(usage.ru_stime),
-        (usage.ru_maxrss.max(0) as u64).saturating_mul(1024),
+        max_rss_bytes,
     )
 }
 
@@ -890,12 +894,12 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         (
             "gpui_application",
             "summary",
-            if config.backend == "gpui-wayland" {
+            if config.backend.starts_with("gpui-") {
                 "unfinalized"
             } else {
                 "not_recorded"
             },
-            if config.backend == "gpui-wayland" {
+            if config.backend.starts_with("gpui-") {
                 "capture has not finalized"
             } else {
                 "semantic headless execution does not instantiate GPUI views"
@@ -904,12 +908,12 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         (
             "virtual_list_materialization",
             "summary",
-            if config.backend == "gpui-wayland" {
+            if config.backend.starts_with("gpui-") {
                 "unfinalized"
             } else {
                 "not_recorded"
             },
-            if config.backend == "gpui-wayland" {
+            if config.backend.starts_with("gpui-") {
                 "capture has not finalized"
             } else {
                 "semantic headless execution has no viewport"
