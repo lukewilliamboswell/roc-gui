@@ -1288,22 +1288,32 @@ pub struct HostNodeTextArgs {
     pub arg0: RocStr,
 }
 
+/// Arguments for Host.children_push!
+/// Roc signature: U64, U64 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostChildrenPushArgs {
+    pub arg0: u64,
+    pub arg1: u64,
+}
+
 /// Arguments for Host.node_row!
-/// Roc signature: List(U64) => U64
+/// Roc signature: U64 => U64
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostNodeRowArgs {
-    pub arg0: RocListWith<u64, false>,
+    pub arg0: u64,
 }
 
 /// Arguments for Host.node_column!
-/// Roc signature: List(U64) => U64
+/// Roc signature: U64 => U64
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostNodeColumnArgs {
-    pub arg0: RocListWith<u64, false>,
+    pub arg0: u64,
 }
 
 /// Arguments for Host.node_button!
@@ -1537,19 +1547,21 @@ unsafe extern "C" {
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_text(arg0: RocStr) -> u64;
 
+    /// Hosted symbol for Host.children_begin!
+    /// Roc signature: {} => U64
+    pub fn roc_gui_children_begin() -> u64;
+
+    /// Hosted symbol for Host.children_push!
+    /// Roc signature: U64, U64 => {}
+    pub fn roc_gui_children_push(arg0: u64, arg1: u64);
+
     /// Hosted symbol for Host.node_row!
-    /// Roc signature: List(U64) => U64
-    /// Owned arguments. Release each exactly once before returning, unless it is
-    /// moved into storage or into the result:
-    ///     unsafe { arg0.decref(roc_host); }
-    pub fn roc_gui_node_row(arg0: RocListWith<u64, false>) -> u64;
+    /// Roc signature: U64 => U64
+    pub fn roc_gui_node_row(arg0: u64) -> u64;
 
     /// Hosted symbol for Host.node_column!
-    /// Roc signature: List(U64) => U64
-    /// Owned arguments. Release each exactly once before returning, unless it is
-    /// moved into storage or into the result:
-    ///     unsafe { arg0.decref(roc_host); }
-    pub fn roc_gui_node_column(arg0: RocListWith<u64, false>) -> u64;
+    /// Roc signature: U64 => U64
+    pub fn roc_gui_node_column(arg0: u64) -> u64;
 
     /// Hosted symbol for Host.node_button!
     /// Roc signature: Str, U64 => U64

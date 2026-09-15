@@ -2,12 +2,44 @@ use crate::roc_platform_abi::{
     MountOrNoChangeOrReplace, MountOrNoChangeOrReplaceTag, RocErasedCallable,
 };
 use std::collections::{HashMap, HashSet};
+use std::hash::{BuildHasherDefault, Hasher};
 use std::time::Instant;
 
 // A realistic row can lower to several host nodes. Keep a finite corruption /
 // runaway guard, but do not make the common 10k + 1k collection workload fail
 // merely because labelled controls multiply its node count.
 const MAX_STAGED_NODES: usize = 1_048_576;
+
+/// Node IDs are monotonically allocated by `BridgeState`, so hashing them with
+/// SipHash adds work without providing collision resistance. Keep the generic
+/// validator on the standard hasher for arbitrary test input; mounted IDs use
+/// a cheap integer mixer instead of a keyed general-purpose hasher.
+#[derive(Default)]
+struct NodeIdHasher(u64);
+
+impl Hasher for NodeIdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // `u64::hash` calls `write_u64`; this fallback keeps the implementation
+        // total if the key representation changes in future.
+        self.0 = bytes.iter().fold(0xcbf29ce484222325, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+        });
+    }
+
+    fn write_u64(&mut self, value: u64) {
+        // Multiplication spreads sequential IDs across both the bucket bits and
+        // hashbrown's high-bit fingerprints; identity hashing would give every
+        // small ID the same fingerprint.
+        self.0 = value.wrapping_mul(0x9e3779b97f4a7c15);
+    }
+}
+
+type NodeMap<V> = HashMap<u64, V, BuildHasherDefault<NodeIdHasher>>;
+type NodeSet = HashSet<u64, BuildHasherDefault<NodeIdHasher>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
@@ -63,14 +95,19 @@ pub struct GraphApply {
 /// apply patches here; GPUI entities are only a materialized view of this state.
 #[derive(Default)]
 pub struct MountedGraph {
-    nodes: HashMap<u64, Node>,
-    parents: HashMap<u64, (u64, usize)>,
+    nodes: NodeMap<MountedNode>,
     root: Option<u64>,
+    max_seen_node_id: u64,
+}
+
+struct MountedNode {
+    node: Node,
+    parent: Option<(u64, usize)>,
 }
 
 impl MountedGraph {
     pub fn node(&self, id: u64) -> Option<&Node> {
-        self.nodes.get(&id)
+        self.nodes.get(&id).map(|entry| &entry.node)
     }
 
     /// Nodes in production child order, suitable for semantic ordering checks.
@@ -78,7 +115,7 @@ impl MountedGraph {
         let mut ordered = Vec::with_capacity(self.nodes.len());
         let mut pending = self.root.into_iter().collect::<Vec<_>>();
         while let Some(id) = pending.pop() {
-            let node = self.nodes.get(&id).expect("mounted child is missing");
+            let node = &self.nodes.get(&id).expect("mounted child is missing").node;
             ordered.push(node);
             pending.extend(node.children.iter().rev().copied());
         }
@@ -117,9 +154,7 @@ impl MountedGraph {
                         return Err("application attempted to mount twice".into());
                     }
                     let staged_ids = nodes.iter().map(|node| node.id).collect();
-                    self.parents.extend(parent_entries(&nodes));
-                    self.nodes
-                        .extend(nodes.into_iter().map(|node| (node.id, node)));
+                    self.insert_nodes(nodes);
                     self.root = Some(root);
                     ("mount", Some(root), staged_ids, vec![], 0, false, None, 0)
                 }
@@ -136,10 +171,14 @@ impl MountedGraph {
                         let count = ids.len() as u64;
                         (ids, count)
                     };
-                    if nodes.iter().any(|node| self.nodes.contains_key(&node.id)) {
+                    let production_fresh = contiguous_id_start(&nodes)
+                        .is_some_and(|first| first > self.max_seen_node_id);
+                    if !production_fresh
+                        && nodes.iter().any(|node| self.nodes.contains_key(&node.id))
+                    {
                         return Err("replacement reused a live node id".into());
                     }
-                    let parent = self.parents.get(&old_root).copied();
+                    let parent = self.nodes.get(&old_root).and_then(|entry| entry.parent);
                     let scanned = u64::from(parent.is_some());
                     if parent.is_none() && !replacing_root {
                         return Err("replacement target is detached".into());
@@ -151,22 +190,22 @@ impl MountedGraph {
                     // roots at once.
                     if replacing_root {
                         self.nodes.clear();
-                        self.parents.clear();
                     } else {
                         for id in &removed_ids {
                             self.nodes.remove(id);
-                            self.parents.remove(id);
                         }
                     }
-                    self.parents.extend(parent_entries(&nodes));
-                    self.nodes
-                        .extend(nodes.into_iter().map(|node| (node.id, node)));
+                    self.insert_nodes(nodes);
                     if let Some((parent_id, position)) = parent {
                         self.nodes
                             .get_mut(&parent_id)
                             .expect("located parent disappeared")
+                            .node
                             .children[position] = root;
-                        self.parents.insert(root, (parent_id, position));
+                        self.nodes
+                            .get_mut(&root)
+                            .expect("replacement root disappeared")
+                            .parent = Some((parent_id, position));
                     } else {
                         self.root = Some(root);
                     }
@@ -201,30 +240,72 @@ impl MountedGraph {
         })
     }
 
-    fn subtree_ids(&self, root: u64) -> Result<HashSet<u64>, String> {
-        let mut found = HashSet::new();
+    fn subtree_ids(&self, root: u64) -> Result<NodeSet, String> {
+        let mut found = NodeSet::default();
         let mut pending = vec![root];
         while let Some(id) = pending.pop() {
             if !found.insert(id) {
                 return Err(format!("cycle in mounted tree at node {id}"));
             }
-            let node = self
+            let node = &self
                 .nodes
                 .get(&id)
-                .ok_or_else(|| format!("replacement target {id} is missing"))?;
+                .ok_or_else(|| format!("replacement target {id} is missing"))?
+                .node;
             pending.extend(node.children.iter().copied());
         }
         Ok(found)
     }
-}
 
-fn parent_entries(nodes: &[Node]) -> impl Iterator<Item = (u64, (u64, usize))> + '_ {
-    nodes.iter().flat_map(|node| {
-        node.children
-            .iter()
-            .enumerate()
-            .map(move |(position, child)| (*child, (node.id, position)))
-    })
+    fn insert_nodes(&mut self, nodes: Vec<Node>) {
+        let mut entries = nodes
+            .into_iter()
+            .map(|node| MountedNode { node, parent: None })
+            .collect::<Vec<_>>();
+
+        // BridgeState allocates production node IDs contiguously and lowering
+        // emits them in allocation order. Populate parent metadata directly in
+        // that dense vector. Keep arbitrary hand-built patches supported by a
+        // temporary index without paying for a second persistent graph map.
+        let dense_base = entries.first().map(|entry| entry.node.id);
+        let dense = dense_base.is_some_and(|base| {
+            entries
+                .iter()
+                .enumerate()
+                .all(|(index, entry)| base.checked_add(index as u64) == Some(entry.node.id))
+        });
+        if dense {
+            let base = dense_base.expect("dense entries have a base");
+            for parent_index in 0..entries.len() {
+                let parent_id = entries[parent_index].node.id;
+                for position in 0..entries[parent_index].node.children.len() {
+                    let child = entries[parent_index].node.children[position];
+                    let child_index = usize::try_from(child - base)
+                        .expect("validated dense child index fits usize");
+                    entries[child_index].parent = Some((parent_id, position));
+                }
+            }
+        } else {
+            let indices = entries
+                .iter()
+                .enumerate()
+                .map(|(index, entry)| (entry.node.id, index))
+                .collect::<NodeMap<_>>();
+            for parent_index in 0..entries.len() {
+                let parent_id = entries[parent_index].node.id;
+                for position in 0..entries[parent_index].node.children.len() {
+                    let child = entries[parent_index].node.children[position];
+                    let child_index = indices[&child];
+                    entries[child_index].parent = Some((parent_id, position));
+                }
+            }
+        }
+
+        let inserted_max = entries.iter().map(|entry| entry.node.id).max().unwrap_or(0);
+        self.nodes
+            .extend(entries.into_iter().map(|entry| (entry.node.id, entry)));
+        self.max_seen_node_id = self.max_seen_node_id.max(inserted_max);
+    }
 }
 
 fn elapsed_ns(start: Instant) -> u64 {
@@ -243,6 +324,8 @@ pub struct BridgeState {
     pub pending: Option<Patch>,
     next_node_id: u64,
     staged: Vec<Node>,
+    child_builders: Vec<(u64, Vec<u64>)>,
+    next_child_builder_id: u64,
 }
 
 impl BridgeState {
@@ -252,7 +335,50 @@ impl BridgeState {
             pending: None,
             next_node_id: 1,
             staged: Vec::new(),
+            child_builders: Vec::new(),
+            next_child_builder_id: 1,
         }
+    }
+
+    pub fn begin_children(&mut self) -> Result<u64, String> {
+        if self.pending.is_some() {
+            return Err("Roc began children before the previous patch was consumed".into());
+        }
+        if self.child_builders.len() >= MAX_STAGED_NODES {
+            return Err(format!(
+                "native child-builder nesting exceeds {MAX_STAGED_NODES}"
+            ));
+        }
+        let id = self.next_child_builder_id;
+        self.next_child_builder_id = id
+            .checked_add(1)
+            .ok_or_else(|| "child builder id space exhausted".to_string())?;
+        self.child_builders.push((id, Vec::new()));
+        Ok(id)
+    }
+
+    pub fn push_child(&mut self, builder: u64, child: u64) -> Result<(), String> {
+        let (active, children) = self
+            .child_builders
+            .last_mut()
+            .ok_or_else(|| format!("missing child builder {builder}"))?;
+        if *active != builder {
+            return Err(format!("child builder {builder} is not active"));
+        }
+        children.push(child);
+        Ok(())
+    }
+
+    pub fn finish_children(&mut self, builder: u64) -> Result<Vec<u64>, String> {
+        let (active, children) = self
+            .child_builders
+            .pop()
+            .ok_or_else(|| format!("missing child builder {builder}"))?;
+        if active != builder {
+            self.child_builders.push((active, children));
+            return Err(format!("child builder {builder} is not active"));
+        }
+        Ok(children)
     }
 
     pub fn stage_node(&mut self, kind: NodeKind, children: Vec<u64>) -> Result<u64, String> {
@@ -281,6 +407,9 @@ impl BridgeState {
     pub fn commit(&mut self, commit: Commit) -> Result<(), String> {
         if self.pending.is_some() {
             return Err("Roc emitted two patches in one dispatch".into());
+        }
+        if !self.child_builders.is_empty() {
+            return Err("Roc committed a patch with unfinished child builders".into());
         }
 
         let patch = match commit {
@@ -331,6 +460,14 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
         return Err(format!("native subtree exceeds {MAX_STAGED_NODES} nodes"));
     }
 
+    // BridgeState assigns one monotonically increasing id to every staged node
+    // and keeps those nodes in assignment order. Validate that production shape
+    // without hashing every id. Hand-built/non-canonical patches still take the
+    // general validator below, so validate_tree retains its complete contract.
+    if let Some(first_id) = contiguous_id_start(nodes) {
+        return validate_contiguous_tree(root, first_id, nodes);
+    }
+
     // Keep membership and ownership in one table. Validation still runs in two
     // passes so duplicate/root errors retain precedence over shape and edge
     // errors, but edges no longer require separate id, lookup, and parent sets.
@@ -374,6 +511,66 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
         }
     }
     if ownership[&root] {
+        return Err(format!("subtree root {root} has a parent"));
+    }
+    if parent_count + 1 != nodes.len() {
+        return Err("native subtree is disconnected".into());
+    }
+    Ok(())
+}
+
+fn contiguous_id_start(nodes: &[Node]) -> Option<u64> {
+    let first_id = nodes.first()?.id;
+    if first_id == 0 {
+        return None;
+    }
+    nodes
+        .iter()
+        .enumerate()
+        .all(|(offset, node)| {
+            u64::try_from(offset)
+                .ok()
+                .and_then(|offset| first_id.checked_add(offset))
+                == Some(node.id)
+        })
+        .then_some(first_id)
+}
+
+fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<(), String> {
+    let root_index = root
+        .checked_sub(first_id)
+        .and_then(|offset| usize::try_from(offset).ok())
+        .filter(|index| *index < nodes.len())
+        .ok_or_else(|| format!("subtree root {root} is missing"))?;
+
+    // Production staging needs one dense ownership byte per node instead of a
+    // hash-table entry for every id. Bytes avoid the read/modify/write and proxy
+    // cost of bit packing while remaining small beside the staged node graph.
+    let mut has_parent = vec![0_u8; nodes.len()];
+    let mut parent_count = 0;
+    for node in nodes {
+        match node.kind {
+            NodeKind::Text(_) if !node.children.is_empty() => {
+                return Err(format!("text node {} has children", node.id));
+            }
+            NodeKind::Button { .. } if node.children.len() != 1 => {
+                return Err(format!("button node {} must have one label child", node.id));
+            }
+            _ => {}
+        }
+        for child in &node.children {
+            let child_index = child
+                .checked_sub(first_id)
+                .and_then(|offset| usize::try_from(offset).ok())
+                .filter(|index| *index < nodes.len())
+                .ok_or_else(|| format!("node {} references missing child {child}", node.id))?;
+            if std::mem::replace(&mut has_parent[child_index], 1) != 0 {
+                return Err(format!("node {child} has more than one parent"));
+            }
+            parent_count += 1;
+        }
+    }
+    if has_parent[root_index] != 0 {
         return Err(format!("subtree root {root} has a parent"));
     }
     if parent_count + 1 != nodes.len() {
@@ -518,6 +715,57 @@ mod tests {
     }
 
     #[test]
+    fn validates_contiguous_production_ids_from_any_transaction() {
+        let nodes = vec![
+            text(41, "first"),
+            text(42, "second"),
+            Node {
+                id: 43,
+                kind: NodeKind::Row,
+                children: vec![41, 42],
+            },
+        ];
+        assert_eq!(validate_tree(43, &nodes), Ok(()));
+    }
+
+    #[test]
+    fn contiguous_validation_preserves_shape_and_edge_errors() {
+        assert_eq!(
+            validate_tree(
+                3,
+                &[
+                    text(1, "child"),
+                    Node {
+                        id: 2,
+                        kind: NodeKind::Row,
+                        children: vec![1],
+                    },
+                    Node {
+                        id: 3,
+                        kind: NodeKind::Column,
+                        children: vec![1],
+                    },
+                ],
+            ),
+            Err("node 1 has more than one parent".into())
+        );
+        assert_eq!(
+            validate_tree(
+                2,
+                &[
+                    text(1, "child"),
+                    Node {
+                        id: 2,
+                        kind: NodeKind::Column,
+                        children: vec![99],
+                    },
+                ],
+            ),
+            Err("node 2 references missing child 99".into())
+        );
+    }
+
+    #[test]
     fn validation_rejects_subtrees_above_the_staging_guard() {
         let nodes = vec![
             Node {
@@ -574,6 +822,42 @@ mod tests {
     }
 
     #[test]
+    fn streams_nested_children_into_their_own_host_builders() {
+        let mut bridge = BridgeState::new();
+        let outer = bridge.begin_children().unwrap();
+        let inner = bridge.begin_children().unwrap();
+        let text = bridge
+            .stage_node(NodeKind::Text("nested".into()), vec![])
+            .unwrap();
+        bridge.push_child(inner, text).unwrap();
+        let inner_children = bridge.finish_children(inner).unwrap();
+        let row = bridge.stage_node(NodeKind::Row, inner_children).unwrap();
+        bridge.push_child(outer, row).unwrap();
+        assert_eq!(bridge.finish_children(outer), Ok(vec![row]));
+    }
+
+    #[test]
+    fn rejects_out_of_order_and_unfinished_child_builders() {
+        let mut bridge = BridgeState::new();
+        let outer = bridge.begin_children().unwrap();
+        let inner = bridge.begin_children().unwrap();
+        assert_eq!(
+            bridge.push_child(outer, 1),
+            Err(format!("child builder {outer} is not active"))
+        );
+        assert_eq!(
+            bridge.finish_children(outer),
+            Err(format!("child builder {outer} is not active"))
+        );
+        assert_eq!(
+            bridge.commit(Commit::NoChange),
+            Err("Roc committed a patch with unfinished child builders".into())
+        );
+        assert_eq!(bridge.finish_children(inner), Ok(vec![]));
+        assert_eq!(bridge.finish_children(outer), Ok(vec![]));
+    }
+
+    #[test]
     fn node_ids_are_fresh_across_transactions() {
         let mut bridge = BridgeState::new();
         let first = bridge
@@ -585,7 +869,7 @@ mod tests {
         let second = bridge
             .stage_node(NodeKind::Text("second".into()), vec![])
             .unwrap();
-        assert!(second > first);
+        assert_eq!(second, first + 1);
         bridge
             .commit(Commit::Replace {
                 old_root: first,

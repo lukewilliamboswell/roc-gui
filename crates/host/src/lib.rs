@@ -12,7 +12,7 @@ use bridge::{BridgeState, MountedGraph, Node, NodeKind, Patch, decode_commit, va
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, MountOrNoChangeOrReplace, RocErasedCallable, RocHost,
-    RocListWith, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{cell::RefCell, collections::HashMap, ffi::c_void, path::PathBuf, time::Instant};
 
@@ -122,20 +122,47 @@ pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
     stage_node(NodeKind::Text(text), vec![])
 }
 
+/// Begin a host-owned child sequence. Builders may be nested while recursively lowering.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_children_begin() -> u64 {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .begin_children()
+            .unwrap_or_else(|message| panic!("invalid native child build: {message}"))
+    })
+}
+
+/// Append one already-staged child to a host-owned child sequence.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_children_push(builder: u64, child: u64) {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .push_child(builder, child)
+            .unwrap_or_else(|message| panic!("invalid native child build: {message}"));
+    });
+}
+
+fn finish_children(builder: u64) -> Vec<u64> {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .finish_children(builder)
+            .unwrap_or_else(|message| panic!("invalid native child build: {message}"))
+    })
+}
+
 /// Stage one row whose children were already built during this transaction.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_row(children: RocListWith<u64, false>) -> u64 {
-    let children_vec = children.as_slice().to_vec();
-    unsafe { children.decref(roc_host()) };
-    stage_node(NodeKind::Row, children_vec)
+pub extern "C" fn roc_gui_node_row(builder: u64) -> u64 {
+    stage_node(NodeKind::Row, finish_children(builder))
 }
 
 /// Stage one column whose children were already built during this transaction.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_column(children: RocListWith<u64, false>) -> u64 {
-    let children_vec = children.as_slice().to_vec();
-    unsafe { children.decref(roc_host()) };
-    stage_node(NodeKind::Column, children_vec)
+pub extern "C" fn roc_gui_node_column(builder: u64) -> u64 {
+    stage_node(NodeKind::Column, finish_children(builder))
 }
 
 /// Stage one semantically named button whose label was already built.

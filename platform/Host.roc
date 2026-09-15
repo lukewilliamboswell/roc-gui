@@ -3,9 +3,13 @@ Host := [].{
 
 	node_text! : Str => U64
 
-	node_row! : List(U64) => U64
+	children_begin! : {} => U64
 
-	node_column! : List(U64) => U64
+	children_push! : U64, U64 => {}
+
+	node_row! : U64 => U64
+
+	node_column! : U64 => U64
 
 	node_button! : Str, U64 => U64
 

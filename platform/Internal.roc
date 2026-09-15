@@ -14,25 +14,23 @@ Internal := [].{
 		routes : List(Route(a)),
 	}
 
-	lower_children! : List(Elem(a)), a, U64, U64, List(U64), List(Route(a)), List(BoundaryInfo(a)) => {
+	lower_children! : List(Elem(a)), a, U64, U64, List(U64), List(Route(a)), List(BoundaryInfo(a)), U64 => {
 		boundaries : List(BoundaryInfo(a)),
-		ids : List(U64),
 		next_boundary : U64,
 		routes : List(Route(a)),
 	}
-	lower_children! = |children, state, next_boundary, active_boundary, boundary_path, routes, boundaries| {
-		var $ids = []
+	lower_children! = |children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder| {
 		var $next = next_boundary
 		var $routes = routes
 		var $boundaries = boundaries
 		for child in children {
 			lowered = lower!(child, state, $next, active_boundary, boundary_path, $routes, $boundaries)
-			$ids = $ids.append(lowered.root)
+			Host.children_push!(builder, lowered.root)
 			$next = lowered.next_boundary
 			$routes = lowered.routes
 			$boundaries = lowered.boundaries
 		}
-		{ ids: $ids, next_boundary: $next, routes: $routes, boundaries: $boundaries }
+		{ next_boundary: $next, routes: $routes, boundaries: $boundaries }
 	}
 
 	lower! : Elem(a), a, U64, U64, List(U64), List(Route(a)), List(BoundaryInfo(a)) => Lowered(a)
@@ -42,13 +40,15 @@ Internal := [].{
 			{ root: id, next_boundary, routes, boundaries }
 		}
 		Row(children) => {
-			lowered = lower_children!(children, state, next_boundary, active_boundary, boundary_path, routes, boundaries)
-			id = Host.node_row!(lowered.ids)
+			builder = Host.children_begin!({})
+			lowered = lower_children!(children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
+			id = Host.node_row!(builder)
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Column(children) => {
-			lowered = lower_children!(children, state, next_boundary, active_boundary, boundary_path, routes, boundaries)
-			id = Host.node_column!(lowered.ids)
+			builder = Host.children_begin!({})
+			lowered = lower_children!(children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
+			id = Host.node_column!(builder)
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Button(button_value) => {

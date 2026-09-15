@@ -264,6 +264,13 @@ A malformed ABI value or structurally invalid patch is a platform defect, not
 application input to recover from. The host rejects it at the ownership
 boundary rather than displaying a partially mutated graph.
 
+Rows and columns stream their lowered child identities into nesting-safe,
+host-owned builders. The closing node effect consumes its builder and stages
+the same ordered graph node used everywhere else. This ownership boundary
+avoids allocating a temporary Roc child-identity list and then copying it into
+host storage. A patch cannot commit while a child builder remains unfinished,
+and builders must close in nesting order.
+
 == Responsibilities when extending the platform
 
 [cols="2,4",options="header"]
