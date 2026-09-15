@@ -16,6 +16,7 @@ It targets Linux x86_64 with Wayland.
 Read the [manual](docs/index.adoc), begin with
 [Getting started](docs/getting-started.adoc), or explore the
 [counter example](examples/counter/main.roc) and [benchmark applications](benchmarks/).
+Advanced readers can start with [How Roc GUI works](docs/architecture.adoc).
 
 Contributors should read [AGENTS.md](AGENTS.md); known gaps are tracked in
 [wip/issues-backlog.md](wip/issues-backlog.md).

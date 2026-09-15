@@ -1,61 +1,299 @@
-= Contributor architecture
+= How Roc GUI works
 
-This chapter explains where behaviour lives when extending the platform. It is
-not required to write an application.
+This chapter is the map of roc-gui for advanced users and contributors. It
+explains the path from application state to pixels, the path from input back to
+state, and the replacement model that joins them. You do not need to know GPUI
+internals to follow it.
+
+The crucial detail is that roc-gui does not diff two virtual trees. An update
+renders and replaces one explicit state-boundary subtree with fresh node IDs
+and GPUI entities. Nodes and entities outside that boundary remain mounted.
+
+== The model in one page
+
+roc-gui has three representations of a UI:
+
+`Elem` value:: A short-lived Roc description produced by a renderer. It carries
+text, layout, buttons, handlers, and explicit local-state boundaries.
+Mounted graph:: The host's canonical, validated tree of native nodes. It is the
+source of truth shared by the interactive window and semantic specs.
+GPUI entities:: Retained native views materialised from mounted nodes. GPUI uses
+them to perform its rendering-system work and deliver input.
+
+[mermaid]
+....
+flowchart TB
+    A["Roc state"] --> B["render"]
+    B --> C["Elem tree"]
+    C --> D["platform lowering"]
+    D --> E["staged native nodes"]
+    E --> F["validated patch"]
+    F --> G["mounted graph"]
+    G --> H["GPUI entities"]
+    H --> I["layout, paint, presentation"]
+    I --> J["input: node ID"]
+    J --> K["Roc event handler"]
+    K --> L["NoChange or Update"]
+    L --> D
+....
+
+The application never mutates the mounted graph or GPUI entities directly. It
+returns an `Action`; the platform turns that action into exactly one patch; and
+the host applies it through the same graph implementation in every GUI host and
+the built-in test runner.
+
+== From state to pixels
+
+=== The application renders a value
+
+`Program.run` supplies an initial state and a renderer. Calling the renderer
+produces an immutable `Elem(State)` description. Composition stays in Roc:
+`Layout.row`, `Layout.col`, `Elem.text`, and `Elem.button` build the tree, while
+`Elem.translate` introduces a local-state boundary.
+
+An `Elem` is not a long-lived widget object, and rendering one does not draw
+pixels. It is an intermediate value consumed immediately by platform lowering.
+The application renderer runs initially and after an updating event; it does
+not run for every display frame.
+
+=== The platform lowers the description
+
+The platform lowers the `Elem` description into native nodes with host-issued
+identities. The result is staged separately from the visible graph so it can be
+validated as a complete change before commit.
+
+During the same walk, the platform builds an event route for every button and
+records each state boundary's renderer, native root, and parent boundary. A
+route connects a semantic button name and native node ID to a Roc handler and
+the boundary that owns its update.
+
+Lowering ends with exactly one `Mount`, `Replace`, or `NoChange` commit. Staging
+alone cannot modify the visible graph.
+
+=== The host validates and commits
+
+The host validates a staged tree before accepting it. References and ownership
+must be internally consistent, the result must describe one valid tree, and a
+replacement target must still belong to the mounted graph.
+
+The canonical `MountedGraph` then applies the patch:
+
+* `Mount` installs the first root.
+* `NoChange` leaves the graph untouched.
+* `Replace` atomically substitutes a new subtree for a mounted one.
+
+Node IDs increase for the lifetime of the process. An ID removed by replacement
+is stale and cannot later identify another control.
+
+=== The host materialises GPUI views
+
+Every newly mounted graph node becomes one GPUI `Entity<NodeView>`. Rows and
+columns become flex containers, text becomes a text child, and buttons add
+styles and a click listener. The host connects the new native subtree to the
+retained entities around its boundary and releases the replaced subtree.
+
+The host notifies GPUI of the changed entity. GPUI owns subsequent rendering,
+layout, prepaint, paint, and presentation. roc-gui does not calculate geometry
+or issue GPU commands in Roc, and one application event does not necessarily
+correspond to one presented frame.
+
+== One event turn
+
+[mermaid]
+....
+sequenceDiagram
+    participant U as User or spec
+    participant G as GPUI or semantic locator
+    participant H as Host
+    participant P as Roc dispatcher
+    participant A as App handler
+
+    U->>G: activate named button
+    G->>H: live node ID
+    H->>P: dispatch(node ID)
+    P->>A: handler(current state, Press)
+    A-->>P: Action
+    alt NoChange
+        P->>H: commit NoChange
+    else Update(next state)
+        P->>P: render and lower owning boundary
+        P->>H: commit Replace(old root, new root)
+        H->>H: validate and splice graph
+        H->>G: materialise and notify entities
+    end
+    P->>H: install next dispatcher
+....
+
+The dispatcher is one-shot state: each turn captures the state, routes, and
+boundaries valid for that mounted graph, then installs its successor. Thus a
+later event cannot accidentally run a handler against an old state snapshot.
+The interactive host also checks that an ID still names a live button before
+dispatch. A delayed callback for a removed button cannot reach Roc.
+
+== Boundaries determine update scope
+
+`Elem.translate(render_child, get_child, set_child)` adapts a child component's
+handlers to parent state and creates a replacement boundary around its renderer.
+The application renderer itself is the root boundary.
+
+When a button returns `Update`, the platform selects the boundary recorded for
+that button. It renders that boundary with the next application state and
+replaces only its native subtree. Routes and nested boundaries inside the old
+subtree are discarded and rebuilt; those elsewhere are retained.
 
 [mermaid]
 ....
 flowchart LR
-    A["Roc application<br/>state, handlers, render"]
-    P["Roc platform<br/>lowering and event routing"]
-    H["Host + GPUI main thread<br/>mounted graph and native views"]
-    W["Observatory writer thread<br/>batched SQLite writes"]
-    D[(".rgstats SQLite capture")]
-    R["read-only reports"]
-
-    A -->|Program and Elem| P
-    P -->|staged nodes and patch| H
-    H -->|node ID input| P
-    H -.->|when enabled| W
-    W --> D
-    D --> R
+    subgraph before["Before update"]
+        P1["retained parent"] --> S1["retained sibling"]
+        P1 --> O["old boundary subtree"]
+    end
+    subgraph after["After update"]
+        P2["same parent"] --> S2["same sibling"]
+        P2 --> N["fresh boundary subtree"]
+    end
+    before -->|"one Replace patch"| after
 ....
 
-== Runtime ownership
+For example, two translated counters may share a parent state record. Clicking
+the left counter replaces the left counter subtree. A heading and the right
+counter retain their mounted nodes, routes, and GPUI entities. Without an inner
+boundary, the button belongs to the root boundary and the complete application
+subtree is replaced.
 
-Roc application:: Owns state, handlers, renderers, and component composition.
-Roc platform:: Lowers `Elem` values bottom-up through the hosted ABI, keeps
-event routes, and turns an updated translation boundary into a subtree patch.
-Host:: Issues node identities, validates and owns the mounted graph,
-materialises GPUI entities, and dispatches input by node identity.
-Observatory:: Observes owned work and drains bounded records to SQLite. It never
-owns UI behaviour.
+Boundaries affect both composition and cost. Put them around state that can
+update independently, but do not treat one as a cache: its complete subtree is
+rendered and lowered afresh for every `Update` it owns. `Action.none` is the
+only handler result that stages no tree and mutates no graph or GPUI entity.
 
-There is one mounted graph and one event route. The semantic runner drives and
-queries those production structures; it cannot mount, validate, replace, or
-remove nodes through an alternate implementation.
+== There is no node-level diff
 
-== One event turn
+roc-gui does not compare old and new descriptions, reconcile keyed siblings,
+or mutate equivalent nodes in place. Every node inside an updating boundary is
+new even if its text and position are unchanged. Retained identity stops at the
+boundary's surroundings.
 
-. GPUI or the semantic runner identifies a live button node.
-. The host passes its node ID to the Roc dispatcher.
-. The platform finds the associated handler and translation boundary.
-. `Action.none` commits a no-change patch. `Action.update` renders and lowers
-the boundary against the next state, then commits a replacement patch.
-. The host validates the patch, updates the mounted graph, and, in an
-interactive process, updates GPUI entities.
-. The platform installs the one-shot dispatcher for the next turn.
+This makes the costs and semantics direct:
 
-Node IDs are host-issued and are not reused within a process. Removed IDs are
-stale and cannot dispatch another event.
+* the boundary structure exposes replacement and invalidation scope;
+* there is no hidden key contract or reconciliation heuristic;
+* removed routes and node IDs become unambiguously stale; and
+* large boundaries incur rendering, lowering, validation, materialisation, and
+  removal work proportional to the update shape.
 
-== Evidence ownership
+The scaling suite exercises full-root collections, local boundaries, text
+density, tree depth, and tree breadth so the consequences of replacement scope
+remain visible as the implementation evolves.
 
-A component records only work it performs. Roc callback timing surrounds the
-Roc dispatcher, graph validation and application are measured by the graph
-owner, and GPUI work is reported only when the GPUI path supplies it. A headless
-runner cannot label its timing as layout, paint, or presentation.
+== How this compares
 
-Correctness uses semantic results and deterministic counters. Elapsed time is
-report-only. Schema changes increment the schema version; reports do not alias
-old meanings or turn unavailable measurements into zero.
+[cols="1,2,2,2",options="header"]
+|===
+|Model |What persists |How application changes arrive |Identity on update
+
+|roc-gui
+|Mounted graph and GPUI entities outside the updated boundary
+|A state-derived `Elem` subtree becomes one replacement patch
+|Fresh IDs inside the boundary; retained IDs outside it
+
+|Virtual-tree reconciliation
+|A native/render tree, often plus a previous description
+|Old and new descriptions are diffed, commonly using keys
+|The reconciler may preserve matching nodes
+
+|Immediate mode
+|Rendering-system state rather than an application widget tree
+|Application code describes the interface repeatedly, commonly each frame
+|Usually not expressed as persistent application widget identity
+
+|Traditional retained widgets
+|Application-visible widget objects
+|Application code mutates long-lived widget properties and children
+|Widget objects ordinarily retain identity until explicitly removed
+|===
+
+roc-gui combines a declarative Roc front end with retained native state. It is
+not immediate mode because the application does not redraw the interface every
+frame. It is not virtual-DOM reconciliation because replacement boundaries,
+not a diff algorithm, choose what survives. GPUI may perform its own internal
+rendering invalidation; that is separate from roc-gui's application graph
+replacement model.
+
+== Semantic tests use the production graph
+
+The built-in `.scm` runner stops after the mounted-graph layer because it needs
+no display server to locate semantic controls or assert text. It invokes the
+real Roc renderer and dispatcher, consumes the real patches, and uses the same
+`MountedGraph` implementation for validation, replacement, event routing, and
+node accounting. It does not reproduce those behaviours in a test-only graph.
+
+The interactive host continues by materialising GPUI entities. Consequently,
+semantic specs prove application behaviour and mounted topology, but do not
+exercise `NodeView`, display frames, layout, paint, GPU work, or presentation.
+Those require the interactive production path.
+
+== Threading and observability
+
+Application callbacks, graph commits, GPUI entity updates, and window work stay
+on the interactive application path. With recording disabled, observatory work
+is kept out of that path apart from the inexpensive enablement check.
+
+With recording enabled, work owners emit bounded records. A separate writer
+thread drains them in batches and commits transactions to the `.rgstats` SQLite
+capture. UI behaviour never waits for a report query. If the recorder cannot
+accept evidence, the capture records that loss rather than presenting partial
+data as complete.
+
+A timer means only the phase that owns it. Host application timing is not a
+substitute for later layout, paint, GPU execution, or presentation. See
+<<_understanding_captures>> for availability and report views and
+<<_measuring_scaling>> for representative workloads.
+
+== Correctness boundaries
+
+The platform and host maintain these invariants across every event turn:
+
+* one initial mount and one canonical mounted root;
+* one completed action and graph decision per dispatch;
+* unambiguous native identity for every live node;
+* structurally valid changes applied only to mounted targets;
+* routes and boundaries rebuilt whenever their owning subtree is replaced; and
+* mounted-graph commit before GPUI materialisation.
+
+A malformed ABI value or structurally invalid patch is a platform defect, not
+application input to recover from. The host rejects it at the ownership
+boundary rather than displaying a partially mutated graph.
+
+== Responsibilities when extending the platform
+
+[cols="2,4",options="header"]
+|===
+|Concern |Primary owner
+
+|Public state, element, action, and layout API
+|Roc platform
+
+|Lowering, routes, boundaries, and dispatcher succession
+|Roc platform
+
+|Hosted effects and ABI ownership
+|Platform and Rust host boundary
+
+|Canonical graph, patch validation, and accounting
+|Host graph
+
+|Native appearance, click input, and entity materialisation
+|GPUI host
+
+|Headless semantic driving and locators
+|Host runner using production structures
+
+|Capture lifecycle, batching, SQLite schema, and reports
+|Observatory
+|===
+
+A new feature crosses every owner it needs: public API, lowering and ABI, graph
+representation and validation, GPUI behaviour, semantic locators and specs,
+scaling coverage, and documentation. The governing rule is one mounted graph,
+one event route, and one production path: tests and measurements drive those
+structures; they do not imitate them.

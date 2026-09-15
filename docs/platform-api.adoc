@@ -97,5 +97,8 @@ Use a boundary around a component that owns a coherent slice of state and
 changes independently. Do not add boundaries merely to group layout; use rows
 and columns for visual grouping.
 
+See <<_boundaries_determine_update_scope>> for what is retained and replaced,
+and why this is a boundary operation rather than a virtual-tree diff.
+
 For a complete reusable component, see `examples/counter/Counter.roc` and its
 composition in `examples/counter/main.roc`.

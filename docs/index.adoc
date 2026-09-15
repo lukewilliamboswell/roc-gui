@@ -24,9 +24,12 @@ build the counter and a minimal application.
 Application author:: Continue through <<_building_an_application>> for the
 state/action/render model, elements, layout, and local state boundaries. Use
 <<_specifying_behaviour>> to test through semantic user actions.
+Advanced application author:: Read <<_how_roc_gui_works>> for the rendering and
+event lifecycles, boundary replacement model, and comparison with other GUI
+architectures.
 Performance investigator:: Start with <<_measuring_scaling>>, then use
 <<_understanding_captures>> to choose and interpret SQLite evidence views.
-Platform contributor:: Read <<_contributor_architecture>> before
+Platform contributor:: Read <<_how_roc_gui_works>> before
 <<_contributing>>. These chapters cover host ownership, event routing, evidence
 ownership, validation, and feature completeness.
 
