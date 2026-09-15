@@ -4,6 +4,36 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Resource broker and confinement foundation
+
+- [ ] **The linked process is not an untrusted-application boundary.** Implement
+  Linux application-process confinement and an out-of-process trusted broker.
+  Define the compiler, runtime, native-library and packaging trust base; prevent
+  syscall, inherited-descriptor, dynamic-library, IPC and dependency escape
+  routes; and verify denial outside grants. The audited starting point and
+  platform matrix are in `wip/resource-access-inventory.md`.
+- [ ] **Trusted identity, access review, and revocation are absent.** Define
+  stable publisher/package identity, remembered-grant storage and migration,
+  expiry, an App access surface, rate-limited refusal, grant ancestry, and one
+  revocation linearization rule covering roots, descendants, queued/running
+  operations and already-returned bytes.
+- [ ] **Trusted Open/Save workflows are not implemented.** Replace interactive
+  development provisioning with native/portal Open Document and Open Project
+  selection, then add edit grants and brokered atomic Save As with overwrite,
+  race, disk-full, cleanup, cancellation and retry semantics. Migrate every file
+  consumer through the same broker; keep `--host-cap-dir` explicitly limited to
+  development and automation.
+- [ ] **Platform enforcement remains unverified.** Implement and test the
+  complete confinement/broker boundary on Linux Wayland. Define and verify
+  macOS sandbox, entitlement, trusted-panel, signing and notarization behavior
+  before adding that target; other platforms require equivalent evidence.
+- [ ] **Absent native effects have not been proven unreachable.** Audit secure
+  randomness, URI opening, webviews, microphone/camera/screen capture,
+  drag-and-drop/sharing, file clipboard, global input/automation, accessibility,
+  native extensions, IPC/listening sockets, inherited descriptors and linked
+  dependencies. Add no public API until its complete broker policy and tests
+  land.
+
 ## Device Configurator follow-on features
 
 - [ ] Add hot-plug notifications and reconnect policy to the host-owned HID

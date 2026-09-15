@@ -77,6 +77,11 @@ roc examples/terminal-workspace/main.roc -- --host-cap-process local-shell
 The application receives only that fixed profile; it cannot select an
 executable, arguments, or inherited environment.
 
+`--host-cap-*` options provision development and automation authority. They use
+the production registries and operations but are not trusted user consent.
+Interactive resource access uses the trusted broker workflows described in
+<<_resource_access_and_trusted_grants>>.
+
 == Check behaviour without opening a window
 
 The counter includes a semantic specification:

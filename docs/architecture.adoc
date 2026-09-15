@@ -43,6 +43,12 @@ returns an `Action`; the platform turns that action into exactly one patch; and
 the host applies it through the same graph implementation in every GUI host and
 the built-in test runner.
 
+Resource security has a separate boundary from graph ownership. The application
+process is confined by the operating system; trusted broker services own
+protected selection, persistent identity, and revocation. Opaque Roc handles
+cross that boundary, while raw paths and platform persistence mechanics do not.
+See <<_resource_access_and_trusted_grants>>.
+
 == From state to pixels
 
 === The application renders a value

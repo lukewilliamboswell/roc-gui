@@ -1,5 +1,9 @@
 = Building an application
 
+Resource-bearing APIs consume opaque grants under the policy in
+<<_resource_access_and_trusted_grants>>. A path, URL, or application-rendered
+dialog is never a substitute for trusted authorization.
+
 == State, render, and actions
 
 An application exports a state type and `main : Program(State)`:

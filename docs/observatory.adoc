@@ -121,6 +121,12 @@ operating-system, architecture, and CPU properties. It never stores usernames,
 home-directory paths, hostnames, environment variables, command lines,
 application text or state, native pointers, or machine identifiers.
 
+Grant tokens, selected resource names and paths, trusted-dialog contents,
+network destinations, device identifiers, clipboard values, and capture-source
+identities are likewise excluded. Resource owners record bounded categories and
+counters; unavailable authority or enforcement evidence remains absent rather
+than being reconstructed from diagnostics.
+
 Compiler and application revisions are represented as unavailable unless they
 are supplied by their owning build process. Missing identity weakens a
 comparison; it is never guessed.
