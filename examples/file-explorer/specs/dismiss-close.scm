@@ -1,11 +1,11 @@
 (test "dismiss close without losing the directory"
   (steps
-    (click (role button :name "Choose directory"))
+    (click (role button :name "Open project"))
     (await-task)
     (focus (role button :name "Close directory"))
     (press-key Space)
     (expect-visible (role dialog :name "Close directory confirmation"))
-    (click (role button :name "Choose directory"))
+    (click (role button :name "Open project"))
     (expect-visible (role dialog :name "Close directory confirmation"))
     (press-key Escape)
     (expect-not-visible (role dialog :name "Close directory confirmation"))

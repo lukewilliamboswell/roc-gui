@@ -93,7 +93,7 @@ entry_items = |folder| folder.entries.map_with_index(|entry, key| {
 render : State -> Elem(State)
 render = |state| {
 	content = match state.view {
-		Empty => Elem.panel(Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True }, [Elem.text("Choose a directory to begin")])
+		Empty => Elem.panel(Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True }, [Elem.text("Open a project to begin")])
 		Showing(folder) => Elem.panel(Elem.PanelProps.{ label: "Directory content", width: Fill, height: Fill, grow: True }, [
 			Elem.row(Elem.RowProps.{ label: "Directory toolbar", width: Fill }, [
 				Elem.action_button(Elem.ActionButtonProps.{ caption: "Back", label: "Back", enabled: !state.back.is_empty(), on_press: |current, _| go_back(current, folder) }),
@@ -111,5 +111,5 @@ render = |state| {
 		Closed => []
 		ConfirmClose(name) => [Elem.dialog(Elem.DialogProps.{ label: "Close directory confirmation", on_dismiss: |current, _| Action.update({ ..current, dialog: Closed }) }, [Elem.text("Close ${name}?"), Elem.text("The directory grant and current view will be forgotten."), Elem.row(Elem.RowProps.{ label: "Close directory actions" }, [Elem.action_button(Elem.ActionButtonProps.{ caption: "Cancel", label: "Cancel close directory", on_press: |current, _| Action.update({ ..current, dialog: Closed }) }), Elem.action_button(Elem.ActionButtonProps.{ caption: "Close", label: "Confirm close directory", on_press: |current, _| Action.update({ ..current, back: [], dialog: Closed, forward: [], root: None, selection: NoneSelected, view: Empty }) })])])]
 	}
-	Elem.col(Elem.ColProps.{ label: "File explorer", width: Fill, height: Fill, grow: True, padding: 24, gap: 16 }, [Elem.text("File Explorer"), Elem.action_button(Elem.ActionButtonProps.{ caption: "Choose directory", label: "Choose directory", enabled: state.status != Busy, on_press: |current, _| choose_directory(current) })].concat(status).append(content).concat(selection).concat(dialog))
+	Elem.col(Elem.ColProps.{ label: "File explorer", width: Fill, height: Fill, grow: True, padding: 24, gap: 16 }, [Elem.text("File Explorer"), Elem.action_button(Elem.ActionButtonProps.{ caption: "Open project", label: "Open project", enabled: state.status != Busy, on_press: |current, _| choose_directory(current) })].concat(status).append(content).concat(selection).concat(dialog))
 }

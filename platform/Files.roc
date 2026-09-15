@@ -1,4 +1,4 @@
-## Host-granted directory capabilities. Acquisition is a host-gated powerbox;
+## Host-granted directory capabilities. Acquisition requests trusted host selection;
 ## every filesystem operation afterward requires the opaque, rights-specific
 ## directory handle it returned.
 
@@ -76,8 +76,8 @@ Files := [].{
 		write_utf8_atomic! = |directory, name, value| InternalFiles.write_utf8_atomic!(directory, name, value).map_err(|raw| WriteFileErr(decode_reason(raw.code)))
 	}
 
-	## Acquire the directory handle granted when the application was launched.
-	## Without a `--host-cap-dir PATH` grant this returns `AccessDenied`.
+	## Request a trusted read-only project selection. Development and automation
+	## may provision the same grant registry; absent authority returns `AccessDenied`.
 	pick_directory! : {} => Try(Choice(Selection), FileErr)
 
 	## Acquire the private read-write application-data directory granted by the host.

@@ -1,7 +1,7 @@
 (test "navigate nested folders, select entries, and preserve history"
   (steps
     (expect-file-picks 0) (expect-file-lists 0) (expect-file-opens 0) (expect-file-reads 0)
-    (click (role button :name "Choose directory"))
+    (click (role button :name "Open project"))
     (await-task)
     (expect-file-picks 1) (expect-file-lists 1) (expect-file-opens 0) (expect-file-reads 0)
     (click (role button :name "Select Folder: nested"))

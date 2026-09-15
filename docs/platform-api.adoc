@@ -189,9 +189,9 @@ composition in `examples/counter/main.roc`.
 
 == Directory capabilities and tasks
 
-`Files.pick_directory!({})` acquires the read-only directory capability granted
-by `--host-cap-dir PATH`. With no grant it returns
-`PickDirectoryErr(AccessDenied)`. The returned
+`Files.pick_directory!({})` requests a trusted host-owned Open Project selection.
+The selected project grants read authority, while cancellation is a normal
+`Canceled` result and denial is `PickDirectoryErr(AccessDenied)`. The returned
 `Files.Dir.Read` is an opaque, reference-counted handle: it may be stored in
 state or captured by tasks, but applications cannot forge it or recover an
 ambient path. Internally it uses the platform-wide typed `Resource.Handle`

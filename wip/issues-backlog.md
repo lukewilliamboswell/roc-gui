@@ -88,6 +88,11 @@ names the evidence so a fix can be verified against the same case.
   split views, multi-selection, drag-and-drop, clipboard file operations,
   previews, metadata, operating-system open/reveal, watching, and durable grant
   restoration only as complete production slices.
+  Replace development `--host-cap-dir` provisioning with trusted native/portal
+  Open Project selection for interactive use, record grant ancestry, define a
+  revocation linearization point for roots and derived children, and verify
+  denial outside the grant and revocation during queued work through the real
+  GPUI/trusted-chooser boundary.
 
 - [ ] **Music library metadata, persistence, and media integration.** The music
   player foundation provides explicit folder/output capabilities, Rodio and

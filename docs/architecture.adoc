@@ -226,11 +226,10 @@ captures or deterministic diagnostics.
 Directory, HTTP, and timer handles are typed nominal wrappers over `Box(U64)`. Each token names
 a host registry entry containing a `cap_std::fs::Dir`; final box deallocation
 removes that entry. The phantom resource kind leaves room for other handle
-families without allowing their types to be confused. Ambient filesystem
-authority is used only to create the explicit
-`--host-cap-dir` grant. Listing and child acquisition operate relative to the
-stored handle, and child acquisition uses the no-follow operation from
-`cap-fs-ext`.
+families without allowing their types to be confused. The trusted resource
+broker creates a grant only for the selected project. Listing and child
+acquisition operate relative to the stored handle, and child acquisition uses
+the no-follow operation from `cap-fs-ext`.
 
 == There is no node-level diff
 

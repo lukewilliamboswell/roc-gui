@@ -1,8 +1,10 @@
 # File Explorer
 
 A practical desktop file manager for navigating and organizing user-selected
-directories. Access begins with an explicit directory grant and respects platform
-permission boundaries.
+directories. Access begins with a read-only project grant and respects platform
+permission boundaries. Interactive use is defined around a trusted host-owned
+Open Project selection; development and automation provisioning enters the same
+grant registry without representing user consent.
 
 The implemented read-authority slice navigates direct child folders without
 following links, maintains back/forward history and a root breadcrumb, exposes
