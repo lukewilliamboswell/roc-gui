@@ -5,6 +5,17 @@ Resource := [].{
 	Handle(_resource) :: Box(U64)
 
 	DirRead : Handle([DirReadResource])
+	DirReadWrite : Handle([DirReadWriteResource])
 	Timer : Handle([TimerResource])
 	SqliteRead : Handle([SqliteReadResource])
+	HttpClient : Handle([HttpClientResource])
+	Clipboard : Handle([ClipboardResource])
+	TcpStream : Handle([TcpStreamResource])
+	ProcessGrant : Handle([ProcessGrantResource])
+	Pty : Handle([PtyResource])
+	AudioOutput : Handle([AudioOutputResource])
+	AudioTrack : Handle([AudioTrackResource])
+	DeviceGrant : Handle([DeviceGrantResource])
+	DeviceConnection : Handle([DeviceConnectionResource])
+	SystemSampler : Handle([SystemSamplerResource])
 }

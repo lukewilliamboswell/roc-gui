@@ -30,14 +30,17 @@ architectures.
 Performance investigator:: Start with <<_measuring_scaling>>, then use
 <<_understanding_captures>> to choose and interpret SQLite evidence views.
 Platform contributor:: Read <<_how_roc_gui_works>> before
-<<_contributing>>. These chapters cover host ownership, event routing, evidence
-ownership, validation, and feature completeness.
+<<_resource_access_and_trusted_grants>> and <<_contributing>>. These chapters
+cover host ownership, event routing, evidence ownership, validation, and feature
+completeness.
 
 include::overview.adoc[leveloffset=+1]
 
 include::getting-started.adoc[leveloffset=+1]
 
 include::platform-api.adoc[leveloffset=+1]
+
+include::resource-access.adoc[leveloffset=+1]
 
 include::specifications.adoc[leveloffset=+1]
 

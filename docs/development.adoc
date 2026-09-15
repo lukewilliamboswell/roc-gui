@@ -18,6 +18,11 @@ Run the affected benchmark family when a change touches rendering, routing,
 graph work, allocation, recording, or a scaling-sensitive data structure. Run
 the complete specification suite before integrating a cross-cutting change.
 
+When changing an effect, update `wip/resource-access-inventory.md` after reading
+the public API, hosted ABI, native owner, configuration source, and verifying
+specs. Mark missing enforcement or evidence `Unverified`; never infer security
+from an absent public function or an opaque Roc type.
+
 == Complete a platform feature
 
 A new element, property, event, or state mechanism is complete when it has:
@@ -30,6 +35,10 @@ A new element, property, event, or state mechanism is complete when it has:
 . a realistic scaling case for every dimension that can grow;
 . focused SQLite reporting for evidence that production code populates;
 . application-facing documentation.
+
+A resource feature additionally requires trusted authorization, OS-enforced
+scope, derivation and lifetime rules, revocation semantics, privacy review, and
+platform-boundary tests described in <<_resource_access_and_trusted_grants>>.
 
 Exercise recorder-disabled, enabled, saturated, output-limited, interrupted,
 and writer-failure paths when changing capture infrastructure. Timing is not a

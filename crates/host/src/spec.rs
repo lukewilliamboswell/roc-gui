@@ -28,17 +28,40 @@ pub struct Step {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Click(Locator),
+    Drag(Locator, i32, i32, i32, i32),
     ReplaceText(Locator, String),
     Focus(Locator),
     PressKey(ControlKey),
     AwaitTask,
+    ClipboardText(String),
     AwaitTicks(u32),
     ExpectSubscriptions(usize),
+    ExpectTcpStreams(usize),
+    ExpectProcesses(usize),
+    ExpectClipboardCounters([u64; 4]),
+    ExpectSqliteCounters([u64; 3]),
+    ExpectHttpCounters([u64; 4]),
+    ExpectTcpCounters([u64; 5]),
+    ExpectDeviceConnections(usize),
+    ExpectDeviceTransactions(usize),
+    ExpectSystemSamplers(usize),
+    ExpectSystemSamples(usize),
+    ExpectAudioCounters([u64; 9]),
+    ExpectFilePicks(u64),
+    ExpectFileLists(u64),
+    ExpectFileOpens(u64),
+    ExpectFileReads(u64),
+    ExpectFileSelectionCounters([u64; 7]),
+    ExpectFileLifecycleCounters([u64; 6]),
+    ExpectFileAccess([u64; 3]),
+    RevokeFileGrants,
+    ExpectImageOwnerCounters([u64; 4]),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
+    ExpectCanvasPrimitives(Locator, usize),
     ExpectValue(Locator, String),
     ExpectValueBytes(Locator, usize),
     ExpectImageBytes(Locator, usize),
@@ -51,17 +74,40 @@ impl Command {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Click(_) => "click",
+            Self::Drag(..) => "drag",
             Self::ReplaceText(_, _) => "replace-text",
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
+            Self::ClipboardText(_) => "clipboard-text",
             Self::AwaitTicks(_) => "await-ticks",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
+            Self::ExpectTcpStreams(_) => "expect-tcp-streams",
+            Self::ExpectProcesses(_) => "expect-processes",
+            Self::ExpectClipboardCounters(_) => "expect-clipboard-counters",
+            Self::ExpectSqliteCounters(_) => "expect-sqlite-counters",
+            Self::ExpectHttpCounters(_) => "expect-http-counters",
+            Self::ExpectTcpCounters(_) => "expect-tcp-counters",
+            Self::ExpectDeviceConnections(_) => "expect-device-connections",
+            Self::ExpectDeviceTransactions(_) => "expect-device-transactions",
+            Self::ExpectSystemSamplers(_) => "expect-system-samplers",
+            Self::ExpectSystemSamples(_) => "expect-system-samples",
+            Self::ExpectAudioCounters(_) => "expect-audio-counters",
+            Self::ExpectFilePicks(_) => "expect-file-picks",
+            Self::ExpectFileLists(_) => "expect-file-lists",
+            Self::ExpectFileOpens(_) => "expect-file-opens",
+            Self::ExpectFileReads(_) => "expect-file-reads",
+            Self::ExpectFileSelectionCounters(_) => "expect-file-selection-counters",
+            Self::ExpectFileLifecycleCounters(_) => "expect-file-lifecycle-counters",
+            Self::ExpectFileAccess(_) => "expect-file-access",
+            Self::RevokeFileGrants => "revoke-file-grants",
+            Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
+            Self::ExpectCanvasPrimitives(_, _) => "expect-canvas-primitives",
             Self::ExpectValue(_, _) => "expect-value",
             Self::ExpectValueBytes(_, _) => "expect-value-bytes",
             Self::ExpectImageBytes(_, _) => "expect-image-bytes",
@@ -75,12 +121,15 @@ impl Command {
         matches!(
             self,
             Self::Click(_)
+                | Self::Drag(..)
                 | Self::ReplaceText(_, _)
                 | Self::Focus(_)
                 | Self::PressKey(_)
                 | Self::AwaitTask
+                | Self::ClipboardText(_)
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
+                | Self::RevokeFileGrants
         )
     }
 }
@@ -108,6 +157,9 @@ pub enum Locator {
     VirtualListName(String),
     TextareaName(String),
     ImageName(String),
+    CanvasName(String),
+    CanvasItemName(String),
+    CanvasItemPrefix(String),
     TextInputName(String),
 }
 
@@ -236,7 +288,7 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
             ));
         }
         let verifies_scale = steps.iter().any(|step| {
-            matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
+            matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectCanvasPrimitives(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
         });
         if !verifies_scale {
             return Err(error(
@@ -345,6 +397,13 @@ fn parse_u32(node: &SExpr, value: &str, zero_allowed: bool) -> Result<u32, Parse
     Ok(parsed)
 }
 
+fn parse_i32(node: &SExpr, description: &str) -> Result<i32, ParseError> {
+    node.atom()
+        .ok_or_else(|| error(node, format!("{description} must be an integer")))?
+        .parse()
+        .map_err(|_| error(node, format!("{description} must be an integer")))
+}
+
 fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
     let values = require_list(node, "step")?;
     let head = values
@@ -353,6 +412,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         .ok_or_else(|| error(node, "step requires a command name"))?;
     let command = match head {
         "click" if values.len() == 2 => Command::Click(parse_locator(&values[1])?),
+        "drag" if values.len() == 6 => Command::Drag(
+            parse_locator(&values[1])?,
+            parse_i32(&values[2], "drag coordinate")?,
+            parse_i32(&values[3], "drag coordinate")?,
+            parse_i32(&values[4], "drag coordinate")?,
+            parse_i32(&values[5], "drag coordinate")?,
+        ),
         "replace-text" if values.len() == 3 => Command::ReplaceText(
             parse_locator(&values[1])?,
             values[2]
@@ -378,6 +444,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "await-task" if values.len() == 1 => Command::AwaitTask,
+        "clipboard-text" if values.len() == 2 => Command::ClipboardText(
+            values[1]
+                .string()
+                .ok_or_else(|| error(&values[1], "clipboard-text requires a string"))?
+                .to_owned(),
+        ),
         "await-ticks" if values.len() == 2 => Command::AwaitTicks(
             values[1]
                 .atom()
@@ -402,6 +474,197 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?,
         ),
+        "expect-tcp-streams" if values.len() == 2 => Command::ExpectTcpStreams(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-tcp-streams requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-tcp-streams requires a non-negative integer",
+                    )
+                })?,
+        ),
+        "expect-processes" if values.len() == 2 => Command::ExpectProcesses(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-processes requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-processes requires a non-negative integer",
+                    )
+                })?,
+        ),
+        "expect-clipboard-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "clipboard counters must be integers"))?
+                    .parse()
+                    .map_err(|_| {
+                        error(value, "clipboard counters must be non-negative integers")
+                    })?;
+            }
+            Command::ExpectClipboardCounters(expected)
+        }
+        "expect-sqlite-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "SQLite counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "SQLite counters must be non-negative integers"))?;
+            }
+            Command::ExpectSqliteCounters(expected)
+        }
+        "expect-http-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "HTTP counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "HTTP counters must be non-negative integers"))?;
+            }
+            Command::ExpectHttpCounters(expected)
+        }
+        "expect-tcp-counters" if values.len() == 6 => {
+            let mut expected = [0u64; 5];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "TCP counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "TCP counters must be non-negative integers"))?;
+            }
+            Command::ExpectTcpCounters(expected)
+        }
+        "expect-device-connections" if values.len() == 2 => Command::ExpectDeviceConnections(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-device-connections requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-device-connections requires a non-negative integer",
+                    )
+                })?,
+        ),
+        "expect-device-transactions" if values.len() == 2 => Command::ExpectDeviceTransactions(
+            values[1]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[1],
+                        "expect-device-transactions requires a non-negative integer",
+                    )
+                })?
+                .parse()
+                .map_err(|_| {
+                    error(
+                        &values[1],
+                        "expect-device-transactions requires a non-negative integer",
+                    )
+                })?,
+        ),
+        "expect-system-samplers" if values.len() == 2 => {
+            Command::ExpectSystemSamplers(parse_non_negative(&values[1], "expect-system-samplers")?)
+        }
+        "expect-system-samples" if values.len() == 2 => {
+            Command::ExpectSystemSamples(parse_non_negative(&values[1], "expect-system-samples")?)
+        }
+        "expect-audio-counters" if values.len() == 10 => {
+            let mut expected = [0u64; 9];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "audio counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "audio counters must be non-negative integers"))?;
+            }
+            Command::ExpectAudioCounters(expected)
+        }
+        "expect-file-picks" | "expect-file-lists" | "expect-file-opens" | "expect-file-reads"
+            if values.len() == 2 =>
+        {
+            let expected = values[1]
+                .atom()
+                .ok_or_else(|| error(&values[1], "file counter must be an integer"))?
+                .parse()
+                .map_err(|_| error(&values[1], "file counter must be a non-negative integer"))?;
+            match head {
+                "expect-file-picks" => Command::ExpectFilePicks(expected),
+                "expect-file-lists" => Command::ExpectFileLists(expected),
+                "expect-file-opens" => Command::ExpectFileOpens(expected),
+                _ => Command::ExpectFileReads(expected),
+            }
+        }
+        "expect-image-owner-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "image owner counters must be integers"))?
+                    .parse()
+                    .map_err(|_| {
+                        error(value, "image owner counters must be non-negative integers")
+                    })?;
+            }
+            Command::ExpectImageOwnerCounters(expected)
+        }
+        "expect-file-selection-counters" if values.len() == 8 => {
+            let mut expected = [0u64; 7];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "file selection counters must be integers"))?
+                    .parse()
+                    .map_err(|_| {
+                        error(
+                            value,
+                            "file selection counters must be non-negative integers",
+                        )
+                    })?;
+            }
+            Command::ExpectFileSelectionCounters(expected)
+        }
+        "expect-file-lifecycle-counters" if values.len() == 7 => {
+            let mut expected = [0u64; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] =
+                    parse_non_negative(value, "expect-file-lifecycle-counters")? as u64;
+            }
+            Command::ExpectFileLifecycleCounters(expected)
+        }
+        "expect-file-access" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-file-access")? as u64;
+            }
+            Command::ExpectFileAccess(expected)
+        }
+        "revoke-file-grants" if values.len() == 1 => Command::RevokeFileGrants,
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -415,6 +678,24 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 .parse::<usize>()
                 .map_err(|_| error(&values[2], "expect-count requires a non-negative integer"))?;
             Command::ExpectCount(parse_locator(&values[1])?, expected)
+        }
+        "expect-canvas-primitives" if values.len() == 3 => {
+            let expected = values[2]
+                .atom()
+                .ok_or_else(|| {
+                    error(
+                        &values[2],
+                        "expect-canvas-primitives requires a non-negative integer",
+                    )
+                })?
+                .parse::<usize>()
+                .map_err(|_| {
+                    error(
+                        &values[2],
+                        "expect-canvas-primitives requires a non-negative integer",
+                    )
+                })?;
+            Command::ExpectCanvasPrimitives(parse_locator(&values[1])?, expected)
         }
         "expect-value" if values.len() == 3 => Command::ExpectValue(
             parse_locator(&values[1])?,
@@ -479,15 +760,38 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click"
+        | "drag"
         | "replace-text"
         | "focus"
         | "press-key"
         | "await-task"
+        | "clipboard-text"
         | "await-ticks"
         | "expect-subscriptions"
+        | "expect-tcp-streams"
+        | "expect-processes"
+        | "expect-clipboard-counters"
+        | "expect-sqlite-counters"
+        | "expect-http-counters"
+        | "expect-tcp-counters"
+        | "expect-device-connections"
+        | "expect-device-transactions"
+        | "expect-system-samplers"
+        | "expect-system-samples"
+        | "expect-audio-counters"
+        | "expect-file-picks"
+        | "expect-file-lists"
+        | "expect-file-opens"
+        | "expect-file-reads"
+        | "expect-file-selection-counters"
+        | "expect-file-lifecycle-counters"
+        | "expect-file-access"
+        | "revoke-file-grants"
+        | "expect-image-owner-counters"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
+        | "expect-canvas-primitives"
         | "expect-before"
         | "expect-patch"
         | "expect-value"
@@ -520,10 +824,34 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .string()
             .map(|value| Locator::CheckboxPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "checkbox-prefix locator requires a string")),
+        Some("canvas-item-prefix") if values.len() == 2 => values[1]
+            .string()
+            .map(|value| Locator::CanvasItemPrefix(value.to_owned()))
+            .ok_or_else(|| error(node, "canvas-item-prefix locator requires a string")),
         Some("button-prefix") if values.len() == 2 => values[1]
             .string()
             .map(|value| Locator::ButtonPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "button-prefix locator requires a string")),
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("canvas-item")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::CanvasItemName(value.to_owned()))
+                .ok_or_else(|| error(node, "canvas item name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("canvas")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::CanvasName(value.to_owned()))
+                .ok_or_else(|| error(node, "canvas name must be a string"))
+        }
         Some("role")
             if values.len() == 4
                 && values[1].atom() == Some("dialog")
@@ -636,7 +964,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, column, dialog, image, panel, row, scroll, textarea, textbox, and virtual-list",
+            "supported roles are button, canvas, canvas-item, checkbox, column, dialog, image, panel, row, scroll, textarea, textbox, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -653,6 +981,14 @@ fn error(node: &SExpr, message: impl Into<String>) -> ParseError {
         line: node.line(),
         message: message.into(),
     }
+}
+
+fn parse_non_negative(node: &SExpr, command: &str) -> Result<usize, ParseError> {
+    let message = || format!("{command} requires a non-negative integer");
+    node.atom()
+        .ok_or_else(|| error(node, message()))?
+        .parse()
+        .map_err(|_| error(node, message()))
 }
 
 struct Parser<'a> {
@@ -824,6 +1160,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parses_clipboard_fixture_changes_without_exposing_an_ambient_source() {
+        let spec = parse(
+            r#"(test "clipboard"
+                (steps (clipboard-text "comparison value") (await-ticks 1)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ClipboardText("comparison value".into())
+        );
+    }
+
+    #[test]
+    fn parses_native_owner_counter_assertions() {
+        let clipboard =
+            parse(r#"(test "clipboard counters" (steps (expect-clipboard-counters 1 2 3 4)))"#)
+                .unwrap();
+        assert!(matches!(
+            clipboard.steps[0].command,
+            Command::ExpectClipboardCounters([1, 2, 3, 4])
+        ));
+        let sqlite =
+            parse(r#"(test "SQLite counters" (steps (expect-sqlite-counters 1 2 3)))"#).unwrap();
+        assert!(matches!(
+            sqlite.steps[0].command,
+            Command::ExpectSqliteCounters([1, 2, 3])
+        ));
+        let http =
+            parse(r#"(test "HTTP counters" (steps (expect-http-counters 1 2 3 4)))"#).unwrap();
+        assert!(matches!(
+            http.steps[0].command,
+            Command::ExpectHttpCounters([1, 2, 3, 4])
+        ));
+        let tcp =
+            parse(r#"(test "TCP counters" (steps (expect-tcp-counters 1 2 3 4 5)))"#).unwrap();
+        assert!(matches!(
+            tcp.steps[0].command,
+            Command::ExpectTcpCounters([1, 2, 3, 4, 5])
+        ));
+    }
+
+    #[test]
     fn parses_semantic_test_and_comments() {
         let spec = parse(
             r#"(test "counter"
@@ -844,6 +1222,12 @@ mod tests {
             parse(r#"(test "timer" (steps (expect-subscriptions 1) (await-ticks 12)))"#).unwrap();
         assert_eq!(spec.steps[0].command, Command::ExpectSubscriptions(1));
         assert_eq!(spec.steps[1].command, Command::AwaitTicks(12));
+    }
+
+    #[test]
+    fn parses_process_lifecycle_steps() {
+        let spec = parse("(test \"process\" (steps (expect-processes 1)))").unwrap();
+        assert_eq!(spec.steps[0].command, Command::ExpectProcesses(1));
     }
 
     #[test]
@@ -991,6 +1375,29 @@ mod tests {
             &spec.steps[2].command,
             Command::ExpectPatch(PatchExpectation { kind, staged: 7, removed: 2 }) if kind == "replace"
         ));
+    }
+
+    #[test]
+    fn parses_canvas_drag_and_primitive_locator() {
+        let spec = parse(
+            r#"(test "canvas" (steps
+            (drag (role canvas :name "Stage") -2 3 40 50)
+            (expect-visible (role canvas-item :name "Card"))))"#,
+        )
+        .unwrap();
+        assert!(
+            matches!(&spec.steps[0].command, Command::Drag(Locator::CanvasName(name), -2, 3, 40, 50) if name == "Stage")
+        );
+        assert!(
+            matches!(&spec.steps[1].command, Command::ExpectVisible(Locator::CanvasItemName(name)) if name == "Card")
+        );
+    }
+
+    #[test]
+    fn parses_file_owner_counters() {
+        let spec = parse(r#"(test "files" (steps (expect-file-picks 1) (expect-file-lists 2) (expect-file-opens 3) (expect-file-reads 4)))"#).unwrap();
+        assert!(matches!(spec.steps[0].command, Command::ExpectFilePicks(1)));
+        assert!(matches!(spec.steps[3].command, Command::ExpectFileReads(4)));
     }
 
     #[test]

@@ -43,6 +43,11 @@ type NodeSet = HashSet<u64, BuildHasherDefault<NodeIdHasher>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
+    Canvas {
+        label: String,
+        primitives: Vec<CanvasPrimitive>,
+        style: Style,
+    },
     Button {
         caption: String,
         label: String,
@@ -106,6 +111,30 @@ pub enum NodeKind {
         style: Style,
     },
     Text(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CanvasPrimitive {
+    pub kind: CanvasPrimitiveKind,
+    pub key: u64,
+    pub label: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub x2: i32,
+    pub y2: i32,
+    pub fill: Option<u32>,
+    pub stroke: Option<u32>,
+    pub stroke_width: u32,
+    pub radius: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CanvasPrimitiveKind {
+    Ellipse,
+    Line,
+    Rectangle,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -811,6 +840,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
             | NodeKind::Image { .. }
+            | NodeKind::Canvas { .. }
             | NodeKind::TextInput { .. }
                 if !node.children.is_empty() =>
             {
@@ -899,6 +929,7 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
             | NodeKind::Image { .. }
+            | NodeKind::Canvas { .. }
             | NodeKind::TextInput { .. }
                 if !node.children.is_empty() =>
             {

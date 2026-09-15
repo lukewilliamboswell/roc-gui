@@ -8,4 +8,5 @@
     (click (role button :name "Run query"))
     (await-task)
     (expect-visible (role panel :name "Database error"))
-    (expect-visible (text "only read-only SQLite statements are allowed"))))
+    (expect-visible (text "only read-only SQLite statements are allowed"))
+    (expect-sqlite-counters 1 1 2)))

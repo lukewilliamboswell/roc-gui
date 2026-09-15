@@ -54,6 +54,26 @@ to each measured cycle?
 `spec_results`:: Which individual steps passed, and what counts or diagnostics
 did they record?
 
+Audio counter assertions retain their complete expected and observed vectors in
+`audio_counter_assertions`. The columns cover live output and track resources,
+then acquire, load, play, pause, seek, status, and stop operations. Each row is
+owned by the assertion step that sampled the production audio host.
+
+Clipboard and SQLite assertions likewise retain complete vectors in
+`clipboard_counter_assertions` and `database_counter_assertions`. Clipboard rows
+record live handles and acquire, read, and write attempts. SQLite rows record
+live connections and open and query attempts. These are correctness counters
+sampled directly from the capability owners; unavailable evidence is absent.
+
+HTTP assertions retain live clients plus acquire, send, and denied-operation
+counters in `http_counter_assertions`. Transport cancellation is not recorded
+because the HTTP capability does not expose it; stale reducer suppression does
+not fabricate cancellation evidence.
+
+TCP assertions retain live streams and connect, read, write, and close attempts
+in `tcp_counter_assertions`. Endpoint, Redis key, and Redis value text are not
+capture fields.
+
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.
@@ -109,6 +129,12 @@ A capture stores comparison-relevant build, executable, workload, recorder,
 operating-system, architecture, and CPU properties. It never stores usernames,
 home-directory paths, hostnames, environment variables, command lines,
 application text or state, native pointers, or machine identifiers.
+
+Grant tokens, selected resource names and paths, trusted-dialog contents,
+network destinations, device identifiers, clipboard values, and capture-source
+identities are likewise excluded. Resource owners record bounded categories and
+counters; unavailable authority or enforcement evidence remains absent rather
+than being reconstructed from diagnostics.
 
 Compiler and application revisions are represented as unavailable unless they
 are supplied by their owning build process. Missing identity weakens a

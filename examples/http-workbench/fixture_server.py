@@ -6,20 +6,24 @@ import socketserver
 import time
 from pathlib import Path
 
-
 class Handler(socketserver.StreamRequestHandler):
     def handle(self):
         request = self.rfile.readline().decode("ascii").split()
         if len(request) != 3:
             return
-        _method, path, _version = request
+        method, path, _version = request
         headers = {}
         while line := self.rfile.readline():
             if line == b"\r\n":
                 break
             name, value = line.decode("ascii").split(":", 1)
             headers[name.lower()] = value.strip()
-        body = self.rfile.read(int(headers.get("content-length", "0")))
+        if method == "GET":
+            body = f"GET {path} {headers.get('x-workbench', '')}".encode()
+            content_type = "text/plain"
+        else:
+            body = self.rfile.read(int(headers.get("content-length", "0")))
+            content_type = "application/json"
         if path == "/slow":
             time.sleep(0.15)
         if path == "/large":
@@ -28,9 +32,12 @@ class Handler(socketserver.StreamRequestHandler):
             body = b"x" * 200000
         response_headers = (
             "HTTP/1.1 200 OK\r\n"
-            "content-type: application/json\r\n"
+            "server: roc-gui-fixture\r\n"
+            "date: Thu, 01 Jan 1970 00:00:00 GMT\r\n"
+            f"content-type: {content_type}\r\n"
+            "x-fixture: http-workbench\r\n"
             f"content-length: {len(body)}\r\n"
-            "connection: close\r\n\r\n"
+            "\r\n"
         ).encode("ascii")
         self.wfile.write(response_headers + body)
 

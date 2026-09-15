@@ -1533,6 +1533,131 @@ const _: () = assert!(core::mem::size_of::<AnonStructBf9e65828680722a>() == 80, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructBf9e65828680722a>() == 4, "AnonStructBf9e65828680722a alignment mismatch");
 
+/// Element type for __AnonStruct_1cd73c88e8aa8818
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1cd73c88e8aa8818 {
+    pub label: RocStr,
+    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub bg: u32,
+    pub border_color: u32,
+    pub border_width: u32,
+    pub height: u32,
+    pub radius: u32,
+    pub width: u32,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub width_kind: u8,
+}
+
+/// Element type for __AnonStruct_1cd73c88e8aa8818
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1cd73c88e8aa8818 {
+    pub label: RocStr,
+    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub bg: u32,
+    pub border_color: u32,
+    pub border_width: u32,
+    pub height: u32,
+    pub radius: u32,
+    pub width: u32,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1cd73c88e8aa8818>() == 80, "AnonStruct1cd73c88e8aa8818 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1cd73c88e8aa8818>() == 8, "AnonStruct1cd73c88e8aa8818 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1cd73c88e8aa8818>() == 52, "AnonStruct1cd73c88e8aa8818 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1cd73c88e8aa8818>() == 4, "AnonStruct1cd73c88e8aa8818 alignment mismatch");
+
+/// Element type for __AnonStruct_6d9cdb5c6eba22bc
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct6d9cdb5c6eba22bc {
+    pub key: u64,
+    pub label: RocStr,
+    pub fill: u32,
+    pub height: u32,
+    pub radius: u32,
+    pub stroke: u32,
+    pub stroke_width: u32,
+    pub width: u32,
+    pub x: i32,
+    pub x2: i32,
+    pub y: i32,
+    pub y2: i32,
+    pub kind: u8,
+}
+
+/// Element type for __AnonStruct_6d9cdb5c6eba22bc
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct6d9cdb5c6eba22bc {
+    pub key: u64,
+    pub label: RocStr,
+    pub fill: u32,
+    pub height: u32,
+    pub radius: u32,
+    pub stroke: u32,
+    pub stroke_width: u32,
+    pub width: u32,
+    pub x: i32,
+    pub x2: i32,
+    pub y: i32,
+    pub y2: i32,
+    pub kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct6d9cdb5c6eba22bc>() == 80, "AnonStruct6d9cdb5c6eba22bc size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct6d9cdb5c6eba22bc>() == 8, "AnonStruct6d9cdb5c6eba22bc alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct6d9cdb5c6eba22bc>() == 64, "AnonStruct6d9cdb5c6eba22bc size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct6d9cdb5c6eba22bc>() == 8, "AnonStruct6d9cdb5c6eba22bc alignment mismatch");
+
+/// Element type for __AnonStruct_b2e41b851da291a
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructB2e41b851da291a {
+    pub target: u64,
+    pub x: i32,
+    pub y: i32,
+    pub phase: u8,
+}
+
+/// Element type for __AnonStruct_b2e41b851da291a
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructB2e41b851da291a {
+    pub target: u64,
+    pub x: i32,
+    pub y: i32,
+    pub phase: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructB2e41b851da291a>() == 24, "AnonStructB2e41b851da291a size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructB2e41b851da291a>() == 8, "AnonStructB2e41b851da291a alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructB2e41b851da291a>() == 24, "AnonStructB2e41b851da291a size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructB2e41b851da291a>() == 8, "AnonStructB2e41b851da291a alignment mismatch");
+
 /// Element type for __AnonStruct_dc4c26f806dfc5bf
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -1714,6 +1839,256 @@ const _: () = assert!(core::mem::size_of::<AnonStructBff7bc5a4faa26ae>() == 48, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructBff7bc5a4faa26ae>() == 8, "AnonStructBff7bc5a4faa26ae alignment mismatch");
 
+/// Element type for __AnonStruct_2a44a28a63f85620
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct2a44a28a63f85620 {
+    pub sequence: u64,
+    pub text: RocStr,
+}
+
+/// Element type for __AnonStruct_2a44a28a63f85620
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct2a44a28a63f85620 {
+    pub sequence: u64,
+    pub text: RocStr,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct2a44a28a63f85620>() == 32, "AnonStruct2a44a28a63f85620 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct2a44a28a63f85620>() == 8, "AnonStruct2a44a28a63f85620 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct2a44a28a63f85620>() == 24, "AnonStruct2a44a28a63f85620 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct2a44a28a63f85620>() == 8, "AnonStruct2a44a28a63f85620 alignment mismatch");
+
+/// Element type for __AnonStruct_8e993eac1f1cd0c
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct8e993eac1f1cd0c {
+    pub duration_ms: u64,
+    pub track: *mut u64,
+}
+
+/// Element type for __AnonStruct_8e993eac1f1cd0c
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct8e993eac1f1cd0c {
+    pub duration_ms: u64,
+    pub track: *mut u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct8e993eac1f1cd0c>() == 16, "AnonStruct8e993eac1f1cd0c size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct8e993eac1f1cd0c>() == 8, "AnonStruct8e993eac1f1cd0c alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct8e993eac1f1cd0c>() == 16, "AnonStruct8e993eac1f1cd0c size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct8e993eac1f1cd0c>() == 8, "AnonStruct8e993eac1f1cd0c alignment mismatch");
+
+/// Element type for __AnonStruct_18a809e7fe3ae87a
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct18a809e7fe3ae87a {
+    pub duration_ms: u64,
+    pub position_ms: u64,
+    pub state: u8,
+}
+
+/// Element type for __AnonStruct_18a809e7fe3ae87a
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct18a809e7fe3ae87a {
+    pub duration_ms: u64,
+    pub position_ms: u64,
+    pub state: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct18a809e7fe3ae87a>() == 24, "AnonStruct18a809e7fe3ae87a size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct18a809e7fe3ae87a>() == 8, "AnonStruct18a809e7fe3ae87a alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct18a809e7fe3ae87a>() == 24, "AnonStruct18a809e7fe3ae87a size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct18a809e7fe3ae87a>() == 8, "AnonStruct18a809e7fe3ae87a alignment mismatch");
+
+/// Element type for __AnonStruct_93136bf334c2a2fc
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct93136bf334c2a2fc {
+    pub columns: u16,
+    pub rows: u16,
+}
+
+/// Element type for __AnonStruct_93136bf334c2a2fc
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct93136bf334c2a2fc {
+    pub columns: u16,
+    pub rows: u16,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct93136bf334c2a2fc>() == 4, "AnonStruct93136bf334c2a2fc size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct93136bf334c2a2fc>() == 2, "AnonStruct93136bf334c2a2fc alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct93136bf334c2a2fc>() == 4, "AnonStruct93136bf334c2a2fc size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct93136bf334c2a2fc>() == 2, "AnonStruct93136bf334c2a2fc alignment mismatch");
+
+/// Element type for __AnonStruct_27556b2f7cb4f65f
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct27556b2f7cb4f65f {
+    pub manufacturer: RocStr,
+    pub product: RocStr,
+    pub product_id: u16,
+    pub vendor_id: u16,
+}
+
+/// Element type for __AnonStruct_27556b2f7cb4f65f
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct27556b2f7cb4f65f {
+    pub manufacturer: RocStr,
+    pub product: RocStr,
+    pub product_id: u16,
+    pub vendor_id: u16,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct27556b2f7cb4f65f>() == 56, "AnonStruct27556b2f7cb4f65f size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct27556b2f7cb4f65f>() == 8, "AnonStruct27556b2f7cb4f65f alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct27556b2f7cb4f65f>() == 28, "AnonStruct27556b2f7cb4f65f size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct27556b2f7cb4f65f>() == 4, "AnonStruct27556b2f7cb4f65f alignment mismatch");
+
+/// Element type for __AnonStruct_98efc21233c140ff
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct98efc21233c140ff {
+    pub disk_read_bytes: u64,
+    pub disk_written_bytes: u64,
+    pub memory_total_bytes: u64,
+    pub memory_used_bytes: u64,
+    pub network_received_bytes: u64,
+    pub network_transmitted_bytes: u64,
+    pub sequence: u64,
+    pub processes: RocList<AnonStruct916a0c1ad2ed4712>,
+    pub cpu_tenths: u16,
+    pub cpu_available: bool,
+    pub disk_available: bool,
+    pub memory_available: bool,
+    pub network_available: bool,
+    pub processes_available: bool,
+}
+
+/// Element type for __AnonStruct_98efc21233c140ff
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct98efc21233c140ff {
+    pub disk_read_bytes: u64,
+    pub disk_written_bytes: u64,
+    pub memory_total_bytes: u64,
+    pub memory_used_bytes: u64,
+    pub network_received_bytes: u64,
+    pub network_transmitted_bytes: u64,
+    pub sequence: u64,
+    pub processes: RocList<AnonStruct916a0c1ad2ed4712>,
+    pub cpu_tenths: u16,
+    pub cpu_available: bool,
+    pub disk_available: bool,
+    pub memory_available: bool,
+    pub network_available: bool,
+    pub processes_available: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct98efc21233c140ff>() == 88, "AnonStruct98efc21233c140ff size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct98efc21233c140ff>() == 8, "AnonStruct98efc21233c140ff alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct98efc21233c140ff>() == 80, "AnonStruct98efc21233c140ff size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct98efc21233c140ff>() == 8, "AnonStruct98efc21233c140ff alignment mismatch");
+
+/// Element type for __AnonStruct_916a0c1ad2ed4712
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct916a0c1ad2ed4712 {
+    pub memory_bytes: u64,
+    pub pid: u64,
+    pub name: RocStr,
+    pub cpu_tenths: u16,
+}
+
+/// Element type for __AnonStruct_916a0c1ad2ed4712
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct916a0c1ad2ed4712 {
+    pub memory_bytes: u64,
+    pub pid: u64,
+    pub name: RocStr,
+    pub cpu_tenths: u16,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct916a0c1ad2ed4712>() == 48, "AnonStruct916a0c1ad2ed4712 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct916a0c1ad2ed4712>() == 8, "AnonStruct916a0c1ad2ed4712 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct916a0c1ad2ed4712>() == 32, "AnonStruct916a0c1ad2ed4712 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct916a0c1ad2ed4712>() == 8, "AnonStruct916a0c1ad2ed4712 alignment mismatch");
+
+/// Element type for __AnonStruct_b3b29ac2cb34a461
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructB3b29ac2cb34a461 {
+    pub height: u32,
+    pub width: u32,
+}
+
+/// Element type for __AnonStruct_b3b29ac2cb34a461
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructB3b29ac2cb34a461 {
+    pub height: u32,
+    pub width: u32,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructB3b29ac2cb34a461>() == 8, "AnonStructB3b29ac2cb34a461 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructB3b29ac2cb34a461>() == 4, "AnonStructB3b29ac2cb34a461 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructB3b29ac2cb34a461>() == 8, "AnonStructB3b29ac2cb34a461 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructB3b29ac2cb34a461>() == 4, "AnonStructB3b29ac2cb34a461 alignment mismatch");
+
 /// Element type for __AnonStruct_8ae3ad5a5c0e22dc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -1766,98 +2141,129 @@ const _: () = assert!(core::mem::size_of::<AnonStruct8d3c9b3ac95ef074>() == 16, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct8d3c9b3ac95ef074>() == 8, "AnonStruct8d3c9b3ac95ef074 alignment mismatch");
 
-/// Element type for __AnonStruct_4cc00b7fc76acdb9
+/// Element type for __AnonStruct_be6bcbc15f8a1360
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct4cc00b7fc76acdb9 {
-    pub body: RocStr,
-    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+pub struct AnonStructBe6bcbc15f8a1360 {
+    pub body: RocListWith<u8, false>,
+    pub headers: RocList<AnonStruct77eaba63dfee299d>,
     pub status: u16,
 }
 
-/// Element type for __AnonStruct_4cc00b7fc76acdb9
+/// Element type for __AnonStruct_be6bcbc15f8a1360
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct4cc00b7fc76acdb9 {
-    pub body: RocStr,
-    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+pub struct AnonStructBe6bcbc15f8a1360 {
+    pub body: RocListWith<u8, false>,
+    pub headers: RocList<AnonStruct77eaba63dfee299d>,
     pub status: u16,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct4cc00b7fc76acdb9>() == 56, "AnonStruct4cc00b7fc76acdb9 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructBe6bcbc15f8a1360>() == 56, "AnonStructBe6bcbc15f8a1360 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct4cc00b7fc76acdb9>() == 8, "AnonStruct4cc00b7fc76acdb9 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructBe6bcbc15f8a1360>() == 8, "AnonStructBe6bcbc15f8a1360 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct4cc00b7fc76acdb9>() == 28, "AnonStruct4cc00b7fc76acdb9 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructBe6bcbc15f8a1360>() == 28, "AnonStructBe6bcbc15f8a1360 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct4cc00b7fc76acdb9>() == 4, "AnonStruct4cc00b7fc76acdb9 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructBe6bcbc15f8a1360>() == 4, "AnonStructBe6bcbc15f8a1360 alignment mismatch");
 
-/// Element type for __AnonStruct_82a96c5d55d63488
+/// Element type for __AnonStruct_77eaba63dfee299d
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct82a96c5d55d63488 {
-    pub name: RocStr,
-    pub value: RocStr,
+pub struct AnonStruct77eaba63dfee299d {
+    pub _0: RocStr,
+    pub _1: RocStr,
 }
 
-/// Element type for __AnonStruct_82a96c5d55d63488
+/// Element type for __AnonStruct_77eaba63dfee299d
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct82a96c5d55d63488 {
-    pub name: RocStr,
-    pub value: RocStr,
+pub struct AnonStruct77eaba63dfee299d {
+    pub _0: RocStr,
+    pub _1: RocStr,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct82a96c5d55d63488>() == 48, "AnonStruct82a96c5d55d63488 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct77eaba63dfee299d>() == 48, "AnonStruct77eaba63dfee299d size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct82a96c5d55d63488>() == 8, "AnonStruct82a96c5d55d63488 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct77eaba63dfee299d>() == 8, "AnonStruct77eaba63dfee299d alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct82a96c5d55d63488>() == 24, "AnonStruct82a96c5d55d63488 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct77eaba63dfee299d>() == 24, "AnonStruct77eaba63dfee299d size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct82a96c5d55d63488>() == 4, "AnonStruct82a96c5d55d63488 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct77eaba63dfee299d>() == 4, "AnonStruct77eaba63dfee299d alignment mismatch");
 
-/// Element type for __AnonStruct_33f5020bd57cc2ec
+/// Element type for __AnonStruct_e6f574a7975f5cda
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct33f5020bd57cc2ec {
+pub struct AnonStructE6f574a7975f5cda {
     pub max_response_bytes: u64,
     pub timeout_ms: u64,
-    pub body: RocStr,
-    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub body: RocListWith<u8, false>,
+    pub client: *mut u64,
+    pub headers: RocList<AnonStruct77eaba63dfee299d>,
+    pub method_ext: RocStr,
     pub url: RocStr,
     pub max_redirects: u8,
-    pub method: GetOrPost,
+    pub method: u8,
 }
 
-/// Element type for __AnonStruct_33f5020bd57cc2ec
+/// Element type for __AnonStruct_e6f574a7975f5cda
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct33f5020bd57cc2ec {
+pub struct AnonStructE6f574a7975f5cda {
     pub max_response_bytes: u64,
     pub timeout_ms: u64,
-    pub body: RocStr,
-    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub body: RocListWith<u8, false>,
+    pub client: *mut u64,
+    pub headers: RocList<AnonStruct77eaba63dfee299d>,
+    pub method_ext: RocStr,
     pub url: RocStr,
     pub max_redirects: u8,
-    pub method: GetOrPost,
+    pub method: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct33f5020bd57cc2ec>() == 96, "AnonStruct33f5020bd57cc2ec size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructE6f574a7975f5cda>() == 128, "AnonStructE6f574a7975f5cda size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct33f5020bd57cc2ec>() == 8, "AnonStruct33f5020bd57cc2ec alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructE6f574a7975f5cda>() == 8, "AnonStructE6f574a7975f5cda alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct33f5020bd57cc2ec>() == 56, "AnonStruct33f5020bd57cc2ec size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructE6f574a7975f5cda>() == 72, "AnonStructE6f574a7975f5cda size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct33f5020bd57cc2ec>() == 8, "AnonStruct33f5020bd57cc2ec alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructE6f574a7975f5cda>() == 8, "AnonStructE6f574a7975f5cda alignment mismatch");
+
+/// Element type for __AnonStruct_a2f37e1d5ed0e4cd
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructA2f37e1d5ed0e4cd {
+    pub value: RocStr,
+    pub found: bool,
+}
+
+/// Element type for __AnonStruct_a2f37e1d5ed0e4cd
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructA2f37e1d5ed0e4cd {
+    pub value: RocStr,
+    pub found: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructA2f37e1d5ed0e4cd>() == 32, "AnonStructA2f37e1d5ed0e4cd size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructA2f37e1d5ed0e4cd>() == 8, "AnonStructA2f37e1d5ed0e4cd alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructA2f37e1d5ed0e4cd>() == 16, "AnonStructA2f37e1d5ed0e4cd size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructA2f37e1d5ed0e4cd>() == 4, "AnonStructA2f37e1d5ed0e4cd alignment mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -1870,7 +2276,7 @@ pub enum FilesDirListResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union FilesDirListResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
     pub ok: core::mem::ManuallyDrop<RocList<AnonStruct770b9d9b3d3d255>>,
 }
 
@@ -1904,8 +2310,8 @@ impl FilesDirListResult {
     /// # Safety
     /// `self.tag` must be `FilesDirListResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -1913,8 +2319,8 @@ impl FilesDirListResult {
     /// # Safety
     /// `self.tag` must be `FilesDirListResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr> as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -1922,8 +2328,8 @@ impl FilesDirListResult {
     /// # Safety
     /// `self.tag` must be `FilesDirListResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -1931,7 +2337,7 @@ impl FilesDirListResult {
     /// # Safety
     /// `self.tag` must be `FilesDirListResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -1986,213 +2392,289 @@ const _: () = assert!(core::mem::align_of::<FilesDirListResult>() == 4, "FilesDi
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(FilesDirListResult, tag) == 12, "FilesDirListResult tag offset mismatch");
 
-/// Tag discriminant for ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr.
+/// Tag discriminant for ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag {
+pub enum ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag {
     ListDirectoryErr = 0,
-    OpenReadDirectoryErr = 1,
-    PickDirectoryErr = 2,
-    ReadFileErr = 3,
+    OpenAppDataErr = 1,
+    OpenReadDirectoryErr = 2,
+    PickDirectoryErr = 3,
+    ReadFileErr = 4,
+    WriteFileErr = 5,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayload {
-    pub list_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>,
-    pub open_read_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>,
-    pub pick_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>,
-    pub read_file_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>,
+pub union ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload {
+    pub list_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+    pub open_app_data_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+    pub open_read_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+    pub pick_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+    pub read_file_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+    pub write_file_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
 }
 
 #[cfg(target_pointer_width = "32")]
 #[repr(align(1))]
 #[derive(Clone, Copy)]
-pub struct ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayloadAlignment;
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayloadAlignment;
 
-/// Tag union: ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr
+/// Tag union: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-    pub _payload_alignment: [ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayloadAlignment; 0],
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+    pub _payload_alignment: [ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayloadAlignment; 0],
     pub payload: [u8; 1],
-    pub tag: ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag,
+    pub tag: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag,
 }
 
-/// Tag union: ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr
+/// Tag union: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-    pub payload: ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayload,
-    pub tag: ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag,
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+    pub payload: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload,
+    pub tag: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag,
 }
 
-impl ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
+impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
     /// Borrow the `ListDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ListDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_list_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_list_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Borrow the `ListDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ListDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_list_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(&self.payload.list_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_list_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.list_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `ListDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_list_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn take_payload_list_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `ListDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_list_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
+    pub unsafe fn take_payload_list_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.list_directory_err) }
     }
 
-    /// Borrow the `OpenReadDirectoryErr` payload without creating another owner.
+    /// Borrow the `OpenAppDataErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_open_read_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_open_app_data_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Borrow the `OpenAppDataErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_open_app_data_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.open_app_data_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `OpenAppDataErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_open_app_data_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `OpenAppDataErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_open_app_data_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.open_app_data_err) }
     }
 
     /// Borrow the `OpenReadDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_open_read_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Borrow the `OpenReadDirectoryErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_open_read_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(&self.payload.open_read_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_open_read_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.open_read_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `OpenReadDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_open_read_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn take_payload_open_read_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `OpenReadDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_open_read_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
+    pub unsafe fn take_payload_open_read_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.open_read_directory_err) }
     }
 
     /// Borrow the `PickDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::PickDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_pick_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_pick_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Borrow the `PickDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::PickDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_pick_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(&self.payload.pick_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_pick_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.pick_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `PickDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_pick_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn take_payload_pick_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `PickDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_pick_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
+    pub unsafe fn take_payload_pick_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.pick_directory_err) }
     }
 
     /// Borrow the `ReadFileErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ReadFileErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_read_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_read_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Borrow the `ReadFileErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ReadFileErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_read_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { &*(&self.payload.read_file_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn borrow_payload_read_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.read_file_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `ReadFileErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_read_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported) }
+    pub unsafe fn take_payload_read_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
     }
 
     /// Move the `ReadFileErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_read_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
+    pub unsafe fn take_payload_read_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.read_file_err) }
+    }
+
+    /// Borrow the `WriteFileErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_write_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Borrow the `WriteFileErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_write_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.write_file_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `WriteFileErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_write_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `WriteFileErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_write_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.write_file_err) }
     }
 
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>() == 2, "ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr size mismatch");
+const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 2, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>() == 1, "ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr alignment mismatch");
+const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr alignment mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr, tag) == 1, "ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr, tag) == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>() == 2, "ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr size mismatch");
+const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 2, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>() == 1, "ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr alignment mismatch");
+const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr, tag) == 1, "ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr, tag) == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr tag offset mismatch");
 
-/// Tag union: AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported
+/// Tag union: AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
+pub enum AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
     AccessDenied = 0,
     InvalidCapability = 1,
     InvalidName = 2,
@@ -2201,18 +2683,19 @@ pub enum AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirec
     NotDirectory = 5,
     NotFound = 6,
     ResourceLimit = 7,
-    Unavailable = 8,
-    Unsupported = 9,
+    Revoked = 8,
+    Unavailable = 9,
+    Unsupported = 10,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>() == 1, "AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported alignment mismatch");
 
 /// Tag discriminant for NoneOrSome.
 #[repr(u8)]
@@ -2335,7 +2818,7 @@ pub enum FilesDirOpenReadDirResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union FilesDirOpenReadDirResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
     pub ok: core::mem::ManuallyDrop<*mut u64>,
 }
 
@@ -2369,8 +2852,8 @@ impl FilesDirOpenReadDirResult {
     /// # Safety
     /// `self.tag` must be `FilesDirOpenReadDirResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -2378,8 +2861,8 @@ impl FilesDirOpenReadDirResult {
     /// # Safety
     /// `self.tag` must be `FilesDirOpenReadDirResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr> as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -2387,8 +2870,8 @@ impl FilesDirOpenReadDirResult {
     /// # Safety
     /// `self.tag` must be `FilesDirOpenReadDirResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -2396,7 +2879,7 @@ impl FilesDirOpenReadDirResult {
     /// # Safety
     /// `self.tag` must be `FilesDirOpenReadDirResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -2462,7 +2945,7 @@ pub enum FilesDirReadResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union FilesDirReadResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
     pub ok: core::mem::ManuallyDrop<RocListWith<u8, false>>,
 }
 
@@ -2496,8 +2979,8 @@ impl FilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `FilesDirReadResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -2505,8 +2988,8 @@ impl FilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `FilesDirReadResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr> as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -2514,8 +2997,8 @@ impl FilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `FilesDirReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -2523,7 +3006,7 @@ impl FilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `FilesDirReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -2589,7 +3072,7 @@ pub enum FilesPickDirectoryResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union FilesPickDirectoryResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
     pub ok: core::mem::ManuallyDrop<CanceledOrChosen>,
 }
 
@@ -2623,8 +3106,8 @@ impl FilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `FilesPickDirectoryResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -2632,8 +3115,8 @@ impl FilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `FilesPickDirectoryResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr> as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -2641,8 +3124,8 @@ impl FilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `FilesPickDirectoryResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -2650,7 +3133,7 @@ impl FilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `FilesPickDirectoryResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -3050,6 +3533,3463 @@ const _: () = assert!(core::mem::align_of::<HostGlueSqliteQueryResult>() == 4, "
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueSqliteQueryResult, tag) == 24, "HostGlueSqliteQueryResult tag offset mismatch");
 
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueClipboardAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueClipboardAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardAcquireResult {
+    pub _payload_alignment: [HostGlueClipboardAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueClipboardAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardAcquireResult {
+    pub payload: HostGlueClipboardAcquireResultPayload,
+    pub tag: HostGlueClipboardAcquireResultTag,
+}
+
+impl HostGlueClipboardAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardAcquireResult>() == 40, "HostGlueClipboardAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardAcquireResult>() == 8, "HostGlueClipboardAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardAcquireResult, tag) == 32, "HostGlueClipboardAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardAcquireResult>() == 20, "HostGlueClipboardAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardAcquireResult>() == 4, "HostGlueClipboardAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardAcquireResult, tag) == 16, "HostGlueClipboardAcquireResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueClipboardReadTextResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueClipboardReadTextResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct2a44a28a63f85620>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextResult {
+    pub _payload_alignment: [HostGlueClipboardReadTextResultPayloadAlignment; 0],
+    pub payload: [u8; 24],
+    pub tag: HostGlueClipboardReadTextResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextResult {
+    pub payload: HostGlueClipboardReadTextResultPayload,
+    pub tag: HostGlueClipboardReadTextResultTag,
+}
+
+impl HostGlueClipboardReadTextResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct2a44a28a63f85620 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct2a44a28a63f85620) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct2a44a28a63f85620 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct2a44a28a63f85620> as *const AnonStruct2a44a28a63f85620) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct2a44a28a63f85620 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct2a44a28a63f85620) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardReadTextResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct2a44a28a63f85620 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardReadTextResult>() == 40, "HostGlueClipboardReadTextResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardReadTextResult>() == 8, "HostGlueClipboardReadTextResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardReadTextResult, tag) == 32, "HostGlueClipboardReadTextResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardReadTextResult>() == 32, "HostGlueClipboardReadTextResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardReadTextResult>() == 8, "HostGlueClipboardReadTextResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardReadTextResult, tag) == 24, "HostGlueClipboardReadTextResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueClipboardWriteTextResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueClipboardWriteTextResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextResult {
+    pub _payload_alignment: [HostGlueClipboardWriteTextResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueClipboardWriteTextResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextResult {
+    pub payload: HostGlueClipboardWriteTextResultPayload,
+    pub tag: HostGlueClipboardWriteTextResultTag,
+}
+
+impl HostGlueClipboardWriteTextResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueClipboardWriteTextResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardWriteTextResult>() == 40, "HostGlueClipboardWriteTextResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardWriteTextResult>() == 8, "HostGlueClipboardWriteTextResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardWriteTextResult, tag) == 32, "HostGlueClipboardWriteTextResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueClipboardWriteTextResult>() == 20, "HostGlueClipboardWriteTextResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueClipboardWriteTextResult>() == 4, "HostGlueClipboardWriteTextResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueClipboardWriteTextResult, tag) == 16, "HostGlueClipboardWriteTextResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueAudioAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueAudioAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioAcquireResult {
+    pub _payload_alignment: [HostGlueAudioAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueAudioAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioAcquireResult {
+    pub payload: HostGlueAudioAcquireResultPayload,
+    pub tag: HostGlueAudioAcquireResultTag,
+}
+
+impl HostGlueAudioAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioAcquireResult>() == 40, "HostGlueAudioAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioAcquireResult>() == 8, "HostGlueAudioAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioAcquireResult, tag) == 32, "HostGlueAudioAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioAcquireResult>() == 20, "HostGlueAudioAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioAcquireResult>() == 4, "HostGlueAudioAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioAcquireResult, tag) == 16, "HostGlueAudioAcquireResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueAudioLoadResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueAudioLoadResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct8e993eac1f1cd0c>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadResult {
+    pub _payload_alignment: [HostGlueAudioLoadResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueAudioLoadResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadResult {
+    pub payload: HostGlueAudioLoadResultPayload,
+    pub tag: HostGlueAudioLoadResultTag,
+}
+
+impl HostGlueAudioLoadResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct8e993eac1f1cd0c {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct8e993eac1f1cd0c) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct8e993eac1f1cd0c {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct8e993eac1f1cd0c> as *const AnonStruct8e993eac1f1cd0c) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct8e993eac1f1cd0c {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct8e993eac1f1cd0c) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioLoadResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct8e993eac1f1cd0c {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioLoadResult>() == 40, "HostGlueAudioLoadResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioLoadResult>() == 8, "HostGlueAudioLoadResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioLoadResult, tag) == 32, "HostGlueAudioLoadResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioLoadResult>() == 24, "HostGlueAudioLoadResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioLoadResult>() == 8, "HostGlueAudioLoadResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioLoadResult, tag) == 16, "HostGlueAudioLoadResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueAudioStatusResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueAudioStatusResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct18a809e7fe3ae87a>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusResult {
+    pub _payload_alignment: [HostGlueAudioStatusResultPayloadAlignment; 0],
+    pub payload: [u8; 24],
+    pub tag: HostGlueAudioStatusResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusResult {
+    pub payload: HostGlueAudioStatusResultPayload,
+    pub tag: HostGlueAudioStatusResultTag,
+}
+
+impl HostGlueAudioStatusResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct18a809e7fe3ae87a {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct18a809e7fe3ae87a) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct18a809e7fe3ae87a {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct18a809e7fe3ae87a> as *const AnonStruct18a809e7fe3ae87a) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct18a809e7fe3ae87a {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct18a809e7fe3ae87a) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueAudioStatusResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct18a809e7fe3ae87a {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioStatusResult>() == 40, "HostGlueAudioStatusResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioStatusResult>() == 8, "HostGlueAudioStatusResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioStatusResult, tag) == 32, "HostGlueAudioStatusResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueAudioStatusResult>() == 32, "HostGlueAudioStatusResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueAudioStatusResult>() == 8, "HostGlueAudioStatusResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueAudioStatusResult, tag) == 24, "HostGlueAudioStatusResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueTcpConnectResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueTcpConnectResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpConnectResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpConnectResult {
+    pub _payload_alignment: [HostGlueTcpConnectResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueTcpConnectResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpConnectResult {
+    pub payload: HostGlueTcpConnectResultPayload,
+    pub tag: HostGlueTcpConnectResultTag,
+}
+
+impl HostGlueTcpConnectResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpConnectResult>() == 16, "HostGlueTcpConnectResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpConnectResult>() == 8, "HostGlueTcpConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpConnectResult, tag) == 8, "HostGlueTcpConnectResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpConnectResult>() == 8, "HostGlueTcpConnectResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpConnectResult>() == 4, "HostGlueTcpConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpConnectResult, tag) == 4, "HostGlueTcpConnectResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueTcpReadUpToResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueTcpReadUpToResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<RocListWith<u8, false>>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToResult {
+    pub _payload_alignment: [HostGlueTcpReadUpToResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: HostGlueTcpReadUpToResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToResult {
+    pub payload: HostGlueTcpReadUpToResultPayload,
+    pub tag: HostGlueTcpReadUpToResultTag,
+}
+
+impl HostGlueTcpReadUpToResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocListWith<u8, false>> as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpReadUpToResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpReadUpToResult>() == 32, "HostGlueTcpReadUpToResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpReadUpToResult>() == 8, "HostGlueTcpReadUpToResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpReadUpToResult, tag) == 24, "HostGlueTcpReadUpToResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpReadUpToResult>() == 16, "HostGlueTcpReadUpToResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpReadUpToResult>() == 4, "HostGlueTcpReadUpToResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpReadUpToResult, tag) == 12, "HostGlueTcpReadUpToResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueTcpWriteAllResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueTcpWriteAllResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllResult {
+    pub _payload_alignment: [HostGlueTcpWriteAllResultPayloadAlignment; 0],
+    pub payload: [u8; 1],
+    pub tag: HostGlueTcpWriteAllResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllResult {
+    pub payload: HostGlueTcpWriteAllResultPayload,
+    pub tag: HostGlueTcpWriteAllResultTag,
+}
+
+impl HostGlueTcpWriteAllResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueTcpWriteAllResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpWriteAllResult>() == 2, "HostGlueTcpWriteAllResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpWriteAllResult>() == 1, "HostGlueTcpWriteAllResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpWriteAllResult, tag) == 1, "HostGlueTcpWriteAllResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueTcpWriteAllResult>() == 2, "HostGlueTcpWriteAllResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueTcpWriteAllResult>() == 1, "HostGlueTcpWriteAllResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueTcpWriteAllResult, tag) == 1, "HostGlueTcpWriteAllResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueProcessAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueProcessAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessAcquireResult {
+    pub _payload_alignment: [HostGlueProcessAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueProcessAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessAcquireResult {
+    pub payload: HostGlueProcessAcquireResultPayload,
+    pub tag: HostGlueProcessAcquireResultTag,
+}
+
+impl HostGlueProcessAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr> as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessAcquireResult>() == 16, "HostGlueProcessAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessAcquireResult>() == 8, "HostGlueProcessAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessAcquireResult, tag) == 8, "HostGlueProcessAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessAcquireResult>() == 8, "HostGlueProcessAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessAcquireResult>() == 4, "HostGlueProcessAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessAcquireResult, tag) == 4, "HostGlueProcessAcquireResult tag offset mismatch");
+
+/// Tag discriminant for AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag {
+    AcquireProcessErr = 0,
+    CancelProcessErr = 1,
+    ReadProcessErr = 2,
+    ResizeProcessErr = 3,
+    SpawnProcessErr = 4,
+    WriteProcessErr = 5,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload {
+    pub acquire_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
+    pub cancel_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
+    pub read_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
+    pub resize_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
+    pub spawn_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
+    pub write_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayloadAlignment;
+
+/// Tag union: AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+    pub _payload_alignment: [AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayloadAlignment; 0],
+    pub payload: [u8; 1],
+    pub tag: AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag,
+}
+
+/// Tag union: AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+    pub payload: AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload,
+    pub tag: AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag,
+}
+
+impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+    /// Borrow the `AcquireProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_acquire_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Borrow the `AcquireProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_acquire_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(&self.payload.acquire_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `AcquireProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_acquire_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `AcquireProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_acquire_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.acquire_process_err) }
+    }
+
+    /// Borrow the `CancelProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_cancel_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Borrow the `CancelProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_cancel_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(&self.payload.cancel_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `CancelProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_cancel_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `CancelProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_cancel_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.cancel_process_err) }
+    }
+
+    /// Borrow the `ReadProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_read_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Borrow the `ReadProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_read_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(&self.payload.read_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `ReadProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_read_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `ReadProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_read_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.read_process_err) }
+    }
+
+    /// Borrow the `ResizeProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_resize_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Borrow the `ResizeProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_resize_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(&self.payload.resize_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `ResizeProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_resize_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `ResizeProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_resize_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.resize_process_err) }
+    }
+
+    /// Borrow the `SpawnProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_spawn_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Borrow the `SpawnProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_spawn_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(&self.payload.spawn_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `SpawnProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_spawn_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `SpawnProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_spawn_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.spawn_process_err) }
+    }
+
+    /// Borrow the `WriteProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_write_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Borrow the `WriteProcessErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_write_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { &*(&self.payload.write_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `WriteProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_write_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    }
+
+    /// Move the `WriteProcessErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_write_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.write_process_err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>() == 2, "AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>() == 1, "AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr, tag) == 1, "AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>() == 2, "AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>() == 1, "AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr, tag) == 1, "AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr tag offset mismatch");
+
+/// Tag union: AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    AccessDenied = 0,
+    Busy = 1,
+    Exited = 2,
+    InvalidCapability = 3,
+    InvalidSize = 4,
+    Io = 5,
+    ResourceLimit = 6,
+    Unsupported = 7,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported alignment mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueProcessSpawnResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueProcessSpawnResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessSpawnResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessSpawnResult {
+    pub _payload_alignment: [HostGlueProcessSpawnResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueProcessSpawnResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessSpawnResult {
+    pub payload: HostGlueProcessSpawnResultPayload,
+    pub tag: HostGlueProcessSpawnResultTag,
+}
+
+impl HostGlueProcessSpawnResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr> as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessSpawnResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessSpawnResult>() == 16, "HostGlueProcessSpawnResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessSpawnResult>() == 8, "HostGlueProcessSpawnResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessSpawnResult, tag) == 8, "HostGlueProcessSpawnResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessSpawnResult>() == 8, "HostGlueProcessSpawnResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessSpawnResult>() == 4, "HostGlueProcessSpawnResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessSpawnResult, tag) == 4, "HostGlueProcessSpawnResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueProcessReadResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueProcessReadResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>,
+    pub ok: core::mem::ManuallyDrop<CanceledOrDataOrEndOfFile>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessReadResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessReadResult {
+    pub _payload_alignment: [HostGlueProcessReadResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueProcessReadResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessReadResult {
+    pub payload: HostGlueProcessReadResultPayload,
+    pub tag: HostGlueProcessReadResultTag,
+}
+
+impl HostGlueProcessReadResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr> as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrDataOrEndOfFile {
+        unsafe { &*(self.payload.as_ptr() as *const CanceledOrDataOrEndOfFile) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrDataOrEndOfFile {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrDataOrEndOfFile> as *const CanceledOrDataOrEndOfFile) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrDataOrEndOfFile {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrDataOrEndOfFile) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessReadResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrDataOrEndOfFile {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessReadResult>() == 40, "HostGlueProcessReadResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessReadResult>() == 8, "HostGlueProcessReadResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessReadResult, tag) == 32, "HostGlueProcessReadResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessReadResult>() == 20, "HostGlueProcessReadResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessReadResult>() == 4, "HostGlueProcessReadResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessReadResult, tag) == 16, "HostGlueProcessReadResult tag offset mismatch");
+
+/// Tag discriminant for CanceledOrDataOrEndOfFile.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CanceledOrDataOrEndOfFileTag {
+    Canceled = 0,
+    Data = 1,
+    EndOfFile = 2,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union CanceledOrDataOrEndOfFilePayload {
+    pub canceled: [u8; 0],
+    pub data: core::mem::ManuallyDrop<RocListWith<u8, false>>,
+    pub end_of_file: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct CanceledOrDataOrEndOfFilePayloadAlignment;
+
+/// Tag union: CanceledOrDataOrEndOfFile
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CanceledOrDataOrEndOfFile {
+    pub _payload_alignment: [CanceledOrDataOrEndOfFilePayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: CanceledOrDataOrEndOfFileTag,
+}
+
+/// Tag union: CanceledOrDataOrEndOfFile
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CanceledOrDataOrEndOfFile {
+    pub payload: CanceledOrDataOrEndOfFilePayload,
+    pub tag: CanceledOrDataOrEndOfFileTag,
+}
+
+impl CanceledOrDataOrEndOfFile {
+    /// Borrow the `Data` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrDataOrEndOfFileTag::Data` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_data_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Borrow the `Data` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrDataOrEndOfFileTag::Data` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_data_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(&self.payload.data as *const core::mem::ManuallyDrop<RocListWith<u8, false>> as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Data` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrDataOrEndOfFileTag::Data`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_data_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Data` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrDataOrEndOfFileTag::Data`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_data_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.data) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<CanceledOrDataOrEndOfFile>() == 32, "CanceledOrDataOrEndOfFile size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<CanceledOrDataOrEndOfFile>() == 8, "CanceledOrDataOrEndOfFile alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(CanceledOrDataOrEndOfFile, tag) == 24, "CanceledOrDataOrEndOfFile tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<CanceledOrDataOrEndOfFile>() == 16, "CanceledOrDataOrEndOfFile size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<CanceledOrDataOrEndOfFile>() == 4, "CanceledOrDataOrEndOfFile alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(CanceledOrDataOrEndOfFile, tag) == 12, "CanceledOrDataOrEndOfFile tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueProcessWriteResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueProcessWriteResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>,
+    pub ok: core::mem::ManuallyDrop<u32>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessWriteResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessWriteResult {
+    pub _payload_alignment: [HostGlueProcessWriteResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueProcessWriteResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessWriteResult {
+    pub payload: HostGlueProcessWriteResultPayload,
+    pub tag: HostGlueProcessWriteResultTag,
+}
+
+impl HostGlueProcessWriteResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr> as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &u32 {
+        unsafe { &*(self.payload.as_ptr() as *const u32) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &u32 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<u32> as *const u32) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> u32 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u32) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessWriteResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> u32 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessWriteResult>() == 8, "HostGlueProcessWriteResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessWriteResult>() == 4, "HostGlueProcessWriteResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessWriteResult, tag) == 4, "HostGlueProcessWriteResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessWriteResult>() == 8, "HostGlueProcessWriteResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessWriteResult>() == 4, "HostGlueProcessWriteResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessWriteResult, tag) == 4, "HostGlueProcessWriteResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueProcessResizeResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueProcessResizeResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessResizeResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessResizeResult {
+    pub _payload_alignment: [HostGlueProcessResizeResultPayloadAlignment; 0],
+    pub payload: [u8; 2],
+    pub tag: HostGlueProcessResizeResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessResizeResult {
+    pub payload: HostGlueProcessResizeResultPayload,
+    pub tag: HostGlueProcessResizeResultTag,
+}
+
+impl HostGlueProcessResizeResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessResizeResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessResizeResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr> as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessResizeResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessResizeResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessResizeResult>() == 3, "HostGlueProcessResizeResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessResizeResult>() == 1, "HostGlueProcessResizeResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessResizeResult, tag) == 2, "HostGlueProcessResizeResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessResizeResult>() == 3, "HostGlueProcessResizeResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessResizeResult>() == 1, "HostGlueProcessResizeResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessResizeResult, tag) == 2, "HostGlueProcessResizeResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueProcessCancelResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueProcessCancelResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr>,
+    pub ok: core::mem::ManuallyDrop<AlreadyStoppedOrCanceled>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessCancelResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessCancelResult {
+    pub _payload_alignment: [HostGlueProcessCancelResultPayloadAlignment; 0],
+    pub payload: [u8; 2],
+    pub tag: HostGlueProcessCancelResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessCancelResult {
+    pub payload: HostGlueProcessCancelResultPayload,
+    pub tag: HostGlueProcessCancelResultTag,
+}
+
+impl HostGlueProcessCancelResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr> as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AlreadyStoppedOrCanceled {
+        unsafe { &*(self.payload.as_ptr() as *const AlreadyStoppedOrCanceled) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AlreadyStoppedOrCanceled {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AlreadyStoppedOrCanceled> as *const AlreadyStoppedOrCanceled) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AlreadyStoppedOrCanceled {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AlreadyStoppedOrCanceled) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueProcessCancelResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AlreadyStoppedOrCanceled {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessCancelResult>() == 3, "HostGlueProcessCancelResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessCancelResult>() == 1, "HostGlueProcessCancelResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessCancelResult, tag) == 2, "HostGlueProcessCancelResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueProcessCancelResult>() == 3, "HostGlueProcessCancelResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueProcessCancelResult>() == 1, "HostGlueProcessCancelResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueProcessCancelResult, tag) == 2, "HostGlueProcessCancelResult tag offset mismatch");
+
+/// Tag union: AlreadyStoppedOrCanceled
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlreadyStoppedOrCanceled {
+    AlreadyStopped = 0,
+    Canceled = 1,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AlreadyStoppedOrCanceled>() == 1, "AlreadyStoppedOrCanceled size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AlreadyStoppedOrCanceled>() == 1, "AlreadyStoppedOrCanceled alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AlreadyStoppedOrCanceled>() == 1, "AlreadyStoppedOrCanceled size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AlreadyStoppedOrCanceled>() == 1, "AlreadyStoppedOrCanceled alignment mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceAcquireResult {
+    pub _payload_alignment: [HostGlueDeviceAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueDeviceAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceAcquireResult {
+    pub payload: HostGlueDeviceAcquireResultPayload,
+    pub tag: HostGlueDeviceAcquireResultTag,
+}
+
+impl HostGlueDeviceAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceAcquireResult>() == 16, "HostGlueDeviceAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceAcquireResult>() == 8, "HostGlueDeviceAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceAcquireResult, tag) == 8, "HostGlueDeviceAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceAcquireResult>() == 8, "HostGlueDeviceAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceAcquireResult>() == 4, "HostGlueDeviceAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceAcquireResult, tag) == 4, "HostGlueDeviceAcquireResult tag offset mismatch");
+
+/// Tag discriminant for AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag {
+    AcquireDeviceErr = 0,
+    CloseDeviceErr = 1,
+    ConnectDeviceErr = 2,
+    DiscoverDeviceErr = 3,
+    TransactDeviceErr = 4,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload {
+    pub acquire_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub close_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub connect_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub discover_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub transact_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayloadAlignment;
+
+/// Tag union: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    pub _payload_alignment: [AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayloadAlignment; 0],
+    pub payload: [u8; 1],
+    pub tag: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag,
+}
+
+/// Tag union: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    pub payload: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload,
+    pub tag: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag,
+}
+
+impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    /// Borrow the `AcquireDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `AcquireDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.acquire_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `AcquireDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `AcquireDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.acquire_device_err) }
+    }
+
+    /// Borrow the `CloseDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `CloseDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.close_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `CloseDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `CloseDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.close_device_err) }
+    }
+
+    /// Borrow the `ConnectDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `ConnectDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.connect_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `ConnectDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `ConnectDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.connect_device_err) }
+    }
+
+    /// Borrow the `DiscoverDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `DiscoverDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.discover_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `DiscoverDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `DiscoverDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.discover_device_err) }
+    }
+
+    /// Borrow the `TransactDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Borrow the `TransactDeviceErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.transact_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `TransactDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    }
+
+    /// Move the `TransactDeviceErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.transact_device_err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 2, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr, tag) == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 2, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>() == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr, tag) == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr tag offset mismatch");
+
+/// Tag union: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    AccessDenied = 0,
+    Busy = 1,
+    Closed = 2,
+    Disconnected = 3,
+    InvalidCapability = 4,
+    InvalidRequest = 5,
+    Io = 6,
+    NotFound = 7,
+    Protocol = 8,
+    ResourceLimit = 9,
+    Timeout = 10,
+    Unsupported = 11,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported alignment mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceDiscoverResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceDiscoverResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<RocList<AnonStruct27556b2f7cb4f65f>>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverResult {
+    pub _payload_alignment: [HostGlueDeviceDiscoverResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: HostGlueDeviceDiscoverResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverResult {
+    pub payload: HostGlueDeviceDiscoverResultPayload,
+    pub tag: HostGlueDeviceDiscoverResultTag,
+}
+
+impl HostGlueDeviceDiscoverResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { &*(self.payload.as_ptr() as *const RocList<AnonStruct27556b2f7cb4f65f>) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocList<AnonStruct27556b2f7cb4f65f>> as *const RocList<AnonStruct27556b2f7cb4f65f>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocList<AnonStruct27556b2f7cb4f65f>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceDiscoverResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocList<AnonStruct27556b2f7cb4f65f> {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceDiscoverResult>() == 32, "HostGlueDeviceDiscoverResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceDiscoverResult>() == 8, "HostGlueDeviceDiscoverResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceDiscoverResult, tag) == 24, "HostGlueDeviceDiscoverResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceDiscoverResult>() == 16, "HostGlueDeviceDiscoverResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceDiscoverResult>() == 4, "HostGlueDeviceDiscoverResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceDiscoverResult, tag) == 12, "HostGlueDeviceDiscoverResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceConnectResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceConnectResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectResult {
+    pub _payload_alignment: [HostGlueDeviceConnectResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueDeviceConnectResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectResult {
+    pub payload: HostGlueDeviceConnectResultPayload,
+    pub tag: HostGlueDeviceConnectResultTag,
+}
+
+impl HostGlueDeviceConnectResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceConnectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceConnectResult>() == 16, "HostGlueDeviceConnectResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceConnectResult>() == 8, "HostGlueDeviceConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceConnectResult, tag) == 8, "HostGlueDeviceConnectResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceConnectResult>() == 8, "HostGlueDeviceConnectResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceConnectResult>() == 4, "HostGlueDeviceConnectResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceConnectResult, tag) == 4, "HostGlueDeviceConnectResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceTransactResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceTransactResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: core::mem::ManuallyDrop<RocListWith<u8, false>>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactResult {
+    pub _payload_alignment: [HostGlueDeviceTransactResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: HostGlueDeviceTransactResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactResult {
+    pub payload: HostGlueDeviceTransactResultPayload,
+    pub tag: HostGlueDeviceTransactResultTag,
+}
+
+impl HostGlueDeviceTransactResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocListWith<u8, false> {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocListWith<u8, false>> as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocListWith<u8, false>) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceTransactResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocListWith<u8, false> {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceTransactResult>() == 32, "HostGlueDeviceTransactResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceTransactResult>() == 8, "HostGlueDeviceTransactResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceTransactResult, tag) == 24, "HostGlueDeviceTransactResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceTransactResult>() == 16, "HostGlueDeviceTransactResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceTransactResult>() == 4, "HostGlueDeviceTransactResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceTransactResult, tag) == 12, "HostGlueDeviceTransactResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueDeviceCloseResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueDeviceCloseResultPayload {
+    pub err: core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(1))]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseResult {
+    pub _payload_alignment: [HostGlueDeviceCloseResultPayloadAlignment; 0],
+    pub payload: [u8; 2],
+    pub tag: HostGlueDeviceCloseResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseResult {
+    pub payload: HostGlueDeviceCloseResultPayload,
+    pub tag: HostGlueDeviceCloseResultTag,
+}
+
+impl HostGlueDeviceCloseResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueDeviceCloseResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceCloseResult>() == 3, "HostGlueDeviceCloseResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceCloseResult>() == 1, "HostGlueDeviceCloseResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceCloseResult, tag) == 2, "HostGlueDeviceCloseResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDeviceCloseResult>() == 3, "HostGlueDeviceCloseResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDeviceCloseResult>() == 1, "HostGlueDeviceCloseResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueDeviceCloseResult, tag) == 2, "HostGlueDeviceCloseResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueSystemAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueSystemAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemAcquireResult {
+    pub _payload_alignment: [HostGlueSystemAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueSystemAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemAcquireResult {
+    pub payload: HostGlueSystemAcquireResultPayload,
+    pub tag: HostGlueSystemAcquireResultTag,
+}
+
+impl HostGlueSystemAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueSystemAcquireResult>() == 16, "HostGlueSystemAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueSystemAcquireResult>() == 8, "HostGlueSystemAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueSystemAcquireResult, tag) == 8, "HostGlueSystemAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueSystemAcquireResult>() == 8, "HostGlueSystemAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueSystemAcquireResult>() == 4, "HostGlueSystemAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueSystemAcquireResult, tag) == 4, "HostGlueSystemAcquireResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueSystemSampleResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueSystemSampleResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct98efc21233c140ff>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemSampleResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemSampleResult {
+    pub _payload_alignment: [HostGlueSystemSampleResultPayloadAlignment; 0],
+    pub payload: [u8; 80],
+    pub tag: HostGlueSystemSampleResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemSampleResult {
+    pub payload: HostGlueSystemSampleResultPayload,
+    pub tag: HostGlueSystemSampleResultTag,
+}
+
+impl HostGlueSystemSampleResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct98efc21233c140ff {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct98efc21233c140ff) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct98efc21233c140ff {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct98efc21233c140ff> as *const AnonStruct98efc21233c140ff) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct98efc21233c140ff {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct98efc21233c140ff) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSystemSampleResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct98efc21233c140ff {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueSystemSampleResult>() == 96, "HostGlueSystemSampleResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueSystemSampleResult>() == 8, "HostGlueSystemSampleResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueSystemSampleResult, tag) == 88, "HostGlueSystemSampleResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueSystemSampleResult>() == 88, "HostGlueSystemSampleResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueSystemSampleResult>() == 8, "HostGlueSystemSampleResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueSystemSampleResult, tag) == 80, "HostGlueSystemSampleResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueImageInspectResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueImageInspectResultPayload {
+    pub err: core::mem::ManuallyDrop<u8>,
+    pub ok: core::mem::ManuallyDrop<AnonStructB3b29ac2cb34a461>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectResult {
+    pub _payload_alignment: [HostGlueImageInspectResultPayloadAlignment; 0],
+    pub payload: [u8; 8],
+    pub tag: HostGlueImageInspectResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectResult {
+    pub payload: HostGlueImageInspectResultPayload,
+    pub tag: HostGlueImageInspectResultTag,
+}
+
+impl HostGlueImageInspectResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &u8 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<u8> as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const u8) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> u8 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructB3b29ac2cb34a461 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStructB3b29ac2cb34a461) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructB3b29ac2cb34a461 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStructB3b29ac2cb34a461> as *const AnonStructB3b29ac2cb34a461) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructB3b29ac2cb34a461 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructB3b29ac2cb34a461) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueImageInspectResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructB3b29ac2cb34a461 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueImageInspectResult>() == 12, "HostGlueImageInspectResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueImageInspectResult>() == 4, "HostGlueImageInspectResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueImageInspectResult, tag) == 8, "HostGlueImageInspectResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueImageInspectResult>() == 12, "HostGlueImageInspectResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueImageInspectResult>() == 4, "HostGlueImageInspectResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueImageInspectResult, tag) == 8, "HostGlueImageInspectResult tag offset mismatch");
+
 /// Tag discriminant for MountOrNoChangeOrReplace.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3182,6 +7122,158 @@ const _: () = assert!(core::mem::offset_of!(MountOrNoChangeOrReplace, tag) == 16
 /// Tag discriminant for Try.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueHttpAcquireResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueHttpAcquireResultPayload {
+    pub err: core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpAcquireResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpAcquireResult {
+    pub _payload_alignment: [HostGlueHttpAcquireResultPayloadAlignment; 0],
+    pub payload: [u8; 4],
+    pub tag: HostGlueHttpAcquireResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueHttpAcquireResult {
+    pub payload: HostGlueHttpAcquireResultPayload,
+    pub tag: HostGlueHttpAcquireResultTag,
+}
+
+impl HostGlueHttpAcquireResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme> as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueHttpAcquireResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueHttpAcquireResult>() == 16, "HostGlueHttpAcquireResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueHttpAcquireResult>() == 8, "HostGlueHttpAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueHttpAcquireResult, tag) == 8, "HostGlueHttpAcquireResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueHttpAcquireResult>() == 8, "HostGlueHttpAcquireResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueHttpAcquireResult>() == 4, "HostGlueHttpAcquireResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueHttpAcquireResult, tag) == 4, "HostGlueHttpAcquireResult tag offset mismatch");
+
+/// Tag union: AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+    AccessDenied = 0,
+    BodyTooLarge = 1,
+    ConnectFailed = 2,
+    InvalidCapability = 3,
+    InvalidHeader = 4,
+    InvalidRequest = 5,
+    InvalidUrl = 6,
+    RedirectLimit = 7,
+    Timeout = 8,
+    UnsupportedScheme = 9,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostGlueHttpSendResultTag {
     Err = 0,
     Ok = 1,
@@ -3190,8 +7282,8 @@ pub enum HostGlueHttpSendResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union HostGlueHttpSendResultPayload {
-    pub err: core::mem::ManuallyDrop<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>,
-    pub ok: core::mem::ManuallyDrop<AnonStruct4cc00b7fc76acdb9>,
+    pub err: core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>,
+    pub ok: core::mem::ManuallyDrop<AnonStructBe6bcbc15f8a1360>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -3224,8 +7316,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { &*(self.payload.as_ptr() as *const BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -3233,8 +7325,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme> as *const BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme> as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -3242,8 +7334,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -3251,7 +7343,7 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -3260,8 +7352,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Ok` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct4cc00b7fc76acdb9 {
-        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4cc00b7fc76acdb9) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructBe6bcbc15f8a1360 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStructBe6bcbc15f8a1360) }
     }
 
     /// Borrow the `Ok` payload without creating another owner.
@@ -3269,8 +7361,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Ok` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct4cc00b7fc76acdb9 {
-        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct4cc00b7fc76acdb9> as *const AnonStruct4cc00b7fc76acdb9) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructBe6bcbc15f8a1360 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStructBe6bcbc15f8a1360> as *const AnonStructBe6bcbc15f8a1360) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -3278,8 +7370,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct4cc00b7fc76acdb9 {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4cc00b7fc76acdb9) }
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructBe6bcbc15f8a1360 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructBe6bcbc15f8a1360) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -3287,7 +7379,7 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct4cc00b7fc76acdb9 {
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructBe6bcbc15f8a1360 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
     }
 
@@ -3306,46 +7398,383 @@ const _: () = assert!(core::mem::align_of::<HostGlueHttpSendResult>() == 4, "Hos
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueHttpSendResult, tag) == 28, "HostGlueHttpSendResult tag offset mismatch");
 
-/// Tag union: BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme
+/// Tag discriminant for Try.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
-    BodyTooLarge = 0,
-    ConnectFailed = 1,
-    InvalidHeader = 2,
-    InvalidRequest = 3,
-    InvalidUrl = 4,
-    InvalidUtf8 = 5,
-    RedirectLimit = 6,
-    Timeout = 7,
-    UnsupportedScheme = 8,
+pub enum InternalFilesAppDataResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesAppDataResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesAppDataResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesAppDataResult {
+    pub _payload_alignment: [InternalFilesAppDataResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: InternalFilesAppDataResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesAppDataResult {
+    pub payload: InternalFilesAppDataResultPayload,
+    pub tag: InternalFilesAppDataResultTag,
+}
+
+impl InternalFilesAppDataResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesAppDataResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+const _: () = assert!(core::mem::size_of::<InternalFilesAppDataResult>() == 40, "InternalFilesAppDataResult size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+const _: () = assert!(core::mem::align_of::<InternalFilesAppDataResult>() == 8, "InternalFilesAppDataResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesAppDataResult, tag) == 32, "InternalFilesAppDataResult tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+const _: () = assert!(core::mem::size_of::<InternalFilesAppDataResult>() == 20, "InternalFilesAppDataResult size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+const _: () = assert!(core::mem::align_of::<InternalFilesAppDataResult>() == 4, "InternalFilesAppDataResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesAppDataResult, tag) == 16, "InternalFilesAppDataResult tag offset mismatch");
 
-/// Tag union: GetOrPost
+/// Tag discriminant for Try.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GetOrPost {
-    Get = 0,
-    Post = 1,
+pub enum InternalFilesReadUtf8ResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesReadUtf8ResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<AnonStructA2f37e1d5ed0e4cd>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReadUtf8ResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReadUtf8Result {
+    pub _payload_alignment: [InternalFilesReadUtf8ResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: InternalFilesReadUtf8ResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReadUtf8Result {
+    pub payload: InternalFilesReadUtf8ResultPayload,
+    pub tag: InternalFilesReadUtf8ResultTag,
+}
+
+impl InternalFilesReadUtf8Result {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructA2f37e1d5ed0e4cd {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStructA2f37e1d5ed0e4cd) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructA2f37e1d5ed0e4cd {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStructA2f37e1d5ed0e4cd> as *const AnonStructA2f37e1d5ed0e4cd) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructA2f37e1d5ed0e4cd {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructA2f37e1d5ed0e4cd) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReadUtf8ResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructA2f37e1d5ed0e4cd {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<GetOrPost>() == 1, "GetOrPost size mismatch");
+const _: () = assert!(core::mem::size_of::<InternalFilesReadUtf8Result>() == 40, "InternalFilesReadUtf8Result size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<GetOrPost>() == 1, "GetOrPost alignment mismatch");
+const _: () = assert!(core::mem::align_of::<InternalFilesReadUtf8Result>() == 8, "InternalFilesReadUtf8Result alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesReadUtf8Result, tag) == 32, "InternalFilesReadUtf8Result tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<GetOrPost>() == 1, "GetOrPost size mismatch");
+const _: () = assert!(core::mem::size_of::<InternalFilesReadUtf8Result>() == 20, "InternalFilesReadUtf8Result size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<GetOrPost>() == 1, "GetOrPost alignment mismatch");
+const _: () = assert!(core::mem::align_of::<InternalFilesReadUtf8Result>() == 4, "InternalFilesReadUtf8Result alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesReadUtf8Result, tag) == 16, "InternalFilesReadUtf8Result tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InternalFilesWriteUtf8AtomicResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesWriteUtf8AtomicResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: [u8; 0],
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWriteUtf8AtomicResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWriteUtf8AtomicResult {
+    pub _payload_alignment: [InternalFilesWriteUtf8AtomicResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: InternalFilesWriteUtf8AtomicResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWriteUtf8AtomicResult {
+    pub payload: InternalFilesWriteUtf8AtomicResultPayload,
+    pub tag: InternalFilesWriteUtf8AtomicResultTag,
+}
+
+impl InternalFilesWriteUtf8AtomicResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesWriteUtf8AtomicResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesWriteUtf8AtomicResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesWriteUtf8AtomicResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesWriteUtf8AtomicResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesWriteUtf8AtomicResult>() == 40, "InternalFilesWriteUtf8AtomicResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesWriteUtf8AtomicResult>() == 8, "InternalFilesWriteUtf8AtomicResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesWriteUtf8AtomicResult, tag) == 32, "InternalFilesWriteUtf8AtomicResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesWriteUtf8AtomicResult>() == 20, "InternalFilesWriteUtf8AtomicResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesWriteUtf8AtomicResult>() == 4, "InternalFilesWriteUtf8AtomicResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesWriteUtf8AtomicResult, tag) == 16, "InternalFilesWriteUtf8AtomicResult tag offset mismatch");
+
+/// Return type record for HostGlue.canvas_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueCanvasEventRetRecord {
+    pub target: u64,
+    pub x: i32,
+    pub y: i32,
+    pub phase: u8,
+}
+
+/// Return type record for HostGlue.canvas_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueCanvasEventRetRecord {
+    pub target: u64,
+    pub x: i32,
+    pub y: i32,
+    pub phase: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 24, "HostGlueCanvasEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueCanvasEventRetRecord>() == 8, "HostGlueCanvasEventRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 24, "HostGlueCanvasEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueCanvasEventRetRecord>() == 8, "HostGlueCanvasEventRetRecord alignment mismatch");
 
 /// Return type record for HostGlue.node_text_input!
 /// Fields ordered by compiler-emitted ABI offsets.
@@ -4307,6 +8736,86 @@ unsafe impl RocRelease<HostGlueNodeImageArgs> for HostGlueNodeImageArgsRelease {
     }
 }
 
+/// Arguments for HostGlue.node_canvas!
+/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeCanvasArgs {
+    pub label: RocStr,
+    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub bg: u32,
+    pub border_color: u32,
+    pub border_width: u32,
+    pub height: u32,
+    pub radius: u32,
+    pub width: u32,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub width_kind: u8,
+}
+
+/// Arguments for HostGlue.node_canvas!
+/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeCanvasArgs {
+    pub label: RocStr,
+    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub bg: u32,
+    pub border_color: u32,
+    pub border_width: u32,
+    pub height: u32,
+    pub radius: u32,
+    pub width: u32,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 80, "HostGlueNodeCanvasArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeCanvasArgs>() == 8, "HostGlueNodeCanvasArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 52, "HostGlueNodeCanvasArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeCanvasArgs>() == 4, "HostGlueNodeCanvasArgs alignment mismatch");
+
+impl HostGlueNodeCanvasArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct6d9cdb5c6eba22bc(value.primitives, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+        unsafe { value.primitives.incref(amount); }
+    }
+}
+
+pub struct HostGlueNodeCanvasArgsRelease;
+
+unsafe impl RocRelease<HostGlueNodeCanvasArgs> for HostGlueNodeCanvasArgsRelease {
+    unsafe fn release(value: HostGlueNodeCanvasArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 /// Arguments for HostGlue.node_text_input!
 /// Roc signature: { active_bg : U32, bg : U32, border_color : U32, border_width : U32, enabled : Bool, fg : U32, font_size : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, label : Str, overflow_x : U8, overflow_y : U8, padding : U32, placeholder : Str, radius : U32, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
 /// Refcounted fields are owned by the hosted function.
@@ -4429,6 +8938,246 @@ pub struct HostGlueSqliteQueryArgs {
     pub arg1: RocStr,
 }
 
+/// Arguments for InternalFiles.read_utf8!
+/// Roc signature: Resource.Handle([DirReadWriteResource]), Str => Try({ found : Bool, value : Str }, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReadUtf8Args {
+    pub arg0: *mut u64,
+    pub arg1: RocStr,
+}
+
+/// Arguments for InternalFiles.write_utf8_atomic!
+/// Roc signature: Resource.Handle([DirReadWriteResource]), Str, Str => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWriteUtf8AtomicArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocStr,
+    pub arg2: RocStr,
+}
+
+/// Arguments for HostGlue.clipboard_read_text!
+/// Roc signature: Resource.Handle([ClipboardResource]) => Try({ sequence : U64, text : Str }, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardReadTextArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.clipboard_write_text!
+/// Roc signature: Resource.Handle([ClipboardResource]), Str => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueClipboardWriteTextArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocStr,
+}
+
+/// Arguments for HostGlue.audio_load!
+/// Roc signature: Resource.Handle([AudioOutputResource]), Resource.Handle([DirReadResource]), Str => Try({ duration_ms : U64, track : Resource.Handle([AudioTrackResource]) }, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioLoadArgs {
+    pub arg0: *mut u64,
+    pub arg1: *mut u64,
+    pub arg2: RocStr,
+}
+
+/// Arguments for HostGlue.audio_play!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioPlayArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.audio_pause!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioPauseArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.audio_seek!
+/// Roc signature: Resource.Handle([AudioTrackResource]), U64 => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioSeekArgs {
+    pub arg0: *mut u64,
+    pub arg1: u64,
+}
+
+/// Arguments for HostGlue.audio_status!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({ duration_ms : U64, position_ms : U64, state : U8 }, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStatusArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.audio_stop!
+/// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAudioStopArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.tcp_read_up_to!
+/// Roc signature: Resource.Handle([TcpStreamResource]), U64 => Try(List(U8), U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpReadUpToArgs {
+    pub arg0: *mut u64,
+    pub arg1: u64,
+}
+
+/// Arguments for HostGlue.tcp_write_all!
+/// Roc signature: Resource.Handle([TcpStreamResource]), List(U8) => Try({}, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpWriteAllArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.tcp_close!
+/// Roc signature: Resource.Handle([TcpStreamResource]) => Try({}, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueTcpCloseArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.process_spawn!
+/// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessSpawnArgs {
+    pub arg0: *mut u64,
+    pub arg1: AnonStruct93136bf334c2a2fc,
+}
+
+/// Arguments for HostGlue.process_read!
+/// Roc signature: Resource.Handle([PtyResource]), U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessReadArgs {
+    pub arg0: *mut u64,
+    pub arg1: u32,
+}
+
+/// Arguments for HostGlue.process_write!
+/// Roc signature: Resource.Handle([PtyResource]), List(U8) => Try(U32, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessWriteArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.process_resize!
+/// Roc signature: Resource.Handle([PtyResource]), { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessResizeArgs {
+    pub arg0: *mut u64,
+    pub arg1: AnonStruct93136bf334c2a2fc,
+}
+
+/// Arguments for HostGlue.process_cancel!
+/// Roc signature: Resource.Handle([PtyResource]) => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueProcessCancelArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.device_discover!
+/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceDiscoverArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.device_connect!
+/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceConnectArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.device_transact!
+/// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceTransactArgs {
+    pub arg0: *mut u64,
+    pub arg1: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.device_close!
+/// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDeviceCloseArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.system_sample!
+/// Roc signature: Resource.Handle([SystemSamplerResource]) => Try({ cpu_available : Bool, cpu_tenths : U16, disk_available : Bool, disk_read_bytes : U64, disk_written_bytes : U64, memory_available : Bool, memory_total_bytes : U64, memory_used_bytes : U64, network_available : Bool, network_received_bytes : U64, network_transmitted_bytes : U64, processes : List({ cpu_tenths : U16, memory_bytes : U64, name : Str, pid : U64 }), processes_available : Bool, sequence : U64 }, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemSampleArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.system_close!
+/// Roc signature: Resource.Handle([SystemSamplerResource]) => Try({}, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSystemCloseArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.image_inspect!
+/// Roc signature: List(U8), U8 => Try({ height : U32, width : U32 }, U8)
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueImageInspectArgs {
+    pub arg0: RocListWith<u8, false>,
+    pub arg1: u8,
+}
+
 /// Arguments for HostGlue.apply!
 /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
 /// Refcounted fields are owned by the hosted function.
@@ -4493,7 +9242,7 @@ pub struct HostGlueTimerCancelArgs {
 }
 
 /// Arguments for HostGlue.http_send!
-/// Roc signature: { body : Str, headers : List({ name : Str, value : Str }), max_redirects : U8, max_response_bytes : U64, method : [Get, Post], timeout_ms : U64, url : Str } => Try({ body : Str, headers : List({ name : Str, value : Str }), status : U16 }, [BodyTooLarge, ConnectFailed, InvalidHeader, InvalidRequest, InvalidUrl, InvalidUtf8, RedirectLimit, Timeout, UnsupportedScheme])
+/// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -4501,15 +9250,17 @@ pub struct HostGlueTimerCancelArgs {
 pub struct HostGlueHttpSendArgs {
     pub max_response_bytes: u64,
     pub timeout_ms: u64,
-    pub body: RocStr,
-    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub body: RocListWith<u8, false>,
+    pub client: *mut u64,
+    pub headers: RocList<AnonStruct77eaba63dfee299d>,
+    pub method_ext: RocStr,
     pub url: RocStr,
     pub max_redirects: u8,
-    pub method: GetOrPost,
+    pub method: u8,
 }
 
 /// Arguments for HostGlue.http_send!
-/// Roc signature: { body : Str, headers : List({ name : Str, value : Str }), max_redirects : U8, max_response_bytes : U64, method : [Get, Post], timeout_ms : U64, url : Str } => Try({ body : Str, headers : List({ name : Str, value : Str }), status : U16 }, [BodyTooLarge, ConnectFailed, InvalidHeader, InvalidRequest, InvalidUrl, InvalidUtf8, RedirectLimit, Timeout, UnsupportedScheme])
+/// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -4517,19 +9268,21 @@ pub struct HostGlueHttpSendArgs {
 pub struct HostGlueHttpSendArgs {
     pub max_response_bytes: u64,
     pub timeout_ms: u64,
-    pub body: RocStr,
-    pub headers: RocList<AnonStruct82a96c5d55d63488>,
+    pub body: RocListWith<u8, false>,
+    pub client: *mut u64,
+    pub headers: RocList<AnonStruct77eaba63dfee299d>,
+    pub method_ext: RocStr,
     pub url: RocStr,
     pub max_redirects: u8,
-    pub method: GetOrPost,
+    pub method: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueHttpSendArgs>() == 96, "HostGlueHttpSendArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueHttpSendArgs>() == 128, "HostGlueHttpSendArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueHttpSendArgs>() == 8, "HostGlueHttpSendArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueHttpSendArgs>() == 56, "HostGlueHttpSendArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueHttpSendArgs>() == 72, "HostGlueHttpSendArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueHttpSendArgs>() == 8, "HostGlueHttpSendArgs alignment mismatch");
 
@@ -4541,9 +9294,10 @@ impl HostGlueHttpSendArgs {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.body.decref(roc_host); }
-        unsafe { decref_list_of_anon_struct82a96c5d55d63488(value.headers, roc_host); }
+        unsafe { decref_box_with(value.client as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+        unsafe { decref_list_of_anon_struct77eaba63dfee299d(value.headers, roc_host); }
+        unsafe { value.method_ext.decref(roc_host); }
         unsafe { value.url.decref(roc_host); }
-        unsafe { value.method.decref(roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -4554,9 +9308,10 @@ impl HostGlueHttpSendArgs {
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
         unsafe { value.body.incref(amount); }
+        unsafe { incref_box(value.client as RocBox, amount); }
         unsafe { value.headers.incref(amount); }
+        unsafe { value.method_ext.incref(amount); }
         unsafe { value.url.incref(amount); }
-        unsafe { value.method.incref(amount); }
     }
 }
 
@@ -4598,7 +9353,7 @@ pub struct HostGlueWindowConfigArgs {
 }
 
 /// Arguments for Files.Dir.list!
-/// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported])])
+/// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -4607,7 +9362,7 @@ pub struct FilesDirListArgs {
 }
 
 /// Arguments for Files.Dir.open_read_dir!
-/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported])])
+/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -4617,7 +9372,7 @@ pub struct FilesDirOpenReadDirArgs {
 }
 
 /// Arguments for Files.Dir.read!
-/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported])])
+/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -4638,57 +9393,221 @@ pub type HostGlueNodeVirtualListArg0 = AnonStructF86f1c1ac9d3a8e4;
 pub type HostGlueNodeCheckboxArg0 = AnonStruct8a6495c35d8ba3b6;
 pub type HostGlueNodeTextareaArg0 = AnonStruct389397a0d08b021e;
 pub type HostGlueNodeImageArg0 = AnonStructBf9e65828680722a;
+pub type HostGlueNodeCanvasArg0 = AnonStruct1cd73c88e8aa8818;
+pub type HostGlueNodeCanvasArg0Primitives = AnonStruct6d9cdb5c6eba22bc;
+pub type HostGlueCanvasEvent = AnonStructB2e41b851da291a;
 pub type HostGlueNodeTextInputArg0 = AnonStructFd9886ad38d7b792;
 pub type HostGlueNodeTextInput = AnonStructDc4c26f806dfc5bf;
 pub type HostGlueSqliteOpenReadErr = AnonStruct4c605145331877e7;
 pub type HostGlueSqliteQueryErr = AnonStruct4c605145331877e7;
 pub type HostGlueSqliteQueryOk = AnonStructD8780653fb52f85f;
 pub type HostGlueSqliteQueryOkRows = AnonStructBff7bc5a4faa26ae;
+pub type InternalFilesAppDataErr = AnonStruct4c605145331877e7;
+pub type InternalFilesReadUtf8Err = AnonStruct4c605145331877e7;
+pub type InternalFilesReadUtf8Ok = AnonStructA2f37e1d5ed0e4cd;
+pub type InternalFilesWriteUtf8AtomicErr = AnonStruct4c605145331877e7;
+pub type HostGlueClipboardAcquireErr = AnonStruct4c605145331877e7;
+pub type HostGlueClipboardReadTextErr = AnonStruct4c605145331877e7;
+pub type HostGlueClipboardReadTextOk = AnonStruct2a44a28a63f85620;
+pub type HostGlueClipboardWriteTextErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioAcquireErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioLoadErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioLoadOk = AnonStruct8e993eac1f1cd0c;
+pub type HostGlueAudioPlayResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioPlayResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioPlayResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioPlayErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioPauseResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioPauseResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioPauseResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioPauseErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioSeekResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioSeekResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioSeekResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioSeekErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioStatusErr = AnonStruct4c605145331877e7;
+pub type HostGlueAudioStatusOk = AnonStruct18a809e7fe3ae87a;
+pub type HostGlueAudioStopResult = HostGlueClipboardWriteTextResult;
+pub type HostGlueAudioStopResultPayload = HostGlueClipboardWriteTextResultPayload;
+pub type HostGlueAudioStopResultTag = HostGlueClipboardWriteTextResultTag;
+pub type HostGlueAudioStopErr = AnonStruct4c605145331877e7;
+pub type HostGlueTcpCloseResult = HostGlueTcpWriteAllResult;
+pub type HostGlueTcpCloseResultPayload = HostGlueTcpWriteAllResultPayload;
+pub type HostGlueTcpCloseResultTag = HostGlueTcpWriteAllResultTag;
+pub type HostGlueProcessAcquireErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
+pub type HostGlueProcessAcquireErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
+pub type HostGlueProcessAcquireErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
+pub type HostGlueProcessAcquireErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessAcquireErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessAcquireErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessAcquireErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessAcquireErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessAcquireErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessSpawnArg1 = AnonStruct93136bf334c2a2fc;
+pub type HostGlueProcessSpawnErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
+pub type HostGlueProcessSpawnErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
+pub type HostGlueProcessSpawnErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
+pub type HostGlueProcessSpawnErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessSpawnErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessSpawnErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessSpawnErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessSpawnErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessSpawnErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
+pub type HostGlueProcessReadErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
+pub type HostGlueProcessReadErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
+pub type HostGlueProcessReadErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadOk = CanceledOrDataOrEndOfFile;
+pub type HostGlueProcessReadOkPayload = CanceledOrDataOrEndOfFilePayload;
+pub type HostGlueProcessReadOkTag = CanceledOrDataOrEndOfFileTag;
+pub type HostGlueProcessWriteErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
+pub type HostGlueProcessWriteErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
+pub type HostGlueProcessWriteErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
+pub type HostGlueProcessWriteErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessWriteErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessWriteErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessWriteErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessWriteErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessWriteErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessResizeArg1 = AnonStruct93136bf334c2a2fc;
+pub type HostGlueProcessResizeErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
+pub type HostGlueProcessResizeErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
+pub type HostGlueProcessResizeErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
+pub type HostGlueProcessResizeErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessResizeErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessResizeErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessResizeErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessResizeErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessResizeErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
+pub type HostGlueProcessCancelErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
+pub type HostGlueProcessCancelErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
+pub type HostGlueProcessCancelErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelOk = AlreadyStoppedOrCanceled;
+pub type HostGlueDeviceAcquireErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceAcquireErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceAcquireErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceAcquireErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceDiscoverErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceDiscoverErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceDiscoverErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverOk = AnonStruct27556b2f7cb4f65f;
+pub type HostGlueDeviceConnectErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceConnectErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceConnectErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceConnectErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceTransactErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceTransactErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceTransactErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
+pub type HostGlueDeviceCloseErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
+pub type HostGlueDeviceCloseErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
+pub type HostGlueDeviceCloseErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueSystemSampleOk = AnonStruct98efc21233c140ff;
+pub type HostGlueSystemSampleOkProcesses = AnonStruct916a0c1ad2ed4712;
+pub type HostGlueSystemCloseResult = HostGlueTcpWriteAllResult;
+pub type HostGlueSystemCloseResultPayload = HostGlueTcpWriteAllResultPayload;
+pub type HostGlueSystemCloseResultTag = HostGlueTcpWriteAllResultTag;
+pub type HostGlueImageInspectOk = AnonStructB3b29ac2cb34a461;
 pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
-pub type HostGlueHttpSendArg0 = AnonStruct33f5020bd57cc2ec;
-pub type HostGlueHttpSendArg0Headers = AnonStruct82a96c5d55d63488;
-pub type HostGlueHttpSendErr = BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme;
-pub type HostGlueHttpSendOk = AnonStruct4cc00b7fc76acdb9;
-pub type HostGlueHttpSendOkHeaders = AnonStruct82a96c5d55d63488;
-pub type FilesPickDirectoryErr = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr;
-pub type FilesPickDirectoryErrPayload = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayload;
-pub type FilesPickDirectoryErrTag = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag;
-pub type FilesPickDirectoryErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesPickDirectoryErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesPickDirectoryErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesPickDirectoryErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
+pub type HostGlueHttpSendArg0 = AnonStructE6f574a7975f5cda;
+pub type HostGlueHttpSendArg0Headers = AnonStruct77eaba63dfee299d;
+pub type HostGlueHttpSendErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme;
+pub type HostGlueHttpSendOk = AnonStructBe6bcbc15f8a1360;
+pub type HostGlueHttpSendOkHeaders = AnonStruct77eaba63dfee299d;
+pub type HostGlueHttpAcquireErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme;
+pub type FilesPickDirectoryErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
+pub type FilesPickDirectoryErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
+pub type FilesPickDirectoryErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type FilesPickDirectoryErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesPickDirectoryErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesPickDirectoryErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesPickDirectoryErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesPickDirectoryErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesPickDirectoryErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type FilesPickDirectoryOk = CanceledOrChosen;
 pub type FilesPickDirectoryOkPayload = CanceledOrChosenPayload;
 pub type FilesPickDirectoryOkTag = CanceledOrChosenTag;
 pub type FilesPickDirectoryOkChosen = AnonStruct4869dafad3498788;
-pub type ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type CanceledOrChosenChosen = AnonStruct4869dafad3498788;
-pub type FilesDirListErr = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr;
-pub type FilesDirListErrPayload = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayload;
-pub type FilesDirListErrTag = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag;
-pub type FilesDirListErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirListErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirListErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirListErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
+pub type FilesDirListErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
+pub type FilesDirListErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
+pub type FilesDirListErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type FilesDirListErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirListErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirListErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirListErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirListErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirListErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type FilesDirListOk = AnonStruct770b9d9b3d3d255;
-pub type FilesDirOpenReadDirErr = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr;
-pub type FilesDirOpenReadDirErrPayload = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayload;
-pub type FilesDirOpenReadDirErrTag = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag;
-pub type FilesDirOpenReadDirErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirOpenReadDirErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirOpenReadDirErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirOpenReadDirErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirReadErr = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr;
-pub type FilesDirReadErrPayload = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrPayload;
-pub type FilesDirReadErrTag = ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag;
-pub type FilesDirReadErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirReadErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirReadErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
-pub type FilesDirReadErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported;
+pub type FilesDirOpenReadDirErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
+pub type FilesDirOpenReadDirErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
+pub type FilesDirOpenReadDirErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type FilesDirOpenReadDirErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirOpenReadDirErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirOpenReadDirErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirOpenReadDirErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirOpenReadDirErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirOpenReadDirErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirReadErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
+pub type FilesDirReadErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
+pub type FilesDirReadErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type FilesDirReadErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirReadErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirReadErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirReadErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirReadErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type FilesDirReadErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 
 // Generated Refcount Helpers
 
@@ -4741,7 +9660,7 @@ unsafe impl RocRelease<FilesDirListResult> for FilesDirListResultRelease {
     }
 }
 
-impl ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
+impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -4750,20 +9669,28 @@ impl ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
         let mut value = self;
         let _ = roc_host;
         match value.tag {
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ListDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr => {
                 let payload = unsafe { value.take_payload_list_directory_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::OpenReadDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr => {
+                let payload = unsafe { value.take_payload_open_app_data_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr => {
                 let payload = unsafe { value.take_payload_open_read_directory_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::PickDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr => {
                 let payload = unsafe { value.take_payload_pick_directory_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ReadFileErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr => {
                 let payload = unsafe { value.take_payload_read_file_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr => {
+                let payload = unsafe { value.take_payload_write_file_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
         }
@@ -4778,35 +9705,43 @@ impl ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr {
         let value = self;
         let _ = amount;
         match value.tag {
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ListDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_list_directory_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::OpenReadDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_open_app_data_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_open_read_directory_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::PickDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_pick_directory_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrTag::ReadFileErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_read_file_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_write_file_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
         }
     }
 }
 
-pub struct ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrRelease;
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrRelease;
 
-unsafe impl RocRelease<ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr> for ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrRelease {
-    unsafe fn release(value: ListDirectoryErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErr, roc_host: &RocHost) {
+unsafe impl RocRelease<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> for ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrRelease {
+    unsafe fn release(value: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported {
+impl AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -4827,10 +9762,10 @@ impl AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectory
     }
 }
 
-pub struct AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupportedRelease;
+pub struct AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupportedRelease;
 
-unsafe impl RocRelease<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported> for AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupportedRelease {
-    unsafe fn release(value: AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrUnavailableOrUnsupported, roc_host: &RocHost) {
+unsafe impl RocRelease<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> for AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupportedRelease {
+    unsafe fn release(value: AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -5366,6 +10301,97 @@ unsafe impl RocRelease<AnonStructBf9e65828680722a> for AnonStructBf9e65828680722
     }
 }
 
+impl AnonStruct1cd73c88e8aa8818 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct6d9cdb5c6eba22bc(value.primitives, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+        unsafe { value.primitives.incref(amount); }
+    }
+}
+
+pub struct AnonStruct1cd73c88e8aa8818Release;
+
+unsafe impl RocRelease<AnonStruct1cd73c88e8aa8818> for AnonStruct1cd73c88e8aa8818Release {
+    unsafe fn release(value: AnonStruct1cd73c88e8aa8818, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct6d9cdb5c6eba22bc {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+    }
+}
+
+pub struct AnonStruct6d9cdb5c6eba22bcRelease;
+
+unsafe impl RocRelease<AnonStruct6d9cdb5c6eba22bc> for AnonStruct6d9cdb5c6eba22bcRelease {
+    unsafe fn release(value: AnonStruct6d9cdb5c6eba22bc, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructB2e41b851da291a {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStructB2e41b851da291aRelease;
+
+unsafe impl RocRelease<AnonStructB2e41b851da291a> for AnonStructB2e41b851da291aRelease {
+    unsafe fn release(value: AnonStructB2e41b851da291a, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl AnonStructDc4c26f806dfc5bf {
     /// Recursively decrement Roc-owned fields.
     ///
@@ -5619,6 +10645,1593 @@ unsafe impl RocRelease<AnonStructBff7bc5a4faa26ae> for AnonStructBff7bc5a4faa26a
     }
 }
 
+impl HostGlueClipboardAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueClipboardAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueClipboardAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueClipboardAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueClipboardAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueClipboardAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueClipboardAcquireResult> for HostGlueClipboardAcquireResultRelease {
+    unsafe fn release(value: HostGlueClipboardAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueClipboardReadTextResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueClipboardReadTextResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueClipboardReadTextResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueClipboardReadTextResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueClipboardReadTextResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueClipboardReadTextResultRelease;
+
+unsafe impl RocRelease<HostGlueClipboardReadTextResult> for HostGlueClipboardReadTextResultRelease {
+    unsafe fn release(value: HostGlueClipboardReadTextResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct2a44a28a63f85620 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.text.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.text.incref(amount); }
+    }
+}
+
+pub struct AnonStruct2a44a28a63f85620Release;
+
+unsafe impl RocRelease<AnonStruct2a44a28a63f85620> for AnonStruct2a44a28a63f85620Release {
+    unsafe fn release(value: AnonStruct2a44a28a63f85620, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueClipboardWriteTextResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueClipboardWriteTextResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueClipboardWriteTextResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueClipboardWriteTextResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueClipboardWriteTextResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueClipboardWriteTextResultRelease;
+
+unsafe impl RocRelease<HostGlueClipboardWriteTextResult> for HostGlueClipboardWriteTextResultRelease {
+    unsafe fn release(value: HostGlueClipboardWriteTextResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueAudioAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueAudioAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueAudioAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueAudioAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueAudioAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueAudioAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueAudioAcquireResult> for HostGlueAudioAcquireResultRelease {
+    unsafe fn release(value: HostGlueAudioAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueAudioLoadResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueAudioLoadResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueAudioLoadResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueAudioLoadResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueAudioLoadResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueAudioLoadResultRelease;
+
+unsafe impl RocRelease<HostGlueAudioLoadResult> for HostGlueAudioLoadResultRelease {
+    unsafe fn release(value: HostGlueAudioLoadResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct8e993eac1f1cd0c {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_box_with(value.track as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { incref_box(value.track as RocBox, amount); }
+    }
+}
+
+pub struct AnonStruct8e993eac1f1cd0cRelease;
+
+unsafe impl RocRelease<AnonStruct8e993eac1f1cd0c> for AnonStruct8e993eac1f1cd0cRelease {
+    unsafe fn release(value: AnonStruct8e993eac1f1cd0c, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueAudioStatusResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueAudioStatusResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueAudioStatusResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueAudioStatusResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueAudioStatusResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueAudioStatusResultRelease;
+
+unsafe impl RocRelease<HostGlueAudioStatusResult> for HostGlueAudioStatusResultRelease {
+    unsafe fn release(value: HostGlueAudioStatusResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct18a809e7fe3ae87a {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct18a809e7fe3ae87aRelease;
+
+unsafe impl RocRelease<AnonStruct18a809e7fe3ae87a> for AnonStruct18a809e7fe3ae87aRelease {
+    unsafe fn release(value: AnonStruct18a809e7fe3ae87a, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueTcpConnectResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueTcpConnectResultTag::Err => {},
+            HostGlueTcpConnectResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueTcpConnectResultTag::Err => {},
+            HostGlueTcpConnectResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueTcpConnectResultRelease;
+
+unsafe impl RocRelease<HostGlueTcpConnectResult> for HostGlueTcpConnectResultRelease {
+    unsafe fn release(value: HostGlueTcpConnectResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueTcpReadUpToResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueTcpReadUpToResultTag::Err => {},
+            HostGlueTcpReadUpToResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueTcpReadUpToResultTag::Err => {},
+            HostGlueTcpReadUpToResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueTcpReadUpToResultRelease;
+
+unsafe impl RocRelease<HostGlueTcpReadUpToResult> for HostGlueTcpReadUpToResultRelease {
+    unsafe fn release(value: HostGlueTcpReadUpToResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueTcpWriteAllResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueTcpWriteAllResultTag::Err => {},
+            HostGlueTcpWriteAllResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueTcpWriteAllResultTag::Err => {},
+            HostGlueTcpWriteAllResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueTcpWriteAllResultRelease;
+
+unsafe impl RocRelease<HostGlueTcpWriteAllResult> for HostGlueTcpWriteAllResultRelease {
+    unsafe fn release(value: HostGlueTcpWriteAllResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueProcessAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueProcessAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueProcessAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueProcessAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueProcessAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueProcessAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueProcessAcquireResult> for HostGlueProcessAcquireResultRelease {
+    unsafe fn release(value: HostGlueProcessAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr => {
+                let payload = unsafe { value.take_payload_acquire_process_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr => {
+                let payload = unsafe { value.take_payload_cancel_process_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr => {
+                let payload = unsafe { value.take_payload_read_process_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr => {
+                let payload = unsafe { value.take_payload_resize_process_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr => {
+                let payload = unsafe { value.take_payload_spawn_process_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr => {
+                let payload = unsafe { value.take_payload_write_process_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_acquire_process_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_cancel_process_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_read_process_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_resize_process_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_spawn_process_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_write_process_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrRelease;
+
+unsafe impl RocRelease<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr> for AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrRelease {
+    unsafe fn release(value: AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let _ = self;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let _ = self;
+        let _ = amount;
+    }
+}
+
+pub struct AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupportedRelease;
+
+unsafe impl RocRelease<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> for AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupportedRelease {
+    unsafe fn release(value: AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueProcessSpawnResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueProcessSpawnResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueProcessSpawnResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueProcessSpawnResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueProcessSpawnResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueProcessSpawnResultRelease;
+
+unsafe impl RocRelease<HostGlueProcessSpawnResult> for HostGlueProcessSpawnResultRelease {
+    unsafe fn release(value: HostGlueProcessSpawnResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct93136bf334c2a2fc {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct93136bf334c2a2fcRelease;
+
+unsafe impl RocRelease<AnonStruct93136bf334c2a2fc> for AnonStruct93136bf334c2a2fcRelease {
+    unsafe fn release(value: AnonStruct93136bf334c2a2fc, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueProcessReadResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueProcessReadResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueProcessReadResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueProcessReadResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueProcessReadResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueProcessReadResultRelease;
+
+unsafe impl RocRelease<HostGlueProcessReadResult> for HostGlueProcessReadResultRelease {
+    unsafe fn release(value: HostGlueProcessReadResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl CanceledOrDataOrEndOfFile {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            CanceledOrDataOrEndOfFileTag::Canceled => {},
+            CanceledOrDataOrEndOfFileTag::Data => {
+                let payload = unsafe { value.take_payload_data_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            CanceledOrDataOrEndOfFileTag::EndOfFile => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            CanceledOrDataOrEndOfFileTag::Canceled => {},
+            CanceledOrDataOrEndOfFileTag::Data => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_data_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            CanceledOrDataOrEndOfFileTag::EndOfFile => {},
+        }
+    }
+}
+
+pub struct CanceledOrDataOrEndOfFileRelease;
+
+unsafe impl RocRelease<CanceledOrDataOrEndOfFile> for CanceledOrDataOrEndOfFileRelease {
+    unsafe fn release(value: CanceledOrDataOrEndOfFile, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueProcessWriteResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueProcessWriteResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueProcessWriteResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueProcessWriteResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueProcessWriteResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueProcessWriteResultRelease;
+
+unsafe impl RocRelease<HostGlueProcessWriteResult> for HostGlueProcessWriteResultRelease {
+    unsafe fn release(value: HostGlueProcessWriteResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueProcessResizeResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueProcessResizeResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueProcessResizeResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueProcessResizeResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueProcessResizeResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueProcessResizeResultRelease;
+
+unsafe impl RocRelease<HostGlueProcessResizeResult> for HostGlueProcessResizeResultRelease {
+    unsafe fn release(value: HostGlueProcessResizeResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueProcessCancelResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueProcessCancelResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueProcessCancelResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueProcessCancelResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueProcessCancelResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueProcessCancelResultRelease;
+
+unsafe impl RocRelease<HostGlueProcessCancelResult> for HostGlueProcessCancelResultRelease {
+    unsafe fn release(value: HostGlueProcessCancelResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AlreadyStoppedOrCanceled {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let _ = self;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let _ = self;
+        let _ = amount;
+    }
+}
+
+pub struct AlreadyStoppedOrCanceledRelease;
+
+unsafe impl RocRelease<AlreadyStoppedOrCanceled> for AlreadyStoppedOrCanceledRelease {
+    unsafe fn release(value: AlreadyStoppedOrCanceled, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceAcquireResult> for HostGlueDeviceAcquireResultRelease {
+    unsafe fn release(value: HostGlueDeviceAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr => {
+                let payload = unsafe { value.take_payload_acquire_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr => {
+                let payload = unsafe { value.take_payload_close_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr => {
+                let payload = unsafe { value.take_payload_connect_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr => {
+                let payload = unsafe { value.take_payload_discover_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr => {
+                let payload = unsafe { value.take_payload_transact_device_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_acquire_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_close_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_connect_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_discover_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_transact_device_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrRelease;
+
+unsafe impl RocRelease<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr> for AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrRelease {
+    unsafe fn release(value: AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let _ = self;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let _ = self;
+        let _ = amount;
+    }
+}
+
+pub struct AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupportedRelease;
+
+unsafe impl RocRelease<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> for AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupportedRelease {
+    unsafe fn release(value: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceDiscoverResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceDiscoverResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceDiscoverResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_list_of_anon_struct27556b2f7cb4f65f(payload, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceDiscoverResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceDiscoverResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceDiscoverResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceDiscoverResult> for HostGlueDeviceDiscoverResultRelease {
+    unsafe fn release(value: HostGlueDeviceDiscoverResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct27556b2f7cb4f65f {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.manufacturer.decref(roc_host); }
+        unsafe { value.product.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.manufacturer.incref(amount); }
+        unsafe { value.product.incref(amount); }
+    }
+}
+
+pub struct AnonStruct27556b2f7cb4f65fRelease;
+
+unsafe impl RocRelease<AnonStruct27556b2f7cb4f65f> for AnonStruct27556b2f7cb4f65fRelease {
+    unsafe fn release(value: AnonStruct27556b2f7cb4f65f, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceConnectResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceConnectResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceConnectResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceConnectResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceConnectResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceConnectResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceConnectResult> for HostGlueDeviceConnectResultRelease {
+    unsafe fn release(value: HostGlueDeviceConnectResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceTransactResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceTransactResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceTransactResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceTransactResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceTransactResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueDeviceTransactResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceTransactResult> for HostGlueDeviceTransactResultRelease {
+    unsafe fn release(value: HostGlueDeviceTransactResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueDeviceCloseResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueDeviceCloseResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueDeviceCloseResultTag::Ok => {},
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueDeviceCloseResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueDeviceCloseResultTag::Ok => {},
+        }
+    }
+}
+
+pub struct HostGlueDeviceCloseResultRelease;
+
+unsafe impl RocRelease<HostGlueDeviceCloseResult> for HostGlueDeviceCloseResultRelease {
+    unsafe fn release(value: HostGlueDeviceCloseResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueSystemAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueSystemAcquireResultTag::Err => {},
+            HostGlueSystemAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueSystemAcquireResultTag::Err => {},
+            HostGlueSystemAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueSystemAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueSystemAcquireResult> for HostGlueSystemAcquireResultRelease {
+    unsafe fn release(value: HostGlueSystemAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueSystemSampleResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueSystemSampleResultTag::Err => {},
+            HostGlueSystemSampleResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueSystemSampleResultTag::Err => {},
+            HostGlueSystemSampleResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueSystemSampleResultRelease;
+
+unsafe impl RocRelease<HostGlueSystemSampleResult> for HostGlueSystemSampleResultRelease {
+    unsafe fn release(value: HostGlueSystemSampleResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct98efc21233c140ff {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_list_of_anon_struct916a0c1ad2ed4712(value.processes, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.processes.incref(amount); }
+    }
+}
+
+pub struct AnonStruct98efc21233c140ffRelease;
+
+unsafe impl RocRelease<AnonStruct98efc21233c140ff> for AnonStruct98efc21233c140ffRelease {
+    unsafe fn release(value: AnonStruct98efc21233c140ff, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct916a0c1ad2ed4712 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct AnonStruct916a0c1ad2ed4712Release;
+
+unsafe impl RocRelease<AnonStruct916a0c1ad2ed4712> for AnonStruct916a0c1ad2ed4712Release {
+    unsafe fn release(value: AnonStruct916a0c1ad2ed4712, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl HostGlueImageInspectResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueImageInspectResultTag::Err => {},
+            HostGlueImageInspectResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueImageInspectResultTag::Err => {},
+            HostGlueImageInspectResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueImageInspectResultRelease;
+
+unsafe impl RocRelease<HostGlueImageInspectResult> for HostGlueImageInspectResultRelease {
+    unsafe fn release(value: HostGlueImageInspectResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructB3b29ac2cb34a461 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStructB3b29ac2cb34a461Release;
+
+unsafe impl RocRelease<AnonStructB3b29ac2cb34a461> for AnonStructB3b29ac2cb34a461Release {
+    unsafe fn release(value: AnonStructB3b29ac2cb34a461, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl MountOrNoChangeOrReplace {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -5732,6 +12345,84 @@ unsafe impl RocRelease<AnonStruct8d3c9b3ac95ef074> for AnonStruct8d3c9b3ac95ef07
     }
 }
 
+impl HostGlueHttpAcquireResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueHttpAcquireResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueHttpAcquireResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueHttpAcquireResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueHttpAcquireResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueHttpAcquireResultRelease;
+
+unsafe impl RocRelease<HostGlueHttpAcquireResult> for HostGlueHttpAcquireResultRelease {
+    unsafe fn release(value: HostGlueHttpAcquireResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let _ = self;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let _ = self;
+        let _ = amount;
+    }
+}
+
+pub struct AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease;
+
+unsafe impl RocRelease<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme> for AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease {
+    unsafe fn release(value: AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl HostGlueHttpSendResult {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -5781,36 +12472,7 @@ unsafe impl RocRelease<HostGlueHttpSendResult> for HostGlueHttpSendResultRelease
     }
 }
 
-impl BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme {
-    /// Recursively decrement Roc-owned payloads.
-    ///
-    /// # Safety
-    /// `self` must own one live Roc reference for each refcounted payload.
-    pub unsafe fn decref(self, roc_host: &RocHost) {
-        let _ = self;
-        let _ = roc_host;
-    }
-
-    /// Increment Roc-owned payloads.
-    ///
-    /// # Safety
-    /// `self` must point at live Roc allocations. The retained references must
-    /// be balanced by later decrefs.
-    pub unsafe fn incref(self, amount: isize) {
-        let _ = self;
-        let _ = amount;
-    }
-}
-
-pub struct BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease;
-
-unsafe impl RocRelease<BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme> for BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease {
-    unsafe fn release(value: BodyTooLargeOrConnectFailedOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrInvalidUtf8OrRedirectLimitOrTimeoutOrUnsupportedScheme, roc_host: &RocHost) {
-        unsafe { value.decref(roc_host); }
-    }
-}
-
-impl AnonStruct4cc00b7fc76acdb9 {
+impl AnonStructBe6bcbc15f8a1360 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -5818,7 +12480,7 @@ impl AnonStruct4cc00b7fc76acdb9 {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.body.decref(roc_host); }
-        unsafe { decref_list_of_anon_struct82a96c5d55d63488(value.headers, roc_host); }
+        unsafe { decref_list_of_anon_struct77eaba63dfee299d(value.headers, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -5833,22 +12495,187 @@ impl AnonStruct4cc00b7fc76acdb9 {
     }
 }
 
-pub struct AnonStruct4cc00b7fc76acdb9Release;
+pub struct AnonStructBe6bcbc15f8a1360Release;
 
-unsafe impl RocRelease<AnonStruct4cc00b7fc76acdb9> for AnonStruct4cc00b7fc76acdb9Release {
-    unsafe fn release(value: AnonStruct4cc00b7fc76acdb9, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructBe6bcbc15f8a1360> for AnonStructBe6bcbc15f8a1360Release {
+    unsafe fn release(value: AnonStructBe6bcbc15f8a1360, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct82a96c5d55d63488 {
+impl AnonStruct77eaba63dfee299d {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
-        unsafe { value.name.decref(roc_host); }
+        unsafe { value._0.decref(roc_host); }
+        unsafe { value._1.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value._0.incref(amount); }
+        unsafe { value._1.incref(amount); }
+    }
+}
+
+pub struct AnonStruct77eaba63dfee299dRelease;
+
+unsafe impl RocRelease<AnonStruct77eaba63dfee299d> for AnonStruct77eaba63dfee299dRelease {
+    unsafe fn release(value: AnonStruct77eaba63dfee299d, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructE6f574a7975f5cda {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.body.decref(roc_host); }
+        unsafe { decref_box_with(value.client as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+        unsafe { decref_list_of_anon_struct77eaba63dfee299d(value.headers, roc_host); }
+        unsafe { value.method_ext.decref(roc_host); }
+        unsafe { value.url.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.body.incref(amount); }
+        unsafe { incref_box(value.client as RocBox, amount); }
+        unsafe { value.headers.incref(amount); }
+        unsafe { value.method_ext.incref(amount); }
+        unsafe { value.url.incref(amount); }
+    }
+}
+
+pub struct AnonStructE6f574a7975f5cdaRelease;
+
+unsafe impl RocRelease<AnonStructE6f574a7975f5cda> for AnonStructE6f574a7975f5cdaRelease {
+    unsafe fn release(value: AnonStructE6f574a7975f5cda, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl InternalFilesAppDataResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesAppDataResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesAppDataResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesAppDataResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesAppDataResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesAppDataResultRelease;
+
+unsafe impl RocRelease<InternalFilesAppDataResult> for InternalFilesAppDataResultRelease {
+    unsafe fn release(value: InternalFilesAppDataResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl InternalFilesReadUtf8Result {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesReadUtf8ResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesReadUtf8ResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesReadUtf8ResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesReadUtf8ResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesReadUtf8ResultRelease;
+
+unsafe impl RocRelease<InternalFilesReadUtf8Result> for InternalFilesReadUtf8ResultRelease {
+    unsafe fn release(value: InternalFilesReadUtf8Result, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructA2f37e1d5ed0e4cd {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
         unsafe { value.value.decref(roc_host); }
     }
 
@@ -5859,62 +12686,33 @@ impl AnonStruct82a96c5d55d63488 {
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
-        unsafe { value.name.incref(amount); }
         unsafe { value.value.incref(amount); }
     }
 }
 
-pub struct AnonStruct82a96c5d55d63488Release;
+pub struct AnonStructA2f37e1d5ed0e4cdRelease;
 
-unsafe impl RocRelease<AnonStruct82a96c5d55d63488> for AnonStruct82a96c5d55d63488Release {
-    unsafe fn release(value: AnonStruct82a96c5d55d63488, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructA2f37e1d5ed0e4cd> for AnonStructA2f37e1d5ed0e4cdRelease {
+    unsafe fn release(value: AnonStructA2f37e1d5ed0e4cd, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct33f5020bd57cc2ec {
-    /// Recursively decrement Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must own one live Roc reference for each refcounted field.
-    pub unsafe fn decref(self, roc_host: &RocHost) {
-        let value = self;
-        unsafe { value.body.decref(roc_host); }
-        unsafe { decref_list_of_anon_struct82a96c5d55d63488(value.headers, roc_host); }
-        unsafe { value.url.decref(roc_host); }
-        unsafe { value.method.decref(roc_host); }
-    }
-
-    /// Increment Roc-owned fields.
-    ///
-    /// # Safety
-    /// `self` must point at live Roc allocations. The retained references must
-    /// be balanced by later decrefs.
-    pub unsafe fn incref(self, amount: isize) {
-        let value = self;
-        unsafe { value.body.incref(amount); }
-        unsafe { value.headers.incref(amount); }
-        unsafe { value.url.incref(amount); }
-        unsafe { value.method.incref(amount); }
-    }
-}
-
-pub struct AnonStruct33f5020bd57cc2ecRelease;
-
-unsafe impl RocRelease<AnonStruct33f5020bd57cc2ec> for AnonStruct33f5020bd57cc2ecRelease {
-    unsafe fn release(value: AnonStruct33f5020bd57cc2ec, roc_host: &RocHost) {
-        unsafe { value.decref(roc_host); }
-    }
-}
-
-impl GetOrPost {
+impl InternalFilesWriteUtf8AtomicResult {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
     /// `self` must own one live Roc reference for each refcounted payload.
     pub unsafe fn decref(self, roc_host: &RocHost) {
-        let _ = self;
+        let mut value = self;
         let _ = roc_host;
+        match value.tag {
+            InternalFilesWriteUtf8AtomicResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesWriteUtf8AtomicResultTag::Ok => {},
+        }
     }
 
     /// Increment Roc-owned payloads.
@@ -5923,15 +12721,22 @@ impl GetOrPost {
     /// `self` must point at live Roc allocations. The retained references must
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
-        let _ = self;
+        let value = self;
         let _ = amount;
+        match value.tag {
+            InternalFilesWriteUtf8AtomicResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesWriteUtf8AtomicResultTag::Ok => {},
+        }
     }
 }
 
-pub struct GetOrPostRelease;
+pub struct InternalFilesWriteUtf8AtomicResultRelease;
 
-unsafe impl RocRelease<GetOrPost> for GetOrPostRelease {
-    unsafe fn release(value: GetOrPost, roc_host: &RocHost) {
+unsafe impl RocRelease<InternalFilesWriteUtf8AtomicResult> for InternalFilesWriteUtf8AtomicResultRelease {
+    unsafe fn release(value: InternalFilesWriteUtf8AtomicResult, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -5945,6 +12750,17 @@ unsafe impl RocRelease<GetOrPost> for GetOrPostRelease {
 /// `value` must own one live Roc list reference.
 pub unsafe fn decref_list_of_anon_struct770b9d9b3d3d255(value: RocList<AnonStruct770b9d9b3d3d255>, roc_host: &RocHost) {
     unsafe { value.release_with::<AnonStruct770b9d9b3d3d255Release>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStruct6d9cdb5c6eba22bc>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct6d9cdb5c6eba22bc(value: RocList<AnonStruct6d9cdb5c6eba22bc>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct6d9cdb5c6eba22bcRelease>(roc_host); }
 }
 
 /// Release one owned reference to a `RocList<RocStr>`.
@@ -5980,15 +12796,37 @@ pub unsafe fn decref_list_of_anon_struct_bff7bc5a4faa26ae(value: RocList<AnonStr
     unsafe { value.release_with::<AnonStructBff7bc5a4faa26aeRelease>(roc_host); }
 }
 
-/// Release one owned reference to a `RocList<AnonStruct82a96c5d55d63488>`.
+/// Release one owned reference to a `RocList<AnonStruct27556b2f7cb4f65f>`.
 ///
 /// The allocation's final reference is claimed atomically before any element
 /// is read, so concurrent owners cannot skip or duplicate element teardown.
 ///
 /// # Safety
 /// `value` must own one live Roc list reference.
-pub unsafe fn decref_list_of_anon_struct82a96c5d55d63488(value: RocList<AnonStruct82a96c5d55d63488>, roc_host: &RocHost) {
-    unsafe { value.release_with::<AnonStruct82a96c5d55d63488Release>(roc_host); }
+pub unsafe fn decref_list_of_anon_struct27556b2f7cb4f65f(value: RocList<AnonStruct27556b2f7cb4f65f>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct27556b2f7cb4f65fRelease>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStruct916a0c1ad2ed4712>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct916a0c1ad2ed4712(value: RocList<AnonStruct916a0c1ad2ed4712>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct916a0c1ad2ed4712Release>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStruct77eaba63dfee299d>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct77eaba63dfee299d(value: RocList<AnonStruct77eaba63dfee299d>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct77eaba63dfee299dRelease>(roc_host); }
 }
 
 
@@ -6138,6 +12976,17 @@ unsafe extern "C" {
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_image(arg0: HostGlueNodeImageArgs) -> u64;
 
+    /// Hosted symbol for HostGlue.node_canvas!
+    /// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_canvas(arg0: HostGlueNodeCanvasArgs) -> u64;
+
+    /// Hosted symbol for HostGlue.canvas_event!
+    /// Roc signature: {} => { phase : U8, target : U64, x : I32, y : I32 }
+    pub fn roc_gui_canvas_event() -> AnonStructB2e41b851da291a;
+
     /// Hosted symbol for HostGlue.input_value!
     /// Roc signature: {} => Str
     /// The result is owned by Roc: return exactly one owned reference.
@@ -6167,6 +13016,244 @@ unsafe extern "C" {
     ///     unsafe { arg1.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_sqlite_query(arg0: *mut u64, arg1: RocStr) -> HostGlueSqliteQueryResult;
+
+    /// Hosted symbol for InternalFiles.app_data!
+    /// Roc signature: {} => Try(Resource.Handle([DirReadWriteResource]), { code : U8, message : Str })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_app_data() -> InternalFilesAppDataResult;
+
+    /// Hosted symbol for InternalFiles.read_utf8!
+    /// Roc signature: Resource.Handle([DirReadWriteResource]), Str => Try({ found : Bool, value : Str }, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_dir_read_utf8(arg0: *mut u64, arg1: RocStr) -> InternalFilesReadUtf8Result;
+
+    /// Hosted symbol for InternalFiles.write_utf8_atomic!
+    /// Roc signature: Resource.Handle([DirReadWriteResource]), Str, Str => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    ///     unsafe { arg2.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_dir_write_utf8_atomic(arg0: *mut u64, arg1: RocStr, arg2: RocStr) -> InternalFilesWriteUtf8AtomicResult;
+
+    /// Hosted symbol for HostGlue.clipboard_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([ClipboardResource]), { code : U8, message : Str })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_clipboard_acquire() -> HostGlueClipboardAcquireResult;
+
+    /// Hosted symbol for HostGlue.clipboard_read_text!
+    /// Roc signature: Resource.Handle([ClipboardResource]) => Try({ sequence : U64, text : Str }, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_clipboard_read_text(arg0: *mut u64) -> HostGlueClipboardReadTextResult;
+
+    /// Hosted symbol for HostGlue.clipboard_write_text!
+    /// Roc signature: Resource.Handle([ClipboardResource]), Str => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_clipboard_write_text(arg0: *mut u64, arg1: RocStr) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([AudioOutputResource]), { code : U8, message : Str })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_acquire() -> HostGlueAudioAcquireResult;
+
+    /// Hosted symbol for HostGlue.audio_load!
+    /// Roc signature: Resource.Handle([AudioOutputResource]), Resource.Handle([DirReadResource]), Str => Try({ duration_ms : U64, track : Resource.Handle([AudioTrackResource]) }, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { decref_box_with(arg1 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg2.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_load(arg0: *mut u64, arg1: *mut u64, arg2: RocStr) -> HostGlueAudioLoadResult;
+
+    /// Hosted symbol for HostGlue.audio_play!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_play(arg0: *mut u64) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_pause!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_pause(arg0: *mut u64) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_seek!
+    /// Roc signature: Resource.Handle([AudioTrackResource]), U64 => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_seek(arg0: *mut u64, arg1: u64) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.audio_status!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({ duration_ms : U64, position_ms : U64, state : U8 }, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_status(arg0: *mut u64) -> HostGlueAudioStatusResult;
+
+    /// Hosted symbol for HostGlue.audio_stop!
+    /// Roc signature: Resource.Handle([AudioTrackResource]) => Try({}, { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_audio_stop(arg0: *mut u64) -> HostGlueClipboardWriteTextResult;
+
+    /// Hosted symbol for HostGlue.tcp_connect!
+    /// Roc signature: {} => Try(Resource.Handle([TcpStreamResource]), U8)
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_tcp_connect() -> HostGlueTcpConnectResult;
+
+    /// Hosted symbol for HostGlue.tcp_read_up_to!
+    /// Roc signature: Resource.Handle([TcpStreamResource]), U64 => Try(List(U8), U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_tcp_read_up_to(arg0: *mut u64, arg1: u64) -> HostGlueTcpReadUpToResult;
+
+    /// Hosted symbol for HostGlue.tcp_write_all!
+    /// Roc signature: Resource.Handle([TcpStreamResource]), List(U8) => Try({}, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    pub fn roc_tcp_write_all(arg0: *mut u64, arg1: RocListWith<u8, false>) -> HostGlueTcpWriteAllResult;
+
+    /// Hosted symbol for HostGlue.tcp_close!
+    /// Roc signature: Resource.Handle([TcpStreamResource]) => Try({}, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_tcp_close(arg0: *mut u64) -> HostGlueTcpWriteAllResult;
+
+    /// Hosted symbol for HostGlue.process_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([ProcessGrantResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_process_acquire() -> HostGlueProcessAcquireResult;
+
+    /// Hosted symbol for HostGlue.process_spawn!
+    /// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_process_spawn(arg0: *mut u64, arg1: AnonStruct93136bf334c2a2fc) -> HostGlueProcessSpawnResult;
+
+    /// Hosted symbol for HostGlue.process_read!
+    /// Roc signature: Resource.Handle([PtyResource]), U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_process_read(arg0: *mut u64, arg1: u32) -> HostGlueProcessReadResult;
+
+    /// Hosted symbol for HostGlue.process_write!
+    /// Roc signature: Resource.Handle([PtyResource]), List(U8) => Try(U32, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    pub fn roc_process_write(arg0: *mut u64, arg1: RocListWith<u8, false>) -> HostGlueProcessWriteResult;
+
+    /// Hosted symbol for HostGlue.process_resize!
+    /// Roc signature: Resource.Handle([PtyResource]), { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    pub fn roc_process_resize(arg0: *mut u64, arg1: AnonStruct93136bf334c2a2fc) -> HostGlueProcessResizeResult;
+
+    /// Hosted symbol for HostGlue.process_cancel!
+    /// Roc signature: Resource.Handle([PtyResource]) => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_process_cancel(arg0: *mut u64) -> HostGlueProcessCancelResult;
+
+    /// Hosted symbol for HostGlue.device_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([DeviceGrantResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_acquire() -> HostGlueDeviceAcquireResult;
+
+    /// Hosted symbol for HostGlue.device_discover!
+    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_discover(arg0: *mut u64) -> HostGlueDeviceDiscoverResult;
+
+    /// Hosted symbol for HostGlue.device_connect!
+    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_connect(arg0: *mut u64) -> HostGlueDeviceConnectResult;
+
+    /// Hosted symbol for HostGlue.device_transact!
+    /// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_device_transact(arg0: *mut u64, arg1: RocListWith<u8, false>) -> HostGlueDeviceTransactResult;
+
+    /// Hosted symbol for HostGlue.device_close!
+    /// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_device_close(arg0: *mut u64) -> HostGlueDeviceCloseResult;
+
+    /// Hosted symbol for HostGlue.system_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([SystemSamplerResource]), U8)
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_system_acquire() -> HostGlueSystemAcquireResult;
+
+    /// Hosted symbol for HostGlue.system_sample!
+    /// Roc signature: Resource.Handle([SystemSamplerResource]) => Try({ cpu_available : Bool, cpu_tenths : U16, disk_available : Bool, disk_read_bytes : U64, disk_written_bytes : U64, memory_available : Bool, memory_total_bytes : U64, memory_used_bytes : U64, network_available : Bool, network_received_bytes : U64, network_transmitted_bytes : U64, processes : List({ cpu_tenths : U16, memory_bytes : U64, name : Str, pid : U64 }), processes_available : Bool, sequence : U64 }, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_system_sample(arg0: *mut u64) -> HostGlueSystemSampleResult;
+
+    /// Hosted symbol for HostGlue.system_close!
+    /// Roc signature: Resource.Handle([SystemSamplerResource]) => Try({}, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_system_close(arg0: *mut u64) -> HostGlueTcpWriteAllResult;
+
+    /// Hosted symbol for HostGlue.image_inspect!
+    /// Roc signature: List(U8), U8 => Try({ height : U32, width : U32 }, U8)
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_image_inspect(arg0: RocListWith<u8, false>, arg1: u8) -> HostGlueImageInspectResult;
 
     /// Hosted symbol for HostGlue.apply!
     /// Roc signature: [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })] => {}
@@ -6216,12 +13303,17 @@ unsafe extern "C" {
     pub fn roc_gui_timer_cancel(arg0: *mut u64) -> bool;
 
     /// Hosted symbol for HostGlue.http_send!
-    /// Roc signature: { body : Str, headers : List({ name : Str, value : Str }), max_redirects : U8, max_response_bytes : U64, method : [Get, Post], timeout_ms : U64, url : Str } => Try({ body : Str, headers : List({ name : Str, value : Str }), status : U16 }, [BodyTooLarge, ConnectFailed, InvalidHeader, InvalidRequest, InvalidUrl, InvalidUtf8, RedirectLimit, Timeout, UnsupportedScheme])
+    /// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_http_send(arg0: HostGlueHttpSendArgs) -> HostGlueHttpSendResult;
+
+    /// Hosted symbol for HostGlue.http_acquire!
+    /// Roc signature: {} => Try(Resource.Handle([HttpClientResource]), [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_http_acquire() -> HostGlueHttpAcquireResult;
 
     /// Hosted symbol for HostGlue.work_start!
     /// Roc signature: U8 => {}
@@ -6239,12 +13331,12 @@ unsafe extern "C" {
     pub fn roc_gui_window_config(arg0: RocStr, arg1: u32, arg2: u32);
 
     /// Hosted symbol for Files.pick_directory!
-    /// Roc signature: {} => Try([Canceled, Chosen({ directory : Resource.Handle([DirReadResource]), name : Str })], [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported])])
+    /// Roc signature: {} => Try([Canceled, Chosen({ directory : Resource.Handle([DirReadResource]), name : Str })], [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_files_pick_directory() -> FilesPickDirectoryResult;
 
     /// Hosted symbol for Files.Dir.list!
-    /// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported])])
+    /// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -6252,7 +13344,7 @@ unsafe extern "C" {
     pub fn roc_files_dir_list(arg0: *mut u64) -> FilesDirListResult;
 
     /// Hosted symbol for Files.Dir.open_read_dir!
-    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported])])
+    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -6261,7 +13353,7 @@ unsafe extern "C" {
     pub fn roc_files_dir_open_read(arg0: *mut u64, arg1: RocStr) -> FilesDirOpenReadDirResult;
 
     /// Hosted symbol for Files.Dir.read!
-    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Unavailable, Unsupported])])
+    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }

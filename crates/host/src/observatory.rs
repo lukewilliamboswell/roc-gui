@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 5;
+pub const SCHEMA_VERSION: u32 = 9;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -232,6 +232,11 @@ pub struct StepResult {
     pub duration_ns: Option<u64>,
     pub expected_count: Option<u64>,
     pub observed_count: Option<u64>,
+    pub audio_counters: Option<([u64; 9], [u64; 9])>,
+    pub clipboard_counters: Option<([u64; 4], [u64; 4])>,
+    pub sqlite_counters: Option<([u64; 3], [u64; 3])>,
+    pub http_counters: Option<([u64; 4], [u64; 4])>,
+    pub tcp_counters: Option<([u64; 5], [u64; 5])>,
     pub expected_patch_kind: Option<String>,
     pub observed_patch_kind: Option<&'static str>,
     pub expected_staged_nodes: Option<u64>,
@@ -1011,10 +1016,48 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             "UPDATE runs SET ended_ns=?2,outcome=?3,diagnostic=?4,end_cpu_user_ns=?5,end_cpu_system_ns=?6,end_max_rss_bytes=?7,end_current_rss_bytes=?8,end_roc_alloc_calls=?9,end_roc_alloc_requested_bytes=?10,end_roc_dealloc_calls=?11,end_roc_realloc_calls=?12,end_roc_realloc_requested_bytes=?13 WHERE id=?1",
             params![id, as_i64(ended_ns), outcome, diagnostic, as_i64(resources.cpu_user_ns), as_i64(resources.cpu_system_ns), as_i64(resources.max_rss_bytes), resources.current_rss_bytes.map(as_i64), as_i64(resources.roc_alloc_calls), as_i64(resources.roc_alloc_requested_bytes), as_i64(resources.roc_dealloc_calls), as_i64(resources.roc_realloc_calls), as_i64(resources.roc_realloc_requested_bytes)],
         ),
-        Event::Step(result) => connection.execute(
+        Event::Step(result) => {
+            let audio_counters = result.audio_counters;
+            let clipboard_counters = result.clipboard_counters;
+            let sqlite_counters = result.sqlite_counters;
+            let http_counters = result.http_counters;
+            let tcp_counters = result.tcp_counters;
+            connection.execute(
             "INSERT INTO steps(run_id,ordinal,source_line,kind,role,status,duration_ns,expected_count,observed_count,expected_patch_kind,observed_patch_kind,expected_staged_nodes,observed_staged_nodes,expected_removed_nodes,observed_removed_nodes,diagnostic) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
             params![result.run_id, result.ordinal as i64, result.source_line as i64, result.kind, result.role, result.status, result.duration_ns.map(as_i64), result.expected_count.map(as_i64), result.observed_count.map(as_i64), result.expected_patch_kind, result.observed_patch_kind, result.expected_staged_nodes.map(as_i64), result.observed_staged_nodes.map(as_i64), result.expected_removed_nodes.map(as_i64), result.observed_removed_nodes.map(as_i64), result.diagnostic],
-        ),
+            ).map_err(|error| format!("cannot write step row: {error}"))?;
+            if let Some((expected, observed)) = audio_counters {
+                connection.execute(
+                    "INSERT INTO audio_counter_assertions(step_id,expected_live_outputs,observed_live_outputs,expected_live_tracks,observed_live_tracks,expected_acquire,observed_acquire,expected_load,observed_load,expected_play,observed_play,expected_pause,observed_pause,expected_seek,observed_seek,expected_status,observed_status,expected_stop,observed_stop) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3]), as_i64(expected[4]), as_i64(observed[4]), as_i64(expected[5]), as_i64(observed[5]), as_i64(expected[6]), as_i64(observed[6]), as_i64(expected[7]), as_i64(observed[7]), as_i64(expected[8]), as_i64(observed[8])],
+                ).map_err(|error| format!("cannot write audio counter assertion: {error}"))?;
+            }
+            if let Some((expected, observed)) = clipboard_counters {
+                connection.execute(
+                    "INSERT INTO clipboard_counter_assertions(step_id,expected_live_handles,observed_live_handles,expected_acquire,observed_acquire,expected_read,observed_read,expected_write,observed_write) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3])],
+                ).map_err(|error| format!("cannot write clipboard counter assertion: {error}"))?;
+            }
+            if let Some((expected, observed)) = sqlite_counters {
+                connection.execute(
+                    "INSERT INTO database_counter_assertions(step_id,expected_live_connections,observed_live_connections,expected_open,observed_open,expected_query,observed_query) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2])],
+                ).map_err(|error| format!("cannot write SQLite counter assertion: {error}"))?;
+            }
+            if let Some((expected, observed)) = http_counters {
+                connection.execute(
+                    "INSERT INTO http_counter_assertions(step_id,expected_live_clients,observed_live_clients,expected_acquire,observed_acquire,expected_send,observed_send,expected_denied,observed_denied) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3])],
+                ).map_err(|error| format!("cannot write HTTP counter assertion: {error}"))?;
+            }
+            if let Some((expected, observed)) = tcp_counters {
+                connection.execute(
+                    "INSERT INTO tcp_counter_assertions(step_id,expected_live_streams,observed_live_streams,expected_connect,observed_connect,expected_read,observed_read,expected_write,observed_write,expected_close,observed_close) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3]), as_i64(expected[4]), as_i64(observed[4])],
+                ).map_err(|error| format!("cannot write TCP counter assertion: {error}"))?;
+            }
+            Ok(1)
+        },
         Event::Cycle(cycle) => {
             connection.execute(
                 "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
@@ -1213,6 +1256,46 @@ CREATE TABLE steps(
     observed_removed_nodes INTEGER,
     diagnostic TEXT,
     UNIQUE(run_id,ordinal)
+);
+CREATE TABLE audio_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_outputs INTEGER NOT NULL, observed_live_outputs INTEGER NOT NULL,
+    expected_live_tracks INTEGER NOT NULL, observed_live_tracks INTEGER NOT NULL,
+    expected_acquire INTEGER NOT NULL, observed_acquire INTEGER NOT NULL,
+    expected_load INTEGER NOT NULL, observed_load INTEGER NOT NULL,
+    expected_play INTEGER NOT NULL, observed_play INTEGER NOT NULL,
+    expected_pause INTEGER NOT NULL, observed_pause INTEGER NOT NULL,
+    expected_seek INTEGER NOT NULL, observed_seek INTEGER NOT NULL,
+    expected_status INTEGER NOT NULL, observed_status INTEGER NOT NULL,
+    expected_stop INTEGER NOT NULL, observed_stop INTEGER NOT NULL
+);
+CREATE TABLE clipboard_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_handles INTEGER NOT NULL, observed_live_handles INTEGER NOT NULL,
+    expected_acquire INTEGER NOT NULL, observed_acquire INTEGER NOT NULL,
+    expected_read INTEGER NOT NULL, observed_read INTEGER NOT NULL,
+    expected_write INTEGER NOT NULL, observed_write INTEGER NOT NULL
+);
+CREATE TABLE database_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_connections INTEGER NOT NULL, observed_live_connections INTEGER NOT NULL,
+    expected_open INTEGER NOT NULL, observed_open INTEGER NOT NULL,
+    expected_query INTEGER NOT NULL, observed_query INTEGER NOT NULL
+);
+CREATE TABLE http_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_clients INTEGER NOT NULL, observed_live_clients INTEGER NOT NULL,
+    expected_acquire INTEGER NOT NULL, observed_acquire INTEGER NOT NULL,
+    expected_send INTEGER NOT NULL, observed_send INTEGER NOT NULL
+    ,expected_denied INTEGER NOT NULL, observed_denied INTEGER NOT NULL
+);
+CREATE TABLE tcp_counter_assertions(
+    step_id INTEGER PRIMARY KEY REFERENCES steps(id),
+    expected_live_streams INTEGER NOT NULL, observed_live_streams INTEGER NOT NULL,
+    expected_connect INTEGER NOT NULL, observed_connect INTEGER NOT NULL,
+    expected_read INTEGER NOT NULL, observed_read INTEGER NOT NULL,
+    expected_write INTEGER NOT NULL, observed_write INTEGER NOT NULL,
+    expected_close INTEGER NOT NULL, observed_close INTEGER NOT NULL
 );
 CREATE TABLE cycles(
     id INTEGER PRIMARY KEY,
@@ -1504,6 +1587,11 @@ mod tests {
             duration_ns: None,
             expected_count: None,
             observed_count: None,
+            audio_counters: None,
+            clipboard_counters: None,
+            sqlite_counters: None,
+            http_counters: None,
+            tcp_counters: None,
             expected_patch_kind: Some("replace".into()),
             observed_patch_kind: Some("replace"),
             expected_staged_nodes: Some(7),
@@ -1700,6 +1788,11 @@ mod tests {
             duration_ns: None,
             expected_count: Some(10),
             observed_count: Some(10),
+            audio_counters: None,
+            clipboard_counters: None,
+            sqlite_counters: None,
+            http_counters: None,
+            tcp_counters: None,
             expected_patch_kind: None,
             observed_patch_kind: None,
             expected_staged_nodes: None,

@@ -51,12 +51,74 @@ directory through the production `--host-cap-dir` boundary. Fixture contents
 are therefore exercised through the same opaque capability operations as an
 interactive grant, without giving the application ambient test-only I/O.
 
-An application may also provide `fixture_server.py`. The runner starts that
-loopback-only deterministic service for its cases, while the application still
-uses the production HTTP client, worker pool, and completion route. The HTTP
-workbench uses this to specify echo success, scheme rejection, response limits,
-stale-result suppression, and a 200,000-byte response without public-network
-availability or remote service state.
+Image specifications can assert the production image-data owner's staged-node,
+staged-byte, inspection, and failure totals with
+`expect-image-owner-counters`. These are numeric work counters only. Image
+names, paths, encoded values, dimensions, and rendered application text are not
+capture evidence.
+
+An adjacent `app-data-fixture/` grants a fresh private copy through
+`--host-cap-app-data` for each case, so writes use the production capability
+without mutating checked-in data. A subdirectory named after the spec selects
+case-specific initial state; otherwise `default/` is used. Neither the granted
+path nor preference contents become capture identity.
+
+`expect-file-selection-counters` compares seven host-owned numeric totals in
+order: portal requests, chosen results, cancellations, denials, unavailable
+results, suppressed prompts, and development provisions. The evidence contains
+no selected name, path, URI, or application text.
+
+`revoke-file-grants` invokes the trusted-host revocation seam; it is not an
+application event or Roc capability API. `expect-file-access` compares portal,
+provisioned, and revoked root counts. `expect-file-lifecycle-counters` compares
+root allocations, child allocations, live handles, revocation requests,
+successful revocations, and post-revocation operation rejections. All are
+numeric owner evidence without internal root identifiers.
+
+The Settings Center's 100-, 1,000-, and 10,000-byte profile-note cases exercise
+ordinary controlled editing followed by the same worker-backed atomic save used
+by the application. `expect-value-bytes` supplies deterministic, content-free
+scale evidence; task and patch counters remain owned by their production paths.
+
+Generic per-case fixture metadata may name a loopback server script, readiness
+port, and exact HTTP origin or TCP endpoint. The runner starts only services
+selected by that metadata, while applications use their production protocol
+packages, capabilities, worker pools, and completion routes. This avoids
+public-network availability and remote service state without introducing a
+test-only network path or application-name policy.
+
+A `process-fixture/SPEC_NAME` file containing `test-program` grants the fixed
+deterministic PTY child to that case through `--host-cap-process`. Cases without
+the file receive no process authority, which exercises denial without adding a
+test-only product control. The application uses the same `New terminal` action
+for both outcomes.
+
+A `device-fixture/SPEC_NAME` file grants a deterministic virtual HID device to
+that case through the same host capability used for physical hardware. An
+optional bounded control count selects the device model's ordinary capability
+size. The product performs the same discover, connect, and byte transaction
+operations for both transports; cases without a fixture exercise denial through
+the normal `Discover devices` action.
+
+A `system-monitor-fixture/SPEC_NAME` file grants a deterministic system sampler
+through the same snapshot ABI used by the physical `sysinfo` source. Its value
+is `standard`, `unavailable`, or `processes:N`; this is runner metadata, not an
+application switch. Cases without the file exercise permission denial through
+the ordinary `Resume sampling` action.
+
+An adjacent `audio-fixture` file containing `null` grants a paced null output
+to that application's cases. The harness-only grant is not advertised as a
+product option; it changes only the final sink while Rodio retains ownership of
+the production decoder, mixer, player, seeking, and status state. The
+`expect-audio-counters` assertion records live outputs, live tracks, and the
+seven operation-attempt counters as deterministic step evidence.
+
+Native file and clipboard fixtures are selected by `fixture-metadata/SPEC_NAME`.
+Each `directory=RELATIVE_PATH` or `clipboard=RELATIVE_PATH` entry grants that
+adjacent directory to the corresponding production capability. The metadata is
+generic to the harness and does not depend on an application directory name.
+Either value may be `none` to exercise denial through the same production
+acquisition call.
 
 == Locators
 
@@ -77,6 +139,10 @@ semantic name.
 name. Locator matching never records its value.
 `(role image :name "name")`:: An encoded image identified by its application
 supplied semantic name. Neither encoded bytes nor source filenames are captured.
+`(role canvas :name "name")`:: A retained drawing surface identified by its
+stable semantic name.
+`(role canvas-item :name "name")`:: A keyed canvas primitive identified by its
+stable semantic label.
 
 `(role textbox :name "label")`:: A controlled text input identified by its
 semantic label.
@@ -90,6 +156,13 @@ names unique wherever the buttons are visible together.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
+`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
+gesture through a canvas's production event route. Coordinates are integer
+logical pixels in canvas space. `(canvas-item-prefix "prefix")` supports
+deterministic primitive counts in scaling specifications.
+`(expect-canvas-primitives LOCATOR COUNT)`:: Require one canvas owner to report
+the exact retained primitive count. The expected and observed values are stored
+as deterministic scale evidence.
 `(replace-text LOCATOR "value")`:: Replace an editable textarea's controlled
 value through its production Roc input route. Disabled and read-only textareas
 fail as non-editable.
@@ -105,6 +178,17 @@ value and deliver `Event.TextChange` through the normal Roc event route. A
 disabled input consumes no edit and dispatches nothing.
 `(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
 `Event.TextSubmit` through the normal Roc event route.
+`(clipboard-text "value")`:: Change the clipboard source granted to a semantic
+fixture. This command is rejected without an explicit fixture grant. The next
+application timer pull observes it through the production capability and host
+read route; the value is neither copied into capture evidence nor emitted as a
+diagnostic.
+`(expect-clipboard-counters LIVE ACQUIRE READ WRITE)`:: Assert the owner-recorded
+live handle count and attempted Clipboard operations.
+`(expect-sqlite-counters LIVE OPEN QUERY)`:: Assert the owner-recorded live
+connection count and attempted SQLite operations.
+`(expect-http-counters LIVE ACQUIRE SEND DENIED)`:: Assert the owner-recorded
+live client count, operation attempts, and authority denials.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.
@@ -112,6 +196,19 @@ another task requires another `await-task` step.
 same worker and latest-state route. `N` must be positive.
 `(expect-subscriptions N)`:: Require exactly `N` active host timer handles.
 This assertion reads the timer registry that owns cancellation state.
+`(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
+`(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Assert the complete
+owner-recorded TCP resource and attempted-operation vector.
+`(expect-device-connections N)`:: Require exactly `N` host-owned device connection handles.
+`(expect-device-transactions N)`:: Require exactly `N` completed host-owned device transactions.
+`(expect-system-samplers N)`:: Require exactly `N` active host-owned system samplers.
+`(expect-system-samples N)`:: Require exactly `N` completed host-owned system samples.
+This assertion reads the capability registry that owns stream lifecycle and
+records expected and observed deterministic counts.
+`(expect-file-picks N)`, `(expect-file-lists N)`, `(expect-file-opens N)`, and
+`(expect-file-reads N)`:: Require exact cumulative counts recorded by the Files
+owner. Each scalar assertion preserves its expected and observed value in the
+ordinary deterministic step evidence.
 `(expect-visible LOCATOR)`:: Require at least one match.
 `(expect-focused LOCATOR)`:: Require semantic focus to be on exactly one
 matching enabled control. This proves the host's dialog focus policy, not a
@@ -156,6 +253,9 @@ runner tracked in the backlog.
 Named rows and columns use `(role row :name "...")` and
 `(role column :name "...")`. These locators describe the mounted application
 graph; they do not assert pixel geometry or operating-system accessibility.
+
+`(expect-processes N)` asserts the host-owned count of live PTY child
+processes. The process subsystem records this lifecycle evidence.
 
 == Selecting and repeating cases
 

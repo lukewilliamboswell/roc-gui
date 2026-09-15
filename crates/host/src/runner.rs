@@ -10,6 +10,20 @@ use crate::{
 use std::time::Instant;
 
 fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
+    if let Locator::CanvasItemPrefix(prefix) = locator {
+        return graph
+            .nodes_preorder()
+            .into_iter()
+            .flat_map(|node| match &node.kind {
+                NodeKind::Canvas { primitives, .. } => primitives
+                    .iter()
+                    .filter(|item| item.label.starts_with(prefix))
+                    .map(|_| node.id)
+                    .collect::<Vec<_>>(),
+                _ => vec![],
+            })
+            .collect();
+    }
     graph
         .nodes_preorder()
         .into_iter()
@@ -83,9 +97,37 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             (Locator::ImageName(expected), NodeKind::Image { label, .. }) if expected == label => {
                 Some(node.id)
             }
+            (Locator::CanvasName(expected), NodeKind::Canvas { label, .. })
+                if expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::CanvasItemName(expected), NodeKind::Canvas { primitives, .. })
+                if primitives.iter().any(|item| item.label == *expected) =>
+            {
+                Some(node.id)
+            }
+            (Locator::CanvasItemPrefix(_), _) => None,
             _ => None,
         })
         .collect()
+}
+
+fn expect_file_counter(
+    line: usize,
+    name: &str,
+    expected: u64,
+    observed: u64,
+    evidence: &mut Option<(u64, u64)>,
+) -> Result<(), String> {
+    *evidence = Some((expected, observed));
+    if expected == observed {
+        Ok(())
+    } else {
+        Err(format!(
+            "line {line}: expected {expected} file {name}, observed {observed}"
+        ))
+    }
 }
 
 pub fn run(spec: &Spec) -> Result<(), String> {
@@ -127,6 +169,7 @@ fn run_lifecycle(
 }
 
 fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
+    let file_counter_baseline = crate::files::operation_counts();
     let mut graph = MountedGraph::default();
     let cycle_started = Instant::now();
     observatory::reset_roc_work();
@@ -164,6 +207,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         };
         let mut pending_cycle = None;
         let mut count_evidence = None;
+        let mut audio_counter_evidence = None;
+        let mut clipboard_counter_evidence = None;
+        let mut sqlite_counter_evidence = None;
+        let mut http_counter_evidence = None;
+        let mut tcp_counter_evidence = None;
         let mut patch_evidence = None;
         let result = match &step.command {
             Command::MarkMetrics => {
@@ -233,6 +281,79 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ));
                     cycle_ordinal += 1;
                     Ok(())
+                }
+            }
+            Command::Drag(locator, from_x, from_y, to_x, to_y) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: drag locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if let Some(NodeKind::Canvas { primitives, .. }) =
+                    graph.node(found[0]).map(|node| &node.kind)
+                {
+                    let target = crate::canvas_target(primitives, *from_x, *from_y).unwrap_or(0);
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
+                    let roc_started = Instant::now();
+                    let mut id = found[0];
+                    let mut patch = crate::dispatch_canvas(
+                        id,
+                        crate::CanvasEventPayload {
+                            phase: 0,
+                            x: *from_x,
+                            y: *from_y,
+                            target,
+                        },
+                    );
+                    let _ = graph.apply_measured(patch)?.facts;
+                    id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
+                        format!("line {}: canvas disappeared during drag", step.line)
+                    })?;
+                    patch = crate::dispatch_canvas(
+                        id,
+                        crate::CanvasEventPayload {
+                            phase: 1,
+                            x: *to_x,
+                            y: *to_y,
+                            target,
+                        },
+                    );
+                    let _ = graph.apply_measured(patch)?.facts;
+                    id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
+                        format!("line {}: canvas disappeared during drag", step.line)
+                    })?;
+                    patch = crate::dispatch_canvas(
+                        id,
+                        crate::CanvasEventPayload {
+                            phase: 2,
+                            x: *to_x,
+                            y: *to_y,
+                            target,
+                        },
+                    );
+                    let facts = graph.apply_measured(patch)?.facts;
+                    let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    last_patch = Some(facts);
+                    pending_cycle = Some(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "drag",
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
+                    Ok(())
+                } else {
+                    Err(format!("line {}: locator is not a canvas", step.line))
                 }
             }
             Command::ReplaceText(locator, value) => {
@@ -499,6 +620,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 cycle_ordinal += 1;
                 Ok(())
             }
+            Command::ClipboardText(text) => crate::clipboard::inject_fixture(text.clone())
+                .map_err(|message| format!("line {}: {message}", step.line)),
             Command::AwaitTicks(count) => {
                 if *count == 0 {
                     return Err(format!(
@@ -528,6 +651,262 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Err(format!(
                         "line {}: expected {expected} active subscriptions, observed {active}",
                         step.line
+                    ))
+                }
+            }
+            Command::ExpectTcpStreams(expected) => {
+                let active = crate::tcp::active_count();
+                count_evidence = Some((*expected as u64, active as u64));
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active TCP streams, observed {active}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectProcesses(expected) => {
+                let active = crate::process::active_count();
+                let (spawned, _, _, canceled) = crate::process::counters();
+                if canceled > spawned {
+                    return Err("process lifecycle counters violated ownership invariants".into());
+                }
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active PTY processes, observed {active}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectClipboardCounters(expected) => {
+                let (operations, handles) = crate::clipboard::counters();
+                let observed = [handles as u64, operations[0], operations[1], operations[2]];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                clipboard_counter_evidence = Some((*expected, observed));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected clipboard counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectSqliteCounters(expected) => {
+                let (operations, connections) = crate::sqlite::counters();
+                let observed = [connections as u64, operations[0], operations[1]];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                sqlite_counter_evidence = Some((*expected, observed));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected SQLite counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectHttpCounters(expected) => {
+                let (operations, clients) = crate::http::counters();
+                let observed = [clients as u64, operations[0], operations[1], operations[2]];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                http_counter_evidence = Some((*expected, observed));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected HTTP counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectTcpCounters(expected) => {
+                let (operations, streams) = crate::tcp::counters();
+                let observed = [
+                    streams as u64,
+                    operations[0],
+                    operations[1],
+                    operations[2],
+                    operations[3],
+                ];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                tcp_counter_evidence = Some((*expected, observed));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected TCP counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectDeviceConnections(expected) => {
+                let active = crate::device::active_count();
+                let (_, connected, _, closed) = crate::device::counters();
+                if closed > connected {
+                    return Err("device lifecycle counters violated ownership invariants".into());
+                }
+                count_evidence = Some((*expected as u64, active as u64));
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active device connections, observed {active}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectDeviceTransactions(expected) => {
+                let (_, _, transactions, _) = crate::device::counters();
+                count_evidence = Some((*expected as u64, transactions));
+                if transactions == *expected as u64 {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} device transactions, observed {transactions}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectSystemSamplers(expected) => {
+                let active = crate::system_monitor::active_count();
+                let (acquired, _, closed) = crate::system_monitor::counters();
+                if closed > acquired {
+                    return Err(
+                        "system sampler lifecycle counters violated ownership invariants".into(),
+                    );
+                }
+                count_evidence = Some((*expected as u64, active as u64));
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} active system samplers, observed {active}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectSystemSamples(expected) => {
+                let (_, sampled, _) = crate::system_monitor::counters();
+                count_evidence = Some((*expected as u64, sampled));
+                if sampled == *expected as u64 {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected {expected} system samples, observed {sampled}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectAudioCounters(expected) => {
+                let (operations, outputs, tracks) = crate::audio::counters();
+                let observed = [
+                    outputs as u64,
+                    tracks as u64,
+                    operations[0],
+                    operations[1],
+                    operations[2],
+                    operations[3],
+                    operations[4],
+                    operations[5],
+                    operations[6],
+                ];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                audio_counter_evidence = Some((*expected, observed));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected audio counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectFilePicks(expected) => expect_file_counter(
+                step.line,
+                "picks",
+                *expected,
+                crate::files::operation_counts()[0] - file_counter_baseline[0],
+                &mut count_evidence,
+            ),
+            Command::ExpectFileLists(expected) => expect_file_counter(
+                step.line,
+                "lists",
+                *expected,
+                crate::files::operation_counts()[1] - file_counter_baseline[1],
+                &mut count_evidence,
+            ),
+            Command::ExpectFileOpens(expected) => expect_file_counter(
+                step.line,
+                "opens",
+                *expected,
+                crate::files::operation_counts()[2] - file_counter_baseline[2],
+                &mut count_evidence,
+            ),
+            Command::ExpectFileReads(expected) => expect_file_counter(
+                step.line,
+                "reads",
+                *expected,
+                crate::files::operation_counts()[3] - file_counter_baseline[3],
+                &mut count_evidence,
+            ),
+            Command::ExpectFileSelectionCounters(expected) => {
+                let observed = crate::files::selection_counts();
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected file selection counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectFileLifecycleCounters(expected) => {
+                let observed = crate::files::lifecycle_counts();
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected file lifecycle counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::ExpectFileAccess(expected) => {
+                let access = crate::files::access_snapshot();
+                let observed = [
+                    access.portal_session_read,
+                    access.provisioned_session_read,
+                    access.revoked,
+                ];
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected file access {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
+            Command::RevokeFileGrants => {
+                crate::files::revoke_all_roots();
+                Ok(())
+            }
+            Command::ExpectImageOwnerCounters(expected) => {
+                let observed = crate::image_data::counters();
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected image owner counters {:?}, observed {:?}",
+                        step.line, expected, observed
                     ))
                 }
             }
@@ -572,6 +951,26 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 } else {
                     Err(format!(
                         "line {}: expected locator to match {expected} nodes, but it matched {actual}",
+                        step.line
+                    ))
+                }
+            }
+            Command::ExpectCanvasPrimitives(locator, expected) => {
+                let found = matches(&graph, locator);
+                let actual = if found.len() == 1 {
+                    match graph.node(found[0]).map(|node| &node.kind) {
+                        Some(NodeKind::Canvas { primitives, .. }) => primitives.len(),
+                        _ => 0,
+                    }
+                } else {
+                    0
+                };
+                count_evidence = Some((*expected as u64, actual as u64));
+                if actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected canvas owner to report {expected} primitives, but it reported {actual}",
                         step.line
                     ))
                 }
@@ -700,6 +1099,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             duration_ns: operation_duration,
             expected_count: count_evidence.map(|value| value.0),
             observed_count: count_evidence.map(|value| value.1),
+            audio_counters: audio_counter_evidence,
+            clipboard_counters: clipboard_counter_evidence,
+            sqlite_counters: sqlite_counter_evidence,
+            http_counters: http_counter_evidence,
+            tcp_counters: tcp_counter_evidence,
             expected_patch_kind: patch_evidence.as_ref().map(|value| value.0.clone()),
             observed_patch_kind: patch_evidence.as_ref().map(|value| value.1),
             expected_staged_nodes: patch_evidence.as_ref().map(|value| value.2),

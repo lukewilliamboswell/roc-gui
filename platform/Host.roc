@@ -1,6 +1,6 @@
 import Action exposing [Action]
 import Resource
-import HttpTypes
+import InternalHttp
 
 Host := [].{
 	Patch : [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })]
@@ -199,6 +199,22 @@ Host := [].{
 		overflow_y : U8,
 	} => U64
 
+	node_canvas! : {
+		label : Str,
+		primitives : List({ kind : U8, key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, x2 : I32, y2 : I32, fill : U32, stroke : U32, stroke_width : U32, radius : U32 }),
+		width_kind : U8,
+		width : U32,
+		height_kind : U8,
+		height : U32,
+		grow : Bool,
+		bg : U32,
+		border_color : U32,
+		border_width : U32,
+		radius : U32,
+	} => U64
+
+	canvas_event! : {} => { phase : U8, x : I32, y : I32, target : U64 }
+
 	node_text_input! : {
 		label : Str,
 		value : Str,
@@ -227,6 +243,38 @@ Host := [].{
 
 	sqlite_open_read! : Resource.DirRead, Str => Try(Resource.SqliteRead, { code : U8, message : Str })
 	sqlite_query! : Resource.SqliteRead, Str => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
+	clipboard_acquire! : {} => Try(Resource.Clipboard, { code : U8, message : Str })
+	clipboard_read_text! : Resource.Clipboard => Try({ sequence : U64, text : Str }, { code : U8, message : Str })
+	clipboard_write_text! : Resource.Clipboard, Str => Try({}, { code : U8, message : Str })
+	process_acquire! : {} => Try(Resource.ProcessGrant, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+	process_spawn! : Resource.ProcessGrant, { columns : U16, rows : U16 } => Try(Resource.Pty, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+	process_read! : Resource.Pty, U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+	process_write! : Resource.Pty, List(U8) => Try(U32, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+	process_resize! : Resource.Pty, { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+	process_cancel! : Resource.Pty => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+	device_acquire! : {} => Try(Resource.DeviceGrant, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+	device_discover! : Resource.DeviceGrant => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+	device_connect! : Resource.DeviceGrant => Try(Resource.DeviceConnection, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+	device_transact! : Resource.DeviceConnection, List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+	device_close! : Resource.DeviceConnection => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+
+	system_acquire! : {} => Try(Resource.SystemSampler, U8)
+	system_sample! : Resource.SystemSampler => Try({ cpu_available : Bool, cpu_tenths : U16, disk_available : Bool, disk_read_bytes : U64, disk_written_bytes : U64, memory_available : Bool, memory_total_bytes : U64, memory_used_bytes : U64, network_available : Bool, network_received_bytes : U64, network_transmitted_bytes : U64, processes : List({ cpu_tenths : U16, memory_bytes : U64, name : Str, pid : U64 }), processes_available : Bool, sequence : U64 }, U8)
+	system_close! : Resource.SystemSampler => Try({}, U8)
+	image_inspect! : List(U8), U8 => Try({ height : U32, width : U32 }, U8)
+
+	audio_acquire! : {} => Try(Resource.AudioOutput, { code : U8, message : Str })
+	audio_load! : Resource.AudioOutput, Resource.DirRead, Str => Try({ duration_ms : U64, track : Resource.AudioTrack }, { code : U8, message : Str })
+	audio_play! : Resource.AudioTrack => Try({}, { code : U8, message : Str })
+	audio_pause! : Resource.AudioTrack => Try({}, { code : U8, message : Str })
+	audio_seek! : Resource.AudioTrack, U64 => Try({}, { code : U8, message : Str })
+	audio_status! : Resource.AudioTrack => Try({ duration_ms : U64, position_ms : U64, state : U8 }, { code : U8, message : Str })
+	audio_stop! : Resource.AudioTrack => Try({}, { code : U8, message : Str })
+
+	tcp_connect! : {} => Try(Resource.TcpStream, U8)
+	tcp_read_up_to! : Resource.TcpStream, U64 => Try(List(U8), U8)
+	tcp_write_all! : Resource.TcpStream, List(U8) => Try({}, U8)
+	tcp_close! : Resource.TcpStream => Try({}, U8)
 
 	apply! : Patch => {}
 
@@ -242,7 +290,8 @@ Host := [].{
 
 	timer_cancel! : Resource.Timer => Bool
 
-	http_send! : HttpTypes.Request => Try(HttpTypes.Response, HttpTypes.Error)
+	http_acquire! : {} => Try(Resource.HttpClient, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
+	http_send! : InternalHttp.HostRequest => Try(InternalHttp.HostResponse, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
 
 	work_start! : U8 => {}
 

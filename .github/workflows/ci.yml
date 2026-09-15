@@ -33,8 +33,10 @@ jobs:
           sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
       - name: Unit tests
         run: |
+          python3 scripts/check_no_tracked_machine_code.py --all-tracked
           cargo test --locked --workspace
           python3 -m unittest \
+            scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \
             scripts/test_macos_interfaces.py

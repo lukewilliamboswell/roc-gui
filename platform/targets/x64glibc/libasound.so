@@ -1,0 +1,2 @@
+/* Bootstrap-only recipe until ALSA has an independently released link input. */
+INPUT(/usr/lib/x86_64-linux-gnu/libasound.so.2)

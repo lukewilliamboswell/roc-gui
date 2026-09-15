@@ -1,5 +1,9 @@
 = Building an application
 
+Resource-bearing APIs consume opaque grants under the policy in
+<<_resource_access_and_trusted_grants>>. A path, URL, or application-rendered
+dialog is never a substitute for trusted authorization.
+
 == State, render, and actions
 
 An application exports a state type and `main : Program(State)`:
@@ -189,13 +193,28 @@ composition in `examples/counter/main.roc`.
 
 == Directory capabilities and tasks
 
-`Files.pick_directory!({})` acquires the read-only directory capability granted
-by `--host-cap-dir PATH`. With no grant it returns
-`PickDirectoryErr(AccessDenied)`. The returned
+`Files.pick_directory!({})` requests a trusted host-owned Open Project selection.
+The selected project grants read authority, while cancellation is a normal
+`Canceled` result and denial is `PickDirectoryErr(AccessDenied)`. The returned
 `Files.Dir.Read` is an opaque, reference-counted handle: it may be stored in
 state or captured by tasks, but applications cannot forge it or recover an
 ambient path. Internally it uses the platform-wide typed `Resource.Handle`
 representation, leaving the same ABI shape available to future resource APIs.
+
+On Linux Wayland the host presents Open Project through the XDG Desktop Portal
+with directory, single-selection, read-only and modal options. It accepts one
+portal-returned `file://` directory, opens that directory once at the trusted
+broker boundary, and places only the resulting capability in the registry.
+Portal or D-Bus absence is `PickDirectoryErr(Unavailable)`. One chooser may be
+active at a time, and cancellation or refusal starts a short host-owned cooldown
+that prevents application-driven prompt loops. An already provisioned
+development grant never prompts and is not affected by that cooldown.
+
+Every root grant records whether its source was trusted portal selection or
+development provisioning and has session lifetime. Derived child handles carry
+their immediate parent and inherited source. This metadata is host-private; no
+path or grant identity enters captures. `--host-cap-dir` remains development
+and automation provisioning and never represents consent.
 
 `Files.Dir.list!(directory)` lists at most 10,000 direct children and 4 MiB of
 UTF-8 names. Entries distinguish files, directories, symlinks, and other file
@@ -212,26 +231,185 @@ Filesystem failures use the `Files.FileErr` tag union. Its
 `ReadFileErr` tags identify the failed operation directly; each carries a
 portable `Files.Reason` value.
 
+`Revoked` is distinct from an invalid handle. Each directory operation resolves
+the opaque handle and its immutable root lineage while holding the broker
+registry mutex. That check is the revocation linearization point. Revocation
+that wins the mutex causes that root and every derived child to reject future
+list, child-open, and read operations as `Revoked`. An operation that already
+won the check owns an `Arc<Dir>` and completes under its ordinary bounds;
+revocation does not close that accepted resource. Task submission alone is not
+acceptance, so queued work that has not reached the check is rejected.
+
+The trusted host access snapshot exposes only counts grouped by source,
+session lifetime, read rights, and active or revoked state. Root identifiers,
+names, paths, and URIs remain internal and never enter capture evidence.
+
 Retain a root-to-current list of directory handles to implement Back and
 clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
 
+== Encoded image data
+
+`ImageData.inspect!(bytes, format)` validates bounded encoded bytes already
+obtained through application data or an explicit capability and reports pixel
+dimensions. It accepts neither paths nor URLs. Raster inspection uses the
+maintained `image` decoder and SVG inspection uses `usvg`; inputs above 64 MiB,
+dimensions above 32,768, and images above 200 million pixels are rejected.
+
+Failures carry the operation tag `InspectImageErr` and one of `Corrupt`,
+`InvalidDimensions`, `ResourceLimit`, or `Unsupported`. Image presentation
+continues to use byte-based `Elem.ImageProps`. `ImageData` owns metadata and
+integrity inspection only; it does not duplicate layout or rendering props.
+
+The native image-data owner counts staged image nodes, staged encoded bytes,
+inspections, and inspection failures. Semantic specifications compare those
+numeric counters with `expect-image-owner-counters`; captures never store
+encoded content, image names, paths, dimensions, or application text.
+
+== Process and pseudo-terminal capabilities
+
+`Process.acquire!` returns an opaque process grant only when the application is
+launched with `--host-cap-process=local-shell` or
+`--host-cap-process=test-program`. The grant fixes the only profile that may be
+started. `Process.spawn!` accepts only the grant and terminal dimensions;
+applications never provide a profile, executable path, arguments, environment
+variables, or command lines to the host.
+
+`Process.spawn!` creates a real pseudo-terminal with an explicitly bounded row
+and column size. `Process.read!`, `Process.write!`, `Process.resize!`, and
+`Process.cancel!` require its typed `Process.Pty` handle. Reads and writes are
+capped at 65,536 bytes per call, one read may wait on a PTY, and cancellation
+wakes that wait. Blocking operations belong in `Action.task`, whose completion
+is reconciled with the latest state on the ordinary event route.
+
+Failures carry their operation in the tag, such as
+`SpawnProcessErr(AccessDenied)` or `ReadProcessErr(Busy)`. Process grants and
+PTYs are opaque `Box(U64)` resources and cannot be confused with other handle
+kinds.
+
+== HID device capabilities
+
+`Device.acquire!` returns an opaque grant only when the host has authorized one
+exact virtual device or physical USB vendor/product identity. Applications
+cannot request arbitrary hardware, inspect operating-system device paths, or
+read serial numbers. `Device.discover!` lists only comparison-safe identity
+within that grant, and `Device.connect!` connects exactly the granted device.
+
+Connections are typed `Box(U64)` resources. `Device.transact!` exchanges one
+bounded byte request and response; device-specific framing and values belong in
+an application or protocol package rather than the platform. Physical HID and
+deterministic virtual transports enter this same operation. Blocking discovery,
+connection, and transactions run through `Action.task`.
+
+Failures retain their operation in tags such as
+`DiscoverDeviceErr(NotFound)` and `TransactDeviceErr(Protocol)`. Connection and
+transaction lifecycle counts are recorded by the host that owns those events.
+
+== System observation capabilities
+
+`SystemMonitor.acquire!` returns an opaque typed sampler only when the host has
+granted read-only system observation. `SystemMonitor.sample!` refreshes CPU,
+memory, aggregate process disk I/O, network I/O, and a bounded process list on a
+task worker. `SystemMonitor.close!` is idempotent. Applications cannot request
+another machine or broaden the grant.
+
+Every snapshot field is a tagged `Value` or `Unavailable(Unsupported)` value.
+Permission denial is an `AcquireSystemErr(AccessDenied)` operation failure, not
+a fabricated unavailable sensor. Overall CPU is normalized across the machine
+and uses tenths of one percent in `0..1000`. Per-process CPU uses the same unit
+and can exceed `1000` for multi-core use. Memory and I/O counters are bytes as
+reported by `sysinfo`; the platform does not infer unavailable measurements.
+
+Processes are bounded and sorted by CPU, memory, then PID. Only PID, display
+name, CPU, and memory cross the ABI; user, executable path, arguments,
+environment, hostname, and machine identity do not.
+
+== Durable application data
+
+`Files.app_data!({})` acquires the application's private read-write directory
+granted by `--host-cap-app-data PATH`. The result is an opaque typed
+`Files.Dir.ReadWrite` handle; applications cannot recover the host path.
+
+`Files.Dir.read_utf8!(directory, name)` distinguishes `Missing` from
+`Value(Str)`. `Files.Dir.write_utf8_atomic!(directory, name, value)`
+synchronizes a private temporary file before replacing the direct child in the
+same directory. Names are flat ASCII identifiers of at most 128 bytes, values
+are UTF-8 of at most one MiB, and the ordinary operation-tagged `Files.FileErr`
+surface reports acquisition, read, and write failures.
+
+Run these blocking operations inside `Action.task`, with a monotonic request
+identity when an edit can supersede pending work. The Settings Center uses this
+route and retains a newer draft when an older load completes.
+
+== Audio output capabilities
+
+`Audio.acquire!({})` acquires an opaque output handle only when the host was
+launched with `--host-cap-audio`. `Audio.load!(output, directory, name)` loads
+one direct file through an existing `Files.Dir.Read` grant; names with traversal
+or multiple components are rejected and encoded input is bounded to 64 MiB.
+The host delegates media decoding and playback to Rodio and Symphonia.
+
+`Audio.Track` is an opaque host resource. `Audio.play!`, `Audio.pause!`,
+`Audio.seek!`, `Audio.status!`, and `Audio.stop!` are bounded operations intended
+for `Action.task`. Status reports the decoder-owned duration, playback position,
+and `Playing`, `Paused`, or `Stopped` state. `Audio.AudioErr` identifies
+the failed operation and carries a portable reason such as `DecodeFailed`,
+`OutputUnavailable`, or `InvalidCapability`.
+
+Specification runs may receive a harness-owned null-output grant. It drains
+the same paced Rodio mixer, decoder, and player state used by a system output;
+it changes only the final device sink.
+
+== Clipboard capabilities
+
+`Clipboard.acquire!({})` acquires text clipboard authority only when the host
+was launched with `--host-cap-clipboard`. Its opaque `Clipboard.Handle` uses
+the common typed `Box(U64)` representation and cannot be manufactured or
+confused with another resource family.
+
+`Clipboard.read_text!(handle)` returns a bounded UTF-8 snapshot with a
+monotonic sequence. Applications compare sequences to suppress stale reads and
+deduplicate repeated content. `Clipboard.write_text!(handle, text)` schedules
+replacement on GPUI's owning UI context. Both directions reject values larger
+than 64 KiB. `Clipboard.ClipboardErr` identifies acquisition, reading, and
+writing with distinct operation tags carrying a portable reason.
+
+Observe changes with one pull-based `Timer` subscription inside `Action.task`.
+Pause by cancelling that timer; sensitive values are discarded before they
+enter state. Clipboard content is application data and never enters host
+diagnostics or observatory captures.
+
 == HTTP requests
 
-`Http.send!(request)` performs one bounded HTTP request and returns a typed
-`Try(Http.Response, Http.Error)`. Call it from `Action.task` so connection,
+Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
+values. `Http.acquire!({})` returns an opaque `Http.Client` only when the host
+was launched with `--host-cap-http-origin ORIGIN`. The grant names one exact
+scheme, host, and effective port; requests and redirects cannot leave it.
+Acquire failures are `AcquireHttpErr(reason)` and exchange failures are
+`SendHttpErr(reason)`, retaining the operation together with the portable
+reason. Provisioning grants authority for development and automation; they are
+not a substitute for an application's user-visible trusted-destination setup.
+
+The host disables ambient proxy discovery, rejects credentials embedded in
+URLs, and pins an accepted non-literal destination resolution for the exchange.
+Literal loopback or private addresses remain usable only when named explicitly
+by the provisioned origin.
+
+`Http.send!(client, config, request)` performs one bounded exchange and returns
+the package's canonical `Response`. Call it from `Action.task` so connection,
 TLS, and response work runs on the native worker pool and its reducer returns
 through the ordinary UI-thread completion dispatcher.
 
-Requests make policy explicit: method, URL, headers, body, timeout,
+Requests and config make policy explicit: method, URI, headers, body, timeout,
 `max_response_bytes`, and `max_redirects`. URLs must use `http` or `https`.
-The platform accepts `Get` and `Post`, at most 64 headers and 32 KiB of header
+The platform accepts standard methods, at most 64 headers and 32 KiB of header
 data, a request body up to 1 MiB, a timeout from 1 through 60,000 milliseconds,
 a response limit from 1 byte through 4 MiB, and from zero through ten redirects.
-Responses expose status, headers, and a UTF-8 body. Portable failures distinguish
-invalid inputs, unsupported schemes, connection and timeout failures, redirect
-and body limits, and invalid response text.
+Response bodies remain `List(U8)` so downstream packages share the same nominal
+types. Portable failures distinguish invalid inputs, denied or invalid
+capabilities, unsupported schemes, connection and timeout failures, and
+redirect and body limits.
 
 Give each submitted request a monotonically increasing identity. In the task
 resolver, compare that identity with the latest state and return `Action.none`
@@ -251,8 +429,50 @@ Results preserve SQLite's `Null`, `Integer`, `Real`, `String`, and `Bytes`
 value kinds. Queries are bounded to 64 KiB of SQL, 256 columns, 10,000 rows,
 and 16 MiB of returned text and blob bytes. Limit violations and invalid,
 corrupt, busy, inaccessible, or non-database resources are typed errors.
+Failures use `OpenDatabaseErr(reason)` and `QueryDatabaseErr(reason)`, so callers
+can distinguish the failed operation before matching the portable reason.
+Every reason retains SQLite's bounded diagnostic string; `Sqlite.detail`
+extracts it for user-facing status without flattening the public error type.
 
 Open and query calls are blocking capability operations. Run them inside
 `Action.task`, retain the last successful view while work is pending, and use a
 monotonic request identity in the resolver so an older completion cannot
 replace a newer result. `examples/database-browser` demonstrates this pattern.
+
+== TCP endpoint capabilities
+
+`Tcp.connect!({})` opens an ordered byte stream to the single numeric
+`IP:PORT` endpoint granted with `--host-cap-tcp`. Without that host grant it
+returns `ConnectErr(AccessDenied)`. The application cannot select or derive a
+different destination from the opaque handle, and releasing its final
+reference closes the socket and removes the host registry entry.
+
+`Tcp.Stream.read_up_to!(stream, max_bytes)` reads between one byte and a
+one-MiB requested maximum; an empty list means orderly end of stream.
+`Tcp.Stream.write_all!(stream, bytes)` writes the complete value or fails and
+accepts at most 16 MiB. `Tcp.Stream.close!(stream)` is idempotent. Connections,
+reads, and writes have finite native timeouts, and failures use the
+operation-tagged `Tcp.TcpErr` union: `ConnectErr`, `ReadErr`, `WriteErr`, or
+`CloseErr` wraps a portable reason.
+
+The numeric endpoint has no DNS resolution or ambient destination selection.
+The command-line grant provisions development and automation authority; a
+user-facing client obtains trusted connection authority through a named,
+revocable destination broker rather than treating that flag as user consent.
+
+TCP operations block and belong inside `Action.task`. Protocol packages build
+on the byte transport rather than being reimplemented by the platform. The
+Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
+command encoding, bounded RESP2 decoding, typed commands, and exchange policy
+remain the responsibility of the established platform-independent package.
+== Retained canvas
+
+`Elem.canvas` paints an ordered list of keyed `Rectangle`, `Ellipse`, and
+`Line` primitives in native GPUI. A canvas and every primitive have stable
+semantic labels. Primitive keys are non-zero and unique within the canvas;
+they preserve direct-manipulation identity independently of list position.
+
+The controlled `on_pointer` handler receives `Begin`, `Move`, and `End` in
+integer canvas coordinates. The topmost hit-tested primitive is captured on
+`Begin`, and that same optional target key accompanies the complete gesture,
+including when a state update replaces the canvas subtree.

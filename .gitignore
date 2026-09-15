@@ -13,5 +13,8 @@
 /*.rgstats
 /.docs-out
 __pycache__
+/generated-docs
 /.artifact-cache/
 /.release-out/
+/examples/music-player/fixture/*.wav
+/examples/database-browser/fixture/bookstore.db

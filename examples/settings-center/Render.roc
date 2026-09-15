@@ -8,20 +8,29 @@ Render := [].{
 	render : Settings.State -> Elem(Settings.State)
 	render = |state| {
 		invalid = state.draft_name.is_empty()
-		dirty = state.draft_name != state.saved_name
+		dirty = state.draft_name != state.saved_name or state.draft_notes != state.saved_notes
+		busy = match state.status {
+			Loading(_) => True
+			Saving(_) => True
+			_ => False
+		}
 		all_settings = Settings.settings
 		visible_settings = if state.search.is_empty() {
 			all_settings
 		} else {
 			all_settings.keep_if(|setting| setting.name.contains(state.search))
 		}
-		status = if invalid {
-			Elem.panel(Elem.PanelProps.{ label: "Validation error", width: Fill, padding: 10, border_color: Gui.rgb(0xc65f5f) }, [Elem.text("Profile name is required")])
-		} else if dirty {
-			Elem.panel(Elem.PanelProps.{ label: "Unsaved changes", width: Fill, padding: 10 }, [Elem.text("Unsaved changes")])
-		} else {
-			Elem.panel(Elem.PanelProps.{ label: "Saved status", width: Fill, padding: 10 }, [Elem.text("Settings are saved")])
-		}
+		status = match state.status {
+			Loading(_) => Elem.panel(Elem.PanelProps.{ label: "Loading preferences", width: Fill, padding: 10 }, [Elem.text("Loading preferences…")])
+			Saving(_) => Elem.panel(Elem.PanelProps.{ label: "Saving preferences", width: Fill, padding: 10 }, [Elem.text("Saving preferences…")])
+			Failed(message) => Elem.panel(Elem.PanelProps.{ label: "Preferences error", width: Fill, padding: 10, border_color: Gui.rgb(0xc65f5f) }, [Elem.text("Preferences error: ${message}")])
+			_ if invalid =>
+				Elem.panel(Elem.PanelProps.{ label: "Validation error", width: Fill, padding: 10, border_color: Gui.rgb(0xc65f5f) }, [Elem.text("Profile name is required")])
+			_ if dirty =>
+				Elem.panel(Elem.PanelProps.{ label: "Unsaved changes", width: Fill, padding: 10 }, [Elem.text("Unsaved changes")])
+			_ =>
+				Elem.panel(Elem.PanelProps.{ label: "Saved status", width: Fill, padding: 10 }, [Elem.text("Settings are saved")])
+			}
 		content = Elem.col(
 			Elem.ColProps.{ label: "Settings Center", width: Fill, height: Fill, grow: True, padding: 24, gap: 14 },
 			[
@@ -31,7 +40,9 @@ Render := [].{
 				Elem.panel(
 					Elem.PanelProps.{ label: "Profile settings", width: Fill, gap: 10 },
 					[
-						Elem.text_input(Elem.TextInputProps.{ label: "Profile name", value: state.draft_name, placeholder: "Enter a profile name", on_change: |current, event| Action.update({ ..current, draft_name: event.value }), on_submit: |current, _| Settings.apply_name(current) }),
+						Elem.text_input(Elem.TextInputProps.{ label: "Profile name", value: state.draft_name, placeholder: "Enter a profile name", on_change: |current, event| Action.update(Settings.edit_name(current, event.value)), on_submit: |current, _| Settings.apply_name(current) }),
+						Elem.textarea(Elem.TextareaProps.{ label: "Profile notes", value: state.draft_notes, placeholder: "Notes shared by this profile", height: Px(120), on_input: |current, event| Action.update(Settings.edit_notes(current, event.value)) }),
+						Elem.text("Saved profile: ${state.saved_name}"),
 						status,
 						Elem.row(
 							Elem.RowProps.{ label: "Profile actions", gap: 8 },
@@ -41,14 +52,15 @@ Render := [].{
 										caption: "Apply",
 										label: "Apply profile",
 										enabled: if dirty {
-											!invalid
+											!invalid and !busy
 										} else {
 											False
 										},
 										on_press: |current, _| Settings.apply_name(current),
 									},
 								),
-								Elem.action_button(Elem.ActionButtonProps.{ caption: "Revert", label: "Revert profile", enabled: dirty, on_press: |current, _| Action.update({ ..current, draft_name: current.saved_name }) }),
+								Elem.action_button(Elem.ActionButtonProps.{ caption: "Revert", label: "Revert profile", enabled: dirty and !busy, on_press: |current, _| Action.update(Settings.revert_name(current)) }),
+								Elem.action_button(Elem.ActionButtonProps.{ caption: "Load", label: "Load saved profile", enabled: !busy, on_press: |current, _| Settings.load(current) }),
 							],
 						),
 					],

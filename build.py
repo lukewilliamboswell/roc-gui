@@ -53,6 +53,13 @@ def main() -> None:
     parser.add_argument("--skip-inputs", action="store_true", help="reuse already staged external inputs")
     args = parser.parse_args()
     target = native_target()
+    if target == "x64glibc":
+        alsa_runtime = Path("/usr/lib/x86_64-linux-gnu/libasound.so.2")
+        if not alsa_runtime.is_file():
+            raise SystemExit(
+                "Audio support requires the system ALSA runtime at "
+                "/usr/lib/x86_64-linux-gnu/libasound.so.2."
+            )
     environment = os.environ.copy()
     environment["ROC_GUI_HOST_COMMIT"] = output("git", "rev-parse", "HEAD") or "unavailable"
     environment["ROC_GUI_HOST_DIRTY"] = "1" if output("git", "status", "--porcelain") else "0"
@@ -70,6 +77,8 @@ def main() -> None:
             staged_target = staged_targets / target
             receipt = stage_external_inputs(target, staged_target, profile)
             staged_target.mkdir(parents=True, exist_ok=True)
+            if target == "x64glibc":
+                shutil.copy2(ROOT / "third_party/alsa/lib/libasound.so", staged_target / "libasound.so")
             shutil.copy2(ROOT / f"target/{profile}/libhost.a", staged_target / "libhost.a")
             (staged_target / "link-inputs.json").write_text(json.dumps(receipt, indent=2) + "\n")
             if destination.exists():

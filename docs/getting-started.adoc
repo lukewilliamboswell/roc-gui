@@ -66,6 +66,22 @@ Pass `--host-help` after Roc's argument separator to list native host options:
 roc path/to/main.roc -- --host-help
 ----
 
+Host powers are absent by default. For example, grant the terminal workspace a
+local interactive shell profile explicitly:
+
+[source,sh]
+----
+roc examples/terminal-workspace/main.roc -- --host-cap-process local-shell
+----
+
+The application receives only that fixed profile; it cannot select an
+executable, arguments, or inherited environment.
+
+`--host-cap-*` options provision development and automation authority. They use
+the production registries and operations but are not trusted user consent.
+Interactive resource access uses the trusted broker workflows described in
+<<_resource_access_and_trusted_grants>>.
+
 == Check behaviour without opening a window
 
 The counter includes a semantic specification:

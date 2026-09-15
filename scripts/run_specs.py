@@ -6,11 +6,14 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import atexit
+from contextlib import closing
 import fnmatch
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import replace
 from dataclasses import dataclass
@@ -18,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 5
+SUPPORTED_SCHEMA = 9
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,19 @@ class Case:
     app: Path
     executable: Path
     capture: Path
+
+
+def fixture_metadata(case: Case) -> dict[str, str]:
+    metadata = case.app.parent / "fixture-metadata" / case.spec.stem
+    values: dict[str, str] = {}
+    if not metadata.is_file():
+        return values
+    for line in metadata.read_text(encoding="utf-8").splitlines():
+        key, separator, value = line.partition("=")
+        if separator != "=" or key not in {"directory", "clipboard", "http-origin", "tcp", "server", "server-port"} or not value:
+            raise RuntimeError(f"invalid fixture metadata in {metadata}")
+        values[key] = value
+    return values
 
 
 def discover(patterns: list[str], output: Path) -> list[Case]:
@@ -57,6 +73,7 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
+    subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
     if not skip_host_build:
         subprocess.run(["python3", str(ROOT / "build.py")], cwd=ROOT, check=True)
     by_app = {case.app: case.executable for case in cases}
@@ -71,7 +88,7 @@ def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
 
 def validate_capture(path: Path) -> None:
     uri = path.resolve().as_uri() + "?mode=ro"
-    with sqlite3.connect(uri, uri=True) as database:
+    with closing(sqlite3.connect(uri, uri=True)) as database:
         database.execute("PRAGMA query_only=ON")
         database.execute("PRAGMA trusted_schema=OFF")
         metadata = dict(database.execute("SELECT key,value FROM metadata"))
@@ -107,19 +124,75 @@ def run_case(case: Case, timeout: float, jobs: int, detail: str = "summary") -> 
         f"--host-stats-job-count={jobs}",
         f"--host-stats-detail={detail}",
     ]
-    fixture = case.app.parent / "fixture"
-    if fixture.is_dir():
+    fixture_values = fixture_metadata(case)
+    native_fixtures: dict[str, Path | None] = {}
+    for key in ("directory", "clipboard"):
+        if relative := fixture_values.get(key):
+            if relative == "none":
+                native_fixtures[key] = None
+                continue
+            path = case.app.parent / relative
+            if not path.is_dir():
+                raise RuntimeError(f"native fixture directory does not exist: {path}")
+            native_fixtures[key] = path
+    fixture = native_fixtures.get("directory", case.app.parent / "fixture")
+    if fixture is not None and fixture.is_dir():
         command.extend(["--host-cap-dir", str(fixture)])
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=ROOT,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return case, f"timed out after {timeout:g}s"
+    if origin := fixture_values.get("http-origin"):
+        command.extend(["--host-cap-http-origin", origin])
+    process_fixture = case.app.parent / "process-fixture" / case.spec.stem
+    if process_fixture.is_file():
+        profile = process_fixture.read_text(encoding="utf-8").strip()
+        if profile not in {"local-shell", "test-program"}:
+            raise RuntimeError(f"invalid process fixture profile in {process_fixture}")
+        command.extend(["--host-cap-process", profile])
+    device_fixture = case.app.parent / "device-fixture" / case.spec.stem
+    if device_fixture.is_file():
+        grant = device_fixture.read_text(encoding="utf-8").strip()
+        if grant != "virtual" and not (grant.startswith("virtual:") and grant[8:].isdigit()):
+            raise RuntimeError(f"invalid deterministic device fixture in {device_fixture}")
+        command.extend(["--host-cap-device", grant])
+    system_fixture = case.app.parent / "system-monitor-fixture" / case.spec.stem
+    if system_fixture.is_file():
+        grant = system_fixture.read_text(encoding="utf-8").strip()
+        if grant not in {"standard", "unavailable"} and not (grant.startswith("processes:") and grant[10:].isdigit()):
+            raise RuntimeError(f"invalid deterministic system monitor fixture in {system_fixture}")
+        command.extend(["--host-cap-system-monitor-fixture", grant])
+    app_data_fixture = case.app.parent / "app-data-fixture"
+    if authority := fixture_values.get("tcp"):
+        command.extend(["--host-cap-tcp", authority])
+    audio_fixture = case.app.parent / "audio-fixture"
+    if audio_fixture.is_file():
+        fixture_kind = audio_fixture.read_text(encoding="utf-8").strip()
+        if fixture_kind != "null":
+            raise RuntimeError(f"invalid audio fixture kind in {audio_fixture}")
+        command.append("--host-cap-audio-null")
+    with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
+        storage = Path(temporary)
+        if app_data_fixture.is_dir():
+            case_fixture = app_data_fixture / case.spec.stem
+            default_fixture = app_data_fixture / "default"
+            source = (
+                case_fixture
+                if case_fixture.is_dir()
+                else default_fixture
+                if default_fixture.is_dir()
+                else app_data_fixture
+            )
+            shutil.copytree(source, storage, dirs_exist_ok=True)
+            command.extend(["--host-cap-app-data", str(storage)])
+        if clipboard_fixture := native_fixtures.get("clipboard"):
+            command.append(f"--host-cap-clipboard-fixture={clipboard_fixture}")
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return case, f"timed out after {timeout:g}s"
     if completed.returncode != 0:
         diagnostic = completed.stderr.decode(errors="replace").strip()
         return case, f"exit {completed.returncode}: {diagnostic}"
@@ -169,22 +242,28 @@ def main() -> int:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 
-    fixture_process = None
-    fixture_scripts = {case.app.parent / "fixture_server.py" for case in cases}
-    fixture_scripts = {path for path in fixture_scripts if path.is_file()}
-    if fixture_scripts:
-        if len(fixture_scripts) != 1:
-            print("error: selected specs require different local fixture servers", file=sys.stderr)
-            return 1
-        ready_file = output / "fixture-ready"
+    fixture_processes: list[subprocess.Popen[bytes]] = []
+    fixture_servers = set()
+    for case in cases:
+        values = fixture_metadata(case)
+        if script_name := values.get("server"):
+            port = values.get("server-port")
+            if port is None or not port.isdigit():
+                raise RuntimeError(f"fixture server port missing for {case.spec}")
+            fixture_servers.add((case.app.parent / script_name, int(port)))
+    for script, port in sorted(fixture_servers):
+        if not script.is_file():
+            raise RuntimeError(f"fixture server does not exist: {script}")
+        ready_file = output / f"fixture-ready-{port}"
         fixture_environment = os.environ.copy()
         fixture_environment["ROC_GUI_FIXTURE_READY_FILE"] = str(ready_file)
         fixture_process = subprocess.Popen(
-            [sys.executable, str(fixture_scripts.pop())], cwd=ROOT,
+            [sys.executable, str(script)], cwd=ROOT,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
             env=fixture_environment,
         )
-        atexit.register(lambda: fixture_process.poll() is None and fixture_process.terminate())
+        fixture_processes.append(fixture_process)
+        atexit.register(lambda process=fixture_process: process.poll() is None and process.terminate())
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             if ready_file.is_file():
@@ -192,7 +271,7 @@ def main() -> int:
             if fixture_process.poll() is not None:
                 diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
                 suffix = f": {diagnostic}" if diagnostic else ""
-                print(f"error: local HTTP fixture failed to start{suffix}", file=sys.stderr)
+                print(f"error: local fixture failed to start{suffix}", file=sys.stderr)
                 return 1
             time.sleep(0.02)
         else:
@@ -200,7 +279,7 @@ def main() -> int:
             fixture_process.wait(timeout=5)
             diagnostic = fixture_process.stderr.read().decode(errors="replace").strip()
             suffix = f": {diagnostic}" if diagnostic else ""
-            print(f"error: local HTTP fixture did not report readiness{suffix}", file=sys.stderr)
+            print(f"error: local fixture did not report readiness{suffix}", file=sys.stderr)
             return 1
 
     results: list[tuple[Case, str | None]] = []
@@ -240,7 +319,7 @@ def main() -> int:
                 )
     passed = len(results) - failures
     print(f"{passed}/{len(cases)} specs passed; captures: {output}")
-    if fixture_process is not None:
+    for fixture_process in fixture_processes:
         fixture_process.terminate()
         fixture_process.wait(timeout=5)
     return 1 if failures else 0

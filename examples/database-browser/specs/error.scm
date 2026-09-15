@@ -5,4 +5,5 @@
     (click (role button :name "Open database broken.db"))
     (await-task)
     (expect-visible (role panel :name "Database error"))
-    (expect-visible (text "Could not open a valid SQLite database"))))
+    (expect-visible (text-prefix "Could not inspect SQLite schema:"))
+    (expect-sqlite-counters 0 1 1)))

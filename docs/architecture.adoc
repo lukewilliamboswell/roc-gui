@@ -43,6 +43,12 @@ returns an `Action`; the platform turns that action into exactly one patch; and
 the host applies it through the same graph implementation in every GUI host and
 the built-in test runner.
 
+Resource security has a separate boundary from graph ownership. The application
+process is confined by the operating system; trusted broker services own
+protected selection, persistent identity, and revocation. Opaque Roc handles
+cross that boundary, while raw paths and platform persistence mechanics do not.
+See <<_resource_access_and_trusted_grants>>.
+
 == From state to pixels
 
 === The application renders a value
@@ -202,21 +208,34 @@ Cancellation wakes the waiter, and cadence advances from the completion of the
 preceding pull, so a slow consumer cannot create an unbounded event backlog.
 
 HTTP requests also use `Action.task` and the canonical worker/completion route.
+An opaque `Box(U64)` client names a host registry entry for one explicitly
+granted origin. The initial URL and every redirect retain its scheme, host, and
+effective port.
+Application-data file operations use that route as well. Roc retains only an
+opaque typed read-write directory handle; the host confines flat child names to
+the granted application root, bounds values, and commits each atomic write by
+synchronizing a private temporary file before an in-root rename. Application
+request identities decide whether a completion is still current on the UI
+thread.
+Clipboard observation follows the same capability and task boundary. GPUI's UI
+context owns operating-system reads and writes; the host publishes only the
+latest bounded text and a monotonic sequence to capability-checked worker
+calls. The application timer supplies backpressure and cancellation. Neither
+the shared snapshot nor clipboard values are observatory fields.
 The host applies explicit scheme, timeout, redirect, header, request-body, and
 response-body limits before returning an owned reducer to the UI thread. It
-buffers one bounded UTF-8 response rather than exposing a streaming callback.
+buffers one bounded byte response rather than exposing a streaming callback.
 Applications suppress obsolete completions by comparing their request identity
 with latest state. URLs, headers, bodies, and response text never enter host
 captures or deterministic diagnostics.
 
-Directory and timer handles are typed nominal wrappers over `Box(U64)`. Each token names
+Directory, HTTP, and timer handles are typed nominal wrappers over `Box(U64)`. Each token names
 a host registry entry containing a `cap_std::fs::Dir`; final box deallocation
 removes that entry. The phantom resource kind leaves room for other handle
-families without allowing their types to be confused. Ambient filesystem
-authority is used only to create the explicit
-`--host-cap-dir` grant. Listing and child acquisition operate relative to the
-stored handle, and child acquisition uses the no-follow operation from
-`cap-fs-ext`.
+families without allowing their types to be confused. The trusted resource
+broker creates a grant only for the selected project. Listing and child
+acquisition operate relative to the stored handle, and child acquisition uses
+the no-follow operation from `cap-fs-ext`.
 
 == There is no node-level diff
 

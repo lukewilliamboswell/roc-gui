@@ -3,6 +3,10 @@
 A polished control-center application for editing a substantial hierarchy of
 typed preferences with safe preview, apply, revert, and persistence behavior.
 
+The implemented profile path loads and atomically saves through an app-scoped
+capability on worker tasks. Request identities keep obsolete completions from
+overwriting a newer draft.
+
 ## Core capabilities
 
 - Searchable category navigation and forms containing text, numbers, choices, toggles, sliders, and shortcuts.

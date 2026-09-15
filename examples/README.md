@@ -17,7 +17,7 @@ Implementations and SCM behaviour specifications belong in the same directory.
 | [Terminal Workspace](terminal-workspace/) | terminal emulator | high-rate text and keyboard input |
 | [Image Library](image-library/) | image browser and viewer | media loading and direct manipulation |
 | [Music Player](music-player/) | local music library | background playback and persistent media state |
-| [Clipboard History](clipboard-history/) | clipboard manager | global activation and privacy-sensitive history |
+| [Clipboard History](clipboard-history/) | clipboard manager | explicit text authority, bounded capture, search, pin, restore, and privacy exclusion |
 | [System Monitor](system-monitor/) | resource dashboard | continuously changing data and charts |
 | [Settings Center](settings-center/) | system control surface | forms, validation, and apply/revert workflows |
 | [Device Configurator](device-configurator/) | peripheral configuration tool | device lifecycle and transactional changes |

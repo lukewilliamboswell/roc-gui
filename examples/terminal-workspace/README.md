@@ -1,33 +1,32 @@
 # Terminal Workspace
 
-A cross-platform terminal workspace with real pseudo-terminal sessions, tabs,
-split panes, scrollback, search, and reusable layouts.
+A terminal workspace whose process access is an explicit host grant. It uses a
+real pseudo-terminal, bounded asynchronous I/O through `Action.task`, searchable
+virtualized scrollback, and stale-completion protection.
 
 ## Core capabilities
 
-- Production PTY lifecycle, terminal parsing, cell rendering, resize propagation, and child exit handling.
-- Tabs and nested splits with keyboard navigation, zoomed panes, titles, and activity indicators.
-- Scrollback virtualization, selection, copy/paste, URL recognition, and incremental search.
-- Configurable fonts, colors, key bindings, shell profiles, tasks, and restored layouts.
-- Correct text input including composed characters, wide glyphs, combining marks, and IME interaction.
+- Host-granted local-shell and deterministic-test profiles without an ambient executable API.
+- Opaque typed grants and PTYs, bounded I/O, child exit, and cancellation.
+- Virtualized line scrollback and incremental search through semantic controls.
+- Generation-based reconciliation so stale worker completions cannot revive stopped sessions.
 
 ## Happy paths
 
-- Start a shell, run a deterministic command, select and copy output, search scrollback, and clear the terminal.
-- Create tabs and splits, move focus by keyboard, resize panes, and close an exited session.
-- Save a workspace layout and restore its structure with fresh sessions on the next launch.
-- Change a theme or font and see every live terminal update without losing terminal state.
+- Start the granted profile, send text, and observe ordered PTY output.
+- Search scrollback without changing the running child.
+- Generate a realistic body of output with the ordinary `lines:N` fixture command.
+- Stop a live child while a read is waiting and receive a cancellation completion.
 
 ## Error paths
 
-- Spawn failures, missing shells, denied working directories, invalid encodings, and unexpected child exits are actionable.
-- Paste of multiline or control-bearing text is confirmed according to policy and never silently executed.
-- Closing live sessions distinguishes pane, tab, and window scope and supports cancellation.
-- A renderer slowdown may defer presentation but cannot lose or reorder PTY bytes.
+- Missing process grants are actionable.
+- Invalid sizes, oversized I/O, concurrent reads, stale handles, invalid UTF-8, and child exits have typed outcomes.
+- A stopped application generation ignores a late read completion.
 
 ## High-level goals
 
-- Stress high-rate incremental rendering and the complete keyboard/text-input path.
-- Establish reusable process lifecycle, split-layout, command, and preference patterns.
-- SCM specs exercise a deterministic child program through the real PTY and cover input, output, search, layout, and exit.
+- Stress incremental rendering and the complete text-input/task-completion path.
+- Establish a reusable explicit process-capability and PTY lifecycle pattern.
+- SCM specs exercise a deterministic child through the real PTY and cover input, output, search, denial, stale completion, and cancellation.
 - A scaling case produces long, varied scrollback through an ordinary terminal command.

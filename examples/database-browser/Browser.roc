@@ -46,15 +46,15 @@ open_database = |state, directory, name| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match Sqlite.open_read!(directory, name) {
-			Err(_) => Err(OpenFailed)
+			Err(error) => Err(OpenFailed("Could not open SQLite database: ${Sqlite.detail(error)}"))
 			Ok(database) => match Sqlite.query!(database, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") {
-				Err(_) => Err(OpenFailed)
+				Err(error) => Err(OpenFailed("Could not inspect SQLite schema: ${Sqlite.detail(error)}"))
 				Ok(result) => Ok({ database, result })
 			}
 		},
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Err(_) => Action.update({ ..latest, status: Failed("Could not open a valid SQLite database") })
+				Err(OpenFailed(message)) => Action.update({ ..latest, status: Failed(message) })
 				Ok(opened) => Action.update({
 					..latest,
 					database: Some(opened.database),
@@ -81,7 +81,7 @@ run_query = |state, database, sql| {
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
 				Ok(result) => Action.update({ ..latest, result: Some(result), status: Ready })
-				Err(error) => Action.update({ ..latest, status: Failed(error.message) })
+				Err(error) => Action.update({ ..latest, status: Failed(Sqlite.detail(error)) })
 			}
 			_ => Action.none
 		},

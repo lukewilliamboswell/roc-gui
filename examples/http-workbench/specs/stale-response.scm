@@ -9,4 +9,5 @@
     (await-task)
     (expect-value (role textarea :name "Response body") "Status 200\nnew")
     (await-task)
-    (expect-value (role textarea :name "Response body") "Status 200\nnew")))
+    (expect-value (role textarea :name "Response body") "Status 200\nnew")
+    (expect-http-counters 0 2 2 0)))

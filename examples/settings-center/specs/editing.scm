@@ -13,4 +13,6 @@
     (expect-visible (text "Profile name is required"))
     (replace-text (role textbox :name "Profile name") "Personal profile")
     (submit (role textbox :name "Profile name"))
+    (expect-visible (text "Saving preferences…"))
+    (await-task)
     (expect-visible (text "Settings are saved"))))

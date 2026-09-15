@@ -18,4 +18,14 @@ Event := [].{
 
 	## Enter on a single-line text field, carrying its current value.
 	TextSubmit : { value : Str }
+
+	## A direct-manipulation gesture in canvas coordinates. `target` is the
+	## topmost keyed primitive under the initial press and remains stable for the
+	## gesture; an empty point uses `None`.
+	CanvasPointer : {
+		phase : [Begin, Move, End],
+		x : I32,
+		y : I32,
+		target : [None, Some(U64)],
+	}
 }
