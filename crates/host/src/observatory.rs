@@ -183,11 +183,7 @@ pub fn end_roc_work(kind: u8) {
             work.started = None;
             return;
         }
-        let elapsed = work
-            .started
-            .take()
-            .map(|start| now_elapsed_ns(start))
-            .unwrap_or(0);
+        let elapsed = work.started.take().map(now_elapsed_ns).unwrap_or(0);
         work.totals[kind as usize].duration_ns = work.totals[kind as usize]
             .duration_ns
             .saturating_add(elapsed);
@@ -262,8 +258,8 @@ enum Event {
         diagnostic: Option<String>,
         resources: ResourceSnapshot,
     },
-    Step(StepResult),
-    Cycle(Cycle),
+    Step(Box<StepResult>),
+    Cycle(Box<Cycle>),
     VirtualListFrame {
         list_id: u64,
         visible_items: u64,
@@ -640,7 +636,7 @@ pub fn run_end(id: i64, outcome: &'static str, ended_ns: u64, diagnostic: Option
 pub fn step(result: StepResult) {
     let mut result = result;
     result.diagnostic = result.diagnostic.map(bounded_diagnostic);
-    submit(Event::Step(result), true);
+    submit(Event::Step(Box::new(result)), true);
 }
 
 fn bounded_diagnostic(mut value: String) -> String {
@@ -667,7 +663,7 @@ pub fn cycle(cycle: Cycle) {
     if !detail.records_cycle(cycle.measurement_phase) {
         return;
     }
-    submit(Event::Cycle(cycle), false);
+    submit(Event::Cycle(Box::new(cycle)), false);
 }
 
 pub fn virtual_list_frame(
@@ -1140,6 +1136,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
     .map_err(|error| format!("cannot write stats row: {error}"))
 }
 
+// Terminal capture evidence is recorded as individual metadata values.
+#[allow(clippy::too_many_arguments)]
 fn finalize(
     connection: &Connection,
     path: &Path,
@@ -1794,12 +1792,11 @@ mod tests {
             "page_size_bytes",
         ] {
             assert!(
-                db.query_row("SELECT value FROM metadata WHERE key=?1", [key], |row| {
+                !db.query_row("SELECT value FROM metadata WHERE key=?1", [key], |row| {
                     row.get::<_, String>(0)
                 },)
                     .unwrap()
-                    .len()
-                    > 0
+                    .is_empty()
             );
         }
         assert!(!active());

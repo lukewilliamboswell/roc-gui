@@ -30,9 +30,11 @@ actions!(
 
 pub const MAX_TEXT_BYTES: usize = 1024 * 1024;
 
+pub type TextCallback = Rc<dyn Fn(String, &mut App)>;
+
 pub struct TextInput {
-    on_change: Rc<dyn Fn(String, &mut App)>,
-    on_submit: Rc<dyn Fn(String, &mut App)>,
+    on_change: TextCallback,
+    on_submit: TextCallback,
     focus: FocusHandle,
     content: SharedString,
     controlled: SharedString,
@@ -51,8 +53,8 @@ impl TextInput {
         value: String,
         placeholder: String,
         enabled: bool,
-        on_change: Rc<dyn Fn(String, &mut App)>,
-        on_submit: Rc<dyn Fn(String, &mut App)>,
+        on_change: TextCallback,
+        on_submit: TextCallback,
         cx: &mut Context<Self>,
     ) -> Self {
         assert!(value.len() <= MAX_TEXT_BYTES, "text input exceeds one MiB");
@@ -78,8 +80,8 @@ impl TextInput {
         value: &str,
         placeholder: &str,
         enabled: bool,
-        on_change: Rc<dyn Fn(String, &mut App)>,
-        on_submit: Rc<dyn Fn(String, &mut App)>,
+        on_change: TextCallback,
+        on_submit: TextCallback,
         cx: &mut Context<Self>,
     ) {
         assert!(value.len() <= MAX_TEXT_BYTES, "text input exceeds one MiB");
@@ -244,7 +246,7 @@ impl TextInput {
         self.selecting = false;
     }
 
-    fn from_utf16(&self, offset: usize) -> usize {
+    fn byte_offset_from_utf16(&self, offset: usize) -> usize {
         let mut bytes = 0;
         let mut units = 0;
         for ch in self.content.chars() {
@@ -276,7 +278,8 @@ impl EntityInputHandler for TextInput {
         _: &mut Window,
         _: &mut Context<Self>,
     ) -> Option<String> {
-        let bytes = self.from_utf16(range.start)..self.from_utf16(range.end);
+        let bytes =
+            self.byte_offset_from_utf16(range.start)..self.byte_offset_from_utf16(range.end);
         actual.replace(self.to_utf16(bytes.start)..self.to_utf16(bytes.end));
         Some(self.content[bytes].to_string())
     }
@@ -320,7 +323,7 @@ impl EntityInputHandler for TextInput {
             return;
         }
         let range = range
-            .map(|r| self.from_utf16(r.start)..self.from_utf16(r.end))
+            .map(|r| self.byte_offset_from_utf16(r.start)..self.byte_offset_from_utf16(r.end))
             .or(self.marked.clone())
             .unwrap_or(self.selection.clone());
         if text.contains(['\r', '\n'])
@@ -350,7 +353,7 @@ impl EntityInputHandler for TextInput {
             return;
         }
         let range = range
-            .map(|r| self.from_utf16(r.start)..self.from_utf16(r.end))
+            .map(|r| self.byte_offset_from_utf16(r.start)..self.byte_offset_from_utf16(r.end))
             .or(self.marked.clone())
             .unwrap_or(self.selection.clone());
         if text.contains(['\r', '\n'])
@@ -378,7 +381,8 @@ impl EntityInputHandler for TextInput {
         _: &mut Context<Self>,
     ) -> Option<Bounds<Pixels>> {
         let line = self.layout.as_ref()?;
-        let range = self.from_utf16(range.start)..self.from_utf16(range.end);
+        let range =
+            self.byte_offset_from_utf16(range.start)..self.byte_offset_from_utf16(range.end);
         Some(Bounds::from_corners(
             point(bounds.left() + line.x_for_index(range.start), bounds.top()),
             point(bounds.left() + line.x_for_index(range.end), bounds.bottom()),
@@ -406,26 +410,6 @@ fn utf16_offset(text: &str, offset: usize) -> usize {
         bytes += ch.len_utf8();
     }
     bytes
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn utf16_selection_offsets_land_on_utf8_boundaries() {
-        let text = "a🦀é";
-        assert_eq!(utf16_offset(text, 0), 0);
-        assert_eq!(utf16_offset(text, 1), 1);
-        assert_eq!(utf16_offset(text, 2), 5);
-        assert_eq!(utf16_offset(text, 3), 5);
-        assert_eq!(utf16_offset(text, 4), 7);
-    }
-
-    #[test]
-    fn text_limit_is_explicit_and_bounded() {
-        assert_eq!(MAX_TEXT_BYTES, 1024 * 1024);
-    }
 }
 
 impl Focusable for TextInput {
@@ -616,14 +600,34 @@ impl Element for TextElement {
         let line = state.borrow_mut().take().unwrap();
         line.paint(bounds.origin, bounds.size.height, window, cx)
             .unwrap();
-        if focus.is_focused(window) {
-            if let Some(cursor) = prepaint.cursor.take() {
-                window.paint_quad(cursor);
-            }
+        if focus.is_focused(window)
+            && let Some(cursor) = prepaint.cursor.take()
+        {
+            window.paint_quad(cursor);
         }
         self.input.update(cx, |input, _| {
             input.layout = Some(line);
             input.bounds = Some(bounds);
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn utf16_selection_offsets_land_on_utf8_boundaries() {
+        let text = "a🦀é";
+        assert_eq!(utf16_offset(text, 0), 0);
+        assert_eq!(utf16_offset(text, 1), 1);
+        assert_eq!(utf16_offset(text, 2), 5);
+        assert_eq!(utf16_offset(text, 3), 5);
+        assert_eq!(utf16_offset(text, 4), 7);
+    }
+
+    #[test]
+    fn text_limit_is_explicit_and_bounded() {
+        assert_eq!(MAX_TEXT_BYTES, 1024 * 1024);
     }
 }

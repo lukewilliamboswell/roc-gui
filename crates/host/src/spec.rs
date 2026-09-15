@@ -43,12 +43,10 @@ pub enum Runner {
 
 impl Capability {
     pub fn permits(self, runner: Runner) -> bool {
-        match (self, runner) {
-            (Self::Both, _) => true,
-            (Self::Semantic, Runner::Semantic) => true,
-            (Self::Window, Runner::Window) => true,
-            _ => false,
-        }
+        matches!(
+            (self, runner),
+            (Self::Both, _) | (Self::Semantic, Runner::Semantic) | (Self::Window, Runner::Window)
+        )
     }
 
     pub fn label(self) -> &'static str {
@@ -119,7 +117,10 @@ pub enum Command {
     ExpectPatch(PatchExpectation),
     MarkMetrics,
     /// Wait for `frames` consecutive quiet presented frames, or fail.
-    Settle { frames: u32, timeout_ms: u32 },
+    Settle {
+        frames: u32,
+        timeout_ms: u32,
+    },
     /// Painted this frame and not clipped away by a scroll ancestor.
     ExpectOnScreen(Locator),
     /// How many instances actually took part in the last frame.
@@ -169,7 +170,12 @@ pub enum Region {
     /// Cropped to a located element's laid-out bounds.
     Locator(Locator),
     /// An explicit content-relative rectangle.
-    Rect { x: u32, y: u32, width: u32, height: u32 },
+    Rect {
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    },
 }
 
 /// A named screenshot request.
@@ -667,11 +673,17 @@ fn parse_keywords<'a>(
         if !allowed.contains(&key) {
             return Err(error(
                 &rest[index],
-                format!("unsupported key {key} for {head}; expected {}", allowed.join(", ")),
+                format!(
+                    "unsupported key {key} for {head}; expected {}",
+                    allowed.join(", ")
+                ),
             ));
         }
         if pairs.iter().any(|(seen, _)| *seen == key) {
-            return Err(error(&rest[index], format!("duplicate key {key} for {head}")));
+            return Err(error(
+                &rest[index],
+                format!("duplicate key {key} for {head}"),
+            ));
         }
         let value = rest
             .get(index + 1)
@@ -690,7 +702,11 @@ impl<'a> Keywords<'a> {
             .map(|(_, value)| *value)
     }
 
-    fn u32_in(&self, key: &str, range: std::ops::RangeInclusive<u32>) -> Result<Option<u32>, ParseError> {
+    fn u32_in(
+        &self,
+        key: &str,
+        range: std::ops::RangeInclusive<u32>,
+    ) -> Result<Option<u32>, ParseError> {
         let Some(value) = self.expr(key) else {
             return Ok(None);
         };
@@ -711,7 +727,6 @@ impl<'a> Keywords<'a> {
         }
         Ok(Some(parsed))
     }
-
 }
 
 fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
@@ -1224,7 +1239,10 @@ fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
                 .ok_or_else(|| error(value, "rect region requires non-negative integers"))?;
         }
         if numbers[2] == 0 || numbers[3] == 0 {
-            return Err(error(node, "rect region requires a non-zero width and height"));
+            return Err(error(
+                node,
+                "rect region requires a non-zero width and height",
+            ));
         }
         return Ok(Region::Rect {
             x: numbers[0],
@@ -1949,15 +1967,30 @@ mod tests {
     fn settle_rejects_malformed_keywords() {
         for (source, expected) in [
             (r#"(test "s" (steps (settle :frames)))"#, "requires a value"),
-            (r#"(test "s" (steps (settle :frames 0)))"#, "must be between 1 and 60"),
-            (r#"(test "s" (steps (settle :frames 99)))"#, "must be between 1 and 60"),
-            (r#"(test "s" (steps (settle :frames x)))"#, "requires an integer"),
-            (r#"(test "s" (steps (settle :nope 1)))"#, "unsupported key :nope"),
+            (
+                r#"(test "s" (steps (settle :frames 0)))"#,
+                "must be between 1 and 60",
+            ),
+            (
+                r#"(test "s" (steps (settle :frames 99)))"#,
+                "must be between 1 and 60",
+            ),
+            (
+                r#"(test "s" (steps (settle :frames x)))"#,
+                "requires an integer",
+            ),
+            (
+                r#"(test "s" (steps (settle :nope 1)))"#,
+                "unsupported key :nope",
+            ),
             (
                 r#"(test "s" (steps (settle :frames 1 :frames 2)))"#,
                 "duplicate key :frames",
             ),
-            (r#"(test "s" (steps (settle 2)))"#, "expects :key value pairs"),
+            (
+                r#"(test "s" (steps (settle 2)))"#,
+                "expects :key value pairs",
+            ),
         ] {
             let error = parse(source).unwrap_err();
             assert!(
@@ -1970,7 +2003,8 @@ mod tests {
 
     #[test]
     fn typing_and_chords_parse() {
-        let spec = parse(r#"(test "s" (steps (type "hello") (key "cmd-a") (key "escape")))"#).unwrap();
+        let spec =
+            parse(r#"(test "s" (steps (type "hello") (key "cmd-a") (key "escape")))"#).unwrap();
         assert_eq!(spec.steps[0].command, Command::Type("hello".to_owned()));
         assert_eq!(spec.steps[1].command, Command::Key("cmd-a".to_owned()));
         assert_eq!(spec.steps[2].command, Command::Key("escape".to_owned()));
@@ -1982,7 +2016,10 @@ mod tests {
             (r#"(test "s" (steps (type "")))"#, "non-empty string"),
             (r#"(test "s" (steps (type x)))"#, "type requires a string"),
             (r#"(test "s" (steps (key "cmd-")))"#, "key requires a chord"),
-            (r#"(test "s" (steps (key "nope-a")))"#, "key requires a chord"),
+            (
+                r#"(test "s" (steps (key "nope-a")))"#,
+                "key requires a chord",
+            ),
             (r#"(test "s" (steps (key "")))"#, "key requires a chord"),
         ] {
             let error = parse(source).unwrap_err();
@@ -2022,13 +2059,19 @@ mod tests {
     fn each_runner_refuses_the_other_runners_steps() {
         let windowed = parse(r#"(test "s" (steps (expect-visible (text "x")) (settle)))"#).unwrap();
         let message = check_runner(&windowed, Runner::Semantic).unwrap_err();
-        assert!(message.contains("line 1: step `settle` is window-only"), "{message}");
+        assert!(
+            message.contains("line 1: step `settle` is window-only"),
+            "{message}"
+        );
         assert!(message.contains("--host-run-window-spec"), "{message}");
         assert!(check_runner(&windowed, Runner::Window).is_ok());
 
         let measured = parse(r#"(test "s" (steps (mark-metrics)))"#).unwrap();
         let message = check_runner(&measured, Runner::Window).unwrap_err();
-        assert!(message.contains("`mark-metrics` is semantic-only"), "{message}");
+        assert!(
+            message.contains("`mark-metrics` is semantic-only"),
+            "{message}"
+        );
         assert!(check_runner(&measured, Runner::Semantic).is_ok());
     }
 
@@ -2039,7 +2082,10 @@ mod tests {
         )
         .unwrap();
         let message = check_runner(&spec, Runner::Window).unwrap_err();
-        assert!(message.contains("benchmark clauses are semantic-only"), "{message}");
+        assert!(
+            message.contains("benchmark clauses are semantic-only"),
+            "{message}"
+        );
     }
 
     #[test]
@@ -2123,12 +2169,13 @@ mod tests {
     /// would silently photograph the whole canvas.
     #[test]
     fn screenshot_refuses_canvas_item_regions() {
-        let error = parse(
-            r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#,
-        )
-        .unwrap_err();
+        let error =
+            parse(r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#)
+                .unwrap_err();
         assert!(
-            error.message.contains("canvas items have no recorded bounds"),
+            error
+                .message
+                .contains("canvas items have no recorded bounds"),
             "{}",
             error.message
         );

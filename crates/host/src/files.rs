@@ -321,7 +321,7 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
     let mut options = OpenOptions::new();
     options.read(true);
     let mut file = dir
-        .open_with(name, &options.follow(FollowSymlinks::No))
+        .open_with(name, options.follow(FollowSymlinks::No))
         .map_err(|_| BoundedReadError::Io)?;
     let length = file.metadata().map_err(|_| BoundedReadError::Io)?.len();
     if length > MAX_FILE_BYTES {
@@ -444,7 +444,11 @@ static NATIVE_PROMPTS_SERVED: std::sync::atomic::AtomicBool =
 #[cfg(not(target_os = "linux"))]
 pub fn serve_directory_prompts(cx: &mut gpui::App) {
     NATIVE_PROMPTS_SERVED.store(true, std::sync::atomic::Ordering::Release);
-    let pending = std::mem::take(&mut *DIRECTORY_PROMPTS.lock().expect("directory prompts poisoned"));
+    let pending = std::mem::take(
+        &mut *DIRECTORY_PROMPTS
+            .lock()
+            .expect("directory prompts poisoned"),
+    );
     for reply in pending {
         let receiver = cx.prompt_for_paths(gpui::PathPromptOptions {
             files: false,

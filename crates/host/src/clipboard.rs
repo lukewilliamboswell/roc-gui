@@ -105,10 +105,10 @@ fn valid(handle: *mut u64, guard: &Store) -> bool {
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
-    if let Ok(mut guard) = store().lock() {
-        if let Some(id) = guard.allocations.remove(&(base as usize)) {
-            guard.handles.remove(&id);
-        }
+    if let Ok(mut guard) = store().lock()
+        && let Some(id) = guard.allocations.remove(&(base as usize))
+    {
+        guard.handles.remove(&id);
     }
 }
 

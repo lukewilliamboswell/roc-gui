@@ -1140,6 +1140,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     Ok(())
 }
 
+// Flat constructor for the observatory cycle record.
+#[allow(clippy::too_many_arguments)]
 fn make_cycle(
     run_id: i64,
     ordinal: u64,

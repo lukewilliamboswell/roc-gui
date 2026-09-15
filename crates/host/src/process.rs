@@ -564,7 +564,10 @@ mod sys {
         }
 
         pub fn write(&self, bytes: &[u8]) -> io::Result<usize> {
-            self.master.lock().expect("pty master poisoned").write(bytes)
+            self.master
+                .lock()
+                .expect("pty master poisoned")
+                .write(bytes)
         }
 
         pub fn resize(&self, columns: u16, rows: u16) -> io::Result<()> {
@@ -608,9 +611,7 @@ mod sys {
         time::{Duration, Instant},
     };
     use windows_sys::Win32::{
-        Foundation::{
-            CloseHandle, ERROR_BROKEN_PIPE, HANDLE, INVALID_HANDLE_VALUE, WAIT_OBJECT_0,
-        },
+        Foundation::{CloseHandle, ERROR_BROKEN_PIPE, HANDLE, INVALID_HANDLE_VALUE, WAIT_OBJECT_0},
         System::{
             Console::{COORD, ClosePseudoConsole, CreatePseudoConsole, HPCON, ResizePseudoConsole},
             Pipes::{CreatePipe, PeekNamedPipe},
@@ -744,7 +745,8 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
     /// PowerShell's `-EncodedCommand` takes base64 UTF-16LE, which keeps the
     /// program out of Windows command-line quoting entirely.
     fn encoded_command(script: &str) -> String {
-        const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let bytes: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
         let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
         for chunk in bytes.chunks(3) {
@@ -1080,10 +1082,17 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
 
         #[test]
         fn startup_control_sequences_are_not_text() {
-            assert!(!contains_text(b"\x1b[?9001h\x1b[?1004h\x1b[?25l\x1b[2J\x1b[m\x1b[H"));
-            assert!(!contains_text(b"\x1b]0;C:\\Windows\\powershell.exe\x07\x1b[?25h\r"));
+            assert!(!contains_text(
+                b"\x1b[?9001h\x1b[?1004h\x1b[?25l\x1b[2J\x1b[m\x1b[H"
+            ));
+            assert!(!contains_text(
+                b"\x1b]0;C:\\Windows\\powershell.exe\x07\x1b[?25h\r"
+            ));
             assert!(!contains_text(b"\x1b]0;title\x1b\\\x1b[K"));
-            assert!(!contains_text(b"\x1b[3"), "an incomplete sequence is not text");
+            assert!(
+                !contains_text(b"\x1b[3"),
+                "an incomplete sequence is not text"
+            );
             assert!(contains_text(b"\x1b[Hterminal-ready"));
             assert!(contains_text(b"\x1b[K\r\n"));
         }
@@ -1117,7 +1126,10 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
             assert!(terminal.wait_readable(30_000).unwrap());
             let mut first = [0u8; 4096];
             let count = terminal.read(&mut first).unwrap();
-            assert!(contains_text(&first[..count]), "first read held only terminal setup");
+            assert!(
+                contains_text(&first[..count]),
+                "first read held only terminal setup"
+            );
             let mut ready = String::from_utf8_lossy(&first[..count]).into_owned();
             if !ready.contains("terminal-ready") {
                 ready += &read_until(&terminal, "terminal-ready");

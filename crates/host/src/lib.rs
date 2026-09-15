@@ -14,6 +14,8 @@ mod input;
 mod observatory;
 mod probe;
 mod process;
+// Generated glue (scripts/regenerate_glue.py); variant names mirror the Roc types.
+#[allow(clippy::enum_variant_names)]
 mod roc_platform_abi;
 mod runner;
 mod screenshot;
@@ -37,9 +39,9 @@ use roc_platform_abi::{
     HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
     HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
     HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
+    RocErasedCallable, RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch,
+    roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -72,9 +74,7 @@ unsafe extern "C" {
 #[cfg(all(test, windows))]
 mod test_application {
     #[unsafe(no_mangle)]
-    extern "C" fn roc_gui_run_task(
-        _task: crate::RocErasedCallable,
-    ) -> crate::RocErasedCallable {
+    extern "C" fn roc_gui_run_task(_task: crate::RocErasedCallable) -> crate::RocErasedCallable {
         unreachable!("unit tests never run Roc tasks")
     }
 }
@@ -322,6 +322,8 @@ fn finish_children(builder: u64) -> Vec<u64> {
     })
 }
 
+// Mirrors the flat layout fields of the generated glue node argument records.
+#[allow(clippy::too_many_arguments)]
 fn decode_layout_style(
     gap: u32,
     padding: u32,
@@ -1518,8 +1520,8 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = apply_focus_ring(element.cursor(CursorStyle::IBeam))
-                        .on_key_down(move |event, _, cx| {
+                    element = apply_focus_ring(element.cursor(CursorStyle::IBeam)).on_key_down(
+                        move |event, _, cx| {
                             let mut next = current.clone();
                             if event.keystroke.key == "backspace" {
                                 next.pop();
@@ -1533,7 +1535,8 @@ impl Render for NodeView {
                             cx.stop_propagation();
                             let _ = runtime
                                 .update(cx, |runtime, cx| runtime.input_if_live(node_id, next, cx));
-                        });
+                        },
+                    );
                 } else if !*enabled {
                     element = apply_disabled(element);
                 }
@@ -2053,6 +2056,8 @@ impl Runtime {
         self.apply_to_gpui(&applied, cx);
     }
 
+    // Carries per-cycle measurement facts straight into the observatory record.
+    #[allow(clippy::too_many_arguments)]
     fn apply_recorded(
         &mut self,
         patch: Patch,
@@ -2123,10 +2128,10 @@ impl Runtime {
                     .and_then(|identity| self.graph.find_focus_identity(&identity));
             }
             _ => {
-                if let Some((id, identity)) = self.focused_identity.clone() {
-                    if self.graph.node(id).is_none() {
-                        self.focus_after_render = self.graph.find_focus_identity(&identity);
-                    }
+                if let Some((id, identity)) = self.focused_identity.clone()
+                    && self.graph.node(id).is_none()
+                {
+                    self.focus_after_render = self.graph.find_focus_identity(&identity);
                 }
             }
         }
@@ -2261,24 +2266,22 @@ impl Runtime {
             let change_runtime = runtime.clone();
             let submit_runtime = runtime.clone();
             let node_id = node.id;
-            let change: std::rc::Rc<dyn Fn(String, &mut App)> =
-                std::rc::Rc::new(move |text, cx| {
-                    let _ = change_runtime.update(cx, |runtime, cx| {
-                        runtime.text_event_if_live(node_id, node_id, text, "text_change", cx)
-                    });
+            let change: input::TextCallback = std::rc::Rc::new(move |text, cx| {
+                let _ = change_runtime.update(cx, |runtime, cx| {
+                    runtime.text_event_if_live(node_id, node_id, text, "text_change", cx)
                 });
-            let submit: std::rc::Rc<dyn Fn(String, &mut App)> =
-                std::rc::Rc::new(move |text, cx| {
-                    let _ = submit_runtime.update(cx, |runtime, cx| {
-                        runtime.text_event_if_live(
-                            node_id,
-                            node_id | SUBMIT_EVENT_BIT,
-                            text,
-                            "text_submit",
-                            cx,
-                        )
-                    });
+            });
+            let submit: input::TextCallback = std::rc::Rc::new(move |text, cx| {
+                let _ = submit_runtime.update(cx, |runtime, cx| {
+                    runtime.text_event_if_live(
+                        node_id,
+                        node_id | SUBMIT_EVENT_BIT,
+                        text,
+                        "text_submit",
+                        cx,
+                    )
                 });
+            });
             if let Some(editor) = self.editors.get(label).cloned() {
                 editor.update(cx, |editor, cx| {
                     editor.configure(
@@ -2432,10 +2435,10 @@ impl Render for Runtime {
             GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
         }
         watchdog::milestone(watchdog::Milestone::FirstRender);
-        if let Some(target) = self.focus_after_render.take() {
-            if let Some(handle) = self.focus_handles.get(&target) {
-                handle.focus(window);
-            }
+        if let Some(target) = self.focus_after_render.take()
+            && let Some(handle) = self.focus_handles.get(&target)
+        {
+            handle.focus(window);
         }
         self.focused_identity = self
             .focus_handles
@@ -2586,15 +2589,15 @@ fn parse_host_args() -> Result<HostArgs, String> {
                 .parse()
                 .ok()
                 .filter(|value| (1_000..=600_000).contains(value))
-                .ok_or_else(|| {
-                    "--host-window-timeout-ms requires 1000..=600000".to_string()
-                })?;
+                .ok_or_else(|| "--host-window-timeout-ms requires 1000..=600000".to_string())?;
         } else if argument == "--host-window-allow-missing-shots" {
             parsed.window_require_shots = false;
         } else if argument == "--host-classify-specs" {
             // Consumes the rest: classification is pure parsing, so one process
             // can answer for the whole suite.
-            parsed.classify_specs.extend(pending.by_ref().map(PathBuf::from));
+            parsed
+                .classify_specs
+                .extend(pending.by_ref().map(PathBuf::from));
             if parsed.classify_specs.is_empty() {
                 return Err("--host-classify-specs requires at least one .scm path".into());
             }
@@ -2822,10 +2825,10 @@ fn print_host_help(app_name: &str) {
 /// by returning. It must finalize here instead.
 pub(crate) fn finish_and_exit(code: i32) -> ! {
     let outcome = if code == 0 { "success" } else { "failure" };
-    if observatory::active() {
-        if let Err(message) = observatory::finish(outcome) {
-            eprintln!("roc-gui stats error: {message}");
-        }
+    if observatory::active()
+        && let Err(message) = observatory::finish(outcome)
+    {
+        eprintln!("roc-gui stats error: {message}");
     }
     clear_bridge();
     set_roc_host(core::ptr::null_mut());
@@ -2884,6 +2887,14 @@ fn start_requested_recorder(
     Ok(Some(path))
 }
 
+/// Process entry point for the linked Roc application.
+///
+/// # Safety
+///
+/// Must only be called once, by the C runtime startup code, on the main thread
+/// before any other host function runs. It installs a stack-allocated Roc host
+/// for the lifetime of the call and clears it before returning. The C
+/// arguments are ignored; arguments are read through `std::env` instead.
 #[unsafe(no_mangle)]
 #[cfg(not(test))]
 pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
@@ -2906,9 +2917,10 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     if !args.classify_specs.is_empty() {
         let mut status = 0;
         for path in &args.classify_specs {
-            match std::fs::read_to_string(path).map_err(|error| error.to_string()).and_then(
-                |text| spec::parse(&text).map_err(|error| error.to_string()),
-            ) {
+            match std::fs::read_to_string(path)
+                .map_err(|error| error.to_string())
+                .and_then(|text| spec::parse(&text).map_err(|error| error.to_string()))
+            {
                 Ok(case) => {
                     let runner = if spec::check_runner(&case, spec::Runner::Semantic).is_ok() {
                         "semantic"
@@ -3104,7 +3116,9 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         probe::enable();
         // Generous relative to the per-step deadline: this only catches a host
         // that never reaches its own reporting, not a slow specification.
-        watchdog::arm(Duration::from_millis(u64::from(args.window_timeout_ms)) + Duration::from_secs(30));
+        watchdog::arm(
+            Duration::from_millis(u64::from(args.window_timeout_ms)) + Duration::from_secs(30),
+        );
     }
 
     Application::new().run(move |cx| {
