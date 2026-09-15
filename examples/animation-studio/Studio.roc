@@ -11,6 +11,24 @@ Studio := [].{
 	Playback : [Paused, Playing(Timer.Handle)]
 	State : { document : Document, selected : [None, Some(U64)], drag : Drag, undo : List(Document), redo : List(Document), next_id : U64, frame : U32, playback : Playback, status : Str }
 
+	## The timeline runs from frame zero through `last_frame`, drawn across a
+	## track that starts at `track_x0` and spans `track_span` logical pixels.
+	last_frame : U32
+	last_frame = 120
+	track_x0 : I32
+	track_x0 = 8
+	track_span : I32
+	track_span = 1144
+
+	frame_to_x : U32 -> I32
+	frame_to_x = |frame| track_x0 + (U32.to_i32_wrap(frame) * track_span) / U32.to_i32_wrap(last_frame)
+
+	frame_from_x : I32 -> U32
+	frame_from_x = |x| {
+		clamped = if x < track_x0 track_x0 else if x > track_x0 + track_span track_x0 + track_span else x
+		I32.to_u32_wrap(((clamped - track_x0) * U32.to_i32_wrap(last_frame) + track_span / 2) / track_span)
+	}
+
 	initial : State
 	initial = {
 		document: { shapes: [
@@ -29,8 +47,16 @@ Studio := [].{
 			Rectangle => "Rectangle ${id.to_str()}"
 			Ellipse => "Ellipse ${id.to_str()}"
 		}
-		shape = { id, name, kind, x: 140, y: 120, width: 130, height: 90, color: if kind == Rectangle 0x81b29a else 0xf2cc8f }
+		placed = state.document.shapes.len()
+		step = U64.to_i32_wrap(placed % 8)
+		cycle = U64.to_i32_wrap((placed / 8) % 4)
+		shape = { id, name, kind, x: 300 + step * 40 + cycle * 18, y: 110 + step * 18 + cycle * 9, width: 130, height: 90, color: if kind == Rectangle 0x81b29a else 0xf2cc8f }
 		{ ..state, document: { ..state.document, shapes: state.document.shapes.append(shape) }, selected: Some(id), undo: state.undo.append(state.document), redo: [], next_id: id + 1, status: "Added ${name}" }
+	}
+
+	select_shape = |state, id| match state.document.shapes.find_first(|shape| shape.id == id) {
+		Err(_) => state
+		Ok(shape) => { ..state, selected: Some(id), status: "Selected ${shape.name}" }
 	}
 
 	pointer_state = |state, event| match event.phase {
@@ -50,6 +76,18 @@ Studio := [].{
 	pointer : State, Event.CanvasPointer => Action.Action(State)
 	pointer = |state, event| Action.update(pointer_state(state, event))
 
+	scrub_to = |state, x| {
+		frame = frame_from_x(x)
+		apply_frame({ ..state, frame, status: "Scrubbed to frame ${frame.to_str()}" })
+	}
+	## Pressing or dragging on the timeline track scrubs to that frame.
+	timeline_pointer : State, Event.CanvasPointer => Action.Action(State)
+	timeline_pointer = |state, event| match event.phase {
+		End => Action.none
+		Begin => Action.update(scrub_to(state, event.x))
+		Move => Action.update(scrub_to(state, event.x))
+	}
+
 	undo = |state| match state.undo.last() {
 		Err(_) => state
 		Ok(previous) => { ..state, document: previous, undo: state.undo.drop_last(1), redo: state.redo.append(state.document), drag: Idle, status: "Undid edit" }
@@ -66,7 +104,7 @@ Studio := [].{
 			Ok(shape) => {
 				without = state.document.keyframes.keep_if(|key| !(key.shape_id == id and key.frame == state.frame))
 				key = { shape_id: id, frame: state.frame, x: shape.x, y: shape.y }
-				{ ..state, document: { ..state.document, keyframes: without.append(key) }, undo: state.undo.append(state.document), redo: [], status: "Keyframe added at ${state.frame.to_str()}" }
+				{ ..state, document: { ..state.document, keyframes: without.append(key) }, undo: state.undo.append(state.document), redo: [], status: "Keyframe for ${shape.name} at frame ${state.frame.to_str()}" }
 			}
 		}
 	}
@@ -78,16 +116,29 @@ Studio := [].{
 		})
 		{ ..state, document: { ..state.document, shapes } }
 	}
-	scrub_back = |state| apply_frame({ ..state, frame: if state.frame < 10 0 else state.frame - 10 })
-	scrub_forward = |state| apply_frame({ ..state, frame: if state.frame >= 110 120 else state.frame + 10 })
+	frame_status = |frame| "Frame ${frame.to_str()} of ${last_frame.to_str()}"
+	scrub_back = |state| match state.frame == 0 {
+		True => { ..state, status: "Already at the first frame" }
+		False => {
+			frame = if state.frame < 10 0 else state.frame - 10
+			apply_frame({ ..state, frame, status: frame_status(frame) })
+		}
+	}
+	scrub_forward = |state| match state.frame >= last_frame {
+		True => { ..state, status: "Already at the last frame" }
+		False => {
+			frame = if state.frame + 10 >= last_frame last_frame else state.frame + 10
+			apply_frame({ ..state, frame, status: frame_status(frame) })
+		}
+	}
 
 	wait_frame = |state, handle| Action.task({
 		pending: state,
 		run: || Timer.next!(handle),
 		resolve: |latest, result| match result {
-			Canceled => Action.update({ ..latest, playback: Paused, status: "Paused" })
+			Canceled => Action.update({ ..latest, playback: Paused, status: "Paused at ${frame_status(latest.frame)}" })
 			Fired => {
-				next = apply_frame({ ..latest, frame: if latest.frame >= 120 0 else latest.frame + 1 })
+				next = apply_frame({ ..latest, frame: if latest.frame >= last_frame 0 else latest.frame + 1 })
 				wait_frame(next, handle)
 			}
 		},
@@ -98,6 +149,6 @@ Studio := [].{
 	}
 	pause! = |state, handle| {
 		_ = Timer.cancel!(handle)
-		Action.update({ ..state, playback: Paused, status: "Paused" })
+		Action.update({ ..state, playback: Paused, status: "Paused at ${frame_status(state.frame)}" })
 	}
 }

@@ -3,4 +3,4 @@ import pf.Program
 import Browser
 State : Browser.State
 
-main = Program.run({ init: Browser.init, render: Browser.render, window: { title: "Capability Folder Browser", width: 960, height: 640 } })
+main = Program.run({ init: Browser.init, render: Browser.render, window: { title: "Folder browser", width: 760, height: 560 } })

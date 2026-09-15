@@ -2,4 +2,4 @@
   (steps
     (expect-visible (role textbox :name "Disabled example"))
     (replace-text (role textbox :name "Disabled example") "changed")
-    (expect-visible (text "Disabled value is unchanged"))))
+    (expect-visible (text "This setting is locked by your organization and cannot be edited here."))))
