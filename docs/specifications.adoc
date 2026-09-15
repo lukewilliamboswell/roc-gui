@@ -95,6 +95,10 @@ semantic name.
 name. Locator matching never records its value.
 `(role image :name "name")`:: An encoded image identified by its application
 supplied semantic name. Neither encoded bytes nor source filenames are captured.
+`(role canvas :name "name")`:: A retained drawing surface identified by its
+stable semantic name.
+`(role canvas-item :name "name")`:: A keyed canvas primitive identified by its
+stable semantic label.
 
 `(role textbox :name "label")`:: A controlled text input identified by its
 semantic label.
@@ -108,6 +112,10 @@ names unique wherever the buttons are visible together.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
+`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
+gesture through a canvas's production event route. Coordinates are integer
+logical pixels in canvas space. `(canvas-item-prefix "prefix")` supports
+deterministic primitive counts in scaling specifications.
 `(replace-text LOCATOR "value")`:: Replace an editable textarea's controlled
 value through its production Roc input route. Disabled and read-only textareas
 fail as non-editable.

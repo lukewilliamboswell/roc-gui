@@ -19,26 +19,28 @@ mod tcp;
 mod timers;
 
 use bridge::{
-    BridgeState, ControlKey, ImageFit, ImageFormat as BridgeImageFormat, Length, MountedGraph,
-    Node, NodeKind, Overflow, Patch, ScrollAxis, Style, decode_commit, validate_tree,
+    BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
+    ImageFormat as BridgeImageFormat, Length, MountedGraph, Node, NodeKind, Overflow, Patch,
+    ScrollAxis, Style, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueHttpAcquireResult, HostGlueHttpSendArgs,
-    HostGlueHttpSendResult, HostGlueNodeActionButtonArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs,
-    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs,
-    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
-    decref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueHttpAcquireResult,
+    HostGlueHttpSendArgs, HostGlueHttpSendResult, HostGlueNodeActionButtonArgs,
+    HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
+    HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
+    HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
+    make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
     collections::HashMap,
     ffi::c_void,
     path::PathBuf,
-    sync::OnceLock,
     sync::atomic::{AtomicU64, Ordering},
+    sync::{Arc, Mutex, OnceLock},
     time::Instant,
 };
 
@@ -105,6 +107,15 @@ thread_local! {
     static BRIDGE: RefCell<BridgeState> = const { RefCell::new(BridgeState::new()) };
     static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
+    static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
+}
+
+#[derive(Clone, Copy)]
+struct CanvasEventPayload {
+    phase: u8,
+    x: i32,
+    y: i32,
+    target: u64,
 }
 
 const SUBMIT_EVENT_BIT: u64 = 1 << 63;
@@ -670,6 +681,87 @@ pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
     )
 }
 
+/// Stage one retained vector canvas and its keyed hit-testable primitives.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    assert!(!label.is_empty(), "canvas label must not be empty");
+    let primitives = args
+        .primitives
+        .as_slice()
+        .iter()
+        .map(|item| CanvasPrimitive {
+            kind: match item.kind {
+                0 => CanvasPrimitiveKind::Ellipse,
+                1 => CanvasPrimitiveKind::Line,
+                2 => CanvasPrimitiveKind::Rectangle,
+                other => panic!("invalid canvas primitive kind {other}"),
+            },
+            key: item.key,
+            label: item.label.as_str().to_owned(),
+            x: item.x,
+            y: item.y,
+            width: item.width,
+            height: item.height,
+            x2: item.x2,
+            y2: item.y2,
+            fill: decode_color(item.fill),
+            stroke: decode_color(item.stroke),
+            stroke_width: item.stroke_width,
+            radius: item.radius,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        primitives.iter().all(|item| item.key != 0),
+        "canvas primitive keys must be non-zero"
+    );
+    let mut keys = std::collections::HashSet::with_capacity(primitives.len());
+    assert!(
+        primitives.iter().all(|item| keys.insert(item.key)),
+        "canvas primitive keys must be unique"
+    );
+    let style = Style {
+        width: decode_length(args.width_kind, args.width),
+        height: decode_length(args.height_kind, args.height),
+        grow: args.grow,
+        bg: decode_color(args.bg),
+        border_color: decode_color(args.border_color),
+        border_width: args.border_width,
+        radius: args.radius,
+        overflow_x: Overflow::Clip,
+        overflow_y: Overflow::Clip,
+        ..Style::default()
+    };
+    unsafe { args.decref(roc_host()) };
+    stage_node(
+        NodeKind::Canvas {
+            label,
+            primitives,
+            style,
+        },
+        vec![],
+    )
+}
+
+/// Consume the direct-manipulation payload installed for a canvas dispatch.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
+    let event = CANVAS_EVENT
+        .with(|slot| slot.borrow_mut().take())
+        .unwrap_or(CanvasEventPayload {
+            phase: 2,
+            x: 0,
+            y: 0,
+            target: 0,
+        });
+    HostGlueCanvasEventRetRecord {
+        phase: event.phase,
+        x: event.x,
+        y: event.y,
+        target: event.target,
+    }
+}
+
 /// Stage one controlled single-line editor and allocate its two event routes.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_text_input(
@@ -883,6 +975,20 @@ fn dispatch_input(event_id: u64, value: String) -> Patch {
     patch
 }
 
+fn dispatch_canvas(event_id: u64, event: CanvasEventPayload) -> Patch {
+    CANVAS_EVENT.with(|slot| {
+        assert!(
+            slot.borrow_mut().replace(event).is_none(),
+            "nested canvas dispatch"
+        );
+    });
+    let patch = dispatch(event_id);
+    CANVAS_EVENT.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
 fn complete(completion: RocErasedCallable) -> Patch {
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
@@ -914,6 +1020,9 @@ fn clear_bridge() {
     });
     WINDOW_CONFIG.with(|config| *config.borrow_mut() = WindowConfig::default());
     INPUT_VALUE.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    CANVAS_EVENT.with(|slot| {
         slot.borrow_mut().take();
     });
 }
@@ -999,6 +1108,7 @@ struct NodeView {
     input_enabled: bool,
     focus_handle: Option<FocusHandle>,
     input: Option<Entity<input::TextInput>>,
+    canvas_bounds: Arc<Mutex<Option<Bounds<Pixels>>>>,
 }
 
 fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
@@ -1054,6 +1164,48 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     }
 }
 
+pub(crate) fn canvas_target(primitives: &[CanvasPrimitive], x: i32, y: i32) -> Option<u64> {
+    primitives.iter().rev().find_map(|item| {
+        let hit = match item.kind {
+            CanvasPrimitiveKind::Rectangle => {
+                x >= item.x
+                    && y >= item.y
+                    && i64::from(x) <= i64::from(item.x) + i64::from(item.width)
+                    && i64::from(y) <= i64::from(item.y) + i64::from(item.height)
+            }
+            CanvasPrimitiveKind::Ellipse => {
+                let rx = f64::from(item.width) / 2.0;
+                let ry = f64::from(item.height) / 2.0;
+                rx > 0.0 && ry > 0.0 && {
+                    let dx = (f64::from(x - item.x) - rx) / rx;
+                    let dy = (f64::from(y - item.y) - ry) / ry;
+                    dx * dx + dy * dy <= 1.0
+                }
+            }
+            CanvasPrimitiveKind::Line => {
+                let ax = f64::from(item.x);
+                let ay = f64::from(item.y);
+                let dx = f64::from(item.x2 - item.x);
+                let dy = f64::from(item.y2 - item.y);
+                let length_sq = dx * dx + dy * dy;
+                let projection = if length_sq == 0.0 {
+                    0.0
+                } else {
+                    (((f64::from(x) - ax) * dx + (f64::from(y) - ay) * dy) / length_sq)
+                        .clamp(0.0, 1.0)
+                };
+                let nearest_x = ax + projection * dx;
+                let nearest_y = ay + projection * dy;
+                let distance_x = f64::from(x) - nearest_x;
+                let distance_y = f64::from(y) - nearest_y;
+                let tolerance = f64::from(item.stroke_width.max(6)) / 2.0;
+                distance_x * distance_x + distance_y * distance_y <= tolerance * tolerance
+            }
+        };
+        hit.then_some(item.key)
+    })
+}
+
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let mut element = div().id(("node", self.node.id));
@@ -1062,6 +1214,113 @@ impl Render for NodeView {
             element = element.size_full().min_h_0().min_w_0();
         }
         match &self.node.kind {
+            NodeKind::Canvas {
+                label,
+                primitives,
+                style,
+            } => {
+                let paint_items = primitives.clone();
+                let hit_items = primitives.clone();
+                let bounds_slot = self.canvas_bounds.clone();
+                let down_bounds = self.canvas_bounds.clone();
+                let down_runtime = self.runtime.clone();
+                let paint_runtime = self.runtime.clone();
+                let down_label = label.clone();
+                let paint_label = label.clone();
+                let drawing = canvas(
+                    move |bounds, _, _| {
+                        *bounds_slot.lock().expect("canvas bounds poisoned") = Some(bounds);
+                    },
+                    move |bounds, _, window, _| {
+                        for item in &paint_items {
+                            match item.kind {
+                                CanvasPrimitiveKind::Rectangle | CanvasPrimitiveKind::Ellipse => {
+                                    let item_bounds = Bounds::new(
+                                        point(
+                                            bounds.origin.x + px(item.x as f32),
+                                            bounds.origin.y + px(item.y as f32),
+                                        ),
+                                        size(px(item.width as f32), px(item.height as f32)),
+                                    );
+                                    let radius = if item.kind == CanvasPrimitiveKind::Ellipse {
+                                        px(item.width.min(item.height) as f32 / 2.0)
+                                    } else {
+                                        px(item.radius as f32)
+                                    };
+                                    window.paint_quad(quad(
+                                        item_bounds,
+                                        radius,
+                                        item.fill.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
+                                        px(item.stroke_width as f32),
+                                        item.stroke.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
+                                        Default::default(),
+                                    ));
+                                }
+                                CanvasPrimitiveKind::Line => {
+                                    let mut builder =
+                                        PathBuilder::stroke(px(item.stroke_width.max(1) as f32));
+                                    builder.move_to(point(
+                                        bounds.origin.x + px(item.x as f32),
+                                        bounds.origin.y + px(item.y as f32),
+                                    ));
+                                    builder.line_to(point(
+                                        bounds.origin.x + px(item.x2 as f32),
+                                        bounds.origin.y + px(item.y2 as f32),
+                                    ));
+                                    if let Ok(path) = builder.build() {
+                                        window.paint_path(
+                                            path,
+                                            item.stroke
+                                                .map(rgb)
+                                                .unwrap_or_else(|| rgba(0x00000000)),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        let move_runtime = paint_runtime.clone();
+                        let move_label = paint_label.clone();
+                        window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
+                            if phase == DispatchPhase::Bubble {
+                                let x =
+                                    f32::from(event.position.x - bounds.origin.x).round() as i32;
+                                let y =
+                                    f32::from(event.position.y - bounds.origin.y).round() as i32;
+                                let _ = move_runtime.update(cx, |runtime, cx| {
+                                    runtime.canvas_pointer(&move_label, 1, x, y, 0, cx)
+                                });
+                            }
+                        });
+                        let up_runtime = paint_runtime.clone();
+                        let up_label = paint_label.clone();
+                        window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
+                            if phase == DispatchPhase::Bubble && event.button == MouseButton::Left {
+                                let x =
+                                    f32::from(event.position.x - bounds.origin.x).round() as i32;
+                                let y =
+                                    f32::from(event.position.y - bounds.origin.y).round() as i32;
+                                let _ = up_runtime.update(cx, |runtime, cx| {
+                                    runtime.canvas_pointer(&up_label, 2, x, y, 0, cx)
+                                });
+                            }
+                        });
+                    },
+                )
+                .size_full();
+                element = apply_style(element, style)
+                    .child(drawing)
+                    .cursor(CursorStyle::Crosshair)
+                    .on_mouse_down(MouseButton::Left, move |event, _, cx| {
+                        if let Some(bounds) = *down_bounds.lock().expect("canvas bounds poisoned") {
+                            let x = f32::from(event.position.x - bounds.origin.x).round() as i32;
+                            let y = f32::from(event.position.y - bounds.origin.y).round() as i32;
+                            let target = canvas_target(&hit_items, x, y).unwrap_or(0);
+                            let _ = down_runtime.update(cx, |runtime, cx| {
+                                runtime.canvas_pointer(&down_label, 0, x, y, target, cx)
+                            });
+                        }
+                    });
+            }
             NodeKind::Column { style, .. } | NodeKind::Panel { style, .. } => {
                 element = apply_style(element.flex().flex_col(), style);
             }
@@ -1385,6 +1644,7 @@ struct Runtime {
     last_trigger_focus: Option<(u8, String)>,
     focus_after_render: Option<u64>,
     editors: HashMap<String, Entity<input::TextInput>>,
+    canvas_drag: Option<(String, u64)>,
 }
 
 struct VirtualCached {
@@ -1414,6 +1674,7 @@ impl Runtime {
             last_trigger_focus: None,
             focus_after_render: None,
             editors: HashMap::new(),
+            canvas_drag: None,
         };
         if observatory::active() {
             runtime.apply_recorded(
@@ -1465,6 +1726,44 @@ impl Runtime {
         })
         .detach();
         runtime
+    }
+
+    fn canvas_pointer(
+        &mut self,
+        label: &str,
+        phase: u8,
+        x: i32,
+        y: i32,
+        target: u64,
+        cx: &mut Context<Self>,
+    ) {
+        let resolved_target = match phase {
+            0 => {
+                self.canvas_drag = Some((label.to_owned(), target));
+                target
+            }
+            1 | 2 => match &self.canvas_drag {
+                Some((active, target)) if active == label => *target,
+                _ => return,
+            },
+            _ => return,
+        };
+        let id = self.graph.nodes_preorder().into_iter().find_map(|node| {
+            matches!(&node.kind, NodeKind::Canvas { label: current, .. } if current == label)
+                .then_some(node.id)
+        });
+        let Some(id) = id else { return };
+        let event = CanvasEventPayload {
+            phase,
+            x,
+            y,
+            target: resolved_target,
+        };
+        let patch = dispatch_canvas(id, event);
+        self.apply_unrecorded(patch, cx);
+        if phase == 2 {
+            self.canvas_drag = None;
+        }
     }
 
     fn event_if_live(&mut self, id: u64, cx: &mut Context<Self>) {
@@ -1786,6 +2085,7 @@ impl Runtime {
                 input_enabled,
                 focus_handle: view_focus,
                 input: editor,
+                canvas_bounds: Arc::new(Mutex::new(None)),
             });
             if let Some(handle) = focus_handle {
                 self.focus_handles.insert(node.id, handle);
@@ -1912,6 +2212,7 @@ impl Runtime {
             input_enabled,
             focus_handle: view_focus,
             input,
+            canvas_bounds: Arc::new(Mutex::new(None)),
         });
         if let Some(handle) = focus_handle {
             self.focus_handles.insert(id, handle);
@@ -2443,8 +2744,8 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::{
-        WindowConfig, counted_roc_alloc, counted_roc_dealloc, counted_roc_realloc,
-        make_counted_roc_host, validate_window_config,
+        CanvasPrimitive, CanvasPrimitiveKind, WindowConfig, canvas_target, counted_roc_alloc,
+        counted_roc_dealloc, counted_roc_realloc, make_counted_roc_host, validate_window_config,
     };
 
     #[test]
@@ -2491,5 +2792,33 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn canvas_hit_testing_prefers_the_topmost_precise_shape() {
+        let primitive = |kind, key, x, y, width, height, x2, y2| CanvasPrimitive {
+            kind,
+            key,
+            label: format!("shape {key}"),
+            x,
+            y,
+            width,
+            height,
+            x2,
+            y2,
+            fill: Some(0xffffff),
+            stroke: Some(0),
+            stroke_width: 2,
+            radius: 0,
+        };
+        let shapes = vec![
+            primitive(CanvasPrimitiveKind::Rectangle, 1, 0, 0, 30, 30, 0, 0),
+            primitive(CanvasPrimitiveKind::Ellipse, 2, 10, 10, 20, 20, 0, 0),
+            primitive(CanvasPrimitiveKind::Line, 3, 0, 40, 0, 0, 40, 40),
+        ];
+        assert_eq!(canvas_target(&shapes, 20, 20), Some(2));
+        assert_eq!(canvas_target(&shapes, 20, 0), Some(1));
+        assert_eq!(canvas_target(&shapes, 20, 40), Some(3));
+        assert_eq!(canvas_target(&shapes, 20, 34), None);
     }
 }

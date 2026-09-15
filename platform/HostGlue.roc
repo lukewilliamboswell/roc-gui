@@ -189,6 +189,13 @@ HostGlue := [].{
 		overflow_x : U8,
 		overflow_y : U8,
 	} => U64
+	node_canvas! : {
+		label : Str,
+		primitives : List({ kind : U8, key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, x2 : I32, y2 : I32, fill : U32, stroke : U32, stroke_width : U32, radius : U32 }),
+		width_kind : U8, width : U32, height_kind : U8, height : U32, grow : Bool,
+		bg : U32, border_color : U32, border_width : U32, radius : U32,
+	} => U64
+	canvas_event! : {} => { phase : U8, x : I32, y : I32, target : U64 }
 	input_value! : {} => Str
 	node_text_input! : {
 		label : Str,

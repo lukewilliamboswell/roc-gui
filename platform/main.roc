@@ -23,6 +23,8 @@ platform ""
 		"roc_gui_node_checkbox": Host.node_checkbox!,
 		"roc_gui_node_textarea": Host.node_textarea!,
 		"roc_gui_node_image": Host.node_image!,
+		"roc_gui_node_canvas": Host.node_canvas!,
+		"roc_gui_canvas_event": Host.canvas_event!,
 		"roc_gui_input_value": Host.input_value!,
 		"roc_gui_node_text_input": Host.node_text_input!,
 		"roc_sqlite_open_read": Host.sqlite_open_read!,

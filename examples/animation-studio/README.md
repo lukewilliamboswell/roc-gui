@@ -1,33 +1,27 @@
 # Animation Studio
 
-A project-based editor for arranging shapes, text, and images on a canvas and
-animating their properties on a timeline before exporting a presentation.
+A state-owned editor for arranging vector shapes on a native retained canvas
+and animating positions on a timeline.
 
 ## Core capabilities
 
-- Zoomable canvas, rulers, guides, snapping, selection, transforms, grouping, and direct manipulation.
-- Layer hierarchy, property inspector, timeline tracks, keyframes, easing, scrubbing, and playback.
-- Project save/open, asset management, autosave recovery, undo/redo, and command history.
-- Keyboard commands, contextual tools, drag-and-drop, copy/paste, and multi-selection.
-- Deterministic frame rendering and export with progress and cancellation.
+- Keyed rectangle and ellipse rendering with semantic identity.
+- Shape creation, hit-tested selection, captured pointer movement, and exact undo/redo snapshots.
+- Position keyframes, deterministic scrubbing, and cancellable timer playback.
+- A layer list, property summary, timeline, and status derived from ordinary Roc state.
 
 ## Happy paths
 
-- Create shapes and text, select and transform them, group layers, and use undo/redo.
-- Add keyframes, adjust timing and easing, scrub the timeline, and play the animation.
-- Import an image, save the project, reopen it, and retain layer and timeline structure.
-- Export a frame sequence or presentation and observe accurate progress through completion.
+- Create shapes, move them directly on the stage, and use undo/redo.
+- Add position keyframes, scrub in ten-frame steps, and play or pause the animation.
 
 ## Error paths
 
-- Missing or corrupt assets remain represented and replaceable without making the project unloadable.
-- Invalid project data identifies the unsupported portion and protects the original file.
-- Failed saves and exports retain the editable project and clean up only owned partial output.
-- Cancelling a gesture or timeline drag restores the exact pre-interaction state and history position.
+- A gesture whose key no longer exists is ignored without corrupting history.
+- Playback start failure leaves the editable document intact and reports the failure.
 
 ## High-level goals
 
-- Push canvas rendering, pointer capture, transforms, overlays, timelines, inspectors, and undo architecture.
-- Establish deterministic document serialization and command-based editing patterns.
-- SCM specs cover creation, selection, transforms, grouping, keyframes, playback, undo/redo, save/reopen, and export errors.
-- A scaling case edits a realistic presentation with many layers and keyframes through the production canvas.
+- Exercise the same retained canvas and direct-manipulation route used by native GPUI.
+- Keep editing, history, keyframes, and playback as application-owned state and actions.
+- SCM specifications cover creation, movement, keyframes, playback, and undo/redo.

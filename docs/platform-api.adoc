@@ -360,3 +360,14 @@ on the byte transport rather than being reimplemented by the platform. The
 Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
 command encoding, bounded RESP2 decoding, typed commands, and exchange policy
 remain the responsibility of the established platform-independent package.
+== Retained canvas
+
+`Elem.canvas` paints an ordered list of keyed `Rectangle`, `Ellipse`, and
+`Line` primitives in native GPUI. A canvas and every primitive have stable
+semantic labels. Primitive keys are non-zero and unique within the canvas;
+they preserve direct-manipulation identity independently of list position.
+
+The controlled `on_pointer` handler receives `Begin`, `Move`, and `End` in
+integer canvas coordinates. The topmost hit-tested primitive is captured on
+`Begin`, and that same optional target key accompanies the complete gesture,
+including when a state update replaces the canvas subtree.

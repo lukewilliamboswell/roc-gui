@@ -243,6 +243,31 @@ Internal := [].{
 			id = Host.node_image!({ label: image_value.label, bytes: image_value.bytes, format, fit, grayscale: image_value.grayscale, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
 			{ root: id, next_boundary, routes, boundaries }
 		}
+		Canvas(canvas_value) => {
+			width = length(canvas_value.width)
+			height = length(canvas_value.height)
+			primitives = canvas_value.primitives.map(|primitive| match primitive {
+				Ellipse(shape) => { kind: 0, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0 }
+				Line(shape) => { kind: 1, key: shape.key, label: shape.label, x: shape.x1, y: shape.y1, width: 0, height: 0, x2: shape.x2, y2: shape.y2, fill: color(Default), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0 }
+				Rectangle(shape) => { kind: 2, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: shape.radius }
+			})
+			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.grow, bg: color(canvas_value.bg), border_color: color(canvas_value.border_color), border_width: canvas_value.border_width, radius: canvas_value.radius })
+			route = { id, boundary: active_boundary, boundary_path, fire: |current, _| {
+				event = Host.canvas_event!({})
+				phase = match event.phase {
+					0 => Begin
+					1 => Move
+					2 => End
+					_ => crash "invalid canvas pointer phase"
+				}
+				target = match event.target {
+					0 => None
+					value => Some(value)
+				}
+				(canvas_value.on_pointer)(current, { phase, x: event.x, y: event.y, target })
+			} }
+			{ root: id, next_boundary, routes: routes.append(route), boundaries }
+		}
 		TextInput(input_value) => {
 			style = style_args(input_value)
 			ids = Host.node_text_input!({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })

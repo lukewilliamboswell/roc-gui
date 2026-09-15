@@ -11,6 +11,7 @@ Elem(a) :: [
 	Checkbox(CheckboxProps(a)),
 	Textarea(TextareaProps(a)),
 	Image(ImageProps),
+	Canvas(CanvasProps(a)),
 	Column({ children : List(Elem(a)), props : ColProps }),
 	Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 	Panel({ children : List(Elem(a)), props : PanelProps }),
@@ -259,6 +260,32 @@ Elem(a) :: [
 		overflow_y : Gui.Overflow ?? Clip,
 	}
 
+	## A retained drawing primitive. Keys must be non-zero and unique within a
+	## canvas. Primitives are painted in list order and hit-tested in reverse.
+	CanvasEllipse := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Gui.Color, stroke : Gui.Color ?? Default, stroke_width : U32 ?? 0 }
+	CanvasLine := { key : U64, label : Str, x1 : I32, y1 : I32, x2 : I32, y2 : I32, stroke : Gui.Color, stroke_width : U32 ?? 1 }
+	CanvasRectangle := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Gui.Color, stroke : Gui.Color ?? Default, stroke_width : U32 ?? 0, radius : U32 ?? 0 }
+	CanvasPrimitive : [
+		Ellipse(CanvasEllipse),
+		Line(CanvasLine),
+		Rectangle(CanvasRectangle),
+	]
+
+	## Properties for a native retained canvas. Coordinates are integer logical
+	## pixels, which makes semantic gestures and deterministic rendering agree.
+	CanvasProps(a) := {
+		label : Str,
+		primitives : List(CanvasPrimitive),
+		on_pointer : (a, Event.CanvasPointer => Action(a)),
+		width : Gui.Length ?? Fill,
+		height : Gui.Length ?? Fill,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Rgb(0xffffff),
+		border_color : Gui.Color ?? Default,
+		border_width : U32 ?? 0,
+		radius : U32 ?? 0,
+	}
+
 	## Display literal text.
 	text : Str -> Elem(a)
 	text = |value| Text(value)
@@ -285,6 +312,11 @@ Elem(a) :: [
 	## Render encoded image bytes without granting the host ambient I/O.
 	image : ImageProps -> Elem(a)
 	image = |props| Image(props)
+
+	## Paint keyed vector primitives and receive pointer gestures through one
+	## captured direct-manipulation route.
+	canvas : CanvasProps(a) -> Elem(a)
+	canvas = |props| Canvas(props)
 
 	## Display a controlled native single-line text editor.
 	text_input : TextInputProps(a) -> Elem(a)
@@ -409,6 +441,11 @@ Elem(a) :: [
 			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, radius: textarea_value.radius, font_size: textarea_value.font_size, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y })
 		}
 		Image(image_value) => Image(image_value)
+		Canvas(canvas_value) => {
+			child_handler = canvas_value.on_pointer
+			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			Canvas(CanvasProps.{ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, width: canvas_value.width, height: canvas_value.height, grow: canvas_value.grow, bg: canvas_value.bg, border_color: canvas_value.border_color, border_width: canvas_value.border_width, radius: canvas_value.radius })
+		}
 		Boundary(child_renderer) => {
 			parent_renderer = |parent| lift(child_renderer(get_child(parent)), get_child, set_child)
 			Boundary(parent_renderer)
@@ -431,6 +468,7 @@ Elem(a) :: [
 		Checkbox(CheckboxProps(a)),
 		Textarea(TextareaProps(a)),
 		Image(ImageProps),
+		Canvas(CanvasProps(a)),
 		Column({ children : List(Elem(a)), props : ColProps }),
 		Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 		Panel({ children : List(Elem(a)), props : PanelProps }),
@@ -446,6 +484,7 @@ Elem(a) :: [
 		Checkbox(checkbox_value) => Checkbox(checkbox_value)
 		Textarea(textarea_value) => Textarea(textarea_value)
 		Image(image_value) => Image(image_value)
+		Canvas(canvas_value) => Canvas(canvas_value)
 		Column(children) => Column(children)
 		Dialog(dialog_value) => Dialog(dialog_value)
 		Panel(children) => Panel(children)

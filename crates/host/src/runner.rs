@@ -10,6 +10,20 @@ use crate::{
 use std::time::Instant;
 
 fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
+    if let Locator::CanvasItemPrefix(prefix) = locator {
+        return graph
+            .nodes_preorder()
+            .into_iter()
+            .flat_map(|node| match &node.kind {
+                NodeKind::Canvas { primitives, .. } => primitives
+                    .iter()
+                    .filter(|item| item.label.starts_with(prefix))
+                    .map(|_| node.id)
+                    .collect::<Vec<_>>(),
+                _ => vec![],
+            })
+            .collect();
+    }
     graph
         .nodes_preorder()
         .into_iter()
@@ -83,6 +97,17 @@ fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             (Locator::ImageName(expected), NodeKind::Image { label, .. }) if expected == label => {
                 Some(node.id)
             }
+            (Locator::CanvasName(expected), NodeKind::Canvas { label, .. })
+                if expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::CanvasItemName(expected), NodeKind::Canvas { primitives, .. })
+                if primitives.iter().any(|item| item.label == *expected) =>
+            {
+                Some(node.id)
+            }
+            (Locator::CanvasItemPrefix(_), _) => None,
             _ => None,
         })
         .collect()
@@ -233,6 +258,79 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ));
                     cycle_ordinal += 1;
                     Ok(())
+                }
+            }
+            Command::Drag(locator, from_x, from_y, to_x, to_y) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: drag locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if let Some(NodeKind::Canvas { primitives, .. }) =
+                    graph.node(found[0]).map(|node| &node.kind)
+                {
+                    let target = crate::canvas_target(primitives, *from_x, *from_y).unwrap_or(0);
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
+                    let roc_started = Instant::now();
+                    let mut id = found[0];
+                    let mut patch = crate::dispatch_canvas(
+                        id,
+                        crate::CanvasEventPayload {
+                            phase: 0,
+                            x: *from_x,
+                            y: *from_y,
+                            target,
+                        },
+                    );
+                    let _ = graph.apply_measured(patch)?.facts;
+                    id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
+                        format!("line {}: canvas disappeared during drag", step.line)
+                    })?;
+                    patch = crate::dispatch_canvas(
+                        id,
+                        crate::CanvasEventPayload {
+                            phase: 1,
+                            x: *to_x,
+                            y: *to_y,
+                            target,
+                        },
+                    );
+                    let _ = graph.apply_measured(patch)?.facts;
+                    id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
+                        format!("line {}: canvas disappeared during drag", step.line)
+                    })?;
+                    patch = crate::dispatch_canvas(
+                        id,
+                        crate::CanvasEventPayload {
+                            phase: 2,
+                            x: *to_x,
+                            y: *to_y,
+                            target,
+                        },
+                    );
+                    let facts = graph.apply_measured(patch)?.facts;
+                    let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    last_patch = Some(facts);
+                    pending_cycle = Some(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "drag",
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
+                    Ok(())
+                } else {
+                    Err(format!("line {}: locator is not a canvas", step.line))
                 }
             }
             Command::ReplaceText(locator, value) => {

@@ -28,6 +28,7 @@ pub struct Step {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Click(Locator),
+    Drag(Locator, i32, i32, i32, i32),
     ReplaceText(Locator, String),
     Focus(Locator),
     PressKey(ControlKey),
@@ -54,6 +55,7 @@ impl Command {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Click(_) => "click",
+            Self::Drag(..) => "drag",
             Self::ReplaceText(_, _) => "replace-text",
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
@@ -81,6 +83,7 @@ impl Command {
         matches!(
             self,
             Self::Click(_)
+                | Self::Drag(..)
                 | Self::ReplaceText(_, _)
                 | Self::Focus(_)
                 | Self::PressKey(_)
@@ -115,6 +118,9 @@ pub enum Locator {
     VirtualListName(String),
     TextareaName(String),
     ImageName(String),
+    CanvasName(String),
+    CanvasItemName(String),
+    CanvasItemPrefix(String),
     TextInputName(String),
 }
 
@@ -352,6 +358,13 @@ fn parse_u32(node: &SExpr, value: &str, zero_allowed: bool) -> Result<u32, Parse
     Ok(parsed)
 }
 
+fn parse_i32(node: &SExpr, description: &str) -> Result<i32, ParseError> {
+    node.atom()
+        .ok_or_else(|| error(node, format!("{description} must be an integer")))?
+        .parse()
+        .map_err(|_| error(node, format!("{description} must be an integer")))
+}
+
 fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
     let values = require_list(node, "step")?;
     let head = values
@@ -360,6 +373,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         .ok_or_else(|| error(node, "step requires a command name"))?;
     let command = match head {
         "click" if values.len() == 2 => Command::Click(parse_locator(&values[1])?),
+        "drag" if values.len() == 6 => Command::Drag(
+            parse_locator(&values[1])?,
+            parse_i32(&values[2], "drag coordinate")?,
+            parse_i32(&values[3], "drag coordinate")?,
+            parse_i32(&values[4], "drag coordinate")?,
+            parse_i32(&values[5], "drag coordinate")?,
+        ),
         "replace-text" if values.len() == 3 => Command::ReplaceText(
             parse_locator(&values[1])?,
             values[2]
@@ -526,6 +546,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click"
+        | "drag"
         | "replace-text"
         | "focus"
         | "press-key"
@@ -570,10 +591,34 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .string()
             .map(|value| Locator::CheckboxPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "checkbox-prefix locator requires a string")),
+        Some("canvas-item-prefix") if values.len() == 2 => values[1]
+            .string()
+            .map(|value| Locator::CanvasItemPrefix(value.to_owned()))
+            .ok_or_else(|| error(node, "canvas-item-prefix locator requires a string")),
         Some("button-prefix") if values.len() == 2 => values[1]
             .string()
             .map(|value| Locator::ButtonPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "button-prefix locator requires a string")),
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("canvas-item")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::CanvasItemName(value.to_owned()))
+                .ok_or_else(|| error(node, "canvas item name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("canvas")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::CanvasName(value.to_owned()))
+                .ok_or_else(|| error(node, "canvas name must be a string"))
+        }
         Some("role")
             if values.len() == 4
                 && values[1].atom() == Some("dialog")
@@ -686,7 +731,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, checkbox, column, dialog, image, panel, row, scroll, textarea, textbox, and virtual-list",
+            "supported roles are button, canvas, canvas-item, checkbox, column, dialog, image, panel, row, scroll, textarea, textbox, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -1060,6 +1105,22 @@ mod tests {
             &spec.steps[2].command,
             Command::ExpectPatch(PatchExpectation { kind, staged: 7, removed: 2 }) if kind == "replace"
         ));
+    }
+
+    #[test]
+    fn parses_canvas_drag_and_primitive_locator() {
+        let spec = parse(
+            r#"(test "canvas" (steps
+            (drag (role canvas :name "Stage") -2 3 40 50)
+            (expect-visible (role canvas-item :name "Card"))))"#,
+        )
+        .unwrap();
+        assert!(
+            matches!(&spec.steps[0].command, Command::Drag(Locator::CanvasName(name), -2, 3, 40, 50) if name == "Stage")
+        );
+        assert!(
+            matches!(&spec.steps[1].command, Command::ExpectVisible(Locator::CanvasItemName(name)) if name == "Card")
+        );
     }
 
     #[test]
