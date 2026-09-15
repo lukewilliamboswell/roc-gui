@@ -48,14 +48,22 @@ connect = |state| {
 	})
 }
 
-disconnect = |state, stream| Action.task({
-	pending: { ..state, stream: None, keys: [], selection: None, status: Busy(state.next_request) },
-	run: || Tcp.Stream.close!(stream),
-	resolve: |latest, outcome| match outcome {
-		Ok({}) => Action.update({ ..latest, status: Ready })
-		Err(error) => Action.update({ ..latest, status: Failed(tcp_error_text(error)) })
-	},
-})
+## A close owns a request identity like every other task, so a completing
+## disconnect cannot discard the connection that replaced it.
+disconnect = |state, stream| {
+	id = state.next_request
+	Action.task({
+		pending: { ..state, stream: None, keys: [], next_request: id + 1, selection: None, status: Busy(id) },
+		run: || Tcp.Stream.close!(stream),
+		resolve: |latest, outcome| match latest.status {
+			Busy(active) if active == id => match outcome {
+				Ok({}) => Action.update({ ..latest, status: Ready })
+				Err(error) => Action.update({ ..latest, status: Failed(tcp_error_text(error)) })
+			}
+			_ => Action.none
+		},
+	})
+}
 
 scan_pages! = |conn, cursor, pattern, remaining, found| {
 	page = conn.request!(Commands.Keyspace.scan(cursor, { pattern: Present(Bytes.from_str(pattern)), count: Present(remaining) })) ? |_| ScanFailed

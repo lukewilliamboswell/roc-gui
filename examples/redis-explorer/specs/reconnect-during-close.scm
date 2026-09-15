@@ -1,0 +1,16 @@
+(test "a completing disconnect cannot discard the connection that replaced it"
+  (steps
+    (click (role button :name "Connect to Redis"))
+    (await-task)
+    (expect-tcp-streams 1)
+    (click (role button :name "Disconnect from Redis"))
+    (click (role button :name "Connect to Redis"))
+    (await-task)
+    (await-task)
+    (expect-visible (role button :name "Refresh Redis keys"))
+    (expect-not-visible (role panel :name "Redis error"))
+    (expect-tcp-streams 1)
+    (click (role button :name "Refresh Redis keys"))
+    (await-task)
+    (expect-visible (text "Keys: 5"))
+    (expect-tcp-counters 1 2 3 3 1)))
