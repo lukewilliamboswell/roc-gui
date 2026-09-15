@@ -154,9 +154,13 @@ stop_then_play = |state, track, next| Action.task({
 	run: || Audio.stop!(track),
 	resolve: |latest, result| match result {
 		Err(err) => Action.update({ ..latest, status: audio_error(err) })
+		## The old track really has stopped, so the transport stops believing it
+		## is sounding. Otherwise a load that then fails leaves a phantom Active
+		## row, and the next step walks away from that instead of from the row
+		## the person is standing on.
 		Ok(_) => match latest.library {
-			Empty => Action.update(latest)
-			Loaded(latest_library) => play_index(latest, latest_library, next)
+			Empty => Action.update({ ..latest, playback: Stopped })
+			Loaded(latest_library) => play_index({ ..latest, playback: Stopped }, latest_library, next)
 		}
 	},
 })
