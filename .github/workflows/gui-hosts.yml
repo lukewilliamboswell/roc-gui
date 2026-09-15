@@ -73,7 +73,7 @@ jobs:
           python3 scripts/test_toolchain_license_inventory.py
       - name: Test and capture the production host
         run: |
-          cargo test --locked --workspace
+          python3 scripts/run_cargo.py test --locked --workspace
           python3 scripts/prepare_host_build.py --evidence "$RUNNER_TEMP/cargo-evidence" --output "$RUNNER_TEMP/host-output"
       - name: Compose notices, source companion, and tested host archive
         run: |

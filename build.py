@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 import json
 import os
 import platform
@@ -18,32 +17,6 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "scripts"))
 TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac"}
 
-
-@contextmanager
-def cargo_environment(environment: dict, target: str):
-    """Expose locked build-time interfaces without a repository-owned binary shim."""
-    if target != "x64glibc":
-        yield
-        return
-    from scripts.prepare_dependencies import install_alsa
-    with tempfile.TemporaryDirectory(prefix="roc-gui-cargo-inputs-") as temporary:
-        root = Path(temporary)
-        library = root / "lib"
-        install_alsa(library)
-        pkgconfig = library / "pkgconfig"
-        pkgconfig.mkdir()
-        (pkgconfig / "alsa.pc").write_text(
-            "prefix=${pcfiledir}/../..\n"
-            "libdir=${prefix}/lib\n\n"
-            "Name: alsa\n"
-            "Description: Verified roc-gui ALSA linker interface\n"
-            "Version: 2\n"
-            "Libs: -L${libdir} -lasound\n"
-            "Cflags:\n"
-        )
-        environment["PKG_CONFIG_PATH"] = str(pkgconfig)
-        environment["LIBRARY_PATH"] = str(library)
-        yield
 
 def output(*command: str) -> str:
     result = subprocess.run(command, cwd=ROOT, check=False, capture_output=True, text=True)
@@ -87,6 +60,7 @@ def main() -> None:
     command = ["cargo", "build", "--locked", "--package", "roc-gui-host"]
     if not args.debug:
         command.append("--release")
+    from scripts.prepare_dependencies import cargo_environment
     with cargo_environment(environment, target):
         subprocess.run(command, cwd=ROOT, env=environment, check=True)
     profile = "debug" if args.debug else "release"

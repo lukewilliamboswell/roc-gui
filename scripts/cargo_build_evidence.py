@@ -11,6 +11,7 @@ import tempfile
 import tomllib
 
 from host_build_identity import source_fingerprint
+from prepare_dependencies import cargo_environment
 
 TARGETS = {"x64glibc": "x86_64-unknown-linux-gnu", "arm64mac": "aarch64-apple-darwin"}
 
@@ -264,10 +265,10 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
         stage = Path(temporary) / "evidence"
         stage.mkdir()
         raw_messages_path = Path(temporary) / "cargo.raw.jsonl"
-        with raw_messages_path.open("wb") as messages:
+        with raw_messages_path.open("wb") as messages, cargo_environment(environment, target):
             completed = subprocess.run(["cargo", "build", "--locked", "-p", "roc-gui-host", "--lib", "--release",
-                                        "-j", str(jobs), "--message-format=json-render-diagnostics"],
-                                       cwd=root, env=environment, stdout=messages)
+                                       "-j", str(jobs), "--message-format=json-render-diagnostics"],
+                                      cwd=root, env=environment, stdout=messages)
         raw_messages = raw_messages_path.read_bytes()
         for line in raw_messages.splitlines():
             if line.startswith(b"{"):
