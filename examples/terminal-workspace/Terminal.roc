@@ -10,6 +10,8 @@ Terminal := [].{
 	start = start
 	cancel : State -> Action.Action(State)
 	cancel = cancel
+	resize : State, U16, U16 -> Action.Action(State)
+	resize = resize
 	set_command : State, Str -> State
 	set_command = |state, command| { ..state, command }
 	set_query : State, Str -> State
@@ -109,6 +111,19 @@ cancel = |state| match state.phase {
 	_ => Action.update({ ..state, status: "No live session" })
 }
 
+resize : State, U16, U16 -> Action.Action(State)
+resize = |state, columns, rows| match state.phase {
+	Live(session) => Action.task({
+		pending: { ..state, status: "Resizing terminal" },
+		run: || Process.resize!(session.pty, { columns, rows }),
+		resolve: |latest, result| match result {
+			Err(err) => Action.update({ ..latest, status: err_message(err) })
+			Ok(_) => Action.update({ ..latest, status: "Terminal resized to ${columns.to_str()}x${rows.to_str()}" })
+		},
+	})
+	_ => Action.update({ ..state, status: "No live session" })
+}
+
 visible_lines = |state| {
 	var $items = []
 	var $key = 0
@@ -133,6 +148,7 @@ render = |state| {
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Start", label: "Start test terminal", enabled: !live, on_press: |current, _| start(current, TestProgram) }),
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Try shell", label: "Start ungranted shell", enabled: !live, on_press: |current, _| start(current, LocalShell) }),
 			Elem.action_button(Elem.ActionButtonProps.{ caption: "Stop", label: "Stop terminal", enabled: live, on_press: |current, _| cancel(current) }),
+			Elem.action_button(Elem.ActionButtonProps.{ caption: "Resize", label: "Resize terminal", enabled: live, on_press: |current, _| resize(current, 120, 40) }),
 			Elem.text(state.status),
 		]),
 		Elem.row(Elem.RowProps.{ label: "Command controls", width: Fill }, [
