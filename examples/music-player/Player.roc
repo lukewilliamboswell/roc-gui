@@ -52,12 +52,18 @@ art_manifest = { asset_set: "nocturne-art", schema: 1.U32, content_version: 1.U3
 ## sleeve is dressed on the same worker trip that opens the library, so reading
 ## the artwork costs no second round trip and changes nobody else's sequencing.
 ##
+## The sleeve art travels with the application, so it is read from the
+## application's own directory rather than from a root someone has to provision.
+## `content_directory` is the provisioned root, and reaching for it here would
+## mean a person who simply runs this example is told the cover is unavailable,
+## which is a flag they did not pass rather than anything about the artwork.
+##
 ## Every failure is one answer, `NoCover`, because there is nothing a person can
-## do differently about a manifest that disagrees and about a content directory
-## that was never provisioned. The reason is not lost: the asset owner's
-## counters separate a refused open from a refused read.
+## do differently about a manifest that disagrees and about a directory that is
+## not where the application was started from. The reason is not lost: the asset
+## owner's counters separate a refused open from a refused read.
 read_cover! : {} => Art
-read_cover! = |{}| match Assets.open!(Assets.with_manifest(Assets.content_directory, art_manifest)) {
+read_cover! = |{}| match Assets.open!(Assets.with_manifest(Assets.working_directory("examples/music-player/assets"), art_manifest)) {
 	Err(_) => NoCover
 	Ok(store) => match Assets.read!(store, "art/nocturne-cover.jpg") {
 		Err(_) => NoCover

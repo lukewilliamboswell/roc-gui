@@ -482,7 +482,7 @@ pub struct ChooserRequest {
 }
 
 struct ChooserSeam {
-    requests: std::sync::mpsc::Sender<ChooserRequest>,
+    requests: async_channel::Sender<ChooserRequest>,
     window_thread: std::thread::ThreadId,
 }
 
@@ -496,7 +496,7 @@ fn chooser() -> &'static Mutex<Option<ChooserSeam>> {
 /// the window thread, whose identity is recorded so a request made from that
 /// same thread reports `Unavailable` instead of waiting for a panel that the
 /// waiting thread is the one responsible for showing.
-pub fn install_chooser(requests: std::sync::mpsc::Sender<ChooserRequest>) {
+pub fn install_chooser(requests: async_channel::Sender<ChooserRequest>) {
     *chooser().lock().expect("chooser seam poisoned") = Some(ChooserSeam {
         requests,
         window_thread: std::thread::current().id(),
@@ -532,7 +532,7 @@ fn native_directory() -> PortalSelection {
         }
     };
     let (reply, answer) = std::sync::mpsc::sync_channel(1);
-    if requests.send(ChooserRequest { reply }).is_err() {
+    if requests.send_blocking(ChooserRequest { reply }).is_err() {
         return PortalSelection::Unavailable;
     }
     match answer.recv() {
@@ -837,15 +837,20 @@ mod tests {
     /// exercised in one test rather than racing each other.
     #[test]
     fn the_native_chooser_answers_a_waiting_task_and_refuses_the_window_thread() {
-        let (requests, pending) = std::sync::mpsc::channel();
+        let (requests, pending) = async_channel::unbounded();
         install_chooser(requests);
         assert!(matches!(native_directory(), PortalSelection::Unavailable));
         assert!(pending.try_recv().is_err());
 
         let task = std::thread::spawn(native_directory);
-        let request = pending
-            .recv_timeout(Duration::from_secs(5))
-            .expect("the waiting task never asked for a chooser");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let request = loop {
+            if let Ok(request) = pending.try_recv() {
+                break request;
+            }
+            assert!(Instant::now() < deadline, "the waiting task never asked for a chooser");
+            std::thread::sleep(Duration::from_millis(5));
+        };
         request.reply.send(None).expect("nobody was waiting");
         assert!(matches!(
             task.join().expect("task thread panicked"),

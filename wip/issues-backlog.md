@@ -551,6 +551,25 @@ names the evidence so a fix can be verified against the same case.
   blocks startup, as roc-ray's does, would remove it. That is a change to the
   program model rather than to the asset surface, and it was not made here.
 
+- [ ] **No asset root resolves relative to the application itself.** The three
+  roots are the executable's directory, the process working directory, and the
+  host-provisioned content directory. None of them is "the directory this
+  application ships in", which is what `roc app.roc` actually wants: the
+  executable is a build output in a temporary directory, and the working
+  directory is wherever the shell happens to be. `music-player` therefore reads
+  its cover from `working_directory("examples/music-player/assets")`, which is
+  correct when an example is run from the checkout root as the README says and
+  wrong from anywhere else. Closing this needs the application's own location to
+  reach the host, which is packaging identity rather than an asset-surface
+  change.
+
+  It also cost a specification. `specs/cover-art-denied.scm` proved the missing
+  cover state by withholding the content-directory grant; with a root that
+  resolves without provisioning there is no way to make the read fail from a
+  specification, so the case was removed rather than left asserting something it
+  no longer caused. The refused open and refused read are still covered by the
+  asset host's own tests.
+
 - [ ] **A content directory is not an application identity.** A
   `ContentDirectory` store resolves to whatever `--host-cap-assets` names, which
   is development and packaging provisioning, not a stable per-application

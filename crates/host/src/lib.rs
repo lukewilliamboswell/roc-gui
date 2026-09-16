@@ -1850,21 +1850,14 @@ impl Runtime {
             }
         })
         .detach();
-        let (chooser_requests, chooser_pending) =
-            std::sync::mpsc::channel::<files::ChooserRequest>();
+        // The chooser wakes on the request rather than polling for it. A person
+        // who presses Open waits for the panel, and every millisecond between
+        // the press and the panel is time the application looks unresponsive
+        // for no reason.
+        let (chooser_requests, chooser_pending) = async_channel::unbounded::<files::ChooserRequest>();
         files::install_chooser(chooser_requests);
-        let chooser_executor = cx.background_executor().clone();
         cx.spawn(async move |_, cx| {
-            loop {
-                chooser_executor
-                    .timer(std::time::Duration::from_millis(50))
-                    .await;
-                let Ok(request) = chooser_pending.try_recv() else {
-                    if cx.update(|_| ()).is_err() {
-                        break;
-                    }
-                    continue;
-                };
+            while let Ok(request) = chooser_pending.recv().await {
                 let prompt = cx.update(|cx| {
                     cx.prompt_for_paths(PathPromptOptions {
                         files: false,
