@@ -100,10 +100,14 @@ item_rows = |items, chosen_name| {
 					quiet_text("Failed entry text ${failure.name}", "${failure.name} — ${failure.reason}"),
 				],
 			)
-			## A thumbnail is square. Without an explicit cross-axis alignment
-			## the row stretches it to the row's full height, which distorts
-			## every picture in the gallery and pulls its rounded corners out
-			## of shape.
+			## A thumbnail is square, and the row says so rather than leaving
+			## its height to whatever the row happens to be. It is still drawn
+			## taller than it is wide, and with square corners: the platform
+			## does not treat an image's declared box as authoritative, which
+			## is recorded in wip/issues-backlog.md under "An image's width,
+			## height, and fit do not size the picture". The declaration here is
+			## the correct one and will start being obeyed when that closes; it
+			## is not worked around by distorting the fixtures.
 			Ready(asset) => Elem.row(
 				Elem.RowProps.{ label: "Image ${asset.name}", gap: Theme.within, padding: 0, align: Center },
 				[
