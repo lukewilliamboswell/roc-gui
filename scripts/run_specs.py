@@ -149,9 +149,12 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # error", or silently loses a directory listing. `--opt=dev` is clean over 40
 # runs, and none of these applications measures a benchmark, so their timings are
 # nobody's evidence. `file-explorer` joined the list after CI hit the same
-# access violation in `navigation.scm` that `folder-browser` showed first;
-# `system-monitor` likewise hangs or exits with 0xC0000005 on Windows.
-DEV_BUILD_APPS = frozenset({"file-explorer", "folder-browser", "music-player", "system-monitor"})
+# access violation in `navigation.scm` that `folder-browser` showed first.
+# `system-monitor` likewise hangs or exits with 0xC0000005 on Windows, but its
+# live timer's deterministic sample count needs the optimized build elsewhere.
+DEV_BUILD_APPS = frozenset({"file-explorer", "folder-browser", "music-player"}) | (
+    frozenset({"system-monitor"}) if sys.platform == "win32" else frozenset()
+)
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
