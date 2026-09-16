@@ -659,6 +659,25 @@ impl MountedGraph {
         found
     }
 
+    /// Which child of `ancestor` contains `id`, by position.
+    ///
+    /// A virtual list's rows below the fold are in the mounted graph but have
+    /// no element and no laid-out bounds, so bringing one into view is an
+    /// index, not a rectangle. `None` when `id` is not under `ancestor`.
+    pub fn child_index_containing(&self, ancestor: u64, id: u64) -> Option<usize> {
+        let mut current = id;
+        loop {
+            let parent = self.nodes.get(&current).and_then(|entry| entry.parent)?.0;
+            if parent == ancestor {
+                return self
+                    .nodes
+                    .get(&ancestor)
+                    .and_then(|entry| entry.node.children.iter().position(|child| *child == current));
+            }
+            current = parent;
+        }
+    }
+
     pub fn first_focusable_in(&self, ancestor: u64) -> Option<u64> {
         self.nodes_preorder().into_iter().find_map(|node| {
             (self.is_descendant_of(node.id, ancestor) && node.kind.focus_identity().is_some())
@@ -1778,6 +1797,38 @@ mod tests {
         graph.apply(Patch::Mount { root: 3, nodes }).unwrap();
         assert_eq!(graph.nodes_preorder().len(), 3);
         assert_eq!(graph.virtual_descendant_ids(), HashSet::from([1, 2]));
+    }
+
+    /// Bringing a virtual-list row into view is an index, not a rectangle: the
+    /// row below the fold is in the graph but has no element.
+    #[test]
+    fn a_rows_position_in_its_list_is_recoverable_from_a_descendant() {
+        let mut graph = MountedGraph::default();
+        let mut nodes = vec![Node {
+            id: 30,
+            kind: NodeKind::VirtualList {
+                name: "rows".into(),
+                row_height: 24,
+                row_gap: 0,
+                style: Style::default(),
+            },
+            children: vec![2, 4, 6],
+        }];
+        for (index, (item, leaf)) in [(2, 1), (4, 3), (6, 5)].into_iter().enumerate() {
+            nodes.push(text(leaf, &format!("row {index}")));
+            nodes.push(Node {
+                id: item,
+                kind: NodeKind::VirtualItem { key: item },
+                children: vec![leaf],
+            });
+        }
+        graph.apply(Patch::Mount { root: 30, nodes }).unwrap();
+        // The deepest node, two levels below the list, still names row two.
+        assert_eq!(graph.child_index_containing(30, 5), Some(2));
+        assert_eq!(graph.child_index_containing(30, 2), Some(0));
+        // The list is not inside itself, and an unrelated id is nowhere.
+        assert_eq!(graph.child_index_containing(30, 30), None);
+        assert_eq!(graph.child_index_containing(30, 99), None);
     }
 
     #[test]

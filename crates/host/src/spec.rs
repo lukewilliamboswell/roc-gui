@@ -225,6 +225,25 @@ pub enum Command {
         width: u32,
         height: u32,
     },
+    /// Move a scroll region or virtual list, so that content below the fold can
+    /// be asserted, clicked, and photographed.
+    Scroll {
+        region: Locator,
+        motion: ScrollMotion,
+    },
+}
+
+/// How far a `scroll` step moves its region.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScrollMotion {
+    /// By a signed number of logical pixels. Positive moves towards the end of
+    /// the content, the direction a wheel-down gesture moves it.
+    By(i32),
+    /// Until the located element is inside the region's viewport. The target
+    /// must be inside the region; for a virtual list it need not be
+    /// materialized, because the list is positioned by the target's index among
+    /// the region's children.
+    To(Locator),
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
@@ -358,6 +377,7 @@ impl Command {
             Self::Type(_) => "type",
             Self::Key(_) => "key",
             Self::Resize { .. } => "resize",
+            Self::Scroll { .. } => "scroll",
         }
     }
 
@@ -379,7 +399,11 @@ impl Command {
             | Self::Screenshot(_)
             | Self::Type(_)
             | Self::Key(_)
-            | Self::Resize { .. } => Capability::Window,
+            | Self::Resize { .. }
+            // Scrolling is a fact about a viewport and a content size, neither
+            // of which the semantic runner has: without layout there is no
+            // fold for content to be below.
+            | Self::Scroll { .. } => Capability::Window,
             // Shared with the semantic runner, and implemented by both.
             Self::Click(_)
             | Self::Focus(_)
@@ -395,7 +419,15 @@ impl Command {
             | Self::ExpectVisible(_)
             | Self::ExpectFocused(_)
             | Self::ExpectNotVisible(_)
-            | Self::ExpectCount(_, _) => Capability::Both,
+            | Self::ExpectCount(_, _)
+            // Answered from the mounted graph alone, which both runners hold,
+            // and by one shared implementation rather than two. A window case
+            // can therefore assert a semantic truth and photograph it.
+            | Self::ExpectCanvasPrimitives(_, _)
+            | Self::ExpectValue(_, _)
+            | Self::ExpectValueBytes(_, _)
+            | Self::ExpectImageBytes(_, _)
+            | Self::ExpectBefore(_, _) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
             // They are honest claims, made by one runner rather than two; the
             // alternative of accepting a specification and then refusing a step
@@ -405,11 +437,6 @@ impl Command {
             | Self::ReplaceText(_, _)
             | Self::Submit(_)
             | Self::RevokeFileGrants
-            | Self::ExpectCanvasPrimitives(_, _)
-            | Self::ExpectValue(_, _)
-            | Self::ExpectValueBytes(_, _)
-            | Self::ExpectImageBytes(_, _)
-            | Self::ExpectBefore(_, _)
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
             | Self::ExpectProcesses(_)
@@ -447,6 +474,7 @@ impl Command {
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
                 | Self::RevokeFileGrants
+                | Self::Scroll { .. }
         )
     }
 }
@@ -1108,6 +1136,30 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 height: dimension(2, "height")?,
             }
         }
+        "scroll" if values.len() >= 2 => {
+            let region = parse_locator(&values[1])?;
+            let keywords = parse_keywords(head, &values[2..], &[":by", ":to"])?;
+            let motion = match (keywords.expr(":by"), keywords.expr(":to")) {
+                (Some(by), None) => {
+                    let amount = by
+                        .atom()
+                        .and_then(|text| text.parse::<i32>().ok())
+                        .filter(|value| value.unsigned_abs() >= 1 && value.unsigned_abs() <= 100_000)
+                        .ok_or_else(|| {
+                            error(by, "scroll :by is a non-zero number of logical pixels, up to 100000")
+                        })?;
+                    ScrollMotion::By(amount)
+                }
+                (None, Some(to)) => ScrollMotion::To(parse_locator(to)?),
+                _ => {
+                    return Err(error(
+                        node,
+                        "scroll requires exactly one of :by and :to",
+                    ));
+                }
+            };
+            Command::Scroll { region, motion }
+        }
         "settle" => {
             let keywords = parse_keywords(head, &values[1..], &[":frames", ":timeout-ms"])?;
             Command::Settle {
@@ -1483,7 +1535,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-bounds"
         | "screenshot"
         | "type"
-        | "key" => {
+        | "key"
+        | "scroll" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -1520,19 +1573,7 @@ fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
             height: numbers[3],
         });
     }
-    let locator = parse_locator(node)?;
-    // Only a canvas node's own rectangle is recorded, never its primitives, so
-    // a canvas-item region would silently photograph the whole canvas.
-    if matches!(
-        locator,
-        Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
-    ) {
-        return Err(error(
-            node,
-            "canvas items have no recorded bounds; screenshot the canvas instead",
-        ));
-    }
-    Ok(Region::Locator(locator))
+    Ok(Region::Locator(parse_locator(node)?))
 }
 
 fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
@@ -2004,6 +2045,60 @@ mod tests {
             spec.steps[2].command,
             Command::ExpectVisible(Locator::RowName("Toolbar".into()))
         );
+    }
+
+    #[test]
+    fn scroll_takes_a_distance_or_a_target_but_not_both() {
+        let spec = parse(
+            r#"(test "scroll"
+                (steps
+                  (scroll (role scroll :name "Directory contents") :by 240)
+                  (scroll (role scroll :name "Directory contents")
+                          :to (role row :name "Entry item-26.txt"))))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Scroll {
+                region: Locator::ScrollName("Directory contents".into()),
+                motion: ScrollMotion::By(240),
+            }
+        );
+        assert_eq!(
+            spec.steps[1].command,
+            Command::Scroll {
+                region: Locator::ScrollName("Directory contents".into()),
+                motion: ScrollMotion::To(Locator::RowName("Entry item-26.txt".into())),
+            }
+        );
+        // A negative distance scrolls back towards the start.
+        assert!(matches!(
+            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by -80)))"#)
+                .unwrap()
+                .steps[0]
+                .command,
+            Command::Scroll {
+                motion: ScrollMotion::By(-80),
+                ..
+            }
+        ));
+        for bad in [
+            r#"(test "s" (steps (scroll (role scroll :name "c"))))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :by 0)))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :by 10 :to (text "x"))))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :toward 10)))"#,
+        ] {
+            assert!(parse(bad).is_err(), "accepted {bad}");
+        }
+    }
+
+    #[test]
+    fn scrolling_is_window_only() {
+        let spec =
+            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by 40)))"#).unwrap();
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        let refusal = check_runner(&spec, Runner::Semantic).unwrap_err();
+        assert!(refusal.contains("window-only"), "{refusal}");
     }
 
     #[test]
@@ -2573,19 +2668,20 @@ mod tests {
         }
     }
 
-    /// Only a canvas node's own rectangle is recorded, so a canvas-item region
-    /// would silently photograph the whole canvas.
+    /// A canvas primitive's rectangle is its canvas's, offset by the
+    /// coordinates the owner drew it at, so it is a region like any other.
     #[test]
-    fn screenshot_refuses_canvas_item_regions() {
-        let error =
+    fn screenshot_regions_reach_canvas_items() {
+        let spec =
             parse(r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#)
-                .unwrap_err();
-        assert!(
-            error
-                .message
-                .contains("canvas items have no recorded bounds"),
-            "{}",
-            error.message
+                .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Screenshot(Screenshot {
+                name: "a".into(),
+                region: Region::Locator(Locator::CanvasItemName("dot".into())),
+                pad: 0,
+            })
         );
     }
 

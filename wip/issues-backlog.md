@@ -231,18 +231,24 @@ names the evidence so a fix can be verified against the same case.
   an unlocked session. This is why continuous integration needs the headless
   compositor lane below rather than a desktop session.
 
-- [ ] **A scroll step for window specifications.** Found by driving
-  `folder-browser`: a list application's rows below the fold cannot be reached,
-  clicked, or photographed at all. A `(scroll LOCATOR ...)` step would close
-  this. `(resize W H)` has landed and `settings-center`'s
-  `specs/window-narrow.scm` proves a layout at two sizes `main.roc` never asks
-  for.
 - [ ] **Shared steps the window runner does not implement.** `drag`,
-  `replace-text`, `submit`, `revoke-file-grants`, the value and ordering
-  assertions, and the owner counter assertions are classified semantic-only
-  because the window runner refuses them, not because they would be dishonest
-  there. Implementing them would let one specification assert semantic truth and
-  photograph it.
+  `replace-text`, `submit`, `revoke-file-grants`, and the owner counter
+  assertions are still classified semantic-only because the window runner
+  refuses them, not because they would be dishonest there.
+
+  The value and ordering assertions have since landed and are no longer on this
+  list. They cost almost nothing, because each is answered from the mounted
+  graph alone: `runner::graph_claim` now holds the only implementation and both
+  runners call it, so the five words cannot come to mean two things. The four
+  that remain are each a different problem rather than four of the same one.
+  `drag` and `submit` want a pointer and a submit route the window runner
+  reaches only by simulation, which is the entry above; `replace-text` sets a
+  value directly, which in a window would bypass the editing path `type`
+  exists to exercise, so it needs a decision about whether that is worth
+  offering at all. `revoke-file-grants` and the owner counters read
+  process-global state that is already reachable from the window runner — they
+  are held back only by the per-counter plumbing, and are the cheapest next
+  step.
 
   `clipboard-text` and `await-ticks` have since landed in the window runner and
   are no longer on this list. They are worth reading before the next one is
@@ -251,19 +257,6 @@ names the evidence so a fix can be verified against the same case.
   one task is outstanding at every instant and quiescence never arrives, and
   `await-ticks` therefore counts timer *fires* rather than completions, since a
   fire can only be one that started after the step did.
-- [ ] **Bring off-screen targets on screen.** `expect-on-screen` distinguishes
-  laid out from actually visible, but large row cases place targets outside the
-  window and the platform still has no scrolling feature to bring them into
-  view.
-- [ ] **Layout solve and presentation spans** owned by the GPUI side of the
-  host. The host's own root element now records its layout request, prepaint,
-  and paint for the whole application subtree, one `gpui_frames` row per drawn
-  frame (`crates/host/src/frame_spans.rs`). Two stages remain outside it: taffy
-  solves layout once for the window from GPUI's root element, between the host
-  element's layout request and its prepaint, so no host-owned element is on the
-  stack for it; and `Window::present` and `PlatformWindow::completed_frame` are
-  private to `gpui` 0.2.2. Presentation needs a compositor frame callback, which
-  is a Wayland seam and is not reachable on macOS. Both report `unavailable`.
 - [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
   headless compositor such as sway or cage. For Sway this requires a headless
   wlroots output, software rendering on workers without a GPU, and pointer
@@ -286,10 +279,6 @@ names the evidence so a fix can be verified against the same case.
   already a dependency; the missing piece is the window id, which GPUI does not
   expose and which would need the pid-to-window mapping the capture currently
   avoids needing.
-- [ ] **Per-canvas-item screenshot regions.** Only a canvas node's own
-  rectangle is recorded, so `(screenshot :region (role canvas-item ...))` is a
-  parse error rather than a silent whole-canvas photograph. Recording primitive
-  geometry would reuse `canvas_target`'s hit-testing arithmetic.
 - [ ] **Wayland window specifications in continuous integration.** The window
   runner is platform-neutral and `grim` is wired for wlroots, but no Linux
   runner has a compositor. This needs the headless lane (`sway --headless`,

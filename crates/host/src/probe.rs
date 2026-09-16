@@ -71,6 +71,11 @@ impl Rect {
         (!clipped.is_empty()).then_some(clipped)
     }
 
+    /// The same rectangle, from a gpui one.
+    pub fn from_gpui(bounds: Bounds<Pixels>) -> Self {
+        Self::from_bounds(bounds)
+    }
+
     fn from_bounds(bounds: Bounds<Pixels>) -> Self {
         Self {
             left: f32::from(bounds.origin.x),
