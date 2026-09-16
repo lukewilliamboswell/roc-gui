@@ -286,6 +286,57 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
 
+/// Every Roc allocation visits the capability deallocation routes. HashMap's
+/// remove hashes even an empty map, so avoid that work for inactive domains.
+/// The caller still holds its store lock; live-handle removal is unchanged.
+pub(crate) fn remove_resource_allocation<V, S: std::hash::BuildHasher>(
+    allocations: &mut std::collections::HashMap<usize, V, S>,
+    base: usize,
+) -> Option<V> {
+    if allocations.is_empty() {
+        None
+    } else {
+        allocations.remove(&base)
+    }
+}
+
+#[cfg(test)]
+mod resource_allocation_tests {
+    use super::remove_resource_allocation;
+    use std::{cell::Cell, collections::HashMap, hash::BuildHasher};
+
+    struct CountHashes<'a>(&'a Cell<usize>);
+
+    impl BuildHasher for CountHashes<'_> {
+        type Hasher = std::collections::hash_map::DefaultHasher;
+
+        fn build_hasher(&self) -> Self::Hasher {
+            self.0.set(self.0.get() + 1);
+            Self::Hasher::new()
+        }
+    }
+
+    #[test]
+    fn inactive_resource_routes_do_not_hash_even_with_retained_capacity() {
+        let hashes = Cell::new(0);
+        let mut allocations = HashMap::with_capacity_and_hasher(32, CountHashes(&hashes));
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), None);
+        assert_eq!(hashes.get(), 0);
+
+        allocations.insert(8, 42);
+        hashes.set(0);
+        assert_eq!(remove_resource_allocation(&mut allocations, 16), None);
+        assert_eq!(allocations.len(), 1);
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), Some(42));
+        assert!(hashes.get() > 0);
+        assert!(allocations.capacity() > 0);
+
+        hashes.set(0);
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), None);
+        assert_eq!(hashes.get(), 0);
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_realloc(
     pointer: *mut c_void,

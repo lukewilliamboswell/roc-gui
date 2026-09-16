@@ -418,12 +418,10 @@ pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let pty = {
         let mut guard = store().lock().expect("process store poisoned");
         let key = base as usize;
-        if let Some(id) = guard.grant_allocations.remove(&key) {
+        if let Some(id) = crate::remove_resource_allocation(&mut guard.grant_allocations, key) {
             guard.grants.remove(&id);
         }
-        guard
-            .pty_allocations
-            .remove(&key)
+        crate::remove_resource_allocation(&mut guard.pty_allocations, key)
             .and_then(|id| guard.ptys.remove(&id))
     };
     if let Some(pty) = pty {

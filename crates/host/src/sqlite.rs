@@ -100,7 +100,7 @@ fn capability(connection: Connection) -> *mut u64 {
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("SQLite capability store poisoned");
-    if let Some(id) = guard.allocations.remove(&(base as usize)) {
+    if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
         guard.connections.remove(&id);
     }
 }

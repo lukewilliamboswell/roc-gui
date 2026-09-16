@@ -144,7 +144,7 @@ fn allocate(directory: Arc<Dir>) -> Result<*mut u64, Failure> {
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     if let Ok(mut guard) = registry().lock() {
-        if let Some(id) = guard.allocations.remove(&(base as usize)) {
+        if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
             guard.stores.remove(&id);
         }
     }

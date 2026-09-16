@@ -122,7 +122,7 @@ pub fn cancel(handle: *mut u64) -> bool {
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let timer = {
         let mut guard = store().lock().expect("timer store poisoned");
-        let id = guard.allocations.remove(&(allocation_base as usize));
+        let id = crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize);
         id.and_then(|id| guard.timers.remove(&id))
     };
     if let Some(timer) = timer {

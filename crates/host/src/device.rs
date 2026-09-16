@@ -89,10 +89,10 @@ fn next_id(store: &mut Store) -> u64 {
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("device store poisoned");
     let key = base as usize;
-    if let Some(id) = guard.grant_allocations.remove(&key) {
+    if let Some(id) = crate::remove_resource_allocation(&mut guard.grant_allocations, key) {
         guard.grants.remove(&id);
     }
-    if let Some(id) = guard.connection_allocations.remove(&key) {
+    if let Some(id) = crate::remove_resource_allocation(&mut guard.connection_allocations, key) {
         guard.connections.remove(&id);
     }
 }

@@ -168,7 +168,7 @@ fn lookup(handle: *mut u64) -> Option<Arc<Url>> {
 }
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut g = store().lock().unwrap();
-    if let Some(id) = g.allocations.remove(&(base as usize)) {
+    if let Some(id) = crate::remove_resource_allocation(&mut g.allocations, base as usize) {
         g.clients.remove(&id);
     }
 }

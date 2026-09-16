@@ -98,7 +98,7 @@ fn allocate_handle(guard: &mut Store, directory: Arc<Dir>) -> *mut u64 {
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     if let Ok(mut guard) = store().lock()
-        && let Some(id) = guard.allocations.remove(&(base as usize))
+        && let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize)
     {
         guard.handles.remove(&id);
     }
