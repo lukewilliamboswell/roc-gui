@@ -11,6 +11,12 @@ Overflow : [Visible, Clip, Scroll]
 ## One side's inset. `Same` takes the element's `padding` scalar.
 Inset : [Same, Px(U32)]
 
+## How a string behaves when it is wider than the space it was given. `Wrap`
+## reflows onto further lines, `NoWrap` keeps one line and lets overflow decide
+## what happens to the rest, and `Ellipsis` keeps one line and ends it with a
+## marker so a shortened value never looks complete.
+TextOverflow : [Wrap, NoWrap, Ellipsis]
+
 ## Where a container places its children across its layout axis. `Default` keeps
 ## the element's own native alignment.
 Align : [Default, Start, Center, End, Baseline, Stretch]
@@ -26,6 +32,7 @@ Gui := [].{
 	Inset : Inset
 	Justify : Justify
 	Length : Length
+	TextOverflow : TextOverflow
 	Overflow : Overflow
 
 	## Common visual properties. A zero value for `font_size` or `font_weight`
@@ -57,6 +64,7 @@ Gui := [].{
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		text_overflow : TextOverflow ?? Wrap,
 		overflow_x : Overflow ?? Visible,
 		overflow_y : Overflow ?? Visible,
 		align : Align ?? Default,

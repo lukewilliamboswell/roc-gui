@@ -135,6 +135,12 @@ default to `Same`, which takes the shorthand. A pill-shaped control wants
 generous horizontal and tight vertical padding, which is the shorthand plus two
 sides rather than a fixed height chosen to cancel the padding out.
 
+`text_overflow` decides what a string does when it is wider than the space it
+was given. `Wrap` reflows onto further lines and grows the container, which is
+the default. `NoWrap` keeps one line and leaves the rest to `overflow_x`.
+`Ellipsis` keeps one line and ends it with a marker, so a shortened value never
+looks like a complete one.
+
 `disabled_bg`, `disabled_fg`, and `focus_color` replace the host's own
 control-state colours. The host defaults suit its dark ground: a blue-grey
 disabled fill at 55% opacity, and an amber focus ring. An application that names

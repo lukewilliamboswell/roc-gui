@@ -55,8 +55,9 @@ Counter := [].{
 		},
 	)
 
-	## The numeral itself: clipped rather than reflowed, so a long value can
-	## never push the controls out of the card.
+	## The numeral itself. It stays on one line and ends in an ellipsis rather
+	## than reflowing, so a long value can never push the controls out of the
+	## card, and a shortened one never looks complete.
 	numeral = |count| Elem.col(
 		Elem.ColProps.{
 			gap: 0,
@@ -64,7 +65,8 @@ Counter := [].{
 			font_size: numeral_size(count),
 			width: Fill,
 			height: Px(104),
-			overflow_x: Scroll,
+			text_overflow: Ellipsis,
+			overflow_x: Clip,
 			overflow_y: Clip,
 		},
 		[Elem.text(count.to_str())],

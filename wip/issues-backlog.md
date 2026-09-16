@@ -89,14 +89,6 @@ the change lands; do not soften the docs to match the gap.
   wrapper element that exists for no other reason. `music-player`'s wordmark and
   status line are each a one-child `row` whose only job is `fg` and `font_size`.
   Close with a styled text element carrying the same colour and size fields.
-- [ ] **Text cannot be kept on one line, and cannot be truncated.** There is no
-  wrap, nowrap, or ellipsis control, so a string longer than its container
-  reflows and grows that container. `counter`'s oversized numeral pushed its own
-  buttons out of the card at five digits. The only expressible defences are
-  `overflow: Clip`, which silently drops the remaining digits with no indication
-  that a value is incomplete, and application-side font-size stepping by
-  magnitude, which is the example's present workaround. Close with a wrapping
-  mode and a truncation mode on text-bearing elements.
 - [ ] **No shadow or elevation.** Surfaces separate from their ground only by
   `bg`, `border_color`, and `radius`. A raised card on a near-white ground wants
   a soft shadow, which on paper-light palettes is the only separation with

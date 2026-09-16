@@ -287,6 +287,15 @@ pub enum Justify {
     Around,
 }
 
+/// How a string behaves when it is wider than the space it was given.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TextOverflow {
+    #[default]
+    Wrap,
+    NoWrap,
+    Ellipsis,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Style {
     pub gap: u32,
@@ -308,6 +317,7 @@ pub struct Style {
     pub radius: u32,
     pub font_size: u32,
     pub font_weight: u32,
+    pub text_overflow: TextOverflow,
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,
     pub align: Align,

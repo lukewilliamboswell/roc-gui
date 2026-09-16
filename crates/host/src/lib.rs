@@ -29,7 +29,7 @@ mod window_runner;
 use bridge::{
     Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
     ImageFormat as BridgeImageFormat, Justify, Length, MountedGraph, Node, NodeKind, Overflow,
-    Patch, ScrollAxis, Style, decode_commit, validate_tree,
+    Patch, ScrollAxis, Style, TextOverflow, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -368,6 +368,7 @@ macro_rules! decode_layout_style {
             radius: $args.radius,
             font_size: $args.font_size,
             font_weight: $args.font_weight,
+            text_overflow: decode_text_overflow($args.text_overflow),
             overflow_x: decode_overflow($args.overflow_x),
             overflow_y: decode_overflow($args.overflow_y),
             align: decode_align($args.align),
@@ -512,6 +513,15 @@ fn decode_justify(value: u8) -> Justify {
         4 => Justify::Between,
         5 => Justify::Around,
         _ => panic!("invalid justify {value}"),
+    }
+}
+
+fn decode_text_overflow(value: u8) -> TextOverflow {
+    match value {
+        0 => TextOverflow::Wrap,
+        1 => TextOverflow::NoWrap,
+        2 => TextOverflow::Ellipsis,
+        _ => panic!("invalid text overflow {value}"),
     }
 }
 
@@ -1087,6 +1097,11 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     if style.font_weight > 0 {
         element = element.font_weight(FontWeight(style.font_weight as f32));
     }
+    element = match style.text_overflow {
+        TextOverflow::Wrap => element,
+        TextOverflow::NoWrap => element.whitespace_nowrap(),
+        TextOverflow::Ellipsis => element.whitespace_nowrap().text_ellipsis(),
+    };
     element = match style.overflow_x {
         Overflow::Visible => element,
         Overflow::Clip => element.overflow_x_hidden(),
@@ -1639,6 +1654,11 @@ impl Render for NodeView {
                 if style.font_weight > 0 {
                     element = element.font_weight(FontWeight(style.font_weight as f32));
                 }
+                element = match style.text_overflow {
+                    TextOverflow::Wrap => element,
+                    TextOverflow::NoWrap => element.whitespace_nowrap(),
+                    TextOverflow::Ellipsis => element.whitespace_nowrap().text_ellipsis(),
+                };
                 element = match style.overflow_x {
                     Overflow::Visible => element,
                     Overflow::Clip => element.overflow_x_hidden(),
