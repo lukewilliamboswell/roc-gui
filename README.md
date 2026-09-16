@@ -1,33 +1,16 @@
 # roc-gui
 
-Build native, state-driven GUI applications in
-[Roc](https://www.roc-lang.org), hosted by [GPUI](https://www.gpui.rs).
+Build native, state-driven GUI applications in [Roc](https://www.roc-lang.org),
+hosted by [GPUI](https://www.gpui.rs). Read the
+[Roc GUI manual](https://lukewilliamboswell.github.io/roc-gui/) to get started.
 
-```sh
-python3 build.py
-roc build examples/counter/main.roc
-./counter
-```
+| | | |
+|:---:|:---:|:---:|
+| [![HTTP Workbench](https://lukewilliamboswell.github.io/roc-gui/gallery/http-workbench.gif)](examples/http-workbench/) <br> [HTTP Workbench](examples/http-workbench/) | [![Database Browser](https://lukewilliamboswell.github.io/roc-gui/gallery/database-browser.gif)](examples/database-browser/) <br> [Database Browser](examples/database-browser/) | [![File Explorer](https://lukewilliamboswell.github.io/roc-gui/gallery/file-explorer.gif)](examples/file-explorer/) <br> [File Explorer](examples/file-explorer/) |
+| [![Terminal Workspace](https://lukewilliamboswell.github.io/roc-gui/gallery/terminal-workspace.gif)](examples/terminal-workspace/) <br> [Terminal Workspace](examples/terminal-workspace/) | [![Image Library](https://lukewilliamboswell.github.io/roc-gui/gallery/image-library.gif)](examples/image-library/) <br> [Image Library](examples/image-library/) | [![Music Player](https://lukewilliamboswell.github.io/roc-gui/gallery/music-player.gif)](examples/music-player/) <br> [Music Player](examples/music-player/) |
+| [![Clipboard History](https://lukewilliamboswell.github.io/roc-gui/gallery/clipboard-history.gif)](examples/clipboard-history/) <br> [Clipboard History](examples/clipboard-history/) | [![System Monitor](https://lukewilliamboswell.github.io/roc-gui/gallery/system-monitor.gif)](examples/system-monitor/) <br> [System Monitor](examples/system-monitor/) | [![Settings Center](https://lukewilliamboswell.github.io/roc-gui/gallery/settings-center.gif)](examples/settings-center/) <br> [Settings Center](examples/settings-center/) |
+| [![Device Configurator](https://lukewilliamboswell.github.io/roc-gui/gallery/device-configurator.gif)](examples/device-configurator/) <br> [Device Configurator](examples/device-configurator/) | [![Animation Studio](https://lukewilliamboswell.github.io/roc-gui/gallery/animation-studio.gif)](examples/animation-studio/) <br> [Animation Studio](examples/animation-studio/) | [![Redis Explorer](https://lukewilliamboswell.github.io/roc-gui/gallery/redis-explorer.gif)](examples/redis-explorer/) <br> [Redis Explorer](examples/redis-explorer/) |
 
-The platform provides text, controlled native text inputs, buttons, styled checkboxes, row and column layout,
-local state boundaries, worker tasks, capability-scoped directory I/O,
-`.scm` specifications, and SQLite performance captures. Specifications run
-headlessly against the element graph, or against the real window where they can
-assert layout and take screenshots; every application you build carries both
-runners in its own binary, so verifying it needs no test framework and no
-second build. See [Testing your application](docs/testing-your-app.adoc).
-It targets Linux x86_64 with Wayland, Apple Silicon macOS, and Windows x86_64
-(`python build.py`, then `roc build --target=x64mingw --output=counter.exe`). Native linker
-inputs and host archives are reproducible, independently released artifacts;
-generated binaries are not stored in Git.
-
-Read the [manual](docs/index.adoc), begin with
-[Getting started](docs/getting-started.adoc), or explore the
-[counter example](examples/counter/main.roc) and [benchmark applications](benchmarks/).
-Advanced readers can start with [How Roc GUI works](docs/architecture.adoc).
-
-Contributors should read [AGENTS.md](AGENTS.md); known gaps are tracked in
-[wip/issues-backlog.md](wip/issues-backlog.md).
-
-Licensed under [LICENSE](LICENSE). Third-party notices are in
+Contributors should read [AGENTS.md](AGENTS.md). Licensed under
+[LICENSE](LICENSE); third-party notices are in
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
