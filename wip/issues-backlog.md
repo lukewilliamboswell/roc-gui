@@ -97,14 +97,6 @@ the change lands; do not soften the docs to match the gap.
   that a value is incomplete, and application-side font-size stepping by
   magnitude, which is the example's present workaround. Close with a wrapping
   mode and a truncation mode on text-bearing elements.
-- [ ] **The window ground is a host constant.** The root container paints
-  `0x16252c` and centres its child, so a light application cannot set the colour
-  behind its own content. `counter` paints its paper ground with a
-  `Fill`/`Fill` grown column, which covers the dark ground but also fills the
-  window, forfeiting the root's centring and still leaving the host colour
-  visible in the window's rounded corners and along its top edge. Close with an
-  application-settable window background, independent of the root element's own
-  size.
 - [ ] **No shadow or elevation.** Surfaces separate from their ground only by
   `bg`, `border_color`, and `radius`. A raised card on a near-white ground wants
   a soft shadow, which on paper-light palettes is the only separation with

@@ -9954,7 +9954,7 @@ pub struct HostGlueWorkEndArgs {
 }
 
 /// Arguments for HostGlue.window_config!
-/// Roc signature: Str, U32, U32 => {}
+/// Roc signature: Str, U32, U32, U32, U32 => {}
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -9962,6 +9962,8 @@ pub struct HostGlueWindowConfigArgs {
     pub arg0: RocStr,
     pub arg1: u32,
     pub arg2: u32,
+    pub arg3: u32,
+    pub arg4: u32,
 }
 
 /// Arguments for Files.Dir.list!
@@ -14033,11 +14035,11 @@ unsafe extern "C" {
     pub fn roc_gui_work_end(arg0: u8);
 
     /// Hosted symbol for HostGlue.window_config!
-    /// Roc signature: Str, U32, U32 => {}
+    /// Roc signature: Str, U32, U32, U32, U32 => {}
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
-    pub fn roc_gui_window_config(arg0: RocStr, arg1: u32, arg2: u32);
+    pub fn roc_gui_window_config(arg0: RocStr, arg1: u32, arg2: u32, arg3: u32, arg4: u32);
 
     /// Hosted symbol for Files.pick_directory!
     /// Roc signature: {} => Try([Canceled, Chosen({ directory : Resource.Handle([DirReadResource]), name : Str })], [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])

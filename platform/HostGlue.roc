@@ -372,5 +372,5 @@ HostGlue := [].{
 	http_send! : InternalHttp.HostRequest => Try(InternalHttp.HostResponse, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
 	work_start! : U8 => {}
 	work_end! : U8 => {}
-	window_config! : Str, U32, U32 => {}
+	window_config! : Str, U32, U32, U32, U32 => {}
 }

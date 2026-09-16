@@ -185,6 +185,12 @@ semantic names stable across state updates.
 windows remain resizable and layout elements using `Fill` follow the available
 viewport.
 
+`background` and `foreground` set the colour behind the root element and the
+ink text inherits when it names none. The background reaches the whole window,
+including its rounded corners and the edge above the root element, which a
+grown root element cannot cover. Both default to the host's own ground, so an
+application that says nothing keeps it.
+
 == Local state with `Elem.translate`
 
 A large application often contains parts that can update independently.

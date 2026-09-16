@@ -19,13 +19,8 @@ render : State -> Elem(State)
 render = |state| Elem.col(
 	Elem.ColProps.{
 		label: "Counter page",
-		width: Fill,
-		height: Fill,
-		grow: True,
 		padding: 40,
 		gap: 28,
-		bg: paper,
-		fg: ink,
 		font_size: 15,
 	},
 	[
@@ -57,5 +52,5 @@ main = Program.run({
 		title: "Counter",
 	},
 	render,
-	window: { title: "Counter", width: 640, height: 400 },
+	window: { title: "Counter", width: 640, height: 400, background: paper, foreground: ink },
 })

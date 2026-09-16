@@ -135,6 +135,10 @@ struct WindowConfig {
     title: String,
     width: u32,
     height: u32,
+    /// The colour behind the root element, and the ink text inherits when it
+    /// names none. `None` keeps the host's own ground.
+    background: Option<u32>,
+    foreground: Option<u32>,
 }
 
 impl Default for WindowConfig {
@@ -143,8 +147,19 @@ impl Default for WindowConfig {
             title: "Roc GUI".into(),
             width: 480,
             height: 240,
+            background: None,
+            foreground: None,
         }
     }
+}
+
+/// The application's chosen window ground, or None for the host's own.
+fn window_ground() -> Option<u32> {
+    WINDOW_CONFIG.with(|config| config.borrow().background)
+}
+
+fn window_ink() -> Option<u32> {
+    WINDOW_CONFIG.with(|config| config.borrow().foreground)
 }
 
 fn validate_window_config(config: WindowConfig) -> Result<WindowConfig, String> {
@@ -157,13 +172,21 @@ fn validate_window_config(config: WindowConfig) -> Result<WindowConfig, String> 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_window_config(title: RocStr, width: u32, height: u32) {
+pub extern "C" fn roc_gui_window_config(
+    title: RocStr,
+    width: u32,
+    height: u32,
+    background: u32,
+    foreground: u32,
+) {
     let title_value = title.as_str().to_owned();
     unsafe { title.decref(roc_host()) };
     let config = validate_window_config(WindowConfig {
         title: title_value,
         width,
         height,
+        background: decode_color(background),
+        foreground: decode_color(foreground),
     })
     .unwrap_or_else(|message| panic!("invalid native window configuration: {message}"));
     WINDOW_CONFIG.with(|current| *current.borrow_mut() = config);
@@ -2398,8 +2421,8 @@ impl Render for Runtime {
             .flex()
             .items_center()
             .justify_center()
-            .bg(rgb(0x16252c))
-            .text_color(rgb(0xeeeeea))
+            .bg(rgb(window_ground().unwrap_or(0x16252c)))
+            .text_color(rgb(window_ink().unwrap_or(0xeeeeea)))
             .text_lg()
             .children(self.root.iter().cloned().map(AnyView::from))
     }
@@ -3330,7 +3353,8 @@ mod tests {
             validate_window_config(WindowConfig {
                 title: "App".into(),
                 width: 960,
-                height: 640
+                height: 640,
+                ..WindowConfig::default()
             })
             .is_ok()
         );
@@ -3338,7 +3362,8 @@ mod tests {
             validate_window_config(WindowConfig {
                 title: "App".into(),
                 width: 239,
-                height: 640
+                height: 640,
+                ..WindowConfig::default()
             })
             .is_err()
         );
@@ -3346,7 +3371,8 @@ mod tests {
             validate_window_config(WindowConfig {
                 title: "App".into(),
                 width: 960,
-                height: 159
+                height: 159,
+                ..WindowConfig::default()
             })
             .is_err()
         );

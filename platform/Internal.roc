@@ -423,9 +423,9 @@ Internal := [].{
 		Host.set_task_dispatch!(Box.box(complete!))
 	}
 
-	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32 } => {}
+	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Gui.Color, foreground : Gui.Color } => {}
 	start! = |initial, render, window| {
-		Host.window_config!(window.title, window.width, window.height)
+		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
 		root_renderer = render
 		Host.work_start!(2)
 		rendered = render(initial)

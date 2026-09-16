@@ -407,5 +407,5 @@ Host := [].{
 
 	work_end! : U8 => {}
 
-	window_config! : Str, U32, U32 => {}
+	window_config! : Str, U32, U32, U32, U32 => {}
 }
