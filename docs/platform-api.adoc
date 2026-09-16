@@ -135,6 +135,11 @@ default to `Same`, which takes the shorthand. A pill-shaped control wants
 generous horizontal and tight vertical padding, which is the shorthand plus two
 sides rather than a fixed height chosen to cancel the padding out.
 
+`min_width`, `min_height`, `max_width`, and `max_height` are floors and
+ceilings for the two sides, given as `Px(n)`. A fixed length is a basis a
+sibling's overflow can shrink, so a row of uniform thumbnails beside captions of
+different lengths needs a floor to keep one shape.
+
 `text_overflow` decides what a string does when it is wider than the space it
 was given. `Wrap` reflows onto further lines and grows the container, which is
 the default. `NoWrap` keeps one line and leaves the rest to `overflow_x`.

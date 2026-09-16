@@ -350,6 +350,10 @@ macro_rules! decode_layout_style {
             ],
             width: decode_length($args.width_kind, $args.width),
             height: decode_length($args.height_kind, $args.height),
+            min_width: decode_length($args.min_width_kind, $args.min_width),
+            min_height: decode_length($args.min_height_kind, $args.min_height),
+            max_width: decode_length($args.max_width_kind, $args.max_width),
+            max_height: decode_length($args.max_height_kind, $args.max_height),
             grow: $args.grow,
             bg: decode_color($args.bg),
             hover_bg: decode_color($args.hover_bg),
@@ -1065,6 +1069,20 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
         Length::Fill => element.h_full(),
         Length::Px(value) => element.h(px(value as f32)),
     };
+    // A Px floor or ceiling is what stops a fixed side being squeezed by a
+    // sibling's overflow, or grown past the space it should occupy.
+    if let Length::Px(value) = style.min_width {
+        element = element.min_w(px(value as f32));
+    }
+    if let Length::Px(value) = style.min_height {
+        element = element.min_h(px(value as f32));
+    }
+    if let Length::Px(value) = style.max_width {
+        element = element.max_w(px(value as f32));
+    }
+    if let Length::Px(value) = style.max_height {
+        element = element.max_h(px(value as f32));
+    }
     if style.grow {
         element = element.flex_grow();
     }
@@ -1628,6 +1646,20 @@ impl Render for NodeView {
                     Length::Fill => element.h_full(),
                     Length::Px(value) => element.h(px(value as f32)),
                 };
+                // A Px floor or ceiling is what stops a fixed side being squeezed by a
+                // sibling's overflow, or grown past the space it should occupy.
+                if let Length::Px(value) = style.min_width {
+                    element = element.min_w(px(value as f32));
+                }
+                if let Length::Px(value) = style.min_height {
+                    element = element.min_h(px(value as f32));
+                }
+                if let Length::Px(value) = style.max_width {
+                    element = element.max_w(px(value as f32));
+                }
+                if let Length::Px(value) = style.max_height {
+                    element = element.max_h(px(value as f32));
+                }
                 if style.grow {
                     element = element.flex_grow();
                 }

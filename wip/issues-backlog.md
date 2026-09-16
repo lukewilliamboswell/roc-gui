@@ -117,12 +117,6 @@ the change lands; do not soften the docs to match the gap.
   assert `expect-visible` for the selected image where `expect-on-screen` is the
   claim that matters. Close by making the declared box authoritative and `fit`
   the rule that maps pixels into it.
-- [ ] **A fixed length is a shrinkable basis with no floor.** Sibling overflow
-  shrinks a `Px` width, and there is no minimum-size or no-shrink field, so
-  `image-library`'s thumbnails first rendered at a different width in each row
-  depending on how long the caption beside them was. The only expressible remedy
-  was to shorten the caption control until the row fitted. Close with minimum and
-  maximum length fields, or an explicit no-shrink flag.
 - [ ] **A checkbox's box and mark are host constants.** `fg` reaches the caption
   only; the indicator paints fixed dark values. On `image-library`'s near-white
   wall the grayscale toggle is the one dark chip in the window and the identity

@@ -303,6 +303,12 @@ pub struct Style {
     pub padding: [u32; 4],
     pub width: Length,
     pub height: Length,
+    /// Floors and ceilings for the two sides. A fixed length is otherwise a
+    /// shrinkable basis, so a sibling's overflow can squeeze it.
+    pub min_width: Length,
+    pub min_height: Length,
+    pub max_width: Length,
+    pub max_height: Length,
     pub grow: bool,
     pub bg: Option<u32>,
     pub hover_bg: Option<u32>,

@@ -62,7 +62,7 @@ item_rows = |items| {
 			Ready(asset) => Elem.row(
 				Elem.RowProps.{ label: "Image ${asset.name}", gap: Theme.within, padding: 0 },
 				[
-					Elem.image(Elem.ImageProps.{ label: "Thumbnail ${asset.name}", bytes: asset.bytes, format: asset.format, fit: Cover, width: Px(88), height: Px(88), radius: Theme.media_radius }),
+					Elem.image(Elem.ImageProps.{ label: "Thumbnail ${asset.name}", bytes: asset.bytes, format: asset.format, fit: Cover, width: Px(88), height: Px(88), min_width: Px(88), min_height: Px(88), radius: Theme.media_radius }),
 					Elem.action_button(Elem.ActionButtonProps.{ caption: asset.name, label: "View image ${asset.name}", on_press: |current, _| Action.update({ ..current, selected: Some(asset) }), width: Px(196), height: Px(88), padding: 10, font_size: Theme.body, radius: Theme.control_radius, bg: Theme.quiet, hover_bg: Theme.quiet_hover, active_bg: Theme.quiet_active, fg: Theme.ink, overflow_x: Clip }),
 				],
 			)

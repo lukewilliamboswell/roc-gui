@@ -34,6 +34,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Auto,
 		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Default,
 		hover_bg : Gui.Color ?? Default,
@@ -70,6 +74,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Auto,
 		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Default,
 		hover_bg : Gui.Color ?? Default,
@@ -107,6 +115,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Px(520),
 		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Rgb(0x212f37),
 		hover_bg : Gui.Color ?? Default,
@@ -143,6 +155,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Auto,
 		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Default,
 		hover_bg : Gui.Color ?? Default,
@@ -184,6 +200,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Auto,
 		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Rgb(0x315469),
 		hover_bg : Gui.Color ?? Rgb(0x3e6a83),
@@ -227,6 +247,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Auto,
 		height : Gui.Length ?? Px(38),
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Rgb(0x162a33),
 		hover_bg : Gui.Color ?? Default,
@@ -281,6 +305,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Auto,
 		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Default,
 		hover_bg : Gui.Color ?? Default,
@@ -324,6 +352,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Fill,
 		height : Gui.Length ?? Px(160),
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Rgb(0x10252b),
 		hover_bg : Gui.Color ?? Default,
@@ -371,6 +403,10 @@ Elem(a) :: [
 		padding_left : Gui.Inset ?? Same,
 		width : Gui.Length ?? Auto,
 		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Default,
 		hover_bg : Gui.Color ?? Default,
@@ -414,6 +450,10 @@ Elem(a) :: [
 		on_pointer : (a, Event.CanvasPointer => Action(a)),
 		width : Gui.Length ?? Fill,
 		height : Gui.Length ?? Fill,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
 		grow : Bool ?? False,
 		bg : Gui.Color ?? Rgb(0xffffff),
 		border_color : Gui.Color ?? Default,
@@ -501,7 +541,7 @@ Elem(a) :: [
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			Dialog({
 				children: value.children.map(|child| lift(child, get_child, set_child)),
-				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
+				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
 			})
 		}
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
@@ -518,7 +558,7 @@ Elem(a) :: [
 			child_submit = input_value.on_submit
 			parent_change! = |parent, event| Action.lift(child_change(get_child(parent), event), parent, get_child, set_child)
 			parent_submit! = |parent, event| Action.lift(child_submit(get_child(parent), event), parent, get_child, set_child)
-			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
+			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
 		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
@@ -537,6 +577,10 @@ Elem(a) :: [
 					padding_left: button_value.padding_left,
 					width: button_value.width,
 					height: button_value.height,
+					min_width: button_value.min_width,
+					min_height: button_value.min_height,
+					max_width: button_value.max_width,
+					max_height: button_value.max_height,
 					grow: button_value.grow,
 					bg: button_value.bg,
 					hover_bg: button_value.hover_bg,
@@ -579,6 +623,10 @@ Elem(a) :: [
 					padding_left: checkbox_value.padding_left,
 					width: checkbox_value.width,
 					height: checkbox_value.height,
+					min_width: checkbox_value.min_width,
+					min_height: checkbox_value.min_height,
+					max_width: checkbox_value.max_width,
+					max_height: checkbox_value.max_height,
 					grow: checkbox_value.grow,
 					bg: checkbox_value.bg,
 					hover_bg: checkbox_value.hover_bg,
@@ -607,13 +655,13 @@ Elem(a) :: [
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
-			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
+			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
 		}
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
-			Canvas(CanvasProps.{ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, width: canvas_value.width, height: canvas_value.height, grow: canvas_value.grow, bg: canvas_value.bg, border_color: canvas_value.border_color, border_width: canvas_value.border_width, border_top: canvas_value.border_top, border_right: canvas_value.border_right, border_bottom: canvas_value.border_bottom, border_left: canvas_value.border_left, radius: canvas_value.radius })
+			Canvas(CanvasProps.{ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, width: canvas_value.width, height: canvas_value.height, min_width: canvas_value.min_width, min_height: canvas_value.min_height, max_width: canvas_value.max_width, max_height: canvas_value.max_height, grow: canvas_value.grow, bg: canvas_value.bg, border_color: canvas_value.border_color, border_width: canvas_value.border_width, border_top: canvas_value.border_top, border_right: canvas_value.border_right, border_bottom: canvas_value.border_bottom, border_left: canvas_value.border_left, radius: canvas_value.radius })
 		}
 		Boundary(child_renderer) => {
 			parent_renderer = |parent| lift(child_renderer(get_child(parent)), get_child, set_child)
