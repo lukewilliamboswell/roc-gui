@@ -117,6 +117,12 @@ def compose_notices(target, source, evidence_root, output, cache, root=ROOT):
     zig = toolchains["zig"]
     rust_archive = verified_download(rust["source_url"], rust["sha256"], cache / (rust["sha256"] + ".tar.xz"), rust.get("size"))
     zig_archive = verified_download(zig["source_url"], zig["sha256"], cache / (zig["sha256"] + ".tar.xz"), zig["size"])
+    # A cross-compiled host runs one distribution's compiler and links another's
+    # standard library, so the target component carries notices of its own.
+    component = rust.get("target_component")
+    rust_target_archive = None if component is None else verified_download(
+        component["source_url"], component["sha256"],
+        cache / (component["sha256"] + ".tar.xz"), component.get("size"))
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent, prefix=".host-release-") as temporary:
         stage = Path(temporary)
@@ -124,7 +130,8 @@ def compose_notices(target, source, evidence_root, output, cache, root=ROOT):
         candidate.mkdir()
         rust_license_inventory.collect(evidence_root / "selection.json", evidence_root / "Cargo.lock", crates,
                                        stage / "crate-notices", policy / "manifest.json", True, policy / "review.json", True)
-        toolchain_license_inventory.collect(policy / "toolchains.json", target, rust_archive, zig_archive, stage / "toolchain-notices")
+        toolchain_license_inventory.collect(policy / "toolchains.json", target, rust_archive, zig_archive,
+                                            stage / "toolchain-notices", rust_target_archive)
         source_archive = candidate / f"gui-host-sources-{target}.tar"
         normalization = source / "normalization.json"
         notices = compose(target, evidence_root, stage / "crate-notices", stage / "toolchain-notices", policy,

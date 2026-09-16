@@ -4,6 +4,7 @@
 /platform/targets/*/*.obj
 /platform/targets/*/*.so
 /platform/targets/*/*.lib
+/platform/targets/*/*.res
 /platform/targets/*/*.tbd
 /platform/targets/*/*.json
 /platform/targets/macos-sysroot/

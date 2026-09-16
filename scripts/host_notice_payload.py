@@ -8,7 +8,7 @@ import re
 import tarfile
 
 from cargo_build_evidence import derive, evidence_files, same_checkout_lock
-from host_build_identity import validate_outputs
+from host_build_identity import HOST_FILES, validate_outputs
 from dependency_archive import write_archive
 from rust_license_inventory import EMBEDDED_NOTICE
 from toolchain_license_inventory import selected_toolchains, component_version
@@ -24,27 +24,51 @@ def digest(data):
 
 
 def validate_normalization(receipt, target, original_host, host_bytes, outputs=None, raw_outputs=None):
-    """Bind the recorded debug stripping to raw Cargo and distributed bytes."""
+    """Bind the recorded transformation to raw Cargo and distributed bytes.
+
+    Every platform records what it did to the archive Cargo produced. Linux and
+    macOS strip debug identity; Windows separates the import members Roc's link
+    supplies from the verified import libraries, and reindexes what remains.
+    """
     host_name = original_host["name"]
-    expected_args = ["-S", host_name] if target == "arm64mac" else ["--strip-debug", host_name]
+    if target == "x64mingw":
+        operation = "separate-coff-imports-v1"
+        tools = {"zig", "windows_gnu_coff.py"}
+        expected_steps = [
+            {"tool": "windows_gnu_coff.py", "args": ["separate($INPUT, $OUTPUT, $INVENTORY, $ZIG)"]},
+            {"tool": "zig", "args": ["ar", "s", "$OUTPUT"]},
+        ]
+    else:
+        operation = "strip-debug-v1"
+        tools = {"strip"}
+        expected_args = ["-S", host_name] if target == "arm64mac" else ["--strip-debug", host_name]
+        expected_steps = [{"tool": "strip", "args": expected_args}]
     if (receipt.get("schema_version") != 1 or receipt.get("target") != target
             or set(receipt.get("archives", {})) != {host_name}
-            or set(receipt.get("tools", {})) != {"strip"}):
+            or set(receipt.get("tools", {})) != tools):
         raise ValueError("normalization receipt has a different target or inventory")
     archive = receipt["archives"][host_name]
-    if (archive.get("operation") != "strip-debug-v1"
+    if (archive.get("operation") != operation
             or archive.get("input") != {k: original_host[k] for k in ("sha256", "size")}
             or archive.get("output") != {"sha256": digest(host_bytes), "size": len(host_bytes)}
-            or archive.get("steps") != [{"tool": "strip", "args": expected_args}]):
+            or archive.get("steps") != expected_steps):
         raise ValueError("normalization receipt differs from original or final host bytes")
-    tool = receipt["tools"]["strip"]
-    if not re.fullmatch(r"[0-9a-f]{64}", tool.get("sha256", "")) or not tool.get("version"):
-        raise ValueError("normalization receipt has an invalid tool identity")
+    for tool in receipt["tools"].values():
+        if not re.fullmatch(r"[0-9a-f]{64}", tool.get("sha256", "")) or not tool.get("version"):
+            raise ValueError("normalization receipt has an invalid tool identity")
     if raw_outputs is not None and archive["input"] != raw_outputs[host_name]:
         raise ValueError("normalization input differs from captured build receipt")
-    if outputs is not None and ({"sha256": digest(outputs[host_name]), "size": len(outputs[host_name])}
-                                != archive["output"] or set(outputs) != {host_name}):
-        raise ValueError("normalization receipt differs from packaged archive bytes")
+    if outputs is not None:
+        if ({"sha256": digest(outputs[host_name]), "size": len(outputs[host_name])} != archive["output"]
+                or set(outputs) != set(HOST_FILES[target])):
+            raise ValueError("normalization receipt differs from packaged archive bytes")
+        # Only the archive is transformed. A target that releases more than it,
+        # as Windows releases its resource, must ship those files exactly as the
+        # captured build produced them.
+        for name, data in outputs.items():
+            if name != host_name and raw_outputs is not None and (
+                    {"sha256": digest(data), "size": len(data)} != raw_outputs[name]):
+                raise ValueError("packaged host output differs from its captured build receipt")
 
 
 def validate_packaged_outputs(build, target, fingerprint, cargo_host, outputs, normalization=None):

@@ -6,6 +6,18 @@ Run `python3 build.py` from the repository root. It creates
 `platform/targets/x64glibc/libhost.a`, the archive selected by the platform's
 `x64glibc` target. Rebuild it after Rust host changes.
 
+== The Windows build rejects the SDK's shader tools
+
+`build.py` compiles GPUI's shaders with the Windows SDK's `fxc.exe` and its
+`d3dcompiler_47.dll`. CI and release builds admit only the reviewed pair, by
+hash and signing certificate, recorded in `scripts/windows_gnu_build.py`. A
+development machine receives SDK servicing updates that re-sign and re-hash
+that pair, so a local build admits any validly Microsoft-signed pair instead
+and records the identities it loaded; it says so as it builds. Set
+`ROC_GUI_PINNED_SHADER_TOOLS=1` to require the reviewed pins locally as well.
+Either way an unsigned or altered pair is refused, and a refusal names the SDK
+directory it examined.
+
 == The Roc compiler version does not match
 
 Use the nightly named in the `app` header and in `platform/main.roc`. The

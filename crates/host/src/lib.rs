@@ -16,6 +16,8 @@ mod input;
 mod observatory;
 mod probe;
 mod process;
+// Generated glue (scripts/regenerate_glue.py); variant names mirror the Roc types.
+#[allow(clippy::enum_variant_names)]
 mod roc_platform_abi;
 mod runner;
 mod screenshot;
@@ -68,6 +70,16 @@ actions!(
 unsafe extern "C" {
     fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable);
     fn roc_gui_run_task(task: RocErasedCallable) -> RocErasedCallable;
+}
+
+// Unit tests link without a Roc application. ELF linkers drop the unreferenced
+// worker loop, but MSVC's link resolves every symbol the test binary retains.
+#[cfg(all(test, windows))]
+mod test_application {
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_run_task(_task: crate::RocErasedCallable) -> crate::RocErasedCallable {
+        unreachable!("unit tests never run Roc tasks")
+    }
 }
 
 struct TaskRuntime {
@@ -475,8 +487,10 @@ pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_virtual_item(args: HostGlueNodeVirtualItemArgs) -> u64 {
-    stage_node(NodeKind::VirtualItem { key: args.arg0 }, vec![args.arg1])
+pub extern "C" fn roc_gui_node_virtual_item(key: u64, content: u64) -> u64 {
+    // Roc passes `U64, U64` as two arguments. The glue's two-field struct only
+    // shares that layout under SysV/AAPCS64; Win64 passes it by reference.
+    stage_node(NodeKind::VirtualItem { key }, vec![content])
 }
 
 #[unsafe(no_mangle)]
@@ -863,9 +877,25 @@ pub extern "C" fn roc_gui_enqueue_task(task: RocErasedCallable) {
         .expect("Roc task runtime stopped");
 }
 
+/// How long one task may run before a specification calls it hung.
+///
+/// This catches a task that will never finish, so it is deliberately generous
+/// rather than a latency bound. A Windows specification's first read waits for
+/// a pseudo console to start a shell, which on a freshly provisioned machine
+/// costs seconds before the program prints anything at all.
+pub(crate) const TASK_BUDGET: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// How long a wait holds its core before it starts sleeping between polls.
+///
+/// Long enough that no application driven by a timer is still pending: the
+/// shortest interval a specification arms is a millisecond, so a task that has
+/// not completed in fifty of them is waiting on something else entirely.
+const SPIN_BEFORE_SLEEPING: std::time::Duration = std::time::Duration::from_millis(50);
+
 fn await_task_completion() -> Result<RocErasedCallable, String> {
     let runtime = task_runtime();
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let started = std::time::Instant::now();
+    let deadline = started + TASK_BUDGET;
     loop {
         match runtime.completions.try_recv() {
             Ok(value) => {
@@ -874,10 +904,24 @@ fn await_task_completion() -> Result<RocErasedCallable, String> {
             }
             Err(async_channel::TryRecvError::Closed) => return Err("task runtime stopped".into()),
             Err(async_channel::TryRecvError::Empty) if std::time::Instant::now() < deadline => {
-                std::thread::yield_now();
+                // Two regimes, and sleeping in the wrong one is a bug: a timer
+                // application can complete a task every millisecond, so any
+                // sleep here would let its work run on while this waits, and a
+                // specification counting ticks would see one too many. Past the
+                // threshold no such task is pending, the wait is on something
+                // slow like a console starting, and holding a core would slow
+                // the very work being waited for.
+                if started.elapsed() < SPIN_BEFORE_SLEEPING {
+                    std::thread::yield_now();
+                } else {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
             }
             Err(async_channel::TryRecvError::Empty) => {
-                return Err("task did not complete within 10 seconds".into());
+                return Err(format!(
+                    "task did not complete within {} seconds",
+                    TASK_BUDGET.as_secs()
+                ));
             }
         }
     }
@@ -1701,7 +1745,8 @@ impl Render for NodeView {
                             cx.stop_propagation();
                             let _ = runtime
                                 .update(cx, |runtime, cx| runtime.input_if_live(node_id, next, cx));
-                        });
+                        },
+                    );
                 } else if !*enabled {
                     element = apply_disabled(element, style);
                 }
@@ -1975,6 +2020,12 @@ impl Render for NodeView {
 
 struct Runtime {
     graph: MountedGraph,
+    /// How many patches this runtime has applied.
+    ///
+    /// A painted question is only answerable about a generation the window has
+    /// drawn, so every applied patch moves this forward and every frame stamps
+    /// the generation it drew. See [`crate::probe::Frame`].
+    generation: u64,
     views: HashMap<u64, Entity<NodeView>>,
     /// Where each mounted node sits, for the graph currently mounted. Captured
     /// so that when a patch retires those nodes their views can still be found
@@ -2027,6 +2078,7 @@ impl Runtime {
     fn new(initial: InitialMount, cx: &mut Context<Self>) -> Self {
         let mut runtime = Self {
             graph: MountedGraph::default(),
+            generation: 0,
             views: HashMap::new(),
             identities: HashMap::new(),
             recyclable: HashMap::new(),
@@ -2318,6 +2370,8 @@ impl Runtime {
         self.apply_to_gpui(&applied, cx);
     }
 
+    // Carries per-cycle measurement facts straight into the observatory record.
+    #[allow(clippy::too_many_arguments)]
     fn apply_recorded(
         &mut self,
         patch: Patch,
@@ -2359,6 +2413,11 @@ impl Runtime {
         self.cycle_ordinal += 1;
     }
 
+    /// Where a painted read is admitted, once the window has drawn this graph.
+    fn painted(&self) -> Result<probe::Frame<'_>, probe::Stale> {
+        probe::frame(self.generation)
+    }
+
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
         // Offer every view whose node this patch retired back to the staged
         // nodes, indexed by identity. A whole-root rebuild stages a complete
@@ -2377,6 +2436,9 @@ impl Runtime {
                 self.recyclable.insert(identity, view.clone());
             }
         }
+        // Every applied patch leaves the window a frame behind, which is what
+        // makes a painted read of the new tree refuse until it catches up.
+        self.generation += 1;
         if !applied.staged_ids.is_empty() || !applied.removed_ids.is_empty() || applied.retired_root
         {
             let mut recycled = HashMap::<u64, u64>::new();
@@ -2643,24 +2705,22 @@ impl Runtime {
             let change_runtime = runtime.clone();
             let submit_runtime = runtime.clone();
             let node_id = node.id;
-            let change: std::rc::Rc<dyn Fn(String, &mut App)> =
-                std::rc::Rc::new(move |text, cx| {
-                    let _ = change_runtime.update(cx, |runtime, cx| {
-                        runtime.text_event_if_live(node_id, node_id, text, "text_change", cx)
-                    });
+            let change: input::TextCallback = std::rc::Rc::new(move |text, cx| {
+                let _ = change_runtime.update(cx, |runtime, cx| {
+                    runtime.text_event_if_live(node_id, node_id, text, "text_change", cx)
                 });
-            let submit: std::rc::Rc<dyn Fn(String, &mut App)> =
-                std::rc::Rc::new(move |text, cx| {
-                    let _ = submit_runtime.update(cx, |runtime, cx| {
-                        runtime.text_event_if_live(
-                            node_id,
-                            node_id | SUBMIT_EVENT_BIT,
-                            text,
-                            "text_submit",
-                            cx,
-                        )
-                    });
+            });
+            let submit: input::TextCallback = std::rc::Rc::new(move |text, cx| {
+                let _ = submit_runtime.update(cx, |runtime, cx| {
+                    runtime.text_event_if_live(
+                        node_id,
+                        node_id | SUBMIT_EVENT_BIT,
+                        text,
+                        "text_submit",
+                        cx,
+                    )
                 });
+            });
             if let Some(editor) = self.editors.get(label).cloned() {
                 editor.update(cx, |editor, cx| {
                     editor.configure(
@@ -2846,10 +2906,13 @@ impl Render for Runtime {
             GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
         }
         watchdog::milestone(watchdog::Milestone::FirstRender);
-        if let Some(target) = self.focus_after_render.take() {
-            if let Some(handle) = self.focus_handles.get(&target) {
-                handle.focus(window);
-            }
+        // What this frame is drawing, so a painted read can tell whether the
+        // window has caught up with the graph it is being asked about.
+        probe::begin_frame(self.generation);
+        if let Some(target) = self.focus_after_render.take()
+            && let Some(handle) = self.focus_handles.get(&target)
+        {
+            handle.focus(window);
         }
         let focused_now = self
             .focus_handles
@@ -3418,10 +3481,10 @@ fn print_host_help(app_name: &str) {
 /// by returning. It must finalize here instead.
 pub(crate) fn finish_and_exit(code: i32) -> ! {
     let outcome = if code == 0 { "success" } else { "failure" };
-    if observatory::active() {
-        if let Err(message) = observatory::finish(outcome) {
-            eprintln!("roc-gui stats error: {message}");
-        }
+    if observatory::active()
+        && let Err(message) = observatory::finish(outcome)
+    {
+        eprintln!("roc-gui stats error: {message}");
     }
     clear_bridge();
     set_roc_host(core::ptr::null_mut());
@@ -3460,6 +3523,8 @@ fn start_requested_recorder(
         } else {
             if cfg!(target_os = "macos") {
                 "gpui-macos"
+            } else if cfg!(target_os = "windows") {
+                "gpui-windows"
             } else {
                 "gpui-wayland"
             }
@@ -3478,6 +3543,14 @@ fn start_requested_recorder(
     Ok(Some(path))
 }
 
+/// Process entry point for the linked Roc application.
+///
+/// # Safety
+///
+/// Must only be called once, by the C runtime startup code, on the main thread
+/// before any other host function runs. It installs a stack-allocated Roc host
+/// for the lifetime of the call and clears it before returning. The C
+/// arguments are ignored; arguments are read through `std::env` instead.
 #[unsafe(no_mangle)]
 #[cfg(not(test))]
 pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {

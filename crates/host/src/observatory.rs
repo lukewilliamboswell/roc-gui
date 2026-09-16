@@ -184,11 +184,7 @@ pub fn end_roc_work(kind: u8) {
             work.started = None;
             return;
         }
-        let elapsed = work
-            .started
-            .take()
-            .map(|start| now_elapsed_ns(start))
-            .unwrap_or(0);
+        let elapsed = work.started.take().map(now_elapsed_ns).unwrap_or(0);
         work.totals[kind as usize].duration_ns = work.totals[kind as usize]
             .duration_ns
             .saturating_add(elapsed);
@@ -263,8 +259,8 @@ enum Event {
         diagnostic: Option<String>,
         resources: ResourceSnapshot,
     },
-    Step(StepResult),
-    Cycle(Cycle),
+    Step(Box<StepResult>),
+    Cycle(Box<Cycle>),
     GpuiFrame {
         ordinal: u64,
         layout_request_ns: u64,
@@ -355,13 +351,67 @@ fn resource_snapshot() -> ResourceSnapshot {
     }
 }
 
+#[cfg(unix)]
+fn page_size_bytes() -> i64 {
+    unsafe { libc::sysconf(libc::_SC_PAGESIZE) as i64 }
+}
+
+#[cfg(windows)]
+fn page_size_bytes() -> i64 {
+    use windows_sys::Win32::System::SystemInformation::{GetSystemInfo, SYSTEM_INFO};
+    let mut info = unsafe { std::mem::zeroed::<SYSTEM_INFO>() };
+    unsafe { GetSystemInfo(&mut info) };
+    info.dwPageSize as i64
+}
+
+#[cfg(unix)]
 fn current_rss_bytes() -> Option<u64> {
     let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
     let resident_pages = statm.split_whitespace().nth(1)?.parse::<u64>().ok()?;
-    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    let page_size = page_size_bytes();
     (page_size > 0).then(|| resident_pages.saturating_mul(page_size as u64))
 }
 
+#[cfg(windows)]
+fn memory_counters() -> Option<windows_sys::Win32::System::ProcessStatus::PROCESS_MEMORY_COUNTERS> {
+    use windows_sys::Win32::System::{
+        ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
+        Threading::GetCurrentProcess,
+    };
+    let mut counters = unsafe { std::mem::zeroed::<PROCESS_MEMORY_COUNTERS>() };
+    counters.cb = size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
+    (unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, counters.cb) } != 0)
+        .then_some(counters)
+}
+
+#[cfg(windows)]
+fn current_rss_bytes() -> Option<u64> {
+    memory_counters().map(|counters| counters.WorkingSetSize as u64)
+}
+
+#[cfg(windows)]
+fn process_resources() -> (u64, u64, u64) {
+    use windows_sys::Win32::{
+        Foundation::FILETIME,
+        System::Threading::{GetCurrentProcess, GetProcessTimes},
+    };
+    let mut times = unsafe { std::mem::zeroed::<[FILETIME; 4]>() };
+    let [creation, exit, kernel, user] = &mut times;
+    if unsafe { GetProcessTimes(GetCurrentProcess(), creation, exit, kernel, user) } == 0 {
+        return (0, 0, 0);
+    }
+    // FILETIME durations count 100-nanosecond intervals.
+    let filetime_ns = |value: &FILETIME| {
+        ((value.dwHighDateTime as u64) << 32 | value.dwLowDateTime as u64).saturating_mul(100)
+    };
+    (
+        filetime_ns(user),
+        filetime_ns(kernel),
+        memory_counters().map_or(0, |counters| counters.PeakWorkingSetSize as u64),
+    )
+}
+
+#[cfg(unix)]
 fn process_resources() -> (u64, u64, u64) {
     let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
     if unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) } != 0 {
@@ -594,7 +644,7 @@ pub fn run_end(id: i64, outcome: &'static str, ended_ns: u64, diagnostic: Option
 pub fn step(result: StepResult) {
     let mut result = result;
     result.diagnostic = result.diagnostic.map(bounded_diagnostic);
-    submit(Event::Step(result), true);
+    submit(Event::Step(Box::new(result)), true);
 }
 
 fn bounded_diagnostic(mut value: String) -> String {
@@ -621,7 +671,7 @@ pub fn cycle(cycle: Cycle) {
     if !detail.records_cycle(cycle.measurement_phase) {
         return;
     }
-    submit(Event::Cycle(cycle), false);
+    submit(Event::Cycle(Box::new(cycle)), false);
 }
 
 /// Record one GPUI frame's host-owned element spans.
@@ -815,7 +865,7 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
     let logical_cpus = std::thread::available_parallelism()
         .map(|value| value.get().to_string())
         .unwrap_or_else(|_| "unavailable".into());
-    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    let page_size = page_size_bytes();
     let metadata = [
         ("schema_version", SCHEMA_VERSION.to_string()),
         ("clean_shutdown", "0".into()),
@@ -1152,6 +1202,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
     .map_err(|error| format!("cannot write stats row: {error}"))
 }
 
+// Terminal capture evidence is recorded as individual metadata values.
+#[allow(clippy::too_many_arguments)]
 fn finalize(
     connection: &Connection,
     path: &Path,
@@ -1939,15 +1991,18 @@ mod tests {
             "page_size_bytes",
         ] {
             assert!(
-                db.query_row("SELECT value FROM metadata WHERE key=?1", [key], |row| {
+                !db.query_row("SELECT value FROM metadata WHERE key=?1", [key], |row| {
                     row.get::<_, String>(0)
                 },)
                     .unwrap()
-                    .len()
-                    > 0
+                    .is_empty()
             );
         }
         assert!(!active());
+        // Windows cannot delete a database that still has open handles.
+        drop(process_resources);
+        drop(report);
+        drop(db);
         std::fs::remove_file(path).unwrap();
     }
 

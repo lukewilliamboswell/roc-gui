@@ -37,6 +37,8 @@ pub enum StepError {
     LocatorMatched { locator: String, count: usize },
     /// The node exists in the graph but did not participate in a frame.
     NotPainted(String),
+    /// The window has not drawn the graph this step is asking about.
+    Stale { painted: u64, graph: u64 },
     /// Laid out, but clipped away by a scroll ancestor or the viewport.
     OffScreen { locator: String, bounds: Rect },
     /// A geometry expectation was not met.
@@ -76,18 +78,28 @@ impl StepError {
             Self::NotPainted(locator) => {
                 format!("{locator} is mounted but was not painted in the last frame")
             }
+            Self::Stale { painted, graph } => format!(
+                "the window drew graph generation {painted} and the step asks about {graph}"
+            ),
             Self::OffScreen { locator, bounds } => format!(
                 "{locator} is laid out at ({:.1},{:.1})-({:.1},{:.1}) but is not on screen",
                 bounds.left, bounds.top, bounds.right, bounds.bottom
             ),
             Self::Geometry(detail) => detail.clone(),
-            Self::Timeout { waited, outstanding } => format!(
+            Self::Timeout {
+                waited,
+                outstanding,
+            } => format!(
                 "settle timed out after {}ms with {outstanding} task(s) outstanding",
                 waited.as_millis()
             ),
             Self::WindowClosed => "the window closed before the step ran".to_owned(),
             Self::Screenshot(error) => {
-                format!("screenshot unavailable ({}): {}", error.reason(), error.hint())
+                format!(
+                    "screenshot unavailable ({}): {}",
+                    error.reason(),
+                    error.hint()
+                )
             }
             Self::Keystroke { chord, detail } => {
                 format!("GPUI rejected the key chord {chord:?}: {detail}")
@@ -95,9 +107,9 @@ impl StepError {
             Self::Untypable(character) => {
                 format!("cannot type {character:?} as a keystroke")
             }
-            Self::NotClickable(locator) => format!(
-                "{locator} does not accept pointer activation; it may be disabled"
-            ),
+            Self::NotClickable(locator) => {
+                format!("{locator} does not accept pointer activation; it may be disabled")
+            }
             Self::NoClickRoute(locator) => format!(
                 "{locator} takes pointer coordinates, not a click; press it with a `drag` step under --host-run-spec"
             ),
@@ -144,6 +156,11 @@ pub struct Outcome {
     window: Option<(f32, f32)>,
     scale_factor: f32,
     failed: bool,
+    /// Screenshot steps the run tolerated rather than captured.
+    ///
+    /// A run that photographed nothing proved nothing visual, so it is not a
+    /// pass: it says so, and the suite decides whether it was allowed.
+    unavailable_shots: usize,
 }
 
 impl Outcome {
@@ -176,19 +193,34 @@ fn resolve(runtime: &Runtime, locator: &Locator) -> Result<u64, StepError> {
 /// the content, so once the region has moved it describes where the top of the
 /// content now is rather than the viewport it is clipped to. GPUI records the
 /// container on the tracked handle at every prepaint, and that does not move.
-fn node_rect(runtime: &Runtime, id: u64) -> Option<Rect> {
+/// Where a node is, as of a frame the window has actually drawn.
+///
+/// A scroll region's probe marker travels with its content, so once the region
+/// has moved the marker no longer describes the viewport the content is clipped
+/// to. The region's own tracker does, and it is written at every prepaint, so
+/// it is preferred where one exists and the recorded bounds answer otherwise.
+fn node_rect(runtime: &Runtime, frame: &probe::Frame<'_>, id: u64) -> Option<Rect> {
     runtime
         .scroll_trackers
         .get(&id)
         .map(|tracker| Rect::from_gpui(tracker.viewport()))
         .filter(|rect| !rect.is_empty())
-        .or_else(|| probe::bounds(id))
+        .or_else(|| frame.bounds(id))
 }
 
 /// Bounds for a node that actually took part in the last frame.
 fn painted_bounds(runtime: &Runtime, locator: &Locator) -> Result<Rect, StepError> {
     let id = resolve(runtime, locator)?;
-    node_rect(runtime, id).ok_or_else(|| StepError::NotPainted(describe(locator)))
+    let frame = runtime.painted().map_err(stale)?;
+    node_rect(runtime, &frame, id).ok_or_else(|| StepError::NotPainted(describe(locator)))
+}
+
+/// A graph the window has not drawn yet is a wait, not an answer.
+fn stale(value: probe::Stale) -> StepError {
+    StepError::Stale {
+        painted: value.painted,
+        graph: value.graph,
+    }
 }
 
 /// Whether a node is visible, not merely laid out.
@@ -198,10 +230,12 @@ fn painted_bounds(runtime: &Runtime, locator: &Locator) -> Result<Rect, StepErro
 /// that bounds exist would call a clipped element visible.
 fn visible_rect(runtime: &Runtime, locator: &Locator, viewport: Rect) -> Result<Rect, StepError> {
     let id = resolve(runtime, locator)?;
-    let bounds = node_rect(runtime, id).ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+    let frame = runtime.painted().map_err(stale)?;
+    let bounds =
+        node_rect(runtime, &frame, id).ok_or_else(|| StepError::NotPainted(describe(locator)))?;
     let mut clip = viewport;
     for ancestor in runtime.graph.scroll_ancestors(id) {
-        if let Some(rect) = node_rect(runtime, ancestor) {
+        if let Some(rect) = node_rect(runtime, &frame, ancestor) {
             clip = match clip.intersect(rect) {
                 Some(value) => value,
                 None => {
@@ -230,25 +264,25 @@ pub(crate) fn check_bounds(
     let width = bounds.width();
     let height = bounds.height();
     let mut violations = Vec::new();
-    if let Some(min) = expectation.min_width {
-        if width < min as f32 {
-            violations.push(format!("width {width:.1} is below :min-width {min}"));
-        }
+    if let Some(min) = expectation.min_width
+        && width < min as f32
+    {
+        violations.push(format!("width {width:.1} is below :min-width {min}"));
     }
-    if let Some(max) = expectation.max_width {
-        if width > max as f32 {
-            violations.push(format!("width {width:.1} is above :max-width {max}"));
-        }
+    if let Some(max) = expectation.max_width
+        && width > max as f32
+    {
+        violations.push(format!("width {width:.1} is above :max-width {max}"));
     }
-    if let Some(min) = expectation.min_height {
-        if height < min as f32 {
-            violations.push(format!("height {height:.1} is below :min-height {min}"));
-        }
+    if let Some(min) = expectation.min_height
+        && height < min as f32
+    {
+        violations.push(format!("height {height:.1} is below :min-height {min}"));
     }
-    if let Some(max) = expectation.max_height {
-        if height > max as f32 {
-            violations.push(format!("height {height:.1} is above :max-height {max}"));
-        }
+    if let Some(max) = expectation.max_height
+        && height > max as f32
+    {
+        violations.push(format!("height {height:.1} is above :max-height {max}"));
     }
     if violations.is_empty() {
         Ok(())
@@ -378,6 +412,30 @@ async fn advance_timer_fires(
     })
 }
 
+/// Wait until the window has drawn the graph as it now stands.
+///
+/// A painted question is unanswerable until then, so waiting happens here once,
+/// rather than in each assertion guessing at a number of frames.
+async fn await_painted(
+    window: WindowHandle<Runtime>,
+    timeout: Duration,
+    cx: &mut AsyncApp,
+) -> Result<(), StepError> {
+    let started = std::time::Instant::now();
+    loop {
+        let behind = window
+            .update(cx, |runtime, _, _| runtime.painted().err())
+            .map_err(|_| StepError::WindowClosed)?;
+        let Some(behind) = behind else {
+            return Ok(());
+        };
+        if started.elapsed() >= timeout {
+            return Err(stale(behind));
+        }
+        next_frame(window, cx).await?;
+    }
+}
+
 /// Drop recorded bounds for nodes that have left the mounted graph.
 fn prune_bounds(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<(), StepError> {
     window
@@ -407,7 +465,11 @@ async fn next_frame(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<
             window.refresh();
         })
         .map_err(|_| StepError::WindowClosed)?;
-    receiver.recv().await.map_err(|_| StepError::WindowClosed).map(|_| ())
+    receiver
+        .recv()
+        .await
+        .map_err(|_| StepError::WindowClosed)
+        .map(|_| ())
 }
 
 /// Write the agent-facing report.
@@ -439,9 +501,19 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
         "  \"spec\": {{ \"name\": \"{}\" }},\n",
         escape(&outcome.spec_name)
     ));
+    // A run that photographed nothing proved nothing visual, so it does not
+    // call itself a pass. Whether that is tolerable is the suite's judgement,
+    // made once and out loud, rather than a silence here.
     json.push_str(&format!(
-        "  \"run_mode\": \"window-scenario\",\n  \"outcome\": \"{}\",\n",
-        if outcome.passed() { "pass" } else { "fail" }
+        "  \"run_mode\": \"window-scenario\",\n  \"outcome\": \"{}\",\n  \"unavailable_shots\": {},\n",
+        if !outcome.passed() {
+            "fail"
+        } else if outcome.unavailable_shots > 0 {
+            "degraded"
+        } else {
+            "pass"
+        },
+        outcome.unavailable_shots
     ));
     match outcome.window {
         Some((width, height)) => json.push_str(&format!(
@@ -530,6 +602,8 @@ async fn run_step(
 ) -> Result<Option<ShotRecord>, StepError> {
     match &step.command {
         Command::Screenshot(request) => {
+            // A photograph is the most painted question there is.
+            await_painted(window, options.timeout, cx).await?;
             return take_screenshot(request, ordinal, window, options, cx);
         }
         Command::Settle { frames, timeout_ms } => {
@@ -571,7 +645,10 @@ async fn run_step(
                     Ok::<(), StepError>(())
                 })
                 .map_err(|_| StepError::WindowClosed)??;
-            settle(window, 1, options.timeout, cx).await
+            // The click changed the graph on this thread, enqueuing nothing, so
+            // the wait that means something is for the window to have drawn it.
+            // A task the click started is the specification's to await.
+            await_painted(window, options.timeout, cx).await
         }
         Command::Focus(locator) => {
             let id = window
@@ -590,7 +667,7 @@ async fn run_step(
                     describe(locator)
                 )));
             }
-            settle(window, 1, options.timeout, cx).await
+            await_painted(window, options.timeout, cx).await
         }
         Command::PressKey(key) => {
             // The chord the production keymap binds for this activation key, so
@@ -601,7 +678,7 @@ async fn run_step(
                 crate::bridge::ControlKey::Space => "space",
             };
             dispatch_chord(window, chord, cx)?;
-            settle(window, 1, options.timeout, cx).await
+            await_painted(window, options.timeout, cx).await
         }
         Command::Type(text) => {
             for character in text.chars() {
@@ -610,13 +687,16 @@ async fn run_step(
                     window.dispatch_keystroke(keystroke, cx);
                 })
                 .map_err(|_| StepError::WindowClosed)?;
-                settle(window, 1, options.timeout, cx).await?;
+                // A keystroke changes the graph synchronously and enqueues no
+                // task, so waiting on task counters would be waiting for
+                // nothing. Wait for the window to have drawn the character.
+                await_painted(window, options.timeout, cx).await?;
             }
             Ok(())
         }
         Command::Key(chord) => {
             dispatch_chord(window, chord, cx)?;
-            settle(window, 1, options.timeout, cx).await
+            await_painted(window, options.timeout, cx).await
         }
         Command::Resize { width, height } => {
             cx.update_window(window.into(), |_, window, _| {
@@ -641,6 +721,7 @@ async fn run_step(
             .update(cx, |runtime, _, _| resolve(runtime, locator).map(|_| ()))
             .map_err(|_| StepError::WindowClosed)?,
         Command::ExpectOnScreen(locator) => {
+            await_painted(window, options.timeout, cx).await?;
             let viewport = viewport_rect(window, cx)?;
             window
                 .update(cx, |runtime, _, _| {
@@ -648,10 +729,12 @@ async fn run_step(
                 })
                 .map_err(|_| StepError::WindowClosed)?
         }
-        Command::ExpectRenderedCount(locator, expected) => window
+        Command::ExpectRenderedCount(locator, expected) => {
+            await_painted(window, options.timeout, cx).await?;
+            window
             .update(cx, |runtime, _, _| {
                 let ids = runner::matches(&runtime.graph, locator);
-                let painted = probe::laid_out_count(&ids);
+                let painted = runtime.painted().map_err(stale)?.laid_out_count(&ids);
                 if painted == *expected {
                     Ok(())
                 } else {
@@ -661,13 +744,17 @@ async fn run_step(
                     )))
                 }
             })
-            .map_err(|_| StepError::WindowClosed)?,
-        Command::ExpectBounds(locator, expectation) => window
-            .update(cx, |runtime, _, _| {
-                let bounds = painted_bounds(runtime, locator)?;
-                check_bounds(&describe(locator), bounds, expectation)
-            })
-            .map_err(|_| StepError::WindowClosed)?,
+            .map_err(|_| StepError::WindowClosed)?
+        }
+        Command::ExpectBounds(locator, expectation) => {
+            await_painted(window, options.timeout, cx).await?;
+            window
+                .update(cx, |runtime, _, _| {
+                    let bounds = painted_bounds(runtime, locator)?;
+                    check_bounds(&describe(locator), bounds, expectation)
+                })
+                .map_err(|_| StepError::WindowClosed)?
+        }
         // Focus in a real window is answered by the focus handle the host
         // actually uses, rather than by a model of it.
         Command::ExpectFocused(locator) => window
@@ -743,6 +830,40 @@ async fn run_step(
             Err(detail) => Err(StepError::Geometry(detail)),
             Ok(()) => next_frame(window, cx).await,
         },
+        Command::AwaitCount(locator, expected) => {
+            // A terminal answers on its own schedule, not the window's, so this
+            // presents frames until the graph holds what the step names rather
+            // than until the window merely looks quiet.
+            let deadline = std::time::Instant::now() + options.timeout;
+            loop {
+                let found = window
+                    .update(cx, |runtime, _, _| {
+                        runner::matches(&runtime.graph, locator).len()
+                    })
+                    .map_err(|_| StepError::WindowClosed)?;
+                if found == *expected {
+                    // The graph holding it is not the same as the window having
+                    // drawn it, and the next step may ask where it is.
+                    await_painted(window, options.timeout, cx).await?;
+                    let drawn = window
+                        .update(cx, |runtime, _, _| {
+                            runner::matches(&runtime.graph, locator).len()
+                        })
+                        .map_err(|_| StepError::WindowClosed)?;
+                    if drawn == *expected {
+                        break Ok(());
+                    }
+                }
+                if std::time::Instant::now() >= deadline {
+                    break Err(StepError::Geometry(format!(
+                        "{} matched {found} nodes, expected {expected} within {}ms",
+                        describe(locator),
+                        options.timeout.as_millis()
+                    )));
+                }
+                next_frame(window, cx).await?;
+            }
+        }
         // Unreachable: `spec::check_runner` refuses a specification whose
         // steps this runner does not implement, so the refusal happens before
         // the window opens rather than part-way through a run.
@@ -847,7 +968,11 @@ fn scroll_region(
             }
             // A scroll region lays every child out, below the fold included, so
             // the distance to travel is real geometry rather than an estimate.
-            let bounds = probe::bounds(target_id)
+            // It is read from the frame the preceding step settled, because a
+            // graph the window has not drawn cannot say where anything is.
+            let frame = runtime.painted().map_err(stale)?;
+            let bounds = frame
+                .bounds(target_id)
                 .ok_or_else(|| StepError::NotPainted(describe(target)))?;
             let viewport = Rect::from_gpui(tracker.viewport());
             tracker.scroll_by(point(px(axis_delta(bounds.left, bounds.right, viewport.left, viewport.right)), px(axis_delta(bounds.top, bounds.bottom, viewport.top, viewport.bottom))));
@@ -990,9 +1115,10 @@ fn region_rect(
                 .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
                 .map(Rect::from_gpui)
                 .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+            let frame = runtime.painted().map_err(stale)?;
             let mut clip = viewport;
             for ancestor in runtime.graph.scroll_ancestors(canvas) {
-                if let Some(rect) = node_rect(runtime, ancestor) {
+                if let Some(rect) = node_rect(runtime, &frame, ancestor) {
                     clip = clip.intersect(rect).ok_or(StepError::OffScreen {
                         locator: describe(locator),
                         bounds: canvas_rect,
@@ -1033,7 +1159,7 @@ fn take_screenshot(
     options: &Options,
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
-    let geometry = window
+    let (geometry, native) = window
         .update(cx, |runtime, window, _| {
             let size = window.viewport_size();
             let viewport = Rect {
@@ -1043,26 +1169,47 @@ fn take_screenshot(
                 bottom: f32::from(size.height),
             };
             let region = region_rect(runtime, &request.region, viewport)?;
-            let frame = window.bounds();
-            Ok::<_, StepError>(screenshot::screen_rect(
+            // Windows photographs the client area itself, so the region stays
+            // relative to it; elsewhere the capture tool takes screen space.
+            #[cfg(windows)]
+            let frame = (0.0, 0.0, viewport.right, viewport.bottom);
+            #[cfg(not(windows))]
+            let frame = {
+                let frame = window.bounds();
                 (
                     f32::from(frame.origin.x),
                     f32::from(frame.origin.y),
                     f32::from(frame.size.width),
                     f32::from(frame.size.height),
+                )
+            };
+            Ok::<_, StepError>((
+                screenshot::screen_rect(
+                    frame,
+                    (viewport.right, viewport.bottom),
+                    region,
+                    request.pad as f32,
                 ),
-                (viewport.right, viewport.bottom),
-                region,
-                request.pad as f32,
+                native_window(window),
             ))
         })
         .map_err(|_| StepError::WindowClosed)??;
 
     let file_name = format!("{ordinal:02}-{}.png", request.name);
     let destination = options.shot_dir.join(&file_name);
-    let result = match geometry {
-        Some(geometry) => screenshot::capture(geometry, &destination),
-        None => Err(screenshot::ShotError::DegenerateRegion),
+    // Windows captures by asking the window to render, which is a message the
+    // window's own thread answers. This step runs on that thread; driving it
+    // from the background executor would wait for a pump that may never come.
+    let result = match (geometry, native) {
+        (None, _) => Err(screenshot::ShotError::DegenerateRegion),
+        #[cfg(windows)]
+        (Some(geometry), Some((hwnd, scale))) => {
+            screenshot::capture_window(hwnd, scale, geometry, &destination)
+        }
+        #[cfg(windows)]
+        (Some(_), None) => Err(screenshot::ShotError::UnsupportedPlatform),
+        #[cfg(not(windows))]
+        (Some(geometry), ()) => screenshot::capture(geometry, &destination),
     };
     match result {
         Ok(bytes) => Ok(Some(ShotRecord {
@@ -1082,6 +1229,20 @@ fn take_screenshot(
         })),
     }
 }
+
+/// The native window and its scale factor, which a Windows capture needs.
+#[cfg(windows)]
+fn native_window(window: &gpui::Window) -> Option<(isize, f32)> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    // `Window` has an inherent `window_handle` for GPUI's own handle.
+    match HasWindowHandle::window_handle(window).ok()?.as_raw() {
+        RawWindowHandle::Win32(handle) => Some((handle.hwnd.get(), window.scale_factor())),
+        _ => None,
+    }
+}
+
+#[cfg(not(windows))]
+fn native_window(_window: &gpui::Window) {}
 
 fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rect, StepError> {
     window
@@ -1107,6 +1268,7 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
             window: None,
             scale_factor: 1.0,
             failed: false,
+            unavailable_shots: 0,
         };
 
         // Let the first real frame land before anything is asserted about it.
@@ -1132,18 +1294,20 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
         if !outcome.failed {
             for (ordinal, step) in spec.steps.iter().enumerate() {
                 match run_step(step, ordinal, window, &options, cx).await {
-                    Ok(shot) => outcome.steps.push(StepRecord {
-                        ordinal,
-                        line: step.line,
-                        kind: step.command.kind(),
-                        status: if shot.as_ref().is_some_and(|shot| shot.file.is_none()) {
-                            "unavailable"
-                        } else {
-                            "pass"
-                        },
-                        message: None,
-                        shot,
-                    }),
+                    Ok(shot) => {
+                        let missing = shot.as_ref().is_some_and(|shot| shot.file.is_none());
+                        if missing {
+                            outcome.unavailable_shots += 1;
+                        }
+                        outcome.steps.push(StepRecord {
+                            ordinal,
+                            line: step.line,
+                            kind: step.command.kind(),
+                            status: if missing { "unavailable" } else { "pass" },
+                            message: None,
+                            shot,
+                        })
+                    }
                     Err(error) => {
                         outcome.failed = true;
                         outcome.steps.push(StepRecord {
@@ -1306,4 +1470,3 @@ mod tests {
         assert!(message.contains("not on screen"), "{message}");
     }
 }
-

@@ -137,9 +137,12 @@ def verified_hosts(lock_path, cache, root=ROOT, targets=None):
 
 def stage_candidate_dependencies(target, destination, root=ROOT):
     """Fetch independently verified link inputs into an empty candidate target."""
-    from prepare_dependencies import install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon
+    from prepare_dependencies import (
+        install_alsa, install_freetype, install_glibc, install_unwind, install_windows_gnu, install_xkbcommon,
+    )
 
-    installers = {"x64glibc": (install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon)}
+    installers = {"x64glibc": (install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon),
+                  "x64mingw": (install_windows_gnu,)}
     if target not in installers:
         raise ValueError("candidate target has no independent dependency release policy")
     destination.mkdir(parents=True, exist_ok=False)
@@ -155,7 +158,8 @@ def stage_candidate_dependencies(target, destination, root=ROOT):
 
 def check_candidate(archive, target, roc, root=ROOT, source_companion=None):
     """Run the counter specification using the exact extracted native host."""
-    native = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac"}
+    native = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac",
+              ("Windows", "AMD64"): "x64mingw"}
     import platform as system_platform
     if target != native.get((system_platform.system(), system_platform.machine())):
         raise ValueError("host candidates must be checked on their native target")

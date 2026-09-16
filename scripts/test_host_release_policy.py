@@ -32,6 +32,27 @@ class HostReleasePolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "captured build receipt"):
             validate_outputs(receipt, "x64glibc", "f" * 64, cargo, {"libhost.a": b"replacement"})
 
+    def test_released_windows_host_names_the_inventory_it_was_separated_against(self):
+        import install_released_host
+
+        digest = install_released_host.inventory_digest({"b": ["two"], "a": 1})
+        self.assertEqual(
+            digest,
+            host_notice_payload.digest(json.dumps({"b": ["two"], "a": 1}, sort_keys=True).encode()),
+            "the guard must identify an inventory exactly as the separation recorded it",
+        )
+        receipt = {"archives": {"libhost.a": {"separation": {"inventory_sha256": digest}}}}
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = Path(temporary)
+            notices = tree / "licenses/gui-host"
+            notices.mkdir(parents=True)
+            # A host with no notice archive records no separation to compare.
+            self.assertIsNone(install_released_host.recorded_inventory_digest(tree))
+            (notices / "third-party-notices.tar.xz").write_bytes(
+                host_notice_payload.pack_notices({"normalization.json": json.dumps(receipt).encode()})
+            )
+            self.assertEqual(install_released_host.recorded_inventory_digest(tree), digest)
+
     def test_notice_archive_rejects_missing_or_changed_index(self):
         packed = host_notice_payload.pack_notices({"LICENSE": b"terms"})
         self.assertIn("LICENSE", host_notice_payload.validate_notice_archive(packed))
@@ -56,9 +77,10 @@ class HostReleasePolicyTests(unittest.TestCase):
             root = Path(temporary) / "checkout"
             root.mkdir()
             reject_private_paths(b"ordinary archive", root, Path(temporary) / "home")
-            with self.assertRaisesRegex(ValueError, "private checkout"):
+            # A refusal names the identity it found, so a build log says which.
+            with self.assertRaisesRegex(ValueError, "private path: the checkout"):
                 reject_private_paths((str(root) + "/src/lib.rs").encode(), root, Path(temporary) / "home")
-            with self.assertRaisesRegex(ValueError, "private checkout"):
+            with self.assertRaisesRegex(ValueError, "private path: a user home"):
                 reject_private_paths(b"/Users/runner/upstream/toolchain.rs", root, Path(temporary) / "home")
 
 

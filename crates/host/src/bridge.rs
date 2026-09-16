@@ -290,30 +290,20 @@ impl NodeKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Length {
+    #[default]
     Auto,
     Fill,
     Px(u32),
 }
 
-impl Default for Length {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Overflow {
+    #[default]
     Visible,
     Clip,
     Scroll,
-}
-
-impl Default for Overflow {
-    fn default() -> Self {
-        Self::Visible
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -723,10 +713,10 @@ impl MountedGraph {
             if matches!(entry.node.kind, NodeKind::VirtualList { .. }) {
                 let mut pending = entry.node.children.clone();
                 while let Some(id) = pending.pop() {
-                    if result.insert(id) {
-                        if let Some(child) = self.nodes.get(&id) {
-                            pending.extend(child.node.children.iter().copied());
-                        }
+                    if result.insert(id)
+                        && let Some(child) = self.nodes.get(&id)
+                    {
+                        pending.extend(child.node.children.iter().copied());
                     }
                 }
             }

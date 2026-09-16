@@ -13,7 +13,15 @@ import tomllib
 from host_build_identity import source_fingerprint
 from prepare_dependencies import cargo_environment
 
-TARGETS = {"x64glibc": "x86_64-unknown-linux-gnu", "arm64mac": "aarch64-apple-darwin"}
+TARGETS = {"x64glibc": "x86_64-unknown-linux-gnu", "arm64mac": "aarch64-apple-darwin",
+           "x64mingw": "x86_64-pc-windows-gnullvm"}
+# The Windows host cross-compiles: Rust runs as an MSVC-hosted compiler and
+# emits the GNU target Zig links. Every other target builds for its own host.
+COMPILER_HOSTS = {"x64mingw": "x86_64-pc-windows-msvc"}
+
+
+def compiler_host(target):
+    return COMPILER_HOSTS.get(target, TARGETS[target])
 
 
 def metadata_graph(data):
@@ -188,11 +196,14 @@ def sanitized_messages(data, replacements):
 def reject_private_paths(data, root, user_home=None):
     """Do not publish build outputs containing checkout or user-home identity."""
     home = user_home or Path.home()
-    prefixes = {str(root.absolute()), str(root.resolve()), str(home.absolute()), str(home.resolve()),
-                "/Users/", "/home/"}
-    found = [prefix for prefix in prefixes if prefix.encode() in data]
+    # Naming which identity was found turns a refusal into something a build
+    # log can act on, without repeating the path itself.
+    prefixes = {str(root.absolute()): "the checkout", str(root.resolve()): "the checkout",
+                str(home.absolute()): "a user home", str(home.resolve()): "a user home",
+                "/Users/": "a user home", "/home/": "a user home"}
+    found = sorted({name for prefix, name in prefixes.items() if prefix.encode() in data})
     if found:
-        raise ValueError("Cargo host embeds a private checkout or user-home path")
+        raise ValueError("Cargo host embeds a private path: " + " and ".join(found))
 
 
 def macos_shaders(metadata, messages, target_directory, toolchain, host_digest):
@@ -228,12 +239,23 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
     fingerprint = source_fingerprint(root)
     if expected_fingerprint is not None and fingerprint != expected_fingerprint:
         raise ValueError("host source changed before Cargo build")
-    version = subprocess.check_output(["rustc", "--version", "--verbose"], env=environment, text=True)
-    if not version.startswith("rustc 1.95.0 ") or "host: " + TARGETS[target] not in version.splitlines():
+    # The Windows recipe pins the toolchain itself; ask it the same question.
+    probe = dict(environment, RUSTUP_TOOLCHAIN="1.95.0") if target == "x64mingw" else environment
+    version = subprocess.check_output(["rustc", "--version", "--verbose"], env=probe, text=True)
+    if not version.startswith("rustc 1.95.0 ") or "host: " + compiler_host(target) not in version.splitlines():
         raise ValueError("host notice evidence requires native Rust 1.95.0")
     lock = (root / "Cargo.lock").read_bytes()
     output.parent.mkdir(parents=True, exist_ok=True)
-    cargo_home = Path("/tmp/roc-gui-cargo-home-v1")
+    # Windows compiles C sources through Zig, which records their paths in the
+    # archive, so the registry and the build both live somewhere that belongs
+    # to neither the checkout nor anyone's home. CI names that place; a
+    # developer can name their own.
+    if sys.platform == "win32":
+        scratch_base = (environment.get("RUNNER_TEMP") or environment.get("ROC_GUI_WINDOWS_BUILD_DIR")
+                        or tempfile.gettempdir())
+    else:
+        scratch_base = "/tmp"
+    cargo_home = Path(scratch_base) / "roc-gui-cargo-home-v1"
     cargo_home.mkdir(mode=0o755, parents=True, exist_ok=True)
     remaps = []
     for source, destination in ((root.absolute(), "/workspace"), (root.resolve(), "/workspace"),
@@ -265,24 +287,58 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
         stage = Path(temporary) / "evidence"
         stage.mkdir()
         raw_messages_path = Path(temporary) / "cargo.raw.jsonl"
-        with raw_messages_path.open("wb") as messages, cargo_environment(environment, target):
-            completed = subprocess.run(["cargo", "build", "--locked", "-p", "roc-gui-host", "--lib", "--release",
-                                       "-j", str(jobs), "--message-format=json-render-diagnostics"],
-                                      cwd=root, env=environment, stdout=messages)
-        raw_messages = raw_messages_path.read_bytes()
+        windows_payload = None
+        completed = None
+        if target == "x64mingw":
+            # The Windows host links through pinned Zig and compiles its shaders
+            # with the reviewed FXC, so its own recipe runs Cargo and this
+            # capture retains the messages that build emitted.
+            from windows_gnu_build import execute as build_windows_host
+            # The payload outlives this capture: the caller copies the archive
+            # and its resource after the evidence directory is in place, so the
+            # build keeps its own scratch until this process exits.
+            # The archive keeps the name of the directory it was built in, so
+            # the build shares the neutral base chosen for the registry above.
+            scratch = tempfile.TemporaryDirectory(prefix="roc-gui-windows-host-", dir=scratch_base)
+            atexit.register(scratch.cleanup)
+            windows_build = Path(scratch.name) / "build"
+            windows_payload, _zig, environment = build_windows_host(
+                windows_build, jobs=jobs,
+                cargo_target=Path(scratch.name) / "cargo-target",
+                extra_env={key: environment[key] for key in
+                           ("CARGO_HOME", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS")})
+            raw_messages = (windows_build / "cargo.jsonl").read_bytes()
+            raw_messages_path.write_bytes(raw_messages)
+        else:
+            with raw_messages_path.open("wb") as messages, cargo_environment(environment, target):
+                completed = subprocess.run(["cargo", "build", "--locked", "-p", "roc-gui-host", "--lib", "--release",
+                                           "-j", str(jobs), "--message-format=json-render-diagnostics"],
+                                          cwd=root, env=environment, stdout=messages)
+            raw_messages = raw_messages_path.read_bytes()
         for line in raw_messages.splitlines():
             if line.startswith(b"{"):
                 message = json.loads(line)
                 if message.get("reason") == "compiler-message" and message["message"].get("rendered"):
                     print(message["message"]["rendered"], file=sys.stderr, end="")
-        completed.check_returncode()
+        if completed is not None:
+            completed.check_returncode()
+        # A cross-compiled build also compiles packages for the platform the
+        # compiler itself runs on: the Windows host's build scripts locate
+        # Visual Studio and read the registry through msvc-only crates that a
+        # filter on the GNU target prunes. Cargo's unfiltered answer bounds
+        # both platforms, and package selection still comes from what this
+        # build actually compiled, each bound to its Cargo.lock identity.
+        platform_filter = [] if target == "x64mingw" else ["--filter-platform", TARGETS[target]]
         raw_metadata = subprocess.check_output(["cargo", "metadata", "--locked", "--format-version=1",
-                                                "--filter-platform", TARGETS[target]], cwd=root, env=environment)
+                                                *platform_filter], cwd=root, env=environment)
         if lock != (root / "Cargo.lock").read_bytes():
             raise ValueError("Cargo.lock changed during the host build")
         host_name = "libhost.a"
         host = Path(json.loads(raw_metadata)["target_directory"])
-        host = host / "release" / host_name
+        # A cross-compiled build nests its profile under the target triple, and
+        # the Windows recipe hands back a copy of what Cargo emitted there.
+        host = host / TARGETS[target] / "release" / host_name if windows_payload is not None \
+            else host / "release" / host_name
         emitted = set()
         for line in raw_messages.splitlines():
             if line.startswith(b"{"):
@@ -293,13 +349,17 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
                     emitted.update(Path(name).resolve() for name in message["filenames"])
         if host.resolve() not in emitted:
             raise ValueError("Cargo emitted a different host path; explicit target overrides require review")
+        if windows_payload is not None:
+            if (windows_payload / host_name).read_bytes() != host.read_bytes():
+                raise ValueError("Windows payload differs from the archive Cargo emitted")
+            host = windows_payload / host_name
         if source_fingerprint(root) != fingerprint:
             raise ValueError("host source changed during Cargo build")
         replacements = [(str(root.resolve()), "$WORKSPACE")]
         cargo_home = environment.get("CARGO_HOME")
         if cargo_home:
             replacements.append((str(Path(cargo_home).resolve()), "$CARGO_HOME"))
-        if apple_tools is not None:
+        if apple_tools is not None or windows_payload is not None:
             replacements.append((str(Path(environment["CARGO_TARGET_DIR"]).resolve()), "$CARGO_TARGET_DIR"))
         replacements.append((str(Path.home().resolve()), "$USER_HOME"))
         replacements.sort(key=lambda item: len(item[0]), reverse=True)

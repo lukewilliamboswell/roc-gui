@@ -122,12 +122,10 @@ pub enum Runner {
 
 impl Capability {
     pub fn permits(self, runner: Runner) -> bool {
-        match (self, runner) {
-            (Self::Both, _) => true,
-            (Self::Semantic, Runner::Semantic) => true,
-            (Self::Window, Runner::Window) => true,
-            _ => false,
-        }
+        matches!(
+            (self, runner),
+            (Self::Both, _) | (Self::Semantic, Runner::Semantic) | (Self::Window, Runner::Window)
+        )
     }
 
     pub fn label(self) -> &'static str {
@@ -162,6 +160,13 @@ pub enum Command {
     Focus(Locator),
     PressKey(ControlKey),
     AwaitTask,
+    /// Resolve task completions until the locator matches this many nodes.
+    ///
+    /// Output arrives in as many tasks as the platform decides: a console
+    /// flushes what it has when it has it. A specification that counts task
+    /// completions is asserting a fact about that chunking rather than about
+    /// the application, so this waits for the graph to say what it means.
+    AwaitCount(Locator, usize),
     ClipboardText(String),
     AwaitTicks(u32),
     ExpectSubscriptions(usize),
@@ -333,6 +338,7 @@ impl Command {
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
+            Self::AwaitCount(_, _) => "await-count",
             Self::ClipboardText(_) => "clipboard-text",
             Self::AwaitTicks(_) => "await-ticks",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
@@ -416,6 +422,7 @@ impl Command {
             // clipboard-driven application, and so could not photograph one.
             | Self::ClipboardText(_)
             | Self::AwaitTicks(_)
+            | Self::AwaitCount(_, _)
             | Self::ExpectVisible(_)
             | Self::ExpectFocused(_)
             | Self::ExpectNotVisible(_)
@@ -470,6 +477,7 @@ impl Command {
                 | Self::Focus(_)
                 | Self::PressKey(_)
                 | Self::AwaitTask
+                | Self::AwaitCount(_, _)
                 | Self::ClipboardText(_)
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
@@ -1040,6 +1048,14 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "await-task" if values.len() == 1 => Command::AwaitTask,
+        "await-count" if values.len() == 3 => {
+            let expected = values[2]
+                .atom()
+                .ok_or_else(|| error(&values[2], "await-count requires a non-negative integer"))?
+                .parse::<usize>()
+                .map_err(|_| error(&values[2], "await-count requires a non-negative integer"))?;
+            Command::AwaitCount(parse_locator(&values[1])?, expected)
+        }
         "type" if values.len() == 2 => {
             let text = values[1]
                 .string()
@@ -1495,6 +1511,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "focus"
         | "press-key"
         | "await-task"
+        | "await-count"
         | "clipboard-text"
         | "await-ticks"
         | "expect-subscriptions"
@@ -2428,6 +2445,18 @@ mod tests {
     fn rejects_window_scenarios_explicitly() {
         let error = parse(r#"(scenario "window" (steps))"#).unwrap_err();
         assert!(error.message.contains("must start with (test"));
+    }
+
+    #[test]
+    fn await_count_waits_for_a_locator_on_either_runner() {
+        let spec = parse(r#"(test "s" (steps (await-count (text "Ready") 3)))"#).unwrap();
+        assert_eq!(spec.steps[0].command.kind(), "await-count");
+        assert!(matches!(spec.steps[0].command, Command::AwaitCount(_, 3)));
+        // Both runners wait; neither has to predict how many tasks that takes.
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(parse(r#"(test "s" (steps (await-count (text "Ready"))))"#).is_err());
+        assert!(parse(r#"(test "s" (steps (await-count (text "Ready") -1)))"#).is_err());
     }
 
     #[test]

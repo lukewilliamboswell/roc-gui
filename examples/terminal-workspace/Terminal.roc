@@ -46,7 +46,35 @@ err_message = |err| match err {
 	_ => "Terminal operation failed"
 }
 
-append_bytes = |state, bytes| match Str.from_utf8(bytes) {
+## Keeps the printable text of a terminal byte stream. Programs in a PTY may
+## emit VT control sequences, and a Windows pseudo console renders all output
+## with cursor, erase, and title sequences, so scrollback shows only the text.
+plain_text = |bytes| {
+	var $text = []
+	var $mode = 0
+	for byte in bytes {
+		if $mode == 1 {
+			$mode = if byte == 91 { 2 } else if byte == 93 { 3 } else { 0 }
+		} else if $mode == 2 {
+			if byte >= 64 and byte <= 126 {
+				$mode = 0
+			}
+		} else if $mode == 3 {
+			if byte == 7 {
+				$mode = 0
+			} else if byte == 27 {
+				$mode = 1
+			}
+		} else if byte == 27 {
+			$mode = 1
+		} else if byte != 13 {
+			$text = $text.append(byte)
+		}
+	}
+	$text
+}
+
+append_bytes = |state, bytes| match Str.from_utf8(plain_text(bytes)) {
 	Err(_) => { ..state, status: "Invalid UTF-8 from child", tone: Refused }
 	Ok(text) => { ..state, lines: state.lines.concat(Str.split_on(text, "\n")), status: "Session active", tone: Attached }
 }

@@ -8,8 +8,9 @@
     (expect-on-screen (text "No folder open"))
     (screenshot "empty")
     (click (role button :name "Open image folder"))
-    (await-task)
-    (settle)
+    ; The scan lands when it lands: wait for the tally it produces rather than
+    ; for a settle that cannot know the task finished.
+    (await-count (text "27 of 27 entries") 1)
     (expect-on-screen (text "27 of 27 entries"))
     (screenshot "populated")
     (focus (role textbox :name "Filter images"))

@@ -520,6 +520,7 @@ fn open_selected(path: std::path::PathBuf) -> PortalSelection {
 
 /// Ask the running window for a directory through the operating system's own
 /// chooser. Used where the host has no portal broker to ask.
+#[cfg(not(target_os = "linux"))]
 fn native_directory() -> PortalSelection {
     let requests = {
         let guard = chooser().lock().expect("chooser seam poisoned");
@@ -543,13 +544,17 @@ fn native_directory() -> PortalSelection {
 }
 
 fn chooser_directory() -> PortalSelection {
-    if cfg!(target_os = "macos") {
-        native_directory()
-    } else {
+    #[cfg(target_os = "linux")]
+    {
         portal_directory()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        native_directory()
     }
 }
 
+#[cfg(target_os = "linux")]
 fn portal_directory() -> PortalSelection {
     async_std::task::block_on(async {
         use ashpd::desktop::{ResponseError, file_chooser::SelectedFiles};
@@ -583,6 +588,12 @@ fn portal_directory() -> PortalSelection {
         open_selected(path)
     })
 }
+
+/// Choosers answered by GPUI's native dialog on the UI thread. `None` means the
+/// user dismissed the dialog; `Err` that the platform could not show one.
+#[cfg(not(target_os = "linux"))]
+#[cfg(not(target_os = "linux"))]
+#[cfg(not(target_os = "linux"))]
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_pick_directory() -> InternalFilesPickDirectoryResult {
