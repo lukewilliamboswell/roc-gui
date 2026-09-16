@@ -3,9 +3,16 @@ import pf.Action
 import pf.Files
 
 Settings := [].{
-	Setting : { id : U64, name : Str }
+	## A catalogue row is a name, the category that owns it, and one line saying
+	## what the setting actually does. The category used to be glued onto the
+	## front of every name — "Appearance — Color theme" — which repeated the same
+	## word down a whole column and left nothing to distinguish one row from the
+	## next but its tail. Holding it as its own field lets the category filter be
+	## a filter and lets the row carry a summary instead of a prefix.
+	Setting : { id : U64, category : Str, name : Str, summary : Str }
 
 	State : {
+		category : Str,
 		disabled_value : Str,
 		dialog_open : Bool,
 		draft_name : Str,
@@ -21,6 +28,7 @@ Settings := [].{
 
 	initial : State
 	initial = {
+		category: "",
 		dialog_open: False,
 		disabled_value: "locked",
 		draft_name: "Default profile",
@@ -36,19 +44,41 @@ Settings := [].{
 
 	settings : List(Setting)
 	settings = [
-		{ id: 0, name: "Appearance — Color theme" },
-		{ id: 1, name: "Appearance — Interface scale" },
-		{ id: 2, name: "Appearance — Reduced motion" },
-		{ id: 3, name: "Editor — Font size" },
-		{ id: 4, name: "Editor — Line wrapping" },
-		{ id: 5, name: "Editor — Autosave" },
-		{ id: 6, name: "Privacy — Usage diagnostics" },
-		{ id: 7, name: "Privacy — Crash reports" },
-		{ id: 8, name: "Privacy — Recent files" },
-		{ id: 9, name: "Notifications — Task completion" },
-		{ id: 10, name: "Notifications — Update available" },
-		{ id: 11, name: "Notifications — Do not disturb" },
+		{ id: 0, category: "Appearance", name: "Color theme", summary: "Light, dark, or follow the system" },
+		{ id: 1, category: "Appearance", name: "Interface scale", summary: "Size of every control and label" },
+		{ id: 2, category: "Appearance", name: "Reduced motion", summary: "Replace animated transitions with cuts" },
+		{ id: 3, category: "Editor", name: "Font size", summary: "Point size of editor text" },
+		{ id: 4, category: "Editor", name: "Line wrapping", summary: "Wrap long lines at the viewport edge" },
+		{ id: 5, category: "Editor", name: "Autosave", summary: "Write changes without an explicit save" },
+		{ id: 6, category: "Privacy", name: "Usage diagnostics", summary: "Share anonymous interaction counts" },
+		{ id: 7, category: "Privacy", name: "Crash reports", summary: "Send a stack trace after an unexpected exit" },
+		{ id: 8, category: "Privacy", name: "Recent files", summary: "Remember the last documents you opened" },
+		{ id: 9, category: "Notifications", name: "Task completion", summary: "Notify when a long task finishes" },
+		{ id: 10, category: "Notifications", name: "Update available", summary: "Notify when a new version is ready" },
+		{ id: 11, category: "Notifications", name: "Do not disturb", summary: "Hold every notification until you return" },
 	]
+
+	categories : List(Str)
+	categories = ["Appearance", "Editor", "Privacy", "Notifications"]
+
+	## The catalogue is narrowed by two independent controls that compose: a
+	## category chip and a search string. Selecting a category used to *be* a
+	## search for the category's own name, which only worked because the name
+	## was prefixed onto every row, and which meant a category and a query could
+	## never be held at once.
+	matches : Setting, Str, Str -> Bool
+	matches = |setting, category, search| {
+		in_category = category == "" or setting.category == category
+		in_search =
+			search == ""
+			or setting.name.contains(search)
+			or setting.summary.contains(search)
+			or setting.category.contains(search)
+		in_category and in_search
+	}
+
+	visible : Str, Str -> List(Setting)
+	visible = |category, search| settings.keep_if(|setting| matches(setting, category, search))
 
 	preference_error_message = |error| match error {
 		OpenAppDataErr(AccessDenied) => "Preferences storage was not granted"
