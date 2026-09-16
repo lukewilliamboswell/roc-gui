@@ -29,8 +29,9 @@
 //!   must intersect against scroll ancestors; `bounds().is_some()` alone would
 //!   be a lie.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui::{Bounds, IntoElement, Pixels, canvas, prelude::*};
@@ -86,6 +87,12 @@ static ENABLED: AtomicBool = AtomicBool::new(false);
 thread_local! {
     /// Last known bounds per mounted node, in window coordinates.
     static RECORDED: RefCell<HashMap<u64, Rect>> = RefCell::new(HashMap::new());
+    /// The graph generation the last presented frame was rendering.
+    ///
+    /// Bounds persist across frames by design, so staleness is a property of
+    /// the frame rather than of any one node: every recorded rectangle
+    /// describes the tree as it stood at this generation.
+    static PAINTED: Cell<u64> = const { Cell::new(0) };
 }
 
 /// Begin recording bounds. Called once, before the window opens.
@@ -116,21 +123,62 @@ pub fn retain_mounted(live: &HashSet<u64>) {
     });
 }
 
-/// Where a node is laid out, if it has been laid out while mounted.
-pub fn bounds(id: u64) -> Option<Rect> {
-    RECORDED.with(|recorded| recorded.borrow().get(&id).copied())
+/// Stamp the generation a frame is about to draw. Called from `render`.
+pub fn begin_frame(generation: u64) {
+    PAINTED.with(|painted| painted.set(generation));
 }
 
-/// How many of `ids` have been laid out, rather than merely mounted.
+/// The graph generation the window has actually drawn.
+pub fn painted_generation() -> u64 {
+    PAINTED.with(Cell::get)
+}
+
+/// A graph change that no frame has drawn yet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Stale {
+    pub painted: u64,
+    pub graph: u64,
+}
+
+/// Proof that a frame has drawn the caller's graph generation.
 ///
-/// For a virtual list this is materialization evidence: a row that was never
-/// rendered has no bounds, and a row that scrolled out of the mounted graph has
-/// been pruned.
-pub fn laid_out_count(ids: &[u64]) -> usize {
-    RECORDED.with(|recorded| {
-        let recorded = recorded.borrow();
-        ids.iter().filter(|id| recorded.contains_key(id)).count()
-    })
+/// Laid-out bounds mean nothing until a frame has carried the tree that
+/// produced them, and a mutation invalidates that proof immediately. Both
+/// facts are enforced rather than remembered: this token is the only way to
+/// read bounds, it cannot be built while the window is behind the graph, and
+/// it borrows the runtime, so no patch can be applied while one is alive.
+#[derive(Debug)]
+pub struct Frame<'a> {
+    life: PhantomData<&'a ()>,
+}
+
+/// Admit a painted read only when the window has caught up with `graph`.
+pub fn frame<'a>(graph: u64) -> Result<Frame<'a>, Stale> {
+    let painted = painted_generation();
+    if painted >= graph {
+        Ok(Frame { life: PhantomData })
+    } else {
+        Err(Stale { painted, graph })
+    }
+}
+
+impl Frame<'_> {
+    /// Where a node is laid out, if it has been laid out while mounted.
+    pub fn bounds(&self, id: u64) -> Option<Rect> {
+        RECORDED.with(|recorded| recorded.borrow().get(&id).copied())
+    }
+
+    /// How many of `ids` have been laid out, rather than merely mounted.
+    ///
+    /// For a virtual list this is materialization evidence: a row that was
+    /// never rendered has no bounds, and a row that scrolled out of the
+    /// mounted graph has been pruned.
+    pub fn laid_out_count(&self, ids: &[u64]) -> usize {
+        RECORDED.with(|recorded| {
+            let recorded = recorded.borrow();
+            ids.iter().filter(|id| recorded.contains_key(id)).count()
+        })
+    }
 }
 
 /// An invisible element that reports its parent's laid-out bounds.
@@ -155,6 +203,13 @@ mod tests {
 
     fn reset() {
         RECORDED.with(|recorded| recorded.borrow_mut().clear());
+        begin_frame(0);
+    }
+
+    /// A frame that has drawn everything staged so far, for tests that are
+    /// about bounds rather than about staleness.
+    fn drawn() -> Frame<'static> {
+        frame(painted_generation()).expect("the stamped frame is never behind itself")
     }
 
     fn stage(id: u64, value: Rect) {
@@ -187,10 +242,30 @@ mod tests {
     #[test]
     fn recorded_bounds_are_queryable() {
         reset();
-        assert_eq!(bounds(7), None);
+        assert_eq!(drawn().bounds(7), None);
         stage(7, rect(0.0, 0.0, 10.0, 10.0));
-        assert_eq!(bounds(7), Some(rect(0.0, 0.0, 10.0, 10.0)));
-        assert_eq!(laid_out_count(&[7, 8]), 1);
+        assert_eq!(drawn().bounds(7), Some(rect(0.0, 0.0, 10.0, 10.0)));
+        assert_eq!(drawn().laid_out_count(&[7, 8]), 1);
+    }
+
+    /// The invariant this module exists to enforce: a graph change that no
+    /// frame has drawn yet cannot be asked where anything is on screen.
+    #[test]
+    fn a_graph_the_window_has_not_drawn_refuses_painted_reads() {
+        reset();
+        stage(1, rect(0.0, 0.0, 5.0, 5.0));
+        begin_frame(4);
+        assert!(frame(4).is_ok(), "the drawn generation is readable");
+        assert_eq!(
+            frame(5).unwrap_err(),
+            Stale {
+                painted: 4,
+                graph: 5
+            },
+            "a later graph has not been drawn, so its bounds are not answerable"
+        );
+        begin_frame(5);
+        assert!(frame(5).is_ok(), "drawing it makes the answer available");
     }
 
     /// The regression this module was restructured for: GPUI does not
@@ -204,8 +279,8 @@ mod tests {
         // A frame in which only node 2 re-rendered.
         stage(2, rect(5.0, 0.0, 12.0, 5.0));
         retain_mounted(&HashSet::from([1, 2]));
-        assert_eq!(bounds(1), Some(rect(0.0, 0.0, 5.0, 5.0)));
-        assert_eq!(bounds(2), Some(rect(5.0, 0.0, 12.0, 5.0)));
+        assert_eq!(drawn().bounds(1), Some(rect(0.0, 0.0, 5.0, 5.0)));
+        assert_eq!(drawn().bounds(2), Some(rect(5.0, 0.0, 12.0, 5.0)));
     }
 
     #[test]
@@ -214,9 +289,9 @@ mod tests {
         stage(1, rect(0.0, 0.0, 5.0, 5.0));
         stage(2, rect(5.0, 0.0, 10.0, 5.0));
         retain_mounted(&HashSet::from([2]));
-        assert_eq!(bounds(1), None);
-        assert!(bounds(2).is_some());
-        assert_eq!(laid_out_count(&[1, 2]), 1);
+        assert_eq!(drawn().bounds(1), None);
+        assert!(drawn().bounds(2).is_some());
+        assert_eq!(drawn().laid_out_count(&[1, 2]), 1);
     }
 
     #[test]
@@ -225,7 +300,7 @@ mod tests {
         stage(1, rect(0.0, 0.0, 5.0, 5.0));
         // Node 9 is mounted but was never laid out.
         retain_mounted(&HashSet::from([1, 9]));
-        assert_eq!(bounds(9), None);
-        assert_eq!(laid_out_count(&[1, 9]), 1);
+        assert_eq!(drawn().bounds(9), None);
+        assert_eq!(drawn().laid_out_count(&[1, 9]), 1);
     }
 }

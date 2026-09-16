@@ -124,11 +124,13 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
 
 
 # TODO: build every application the same way once the Roc optimizing backend
-# stops miscompiling this one. An optimized `folder-browser` fails a few runs in
-# ten, on every platform: it segfaults, crashes with "hit a runtime error", or
-# silently loses a directory listing. `--opt=dev` is clean over 40 runs, and the
-# application measures no benchmark, so its timings are nobody's evidence.
-DEV_BUILD_APPS = frozenset({"folder-browser"})
+# stops miscompiling these. An optimized build fails a few runs in ten, on every
+# platform: it segfaults with an access violation, crashes with "hit a runtime
+# error", or silently loses a directory listing. `--opt=dev` is clean over 40
+# runs, and neither application measures a benchmark, so their timings are
+# nobody's evidence. `file-explorer` joined the list after CI hit the same
+# access violation in `navigation.scm` that `folder-browser` showed first.
+DEV_BUILD_APPS = frozenset({"folder-browser", "file-explorer"})
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
@@ -339,9 +341,23 @@ def run_case(
         # does not produce.
         report = window_artifacts(case) / "report.json"
         try:
-            outcome = json.loads(report.read_text(encoding="utf-8")).get("outcome")
+            written = json.loads(report.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             return case, f"unreadable window report: {error}"
+        outcome = written.get("outcome")
+        # A run that captured no screenshot proved nothing visual. Tolerating
+        # that is a decision this suite makes explicitly, never a silence: the
+        # unavailable steps are named either way.
+        if outcome == "degraded" and allow_missing_shots:
+            missing = [
+                f"{shot.get('name')}: {shot.get('reason')}"
+                for shot in written.get("screenshots", [])
+                if not shot.get("file")
+            ]
+            print(f"DEGRADED {case.spec.relative_to(ROOT)}: "
+                  f"{written.get('unavailable_shots', 0)} screenshot(s) unavailable"
+                  + (f" ({'; '.join(missing)})" if missing else ""), file=sys.stderr)
+            return case, None
         if outcome != "pass":
             return case, f"window report outcome {outcome!r}"
         return case, None

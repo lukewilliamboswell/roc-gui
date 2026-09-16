@@ -78,7 +78,14 @@ jobs:
       # Screenshots stay unavailable on macOS: hosted runners do not grant Screen
       # Recording. Every behavioural window assertion still gates. Windows
       # captures through PrintWindow and needs no permission.
+      # Windows captures through PrintWindow, so a missing screenshot there is a
+      # failure rather than a fact of the runner; only macOS is excused.
       - name: Window specifications
         if: runner.os == 'macOS' || runner.os == 'Windows'
         shell: bash
-        run: python3 scripts/run_specs.py --only window --allow-missing-shots
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            python3 scripts/run_specs.py --only window --allow-missing-shots
+          else
+            python3 scripts/run_specs.py --only window
+          fi
