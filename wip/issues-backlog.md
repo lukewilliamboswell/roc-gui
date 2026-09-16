@@ -101,9 +101,16 @@ the change lands; do not soften the docs to match the gap.
 
 ## Trust: measurements that can mislead a decision
 
-- [ ] **All benchmark captures come from the headless runner.** No GPUI stage is
-  measured. The capture backend is `semantic-headless`. Closes with the
-  end-to-end runner below.
+- [ ] **All benchmark captures come from the headless runner.** Every capture
+  under `benchmarks/` has backend `semantic-headless` and holds no frame
+  evidence: no layout request, no prepaint, no paint, no `gpui_apply_ns`. Frame
+  spans are now recorded wherever a GPUI window draws, but no benchmark reaches
+  one. The end-to-end runner exists and is not the closing piece by itself: it
+  runs exactly one lifecycle with no per-step remount, so `spec::check_runner`
+  refuses benchmark steps there, and `scripts/run_specs.py` gives a window case
+  no `--host-stats-output` because it produces a report rather than a capture.
+  Closes when the window runner can drive warmups, samples, and iterations and
+  writes a capture of its own.
 
 ## Performance findings from the suite
 
@@ -248,8 +255,15 @@ names the evidence so a fix can be verified against the same case.
   laid out from actually visible, but large row cases place targets outside the
   window and the platform still has no scrolling feature to bring them into
   view.
-- [ ] **Layout, paint, and presentation spans** owned by the GPUI side of the
-  host. Presentation may need a Wayland frame callback.
+- [ ] **Layout solve and presentation spans** owned by the GPUI side of the
+  host. The host's own root element now records its layout request, prepaint,
+  and paint for the whole application subtree, one `gpui_frames` row per drawn
+  frame (`crates/host/src/frame_spans.rs`). Two stages remain outside it: taffy
+  solves layout once for the window from GPUI's root element, between the host
+  element's layout request and its prepaint, so no host-owned element is on the
+  stack for it; and `Window::present` and `PlatformWindow::completed_frame` are
+  private to `gpui` 0.2.2. Presentation needs a compositor frame callback, which
+  is a Wayland seam and is not reachable on macOS. Both report `unavailable`.
 - [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
   headless compositor such as sway or cage. For Sway this requires a headless
   wlroots output, software rendering on workers without a GPU, and pointer
@@ -258,6 +272,10 @@ names the evidence so a fix can be verified against the same case.
   are accepted; merely opening a window is insufficient.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
+  Strictly after the entry above: today every benchmark capture is
+  `semantic-headless`, so refusing that backend first would leave the suite with
+  no numbers at all, which is worse than numbers from a backend whose limits the
+  capture states.
 
 - [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a

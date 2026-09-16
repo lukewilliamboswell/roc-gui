@@ -15,6 +15,7 @@ VIEWS = (
     "semantic_health",
     "roc_work",
     "host_gpui_work",
+    "gpui_frame_spans",
     "virtual_list_materialization",
     "process_resources",
     "capture_health",
@@ -32,7 +33,7 @@ def open_readonly(path: Path) -> sqlite3.Connection:
 
 def validate(database: sqlite3.Connection) -> dict[str, str]:
     metadata = dict(database.execute("SELECT key,value FROM metadata"))
-    if metadata.get("schema_version") != "9":
+    if metadata.get("schema_version") != "10":
         raise RuntimeError("unsupported schema version")
     if metadata.get("clean_shutdown") != "1" or metadata.get("final_state") != "complete":
         raise RuntimeError("capture did not finalize cleanly")
@@ -116,7 +117,7 @@ def perspective(path: Path, view: str, aa_bound: Path | None = None) -> str:
         # Validate the capture before a view can label its evidence complete.
         # Views then retain their own per-family status and unavailable reasons.
         metadata = dict(database.execute("SELECT key,value FROM metadata"))
-        if metadata.get("schema_version") != "9":
+        if metadata.get("schema_version") != "10":
             raise RuntimeError("unsupported schema version")
         aa_sql = "SELECT NULL AS trigger, NULL AS spread_ns WHERE 0"
         if aa_bound is not None:
