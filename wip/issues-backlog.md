@@ -440,11 +440,6 @@ names the evidence so a fix can be verified against the same case.
   accessibility API. Close with platform accessibility nodes verified by an
   external accessibility client, while retaining the same semantic names used
   by specifications.
-- [ ] **Focus has no destination when navigation removes the focused control.**
-  An ordinary patch now restores focus by role and stable semantic name when
-  the control remains live, and dialog open and close keep their own policy.
-  What is still unspecified is where focus goes when the focused control is
-  gone from the next graph: it is simply dropped.
 - [ ] **Composite directory navigation has no roving focus.** A user can reach
   and activate every folder with Tab and Enter or Space. Close with a semantic
   list/list-item element whose Up, Down, Home, and End behavior, selected state,

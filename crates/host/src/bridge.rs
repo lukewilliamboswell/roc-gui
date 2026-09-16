@@ -666,6 +666,30 @@ impl MountedGraph {
         })
     }
 
+    /// Every focusable control, in the order Tab visits them.
+    pub fn focus_order(&self) -> Vec<u64> {
+        self.nodes_preorder()
+            .into_iter()
+            .filter_map(|node| node.kind.focus_identity().is_some().then_some(node.id))
+            .collect()
+    }
+
+    /// Where focus should go when the control that had it is gone from this
+    /// graph entirely.
+    ///
+    /// The control held position `was_at` in the previous graph's focus order.
+    /// Focus moves to whatever now occupies that position — which, when a row
+    /// is deleted from a list, is the row that followed it — and to the last
+    /// focusable control when the removed one was at the end. A graph with
+    /// nothing focusable yields nothing, because there is nowhere to go.
+    pub fn focus_destination(&self, was_at: usize) -> Option<u64> {
+        let order = self.focus_order();
+        if order.is_empty() {
+            return None;
+        }
+        Some(order[was_at.min(order.len() - 1)])
+    }
+
     pub fn find_focus_identity(&self, identity: &(u8, String)) -> Option<u64> {
         self.nodes_preorder().into_iter().find_map(|node| {
             (node.kind.focus_identity().as_ref() == Some(identity)).then_some(node.id)
@@ -1293,6 +1317,58 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn focus_moves_to_whatever_took_the_place_of_a_removed_control() {
+        let mut graph = MountedGraph::default();
+        let button = |id: u64, name: &str| Node {
+            id,
+            kind: NodeKind::Button {
+                caption: name.into(),
+                label: name.into(),
+                enabled: true,
+                style: Style::default(),
+            },
+            children: vec![],
+        };
+        let row = |id: u64, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Row {
+                label: String::new(),
+                style: Style::default(),
+            },
+            children,
+        };
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![row(1, vec![2, 3, 4]), button(2, "a"), button(3, "b"), button(4, "c")],
+            })
+            .expect("mount");
+        assert_eq!(graph.focus_order(), vec![2, 3, 4]);
+
+        // "b" had focus, at position 1, and is gone from the next graph.
+        graph
+            .apply(Patch::Replace {
+                old_root: 1,
+                root: 5,
+                nodes: vec![row(5, vec![6, 7]), button(6, "a"), button(7, "c")],
+            })
+            .expect("replace");
+        assert_eq!(
+            graph.focus_destination(1),
+            Some(7),
+            "focus should land on the control that took the removed one's place"
+        );
+        // The last control removed: focus lands on the new last one.
+        assert_eq!(graph.focus_destination(9), Some(7));
+    }
+
+    #[test]
+    fn a_graph_with_nothing_focusable_offers_nowhere_for_focus_to_go() {
+        let graph = MountedGraph::default();
+        assert_eq!(graph.focus_destination(0), None);
+    }
     use super::*;
 
     fn button(label: &str, enabled: bool) -> NodeKind {

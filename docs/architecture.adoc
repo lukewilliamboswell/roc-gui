@@ -125,6 +125,13 @@ click still routes to the live node ID, and a control whose name changed or that
 left the tree has a different identity, gets a different element, and drops the
 press rather than having it misrouted to whatever took its place.
 
+An ordinary patch keeps focus on the control that had it, by its stable role
+and semantic name, even where the node carrying that control is a new one. A
+control that leaves the graph entirely hands focus to whatever now occupies its
+place in the tab order — for a deleted row, the row that followed it, and for
+the last control, the new last one. Focus is dropped only when a graph has
+nothing focusable left, because then there is nowhere for it to go.
+
 While a dialog is mounted, controls outside its graph subtree do not install
 pointer listeners or tab stops. The runtime focuses the first enabled dialog
 control, routes Escape to the dialog node, and restores the opener by its stable

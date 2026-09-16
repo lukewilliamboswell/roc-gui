@@ -1909,6 +1909,9 @@ struct Runtime {
     dialog_return_focus: Option<(u8, String)>,
     last_trigger_focus: Option<(u8, String)>,
     focused_identity: Option<(u64, (u8, String))>,
+    /// The focused control's position in the focus order when it was last
+    /// rendered. It is the only thing that survives the control itself.
+    focused_position: Option<usize>,
     focus_after_render: Option<u64>,
     editors: HashMap<String, Entity<input::TextInput>>,
     canvas_drag: Option<(String, u64)>,
@@ -1942,6 +1945,7 @@ impl Runtime {
             dialog_return_focus: None,
             last_trigger_focus: None,
             focused_identity: None,
+            focused_position: None,
             focus_after_render: None,
             editors: HashMap::new(),
             canvas_drag: None,
@@ -2320,7 +2324,17 @@ impl Runtime {
             _ => {
                 if let Some((id, identity)) = self.focused_identity.clone() {
                     if self.graph.node(id).is_none() {
-                        self.focus_after_render = self.graph.find_focus_identity(&identity);
+                        // The same control under a new id keeps focus. A
+                        // control that is gone hands focus to whatever now
+                        // holds its place, rather than dropping it and
+                        // leaving a person's next Tab starting from nowhere.
+                        self.focus_after_render = self
+                            .graph
+                            .find_focus_identity(&identity)
+                            .or_else(|| {
+                                self.focused_position
+                                    .and_then(|was_at| self.graph.focus_destination(was_at))
+                            });
                     }
                 }
             }
@@ -2717,17 +2731,19 @@ impl Render for Runtime {
                 handle.focus(window);
             }
         }
-        self.focused_identity = self
+        let focused_now = self
             .focus_handles
             .iter()
             .find(|(_, handle)| handle.is_focused(window))
-            .map(|(id, _)| *id)
-            .and_then(|id| {
-                self.graph
-                    .node(id)
-                    .and_then(|node| node.kind.focus_identity())
-                    .map(|identity| (id, identity))
-            });
+            .map(|(id, _)| *id);
+        self.focused_position = focused_now
+            .and_then(|id| self.graph.focus_order().into_iter().position(|other| other == id));
+        self.focused_identity = focused_now.and_then(|id| {
+            self.graph
+                .node(id)
+                .and_then(|node| node.kind.focus_identity())
+                .map(|identity| (id, identity))
+        });
         div()
             .id("roc-gui-root")
             .on_action(|_: &FocusNext, window, _| window.focus_next())
