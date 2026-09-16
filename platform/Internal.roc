@@ -27,6 +27,15 @@ Internal := [].{
 		routes : Index(Route(a)),
 	}
 
+	BuildingOwner : { key : U64, revision : U64, path : List(U64), route_ids : List(U64), children : List(U64) }
+
+	# Keep the active metadata boxed across recursive lowering. With the 09-12
+	# compiler, passing even this slim record by value overflows the normal stack
+	# in deep-1k. Revisit when unboxed lowering passes that spec at the normal limit.
+	BuildingOwners(a) : { stored : Index(BoundaryInfo(a)), active : Box(BuildingOwner) }
+
+	Building(a) : { boundaries : BuildingOwners(a), root : U64, routes : Index(Route(a)) }
+
 	max_style_value = 16384
 
 	color = |value| match value {
@@ -162,9 +171,9 @@ Internal := [].{
 	a,
 	U64,
 	Index(Route(a)),
-	Index(BoundaryInfo(a)),
+	BuildingOwners(a),
 	U64 => {
-		boundaries : Index(BoundaryInfo(a)),
+		boundaries : BuildingOwners(a),
 		routes : Index(Route(a)),
 	}
 	lower_children! = |children, state, active_boundary, routes, boundaries, builder| {
@@ -181,7 +190,7 @@ Internal := [].{
 		{ routes: $routes, boundaries: $boundaries }
 	}
 
-	lower! : Elem(a), a, U64, Index(Route(a)), Index(BoundaryInfo(a)), U64 => Lowered(a)
+	lower! : Elem(a), a, U64, Index(Route(a)), BuildingOwners(a), U64 => Building(a)
 	lower! = |elem, state, active_boundary, routes, boundaries, position| {
 		scope = match Elem.inspect(elem) {
 			Row(value) => Some({ tag: 1.U8, label: value.props.label })
@@ -216,7 +225,7 @@ Internal := [].{
 				lowered = lower_children!(value.children, state, active_boundary, routes, boundaries, builder)
 				style = style_args(value.props)
 				id = Host.node_dialog!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
-				route = { id, boundary: active_boundary, revision: revision(boundaries, active_boundary), fire: |current, _| (value.props.on_dismiss)(current, {}) }
+				route = { id, boundary: active_boundary, revision: (Box.unbox(lowered.boundaries.active)).revision, fire: |current, _| (value.props.on_dismiss)(current, {}) }
 				{ root: id, routes: Index.set(lowered.routes, route.id, route), boundaries: record_route(lowered.boundaries, active_boundary, route.id) }
 			}
 			Panel(value) => {
@@ -373,7 +382,7 @@ Internal := [].{
 		lowered_node
 	}
 
-	lower_leaf! : Elem(a), U64, Index(Route(a)), Index(BoundaryInfo(a)) => Lowered(a)
+	lower_leaf! : Elem(a), U64, Index(Route(a)), BuildingOwners(a) => Building(a)
 	lower_leaf! = |elem, active_boundary, routes, boundaries| match Elem.inspect(elem) {
 		Text(value) => {
 			id = Host.node_text!(value)
@@ -395,7 +404,7 @@ Internal := [].{
 			route = {
 				id,
 				boundary: active_boundary,
-				revision: revision(boundaries, active_boundary),
+				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, _| if button_value.enabled {
 					(button_value.on_press)(current, {})
 				} else {
@@ -461,7 +470,7 @@ Internal := [].{
 			route = {
 				id,
 				boundary: active_boundary,
-				revision: revision(boundaries, active_boundary),
+				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, _| if checkbox_value.enabled {
 					(checkbox_value.on_change)(current, { checked: !checkbox_value.checked })
 				} else {
@@ -476,7 +485,7 @@ Internal := [].{
 			route = {
 				id,
 				boundary: active_boundary,
-				revision: revision(boundaries, active_boundary),
+				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, input| if textarea_value.enabled and !textarea_value.read_only {
 					(textarea_value.on_input)(current, { value: input })
 				} else {
@@ -520,7 +529,7 @@ Internal := [].{
 			route = {
 				id,
 				boundary: active_boundary,
-				revision: revision(boundaries, active_boundary),
+				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, _| {
 					event = Host.canvas_event!()
 					phase = match event.phase {
@@ -545,7 +554,7 @@ Internal := [].{
 			change_route = {
 				id: ids.change,
 				boundary: active_boundary,
-				revision: revision(boundaries, active_boundary),
+				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, input| if input_value.enabled {
 					(input_value.on_change)(current, { value: input })
 				} else {
@@ -556,7 +565,7 @@ Internal := [].{
 			submit_route = {
 				id: ids.submit,
 				boundary: active_boundary,
-				revision: revision(boundaries, active_boundary),
+				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, input| if input_value.enabled {
 					(input_value.on_submit)(current, { value: input })
 				} else {
@@ -572,10 +581,13 @@ Internal := [].{
 	revision : Index(BoundaryInfo(a)), U64 -> U64
 	revision = |boundaries, key| (Index.get(boundaries, key) ?? crash "missing route owner").revision
 
-	record_route : Index(BoundaryInfo(a)), U64, U64 -> Index(BoundaryInfo(a))
+	record_route : BuildingOwners(a), U64, U64 -> BuildingOwners(a)
 	record_route = |boundaries, key, id| {
-		owner = Index.get(boundaries, key) ?? crash "missing route owner"
-		Index.set(boundaries, key, { ..owner, route_ids: owner.route_ids.append(id) })
+		owner = Box.unbox(boundaries.active)
+		if owner.key != key {
+			crash "mismatched route owner"
+		}
+		{ stored: boundaries.stored, active: Box.box({ ..owner, route_ids: owner.route_ids.append(id) }) }
 	}
 
 	unchanged! : BoundaryInfo(a), a => Bool
@@ -593,7 +605,7 @@ Internal := [].{
 		}
 	}
 
-	mount_component! : Elem.BoundComponent(a), a, U64, Index(Route(a)), Index(BoundaryInfo(a)) => Lowered(a)
+	mount_component! : Elem.BoundComponent(a), a, U64, Index(Route(a)), BuildingOwners(a) => Building(a)
 	mount_component! = |bound, state, parent, routes, boundaries| {
 		Host.work_end!(3)
 		Host.work_start!(0)
@@ -602,9 +614,11 @@ Internal := [].{
 			Id(id) => Host.component_resolve!(bound.definition, 0, "", id)
 		}
 		Host.component_work!(5, 1)
-		prior = Index.get(boundaries, resolved.instance)
-		parent_info = Index.get(boundaries, parent) ?? crash "missing component parent"
-		with_parent = Index.set(boundaries, parent, { ..parent_info, children: parent_info.children.append(resolved.instance) })
+		prior = Index.get(boundaries.stored, resolved.instance)
+		parent_info = Box.unbox(boundaries.active)
+		if parent_info.key != parent {
+			crash "mismatched component parent"
+		}
 		owner = match prior {
 			Ok(previous) => { ..previous, bound: Some(bound), render: bound.render }
 			Err(_) => {
@@ -612,6 +626,7 @@ Internal := [].{
 				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: [], children: [] }
 			}
 		}
+		with_parent = Box.box({ ..parent_info, children: parent_info.children.append(resolved.instance) })
 		if !(bound.exists)(state) {
 			crash "render emitted a removed component"
 		}
@@ -619,13 +634,13 @@ Internal := [].{
 		if unchanged!(owner, state) {
 			Host.work_start!(3)
 			root = Host.retain_subtree!(owner.root)
-			{ root, routes, boundaries: Index.set(with_parent, owner.key, owner) }
+			{ root, routes, boundaries: { stored: Index.set(boundaries.stored, owner.key, owner), active: with_parent } }
 		} else {
 			Host.component_enter!(owner.key)
-			rebuilt = rebuild!(owner, state, routes, with_parent)
+			rebuilt = rebuild!(owner, state, routes, boundaries.stored)
 			Host.component_exit!()
 			Host.work_start!(3)
-			rebuilt
+			{ root: rebuilt.root, routes: rebuilt.routes, boundaries: { stored: rebuilt.boundaries, active: with_parent } }
 		}
 	}
 
@@ -654,7 +669,9 @@ Internal := [].{
 			$routes = Index.remove($routes, id)
 		}
 		cleared = { ..owner, revision: owner.revision + 1, route_ids: [], children: [], memo: Unknown }
-		prepared = Index.set(boundaries, owner.key, cleared)
+		# Keep growing metadata out of the persistent index until this owner is
+		# complete; per-route publication shares and repeatedly copies its lists.
+		prepared = { stored: boundaries, active: Box.box({ key: cleared.key, revision: cleared.revision, path: cleared.path, route_ids: [], children: [] }) }
 		Host.work_end!(0)
 		Host.work_start!(2)
 		Host.component_work!(0, 1)
@@ -665,13 +682,14 @@ Internal := [].{
 		root = if owner.key == 0 lowered.root else Host.node_boundary!(owner.key, lowered.root)
 		Host.work_end!(3)
 		Host.work_start!(0)
-		current = Index.get(lowered.boundaries, owner.key) ?? crash "missing rendered component"
+		completed = Box.unbox(lowered.boundaries.active)
+		current = { ..cleared, route_ids: completed.route_ids, children: completed.children }
 		var $live = Index.empty
 		for child in current.children {
 			$live = Index.set($live, child, True)
 		}
 		var $settled_routes = lowered.routes
-		var $settled_boundaries = lowered.boundaries
+		var $settled_boundaries = lowered.boundaries.stored
 		for previous in owner.children {
 			match Index.get($live, previous) {
 				Ok(_) => {}
