@@ -17,4 +17,4 @@
     (submit (role textbox :name "Profile name"))
     (expect-visible (text "Saving your changes…"))
     (await-task)
-    (expect-visible (text "✓ Your changes have been saved"))))
+    (expect-visible (text "Your changes have been saved"))))

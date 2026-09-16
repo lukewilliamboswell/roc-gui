@@ -2,6 +2,8 @@ import pf.Action
 import pf.Elem
 import pf.Process
 import Theme
+import "icons/terminal.svg" as prompt_icon : List(U8)
+import "icons/search.svg" as search_icon : List(U8)
 
 Terminal := [].{
 	State : State
@@ -138,12 +140,15 @@ key_cap = |caption, label, enabled, on_press| Elem.action_button(Elem.ActionButt
 	border_width: 1,
 })
 
-field_row = |label, caption, field| Elem.row(
+## The gutter mark of a field bar. A prompt caret says "this line is sent to the
+## shell" and a lens says "this line only filters what is already here"; both
+## read faster than the three-letter captions they replace, and at the dim
+## weight of the panel's own labels.
+gutter_mark = |bytes, name| Elem.image(Elem.ImageProps.{ label: name, bytes, format: Svg, width: Px(13), height: Px(13) })
+
+field_row = |label, mark, field| Elem.row(
 	Elem.RowProps.{ label, width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
-	[
-		Elem.row(Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Elem.text(caption)]),
-		field,
-	],
+	[mark, field],
 )
 
 render : State -> Elem.Elem(State)
@@ -160,8 +165,8 @@ render = |state| {
 			key_cap("Stop", "Stop terminal", live, |current, _| cancel(current)),
 			Elem.row(Elem.RowProps.{ label: "Session status", padding: 4, gap: 0, grow: True, justify: End, fg: Theme.signal, font_size: Theme.meta }, [Elem.text(state.status)]),
 		]),
-		field_row("Command bar", "cmd", Elem.text_input(Elem.TextInputProps.{ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
-		field_row("Filter bar", "find", Elem.text_input(Elem.TextInputProps.{ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Action.update(set_query(current, event.value)), on_submit: |current, _| Action.update(current), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
+		field_row("Command bar", gutter_mark(prompt_icon, "Command prompt"), Elem.text_input(Elem.TextInputProps.{ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
+		field_row("Filter bar", gutter_mark(search_icon, "Filter scrollback"), Elem.text_input(Elem.TextInputProps.{ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Action.update(set_query(current, event.value)), on_submit: |current, _| Action.update(current), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
 		Elem.col(Elem.ColProps.{ label: "Scrollback well", width: Fill, height: Fill, grow: True, padding: 4, gap: 0, font_face: Theme.face, bg: Theme.well, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip }, [
 			Elem.virtual_list(Elem.VirtualListProps.{ name: "Terminal scrollback", row_height: Theme.row_height, items: shown }),
 		]),

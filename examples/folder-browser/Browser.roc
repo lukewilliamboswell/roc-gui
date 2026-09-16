@@ -2,6 +2,9 @@ import pf.Action
 import pf.Elem
 import pf.Files
 import pf.Gui
+import "icons/folder.svg" as folder_icon : List(U8)
+import "icons/file.svg" as file_icon : List(U8)
+import "icons/corner-down-right.svg" as link_icon : List(U8)
 
 Browser := [].{
 	State : State
@@ -118,10 +121,12 @@ ordered = |entries| List.sort_with(entries, |left, right| {
 	}
 })
 
-marker_for = |kind| match kind {
-	Directory => "▸"
-	SymbolicLink => "↳"
-	_ => "·"
+## The kind marker is drawn, not spelled: a folder, a plain file, and the
+## turned arrow of a symbolic link each read at a glance in the 20pt gutter.
+marker_art = |kind| match kind {
+	Directory => { bytes: folder_icon, name: "Folder" }
+	SymbolicLink => { bytes: link_icon, name: "Link" }
+	_ => { bytes: file_icon, name: "File" }
 }
 
 start_pick = |state| {
@@ -231,7 +236,11 @@ breadcrumbs = |trail| {
 ## Every entry gets the same row: marker column, then the name at one fixed x.
 ## A folder differs only in that its name is the control that opens it.
 entry_row = |entry, current| {
-	marker = Elem.row(Elem.RowProps.{ width: Px(20), padding: 0, gap: 0, font_size: 13, fg: if entry.kind == Directory link_fg else muted_fg }, [Elem.text(marker_for(entry.kind))])
+	art = marker_art(entry.kind)
+	marker = Elem.row(
+		Elem.RowProps.{ width: Px(20), padding: 0, gap: 0 },
+		[Elem.image(Elem.ImageProps.{ label: "${art.name} marker ${entry.name}", bytes: art.bytes, format: Svg, width: Px(14), height: Px(14) })],
+	)
 	name = if entry.kind == Directory {
 		Elem.action_button(Elem.ActionButtonProps.{ caption: shorten(entry.name), label: "Open directory ${entry.name}", on_press: |current_state, _| open_child(current_state, current, entry.name), padding: 4, font_size: 14, bg: row_bg, hover_bg: row_hover, active_bg: chip_bg, fg: link_fg, radius: 4 })
 	} else {

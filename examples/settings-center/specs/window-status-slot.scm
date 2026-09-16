@@ -9,6 +9,6 @@
     (click (role button :name "Load saved profile"))
     (await-task)
     (settle)
-    (expect-on-screen (text "✓ Loaded your saved profile"))
+    (expect-on-screen (text "Loaded your saved profile"))
     (expect-bounds (role column :name "Status") :min-height 50 :max-height 66)
     (screenshot "loaded" :region (role panel :name "Profile settings") :pad 8)))

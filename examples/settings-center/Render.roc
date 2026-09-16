@@ -3,11 +3,29 @@ import pf.Action
 import pf.Elem
 import pf.Gui
 import Settings
+import "icons/triangle-alert.svg" as alert_icon : List(U8)
+import "icons/circle-check.svg" as check_icon : List(U8)
+import "icons/lock.svg" as lock_icon : List(U8)
 
 Render := [].{
 	muted = Gui.rgb(0x9db4bf)
 	danger = Gui.rgb(0xe08b8b)
 	accent = Gui.rgb(0x4d8fb5)
+
+	## A status mark: the one piece of a status line that is read before its
+	## sentence is. Sized to the status type it sits beside.
+	mark : List(U8), Str, U32 -> Elem(a)
+	mark = |bytes, name, size| Elem.image(
+		Elem.ImageProps.{ label: name, bytes, format: Svg, width: Px(size), height: Px(size) },
+	)
+
+	## A settled status: the check carries the outcome, the sentence carries the
+	## detail.
+	saved_line : Str -> Elem(a)
+	saved_line = |message| Elem.row(
+		Elem.RowProps.{ label: "Saved status detail", width: Fill, gap: 8 },
+		[mark(check_icon, "Saved mark", 16), Elem.text(message)],
+	)
 
 	## A section heading rendered inside a panel, above its controls.
 	heading : Str -> Elem(a)
@@ -68,7 +86,7 @@ Render := [].{
 				Elem.row(
 					Elem.RowProps.{ label: "Preferences error detail", width: Fill, gap: 10 },
 					[
-						Elem.col(Elem.ColProps.{ fg: danger, font_size: 16 }, [Elem.text("⚠")]),
+						mark(alert_icon, "Error mark", 18),
 						Elem.col(Elem.ColProps.{ width: Fill, grow: True, fg: danger }, [Elem.text(message)]),
 						Elem.action_button(
 							Elem.ActionButtonProps.{
@@ -93,8 +111,8 @@ Render := [].{
 					[Elem.col(Elem.ColProps.{ fg: danger }, [Elem.text("Profile name is required")])],
 				)
 			_ if dirty => status_panel("Unsaved changes", [Elem.text("Unsaved changes")])
-			Applied => status_panel("Saved status", [Elem.text("✓ Your changes have been saved")])
-			Loaded => status_panel("Saved status", [Elem.text("✓ Loaded your saved profile")])
+			Applied => status_panel("Saved status", [saved_line("Your changes have been saved")])
+			Loaded => status_panel("Saved status", [saved_line("Loaded your saved profile")])
 			_ => status_panel("Saved status", [Elem.text("Settings are saved")])
 			}
 
@@ -261,7 +279,10 @@ Render := [].{
 		managed = Elem.panel(
 			Elem.PanelProps.{ label: "Managed setting", width: Fill, gap: 12, padding: 16 },
 			[
-				heading("Managed by your organization"),
+				Elem.row(
+					Elem.RowProps.{ label: "Managed heading", width: Fill, gap: 8 },
+					[mark(lock_icon, "Managed mark", 16), heading("Managed by your organization")],
+				),
 				field(
 					"Deployment channel",
 					Elem.text_input(

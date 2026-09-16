@@ -14,6 +14,7 @@
     (expect-bounds (role button :name "Open rename dialog") :max-height 44 :max-width 160)
     (expect-bounds (role column :name "Status") :min-height 50 :max-height 66)
     (screenshot "catalogue")
+    (screenshot "managed" :region (role panel :name "Managed setting") :pad 8)
     (click (role button :name "Category Privacy"))
     (settle)
     (expect-on-screen (text "3 settings match “Privacy”"))

@@ -19,3 +19,6 @@ __pycache__
 /examples/music-player/fixture/*.wav
 /examples/database-browser/fixture/bookstore.db
 .DS_Store
+
+# Agent worktrees
+.claude/worktrees/

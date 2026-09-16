@@ -13,6 +13,11 @@ through reviewed locks that record their exact identities, hashes, and sizes.
 - Space Grotesk and Plus Jakarta Sans, used to set the documentation: see
   `docs/theme/fonts/`. Both are licensed under the SIL Open Font License,
   version 1.1, and are redistributed here in their unmodified released form.
+- Lucide icons, used as the artwork of several examples: see the `NOTICE.md`
+  beside each `examples/*/icons/` directory, which records every file's source
+  URL and licence. Lucide is licensed under the ISC License; the files derived
+  from Feather carry the MIT License as well. Each file is redistributed with
+  one edit, its `stroke` colour, which its notice states.
 
 Dependency producer archives carry the notices applicable to their payload and
 the corresponding sources required by their redistribution terms. Host releases

@@ -475,3 +475,17 @@ names the evidence so a fix can be verified against the same case.
   in the number of assets by construction, and one read is bounded at 64 MiB,
   but nothing measures an application reading many assets across many tasks.
   A scaling case belongs with the example that adopts the API.
+- [ ] **An SVG's red and blue channels are exchanged when it is rendered.** A
+  rasterised image is correct; an SVG is not. In `gpui` 0.2.2,
+  `Image::to_image_data` (`platform.rs`) sends every raster format through a
+  helper that converts the decoded RGBA to the BGRA the renderer wants, but the
+  `ImageFormat::Svg` arm wraps `svg_renderer.render_pixmap`'s buffer directly
+  and performs no such conversion. So `hsl(29,55%,35%)`, the warm brown
+  `image-library`'s `collection-01.svg` is authored with, reaches the screen as
+  a blue, and the fixtures authored as browns and an amber-to-violet sky present
+  as blues and greens. PNG, JPEG, WebP, BMP, TIFF and GIF are unaffected.
+  Decoding is GPUI's to own, and pre-rasterising SVG in this host would
+  duplicate the decoder this platform deliberately does not reimplement, so this
+  closes upstream. The vendored example icons are neutral greys, which are
+  invariant under the exchange and therefore honest either way. Verify with a
+  specification that samples a known pixel of a known fixture once a fix lands.
