@@ -391,9 +391,17 @@ the last frame. For a virtual list this is materialisation evidence;
 === Screenshots
 
 `(screenshot NAME)`:: Photograph the window's content area.
-`(screenshot NAME :region LOCATOR)`:: Crop to a located element's laid-out
+`(screenshot NAME :region LOCATOR)`:: Crop to a located element's visible
 bounds. These are the bounds `expect-on-screen` uses, so a shot frames what was
-asserted.
+asserted, and an element half below the fold of a scroll region is photographed
+where it has pixels rather than where it was laid out.
++
+A canvas-item locator works here too. A primitive has no element and no recorded
+bounds of its own, so its rectangle is the canvas's painted surface offset by
+the coordinates the owner drew at — the mapping `canvas_target` inverts to
+decide what a press landed on — clipped to that surface. A line is expanded by
+half its stroke, since its coordinates describe its centre. Give it `:pad`: a
+marker a few points across is unreadable cropped to itself.
 `(screenshot NAME :region (rect X Y WIDTH HEIGHT))`:: Crop to an explicit
 content-relative rectangle.
 `:pad N`:: Expand the region by `N` points on every side, then clamp to the
@@ -447,7 +455,10 @@ compile-time one, so the shipped binary stays the tested binary.
   than a gap: an unmaterialised virtual-list row is genuinely absent from the
   frame.
 * Only a canvas node's own rectangle is recorded, never its primitives. A
-  canvas-item locator therefore has no geometry of its own.
+  canvas-item locator has no bounds of its own to assert against, so
+  `expect-bounds` and `expect-on-screen` do not take one; a screenshot region
+  does, because a primitive's rectangle is derivable from its canvas's painted
+  surface and the coordinates the owner drew at.
 * Bounds are recorded for nodes scrolled out of view, because they are laid
   out and merely clipped. `expect-on-screen` intersects against scrolling
   ancestors for this reason; asking only whether bounds exist would call a

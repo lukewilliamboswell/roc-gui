@@ -872,6 +872,39 @@ pub(crate) fn axis_delta(near: f32, far: f32, low: f32, high: f32) -> f32 {
     }
 }
 
+/// Where one canvas primitive sits, in window coordinates.
+///
+/// A line is expanded by half its stroke on every side, because a line's
+/// coordinates describe its centre rather than its extent, and a zero-area
+/// rectangle photographs nothing. The floor of one point keeps a hairline
+/// visible in the result.
+pub(crate) fn primitive_rect(canvas: Rect, item: &crate::bridge::CanvasPrimitive) -> Rect {
+    use crate::bridge::CanvasPrimitiveKind;
+    let (left, top, right, bottom) = match item.kind {
+        CanvasPrimitiveKind::Rectangle | CanvasPrimitiveKind::Ellipse => (
+            item.x as f32,
+            item.y as f32,
+            item.x as f32 + item.width as f32,
+            item.y as f32 + item.height as f32,
+        ),
+        CanvasPrimitiveKind::Line => {
+            let margin = (item.stroke_width as f32 / 2.0).max(1.0);
+            (
+                item.x.min(item.x2) as f32 - margin,
+                item.y.min(item.y2) as f32 - margin,
+                item.x.max(item.x2) as f32 + margin,
+                item.y.max(item.y2) as f32 + margin,
+            )
+        }
+    };
+    Rect {
+        left: canvas.left + left,
+        top: canvas.top + top,
+        right: canvas.left + right,
+        bottom: canvas.top + bottom,
+    }
+}
+
 /// Send one chord through the window's real keymap.
 fn dispatch_chord(
     window: WindowHandle<Runtime>,
@@ -936,6 +969,47 @@ fn region_rect(
             (*x + *width) as f32,
             (*y + *height) as f32,
         )),
+        // A canvas primitive has no element and no recorded bounds of its own.
+        // Its rectangle is the canvas's, offset by the coordinates the owner
+        // drew it at — the same one-point-to-one-point mapping `canvas_target`
+        // inverts to decide what a press landed on.
+        Region::Locator(locator @ (Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_))) => {
+            let (canvas, item) = runner::canvas_item(&runtime.graph, locator).ok_or_else(|| {
+                StepError::LocatorMatched {
+                    locator: describe(locator),
+                    count: 0,
+                }
+            })?;
+            // The painted surface, not the node's div: a canvas's style may
+            // inset it, and the owner's coordinates are relative to where the
+            // picture is drawn. This is the same rectangle the hit test maps a
+            // press through.
+            let canvas_rect = runtime
+                .canvas_surfaces
+                .get(&canvas)
+                .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                .map(Rect::from_gpui)
+                .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+            let mut clip = viewport;
+            for ancestor in runtime.graph.scroll_ancestors(canvas) {
+                if let Some(rect) = node_rect(runtime, ancestor) {
+                    clip = clip.intersect(rect).ok_or(StepError::OffScreen {
+                        locator: describe(locator),
+                        bounds: canvas_rect,
+                    })?;
+                }
+            }
+            // Clipped to its canvas as well as to the window: a shape drawn
+            // past the edge of the surface it belongs to is not painted there.
+            let bounds = primitive_rect(canvas_rect, item)
+                .intersect(canvas_rect)
+                .and_then(|rect| rect.intersect(clip))
+                .ok_or(StepError::OffScreen {
+                    locator: describe(locator),
+                    bounds: canvas_rect,
+                })?;
+            Ok((bounds.left, bounds.top, bounds.right, bounds.bottom))
+        }
         // The visible part, not the laid-out part: an element half below the
         // fold of its scroll region has no pixels down there to photograph, and
         // a rectangle reaching past the window would capture whatever the
@@ -1137,6 +1211,59 @@ mod tests {
         assert_eq!(axis_delta(-30.0, 10.0, 0.0, 100.0), -30.0);
         // Taller than the viewport: show its start, since nothing shows all.
         assert_eq!(axis_delta(150.0, 400.0, 0.0, 100.0), 150.0);
+    }
+
+    #[test]
+    fn a_canvas_primitive_sits_where_its_owner_drew_it() {
+        use crate::bridge::{CanvasPrimitive, CanvasPrimitiveKind};
+        let canvas = Rect {
+            left: 100.0,
+            top: 50.0,
+            right: 500.0,
+            bottom: 450.0,
+        };
+        let mut item = CanvasPrimitive {
+            kind: CanvasPrimitiveKind::Rectangle,
+            key: 1,
+            label: "Card".into(),
+            x: 10,
+            y: 20,
+            width: 40,
+            height: 30,
+            x2: 0,
+            y2: 0,
+            fill: None,
+            stroke: None,
+            stroke_width: 0,
+            radius: 0,
+        };
+        assert_eq!(
+            primitive_rect(canvas, &item),
+            Rect {
+                left: 110.0,
+                top: 70.0,
+                right: 150.0,
+                bottom: 100.0
+            }
+        );
+        // An ellipse fills the same box it was given.
+        item.kind = CanvasPrimitiveKind::Ellipse;
+        assert_eq!(primitive_rect(canvas, &item).right, 150.0);
+        // A line has no area of its own, so its stroke is what it covers, and
+        // its coordinates run in whichever direction the owner drew them.
+        item.kind = CanvasPrimitiveKind::Line;
+        item.x2 = 4;
+        item.y2 = 60;
+        item.stroke_width = 8;
+        assert_eq!(
+            primitive_rect(canvas, &item),
+            Rect {
+                left: 100.0,
+                top: 66.0,
+                right: 114.0,
+                bottom: 114.0
+            }
+        );
     }
 
     #[test]

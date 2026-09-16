@@ -270,10 +270,6 @@ names the evidence so a fix can be verified against the same case.
   already a dependency; the missing piece is the window id, which GPUI does not
   expose and which would need the pid-to-window mapping the capture currently
   avoids needing.
-- [ ] **Per-canvas-item screenshot regions.** Only a canvas node's own
-  rectangle is recorded, so `(screenshot :region (role canvas-item ...))` is a
-  parse error rather than a silent whole-canvas photograph. Recording primitive
-  geometry would reuse `canvas_target`'s hit-testing arithmetic.
 - [ ] **Wayland window specifications in continuous integration.** The window
   runner is platform-neutral and `grim` is wired for wlroots, but no Linux
   runner has a compositor. This needs the headless lane (`sway --headless`,

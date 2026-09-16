@@ -1573,19 +1573,7 @@ fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
             height: numbers[3],
         });
     }
-    let locator = parse_locator(node)?;
-    // Only a canvas node's own rectangle is recorded, never its primitives, so
-    // a canvas-item region would silently photograph the whole canvas.
-    if matches!(
-        locator,
-        Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
-    ) {
-        return Err(error(
-            node,
-            "canvas items have no recorded bounds; screenshot the canvas instead",
-        ));
-    }
-    Ok(Region::Locator(locator))
+    Ok(Region::Locator(parse_locator(node)?))
 }
 
 fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
@@ -2680,19 +2668,20 @@ mod tests {
         }
     }
 
-    /// Only a canvas node's own rectangle is recorded, so a canvas-item region
-    /// would silently photograph the whole canvas.
+    /// A canvas primitive's rectangle is its canvas's, offset by the
+    /// coordinates the owner drew it at, so it is a region like any other.
     #[test]
-    fn screenshot_refuses_canvas_item_regions() {
-        let error =
+    fn screenshot_regions_reach_canvas_items() {
+        let spec =
             parse(r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#)
-                .unwrap_err();
-        assert!(
-            error
-                .message
-                .contains("canvas items have no recorded bounds"),
-            "{}",
-            error.message
+                .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Screenshot(Screenshot {
+                name: "a".into(),
+                region: Region::Locator(Locator::CanvasItemName("dot".into())),
+                pad: 0,
+            })
         );
     }
 

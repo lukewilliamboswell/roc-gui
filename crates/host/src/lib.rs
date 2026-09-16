@@ -1989,6 +1989,12 @@ struct Runtime {
     /// same tracker the node's view holds, so writing through it moves the
     /// production element rather than a copy of its state.
     scroll_trackers: HashMap<u64, ScrollTracker>,
+    /// Where each canvas actually paints, by node id. The node's own div may be
+    /// inset by its style, and a primitive's coordinates are relative to the
+    /// painted surface rather than to that div, so this is the origin a
+    /// primitive's rectangle is measured from — the same slot the painter and
+    /// the hit test use.
+    canvas_surfaces: HashMap<u64, Arc<Mutex<Option<Bounds<Pixels>>>>>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
     active_dialog: Option<u64>,
@@ -2023,6 +2029,7 @@ impl Runtime {
             virtual_views: HashMap::new(),
             focus_handles: HashMap::new(),
             scroll_trackers: HashMap::new(),
+            canvas_surfaces: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
             active_dialog: None,
@@ -2451,6 +2458,7 @@ impl Runtime {
             self.views.remove(id);
             self.focus_handles.remove(id);
             self.scroll_trackers.remove(id);
+            self.canvas_surfaces.remove(id);
         }
         let live_labels: std::collections::HashSet<String> = self
             .graph
@@ -2579,6 +2587,10 @@ impl Runtime {
             if let Some(tracker) = view.read(cx).scroll.clone() {
                 self.scroll_trackers.insert(*id, tracker);
             }
+            if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
+                self.canvas_surfaces
+                    .insert(*id, view.read(cx).canvas_bounds.clone());
+            }
             self.views.insert(*id, view);
         }
         for id in &eager {
@@ -2692,6 +2704,10 @@ impl Runtime {
         }
         if let Some(tracker) = view.read(cx).scroll.clone() {
             self.scroll_trackers.insert(id, tracker);
+        }
+        if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
+            self.canvas_surfaces
+                .insert(id, view.read(cx).canvas_bounds.clone());
         }
         (view, descendants + 1)
     }

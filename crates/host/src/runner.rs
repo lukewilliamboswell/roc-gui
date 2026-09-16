@@ -1,6 +1,6 @@
 use crate::{
     SUBMIT_EVENT_BIT, await_task_completion,
-    bridge::{ApplyFacts, ControlKey, MountedGraph, NodeKind},
+    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind},
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
@@ -8,6 +8,36 @@ use crate::{
     take_patch, task_counts,
 };
 use std::time::Instant;
+
+/// The one primitive a canvas-item locator names, and the canvas that owns it.
+///
+/// `matches` answers with the canvas node for these locators, because that is
+/// the node a click is dispatched to. A photograph wants the shape itself,
+/// which only the owning canvas's primitive list holds. `None` unless exactly
+/// one primitive matches, so a prefix naming a family fails the same way an
+/// ambiguous locator fails everywhere else.
+pub(crate) fn canvas_item<'a>(
+    graph: &'a MountedGraph,
+    locator: &Locator,
+) -> Option<(u64, &'a CanvasPrimitive)> {
+    let matching = |item: &CanvasPrimitive| match locator {
+        Locator::CanvasItemName(name) => item.label == *name,
+        Locator::CanvasItemPrefix(prefix) => item.label.starts_with(prefix),
+        _ => false,
+    };
+    let mut found = graph.nodes_preorder().into_iter().flat_map(|node| {
+        let primitives = match &node.kind {
+            NodeKind::Canvas { primitives, .. } => primitives.as_slice(),
+            _ => &[][..],
+        };
+        primitives
+            .iter()
+            .filter(|item| matching(item))
+            .map(move |item| (node.id, item))
+    });
+    let first = found.next()?;
+    found.next().is_none().then_some(first)
+}
 
 /// A claim answered entirely from the mounted graph, and its count evidence.
 ///
