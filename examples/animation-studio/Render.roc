@@ -126,7 +126,10 @@ Render := [].{
 				justify: Start,
 				padding: 8, radius: 6,
 				font_size: body_size,
-				bg: if is_selected row_selected else ground,
+				## At rest a layer row is its panel, not a slab of a different
+				## colour sitting beside its own glyph: the row and the control
+				## inside it have to read as one thing.
+				bg: if is_selected row_selected else Default,
 				hover_bg: row_hover,
 				active_bg: control_press,
 				fg: ink,
