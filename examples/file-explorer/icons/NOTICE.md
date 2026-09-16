@@ -17,3 +17,4 @@ reproduced in the single upstream licence file:
 | --- | --- | --- | --- | --- | --- |
 | `folder.svg` | <https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/folder.svg> | Lucide | ISC | `#cfcfcf` | folder rows |
 | `file.svg` | <https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/file.svg> | Lucide | ISC | `#8f8f8f` | file rows |
+| `corner-down-right.svg` | <https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/corner-down-right.svg> | Lucide | ISC | `#8f8f8f` | symbolic-link and other rows |
