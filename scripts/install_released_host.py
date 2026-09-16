@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import platform
 from pathlib import Path
@@ -11,6 +12,7 @@ import tempfile
 
 from gui_host_artifacts import lock_matches_sources, verified_hosts
 from host_build_identity import HOST_FILES
+from host_notice_payload import notice_json
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_LOCK = ROOT / "host.lock.json"
@@ -23,6 +25,26 @@ def native_target() -> str:
         return TARGETS[(platform.system(), platform.machine())]
     except KeyError as error:
         raise ValueError(f"unsupported native host: {platform.system()} {platform.machine()}") from error
+
+
+def inventory_digest(inventory) -> str:
+    """Identify a DLL inventory the way the archive separation recorded it."""
+    return hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
+
+
+def recorded_inventory_digest(host_tree: Path) -> str | None:
+    """The system-imports inventory a released Windows archive was separated against.
+
+    The receipt travels in the host's own notice archive, which `verified_hosts`
+    has already admitted by the time this reads it. `None` means the host
+    records no separation, as the untransformed targets do.
+    """
+    notices = host_tree / "licenses/gui-host/third-party-notices.tar.xz"
+    if not notices.is_file():
+        return None
+    receipt = notice_json(notices.read_bytes(), "normalization.json")
+    separation = receipt.get("archives", {}).get("libhost.a", {}).get("separation", {})
+    return separation.get("inventory_sha256")
 
 
 def install(lock: Path = HOST_LOCK, cache: Path = CACHE, root: Path = ROOT) -> bool:
@@ -52,8 +74,24 @@ def install(lock: Path = HOST_LOCK, cache: Path = CACHE, root: Path = ROOT) -> b
             elif target == "x64mingw":
                 # Roc links the released GNU runtime and system imports beside
                 # the host, exactly as a source build stages them.
-                from prepare_dependencies import install_windows_gnu
+                from prepare_dependencies import (
+                    install_windows_gnu, verified_windows_gnu, windows_gnu_inventory,
+                )
                 from windows_gnu_build import TRIPLE
+                # The two releases keep their own cycles, so a host can be older
+                # than the imports beside it. That is only a problem when the
+                # inventory itself moved: the host dropped the import members
+                # for exactly those libraries, trusting this release to provide
+                # them. Republished imports with an unchanged inventory still
+                # match, and a changed one sends the host back to source until
+                # its own release catches up.
+                with verified_windows_gnu(root / "dependencies.lock.json", cache) as inputs:
+                    locked_inventory = inventory_digest(windows_gnu_inventory(inputs))
+                separated = recorded_inventory_digest(hosts / f"gui-host-{target}")
+                if separated is not None and separated != locked_inventory:
+                    print("The released Windows host separated its import members against a different "
+                          "system-imports inventory than this checkout locks; building from source.")
+                    return False
                 dependencies = install_windows_gnu(staged_target, lock=root / "dependencies.lock.json", cache=cache)
                 link_inputs = {"schema_version": 1, "dependencies": dependencies, "rust_target": TRIPLE,
                                "manifest": "crates/host/windows/roc-gui.manifest.xml"}
