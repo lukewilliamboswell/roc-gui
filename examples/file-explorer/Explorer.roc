@@ -2,6 +2,8 @@ import pf.Action
 import pf.Elem exposing [Elem]
 import pf.Files
 import pf.Gui
+import "icons/folder.svg" as folder_icon : List(U8)
+import "icons/file.svg" as file_icon : List(U8)
 
 Explorer := [].{
 	State : State
@@ -87,14 +89,18 @@ go_root = |state, current| match state.root {
 	Some(root) => if root.trail == current.trail Action.none else Action.update({ ..state, back: state.back.append(current), forward: [], selection: NoneSelected, view: Showing(root) })
 }
 
+## The kind of an entry, drawn once at the head of its row, so a listing can be
+## scanned by shape before any of its names are read.
+kind_mark = |bytes, kind, name| Elem.image(Elem.ImageProps.{ label: "${kind} marker ${name}", bytes, format: Svg, width: Px(16), height: Px(16) })
+
 entry_items = |folder| folder.entries.map_with_index(|entry, key| {
 	kind = match entry.kind { Directory => "Folder", File => "File", Other => "Other", SymbolicLink => "Link" }
 	label = "${kind}: ${entry.name}"
-	select = Elem.action_button(Elem.ActionButtonProps.{ caption: "Entry: ${label}", label: "Select ${label}", on_press: |current, _| Action.update({ ..current, selection: Selected(entry), status: Ready }) })
+	select = Elem.action_button(Elem.ActionButtonProps.{ caption: entry.name, label: "Select ${label}", width: Px(320), on_press: |current, _| Action.update({ ..current, selection: Selected(entry), status: Ready }) })
 	content = if entry.kind == Directory {
-		Elem.row(Elem.RowProps.{ label: "Folder entry ${entry.name}" }, [select, Elem.action_button(Elem.ActionButtonProps.{ caption: "Open", label: "Open folder ${entry.name}", on_press: |current, _| open_folder(current, folder, entry.name) })])
+		Elem.row(Elem.RowProps.{ label: "Folder entry ${entry.name}" }, [kind_mark(folder_icon, "Folder", entry.name), select, Elem.action_button(Elem.ActionButtonProps.{ caption: "Open", label: "Open folder ${entry.name}", on_press: |current, _| open_folder(current, folder, entry.name) })])
 	} else if entry.kind == File {
-		Elem.row(Elem.RowProps.{ label: "File entry ${entry.name}" }, [select, Elem.action_button(Elem.ActionButtonProps.{ caption: "Read", label: "Read file ${entry.name}", on_press: |current, _| read_file(current, folder, entry.name) })])
+		Elem.row(Elem.RowProps.{ label: "File entry ${entry.name}" }, [kind_mark(file_icon, "File", entry.name), select, Elem.action_button(Elem.ActionButtonProps.{ caption: "Read", label: "Read file ${entry.name}", on_press: |current, _| read_file(current, folder, entry.name) })])
 	} else select
 	Elem.VirtualListItem.{ key, content }
 })

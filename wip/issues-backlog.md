@@ -474,3 +474,14 @@ names the evidence so a fix can be verified against the same case.
   property on row, column, and panel props, mapped to the GPUI flex container
   the host already builds, with a specification that photographs a centred
   child.
+- [ ] **Rendered images have their red and blue channels swapped.** An image
+  node presents the colour it was authored with only by accident: the decoded
+  pixels reach the screen with red and blue exchanged. `#9bdcf0` paints as
+  `#f0dc9b`, and the Image Library fixtures, authored as warm browns and an
+  amber-to-violet sky, present as blues and greens. Decoding is delegated
+  wholly to GPUI, so the exchange lies in the decode-to-texture path rather
+  than in anything the application states. Every example that draws artwork is
+  affected; the vendored example icons are deliberately neutral greys, which
+  are invariant under the exchange, so they are honest either way. Close with
+  the channel order corrected at its owner and a specification that samples a
+  known pixel of a known fixture.
