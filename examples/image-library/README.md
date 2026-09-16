@@ -1,32 +1,49 @@
 # Image Library
 
-Image Library is a capability-scoped gallery for reviewing ordinary image
-folders. Its thin `main.roc` composes modules that own folder scanning, image
-records and viewer transforms.
+A gallery for one folder of images. Open folder scans the chosen directory,
+reads each file's bytes, inspects its header, and lists what it found: a
+thumbnail and a name for each image it can decode, and a glyph with a reason
+for each entry it cannot. Choosing a row shows the picture at full size with
+its pixel dimensions and encoded byte count.
 
-Run it with development provisioning through the same grant registry used by
-the application:
+It exercises capability-scoped directory reading through `Files.pick_directory!`
+and `directory.read!`, image inspection through `ImageData.inspect!`, and the
+`Elem.image` renderer: fit, fill, actual size and a grayscale toggle are
+properties of the image element, and the host never resolves a path or a URL of
+its own.
+
+## Running
 
 ```sh
-roc examples/image-library/main.roc -- --host-cap-dir examples/image-library/fixture
+python3 build.py
+roc build --output=image-library examples/image-library/main.roc
+./image-library -- --host-cap-dir examples/image-library/fixture
 ```
 
-Choose **Open folder** to scan the granted directory. The gallery reads bounded
-child bytes, validates raster headers or SVG structure, reports corrupt and
-unsupported entries alongside usable images, and presents fixed-height
-virtualized thumbnail rows. Selection shows dimensions and encoded byte count.
-Fit, fill, actual-size and grayscale controls update the production
-`Elem.ImageProps` renderer; the host never resolves an image path or URL.
+The grant is development provisioning: it answers the directory chooser without
+a panel. Run without it and the chooser is refused, which is a state the
+application is designed for — a band says nothing was read, nothing on screen
+has changed, and Open folder is the control that answers it.
 
-The specifications cover browsing, metadata, corrupt and unsupported entries,
-filtering, transforms, stale request identity, image-owner counters, and a
-24-image 8000×6000 collection reached through the ordinary folder workflow.
-The fixtures are deterministic automation provisioning, not evidence of
-trusted chooser consent.
+## Not yet built
 
-## Appearance
+- No recursive scanning. Only files directly inside the chosen folder are read.
+- No sorting, no rotation, no zoom or pan, and no editing or writing of any
+  kind.
+- The filter matches the file name only, and is case-sensitive.
+- The scan is one pass with every file held in memory; there is no incremental
+  or cancellable load.
 
-A gallery wall: a warm near-white ground, no borders anywhere, a 40-point
-margin with 36-point gaps between regions, soft grey secondary text, and a
-large radius on media so the pictures carry the only weight in the window.
-`Theme.roc` holds every colour and measure the application uses.
+## Assets
+
+`icons/unreadable.svg` is vendored artwork; `icons/NOTICE.md` records its source
+and licence, alongside `THIRD_PARTY_LICENSES.md`.
+
+## Specifications
+
+`specs/` holds eight semantic specifications, covering browsing, metadata,
+corrupt and unsupported entries, filtering, transform reversal, stale scan
+identity, refusal with no grant, and a 24-image 8000x6000 collection reached
+through the ordinary folder workflow. Three more run against the real window:
+they photograph the empty and populated wall, assert a thumbnail's laid-out
+square, and photograph the refusal.

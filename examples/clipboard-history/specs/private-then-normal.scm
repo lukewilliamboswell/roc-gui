@@ -1,0 +1,20 @@
+(test "arming private capture discards exactly one item each time"
+  (grants
+    (clipboard fixture))
+  (steps
+    (click (role button :name "Start clipboard capture"))
+    (click (role button :name "Discard next clipboard item"))
+    (clipboard-text "fixture-discarded-one")
+    (await-ticks 1)
+    (expect-visible (text "Private item discarded"))
+    (expect-visible (text "0 matching items"))
+    (clipboard-text "ordinary follow")
+    (await-ticks 1)
+    (expect-visible (text "1 matching items"))
+    (expect-visible (text "ordinary follow"))
+    (click (role button :name "Discard next clipboard item"))
+    (clipboard-text "fixture-discarded-two")
+    (await-ticks 1)
+    (expect-visible (text "Private item discarded"))
+    (expect-visible (text "1 matching items"))
+    (expect-visible (text "ordinary follow"))))

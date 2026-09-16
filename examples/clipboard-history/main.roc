@@ -1,6 +1,6 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
-import pf.Program exposing [Program]
+import pf.Program
 import History
 import Render
 

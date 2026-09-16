@@ -34,6 +34,14 @@ MAX_BYTES = 1_000_000
 WINDOW_STEPS = {"settle", "screenshot", "click", "focus", "key", "type", "await-task", "await-count"}
 
 
+def declared_window_steps(source: str) -> set[str]:
+    """Return only forms nested directly in the spec's steps block."""
+    _, separator, steps = source.partition("(steps")
+    if not separator:
+        return set()
+    return set(re.findall(r"^    \(([a-z-]+)", steps, flags=re.MULTILINE))
+
+
 def check_sources() -> None:
     if len(EXAMPLES) != 12 or len(set(EXAMPLES)) != 12:
         raise RuntimeError("the README gallery must contain twelve distinct examples")
@@ -47,7 +55,7 @@ def check_sources() -> None:
         shots = re.findall(r'\(screenshot\s+"([a-z0-9-]+)"\)', source)
         if len(shots) < 3:
             raise RuntimeError(f"gallery spec must record at least three full-window frames: {spec}")
-        steps = set(re.findall(r"^    \(([a-z-]+)", source, flags=re.MULTILINE))
+        steps = declared_window_steps(source)
         if unsupported := steps - WINDOW_STEPS:
             raise RuntimeError(f"gallery spec contains non-window steps {sorted(unsupported)}: {spec}")
         image = f"https://lukewilliamboswell.github.io/roc-gui/gallery/{slug}.gif"

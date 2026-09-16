@@ -1,4 +1,6 @@
 (test "root revocation rejects future read open and list operations"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open project"))
     (await-task)

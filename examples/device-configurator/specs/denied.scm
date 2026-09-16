@@ -1,4 +1,5 @@
 (test "device discovery requires explicit host authority"
+  (grants)
   (steps
     (click (role button :name "Discover devices"))
     (await-task)

@@ -1,4 +1,6 @@
 (test "revocation follows a derived child after its parent is retained"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open project"))
     (await-task)

@@ -109,6 +109,29 @@ viewport callback creates entities only for intersecting fixed-height rows and
 recycles entities that leave the range. The host connects the new native
 subtree to retained entities around its boundary and releases replaced views.
 
+A node ID identifies a node, not a control. Because it is never reused, a patch
+that rebuilds a subtree gives the same control a new ID, and keying the GPUI
+element by it would hand that control a new element on every patch and discard
+the element state GPUI holds — the pending mouse-down that pairs a press with a
+release, the scroll offset, the focus. The host therefore keys each element by
+the node's *element identity*: the path of sibling keys from the mounted root,
+each key the node's own semantic name where it has one and its position among
+its siblings where it has not, with repeated sibling names separated by
+occurrence. A staged node claims back the view of a retired node with the same
+identity and the same kind, so a control a person is pressing survives any
+number of rerenders under the finger, however fast. Nothing of the retired
+node's content survives with it: handlers are rebuilt from the staged node, so a
+click still routes to the live node ID, and a control whose name changed or that
+left the tree has a different identity, gets a different element, and drops the
+press rather than having it misrouted to whatever took its place.
+
+An ordinary patch keeps focus on the control that had it, by its stable role
+and semantic name, even where the node carrying that control is a new one. A
+control that leaves the graph entirely hands focus to whatever now occupies its
+place in the tab order — for a deleted row, the row that followed it, and for
+the last control, the new last one. Focus is dropped only when a graph has
+nothing focusable left, because then there is nowhere for it to go.
+
 While a dialog is mounted, controls outside its graph subtree do not install
 pointer listeners or tab stops. The runtime focuses the first enabled dialog
 control, routes Escape to the dialog node, and restores the opener by its stable
@@ -199,7 +222,7 @@ patch, and installs successor dispatchers. Roc values cross threads only as
 owned erased callables; generic state and actions remain boxed across the ABI.
 
 Periodic subscriptions use the same route. A timer has at most one waiting
-`Timer.next!` task. Its wait parks on a worker and returns a normal boxed
+`Timer.Handle.next!` task. Its wait parks on a worker and returns a normal boxed
 reducer; the UI thread applies that reducer with the installed task dispatcher.
 Cancellation wakes the waiter, and cadence advances from the completion of the
 preceding pull, so a slow consumer cannot create an unbounded event backlog.
@@ -252,6 +275,64 @@ This makes the costs and semantics direct:
 The scaling suite exercises full-root collections, local boundaries, text
 density, tree depth, and tree breadth so the consequences of replacement scope
 remain visible as the implementation evolves.
+
+== Origin of the Action-State model
+
+The Action-State model this platform implements originates with Richard
+Feldman, who described it in his design document _Design Idea: Action-State_.
+That write-up proposes a user interface API for Roc in which a renderer is a
+pure function from state to an `Elem` value, event handlers return an `Action`
+rather than a message, and a translation function relates a component's state to
+its parent's state while marking the unit of re-rendering. roc-gui is an
+implementation of that design. `Action.update`, `Action.none`, the shared
+`state` type variable on `Elem` and `Action`, and the three-function shape of
+`Elem.translate` are all his, as is the observation, borrowed there from druid,
+that storing the child renderer alongside a getter and a setter lets an update
+touch one subtree instead of the whole tree.
+
+The motivation is worth restating, because it explains the shape of the API
+more than any implementation detail does. A renderer takes state and returns a
+description; it performs no effect, reaches no handle, and observes no clock, so
+calling it twice with the same state yields the same description and calling it
+is never a way to make something happen. Everything that can make something
+happen is an `Action` returned from a handler, and an `Action` is a value: it
+describes a transition rather than performing one. Constructing
+`Action.update(next)` changes nothing. The platform changes state only when it
+receives that value back from a handler.
+
+That division is what makes the concurrency tractable. Application state lives
+on one thread, and every state transition is applied there, one at a time, by
+the dispatcher installed for the currently mounted graph. Each turn takes the
+state, runs one handler, applies the single action it returned, renders the
+owning boundary, commits one patch, and installs its successor. Two transitions
+cannot interleave, no handler can observe a half-applied update, and a handler
+always receives the state that precedes it rather than a snapshot captured when
+the tree was rendered. A handler's first argument is therefore the state to
+build the next state from.
+
+`Action.task` extends the same discipline to work that must not block the
+interface. It commits its `pending` state immediately and hands the effect body
+to a worker thread, which returns a reducer rather than a state value. The UI
+thread applies that reducer to whatever the latest state is by then, so events
+that arrived while the task was in flight are not overwritten by a stale
+snapshot. The effect runs off the UI thread; the state transition it produces
+still happens on the UI thread, in the same serialised order as every other
+transition. Effects thus stay out of rendering entirely, and concurrency is
+confined to the body of the work rather than spread through the state model.
+
+roc-gui implements a deliberately narrower design than the write-up sketches.
+`Program.run` takes an initial state, a renderer, and window metadata; there are
+no `subs` or `startup` fields. Periodic work is expressed as an `Action.task`
+around a timer handle held in application state, which gives the application
+explicit control over cadence and cancellation. There is no `Action.delegate`: a
+component that must change its parent's state does so through the state its
+parent already gives it across the translation boundary. There is no `lazy`;
+render boundaries, not memoisation, determine what is rebuilt. There is no
+string-keyed effect tracker and no global subscription for effect completion.
+Instead, an `Action.task` resolves against the latest application state, and an
+application that must discard an obsolete completion compares a request identity
+it stored in state, which covers the same situation that the write-up's
+`Err Removed` case addresses.
 
 == How this compares
 

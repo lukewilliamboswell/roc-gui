@@ -1,6 +1,6 @@
 use crate::{
     SUBMIT_EVENT_BIT, await_task_completion,
-    bridge::{ApplyFacts, ControlKey, MountedGraph, NodeKind},
+    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind},
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
@@ -8,6 +8,154 @@ use crate::{
     take_patch, task_counts,
 };
 use std::time::Instant;
+
+/// The one primitive a canvas-item locator names, and the canvas that owns it.
+///
+/// `matches` answers with the canvas node for these locators, because that is
+/// the node a click is dispatched to. A photograph wants the shape itself,
+/// which only the owning canvas's primitive list holds. `None` unless exactly
+/// one primitive matches, so a prefix naming a family fails the same way an
+/// ambiguous locator fails everywhere else.
+pub(crate) fn canvas_item<'a>(
+    graph: &'a MountedGraph,
+    locator: &Locator,
+) -> Option<(u64, &'a CanvasPrimitive)> {
+    let matching = |item: &CanvasPrimitive| match locator {
+        Locator::CanvasItemName(name) => item.label == *name,
+        Locator::CanvasItemPrefix(prefix) => item.label.starts_with(prefix),
+        _ => false,
+    };
+    let mut found = graph.nodes_preorder().into_iter().flat_map(|node| {
+        let primitives = match &node.kind {
+            NodeKind::Canvas { primitives, .. } => primitives.as_slice(),
+            _ => &[][..],
+        };
+        primitives
+            .iter()
+            .filter(|item| matching(item))
+            .map(move |item| (node.id, item))
+    });
+    let first = found.next()?;
+    found.next().is_none().then_some(first)
+}
+
+/// A claim answered entirely from the mounted graph, and its count evidence.
+///
+/// These five are true or false of the same graph on either runner, so they
+/// belong to neither. Keeping one implementation is what lets one window
+/// specification assert a semantic truth and photograph it in the same run,
+/// without the two runners drifting into two slightly different meanings of the
+/// same word. The message carries no line number: the caller is what knows
+/// where the step was written.
+pub(crate) fn graph_claim(
+    graph: &MountedGraph,
+    command: &Command,
+) -> Option<(Result<(), String>, Option<(u64, u64)>)> {
+    /// The single node a locator names, or how many it named instead.
+    fn only(graph: &MountedGraph, locator: &Locator) -> Result<u64, usize> {
+        let found = matches(graph, locator);
+        if found.len() == 1 {
+            Ok(found[0])
+        } else {
+            Err(found.len())
+        }
+    }
+
+    Some(match command {
+        Command::ExpectCanvasPrimitives(locator, expected) => {
+            let actual = match only(graph, locator).ok().and_then(|id| graph.node(id)) {
+                Some(node) => match &node.kind {
+                    NodeKind::Canvas { primitives, .. } => primitives.len(),
+                    _ => 0,
+                },
+                None => 0,
+            };
+            (
+                if actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected canvas owner to report {expected} primitives, but it reported {actual}"
+                    ))
+                },
+                Some((*expected as u64, actual as u64)),
+            )
+        }
+        Command::ExpectValue(locator, expected) => (
+            match only(graph, locator) {
+                Err(count) => Err(format!(
+                    "expect-value locator matched {count} nodes; expected exactly one"
+                )),
+                Ok(id) => {
+                    if matches!(graph.node(id).map(|node| &node.kind), Some(NodeKind::Textarea { value, .. }) if value == expected)
+                    {
+                        Ok(())
+                    } else {
+                        Err("textarea value differed".to_owned())
+                    }
+                }
+            },
+            None,
+        ),
+        Command::ExpectValueBytes(locator, expected) => {
+            let found = only(graph, locator);
+            let actual = match found.ok().and_then(|id| graph.node(id)) {
+                Some(node) => match &node.kind {
+                    NodeKind::Textarea { value, .. } => value.len(),
+                    _ => 0,
+                },
+                None => 0,
+            };
+            (
+                if found.is_ok() && actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected textarea value to contain {expected} bytes; observed {actual}"
+                    ))
+                },
+                Some((*expected as u64, actual as u64)),
+            )
+        }
+        Command::ExpectImageBytes(locator, expected) => {
+            let found = only(graph, locator);
+            let actual = match found.ok().and_then(|id| graph.node(id)) {
+                Some(node) => match &node.kind {
+                    NodeKind::Image { bytes, .. } => bytes.len(),
+                    _ => 0,
+                },
+                None => 0,
+            };
+            (
+                if found.is_ok() && actual == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected image source to contain {expected} bytes; observed {actual}"
+                    ))
+                },
+                Some((*expected as u64, actual as u64)),
+            )
+        }
+        Command::ExpectBefore(first, second) => {
+            let ordered = graph.nodes_preorder();
+            let position = |id| ordered.iter().position(|node| node.id == id);
+            (
+                match (only(graph, first), only(graph, second)) {
+                    (Ok(first), Ok(second)) if position(first) < position(second) => Ok(()),
+                    (Ok(_), Ok(_)) => Err("expected first locator before second".to_owned()),
+                    (first, second) => Err(format!(
+                        "expect-before locators matched {} and {} nodes; expected one each",
+                        first.map_or_else(|count| count, |_| 1),
+                        second.map_or_else(|count| count, |_| 1),
+                    )),
+                },
+                None,
+            )
+        }
+        _ => return None,
+    })
+}
 
 /// Resolve a locator against the mounted graph.
 ///
@@ -32,14 +180,14 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
         .nodes_preorder()
         .into_iter()
         .filter_map(|node| match (locator, &node.kind) {
-            (Locator::Text(expected), NodeKind::Text(actual)) if expected == actual => {
-                Some(node.id)
-            }
-            (Locator::TextPrefix(expected), NodeKind::Text(actual))
-                if actual.starts_with(expected) =>
-            {
-                Some(node.id)
-            }
+            (
+                Locator::Text(expected),
+                NodeKind::Text(actual) | NodeKind::StyledText { value: actual, .. },
+            ) if expected == actual => Some(node.id),
+            (
+                Locator::TextPrefix(expected),
+                NodeKind::Text(actual) | NodeKind::StyledText { value: actual, .. },
+            ) if actual.starts_with(expected) => Some(node.id),
             (Locator::ButtonName(expected), NodeKind::Button { label, .. })
                 if expected == label =>
             {
@@ -227,7 +375,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectBounds(_, _)
             | Command::Screenshot(_)
             | Command::Type(_)
-            | Command::Key(_) => Err(format!(
+            | Command::Key(_)
+            | Command::Resize { .. }
+            | Command::Scroll { .. } => Err(format!(
                 "line {}: step `{}` is window-only; run this specification with --host-run-window-spec",
                 step.line,
                 step.command.kind(),
@@ -970,6 +1120,18 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 crate::files::revoke_all_roots();
                 Ok(())
             }
+            Command::ExpectAssetCounters(expected) => {
+                let observed = crate::assets::counters();
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected asset counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
             Command::ExpectImageOwnerCounters(expected) => {
                 let observed = crate::image_data::counters();
                 count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
@@ -1027,112 +1189,17 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
-            Command::ExpectCanvasPrimitives(locator, expected) => {
-                let found = matches(&graph, locator);
-                // A locator that matched nothing, or many things, answers
-                // nothing about primitives. Without this the zero case passes
-                // on a misspelling, as its value and byte siblings already
-                // refuse to.
-                if found.len() != 1 {
-                    return Err(format!(
-                        "line {}: expect-canvas-primitives locator matched {} nodes; expected exactly one",
-                        step.line,
-                        found.len()
-                    ));
-                }
-                let actual = if found.len() == 1 {
-                    match graph.node(found[0]).map(|node| &node.kind) {
-                        Some(NodeKind::Canvas { primitives, .. }) => primitives.len(),
-                        _ => 0,
-                    }
-                } else {
-                    0
-                };
-                count_evidence = Some((*expected as u64, actual as u64));
-                if actual == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected canvas owner to report {expected} primitives, but it reported {actual}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectValue(locator, expected) => {
-                let found = matches(&graph, locator);
-                if found.len() != 1 {
-                    Err(format!(
-                        "line {}: expect-value locator matched {} nodes; expected exactly one",
-                        step.line,
-                        found.len()
-                    ))
-                } else if matches!(graph.node(found[0]).map(|node| &node.kind), Some(NodeKind::Textarea { value, .. }) if value == expected)
-                {
-                    Ok(())
-                } else {
-                    Err(format!("line {}: textarea value differed", step.line))
-                }
-            }
-            Command::ExpectValueBytes(locator, expected) => {
-                let found = matches(&graph, locator);
-                let actual = if found.len() == 1 {
-                    match graph.node(found[0]).map(|node| &node.kind) {
-                        Some(NodeKind::Textarea { value, .. }) => value.len(),
-                        _ => 0,
-                    }
-                } else {
-                    0
-                };
-                count_evidence = Some((*expected as u64, actual as u64));
-                if found.len() == 1 && actual == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected textarea value to contain {expected} bytes; observed {actual}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectImageBytes(locator, expected) => {
-                let found = matches(&graph, locator);
-                let actual = if found.len() == 1 {
-                    match graph.node(found[0]).map(|node| &node.kind) {
-                        Some(NodeKind::Image { bytes, .. }) => bytes.len(),
-                        _ => 0,
-                    }
-                } else {
-                    0
-                };
-                count_evidence = Some((*expected as u64, actual as u64));
-                if found.len() == 1 && actual == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected image source to contain {expected} bytes; observed {actual}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectBefore(first, second) => {
-                let first_matches = matches(&graph, first);
-                let second_matches = matches(&graph, second);
-                let ordered = graph.nodes_preorder();
-                let position = |id| ordered.iter().position(|node| node.id == id);
-                if first_matches.len() != 1 || second_matches.len() != 1 {
-                    Err(format!(
-                        "line {}: expect-before locators matched {} and {} nodes; expected one each",
-                        step.line,
-                        first_matches.len(),
-                        second_matches.len()
-                    ))
-                } else if position(first_matches[0]) < position(second_matches[0]) {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected first locator before second",
-                        step.line
-                    ))
-                }
+            // Answered from the mounted graph alone, so the window runner
+            // makes the same five claims from the same code.
+            command @ (Command::ExpectCanvasPrimitives(_, _)
+            | Command::ExpectValue(_, _)
+            | Command::ExpectValueBytes(_, _)
+            | Command::ExpectImageBytes(_, _)
+            | Command::ExpectBefore(_, _)) => {
+                let (result, counts) =
+                    graph_claim(&graph, command).expect("graph claim is missing an arm");
+                count_evidence = counts;
+                result.map_err(|detail| format!("line {}: {detail}", step.line))
             }
             // Taken, not borrowed: a second `expect-patch` with no interaction
             // between them would otherwise inspect the same patch twice and

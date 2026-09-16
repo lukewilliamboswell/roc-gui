@@ -14,6 +14,17 @@ import build_example_gallery as gallery
 
 
 class ExampleGalleryTests(unittest.TestCase):
+    def test_gallery_validation_ignores_capability_grants(self) -> None:
+        source = """(test "gallery"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
+  (steps
+    (settle)
+    (screenshot "ready")))
+"""
+        self.assertEqual(gallery.declared_window_steps(source), {"settle", "screenshot"})
+
     def test_encodes_small_looping_thumbnail(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

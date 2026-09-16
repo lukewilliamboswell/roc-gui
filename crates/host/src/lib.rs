@@ -3,11 +3,13 @@
 #![cfg_attr(test, allow(dead_code, unused_imports))]
 
 mod app_data;
+mod assets;
 mod audio;
 mod bridge;
 mod clipboard;
 mod device;
 mod files;
+mod frame_spans;
 mod http;
 mod image_data;
 mod input;
@@ -28,9 +30,10 @@ mod watchdog;
 mod window_runner;
 
 use bridge::{
-    BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
-    ImageFormat as BridgeImageFormat, Length, MountedGraph, Node, NodeKind, Overflow, Patch,
-    ScrollAxis, Style, decode_commit, validate_tree,
+    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CheckboxIndicator, ControlKey,
+    ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify, Length,
+    MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis, Style, TextOverflow, decode_commit,
+    validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -38,10 +41,10 @@ use roc_platform_abi::{
     HostGlueHttpSendArgs, HostGlueHttpSendResult, HostGlueNodeActionButtonArgs,
     HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
     HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
-    RocErasedCallable, RocHost, RocStr, decref_erased_callable, make_roc_host, roc_gui_dispatch,
-    roc_gui_init,
+    HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
+    make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -67,16 +70,6 @@ actions!(
 unsafe extern "C" {
     fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable);
     fn roc_gui_run_task(task: RocErasedCallable) -> RocErasedCallable;
-}
-
-// Unit tests link without a Roc application. ELF linkers drop the unreferenced
-// worker loop, but MSVC's link resolves every symbol the test binary retains.
-#[cfg(all(test, windows))]
-mod test_application {
-    #[unsafe(no_mangle)]
-    extern "C" fn roc_gui_run_task(_task: crate::RocErasedCallable) -> crate::RocErasedCallable {
-        unreachable!("unit tests never run Roc tasks")
-    }
 }
 
 struct TaskRuntime {
@@ -146,6 +139,10 @@ struct WindowConfig {
     title: String,
     width: u32,
     height: u32,
+    /// The colour behind the root element, and the ink text inherits when it
+    /// names none. `None` keeps the host's own ground.
+    background: Option<u32>,
+    foreground: Option<u32>,
 }
 
 impl Default for WindowConfig {
@@ -154,8 +151,19 @@ impl Default for WindowConfig {
             title: "Roc GUI".into(),
             width: 480,
             height: 240,
+            background: None,
+            foreground: None,
         }
     }
+}
+
+/// The application's chosen window ground, or None for the host's own.
+fn window_ground() -> Option<u32> {
+    WINDOW_CONFIG.with(|config| config.borrow().background)
+}
+
+fn window_ink() -> Option<u32> {
+    WINDOW_CONFIG.with(|config| config.borrow().foreground)
 }
 
 fn validate_window_config(config: WindowConfig) -> Result<WindowConfig, String> {
@@ -168,13 +176,21 @@ fn validate_window_config(config: WindowConfig) -> Result<WindowConfig, String> 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_window_config(title: RocStr, width: u32, height: u32) {
+pub extern "C" fn roc_gui_window_config(
+    title: RocStr,
+    width: u32,
+    height: u32,
+    background: u32,
+    foreground: u32,
+) {
     let title_value = title.as_str().to_owned();
     unsafe { title.decref(roc_host()) };
     let config = validate_window_config(WindowConfig {
         title: title_value,
         width,
         height,
+        background: decode_color(background),
+        foreground: decode_color(foreground),
     })
     .unwrap_or_else(|message| panic!("invalid native window configuration: {message}"));
     WINDOW_CONFIG.with(|current| *current.borrow_mut() = config);
@@ -207,6 +223,7 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
     files::route_dealloc(pointer);
+    assets::route_dealloc(pointer);
     audio::route_dealloc(pointer);
     sqlite::route_dealloc(pointer);
     app_data::route_dealloc(pointer);
@@ -291,6 +308,23 @@ pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
     stage_node(NodeKind::Text(text), vec![])
 }
 
+/// Stage one text node that carries its own type rather than inheriting it.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> u64 {
+    let value = args.value.as_str().to_owned();
+    unsafe { args.value.decref(roc_host()) };
+    stage_node(
+        NodeKind::StyledText {
+            value,
+            fg: decode_color(args.fg),
+            font_size: args.font_size,
+            font_weight: args.font_weight,
+            font_face: decode_font_face(args.font_face),
+        },
+        vec![],
+    )
+}
+
 /// Begin a host-owned child sequence. Builders may be nested while recursively lowering.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_children_begin() -> u64 {
@@ -322,44 +356,55 @@ fn finish_children(builder: u64) -> Vec<u64> {
     })
 }
 
-// Mirrors the flat layout fields of the generated glue node argument records.
-#[allow(clippy::too_many_arguments)]
-fn decode_layout_style(
-    gap: u32,
-    padding: u32,
-    width_kind: u8,
-    width: u32,
-    height_kind: u8,
-    height: u32,
-    grow: bool,
-    bg: u32,
-    hover_bg: u32,
-    active_bg: u32,
-    fg: u32,
-    border_color: u32,
-    border_width: u32,
-    radius: u32,
-    font_size: u32,
-    overflow_x: u8,
-    overflow_y: u8,
-) -> Style {
-    Style {
-        gap,
-        padding,
-        width: decode_length(width_kind, width),
-        height: decode_length(height_kind, height),
-        grow,
-        bg: decode_color(bg),
-        hover_bg: decode_color(hover_bg),
-        active_bg: decode_color(active_bg),
-        fg: decode_color(fg),
-        border_color: decode_color(border_color),
-        border_width,
-        radius,
-        font_size,
-        overflow_x: decode_overflow(overflow_x),
-        overflow_y: decode_overflow(overflow_y),
-    }
+/// Decode the flat hosted style fields of any styled node argument record into
+/// the canonical `Style`. Every styled node passes the same field names, so one
+/// macro keeps them in step as the style vocabulary grows.
+macro_rules! decode_layout_style {
+    ($args:expr) => {
+        Style {
+            gap: $args.gap,
+            padding: [
+                $args.padding_top,
+                $args.padding_right,
+                $args.padding_bottom,
+                $args.padding_left,
+            ],
+            width: decode_length($args.width_kind, $args.width),
+            height: decode_length($args.height_kind, $args.height),
+            min_width: decode_length($args.min_width_kind, $args.min_width),
+            min_height: decode_length($args.min_height_kind, $args.min_height),
+            max_width: decode_length($args.max_width_kind, $args.max_width),
+            max_height: decode_length($args.max_height_kind, $args.max_height),
+            grow: $args.grow,
+            bg: decode_color($args.bg),
+            hover_bg: decode_color($args.hover_bg),
+            active_bg: decode_color($args.active_bg),
+            disabled_bg: decode_color($args.disabled_bg),
+            disabled_fg: decode_color($args.disabled_fg),
+            focus_color: decode_color($args.focus_color),
+            fg: decode_color($args.fg),
+            border_color: decode_color($args.border_color),
+            border_width: [
+                $args.border_top,
+                $args.border_right,
+                $args.border_bottom,
+                $args.border_left,
+            ],
+            radius: $args.radius,
+            font_size: $args.font_size,
+            font_weight: $args.font_weight,
+            shadow: $args.shadow,
+            shadow_y: $args.shadow_y,
+            shadow_color: decode_color($args.shadow_color),
+            shadow_alpha: $args.shadow_alpha,
+            font_face: decode_font_face($args.font_face),
+            text_overflow: decode_text_overflow($args.text_overflow),
+            overflow_x: decode_overflow($args.overflow_x),
+            overflow_y: decode_overflow($args.overflow_y),
+            align: decode_align($args.align),
+            justify: decode_justify($args.justify),
+        }
+    };
 }
 
 /// Stage one styled, semantically named row.
@@ -367,25 +412,7 @@ fn decode_layout_style(
 pub extern "C" fn roc_gui_node_row(args: HostGlueNodeRowArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Row { label, style },
         finish_children(args.builder),
@@ -397,25 +424,7 @@ pub extern "C" fn roc_gui_node_row(args: HostGlueNodeRowArgs) -> u64 {
 pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Column { label, style },
         finish_children(args.builder),
@@ -427,25 +436,7 @@ pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
 pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Dialog { label, style },
         finish_children(args.builder),
@@ -457,25 +448,7 @@ pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
 pub extern "C" fn roc_gui_node_panel(args: HostGlueNodePanelArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
-    let style = decode_layout_style(
-        args.gap,
-        args.padding,
-        args.width_kind,
-        args.width,
-        args.height_kind,
-        args.height,
-        args.grow,
-        args.bg,
-        args.hover_bg,
-        args.active_bg,
-        args.fg,
-        args.border_color,
-        args.border_width,
-        args.radius,
-        args.font_size,
-        args.overflow_x,
-        args.overflow_y,
-    );
+    let style = decode_layout_style!(args);
     stage_node(
         NodeKind::Panel { label, style },
         finish_children(args.builder),
@@ -497,6 +470,7 @@ pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
         NodeKind::Scroll {
             name: owned_name,
             axis,
+            style: decode_layout_style!(args),
         },
         vec![args.child],
     )
@@ -517,6 +491,8 @@ pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -
         NodeKind::VirtualList {
             name,
             row_height: args.row_height,
+            row_gap: args.row_gap,
+            style: decode_layout_style!(args),
         },
         finish_children(args.builder),
     )
@@ -536,25 +512,7 @@ pub extern "C" fn roc_gui_node_action_button(args: HostGlueNodeActionButtonArgs)
             caption,
             label,
             enabled: args.enabled,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -566,6 +524,58 @@ fn decode_length(kind: u8, value: u32) -> Length {
         1 => Length::Fill,
         2 => Length::Px(value),
         _ => panic!("invalid length kind {kind}"),
+    }
+}
+
+fn decode_align(value: u8) -> Align {
+    match value {
+        0 => Align::Native,
+        1 => Align::Start,
+        2 => Align::Center,
+        3 => Align::End,
+        4 => Align::Baseline,
+        5 => Align::Stretch,
+        _ => panic!("invalid align {value}"),
+    }
+}
+
+fn decode_justify(value: u8) -> Justify {
+    match value {
+        0 => Justify::Native,
+        1 => Justify::Start,
+        2 => Justify::Center,
+        3 => Justify::End,
+        4 => Justify::Between,
+        5 => Justify::Around,
+        _ => panic!("invalid justify {value}"),
+    }
+}
+
+/// The platform's fixed-pitch family. GPUI takes one family name, so the host
+/// names the face each operating system actually ships rather than a generic
+/// word that only one font stack resolves.
+const MONOSPACE_FAMILY: &str = if cfg!(target_os = "macos") {
+    "Menlo"
+} else if cfg!(target_os = "windows") {
+    "Consolas"
+} else {
+    "monospace"
+};
+
+fn decode_font_face(value: u8) -> FontFace {
+    match value {
+        0 => FontFace::Default,
+        1 => FontFace::Monospace,
+        _ => panic!("invalid font face {value}"),
+    }
+}
+
+fn decode_text_overflow(value: u8) -> TextOverflow {
+    match value {
+        0 => TextOverflow::Wrap,
+        1 => TextOverflow::NoWrap,
+        2 => TextOverflow::Ellipsis,
+        _ => panic!("invalid text overflow {value}"),
     }
 }
 
@@ -591,25 +601,13 @@ pub extern "C" fn roc_gui_node_checkbox(args: HostGlueNodeCheckboxArgs) -> u64 {
             label,
             checked: args.checked,
             enabled: args.enabled,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            indicator: CheckboxIndicator {
+                box_bg: decode_color(args.box_bg),
+                box_checked_bg: decode_color(args.box_checked_bg),
+                box_border: decode_color(args.box_border),
+                mark_color: decode_color(args.mark_color),
+            },
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -629,25 +627,7 @@ pub extern "C" fn roc_gui_node_textarea(args: HostGlueNodeTextareaArgs) -> u64 {
             placeholder,
             enabled: args.enabled,
             read_only: args.read_only,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -685,25 +665,7 @@ pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
             format,
             fit,
             grayscale: args.grayscale,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     )
@@ -754,7 +716,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         grow: args.grow,
         bg: decode_color(args.bg),
         border_color: decode_color(args.border_color),
-        border_width: args.border_width,
+        border_width: [args.border_width; 4],
         radius: args.radius,
         overflow_x: Overflow::Clip,
         overflow_y: Overflow::Clip,
@@ -810,25 +772,7 @@ pub extern "C" fn roc_gui_node_text_input(
             value,
             placeholder,
             enabled: args.enabled,
-            style: decode_layout_style(
-                args.gap,
-                args.padding,
-                args.width_kind,
-                args.width,
-                args.height_kind,
-                args.height,
-                args.grow,
-                args.bg,
-                args.hover_bg,
-                args.active_bg,
-                args.fg,
-                args.border_color,
-                args.border_width,
-                args.radius,
-                args.font_size,
-                args.overflow_x,
-                args.overflow_y,
-            ),
+            style: decode_layout_style!(args),
         },
         vec![],
     );
@@ -1001,7 +945,32 @@ fn take_patch() -> Patch {
     })
 }
 
+// A stand-in for the Roc dispatcher, installed only by host tests.
+//
+// The event route into Roc is a linked symbol, so a test that wants to drive
+// GPUI's own dispatch tree — press, patch, release — has no application to
+// answer the click. This seam lets a test answer it in Rust. It is compiled
+// out of the shipped binary.
+#[cfg(test)]
+thread_local! {
+    static TEST_DISPATCHER: RefCell<Option<Box<dyn Fn(u64) -> Patch>>> =
+        const { RefCell::new(None) };
+}
+
+#[cfg(test)]
+fn install_test_dispatcher(dispatcher: impl Fn(u64) -> Patch + 'static) {
+    TEST_DISPATCHER.with(|slot| *slot.borrow_mut() = Some(Box::new(dispatcher)));
+}
+
 fn dispatch(event_id: u64) -> Patch {
+    #[cfg(test)]
+    {
+        let answered =
+            TEST_DISPATCHER.with(|slot| slot.borrow().as_ref().map(|dispatch| dispatch(event_id)));
+        if let Some(patch) = answered {
+            return patch;
+        }
+    }
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
             .borrow_mut()
@@ -1094,7 +1063,9 @@ fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
 fn contains_text(nodes: &[Node], expected: &str) -> bool {
     nodes
         .iter()
-        .any(|node| matches!(&node.kind, NodeKind::Text(value) if value == expected))
+        .any(|node| {
+            matches!(&node.kind, NodeKind::Text(value) | NodeKind::StyledText { value, .. } if value == expected)
+        })
 }
 
 fn headless_smoke() {
@@ -1160,6 +1131,11 @@ fn headless_smoke() {
 
 struct NodeView {
     node: Node,
+    /// Where this node sits, named rather than numbered. Two mounted nodes
+    /// from different patches with the same identity are the same control, and
+    /// share this one GPUI entity — which is what lets a press survive a
+    /// rerender under the finger.
+    identity: ElementIdentity,
     children: Vec<Entity<NodeView>>,
     runtime: WeakEntity<Runtime>,
     is_root: bool,
@@ -1167,12 +1143,106 @@ struct NodeView {
     focus_handle: Option<FocusHandle>,
     input: Option<Entity<input::TextInput>>,
     canvas_bounds: Arc<Mutex<Option<Bounds<Pixels>>>>,
+    /// The scroll position of a scroll region or virtual list, owned by the
+    /// view rather than by GPUI's per-element state. Held here so that a node
+    /// which keeps its identity across a patch keeps its scroll position too,
+    /// and so that a window specification can reach the same offset cell the
+    /// production wheel handler writes.
+    scroll: Option<ScrollTracker>,
+}
+
+/// The retained scroll position of one scrolling node.
+///
+/// Two shapes because GPUI has two: a scroll region is a `div` with overflow,
+/// and a virtual list is a `uniform_list` whose rows below the fold do not
+/// exist as elements at all and must be reached by index.
+#[derive(Clone)]
+pub(crate) enum ScrollTracker {
+    Region(ScrollHandle),
+    List(UniformListScrollHandle),
+}
+
+impl ScrollTracker {
+    fn for_kind(kind: &NodeKind) -> Option<Self> {
+        match kind {
+            NodeKind::Scroll { .. } => Some(Self::Region(ScrollHandle::new())),
+            NodeKind::VirtualList { .. } => Some(Self::List(UniformListScrollHandle::new())),
+            _ => None,
+        }
+    }
+
+    /// The scroll region's own rectangle, in window coordinates.
+    ///
+    /// Not the probe's: the probe marker is a child of the scrolling element
+    /// and therefore travels with the content, so after a scroll it no longer
+    /// describes the viewport the content is clipped to. GPUI records the
+    /// container's bounds on the handle at every prepaint, which does not move.
+    pub(crate) fn viewport(&self) -> Bounds<Pixels> {
+        match self {
+            Self::Region(handle) => handle.bounds(),
+            Self::List(handle) => handle.0.borrow().base_handle.bounds(),
+        }
+    }
+
+    /// Move the content by `delta` logical pixels along the scroll axes.
+    ///
+    /// Positive `y` scrolls towards the end of the content, which is the
+    /// direction a wheel-down gesture moves it. GPUI clamps the offset against
+    /// the content size on the next prepaint, so an overlarge request settles
+    /// at the end rather than past it.
+    pub(crate) fn scroll_by(&self, delta: Point<Pixels>) {
+        let base = match self {
+            Self::Region(handle) => handle.clone(),
+            Self::List(handle) => handle.0.borrow().base_handle.clone(),
+        };
+        let offset = base.offset();
+        base.set_offset(point(offset.x - delta.x, offset.y - delta.y));
+    }
+
+    /// Bring child `index` of a virtual list into view.
+    pub(crate) fn scroll_to_row(&self, index: usize) -> bool {
+        match self {
+            Self::List(handle) => {
+                handle.scroll_to_item(index, ScrollStrategy::Center);
+                true
+            }
+            Self::Region(_) => false,
+        }
+    }
+}
+
+/// Place the container's children across and along its layout axis. `Native`
+/// leaves the element's own alignment alone, which is how a row keeps centring
+/// its children unless the application says otherwise.
+fn apply_axes(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
+    element = match style.align {
+        Align::Native => element,
+        Align::Start => element.items_start(),
+        Align::Center => element.items_center(),
+        Align::End => element.items_end(),
+        Align::Baseline => element.items_baseline(),
+        Align::Stretch => {
+            element.style().align_items = Some(AlignItems::Stretch);
+            element
+        }
+    };
+    match style.justify {
+        Justify::Native => element,
+        Justify::Start => element.justify_start(),
+        Justify::Center => element.justify_center(),
+        Justify::End => element.justify_end(),
+        Justify::Between => element.justify_between(),
+        Justify::Around => element.justify_around(),
+    }
 }
 
 fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
-    element = element
+    element = apply_axes(element, style)
         .gap(px(style.gap as f32))
-        .p(px(style.padding as f32));
+        .pt(px(style.padding[0] as f32))
+        .pr(px(style.padding[1] as f32))
+        .pb(px(style.padding[2] as f32))
+        .pl(px(style.padding[3] as f32));
     element = match style.width {
         Length::Auto => element,
         Length::Fill => element.w_full(),
@@ -1183,6 +1253,20 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
         Length::Fill => element.h_full(),
         Length::Px(value) => element.h(px(value as f32)),
     };
+    // A Px floor or ceiling is what stops a fixed side being squeezed by a
+    // sibling's overflow, or grown past the space it should occupy.
+    if let Length::Px(value) = style.min_width {
+        element = element.min_w(px(value as f32));
+    }
+    if let Length::Px(value) = style.min_height {
+        element = element.min_h(px(value as f32));
+    }
+    if let Length::Px(value) = style.max_width {
+        element = element.max_w(px(value as f32));
+    }
+    if let Length::Px(value) = style.max_height {
+        element = element.max_h(px(value as f32));
+    }
     if style.grow {
         element = element.flex_grow();
     }
@@ -1201,15 +1285,47 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     if let Some(value) = style.border_color {
         element = element.border_color(rgb(value));
     }
-    if style.border_width > 0 {
-        element = element.border(px(style.border_width as f32));
-    }
+    element = element
+        .border_t(px(style.border_width[0] as f32))
+        .border_r(px(style.border_width[1] as f32))
+        .border_b(px(style.border_width[2] as f32))
+        .border_l(px(style.border_width[3] as f32));
     if style.radius > 0 {
         element = element.rounded(px(style.radius as f32));
     }
     if style.font_size > 0 {
         element = element.text_size(px(style.font_size as f32));
     }
+    if let FontFace::Monospace = style.font_face {
+        element = element.font_family(MONOSPACE_FAMILY);
+    }
+    if style.font_weight > 0 {
+        element = element.font_weight(FontWeight(style.font_weight as f32));
+    }
+    // A raised surface separates from its ground by shadow where a hairline
+    // border has too little contrast to read. The blur is the element's own,
+    // so a paper-light palette can choose both the colour and how much of it.
+    if style.shadow > 0 {
+        let rgba = style.shadow_color.unwrap_or(0x000000);
+        let alpha = (style.shadow_alpha.min(100) as f32) / 100.0;
+        element = element.shadow(vec![BoxShadow {
+            color: gpui::Rgba {
+                r: ((rgba >> 16) & 0xff) as f32 / 255.0,
+                g: ((rgba >> 8) & 0xff) as f32 / 255.0,
+                b: (rgba & 0xff) as f32 / 255.0,
+                a: alpha,
+            }
+            .into(),
+            offset: gpui::point(px(0.0), px(style.shadow_y as f32)),
+            blur_radius: px(style.shadow as f32),
+            spread_radius: px(0.0),
+        }]);
+    }
+    element = match style.text_overflow {
+        TextOverflow::Wrap => element,
+        TextOverflow::NoWrap => element.whitespace_nowrap(),
+        TextOverflow::Ellipsis => element.whitespace_nowrap().text_ellipsis(),
+    };
     element = match style.overflow_x {
         Overflow::Visible => element,
         Overflow::Clip => element.overflow_x_hidden(),
@@ -1305,21 +1421,35 @@ fn trace_ellipse(builder: &mut PathBuilder, center: Point<Pixels>, radii: Size<f
     builder.close();
 }
 
-fn apply_disabled(element: Stateful<Div>) -> Stateful<Div> {
-    element
-        .bg(rgb(DISABLED_BG))
-        .text_color(rgb(DISABLED_FG))
-        .opacity(0.55)
-        .cursor_default()
+/// The host's own disabled treatment suits the default dark ground. An
+/// application that names its own disabled colours gets those instead, at full
+/// opacity: a chosen colour is already the colour it wants to be, and fading it
+/// is what left a saturated pill still reading as live on a near-black ground.
+fn apply_disabled(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
+    let element = element
+        .bg(rgb(style.disabled_bg.unwrap_or(DISABLED_BG)))
+        .text_color(rgb(style.disabled_fg.unwrap_or(DISABLED_FG)))
+        .cursor_default();
+    match (style.disabled_bg, style.disabled_fg) {
+        (None, None) => element.opacity(0.55),
+        _ => element,
+    }
 }
 
-fn apply_focus_ring(element: Stateful<Div>) -> Stateful<Div> {
-    element.focus(|style| style.border_2().border_color(rgb(FOCUS_RING)))
+fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
+    let ring = rgb(style.focus_color.unwrap_or(FOCUS_RING));
+    element.focus(move |focused| focused.border_2().border_color(ring))
 }
 
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        let mut element = div().id(("node", self.node.id));
+        // The element key is the view's own, not the mounted node id: a node id
+        // is never reused, so keying by it gave every control a new GPUI
+        // element on every patch and threw away the element state — including
+        // the pending mouse-down that turns a press and a release into a
+        // click. This view is already the node's stable identity, so a
+        // constant key inside it is both stable and unique.
+        let mut element = div().id("node");
         let mut append_children = true;
         if self.is_root {
             element = element.size_full().min_h_0().min_w_0();
@@ -1461,7 +1591,7 @@ impl Render for NodeView {
                 let dialog_id = self.node.id;
                 let runtime = self.runtime.clone();
                 let inner = apply_style(
-                    div().id(("dialog-surface", dialog_id)).flex().flex_col(),
+                    div().id("dialog-surface").flex().flex_col(),
                     style,
                 )
                 .children(self.children.iter().cloned().map(AnyView::from));
@@ -1485,12 +1615,17 @@ impl Render for NodeView {
             NodeKind::Row { style, .. } => {
                 element = apply_style(element.flex().flex_row().items_center(), style);
             }
-            NodeKind::Scroll { axis, .. } => {
-                element = element
-                    .flex()
-                    .flex_col()
-                    .flex_grow()
+            NodeKind::Scroll { axis, style, .. } => {
+                element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .scrollbar_width(px(8.0));
+                // Tracking hands GPUI the view's own offset cell in place of
+                // the one it would keep in per-element state. The wheel handler
+                // writes through the same cell either way, so this changes
+                // nothing about interactive scrolling; what it adds is a
+                // durable position and a handle a specification can reach.
+                if let Some(ScrollTracker::Region(handle)) = &self.scroll {
+                    element = element.track_scroll(handle);
+                }
                 element = match axis {
                     ScrollAxis::Vertical => element.min_h_0().max_h_full().overflow_y_scroll(),
                     ScrollAxis::Horizontal => element.min_w_0().max_w_full().overflow_x_scroll(),
@@ -1503,30 +1638,65 @@ impl Render for NodeView {
                 };
             }
             NodeKind::VirtualItem { .. } => {}
-            NodeKind::VirtualList { row_height, .. } => {
+            NodeKind::VirtualList {
+                row_height,
+                row_gap,
+                style,
+                ..
+            } => {
                 let list_id = self.node.id;
                 let count = self.node.children.len();
                 let runtime = self.runtime.clone();
                 let height = *row_height;
-                element = element
-                    .flex()
-                    .flex_col()
-                    .flex_grow()
+                let gap = *row_gap;
+                element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .min_h_0()
                     .max_h_full()
                     .child(
-                        uniform_list(("virtual-list", list_id), count, move |range, _, cx| {
-                            runtime
-                                .update(cx, |runtime, cx| {
-                                    runtime.virtual_range(list_id, range, height, cx)
-                                })
-                                .unwrap_or_default()
-                        })
-                        .size_full(),
+                        {
+                            let list = uniform_list("virtual-list", count, move |range, _, cx| {
+                                runtime
+                                    .update(cx, |runtime, cx| {
+                                        runtime.virtual_range(list_id, range, height, gap, cx)
+                                    })
+                                    .unwrap_or_default()
+                            })
+                            .size_full();
+                            match &self.scroll {
+                                Some(ScrollTracker::List(handle)) => {
+                                    list.track_scroll(handle.clone())
+                                }
+                                _ => list,
+                            }
+                        },
                     );
             }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
+            }
+            // A typographic step is about the string alone, so it costs no
+            // container: the colour, size, weight, and face are the text
+            // element's own and nothing else about the layout changes.
+            NodeKind::StyledText {
+                value,
+                fg,
+                font_size,
+                font_weight,
+                font_face,
+            } => {
+                element = element.child(value.clone());
+                if let Some(color) = fg {
+                    element = element.text_color(rgb(*color));
+                }
+                if *font_size > 0 {
+                    element = element.text_size(px(*font_size as f32));
+                }
+                if *font_weight > 0 {
+                    element = element.font_weight(FontWeight(*font_weight as f32));
+                }
+                if let FontFace::Monospace = font_face {
+                    element = element.font_family(MONOSPACE_FAMILY);
+                }
             }
             NodeKind::Textarea {
                 label,
@@ -1550,8 +1720,8 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = apply_focus_ring(element.cursor(CursorStyle::IBeam)).on_key_down(
-                        move |event, _, cx| {
+                    element = apply_focus_ring(element.cursor(CursorStyle::IBeam), style)
+                        .on_key_down(move |event, _, cx| {
                             let mut next = current.clone();
                             if event.keystroke.key == "backspace" {
                                 next.pop();
@@ -1568,7 +1738,7 @@ impl Render for NodeView {
                         },
                     );
                 } else if !*enabled {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
                 let _ = label;
             }
@@ -1596,20 +1766,44 @@ impl Render for NodeView {
                     ImageFit::None => ObjectFit::None,
                     ImageFit::ScaleDown => ObjectFit::ScaleDown,
                 };
-                element = apply_style(element, style).child(
-                    img(std::sync::Arc::new(gpui::Image::from_bytes(
-                        native_format,
-                        bytes.clone(),
-                    )))
-                    .size_full()
-                    .object_fit(object_fit)
-                    .grayscale(*grayscale),
-                );
+                // The declared box is authoritative and `fit` maps pixels into
+                // it. A Fill or fixed side also needs its flex minimum
+                // released, or the picture lays out past the space it was
+                // given instead of fitting it.
+                let mut picture = img(std::sync::Arc::new(gpui::Image::from_bytes(
+                    native_format,
+                    bytes.clone(),
+                )))
+                .size_full()
+                .min_w_0()
+                .min_h_0()
+                .object_fit(object_fit)
+                .grayscale(*grayscale);
+                // Clip the decoded picture to the element's own radius. The
+                // container's rounded quad is painted behind the child, so
+                // without this a 16-point media corner has a square picture
+                // sitting over it.
+                if style.radius > 0 {
+                    picture = picture.rounded(px(style.radius as f32));
+                }
+                // Releasing the container's flex minimum is what stops an
+                // intrinsically larger picture laying out past the box it was
+                // given. It must not overrule a floor the application declared,
+                // though: min_w_0 on a box with min_width: Px(88) is how a
+                // square thumbnail ended up 61.5 points wide beside a caption.
+                element = apply_style(element, style);
+                if matches!(style.min_width, Length::Auto) {
+                    element = element.min_w_0();
+                }
+                if matches!(style.min_height, Length::Auto) {
+                    element = element.min_h_0();
+                }
+                element = element.child(picture);
             }
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
                 if !enabled || !self.input_enabled {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
                 if let Some(editor) = &self.input {
                     element = element.child(editor.clone());
@@ -1637,7 +1831,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = apply_focus_ring(element)
+                    element = apply_focus_ring(element, style)
                         .on_action(move |_: &ActivateEnter, _, cx| {
                             let _ = enter_runtime.update(cx, |runtime, cx| {
                                 runtime.activate_if_live(node_id, ControlKey::Enter, cx)
@@ -1656,13 +1850,14 @@ impl Render for NodeView {
                             }
                         });
                 } else {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
             }
             NodeKind::Checkbox {
                 label,
                 checked,
                 enabled,
+                indicator,
                 style,
             } => {
                 let node_id = self.node.id;
@@ -1670,30 +1865,31 @@ impl Render for NodeView {
                 let enabled_box = *enabled && self.input_enabled;
                 let mark = if *checked { "✓" } else { "" };
                 let box_bg = if *checked {
-                    CHECKBOX_CHECKED_BG
+                    indicator.box_checked_bg.unwrap_or(CHECKBOX_CHECKED_BG)
                 } else {
-                    CHECKBOX_BG
+                    indicator.box_bg.unwrap_or(CHECKBOX_BG)
                 };
+                let box_border = indicator.box_border.unwrap_or(CHECKBOX_BORDER);
                 let box_fg = if *checked {
-                    CHECKBOX_CHECKED_FG
+                    indicator.mark_color.unwrap_or(CHECKBOX_CHECKED_FG)
                 } else {
-                    CHECKBOX_BORDER
+                    box_border
                 };
-                element = element
-                    .flex()
-                    .flex_row()
-                    .items_center()
+                element = apply_axes(element.flex().flex_row().items_center(), style)
                     .gap(px(style.gap as f32))
-                    .p(px(style.padding as f32))
+                    .pt(px(style.padding[0] as f32))
+                    .pr(px(style.padding[1] as f32))
+                    .pb(px(style.padding[2] as f32))
+                    .pl(px(style.padding[3] as f32))
                     .child(
                         div()
                             .w(px(18.0))
                             .h(px(18.0))
                             .border_1()
                             .border_color(rgb(if enabled_box {
-                                CHECKBOX_BORDER
+                                box_border
                             } else {
-                                DISABLED_FG
+                                style.disabled_fg.unwrap_or(DISABLED_FG)
                             }))
                             .bg(rgb(box_bg))
                             .text_color(rgb(box_fg))
@@ -1714,6 +1910,20 @@ impl Render for NodeView {
                     Length::Fill => element.h_full(),
                     Length::Px(value) => element.h(px(value as f32)),
                 };
+                // A Px floor or ceiling is what stops a fixed side being squeezed by a
+                // sibling's overflow, or grown past the space it should occupy.
+                if let Length::Px(value) = style.min_width {
+                    element = element.min_w(px(value as f32));
+                }
+                if let Length::Px(value) = style.min_height {
+                    element = element.min_h(px(value as f32));
+                }
+                if let Length::Px(value) = style.max_width {
+                    element = element.max_w(px(value as f32));
+                }
+                if let Length::Px(value) = style.max_height {
+                    element = element.max_h(px(value as f32));
+                }
                 if style.grow {
                     element = element.flex_grow();
                 }
@@ -1726,15 +1936,28 @@ impl Render for NodeView {
                 if let Some(value) = style.border_color {
                     element = element.border_color(rgb(value));
                 }
-                if style.border_width > 0 {
-                    element = element.border(px(style.border_width as f32));
-                }
+                element = element
+                    .border_t(px(style.border_width[0] as f32))
+                    .border_r(px(style.border_width[1] as f32))
+                    .border_b(px(style.border_width[2] as f32))
+                    .border_l(px(style.border_width[3] as f32));
                 if style.radius > 0 {
                     element = element.rounded(px(style.radius as f32));
                 }
                 if style.font_size > 0 {
                     element = element.text_size(px(style.font_size as f32));
                 }
+                if let FontFace::Monospace = style.font_face {
+                    element = element.font_family(MONOSPACE_FAMILY);
+                }
+                if style.font_weight > 0 {
+                    element = element.font_weight(FontWeight(style.font_weight as f32));
+                }
+                element = match style.text_overflow {
+                    TextOverflow::Wrap => element,
+                    TextOverflow::NoWrap => element.whitespace_nowrap(),
+                    TextOverflow::Ellipsis => element.whitespace_nowrap().text_ellipsis(),
+                };
                 element = match style.overflow_x {
                     Overflow::Visible => element,
                     Overflow::Clip => element.overflow_x_hidden(),
@@ -1756,7 +1979,7 @@ impl Render for NodeView {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
                     }
-                    element = apply_focus_ring(element)
+                    element = apply_focus_ring(element, style)
                         .on_action(move |_: &ActivateSpace, _, cx| {
                             let _ = space_runtime.update(cx, |runtime, cx| {
                                 runtime.activate_if_live(node_id, ControlKey::Space, cx)
@@ -1770,7 +1993,7 @@ impl Render for NodeView {
                             }
                         });
                 } else {
-                    element = apply_disabled(element);
+                    element = apply_disabled(element, style);
                 }
             }
         }
@@ -1794,14 +2017,35 @@ struct Runtime {
     /// the generation it drew. See [`crate::probe::Frame`].
     generation: u64,
     views: HashMap<u64, Entity<NodeView>>,
+    /// Where each mounted node sits, for the graph currently mounted. Captured
+    /// so that when a patch retires those nodes their views can still be found
+    /// by identity rather than by the id that is about to disappear.
+    identities: HashMap<u64, ElementIdentity>,
+    /// Views whose nodes the last patch retired, indexed by identity. A staged
+    /// node that names the same control claims the entity back instead of
+    /// getting a fresh one. Held only until the next patch.
+    recyclable: HashMap<ElementIdentity, Entity<NodeView>>,
     virtual_views: HashMap<(u64, u64), VirtualCached>,
     focus_handles: HashMap<u64, FocusHandle>,
+    /// The live scroll position of every mounted scrolling node, by id. The
+    /// same tracker the node's view holds, so writing through it moves the
+    /// production element rather than a copy of its state.
+    scroll_trackers: HashMap<u64, ScrollTracker>,
+    /// Where each canvas actually paints, by node id. The node's own div may be
+    /// inset by its style, and a primitive's coordinates are relative to the
+    /// painted surface rather than to that div, so this is the origin a
+    /// primitive's rectangle is measured from — the same slot the painter and
+    /// the hit test use.
+    canvas_surfaces: HashMap<u64, Arc<Mutex<Option<Bounds<Pixels>>>>>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
     active_dialog: Option<u64>,
     dialog_return_focus: Option<(u8, String)>,
     last_trigger_focus: Option<(u8, String)>,
     focused_identity: Option<(u64, (u8, String))>,
+    /// The focused control's position in the focus order when it was last
+    /// rendered. It is the only thing that survives the control itself.
+    focused_position: Option<usize>,
     focus_after_render: Option<u64>,
     editors: HashMap<String, Entity<input::TextInput>>,
     canvas_drag: Option<(String, u64)>,
@@ -1826,14 +2070,19 @@ impl Runtime {
             graph: MountedGraph::default(),
             generation: 0,
             views: HashMap::new(),
+            identities: HashMap::new(),
+            recyclable: HashMap::new(),
             virtual_views: HashMap::new(),
             focus_handles: HashMap::new(),
+            scroll_trackers: HashMap::new(),
+            canvas_surfaces: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
             active_dialog: None,
             dialog_return_focus: None,
             last_trigger_focus: None,
             focused_identity: None,
+            focused_position: None,
             focus_after_render: None,
             editors: HashMap::new(),
             canvas_drag: None,
@@ -1867,16 +2116,37 @@ impl Runtime {
             }
         })
         .detach();
-        #[cfg(not(target_os = "linux"))]
-        files::serve_directory_prompts(cx);
+        // The chooser wakes on the request rather than polling for it. A person
+        // who presses Open waits for the panel, and every millisecond between
+        // the press and the panel is time the application looks unresponsive
+        // for no reason.
+        let (chooser_requests, chooser_pending) = async_channel::unbounded::<files::ChooserRequest>();
+        files::install_chooser(chooser_requests);
+        cx.spawn(async move |_, cx| {
+            while let Ok(request) = chooser_pending.recv().await {
+                let prompt = cx.update(|cx| {
+                    cx.prompt_for_paths(PathPromptOptions {
+                        files: false,
+                        directories: true,
+                        multiple: false,
+                        prompt: Some("Open".into()),
+                    })
+                });
+                let Ok(prompt) = prompt else { break };
+                let chosen = match prompt.await {
+                    Ok(Ok(Some(paths))) => paths.into_iter().next(),
+                    _ => None,
+                };
+                let _ = request.reply.send(chosen);
+            }
+        })
+        .detach();
         let executor = cx.background_executor().clone();
         cx.spawn(async move |_, cx| {
             loop {
                 executor.timer(std::time::Duration::from_millis(100)).await;
                 if cx
                     .update(|cx| {
-                        #[cfg(not(target_os = "linux"))]
-                        files::serve_directory_prompts(cx);
                         clipboard::observe_system(
                             cx.read_from_clipboard().and_then(|item| item.text()),
                         );
@@ -1939,14 +2209,11 @@ impl Runtime {
         {
             return;
         }
-        if !matches!(
-            self.graph.node(id).map(|node| &node.kind),
-            Some(
-                NodeKind::Button { enabled: true, .. }
-                    | NodeKind::Checkbox { enabled: true, .. }
-                    | NodeKind::Dialog { .. }
-            )
-        ) {
+        if !self
+            .graph
+            .node(id)
+            .is_some_and(|node| node.kind.dispatches_click())
+        {
             return;
         }
         if !matches!(
@@ -2142,6 +2409,23 @@ impl Runtime {
     }
 
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+        // Offer every view whose node this patch retired back to the staged
+        // nodes, indexed by identity. A whole-root rebuild stages a complete
+        // new set of node ids for what is, to the person using the
+        // application, the same controls; without this each of them would get
+        // a fresh GPUI entity and lose whatever element state it was carrying.
+        self.recyclable.clear();
+        let mut doomed: std::collections::HashSet<u64> =
+            applied.removed_ids.iter().copied().collect();
+        if applied.retired_root {
+            doomed.extend(self.views.keys().copied());
+        }
+        for id in doomed {
+            if let Some(view) = self.views.get(&id) {
+                let identity = view.read(cx).identity.clone();
+                self.recyclable.insert(identity, view.clone());
+            }
+        }
         // Every applied patch leaves the window a frame behind, which is what
         // makes a painted read of the new tree refuse until it catches up.
         self.generation += 1;
@@ -2154,11 +2438,23 @@ impl Runtime {
             for (list, entities) in recycled {
                 observatory::virtual_list_frame(list, 0, 0, entities, 0);
             }
+            // A virtual row's views live only in this cache, so offer them back
+            // by identity too before it is dropped: a control inside a list is
+            // exposed to exactly the same lost press as one outside it.
+            let rows = self
+                .virtual_views
+                .values()
+                .map(|cached| cached.view.clone())
+                .collect::<Vec<_>>();
+            for row in rows {
+                self.offer_subtree(row, cx);
+            }
             self.virtual_views.clear();
         }
         if applied.retired_root {
             self.views.clear();
         }
+        refresh_identities(&self.graph, applied, &mut self.identities);
         self.materialize(&applied.staged_ids, cx);
         let next_dialog = self.graph.active_dialog();
         match (self.active_dialog.is_some(), next_dialog) {
@@ -2173,10 +2469,20 @@ impl Runtime {
                     .and_then(|identity| self.graph.find_focus_identity(&identity));
             }
             _ => {
-                if let Some((id, identity)) = self.focused_identity.clone()
-                    && self.graph.node(id).is_none()
-                {
-                    self.focus_after_render = self.graph.find_focus_identity(&identity);
+                if let Some((id, identity)) = self.focused_identity.clone() {
+                    if self.graph.node(id).is_none() {
+                        // The same control under a new id keeps focus. A
+                        // control that is gone hands focus to whatever now
+                        // holds its place, rather than dropping it and
+                        // leaving a person's next Tab starting from nowhere.
+                        self.focus_after_render = self
+                            .graph
+                            .find_focus_identity(&identity)
+                            .or_else(|| {
+                                self.focused_position
+                                    .and_then(|was_at| self.graph.focus_destination(was_at))
+                            });
+                    }
                 }
             }
         }
@@ -2218,6 +2524,8 @@ impl Runtime {
         for id in &applied.removed_ids {
             self.views.remove(id);
             self.focus_handles.remove(id);
+            self.scroll_trackers.remove(id);
+            self.canvas_surfaces.remove(id);
         }
         let live_labels: std::collections::HashSet<String> = self
             .graph
@@ -2229,6 +2537,93 @@ impl Runtime {
             })
             .collect();
         self.editors.retain(|label, _| live_labels.contains(label));
+    }
+
+    /// Give a staged node its GPUI entity.
+    ///
+    /// A retired view of the same identity and the same kind is claimed back
+    /// rather than replaced. Nothing of the old node's content survives — the
+    /// view is refreshed from the staged node, and every handler is rebuilt
+    /// from it on the next render, so a click still routes to the live node id
+    /// and a control that left the tree still drops its press. What survives
+    /// is the entity, and with it GPUI's element state: the pending press, the
+    /// scroll offset, the focus handle.
+    fn claim_view(
+        &mut self,
+        node: Node,
+        input_enabled: bool,
+        cx: &mut Context<Self>,
+    ) -> Entity<NodeView> {
+        let identity = self.identities.get(&node.id).cloned().unwrap_or_default();
+        // An empty identity is not an identity: it would make every unplaced
+        // node the same control as every other.
+        let claimed = (!identity.is_empty())
+            .then(|| self.recyclable.remove(&identity))
+            .flatten()
+            .filter(|view| view.read(cx).node.kind.tag() == node.kind.tag());
+        // Reusing the tracker is what keeps a list where the person left it
+        // when the application rerenders under them; a fresh one would jump the
+        // content back to the top on every patch.
+        let scroll = claimed
+            .as_ref()
+            .and_then(|view| view.read(cx).scroll.clone())
+            .or_else(|| ScrollTracker::for_kind(&node.kind));
+        let editor = self.editor_for_node(&node, input_enabled, cx);
+        let focus_handle = if let Some(editor) = &editor {
+            Some(editor.read(cx).focus_handle())
+        } else if node.kind.focus_identity().is_some() {
+            // Reusing the handle is what keeps keyboard focus on a control
+            // whose application rerendered under it, rather than restoring it
+            // a frame later.
+            claimed
+                .as_ref()
+                .and_then(|view| view.read(cx).focus_handle.clone())
+                .or_else(|| Some(cx.focus_handle()))
+        } else {
+            None
+        };
+        match claimed {
+            Some(view) => {
+                view.update(cx, |existing, cx| {
+                    existing.node = node;
+                    existing.children = vec![];
+                    existing.is_root = false;
+                    existing.input_enabled = input_enabled;
+                    existing.focus_handle = focus_handle;
+                    existing.input = editor;
+                    existing.scroll = scroll;
+                    cx.notify();
+                });
+                view
+            }
+            None => {
+                let runtime = cx.entity().downgrade();
+                cx.new(|_| NodeView {
+                    node,
+                    identity,
+                    children: vec![],
+                    runtime,
+                    is_root: false,
+                    input_enabled,
+                    focus_handle,
+                    input: editor,
+                    canvas_bounds: Arc::new(Mutex::new(None)),
+                    scroll,
+                })
+            }
+        }
+    }
+
+    /// Index a retired view and everything under it by identity.
+    fn offer_subtree(&mut self, view: Entity<NodeView>, cx: &mut Context<Self>) {
+        let (identity, children) = {
+            let node = view.read(cx);
+            (node.identity.clone(), node.children.clone())
+        };
+        self.recyclable.insert(identity, view);
+        for child in children {
+            self.offer_subtree(child, cx);
+        }
     }
 
     fn materialize(&mut self, node_ids: &[u64], cx: &mut Context<Self>) {
@@ -2249,32 +2644,21 @@ impl Runtime {
                 "node id {} was reused",
                 node.id
             );
-            let value = node.clone();
             let input_enabled = self
                 .active_dialog
                 .is_none_or(|dialog| self.graph.is_descendant_of(node.id, dialog));
-            let editor = self.editor_for_node(&node, input_enabled, cx);
-            let focus_handle = if let Some(editor) = &editor {
-                Some(editor.read(cx).focus_handle())
-            } else {
-                node.kind.focus_identity().map(|_| cx.focus_handle())
-            };
-            let view_focus = focus_handle.clone();
-            let runtime = cx.entity().downgrade();
-            let view = cx.new(|_| NodeView {
-                node: value,
-                children: vec![],
-                runtime,
-                is_root: false,
-                input_enabled,
-                focus_handle: view_focus,
-                input: editor,
-                canvas_bounds: Arc::new(Mutex::new(None)),
-            });
-            if let Some(handle) = focus_handle {
-                self.focus_handles.insert(node.id, handle);
+            let view = self.claim_view(node, input_enabled, cx);
+            if let Some(handle) = view.read(cx).focus_handle.clone() {
+                self.focus_handles.insert(*id, handle);
             }
-            self.views.insert(node.id, view);
+            if let Some(tracker) = view.read(cx).scroll.clone() {
+                self.scroll_trackers.insert(*id, tracker);
+            }
+            if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
+                self.canvas_surfaces
+                    .insert(*id, view.read(cx).canvas_bounds.clone());
+            }
+            self.views.insert(*id, view);
         }
         for id in &eager {
             let node = self.graph.node(*id).expect("applied node is missing");
@@ -2375,29 +2759,20 @@ impl Runtime {
             let count = built.iter().map(|(_, count)| *count).sum();
             (built.into_iter().map(|(view, _)| view).collect(), count)
         };
-        let runtime = cx.entity().downgrade();
         let input_enabled = self
             .active_dialog
             .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
-        let input = self.editor_for_node(&node, input_enabled, cx);
-        let focus_handle = if let Some(editor) = &input {
-            Some(editor.read(cx).focus_handle())
-        } else {
-            node.kind.focus_identity().map(|_| cx.focus_handle())
-        };
-        let view_focus = focus_handle.clone();
-        let view = cx.new(|_| NodeView {
-            node,
-            children,
-            runtime,
-            is_root: false,
-            input_enabled,
-            focus_handle: view_focus,
-            input,
-            canvas_bounds: Arc::new(Mutex::new(None)),
-        });
-        if let Some(handle) = focus_handle {
+        let view = self.claim_view(node, input_enabled, cx);
+        view.update(cx, |view, _| view.children = children);
+        if let Some(handle) = view.read(cx).focus_handle.clone() {
             self.focus_handles.insert(id, handle);
+        }
+        if let Some(tracker) = view.read(cx).scroll.clone() {
+            self.scroll_trackers.insert(id, tracker);
+        }
+        if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
+            self.canvas_surfaces
+                .insert(id, view.read(cx).canvas_bounds.clone());
         }
         (view, descendants + 1)
     }
@@ -2407,6 +2782,7 @@ impl Runtime {
         list_id: u64,
         range: std::ops::Range<usize>,
         row_height: u32,
+        row_gap: u32,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let item_ids = self
@@ -2460,13 +2836,53 @@ impl Runtime {
                     Some(NodeKind::VirtualItem { key }) => *key,
                     _ => panic!("virtual list child is not an item"),
                 };
+                // The gap is held clear inside the row's own height, which is
+                // what keeps a list's scroll arithmetic exactly row_height per
+                // row while its rows still read as separate surfaces.
                 div()
                     .id(("virtual-row", key))
                     .h(px(row_height as f32))
+                    .pb(px(row_gap.min(row_height.saturating_sub(1)) as f32))
                     .child(view)
                     .into_any_element()
             })
             .collect()
+    }
+}
+
+/// Bring an identity map up to date with the patch just applied.
+///
+/// A replacement changes identities only inside the replaced subtree, and among
+/// its parent's children where a changed name shifts an occurrence. Recomputing
+/// the whole graph instead would make a small update in a large application pay
+/// for every node it did not touch, on every event.
+fn refresh_identities(
+    graph: &MountedGraph,
+    applied: &bridge::GraphApply,
+    identities: &mut HashMap<u64, ElementIdentity>,
+) {
+    for id in &applied.removed_ids {
+        identities.remove(id);
+    }
+    let parent_identity = match (applied.retired_root, applied.parent) {
+        (false, Some((parent, _))) => identities.get(&parent).cloned(),
+        _ => None,
+    };
+    let (Some((parent, _)), Some(parent_identity)) = (applied.parent, parent_identity) else {
+        *identities = graph.element_identities();
+        return;
+    };
+    let staged = applied
+        .staged_ids
+        .iter()
+        .copied()
+        .collect::<std::collections::HashSet<_>>();
+    for (child, segment) in graph.child_segments(parent) {
+        let settled = !staged.contains(&child)
+            && identities.get(&child).and_then(|identity| identity.last()) == Some(&segment);
+        if !settled {
+            graph.identities_below(child, segment, &parent_identity, identities);
+        }
     }
 }
 
@@ -2488,29 +2904,36 @@ impl Render for Runtime {
         {
             handle.focus(window);
         }
-        self.focused_identity = self
+        let focused_now = self
             .focus_handles
             .iter()
             .find(|(_, handle)| handle.is_focused(window))
-            .map(|(id, _)| *id)
-            .and_then(|id| {
-                self.graph
-                    .node(id)
-                    .and_then(|node| node.kind.focus_identity())
-                    .map(|identity| (id, identity))
-            });
-        div()
-            .id("roc-gui-root")
-            .on_action(|_: &FocusNext, window, _| window.focus_next())
-            .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
-            .size_full()
-            .flex()
-            .items_center()
-            .justify_center()
-            .bg(rgb(0x16252c))
-            .text_color(rgb(0xeeeeea))
-            .text_lg()
-            .children(self.root.iter().cloned().map(AnyView::from))
+            .map(|(id, _)| *id);
+        self.focused_position = focused_now
+            .and_then(|id| self.graph.focus_order().into_iter().position(|other| other == id));
+        self.focused_identity = focused_now.and_then(|id| {
+            self.graph
+                .node(id)
+                .and_then(|node| node.kind.focus_identity())
+                .map(|identity| (id, identity))
+        });
+        // The application's tree hangs below one `FrameSpans`, the element that
+        // performs and therefore measures the host's layout-request, prepaint,
+        // and paint work for the whole subtree.
+        frame_spans::FrameSpans::new(
+            div()
+                .id("roc-gui-root")
+                .on_action(|_: &FocusNext, window, _| window.focus_next())
+                .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(rgb(window_ground().unwrap_or(0x16252c)))
+                .text_color(rgb(window_ink().unwrap_or(0xeeeeea)))
+                .text_lg()
+                .children(self.root.iter().cloned().map(AnyView::from)),
+        )
     }
 }
 
@@ -2525,7 +2948,7 @@ struct HostArgs {
     window_shot_dir: Option<PathBuf>,
     window_timeout_ms: u32,
     window_require_shots: bool,
-    classify_specs: Vec<PathBuf>,
+    describe_specs: Vec<PathBuf>,
     stats_record: bool,
     stats_output: Option<PathBuf>,
     stats_detail: observatory::Detail,
@@ -2533,10 +2956,12 @@ struct HostArgs {
     stats_max_mib: u64,
     stats_job_count: usize,
     cap_dir: Option<PathBuf>,
+    cap_dir_canceled: bool,
     cap_http_origin: Option<String>,
     cap_app_data: Option<PathBuf>,
+    cap_assets: Option<PathBuf>,
     cap_clipboard_system: bool,
-    cap_clipboard_fixture: Option<PathBuf>,
+    cap_clipboard_fixture: bool,
     cap_tcp: Option<std::net::SocketAddr>,
     cap_process: Option<process::GrantedProfile>,
     cap_audio: audio::Grant,
@@ -2563,7 +2988,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         window_shot_dir: None,
         window_timeout_ms: 15_000,
         window_require_shots: true,
-        classify_specs: Vec::new(),
+        describe_specs: Vec::new(),
         stats_record: false,
         stats_output: None,
         stats_detail: observatory::Detail::Summary,
@@ -2571,13 +2996,15 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_max_mib: 4096,
         stats_job_count: 1,
         cap_dir: None,
+        cap_dir_canceled: false,
         cap_http_origin: None,
         cap_app_data: None,
+        cap_assets: None,
         cap_clipboard_system: false,
-        cap_clipboard_fixture: None,
+        cap_clipboard_fixture: false,
         cap_tcp: None,
         cap_process: None,
-        cap_audio: audio::Grant::Denied,
+        cap_audio: audio::Grant::System,
         cap_device: None,
         cap_system_monitor: system_monitor::Grant::Denied,
     };
@@ -2640,14 +3067,14 @@ fn parse_host_args() -> Result<HostArgs, String> {
                 .ok_or_else(|| "--host-window-timeout-ms requires 1000..=600000".to_string())?;
         } else if argument == "--host-window-allow-missing-shots" {
             parsed.window_require_shots = false;
-        } else if argument == "--host-classify-specs" {
-            // Consumes the rest: classification is pure parsing, so one process
-            // can answer for the whole suite.
+        } else if argument == "--host-describe-specs" {
+            // Consumes the rest: describing a specification is pure parsing,
+            // so one process can answer for the whole suite.
             parsed
-                .classify_specs
+                .describe_specs
                 .extend(pending.by_ref().map(PathBuf::from));
-            if parsed.classify_specs.is_empty() {
-                return Err("--host-classify-specs requires at least one .scm path".into());
+            if parsed.describe_specs.is_empty() {
+                return Err("--host-describe-specs requires at least one .scm path".into());
             }
         } else if argument == "--host-cap-dir" {
             parsed.cap_dir = Some(
@@ -2658,6 +3085,8 @@ fn parse_host_args() -> Result<HostArgs, String> {
             );
         } else if let Some(path) = argument.strip_prefix("--host-cap-dir=") {
             parsed.cap_dir = Some(path.into());
+        } else if argument == "--host-cap-dir-canceled" {
+            parsed.cap_dir_canceled = true;
         } else if argument == "--host-cap-http-origin" {
             parsed.cap_http_origin = Some(
                 pending
@@ -2675,14 +3104,21 @@ fn parse_host_args() -> Result<HostArgs, String> {
             );
         } else if let Some(path) = argument.strip_prefix("--host-cap-app-data=") {
             parsed.cap_app_data = Some(path.into());
+        } else if argument == "--host-cap-assets" {
+            parsed.cap_assets = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-cap-assets requires a directory path".to_string())?
+                    .into(),
+            );
+        } else if let Some(path) = argument.strip_prefix("--host-cap-assets=") {
+            parsed.cap_assets = Some(path.into());
         } else if argument == "--host-cap-clipboard" {
             parsed.cap_clipboard_system = true;
-        } else if argument == "--host-cap-audio" {
-            parsed.cap_audio = audio::Grant::System;
         } else if argument == "--host-cap-audio-null" {
             parsed.cap_audio = audio::Grant::Null;
-        } else if let Some(path) = argument.strip_prefix("--host-cap-clipboard-fixture=") {
-            parsed.cap_clipboard_fixture = Some(path.into());
+        } else if argument == "--host-cap-clipboard-fixture" {
+            parsed.cap_clipboard_fixture = true;
         } else if argument == "--host-cap-tcp" {
             let endpoint = pending
                 .next()
@@ -2747,12 +3183,12 @@ fn parse_host_args() -> Result<HostArgs, String> {
         + usize::from(parsed.host_gpui_smoke)
         + usize::from(parsed.spec_path.is_some())
         + usize::from(parsed.window_spec_path.is_some())
-        + usize::from(!parsed.classify_specs.is_empty())
+        + usize::from(!parsed.describe_specs.is_empty())
         > 1
     {
         return Err(
             "host smoke modes, --host-run-spec, --host-run-window-spec, and \
-             --host-classify-specs are mutually exclusive"
+             --host-describe-specs are mutually exclusive"
                 .into(),
         );
     }
@@ -2828,6 +3264,166 @@ fn parse_system_monitor_fixture(value: &str) -> Result<system_monitor::Grant, St
     Err("system monitor fixture must be standard, unavailable, or processes:N".into())
 }
 
+/// Describe one specification as JSON: the runner it needs and the capabilities
+/// it declares.
+///
+/// The host owns the `.scm` vocabulary, so it is the only parser. A spec runner
+/// asks this mode what a case needs and turns the answer into the very flags an
+/// interactive grant would use; nothing infers a capability from a file name.
+fn describe_spec(path: &std::path::Path) -> Result<String, String> {
+    let text = std::fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let case = spec::parse(&text).map_err(|error| error.to_string())?;
+    let runner = if spec::check_runner(&case, spec::Runner::Semantic).is_ok() {
+        "semantic"
+    } else {
+        "window"
+    };
+    // Specifications live in `specs/` beside the application they exercise.
+    let application = path
+        .parent()
+        .and_then(std::path::Path::parent)
+        .ok_or_else(|| "specification has no application directory".to_string())?;
+
+    let mut flags: Vec<String> = Vec::new();
+    let mut app_data_seed: Option<String> = None;
+    let mut servers: Vec<(String, u32)> = Vec::new();
+    for grant in &case.grants {
+        let resolved = match grant.path() {
+            Some(relative) => Some(resolve_grant_path(application, relative)?),
+            None => None,
+        };
+        match grant {
+            spec::Grant::Directory(_) => {
+                let path = resolved.expect("directory grant names a path");
+                if !path.is_dir() {
+                    return Err(format!("directory grant does not exist: {}", path.display()));
+                }
+                flags.push("--host-cap-dir".into());
+                flags.push(path.display().to_string());
+            }
+            spec::Grant::DirectoryCanceled => flags.push("--host-cap-dir-canceled".into()),
+            spec::Grant::AppData(_) => {
+                let path = resolved.expect("app-data grant names a path");
+                if !path.is_dir() {
+                    return Err(format!("app-data grant does not exist: {}", path.display()));
+                }
+                app_data_seed = Some(path.display().to_string());
+            }
+            spec::Grant::Assets(_) => {
+                let path = resolved.expect("assets grant names a path");
+                if !path.is_dir() {
+                    return Err(format!("assets grant does not exist: {}", path.display()));
+                }
+                flags.push("--host-cap-assets".into());
+                flags.push(path.display().to_string());
+            }
+            spec::Grant::Clipboard { system } => flags.push(
+                if *system {
+                    "--host-cap-clipboard"
+                } else {
+                    "--host-cap-clipboard-fixture"
+                }
+                .into(),
+            ),
+            spec::Grant::AudioNull => flags.push("--host-cap-audio-null".into()),
+            spec::Grant::HttpOrigin(origin) => {
+                flags.push("--host-cap-http-origin".into());
+                flags.push(origin.clone());
+            }
+            spec::Grant::Tcp(endpoint) => {
+                flags.push("--host-cap-tcp".into());
+                flags.push(endpoint.clone());
+            }
+            spec::Grant::Process(profile) => {
+                flags.push("--host-cap-process".into());
+                flags.push(profile.clone());
+            }
+            spec::Grant::Device(identifier) => {
+                flags.push("--host-cap-device".into());
+                flags.push(identifier.clone());
+            }
+            spec::Grant::SystemMonitor(kind) => {
+                flags.push("--host-cap-system-monitor-fixture".into());
+                flags.push(kind.clone());
+            }
+            spec::Grant::Server { port, .. } => {
+                let path = resolved.expect("server grant names a path");
+                if !path.is_file() {
+                    return Err(format!("server grant does not exist: {}", path.display()));
+                }
+                servers.push((path.display().to_string(), *port));
+            }
+        }
+    }
+
+    let mut json = String::from("{\"path\":");
+    json.push_str(&json_string(&path.display().to_string()));
+    json.push_str(",\"runner\":");
+    json.push_str(&json_string(runner));
+    json.push_str(",\"flags\":[");
+    for (index, flag) in flags.iter().enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        json.push_str(&json_string(flag));
+    }
+    json.push_str("],\"app_data_seed\":");
+    match &app_data_seed {
+        Some(seed) => json.push_str(&json_string(seed)),
+        None => json.push_str("null"),
+    }
+    json.push_str(",\"servers\":[");
+    for (index, (script, port)) in servers.iter().enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        json.push_str("{\"script\":");
+        json.push_str(&json_string(script));
+        json.push_str(&format!(",\"port\":{port}}}"));
+    }
+    json.push_str("]}");
+    Ok(json)
+}
+
+/// Resolve one specification-supplied path against the application directory.
+///
+/// A path that leaves the application directory is refused here, before it can
+/// reach a capability. Both sides are canonicalized, so a symbolic link cannot
+/// step outside what the textual path promised.
+fn resolve_grant_path(application: &std::path::Path, relative: &str) -> Result<PathBuf, String> {
+    let root = application
+        .canonicalize()
+        .map_err(|error| format!("cannot resolve application directory: {error}"))?;
+    let candidate = root.join(relative);
+    let resolved = candidate
+        .canonicalize()
+        .map_err(|error| format!("cannot resolve grant path {relative}: {error}"))?;
+    if !resolved.starts_with(&root) {
+        return Err(format!(
+            "grant path {relative} leaves the application directory"
+        ));
+    }
+    Ok(resolved)
+}
+
+fn json_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for character in value.chars() {
+        match character {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            value if (value as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", value as u32)),
+            value => out.push(value),
+        }
+    }
+    out.push('"');
+    out
+}
+
 fn print_host_help(app_name: &str) {
     println!(
         "Usage: {app_name} [HOST OPTIONS]\n\
@@ -2835,10 +3431,12 @@ fn print_host_help(app_name: &str) {
          Host options:\n\
            --host-help                         Show this help and exit\n\
            --host-cap-dir PATH                 Grant read access to one directory\n\
+           --host-cap-dir-canceled             Answer the directory chooser with a cancellation\n\
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
+           --host-cap-assets PATH              Provision the application content directory\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
-           --host-cap-audio                    Grant default audio-output access\n\
+           --host-cap-clipboard-fixture        Grant a specification-driven clipboard source\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
@@ -2849,7 +3447,7 @@ fn print_host_help(app_name: &str) {
            --host-window-shot-dir=PATH         Write window screenshots into this directory\n\
            --host-window-timeout-ms=N          Per-step window deadline (1000..600000)\n\
            --host-window-allow-missing-shots   Report unavailable screenshots instead of failing\n\
-           --host-classify-specs PATH...       Print which runner each .scm needs\n\
+           --host-describe-specs PATH...       Print each .scm's runner and grants as JSON\n\
            --host-smoke                        Run the built-in headless smoke check\n\
           --host-gpui-smoke                   Open, render, and close a real GPUI window\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2962,21 +3560,11 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 0;
     }
-    if !args.classify_specs.is_empty() {
+    if !args.describe_specs.is_empty() {
         let mut status = 0;
-        for path in &args.classify_specs {
-            match std::fs::read_to_string(path)
-                .map_err(|error| error.to_string())
-                .and_then(|text| spec::parse(&text).map_err(|error| error.to_string()))
-            {
-                Ok(case) => {
-                    let runner = if spec::check_runner(&case, spec::Runner::Semantic).is_ok() {
-                        "semantic"
-                    } else {
-                        "window"
-                    };
-                    println!("{runner}\t{}", path.display());
-                }
+        for path in &args.describe_specs {
+            match describe_spec(path) {
+                Ok(line) => println!("{line}"),
                 Err(message) => {
                     eprintln!("{}: {message}", path.display());
                     status = 2;
@@ -3019,11 +3607,13 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         },
         None => None,
     };
-    // A specification run never shows a native chooser: window runs would open
-    // a real dialog nobody can answer, so both spec runners refuse instead.
+    // A specification never opens an interactive chooser: a window case drives
+    // the production window, so an operating-system panel would wait for a
+    // person who is not there.
     if let Err(message) = files::configure(
         args.cap_dir.as_deref(),
         args.spec_path.is_none() && args.window_spec_path.is_none() && !args.host_smoke,
+        args.cap_dir_canceled,
     ) {
         eprintln!("roc-gui capability error: {message}");
         set_roc_host(core::ptr::null_mut());
@@ -3039,9 +3629,10 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 2;
     }
+    assets::configure(args.cap_assets.as_deref());
     if let Err(message) = clipboard::configure(
         args.cap_clipboard_system,
-        args.cap_clipboard_fixture.as_deref(),
+        args.cap_clipboard_fixture,
     ) {
         eprintln!("roc-gui clipboard capability error: {message}");
         set_roc_host(core::ptr::null_mut());
@@ -3211,6 +3802,22 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
             .expect("failed to open GPUI window");
         watchdog::milestone(watchdog::Milestone::WindowOpened);
         cx.activate(true);
+        // `Platform::quit` on macOS terminates the process from inside
+        // `Application::run`, which never returns, so the tail of this function
+        // cannot be where a windowed capture is finalized. GPUI runs quit
+        // observers synchronously before terminating; finalizing here is what
+        // makes a window capture readable at all. `finish` is idempotent, so
+        // the tail below remains correct on platforms whose run does return.
+        if observatory::active() {
+            cx.on_app_quit(|_| {
+                observatory::run_end(1, "pass", observatory::now_ns(), None);
+                if let Err(message) = observatory::finish("success") {
+                    eprintln!("roc-gui stats error: {message}");
+                }
+                async {}
+            })
+            .detach();
+        }
         if let Some(case) = window_spec {
             window_runner::spawn(
                 case,
@@ -3267,10 +3874,20 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    use super::{ActivateEnter, InitialMount, Runtime, install_test_dispatcher};
     use super::{
         CanvasPrimitive, CanvasPrimitiveKind, WindowConfig, canvas_target, counted_roc_alloc,
         counted_roc_dealloc, counted_roc_realloc, make_counted_roc_host, validate_window_config,
     };
+    use crate::bridge::{Length, MountedGraph, Node, NodeKind, Patch, Style};
+    use crate::observatory;
+    use gpui::{
+        Bounds, Modifiers, MouseButton, Pixels, Point, TestAppContext, VisualTestContext,
+        WindowBounds, WindowOptions, point, px, size,
+    };
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::time::Instant;
 
     #[test]
     fn host_internal_allocators_use_counted_runtime_routes() {
@@ -3296,7 +3913,8 @@ mod tests {
             validate_window_config(WindowConfig {
                 title: "App".into(),
                 width: 960,
-                height: 640
+                height: 640,
+                ..WindowConfig::default()
             })
             .is_ok()
         );
@@ -3304,7 +3922,8 @@ mod tests {
             validate_window_config(WindowConfig {
                 title: "App".into(),
                 width: 239,
-                height: 640
+                height: 640,
+                ..WindowConfig::default()
             })
             .is_err()
         );
@@ -3312,7 +3931,8 @@ mod tests {
             validate_window_config(WindowConfig {
                 title: "App".into(),
                 width: 960,
-                height: 159
+                height: 159,
+                ..WindowConfig::default()
             })
             .is_err()
         );
@@ -3344,5 +3964,371 @@ mod tests {
         assert_eq!(canvas_target(&shapes, 20, 0), Some(1));
         assert_eq!(canvas_target(&shapes, 20, 40), Some(3));
         assert_eq!(canvas_target(&shapes, 20, 34), None);
+    }
+
+    /// A transport tree: one full-bleed column holding one full-bleed button.
+    /// Every node id is fresh, exactly as a whole-root `Action.update` rebuild
+    /// produces, so consecutive trees share nothing but their semantic names.
+    fn transport_tree(base: u64, caption: &str, label: &str) -> (u64, Vec<Node>) {
+        let fill = Style {
+            width: Length::Fill,
+            height: Length::Fill,
+            ..Style::default()
+        };
+        let column = base;
+        let button = base + 1;
+        (
+            column,
+            vec![
+                Node {
+                    id: column,
+                    kind: NodeKind::Column {
+                        label: "Transport".into(),
+                        style: fill,
+                    },
+                    children: vec![button],
+                },
+                Node {
+                    id: button,
+                    kind: NodeKind::Button {
+                        caption: caption.into(),
+                        label: label.into(),
+                        enabled: true,
+                        style: fill,
+                    },
+                    children: vec![],
+                },
+            ],
+        )
+    }
+
+    /// Identities are refreshed incrementally, because recomputing the whole
+    /// graph on every event would make a small update in a large application
+    /// pay for every node it did not touch. The incremental result has to be
+    /// the result a full recompute would have given, including where a
+    /// replacement shifts a repeated sibling name's occurrence.
+    #[test]
+    fn an_incremental_identity_refresh_matches_a_full_recompute() {
+        let row = |id: u64, label: &str, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Row {
+                label: label.into(),
+                style: Style::default(),
+            },
+            children,
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![
+                    row(1, "Shell", vec![2, 3, 4]),
+                    row(2, "Slot", vec![]),
+                    row(3, "Slot", vec![]),
+                    row(4, "Footer", vec![]),
+                ],
+            })
+            .expect("mount");
+        let mut identities = graph.element_identities();
+
+        // The replacement renames the first "Slot", which moves the second one
+        // from the second occurrence of that name to the first.
+        let applied = graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 10,
+                nodes: vec![row(10, "Header", vec![11]), row(11, "Title", vec![])],
+            })
+            .expect("replace");
+        super::refresh_identities(&graph, &applied, &mut identities);
+        assert_eq!(identities, graph.element_identities());
+    }
+
+    /// A one-row virtual list, so a press can be aimed at a control the list
+    /// materialises rather than one the eager tree holds.
+    fn queue_tree(base: u64) -> (u64, Vec<Node>) {
+        let fill = Style {
+            width: Length::Fill,
+            height: Length::Fill,
+            ..Style::default()
+        };
+        (
+            base,
+            vec![
+                Node {
+                    id: base,
+                    kind: NodeKind::Column {
+                        label: "Queue".into(),
+                        style: fill,
+                    },
+                    children: vec![base + 1],
+                },
+                Node {
+                    id: base + 1,
+                    kind: NodeKind::VirtualList {
+                        name: "Tracks".into(),
+                        row_height: 40,
+                        row_gap: 0,
+                        style: Style::default(),
+                    },
+                    children: vec![base + 2],
+                },
+                Node {
+                    id: base + 2,
+                    kind: NodeKind::VirtualItem { key: 7 },
+                    children: vec![base + 3],
+                },
+                Node {
+                    id: base + 3,
+                    kind: NodeKind::Button {
+                        caption: "Track seven".into(),
+                        label: "Play track seven".into(),
+                        enabled: true,
+                        style: fill,
+                    },
+                    children: vec![],
+                },
+            ],
+        )
+    }
+
+    fn initial_mount(patch: Patch) -> InitialMount {
+        InitialMount {
+            patch,
+            cycle_started: Instant::now(),
+            roc_callback_ns: 0,
+            roc_work: [observatory::RocWork::default(); 4],
+            roc_work_valid: false,
+        }
+    }
+
+    fn recording_dispatcher() -> Rc<RefCell<Vec<u64>>> {
+        let clicks: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
+        let recorded = clicks.clone();
+        install_test_dispatcher(move |event_id| {
+            recorded.borrow_mut().push(event_id);
+            Patch::NoChange
+        });
+        clicks
+    }
+
+    /// The baseline the two tests below are measured against: with nothing
+    /// intervening, a press and a release over GPUI's dispatch tree do reach
+    /// the production click handler and the Roc event route.
+    #[gpui::test]
+    fn a_press_and_release_on_a_still_control_clicks(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_button = point(px(60.0), px(60.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert_eq!(clicks.borrow().as_slice(), &[1001]);
+    }
+
+    /// The defect this guards: an application that rebuilds its tree while a
+    /// person is holding a control used to lose the press entirely, because
+    /// every GPUI element was keyed by a mounted node id that is never reused.
+    /// The release then landed on an element that had never seen the press.
+    ///
+    /// Input here goes through GPUI's own dispatch tree, which is the only
+    /// place the press/release pairing actually lives. The window runner's
+    /// `click` step calls the production handler directly and cannot see this.
+    #[gpui::test]
+    fn a_control_rerendered_under_the_finger_still_completes_its_click(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_button = point(px(60.0), px(60.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        assert!(
+            clicks.borrow().is_empty(),
+            "a press alone dispatched a click"
+        );
+
+        // Twenty whole-root rebuilds under the held finger, every node id new
+        // each time: a 50 ms playback timer held for a second, or a 5 ms one
+        // held for a tenth of a second.
+        let mut root = 1000;
+        let mut live_button = 1001;
+        for generation in 1..=20u64 {
+            let base = 1000 + generation * 10;
+            let (next_root, nodes) = transport_tree(base, "Pause", "Pause");
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: root,
+                        root: next_root,
+                        nodes,
+                    },
+                    cx,
+                )
+            });
+            root = next_root;
+            live_button = base + 1;
+            cx.run_until_parked();
+        }
+
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert_eq!(
+            clicks.borrow().as_slice(),
+            &[live_button],
+            "the press was lost across the rebuilds, or was routed to a retired node"
+        );
+    }
+
+    /// Keyboard activation has to survive the same rebuilds. Focus lives on a
+    /// focus handle owned by the view, so the view being claimed back by
+    /// identity is what keeps the focused control focused rather than losing
+    /// and restoring it a frame later.
+    #[gpui::test]
+    fn keyboard_activation_survives_rebuilds_under_the_focused_control(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        runtime.update(cx, |runtime, cx| {
+            runtime.focus_after_render = Some(1001);
+            cx.notify();
+        });
+        cx.run_until_parked();
+
+        let mut root = 1000;
+        let mut live_button = 1001;
+        for generation in 1..=5u64 {
+            let base = 1000 + generation * 10;
+            let (next_root, nodes) = transport_tree(base, "Pause", "Pause");
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: root,
+                        root: next_root,
+                        nodes,
+                    },
+                    cx,
+                )
+            });
+            root = next_root;
+            live_button = base + 1;
+            cx.run_until_parked();
+        }
+
+        cx.dispatch_action(ActivateEnter);
+        assert_eq!(
+            clicks.borrow().as_slice(),
+            &[live_button],
+            "keyboard focus did not survive the rebuilds"
+        );
+    }
+
+    /// A virtual list's rows are rebuilt from the graph on every patch, so a
+    /// control inside one is exposed to the same lost press as one outside it.
+    /// The row views are offered back by identity too.
+    #[gpui::test]
+    fn a_control_inside_a_virtual_list_keeps_its_press_across_a_rebuild(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = queue_tree(1000);
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_first_row = point(px(20.0), px(20.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_first_row, None, Modifiers::none());
+        cx.simulate_mouse_down(on_first_row, MouseButton::Left, Modifiers::none());
+
+        let mut root = 1000;
+        let mut live_button = 1003;
+        for generation in 1..=5u64 {
+            let base = 1000 + generation * 10;
+            let (next_root, nodes) = queue_tree(base);
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: root,
+                        root: next_root,
+                        nodes,
+                    },
+                    cx,
+                )
+            });
+            root = next_root;
+            live_button = base + 3;
+            cx.run_until_parked();
+        }
+
+        cx.simulate_mouse_up(on_first_row, MouseButton::Left, Modifiers::none());
+        assert_eq!(
+            clicks.borrow().as_slice(),
+            &[live_button],
+            "a press inside a virtual list was lost across the rebuilds"
+        );
+    }
+
+    /// The other half of the rule: element identity is semantic, so a press on
+    /// a control that leaves the tree is dropped rather than handed to whatever
+    /// took its place.
+    #[gpui::test]
+    fn a_press_on_a_control_that_is_replaced_is_dropped(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_button = point(px(60.0), px(60.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        let (next_root, nodes) = transport_tree(2000, "Play", "Play");
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1000,
+                    root: next_root,
+                    nodes,
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert!(
+            clicks.borrow().is_empty(),
+            "a press on a control that left the tree was handed to its replacement"
+        );
+    }
+}
+
+/// Roc-shaped symbols so the host's own test binary links without a compiled
+/// Roc application.
+///
+/// Nothing under `cargo test` calls into Roc: the event route is answered by
+/// [`install_test_dispatcher`] instead. These exist only because the test
+/// binary links the whole host, and are absent from the shipped staticlib.
+#[cfg(test)]
+mod roc_test_symbols {
+    use crate::roc_platform_abi::RocErasedCallable;
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_init() {
+        unreachable!("a host test called into Roc");
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_dispatch(_dispatcher: RocErasedCallable, _event: u64) {
+        unreachable!("a host test called into Roc");
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_complete(_dispatcher: RocErasedCallable, _completion: RocErasedCallable) {
+        unreachable!("a host test called into Roc");
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_run_task(_task: RocErasedCallable) -> RocErasedCallable {
+        unreachable!("a host test called into Roc");
     }
 }

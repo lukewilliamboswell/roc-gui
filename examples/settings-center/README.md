@@ -1,37 +1,50 @@
 # Settings Center
 
-A polished control-center application for editing a substantial hierarchy of
-typed preferences with safe preview, apply, revert, and persistence behavior.
+A two-column preferences window. The left column is a searchable catalogue of
+twelve settings in four categories, narrowed by a query and a category chip that
+compose; the right column holds a profile form — a name and a notes field —
+along with one setting shown as locked by an organisation.
 
-The implemented profile path loads and atomically saves through an app-scoped
-capability on worker tasks. Request identities keep obsolete completions from
-overwriting a newer draft.
+It exercises controlled text inputs and a textarea, a virtualised list, a modal
+dialog, and durable storage: the profile is loaded and atomically saved through
+an application-data capability on worker tasks. Each request carries an
+identity, so a completion belonging to an older request cannot overwrite a newer
+draft.
 
-## Core capabilities
+## Running
 
-- Searchable category navigation and forms containing text, numbers, choices, toggles, sliders, and shortcuts.
-- Inline validation, dependencies between settings, defaults, reset, and accessible explanations.
-- Immediate preview for reversible appearance changes and explicit apply for consequential changes.
-- Dirty-state tracking across sections, conflict handling, import/export, and durable atomic saves.
-- Responsive layouts, complete keyboard traversal, theming, and localization-ready content structure.
+```sh
+python3 build.py
+roc build --output=settings-center examples/settings-center/main.roc
+./settings-center -- --host-cap-app-data ./settings-store
+```
 
-## Happy paths
+The grant provisions the private directory the profile is read from and written
+to. Without it, loading reports that preferences storage was not granted, and
+the rest of the window still works.
 
-- Find a setting by search, edit it, review its changed state, apply it, and confirm it survives restart.
-- Preview a theme, cancel the edit, and restore every affected value and surface.
-- Reset a section to defaults, import a valid profile, and export the resulting configuration.
-- Navigate all controls and resolve validation messages using only the keyboard.
+## Not yet built
 
-## Error paths
+- The twelve catalogue settings are a searchable list only. None of them can be
+  changed, and nothing in the catalogue is stored.
+- Only the profile name and notes are persisted, into two files.
+- Validation is one rule: the profile name may not be empty.
+- There is no theme switch, no keyboard traversal, and no import or export.
 
-- Invalid values identify the owning control and prevent only the unsafe apply operation.
-- Failed or interrupted saves preserve the last valid configuration and the user's pending edits.
-- External configuration changes produce a deliberate reload, keep, or merge decision.
-- Unsupported settings are shown as unavailable rather than silently ignored or recorded as defaults.
+## Assets
 
-## High-level goals
+`icons/` holds three SVGs imported into the executable at compile time. Their
+sources and licences are recorded in `icons/NOTICE.md` and in
+`THIRD_PARTY_LICENSES.md`.
 
-- Become the comprehensive forms, validation, navigation, theme, and preference example.
-- Establish atomic persistence and consistent dirty/apply/revert interaction patterns.
-- SCM specs cover search, dependencies, validation, preview/cancel, apply, reset, import/export, conflicts, and restart.
-- A scaling case contains a realistic breadth of categorized settings and search terms.
+## Specifications
+
+Sixteen semantic specifications in `specs/` cover search, the two narrowings
+composing, the empty result, editing and reverting, apply and its boundary, the
+rename dialog and its cancellation, the locked setting, a stale completion, a
+storage failure and its retry, and three scaling cases that save notes of 100,
+1,000, and 10,000 bytes. Five window specifications drive the real window: the
+layout, the layout at two further sizes, the dialog, the storage failure, and
+the fixed-height status slot.
+Every specification seeds its own application-data fixture from
+`app-data-fixture/`.

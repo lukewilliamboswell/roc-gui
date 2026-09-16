@@ -26,6 +26,10 @@ struct Store {
     operations: [u64; 4],
     selection: [u64; 7],
     portal_enabled: bool,
+    /// Provisioned cancellation: the chooser opens and the person dismisses it.
+    /// Cancelling produces no authority and is not a failure, so it is its own
+    /// provisioning rather than an absent grant.
+    chooser_cancels: bool,
     chooser_in_flight: bool,
     refusal_until: Option<Instant>,
     lifecycle: [u64; 6],
@@ -79,6 +83,7 @@ fn store() -> &'static Mutex<Store> {
             operations: [0; 4],
             selection: [0; 7],
             portal_enabled: false,
+            chooser_cancels: false,
             chooser_in_flight: false,
             refusal_until: None,
             lifecycle: [0; 6],
@@ -86,7 +91,14 @@ fn store() -> &'static Mutex<Store> {
     })
 }
 
-pub fn configure(path: Option<&Path>, portal_enabled: bool) -> Result<(), String> {
+pub fn configure(
+    path: Option<&Path>,
+    portal_enabled: bool,
+    chooser_cancels: bool,
+) -> Result<(), String> {
+    if chooser_cancels && path.is_some() {
+        return Err("a canceled chooser cannot also provision a directory grant".into());
+    }
     let initial = match path {
         None => None,
         Some(path) => {
@@ -104,7 +116,10 @@ pub fn configure(path: Option<&Path>, portal_enabled: bool) -> Result<(), String
     guard.initial = initial;
     guard.operations = [0; 4];
     guard.selection = [0; 7];
-    guard.portal_enabled = portal_enabled;
+    // A provisioned cancellation is a chooser that opens, so the prompt gate
+    // and its counters have to see an available chooser.
+    guard.portal_enabled = portal_enabled || chooser_cancels;
+    guard.chooser_cancels = chooser_cancels;
     guard.chooser_in_flight = false;
     guard.refusal_until = None;
     guard.revoked_roots.clear();
@@ -301,9 +316,98 @@ fn read_file_err(reason: FileReason) -> FileErr {
     }
 }
 
+/// Split one relative, non-escaping path into its ordinary components.
+///
+/// This is the single place the host decides what a path inside an opened
+/// directory may say. An absolute path, an empty path, a path holding a NUL,
+/// and any `.` or `..` component are refused here rather than rewritten, so a
+/// caller cannot name anything outside the directory it was given. Every
+/// directory-relative operation in the host resolves its path through this
+/// function; asset stores add no second resolver of their own.
+pub(crate) fn relative_components(path: &str) -> Option<Vec<&str>> {
+    if path.is_empty() || path.contains('\0') {
+        return None;
+    }
+    let mut parts = Vec::new();
+    for component in Path::new(path).components() {
+        match component {
+            Component::Normal(value) => parts.push(value.to_str()?),
+            _ => return None,
+        }
+    }
+    if parts.is_empty() { None } else { Some(parts) }
+}
+
 pub(crate) fn valid_name(name: &str) -> bool {
-    let mut parts = Path::new(name).components();
-    matches!(parts.next(), Some(Component::Normal(_))) && parts.next().is_none()
+    relative_components(name).is_some_and(|parts| parts.len() == 1)
+}
+
+/// Walk into a subdirectory one component at a time, refusing to follow a
+/// symbolic link at any step, so no link planted inside a tree can redirect the
+/// walk out of it. An empty component list returns the directory itself.
+pub(crate) fn open_subdir_nofollow(dir: &Dir, parts: &[&str]) -> std::io::Result<Dir> {
+    let mut current = dir.try_clone()?;
+    for part in parts {
+        current = current.open_dir_nofollow(part)?;
+    }
+    Ok(current)
+}
+
+/// Why a bounded child read was refused. The categories are distinct because
+/// every caller reports them as distinct application failures.
+pub(crate) enum ChildReadError {
+    InvalidName,
+    NotFound,
+    NotDirectory,
+    AccessDenied,
+    Unsupported,
+    ResourceLimit,
+    Io,
+}
+
+/// Read one direct ordinary child file of `dir`, never following a symbolic
+/// link and never exceeding `max_bytes`. The size is checked against the
+/// metadata first and again against what was actually read, so a file that
+/// grows between the two answers `ResourceLimit` rather than an unbounded
+/// value.
+pub(crate) fn read_child_bounded(
+    dir: &Dir,
+    name: &str,
+    max_bytes: u64,
+) -> Result<Vec<u8>, ChildReadError> {
+    if !valid_name(name) {
+        return Err(ChildReadError::InvalidName);
+    }
+    let metadata = dir.symlink_metadata(name).map_err(|io| match io.kind() {
+        std::io::ErrorKind::NotFound => ChildReadError::NotFound,
+        std::io::ErrorKind::PermissionDenied => ChildReadError::AccessDenied,
+        std::io::ErrorKind::NotADirectory => ChildReadError::NotDirectory,
+        _ => ChildReadError::Io,
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(ChildReadError::Unsupported);
+    }
+    if metadata.len() > max_bytes {
+        return Err(ChildReadError::ResourceLimit);
+    }
+    let mut options = OpenOptions::new();
+    options.read(true).follow(FollowSymlinks::No);
+    let file = dir
+        .open_with(name, &options)
+        .map_err(|io| match io.kind() {
+            std::io::ErrorKind::NotFound => ChildReadError::NotFound,
+            std::io::ErrorKind::PermissionDenied => ChildReadError::AccessDenied,
+            _ => ChildReadError::Io,
+        })?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(max_bytes + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| ChildReadError::Io)?;
+    if bytes.len() as u64 > max_bytes {
+        Err(ChildReadError::ResourceLimit)
+    } else {
+        Ok(bytes)
+    }
 }
 
 pub(crate) enum BoundedReadError {
@@ -318,22 +422,14 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
         return Err(BoundedReadError::InvalidName);
     }
     let dir = lookup(handle).ok_or(BoundedReadError::InvalidCapability)?;
-    let mut options = OpenOptions::new();
-    options.read(true);
-    let mut file = dir
-        .open_with(name, options.follow(FollowSymlinks::No))
-        .map_err(|_| BoundedReadError::Io)?;
-    let length = file.metadata().map_err(|_| BoundedReadError::Io)?.len();
-    if length > MAX_FILE_BYTES {
-        return Err(BoundedReadError::ResourceLimit);
-    }
-    let mut bytes = Vec::with_capacity(length as usize);
-    file.read_to_end(&mut bytes)
-        .map_err(|_| BoundedReadError::Io)?;
-    Ok(bytes)
+    read_child_bounded(&dir, name, MAX_FILE_BYTES).map_err(|error| match error {
+        ChildReadError::InvalidName => BoundedReadError::InvalidName,
+        ChildReadError::ResourceLimit => BoundedReadError::ResourceLimit,
+        _ => BoundedReadError::Io,
+    })
 }
 
-fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryResult {
+fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> InternalFilesPickDirectoryResult {
     let directory = capability(
         dir,
         GrantMetadata {
@@ -343,12 +439,12 @@ fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryR
             root: 0,
         },
     );
-    let value = FilesPickDirectoryOkChosen {
+    let value = InternalFilesPickDirectoryOkChosen {
         directory,
         name: RocStr::from_str(name, roc_host()),
     };
-    FilesPickDirectoryResult {
-        payload: FilesPickDirectoryResultPayload {
+    InternalFilesPickDirectoryResult {
+        payload: InternalFilesPickDirectoryResultPayload {
             ok: ManuallyDrop::new(CanceledOrChosen {
                 payload: CanceledOrChosenPayload {
                     chosen: ManuallyDrop::new(value),
@@ -356,19 +452,19 @@ fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryR
                 tag: CanceledOrChosenTag::Chosen,
             }),
         },
-        tag: FilesPickDirectoryResultTag::Ok,
+        tag: InternalFilesPickDirectoryResultTag::Ok,
     }
 }
 
-fn canceled() -> FilesPickDirectoryResult {
-    FilesPickDirectoryResult {
-        payload: FilesPickDirectoryResultPayload {
+fn canceled() -> InternalFilesPickDirectoryResult {
+    InternalFilesPickDirectoryResult {
+        payload: InternalFilesPickDirectoryResultPayload {
             ok: ManuallyDrop::new(CanceledOrChosen {
                 payload: CanceledOrChosenPayload { canceled: [] },
                 tag: CanceledOrChosenTag::Canceled,
             }),
         },
-        tag: FilesPickDirectoryResultTag::Ok,
+        tag: InternalFilesPickDirectoryResultTag::Ok,
     }
 }
 
@@ -377,6 +473,34 @@ enum PortalSelection {
     Canceled,
     Denied,
     Unavailable,
+}
+
+/// One outstanding trusted-chooser request. The platform window thread owns the
+/// native panel, so a task thread hands it a reply channel and waits.
+pub struct ChooserRequest {
+    pub reply: std::sync::mpsc::SyncSender<Option<std::path::PathBuf>>,
+}
+
+struct ChooserSeam {
+    requests: async_channel::Sender<ChooserRequest>,
+    window_thread: std::thread::ThreadId,
+}
+
+static CHOOSER: OnceLock<Mutex<Option<ChooserSeam>>> = OnceLock::new();
+
+fn chooser() -> &'static Mutex<Option<ChooserSeam>> {
+    CHOOSER.get_or_init(|| Mutex::new(None))
+}
+
+/// Register the running window as the owner of the native chooser. Called from
+/// the window thread, whose identity is recorded so a request made from that
+/// same thread reports `Unavailable` instead of waiting for a panel that the
+/// waiting thread is the one responsible for showing.
+pub fn install_chooser(requests: async_channel::Sender<ChooserRequest>) {
+    *chooser().lock().expect("chooser seam poisoned") = Some(ChooserSeam {
+        requests,
+        window_thread: std::thread::current().id(),
+    });
 }
 
 fn open_selected(path: std::path::PathBuf) -> PortalSelection {
@@ -391,6 +515,42 @@ fn open_selected(path: std::path::PathBuf) -> PortalSelection {
             PortalSelection::Denied
         }
         Err(_) => PortalSelection::Unavailable,
+    }
+}
+
+/// Ask the running window for a directory through the operating system's own
+/// chooser. Used where the host has no portal broker to ask.
+#[cfg(not(target_os = "linux"))]
+fn native_directory() -> PortalSelection {
+    let requests = {
+        let guard = chooser().lock().expect("chooser seam poisoned");
+        match guard.as_ref() {
+            None => return PortalSelection::Unavailable,
+            Some(seam) if seam.window_thread == std::thread::current().id() => {
+                return PortalSelection::Unavailable;
+            }
+            Some(seam) => seam.requests.clone(),
+        }
+    };
+    let (reply, answer) = std::sync::mpsc::sync_channel(1);
+    if requests.send_blocking(ChooserRequest { reply }).is_err() {
+        return PortalSelection::Unavailable;
+    }
+    match answer.recv() {
+        Err(_) => PortalSelection::Unavailable,
+        Ok(None) => PortalSelection::Canceled,
+        Ok(Some(path)) => open_selected(path),
+    }
+}
+
+fn chooser_directory() -> PortalSelection {
+    #[cfg(target_os = "linux")]
+    {
+        portal_directory()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        native_directory()
     }
 }
 
@@ -421,73 +581,16 @@ fn portal_directory() -> PortalSelection {
         let [uri] = files.uris() else {
             return PortalSelection::Unavailable;
         };
-        match uri.to_file_path() {
-            Ok(path) => open_selected(path),
-            Err(_) => PortalSelection::Unavailable,
-        }
+        let path = match uri.to_file_path() {
+            Ok(value) => value,
+            Err(_) => return PortalSelection::Unavailable,
+        };
+        open_selected(path)
     })
 }
 
-/// Choosers answered by GPUI's native dialog on the UI thread. `None` means the
-/// user dismissed the dialog; `Err` that the platform could not show one.
-#[cfg(not(target_os = "linux"))]
-type DirectoryAnswer = Result<Option<std::path::PathBuf>, ()>;
-#[cfg(not(target_os = "linux"))]
-static DIRECTORY_PROMPTS: Mutex<Vec<std::sync::mpsc::Sender<DirectoryAnswer>>> =
-    Mutex::new(Vec::new());
-#[cfg(not(target_os = "linux"))]
-static NATIVE_PROMPTS_SERVED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-/// Shows every queued directory chooser. Called from the GPUI thread; until it
-/// first runs (as in headless spec runs) choosers report `Unavailable`.
-#[cfg(not(target_os = "linux"))]
-pub fn serve_directory_prompts(cx: &mut gpui::App) {
-    NATIVE_PROMPTS_SERVED.store(true, std::sync::atomic::Ordering::Release);
-    let pending = std::mem::take(
-        &mut *DIRECTORY_PROMPTS
-            .lock()
-            .expect("directory prompts poisoned"),
-    );
-    for reply in pending {
-        let receiver = cx.prompt_for_paths(gpui::PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: None,
-        });
-        cx.background_executor()
-            .spawn(async move {
-                let answer = match receiver.await {
-                    Ok(Ok(Some(mut paths))) if paths.len() == 1 => Ok(Some(paths.remove(0))),
-                    Ok(Ok(None)) => Ok(None),
-                    _ => Err(()),
-                };
-                let _ = reply.send(answer);
-            })
-            .detach();
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-fn portal_directory() -> PortalSelection {
-    if !NATIVE_PROMPTS_SERVED.load(std::sync::atomic::Ordering::Acquire) {
-        return PortalSelection::Unavailable;
-    }
-    let (reply, answer) = std::sync::mpsc::channel();
-    DIRECTORY_PROMPTS
-        .lock()
-        .expect("directory prompts poisoned")
-        .push(reply);
-    match answer.recv() {
-        Ok(Ok(Some(path))) => open_selected(path),
-        Ok(Ok(None)) => PortalSelection::Canceled,
-        _ => PortalSelection::Unavailable,
-    }
-}
-
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
+pub extern "C" fn roc_files_pick_directory() -> InternalFilesPickDirectoryResult {
     record_operation(0);
     let initial = store()
         .lock()
@@ -500,7 +603,7 @@ pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
     }
 }
 
-fn select_portal() -> FilesPickDirectoryResult {
+fn select_portal() -> InternalFilesPickDirectoryResult {
     use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
     let allowed = {
         let mut guard = store().lock().expect("capability store poisoned");
@@ -521,14 +624,22 @@ fn select_portal() -> FilesPickDirectoryResult {
         }
     };
     if !allowed {
-        return FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload {
+        return InternalFilesPickDirectoryResult {
+            payload: InternalFilesPickDirectoryResultPayload {
                 err: ManuallyDrop::new(pick_directory_err(R::AccessDenied)),
             },
-            tag: FilesPickDirectoryResultTag::Err,
+            tag: InternalFilesPickDirectoryResultTag::Err,
         };
     }
-    let result = portal_directory();
+    let cancels = store()
+        .lock()
+        .expect("capability store poisoned")
+        .chooser_cancels;
+    let result = if cancels {
+        PortalSelection::Canceled
+    } else {
+        chooser_directory()
+    };
     let mut guard = store().lock().expect("capability store poisoned");
     guard.chooser_in_flight = false;
     match &result {
@@ -547,29 +658,29 @@ fn select_portal() -> FilesPickDirectoryResult {
     match result {
         PortalSelection::Chosen(dir, name) => chosen(dir, &name, GrantSource::Portal),
         PortalSelection::Canceled => canceled(),
-        PortalSelection::Denied => FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload {
+        PortalSelection::Denied => InternalFilesPickDirectoryResult {
+            payload: InternalFilesPickDirectoryResultPayload {
                 err: ManuallyDrop::new(pick_directory_err(R::AccessDenied)),
             },
-            tag: FilesPickDirectoryResultTag::Err,
+            tag: InternalFilesPickDirectoryResultTag::Err,
         },
-        PortalSelection::Unavailable => FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload {
+        PortalSelection::Unavailable => InternalFilesPickDirectoryResult {
+            payload: InternalFilesPickDirectoryResultPayload {
                 err: ManuallyDrop::new(pick_directory_err(R::Unavailable)),
             },
-            tag: FilesPickDirectoryResultTag::Err,
+            tag: InternalFilesPickDirectoryResultTag::Err,
         },
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
+pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> InternalFilesDirListResult {
     record_operation(1);
     let dir = lookup_state(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let dir = match dir {
         Ok(dir) => dir,
-        Err(error) => return FilesDirListResult { payload: FilesDirListResultPayload { err: ManuallyDrop::new(list_directory_err(match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })) }, tag: FilesDirListResultTag::Err },
+        Err(error) => return InternalFilesDirListResult { payload: InternalFilesDirListResultPayload { err: ManuallyDrop::new(list_directory_err(match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })) }, tag: InternalFilesDirListResultTag::Err },
     };
     let result = (|| -> std::io::Result<Vec<AnonStruct770b9d9b3d3d255>> {
         let mut values = Vec::new();
@@ -619,14 +730,14 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
         Ok(values)
     })();
     match result {
-        Ok(values) => FilesDirListResult {
-            payload: FilesDirListResultPayload {
+        Ok(values) => InternalFilesDirListResult {
+            payload: InternalFilesDirListResultPayload {
                 ok: ManuallyDrop::new(unsafe { RocList::from_slice(&values, roc_host()) }),
             },
-            tag: FilesDirListResultTag::Ok,
+            tag: InternalFilesDirListResultTag::Ok,
         },
-        Err(io) => FilesDirListResult {
-            payload: FilesDirListResultPayload {
+        Err(io) => InternalFilesDirListResult {
+            payload: InternalFilesDirListResultPayload {
                 err: ManuallyDrop::new(list_directory_err(
                     if io.kind() == std::io::ErrorKind::InvalidData {
                         AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidUtf8
@@ -637,7 +748,7 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
                     },
                 )),
             },
-            tag: FilesDirListResultTag::Err,
+            tag: InternalFilesDirListResultTag::Err,
         },
     }
 }
@@ -646,7 +757,7 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
 pub extern "C" fn roc_files_dir_open_read(
     cap: *mut u64,
     name: RocStr,
-) -> FilesDirOpenReadDirResult {
+) -> InternalFilesDirOpenReadResult {
     record_operation(2);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
@@ -660,8 +771,8 @@ pub extern "C" fn roc_files_dir_open_read(
         Ok(dir) => dir.open_dir_nofollow(&owned_name).map(Arc::new).map_err(|io| reason(&io)),
     };
     match result {
-        Ok(dir) => FilesDirOpenReadDirResult {
-            payload: FilesDirOpenReadDirResultPayload {
+        Ok(dir) => InternalFilesDirOpenReadResult {
+            payload: InternalFilesDirOpenReadResultPayload {
                 ok: ManuallyDrop::new(capability(
                     dir,
                     inherited
@@ -674,19 +785,19 @@ pub extern "C" fn roc_files_dir_open_read(
                         }),
                 )),
             },
-            tag: FilesDirOpenReadDirResultTag::Ok,
+            tag: InternalFilesDirOpenReadResultTag::Ok,
         },
-        Err(value) => FilesDirOpenReadDirResult {
-            payload: FilesDirOpenReadDirResultPayload {
+        Err(value) => InternalFilesDirOpenReadResult {
+            payload: InternalFilesDirOpenReadResultPayload {
                 err: ManuallyDrop::new(open_read_directory_err(value)),
             },
-            tag: FilesDirOpenReadDirResultTag::Err,
+            tag: InternalFilesDirOpenReadResultTag::Err,
         },
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirReadResult {
+pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> InternalFilesDirReadResult {
     record_operation(3);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
@@ -694,41 +805,31 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| -> Result<Vec<u8>, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> {
         let dir = dir.map_err(|error| match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })?;
-        if !valid_name(&owned_name) {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidName);
-        }
-        let metadata = dir.symlink_metadata(&owned_name).map_err(|io| reason(&io))?;
-        if metadata.file_type().is_symlink() || !metadata.is_file() {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Unsupported);
-        }
-        if metadata.len() > MAX_FILE_BYTES {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::ResourceLimit);
-        }
-        let mut options = OpenOptions::new();
-        options.read(true).follow(FollowSymlinks::No);
-        let file = dir.open_with(&owned_name, &options).map_err(|io| reason(&io))?;
-        let mut bytes = Vec::with_capacity(metadata.len() as usize);
-        file.take(MAX_FILE_BYTES + 1).read_to_end(&mut bytes).map_err(|io| reason(&io))?;
-        if bytes.len() as u64 > MAX_FILE_BYTES {
-            Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::ResourceLimit)
-        } else {
-            Ok(bytes)
-        }
+        use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
+        read_child_bounded(&dir, &owned_name, MAX_FILE_BYTES).map_err(|error| match error {
+            ChildReadError::InvalidName => R::InvalidName,
+            ChildReadError::NotFound => R::NotFound,
+            ChildReadError::NotDirectory => R::NotDirectory,
+            ChildReadError::AccessDenied => R::AccessDenied,
+            ChildReadError::Unsupported => R::Unsupported,
+            ChildReadError::ResourceLimit => R::ResourceLimit,
+            ChildReadError::Io => R::Io,
+        })
     })();
     match result {
-        Ok(bytes) => FilesDirReadResult {
-            payload: FilesDirReadResultPayload {
+        Ok(bytes) => InternalFilesDirReadResult {
+            payload: InternalFilesDirReadResultPayload {
                 ok: ManuallyDrop::new(unsafe {
                     RocListWith::<u8, false>::from_slice(&bytes, roc_host())
                 }),
             },
-            tag: FilesDirReadResultTag::Ok,
+            tag: InternalFilesDirReadResultTag::Ok,
         },
-        Err(value) => FilesDirReadResult {
-            payload: FilesDirReadResultPayload {
+        Err(value) => InternalFilesDirReadResult {
+            payload: InternalFilesDirReadResultPayload {
                 err: ManuallyDrop::new(read_file_err(value)),
             },
-            tag: FilesDirReadResultTag::Err,
+            tag: InternalFilesDirReadResultTag::Err,
         },
     }
 }
@@ -736,6 +837,33 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The seam is one process-wide registration, so both of its outcomes are
+    /// exercised in one test rather than racing each other.
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn the_native_chooser_answers_a_waiting_task_and_refuses_the_window_thread() {
+        let (requests, pending) = async_channel::unbounded();
+        install_chooser(requests);
+        assert!(matches!(native_directory(), PortalSelection::Unavailable));
+        assert!(pending.try_recv().is_err());
+
+        let task = std::thread::spawn(native_directory);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let request = loop {
+            if let Ok(request) = pending.try_recv() {
+                break request;
+            }
+            assert!(Instant::now() < deadline, "the waiting task never asked for a chooser");
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        request.reply.send(None).expect("nobody was waiting");
+        assert!(matches!(
+            task.join().expect("task thread panicked"),
+            PortalSelection::Canceled
+        ));
+        *chooser().lock().expect("chooser seam poisoned") = None;
+    }
 
     #[test]
     fn child_names_cannot_escape_or_add_components() {

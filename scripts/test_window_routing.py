@@ -36,6 +36,16 @@ class DiscoveryTests(unittest.TestCase):
                 len(stems), len(set(stems)), f"duplicate spec stem in {app}"
             )
 
+    def test_exclusions_apply_after_inclusions(self) -> None:
+        cases = discover(
+            ["examples/*/specs/gallery.scm"],
+            Path("/tmp/out"),
+            ["examples/image-library/specs/gallery.scm"],
+        )
+        paths = {case.spec.relative_to(ROOT).as_posix() for case in cases}
+        self.assertNotIn("examples/image-library/specs/gallery.scm", paths)
+        self.assertIn("examples/animation-studio/specs/gallery.scm", paths)
+
 
 class ArtifactTests(unittest.TestCase):
     def case(self, output: Path) -> Case:
@@ -115,8 +125,8 @@ class ReportTests(unittest.TestCase):
             self.assertIn("no report written", captured.getvalue())
 
 
-class ClassificationTests(unittest.TestCase):
-    def test_classification_requires_a_built_executable(self) -> None:
+class DescriptionTests(unittest.TestCase):
+    def test_description_requires_a_built_executable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = Case(
                 spec=ROOT / "examples/counter/specs/counting.scm",
@@ -125,7 +135,7 @@ class ClassificationTests(unittest.TestCase):
                 capture=Path(directory) / "counting.rgstats",
             )
             with self.assertRaises(RuntimeError):
-                run_specs.classify([case])
+                run_specs.describe([case])
 
 
 if __name__ == "__main__":

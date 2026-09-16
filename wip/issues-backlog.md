@@ -18,9 +18,14 @@ the change lands; do not soften the docs to match the gap.
   and a host-owned revocation linearization rule; extend that rule to other
   resources and certify cross-process queued/running races and already-returned
   byte policy under confinement.
-- [ ] **Trusted file workflows remain incomplete.** Linux Wayland Open Project
-  uses the production XDG Desktop Portal and records session/source/parent
-  lineage, while `--host-cap-dir` remains development provisioning. Add Open
+- [ ] **Trusted file workflows remain incomplete.** Open Project is presented by
+  the operating system on both hosts: the production XDG Desktop Portal on Linux
+  Wayland and the window-owned native directory panel on macOS. Both record
+  session/source/parent lineage, and `--host-cap-dir` remains development
+  provisioning. The macOS panel is a native chooser, not a sandbox powerbox: it
+  grants no authority the unsandboxed process does not already hold, so it is
+  honest consent but not enforcement until the macOS sandbox work below lands.
+  Add Open
   Document's smallest single-file grant, persistent grants, revocation, edit
   grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
   cancellation and retry semantics.
@@ -55,7 +60,7 @@ the change lands; do not soften the docs to match the gap.
 ## Terminal workspace follow-on features
 
 - [ ] Propagate live pane dimensions through the layout owner to
-  `Process.resize!` and specify the resulting PTY size without exposing a
+  `Process.Pty.resize!` and specify the resulting PTY size without exposing a
   fixed-size product control.
 - [ ] Add ANSI/VT cell parsing, wide and combining glyph layout, selection,
   clipboard policy, and URL recognition on top of the ordered PTY byte stream.
@@ -66,132 +71,46 @@ the change lands; do not soften the docs to match the gap.
 
 ## Element appearance
 
-- [ ] **Disabled and focus appearance are host constants an application cannot
-  reach.** `apply_disabled` paints `DISABLED_BG`/`DISABLED_FG` at a fixed 0.55
-  opacity and `apply_focus_ring` draws a fixed amber, both chosen for the
-  default dark ground. They made those states unmistakable, which was the
-  point, but they assume one palette: on a near-black application the amber ring
-  fights a deliberate accent, on a near-white one the blue-grey disabled fill is
-  foreign, and a disabled control on a saturated ground still reads as live at
-  0.55. Both should derive from the element's own style, or be overridable,
-  rather than being constants. Introduced with the control-state fixes.
-
-- [ ] **Panel labels are never painted.** `Elem.panel`'s `label` is a semantic
-  locator name, and several applications use it for a status phrase rather than
-  a heading, so painting it as a header would both duplicate body text and move
-  every existing layout. Close with an explicit heading on the panel element,
-  distinct from the locator name, rendered with its own weight and size.
-
-- [ ] **Lists carry no style of their own.** `Elem.virtual_list` and
-  `Elem.scroll` take only a name, a row height, and their content, so a list has
-  no ground, padding, radius, or row spacing. Found while giving `music-player`
-  a dark queue: the list had to be wrapped in a padded panel for its surface,
-  every row repaints that surface itself, and row spacing exists only because
-  each row button is deliberately shorter than `row_height`. Close by giving
-  both list elements the shared `Gui.Style` fields, with a separate row gap.
-- [ ] **`Elem.text` has no style.** Colour and size reach a string only by
-  inheritance from an enclosing row or column, so every typographic step costs a
-  wrapper element that exists for no other reason. `music-player`'s wordmark and
-  status line are each a one-child `row` whose only job is `fg` and `font_size`.
-  Close with a styled text element carrying the same colour and size fields.
-- [ ] **No font weight.** A wordmark, a small eyebrow label, and a primary
-  transport caption all want weight, not size or hue. With only `font_size` and
-  `fg`, hierarchy has to be spent on size and colour that were carrying other
-  meaning; `music-player` reserves its accent for the sounding track and the
-  primary transport, which leaves nothing for emphasis elsewhere. Close by
-  adding a weight field to `Gui.Style`.
-- [ ] **Padding is one scalar for all four sides.** Pill-shaped transport
-  controls want generous horizontal padding and tight vertical padding. The
-  single `padding` field makes that inexpressible, so `music-player`'s transport
-  row sets `height: Px(48)` to defeat the vertical component of the horizontal
-  padding it actually wanted. Close with per-side padding, keeping the scalar as
-  the shorthand.
-- [ ] **A disabled control's appearance is a fixed opacity.** Disabled elements
-  are painted at 0.55 opacity of the application's own colours, which is not a
-  colour an application can choose. On a near-black ground a saturated accent
-  pill at 55% still reads as live, so a media transport cannot honestly present
-  itself as inert before a library is loaded. Close with disabled colour fields
-  alongside `hover_bg` and `active_bg`.
-- [ ] **The focus ring is a host constant.** Keyboard focus paints
-  `FOCUS_RING` regardless of the application's palette, so a deliberate accent
-  is contradicted the moment a control is focused. Close with a focus colour in
-  `Gui.Style`, defaulting to the host constant.
-- [ ] **Text cannot be kept on one line, and cannot be truncated.** There is no
-  wrap, nowrap, or ellipsis control, so a string longer than its container
-  reflows and grows that container. `counter`'s oversized numeral pushed its own
-  buttons out of the card at five digits. The only expressible defences are
-  `overflow: Clip`, which silently drops the remaining digits with no indication
-  that a value is incomplete, and application-side font-size stepping by
-  magnitude, which is the example's present workaround. Close with a wrapping
-  mode and a truncation mode on text-bearing elements.
-- [ ] **The window ground is a host constant.** The root container paints
-  `0x16252c` and centres its child, so a light application cannot set the colour
-  behind its own content. `counter` paints its paper ground with a
-  `Fill`/`Fill` grown column, which covers the dark ground but also fills the
-  window, forfeiting the root's centring and still leaving the host colour
-  visible in the window's rounded corners and along its top edge. Close with an
-  application-settable window background, independent of the root element's own
-  size.
-- [ ] **No shadow or elevation.** Surfaces separate from their ground only by
-  `bg`, `border_color`, and `radius`. A raised card on a near-white ground wants
-  a soft shadow, which on paper-light palettes is the only separation with
-  enough contrast to read; `counter`'s cards fall back on a 1px rule that all
-  but disappears against the ground it was chosen to sit quietly against. Close
-  with a shadow field on `Gui.Style`.
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
-  label from ordinary body text once weight and family are unavailable.
-  `counter`'s per-card captions are plain small grey text instead. Close with a
-  letter-spacing field on `Gui.Style`, alongside the weight field above.
-- [ ] **A border is all four sides at one width and one colour.** A dense
-  instrument panel divides regions with hairline rules, not with boxes.
-  `terminal-workspace` can only give every region a complete 1-point box and set
-  the gap between regions to 1 point so adjacent edges read as a single rule;
-  the outer edges of the stack are drawn too, and the seam is two coincident
-  borders rather than one. Close with per-side border width and colour.
-- [ ] **`radius` does not round an image's pixels.** `Elem.image` applies the
-  shared style to its container, but the decoded picture is painted as a full-size
-  child that is not clipped to that radius, so `image-library`'s 16-point media
-  corners have square pictures sitting over them. This is the one shape the
-  gallery identity depends on. Close by clipping image content to the element's
-  radius.
-- [ ] **An image's `width`, `height`, and `fit` do not size the picture.** A
-  gallery wants one uniform thumbnail shape and one viewer image that fits the
-  space left for it. With `fit: Cover` and `width: Px(88), height: Px(88)` the
-  painted SVG keeps a size of its own inside the box, and with `height: Fill,
-  grow: True` the viewer image is laid out past the bottom of the window instead
-  of fitting it, so `examples/image-library/specs/window-gallery.scm` can only
-  assert `expect-visible` for the selected image where `expect-on-screen` is the
-  claim that matters. Close by making the declared box authoritative and `fit`
-  the rule that maps pixels into it.
-- [ ] **A fixed length is a shrinkable basis with no floor.** Sibling overflow
-  shrinks a `Px` width, and there is no minimum-size or no-shrink field, so
-  `image-library`'s thumbnails first rendered at a different width in each row
-  depending on how long the caption beside them was. The only expressible remedy
-  was to shorten the caption control until the row fitted. Close with minimum and
-  maximum length fields, or an explicit no-shrink flag.
-- [ ] **A checkbox's box and mark are host constants.** `fg` reaches the caption
-  only; the indicator paints fixed dark values. On `image-library`'s near-white
-  wall the grayscale toggle is the one dark chip in the window and the identity
-  cannot reach it. Close with indicator colour fields on `Elem.CheckboxProps`.
-- [ ] **A row cannot distribute its children along its main axis.** There is
-  `gap` and nothing else, so a trailing child cannot sit at the far edge.
-  `terminal-workspace` wants its session status at the right end of the toolbar
-  and its encoding readout at the right end of the header, which is what an
-  instrument panel does with a status field; both are left-packed instead,
-  because the alternative is a grown spacer element that exists only to push.
-  Close with a main-axis distribution field on rows and columns.
-- [ ] **No font family.** Terminal output is columnar: `terminal-workspace`'s
-  scrollback, its line counts, and its `pty 100x30` readout all want a monospace
-  face, and nothing in `Gui.Style` selects one. Digits in the footer shift width
-  as they change, and the scrollback cannot align a column. Close with a family
-  or a generic-face field on `Gui.Style`.
+  label from ordinary body text once family is unavailable. `counter`'s per-card
+  captions are plain small grey text instead. GPUI 0.2.2 has no letter-spacing
+  concept at all: neither `TextStyle` nor `TextStyleRefinement` carries one, and
+  the shaper takes none, so this needs an upstream field before a
+  `Gui.Style` letter-spacing field can mean anything.
+- [ ] **A border is one colour on all four sides.** Per-side widths have
+  landed, and `terminal-workspace` now draws one hairline on the edge that faces
+  the next region instead of boxing every region and holding the boxes apart
+  with a 1-point seam. Per-side colour is not expressible: GPUI 0.2.2's `Style`
+  carries `border_widths` as `Edges` but a single `border_color`, so a side
+  cannot have a colour of its own without an upstream change.
+- [ ] **A large SVG is rasterized at its own size and then never painted.**
+  `gpui` 0.2.2 decodes an SVG through
+  `SvgRenderer::render_pixmap(&bytes, SvgSize::ScaleFactor(1.0))`
+  (`src/platform.rs`, `ImageFormat::Svg`), so the raster is the file's intrinsic
+  size and the element's box is never an input: `SvgSize::Size(_)` exists but the
+  image-asset path never uses it. `image-library`'s 8000x6000 fixtures therefore
+  produce a 48-megapixel frame that nothing paints, while the 24x24 glyph in
+  `icons/unreadable.svg` paints correctly — proved by
+  `examples/image-library/specs/window-unreadable.scm` against a gallery whose
+  thumbnails are blank. The element geometry is right: the same window run
+  measures each thumbnail at exactly 88x88 and the viewer image on screen. This
+  needs `SvgSize::Size` at the laid-out box upstream, or a host-side SVG
+  rasterizer, and should not be worked around by shrinking the fixtures, which
+  are deliberately larger than any box they are put in.
 
 ## Trust: measurements that can mislead a decision
 
-- [ ] **All benchmark captures come from the headless runner.** No GPUI stage is
-  measured. The capture backend is `semantic-headless`. Closes with the
-  end-to-end runner below.
+- [ ] **All benchmark captures come from the headless runner.** Every capture
+  under `benchmarks/` has backend `semantic-headless` and holds no frame
+  evidence: no layout request, no prepaint, no paint, no `gpui_apply_ns`. Frame
+  spans are now recorded wherever a GPUI window draws, but no benchmark reaches
+  one. The end-to-end runner exists and is not the closing piece by itself: it
+  runs exactly one lifecycle with no per-step remount, so `spec::check_runner`
+  refuses benchmark steps there, and `scripts/run_specs.py` gives a window case
+  no `--host-stats-output` because it produces a report rather than a capture.
+  Closes when the window runner can drive warmups, samples, and iterations and
+  writes a capture of its own.
 
 ## Performance findings from the suite
 
@@ -203,6 +122,58 @@ names the evidence so a fix can be verified against the same case.
   that segfaults in `benchmarks/tree-shape/specs/deep-1k.scm`; the normal build
   mode and a build differing only by omission of `--opt=dev` pass. Minimize and
   report this compiler regression, then update the pinned compiler when fixed.
+
+- [ ] **A guarded match over a local tag value segfaults the built
+  application.** Reaching for a chosen-row marker in `examples/music-player`,
+  this shape crashed the built executable with SIGSEGV in
+  `specs/stale-load.scm`, `specs/window-decode-error.scm` and
+  `specs/window-identity.scm`:
+
+  ----
+  match state.chosen {
+      Nothing => sounding
+      At(index) => match sounding {
+          Sounding(active) if active == index => sounding
+          Held(active) if active == index => sounding
+          _ => Waiting(index)
+      }
+  }
+  ----
+
+  The same function rewritten to compare an index instead of re-matching the
+  local tag value passes all nine cases, which is what the example now does. The
+  shape extracted into a module and exercised with `roc test` does **not**
+  reproduce it, so the trigger needs the full application build and is not yet
+  minimized. Minimize it against the pinned compiler, report it, and update the
+  pin when fixed.
+
+- [ ] **An unannotated helper that reads a field of its own result segfaults
+  `roc check`.** Reaching for undo and redo that reconcile a stale selection in
+  `examples/animation-studio`, this shape crashed the compiler itself — not the
+  built application — with SIGSEGV at fault address `0x3f8`, with no diagnostic
+  and no stack trace:
+
+  ----
+  restore = |state, document, status| {
+      settled = apply_frame({ ..state, document, drag: Idle, status })
+      keeps = match settled.selected {
+          None => False
+          Some(id) => match settled.document.shapes.find_first(|shape| shape.id == id) {
+              Ok(_) => True
+              Err(_) => False
+          }
+      }
+      if keeps settled else { ..settled, selected: None }
+  }
+  ----
+
+  Adding the annotation `restore : State, Document, Str -> State` makes it
+  compile, and nothing else about the body has to change, so the trigger is
+  inference over a helper whose parameter and result types are only pinned down
+  by another unannotated helper (`apply_frame`) in the same module block.
+  Reordering the two definitions makes no difference. The example carries the
+  annotation. Minimize it against the pinned compiler, report it, and update the
+  pin when fixed.
 
 - [ ] **Full-root replacement remains superlinear at 100,000 rows.** The
   production 100,000-row sparse-update case confirms the effect after dense
@@ -229,6 +200,17 @@ names the evidence so a fix can be verified against the same case.
   Keyboard input is real, through `Window::dispatch_keystroke`; pointer input is
   simulated at the production handler, gated on real laid-out geometry, because
   GPUI exposes no usable pointer seam. See `docs/specifications.adoc`.
+- [ ] **A control that reorders under the finger can hand its press to its
+  neighbour.** Element identity is a path of sibling keys, and a node with no
+  name of its own — `Elem.text`, and any container an application left unnamed
+  — is keyed by its position. If such a node is pressed and its siblings are
+  reordered or one before it is removed in the same patch, the identity that
+  was pressed now belongs to a different node, and the release completes on
+  that one. Named controls are unaffected: a named node keeps its own key
+  wherever it moves, and one that leaves the tree drops the press. Close by
+  giving every element a name, or by refusing positional identity to anything
+  that takes a pointer press.
+
 - [ ] **A real pointer seam.** Pointer input is currently simulated at the
   production click handler. GPUI 0.2.2 offers no alternative:
   `Window::dispatch_event` is `pub fn` but returns the crate-private
@@ -240,26 +222,41 @@ names the evidence so a fix can be verified against the same case.
   cursor), or a compositor seam on Wayland. Until then `click` cannot exercise
   GPUI's dispatch tree, occlusion by unrelated elements, or hover styling, and
   there is deliberately no `hover` step.
-- [ ] **Scroll and resize steps for window specifications.** Found by driving
-  `folder-browser` and `settings-center`: a list application's rows below the
-  fold cannot be reached, clicked, or photographed at all, and a specification
-  cannot prove a layout at a size other than the one `main.roc` asks for. A
-  `(scroll LOCATOR ...)` step and a `(resize W H)` step would close both. This
-  is the largest gap in the window vocabulary.
+- [ ] **A window specification cannot run while the screen is locked.** A
+  locked macOS session presents no frame, so every window case reaches
+  `driver-started` and waits for one that never arrives until the watchdog
+  fires. The watchdog now names the cause rather than reporting only a
+  deadline, which is the difference between an environmental note and an
+  apparent defect in the host, but the constraint stands: window evidence needs
+  an unlocked session. This is why continuous integration needs the headless
+  compositor lane below rather than a desktop session.
+
 - [ ] **Shared steps the window runner does not implement.** `drag`,
-  `replace-text`, `clipboard-text`, `submit`, `await-ticks`,
-  `revoke-file-grants`, the value and ordering assertions, and the owner
-  counter assertions are all classified semantic-only because the window runner
-  refuses them, not because they would be dishonest there. Implementing them
-  would let one specification assert semantic truth and photograph it.
-  `await-ticks` in particular must drive real timer ticks rather than settling,
-  which is what made it wrong before it was reclassified.
-- [ ] **Bring off-screen targets on screen.** `expect-on-screen` distinguishes
-  laid out from actually visible, but large row cases place targets outside the
-  window and the platform still has no scrolling feature to bring them into
-  view.
-- [ ] **Layout, paint, and presentation spans** owned by the GPUI side of the
-  host. Presentation may need a Wayland frame callback.
+  `replace-text`, `submit`, `revoke-file-grants`, and the owner counter
+  assertions are still classified semantic-only because the window runner
+  refuses them, not because they would be dishonest there.
+
+  The value and ordering assertions have since landed and are no longer on this
+  list. They cost almost nothing, because each is answered from the mounted
+  graph alone: `runner::graph_claim` now holds the only implementation and both
+  runners call it, so the five words cannot come to mean two things. The four
+  that remain are each a different problem rather than four of the same one.
+  `drag` and `submit` want a pointer and a submit route the window runner
+  reaches only by simulation, which is the entry above; `replace-text` sets a
+  value directly, which in a window would bypass the editing path `type`
+  exists to exercise, so it needs a decision about whether that is worth
+  offering at all. `revoke-file-grants` and the owner counters read
+  process-global state that is already reachable from the window runner — they
+  are held back only by the per-counter plumbing, and are the cheapest next
+  step.
+
+  `clipboard-text` and `await-ticks` have since landed in the window runner and
+  are no longer on this list. They are worth reading before the next one is
+  attempted, because each needed a different answer than settling: a clipboard
+  watcher rearms its read inside the completion that delivers the last one, so
+  one task is outstanding at every instant and quiescence never arrives, and
+  `await-ticks` therefore counts timer *fires* rather than completions, since a
+  fire can only be one that started after the step did.
 - [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
   headless compositor such as sway or cage. For Sway this requires a headless
   wlroots output, software rendering on workers without a GPU, and pointer
@@ -268,13 +265,11 @@ names the evidence so a fix can be verified against the same case.
   are accepted; merely opening a window is insufficient.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
+  Strictly after the entry above: today every benchmark capture is
+  `semantic-headless`, so refusing that backend first would leave the suite with
+  no numbers at all, which is worse than numbers from a backend whose limits the
+  capture states.
 
-- [ ] **Split the specification reference by audience.**
-  `docs/specifications.adoc` serves an application author and a platform
-  contributor from one 450-line file, so a user's path runs through fixture
-  metadata for this repository's own examples. `docs/testing-your-app.adoc`
-  now carries the user-facing path; the reference should lose the fixture block
-  to `development.adoc` and be retitled.
 - [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a
   1280x800 window on a display with the dock visible photographs the dock. A
@@ -284,10 +279,6 @@ names the evidence so a fix can be verified against the same case.
   already a dependency; the missing piece is the window id, which GPUI does not
   expose and which would need the pid-to-window mapping the capture currently
   avoids needing.
-- [ ] **Per-canvas-item screenshot regions.** Only a canvas node's own
-  rectangle is recorded, so `(screenshot :region (role canvas-item ...))` is a
-  parse error rather than a silent whole-canvas photograph. Recording primitive
-  geometry would reuse `canvas_target`'s hit-testing arithmetic.
 - [ ] **Wayland window specifications in continuous integration.** The window
   runner is platform-neutral and `grim` is wired for wlroots, but no Linux
   runner has a compositor. This needs the headless lane (`sway --headless`,
@@ -456,21 +447,169 @@ names the evidence so a fix can be verified against the same case.
   accessibility API. Close with platform accessibility nodes verified by an
   external accessibility client, while retaining the same semantic names used
   by specifications.
-- [ ] **Focus has no destination when navigation removes the focused control.**
-  An ordinary patch now restores focus by role and stable semantic name when
-  the control remains live, and dialog open and close keep their own policy.
-  What is still unspecified is where focus goes when the focused control is
-  gone from the next graph: it is simply dropped.
 - [ ] **Composite directory navigation has no roving focus.** A user can reach
   and activate every folder with Tab and Enter or Space. Close with a semantic
   list/list-item element whose Up, Down, Home, and End behavior, selected state,
   scroll-into-view behavior, scaling case, and operating-system accessibility
   mapping all use the production event path.
-- [ ] **Rows and columns cannot align or justify their children.** `Gui.Style`
-  carries size, colour, border, and overflow, but no main- or cross-axis
-  alignment, so an application cannot centre a block in the space it was given.
-  Empty-state messages, which belong in the middle of an otherwise blank
-  content area, are left-aligned with padding instead. Close with an alignment
-  property on row, column, and panel props, mapped to the GPUI flex container
-  the host already builds, with a specification that photographs a centred
-  child.
+
+- [x] **Redis Explorer serializes nothing on its single stream.** Closed. The
+  stream is no longer a field the whole application can reach: `Explorer.Link`
+  holds it inside the in-flight request (`Busy`) and nowhere else, so the render
+  function has no handle to hand a second request and cannot start one. A
+  RESP connection is one ordered conversation, and ownership now says so in the
+  type rather than in a flag someone must remember to check. Controls stay in
+  place and go dead while a request owns the stream, and a completion hands the
+  stream back from the state it was borrowed from, never from the task closure's
+  captured copy. `examples/redis-explorer/specs/stream-ownership.scm` is the
+  superseded-scan specification this entry said could not be written: it presses
+  Refresh three times inside one scan and asserts the newest keyspace arrives
+  with no error and exactly one scan's worth of traffic on the wire.
+
+- [ ] **Audio is the one resource whose operations are not methods on its
+  handle.** Every other host resource is a nominal type carrying its own
+  operations, so a caller writes `store.read!(path)` and `pty.read!(opts)`.
+  `Audio.Output` and `Audio.Track` are still plain aliases of their `Resource`
+  representation with module-level `Audio.load!`, `Audio.play!` and the rest,
+  because the pinned compiler cannot build an application that uses them in
+  nominal form. Making both nominal and leaving the rest of the platform
+  untouched, `roc check` on `examples/music-player` passes and
+  `roc build examples/music-player/main.roc` never terminates -- it was left
+  for fifty-five minutes of CPU against 5.1 seconds for the same example with
+  `Audio` as aliases, with memory still climbing. Making only `Audio.Output`
+  nominal segfaults the compiler outright. Nothing about music-player's own use
+  is unusual: it holds the handles in application state and passes them through
+  `Action.task`, which `image-library` and `file-explorer` also do with
+  `Assets.Store` and `Files.Dir.Read` and which compile in seconds. Closing this
+  needs the compiler defect fixed and reported upstream; the platform change
+  itself is then the same one made for every other resource.
+
+- [ ] **A resource handle captured by a task closure cannot be stored by its
+  completion.** Writing `Tcp.Stream` back into application state from
+  inside `resolve`, using the handle the surrounding `Action.task` captured,
+  segfaults the process non-deterministically — the capture is released when the
+  task's closure is, so the completion stores a dangling resource. Recovering the
+  same handle from the state the completion is given is safe and is what Redis
+  Explorer now does, but nothing in the API says which of the two is correct, and
+  the wrong one fails as a crash rather than as a type error. Either the capture
+  must keep the resource alive for the completion, or storing one must be
+  rejected at compile time.
+
+- [ ] **A window specification cannot wait for an HTTP request.** In the window
+  runner `await-task` is `settle 2`, and a real `Http.Client.send!` over loopback does
+  not land inside it: the readout is still "in flight" when the next step runs.
+  Asking for more settling makes it worse rather than better — repeated
+  `await-task` steps, or one `settle :frames 45`, leave the windowed host
+  hanging until the 45-second watchdog kills it, and a run that ends with the
+  request still outstanding aborts with `roc-gui host error: RocHost is not
+  initialized`, so a worker completion is reaching a torn-down host. File and
+  TCP worker tasks in the same runner settle normally, so this is specific to
+  the HTTP path. The effect is that no window case can photograph a response, a
+  status line, or a granted-authority readout that only a real reply produces:
+  HTTP Workbench's window cases therefore cover the first frame and the refusal,
+  which is everything reachable before the network, and its granted state is
+  asserted only by the semantic runner.
+
+- [ ] **Two concurrent worker completions have no ordered wait.** `await-task`
+  applies one accepted completion, but when an application has two identical
+  requests in flight the order they land in is not deterministic. Image
+  Library's superseded folder scan is only observable while the older
+  completion is being suppressed, so the claim cannot be asserted: a
+  specification that checks the gallery is still empty after the first
+  `await-task` passes or fails depending on which scan finished first.
+  Suppression there is therefore covered only by the final state and the file
+  counters, which are identical with and without the guard. An ordered or
+  request-selective wait step would close it.
+- [x] **Device Configurator has two unreachable status messages.** Closed. Both
+  branches are gone, and they are gone in the stronger of the two available
+  ways: `apply` and `disconnect` now take the connection -- and `apply` the
+  configuration -- that they operate on, so there is no state in which either
+  can be called without one. An unreachable message is not a safety net; it is
+  a claim the type system should have been making, and now does.
+
+  The half of the entry that asked for controls that explain themselves is
+  honoured where a person is actually looking. Connect and Disconnect live on
+  the device card and are never both offered, so before discovery neither
+  exists rather than existing uselessly; Apply is the one control that is ever
+  disabled, and the footer beside it says "The device has everything shown
+  here" when it is. `connect-before-discovery.scm` and `reconnect.scm` now
+  assert the absence of the control rather than the inertness of pressing it,
+  which is the stronger claim.
+
+  One thing this entry did not anticipate: the same reasoning found a real
+  defect next door. Discovery empties the device list, and the open connection
+  was reachable only from a card in that list, so discovering again while
+  connected stranded the handle. Discovery is now withheld while a connection
+  is open and says why, asserted by `discover-while-connected.scm`.
+
+- [x] **Asset stores have no behaviour specification.** Closed. `music-player`
+  adopts the API: it ships `assets/` with a `roc-assets.manifest`, reads
+  `art/nocturne-cover.jpg` through `Assets.content_directory` with
+  `with_manifest`, and draws it in the sleeve beside NOW PLAYING. Both paths are
+  specified -- `specs/cover-art.scm` grants a content directory and asserts
+  `(expect-asset-counters 1 0 1 1 0 142534)` alongside
+  `(expect-image-bytes (role image :name "Cover art") 142534)`, and
+  `specs/cover-art-denied.scm` withholds the grant and asserts the refusal,
+  `(expect-asset-counters 0 1 0 0 0 0)`, with the quiet line the sleeve shows
+  instead. The route from Roc through the ABI is now exercised end to end.
+
+  One thing this entry did not anticipate: the grant vocabulary had no way to
+  provision a content directory, so `--host-cap-assets` was reachable from a
+  command line but not from a specification. `(assets "PATH")` was added to
+  `spec::Grant` and to `docs/specifications.adoc`, and `expect-asset-counters`
+  was added to the assertion reference, where it had been documented only in
+  `docs/development.adoc`.
+
+- [ ] **`Program` has no effectful startup, so a store is opened on a task.**
+  `Program.init` is a pure value, so an application that wants its banner
+  present in the first frame cannot open a store and read it before the first
+  render; it must render a loading state and fill it in from `Action.task`. That
+  is a sound route and the documented one, but it means every asset-backed
+  application writes the same three-state field. An effectful `init!` that
+  blocks startup, as roc-ray's does, would remove it. That is a change to the
+  program model rather than to the asset surface, and it was not made here.
+
+- [ ] **No asset root resolves relative to the application itself.** The three
+  roots are the executable's directory, the process working directory, and the
+  host-provisioned content directory. None of them is "the directory this
+  application ships in", which is what `roc app.roc` actually wants: the
+  executable is a build output in a temporary directory, and the working
+  directory is wherever the shell happens to be. `music-player` therefore reads
+  its cover from `working_directory("examples/music-player/assets")`, which is
+  correct when an example is run from the checkout root as the README says and
+  wrong from anywhere else. Closing this needs the application's own location to
+  reach the host, which is packaging identity rather than an asset-surface
+  change.
+
+  It also cost a specification. `specs/cover-art-denied.scm` proved the missing
+  cover state by withholding the content-directory grant; with a root that
+  resolves without provisioning there is no way to make the read fail from a
+  specification, so the case was removed rather than left asserting something it
+  no longer caused. The refused open and refused read are still covered by the
+  asset host's own tests.
+
+- [ ] **A content directory is not an application identity.** A
+  `ContentDirectory` store resolves to whatever `--host-cap-assets` names, which
+  is development and packaging provisioning, not a stable per-application
+  installed location. Until packaging identity exists, two applications run from
+  the same host configuration share one content root, and an installed layout
+  has nothing to resolve against.
+
+- [ ] **Asset stores have no scaling case.** The manifest check is constant-time
+  in the number of assets by construction, and one read is bounded at 64 MiB,
+  but nothing measures an application reading many assets across many tasks.
+  A scaling case belongs with the example that adopts the API.
+- [ ] **An SVG's red and blue channels are exchanged when it is rendered.** A
+  rasterised image is correct; an SVG is not. In `gpui` 0.2.2,
+  `Image::to_image_data` (`platform.rs`) sends every raster format through a
+  helper that converts the decoded RGBA to the BGRA the renderer wants, but the
+  `ImageFormat::Svg` arm wraps `svg_renderer.render_pixmap`'s buffer directly
+  and performs no such conversion. So `hsl(29,55%,35%)`, the warm brown
+  `image-library`'s `collection-01.svg` is authored with, reaches the screen as
+  a blue, and the fixtures authored as browns and an amber-to-violet sky present
+  as blues and greens. PNG, JPEG, WebP, BMP, TIFF and GIF are unaffected.
+  Decoding is GPUI's to own, and pre-rasterising SVG in this host would
+  duplicate the decoder this platform deliberately does not reimplement, so this
+  closes upstream. The vendored example icons are neutral greys, which are
+  invariant under the exchange and therefore honest either way. Verify with a
+  specification that samples a known pixel of a known fixture once a fix lands.

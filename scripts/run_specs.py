@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 9
+SUPPORTED_SCHEMA = 10
 
 
 @dataclass(frozen=True)
@@ -33,41 +33,55 @@ class Case:
     capture: Path
 
 
-def fixture_metadata(case: Case) -> dict[str, str]:
-    metadata = case.app.parent / "fixture-metadata" / case.spec.stem
-    values: dict[str, str] = {}
-    if not metadata.is_file():
-        return values
-    for line in metadata.read_text(encoding="utf-8").splitlines():
-        key, separator, value = line.partition("=")
-        if separator != "=" or key not in {"directory", "clipboard", "http-origin", "tcp", "server", "server-port"} or not value:
-            raise RuntimeError(f"invalid fixture metadata in {metadata}")
-        values[key] = value
-    return values
+def describe(cases: list[Case]) -> dict[Path, dict]:
+    """Ask the host what each specification needs.
+
+    The host owns the `.scm` vocabulary, so it is the only parser: it reports
+    the runner a case needs and the very capability flags its declared grants
+    become. Duplicating that vocabulary here would be a second source of truth
+    that could drift.
+    """
+    executable = next((case.executable for case in cases if case.executable.is_file()), None)
+    if executable is None:
+        raise RuntimeError("no built executable available to describe specifications")
+    completed = subprocess.run(
+        [str(executable), "--host-describe-specs", *[str(case.spec) for case in cases]],
+        cwd=ROOT,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed.returncode != 0:
+        diagnostic = completed.stderr.decode(errors="replace").strip()
+        raise RuntimeError(f"specification description failed: {diagnostic}")
+    described: dict[Path, dict] = {}
+    for line in completed.stdout.decode(errors="replace").splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        described[Path(record["path"])] = record
+    missing = [case.spec for case in cases if case.spec not in described]
+    if missing:
+        raise RuntimeError(f"host did not describe {len(missing)} specification(s)")
+    return described
 
 
 @contextmanager
-def fixture_services(cases: list[Case], output: Path):
-    """Run the local servers declared by cases for any production-path spec runner."""
+def fixture_services(cases: list[Case], described: dict[Path, dict], output: Path):
+    """Run the loopback services the selected cases declare."""
     output.mkdir(parents=True, exist_ok=True)
     processes: list[subprocess.Popen[bytes]] = []
     servers = set()
     for case in cases:
-        values = fixture_metadata(case)
-        if script_name := values.get("server"):
-            port = values.get("server-port")
-            if port is None or not port.isdigit():
-                raise RuntimeError(f"fixture server port missing for {case.spec}")
-            servers.add((case.app.parent / script_name, int(port)))
+        for server in described[case.spec]["servers"]:
+            servers.add((server["script"], int(server["port"])))
     try:
         for script, port in sorted(servers):
-            if not script.is_file():
-                raise RuntimeError(f"fixture server does not exist: {script}")
             ready_file = output / f"fixture-ready-{port}"
             environment = os.environ.copy()
             environment["ROC_GUI_FIXTURE_READY_FILE"] = str(ready_file)
             process = subprocess.Popen(
-                [sys.executable, str(script)], cwd=ROOT,
+                [sys.executable, script], cwd=ROOT,
                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                 env=environment,
             )
@@ -96,7 +110,7 @@ def fixture_services(cases: list[Case], output: Path):
                 process.wait(timeout=5)
 
 
-def discover(patterns: list[str], output: Path) -> list[Case]:
+def discover(patterns: list[str], output: Path, excludes: list[str] | None = None) -> list[Case]:
     specs = sorted(
         [*ROOT.glob("examples/*/specs/*.scm"), *ROOT.glob("benchmarks/*/specs/*.scm")]
     )
@@ -105,6 +119,12 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
             spec
             for spec in specs
             if any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in patterns)
+        ]
+    if excludes:
+        specs = [
+            spec
+            for spec in specs
+            if not any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in excludes)
         ]
     cases = []
     for spec in specs:
@@ -127,10 +147,14 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
 # stops miscompiling these. An optimized build fails a few runs in ten, on every
 # platform: it segfaults with an access violation, crashes with "hit a runtime
 # error", or silently loses a directory listing. `--opt=dev` is clean over 40
-# runs, and neither application measures a benchmark, so their timings are
+# runs, and none of these applications measures a benchmark, so their timings are
 # nobody's evidence. `file-explorer` joined the list after CI hit the same
 # access violation in `navigation.scm` that `folder-browser` showed first.
-DEV_BUILD_APPS = frozenset({"folder-browser", "file-explorer"})
+# `system-monitor` likewise hangs or exits with 0xC0000005 on Windows, but its
+# live timer's deterministic sample count needs the optimized build elsewhere.
+DEV_BUILD_APPS = frozenset({"file-explorer", "folder-browser", "music-player"}) | (
+    frozenset({"system-monitor"}) if sys.platform == "win32" else frozenset()
+)
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
@@ -193,37 +217,6 @@ def report_window_failure(artifacts: Path) -> None:
         print(f"    screenshot: {shot}", file=sys.stderr)
 
 
-def classify(cases: list[Case]) -> dict[Path, str]:
-    """Ask the host which runner each specification needs.
-
-    Classification is pure parsing, so any built executable can answer for the
-    whole suite in one process. The host owns the vocabulary; duplicating it
-    here would be a second source of truth that could drift.
-    """
-    executable = next((case.executable for case in cases if case.executable.is_file()), None)
-    if executable is None:
-        raise RuntimeError("no built executable available to classify specifications")
-    completed = subprocess.run(
-        [str(executable), "--host-classify-specs", *[str(case.spec) for case in cases]],
-        cwd=ROOT,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if completed.returncode != 0:
-        diagnostic = completed.stderr.decode(errors="replace").strip()
-        raise RuntimeError(f"classification failed: {diagnostic}")
-    runners: dict[Path, str] = {}
-    for line in completed.stdout.decode(errors="replace").splitlines():
-        runner, separator, path = line.partition("\t")
-        if separator and runner in {"semantic", "window"}:
-            runners[Path(path)] = runner
-    missing = [case.spec for case in cases if case.spec not in runners]
-    if missing:
-        raise RuntimeError(f"host did not classify {len(missing)} specification(s)")
-    return runners
-
-
 def window_artifacts(case: Case) -> Path:
     """Where a window case writes its report and screenshots."""
     return case.capture.with_suffix("")
@@ -231,6 +224,7 @@ def window_artifacts(case: Case) -> Path:
 
 def run_case(
     case: Case,
+    grants: dict,
     timeout: float,
     jobs: int,
     detail: str = "summary",
@@ -239,8 +233,8 @@ def run_case(
 ) -> tuple[Case, str | None]:
     """Run one specification on the runner its steps require.
 
-    Both runners share this function so a case is wired to its fixtures exactly
-    once, whichever runner it needs.
+    Both runners share this function so a case is wired to the capabilities its
+    specification declares exactly once, whichever runner it needs.
     """
     case.capture.parent.mkdir(parents=True, exist_ok=True)
     if runner == "window":
@@ -264,65 +258,14 @@ def run_case(
             f"--host-stats-job-count={jobs}",
             f"--host-stats-detail={detail}",
         ]
-    fixture_values = fixture_metadata(case)
-    native_fixtures: dict[str, Path | None] = {}
-    for key in ("directory", "clipboard"):
-        if relative := fixture_values.get(key):
-            if relative == "none":
-                native_fixtures[key] = None
-                continue
-            path = case.app.parent / relative
-            if not path.is_dir():
-                raise RuntimeError(f"native fixture directory does not exist: {path}")
-            native_fixtures[key] = path
-    fixture = native_fixtures.get("directory", case.app.parent / "fixture")
-    if fixture is not None and fixture.is_dir():
-        command.extend(["--host-cap-dir", str(fixture)])
-    if origin := fixture_values.get("http-origin"):
-        command.extend(["--host-cap-http-origin", origin])
-    process_fixture = case.app.parent / "process-fixture" / case.spec.stem
-    if process_fixture.is_file():
-        profile = process_fixture.read_text(encoding="utf-8").strip()
-        if profile not in {"local-shell", "test-program"}:
-            raise RuntimeError(f"invalid process fixture profile in {process_fixture}")
-        command.extend(["--host-cap-process", profile])
-    device_fixture = case.app.parent / "device-fixture" / case.spec.stem
-    if device_fixture.is_file():
-        grant = device_fixture.read_text(encoding="utf-8").strip()
-        if grant != "virtual" and not (grant.startswith("virtual:") and grant[8:].isdigit()):
-            raise RuntimeError(f"invalid deterministic device fixture in {device_fixture}")
-        command.extend(["--host-cap-device", grant])
-    system_fixture = case.app.parent / "system-monitor-fixture" / case.spec.stem
-    if system_fixture.is_file():
-        grant = system_fixture.read_text(encoding="utf-8").strip()
-        if grant not in {"standard", "unavailable"} and not (grant.startswith("processes:") and grant[10:].isdigit()):
-            raise RuntimeError(f"invalid deterministic system monitor fixture in {system_fixture}")
-        command.extend(["--host-cap-system-monitor-fixture", grant])
-    app_data_fixture = case.app.parent / "app-data-fixture"
-    if authority := fixture_values.get("tcp"):
-        command.extend(["--host-cap-tcp", authority])
-    audio_fixture = case.app.parent / "audio-fixture"
-    if audio_fixture.is_file():
-        fixture_kind = audio_fixture.read_text(encoding="utf-8").strip()
-        if fixture_kind != "null":
-            raise RuntimeError(f"invalid audio fixture kind in {audio_fixture}")
-        command.append("--host-cap-audio-null")
+    command.extend(grants["flags"])
     with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
         storage = Path(temporary)
-        if app_data_fixture.is_dir():
-            case_fixture = app_data_fixture / case.spec.stem
-            default_fixture = app_data_fixture / "default"
-            source = (
-                case_fixture
-                if case_fixture.is_dir()
-                else default_fixture
-                if default_fixture.is_dir()
-                else app_data_fixture
-            )
-            shutil.copytree(source, storage, dirs_exist_ok=True)
+        # Application data is granted as a fresh private copy, so a case writes
+        # through the production capability without mutating checked-in data.
+        if seed := grants["app_data_seed"]:
+            shutil.copytree(seed, storage, dirs_exist_ok=True)
             command.extend(["--host-cap-app-data", str(storage)])
-        if clipboard_fixture := native_fixtures.get("clipboard"):
-            command.append(f"--host-cap-clipboard-fixture={clipboard_fixture}")
         try:
             completed = subprocess.run(
                 command,
@@ -371,6 +314,8 @@ def run_case(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("patterns", nargs="*", help="glob(s) matched against repository-relative spec paths")
+    parser.add_argument("--exclude", action="append", default=[], metavar="GLOB",
+                        help="exclude repository-relative spec paths matching this glob; repeatable")
     parser.add_argument("--jobs", type=int, default=1,
                         help="concurrent cases (default: 1; values above 1 make timing evidence partial)")
     parser.add_argument("--timeout", type=float, default=120.0)
@@ -388,10 +333,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-missing-shots", action="store_true",
                         help="report unavailable screenshots instead of failing; hosted CI "
                              "runners cannot grant screen recording")
+    parser.add_argument("--window-retries", type=int, default=0,
+                        help="retry a failed window case this many times with fresh artifacts")
     parser.add_argument("--roc", default=os.environ.get("ROC", "roc"))
     args = parser.parse_args()
-    if args.jobs < 1 or args.timeout <= 0:
-        parser.error("jobs and timeout must be positive")
+    if args.jobs < 1 or args.timeout <= 0 or args.window_retries < 0:
+        parser.error("jobs and timeout must be positive; window retries cannot be negative")
     if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
         parser.error("shard index must be within shard count")
     return args
@@ -401,7 +348,7 @@ def main() -> int:
     args = parse_args()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output = (args.output or ROOT / ".test-out" / "specs" / stamp).resolve()
-    cases = discover(args.patterns, output)
+    cases = discover(args.patterns, output, args.exclude)
     cases = [case for index, case in enumerate(cases) if index % args.shard_count == args.shard_index]
     if not cases:
         print("error: no .scm specs selected", file=sys.stderr)
@@ -412,16 +359,16 @@ def main() -> int:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 
-    # Ask the host which runner each specification needs, before the fixture
-    # services start, because the services a run needs come from the cases it
-    # will actually execute.
+    # Ask the host what each specification needs, before the loopback services
+    # start, because the services a run needs come from the cases it will
+    # actually execute.
     try:
-        runners = classify(cases)
-    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+        described = describe(cases)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
-    semantic = [case for case in cases if runners[case.spec] == "semantic"]
-    window = [case for case in cases if runners[case.spec] == "window"]
+    semantic = [case for case in cases if described[case.spec]["runner"] == "semantic"]
+    window = [case for case in cases if described[case.spec]["runner"] == "window"]
     if args.only == "semantic":
         window = []
     elif args.only == "window":
@@ -435,30 +382,42 @@ def main() -> int:
     failures = 0
     window_specs = {case.spec for case in window}
     try:
-        with fixture_services(selected, output):
+        with fixture_services(selected, described, output):
             if args.fail_fast:
                 for case in semantic:
-                    result = run_case(case, args.timeout, args.jobs, args.detail)
+                    result = run_case(case, described[case.spec], args.timeout, args.jobs, args.detail)
                     results.append(result)
                     if result[1] is not None:
                         break
             else:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-                    futures = [pool.submit(run_case, case, args.timeout, args.jobs, args.detail) for case in semantic]
+                    futures = [
+                        pool.submit(run_case, case, described[case.spec], args.timeout, args.jobs, args.detail)
+                        for case in semantic
+                    ]
                     results.extend(future.result() for future in concurrent.futures.as_completed(futures))
 
             # Window cases are strictly serial: there is one screen and one
             # focused application, so concurrent runs would photograph each
             # other.
             for case in window:
-                result = run_case(
-                    case,
-                    args.timeout,
-                    1,
-                    args.detail,
-                    runner="window",
-                    allow_missing_shots=args.allow_missing_shots,
-                )
+                for attempt in range(args.window_retries + 1):
+                    if attempt:
+                        artifacts = window_artifacts(case)
+                        shutil.rmtree(artifacts, ignore_errors=True)
+                        print(f"RETRY {case.spec.relative_to(ROOT)} "
+                              f"({attempt}/{args.window_retries})", file=sys.stderr)
+                    result = run_case(
+                        case,
+                        described[case.spec],
+                        args.timeout,
+                        1,
+                        args.detail,
+                        runner="window",
+                        allow_missing_shots=args.allow_missing_shots,
+                    )
+                    if result[1] is None:
+                        break
                 results.append(result)
                 if args.fail_fast and result[1] is not None:
                     break
@@ -488,7 +447,7 @@ def main() -> int:
                         case,
                         capture=case.capture.with_name(f"{case.capture.stem}-aa{case.capture.suffix}"),
                     )
-                    _, error = run_case(aa_case, args.timeout, 1, args.detail)
+                    _, error = run_case(aa_case, described[case.spec], args.timeout, 1, args.detail)
                     if error is not None:
                         failures += 1
                         print(f"FAIL A/A {case.spec.relative_to(ROOT)}: {error}", file=sys.stderr)

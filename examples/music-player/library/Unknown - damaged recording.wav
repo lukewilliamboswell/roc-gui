@@ -1,0 +1,1 @@
+This file is deliberately not a WAV. It exists so the player has a real decode failure to report.

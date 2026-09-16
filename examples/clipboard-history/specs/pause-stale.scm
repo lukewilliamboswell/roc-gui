@@ -1,4 +1,6 @@
 (test "pause excludes changes and stale snapshots deduplicate"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "first")

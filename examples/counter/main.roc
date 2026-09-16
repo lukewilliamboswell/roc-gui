@@ -1,9 +1,9 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
 import Counter
-import pf.Elem exposing [Elem]
+import pf.Elem
 import pf.Gui
-import pf.Program exposing [Program]
+import pf.Program
 
 State : {
 	left : Counter.State,
@@ -20,12 +20,8 @@ render = |state| Elem.col(
 	Elem.ColProps.{
 		label: "Counter page",
 		width: Fill,
-		height: Fill,
-		grow: True,
 		padding: 40,
 		gap: 28,
-		bg: paper,
-		fg: ink,
 		font_size: 15,
 	},
 	[
@@ -40,7 +36,7 @@ render = |state| Elem.col(
 			],
 		),
 		Elem.row(
-			Elem.RowProps.{ gap: 24 },
+			Elem.RowProps.{ width: Fill, gap: 24 },
 			[
 				Elem.translate(|child| Counter.render("Left", child), |parent| parent.left, |parent, child| { ..parent, left: child }),
 				Elem.translate(|child| Counter.render("Right", child), |parent| parent.right, |parent, child| { ..parent, right: child }),
@@ -57,5 +53,5 @@ main = Program.run({
 		title: "Counter",
 	},
 	render,
-	window: { title: "Counter", width: 640, height: 400 },
+	window: { title: "Counter", width: 640, height: 400, background: paper, foreground: ink },
 })

@@ -3,4 +3,17 @@ import pf.Program
 import Explorer
 State : Explorer.State
 
-main = Program.run({ init: Explorer.init, render: Explorer.render, window: { title: "File Explorer", width: 960, height: 640 } })
+## The window declares the ground the explorer's surfaces are mixed against
+## rather than inheriting the host's, so the identity cannot be pulled out from
+## under the application by a change it does not control.
+main = Program.run({
+	init: Explorer.init,
+	render: Explorer.render,
+	window: {
+		title: "File Explorer",
+		width: 960,
+		height: 640,
+		background: Explorer.ground,
+		foreground: Explorer.ink,
+	},
+})

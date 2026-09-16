@@ -13,6 +13,13 @@ roc check examples/counter/main.roc
 python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 ----
 
+`roc check` answers whether a program type-checks, which is not the same
+question as whether it compiles. A change to the shape of a platform type can
+leave every example checking cleanly while code generation for one of them fails
+to terminate, so a change to `platform/` is validated by building an application
+and not only by checking one. The specification runner builds every application
+it runs, which is why it is the gate that matters for a platform change.
+
 The specification runner verifies and stages the independently released native
 host when its recorded source fingerprint matches the checkout. A host-source
 change automatically builds and exercises the changed production host instead.
@@ -48,75 +55,33 @@ Exercise recorder-disabled, enabled, saturated, output-limited, interrupted,
 and writer-failure paths when changing capture infrastructure. Timing is not a
 correctness assertion.
 
-== Fixtures for this repository's examples
+== Fixture-backed steps
 
-`scripts/run_specs.py` wires the specifications in this repository to
-deterministic fixtures, so a case exercises a real capability without depending
-on the machine it runs on. Fixture directories sit beside the application and
-are keyed by specification name, which is why specification names are unique
-within an application. Every grant crosses the production capability boundary;
-none of them gives an application ambient test-only I/O.
-
-=== Fixture sources
-
-An adjacent `fixture/` directory:: The runner grants the directory through the
-production `--host-cap-dir` boundary, so its contents are reached through the
-same opaque capability operations as an interactive grant.
-An adjacent `app-data-fixture/` directory:: Each case receives a fresh private
-copy through `--host-cap-app-data`, so writes use the production capability
-without mutating checked-in data. A subdirectory named after the specification
-selects case-specific initial state; otherwise `default/` is used. Neither the
-granted path nor preference contents become capture identity.
-An adjacent `audio-fixture` file containing `null`:: The application's cases
-receive a paced null output. This harness-only grant is not advertised as a
-product option; it changes only the final sink, while Rodio retains ownership
-of the production decoder, mixer, player, seeking, and status state.
-`device-fixture/SPEC_NAME`:: The case receives a deterministic virtual HID
-device through the same host capability used for physical hardware. An optional
-bounded control count selects the device model's ordinary capability size. The
-product performs the same discover, connect, and byte transaction operations
-for both transports. A case without the file exercises denial through the
-ordinary `Discover devices` action.
-`fixture-metadata/SPEC_NAME`:: Each `directory=RELATIVE_PATH` or
-`clipboard=RELATIVE_PATH` entry grants that adjacent directory to the
-corresponding production capability. The metadata is generic to the harness and
-does not depend on an application directory name. Either value may be `none` to
-exercise denial through the same production acquisition call. Per-case metadata
-may also name a loopback server script, readiness port, and exact HTTP origin
-or TCP endpoint; the runner starts only the services that metadata selects,
-while applications use their production protocol packages, capabilities, worker
-pools, and completion routes. This avoids depending on public-network
-availability and remote service state without introducing a test-only network
-path or an application-name policy.
-`process-fixture/SPEC_NAME` containing `test-program`:: The case receives the
-fixed deterministic PTY child through `--host-cap-process`. A case without the
-file receives no process authority, which exercises denial without adding a
-test-only product control. The application uses the same `New terminal` action
-for both outcomes.
-`system-monitor-fixture/SPEC_NAME`:: The case receives a deterministic system
-sampler through the same snapshot ABI used by the physical `sysinfo` source.
-Its value is `standard`, `unavailable`, or `processes:N`; this is runner
-metadata, not an application switch. A case without the file exercises
-permission denial through the ordinary `Resume sampling` action.
-
-=== Fixture-backed assertions
-
-These steps are available to any specification, and this repository's fixtures
-are what make their counts deterministic. All of them are numeric owner
-evidence: no name, path, URI, identifier, or application text is recorded.
+The steps below are available to any specification, and this repository's
+deterministic fixture data is what makes their counts stable. All of them are
+numeric owner evidence: no name, path, URI, identifier, or application text is
+recorded. What a case may reach is declared by its own `(grants ...)` clause,
+described in the specification language reference.
 
 `expect-audio-counters`:: Live outputs, live tracks, and the seven
 operation-attempt counters.
-`expect-file-access`:: Portal, provisioned, and revoked root counts.
+`expect-file-access`:: Chooser, provisioned, and revoked root counts.
 `expect-file-lifecycle-counters`:: Root allocations, child allocations, live
 handles, revocation requests, successful revocations, and post-revocation
 operation rejections.
-`expect-file-selection-counters`:: Seven host-owned totals, in order: portal
+`expect-file-selection-counters`:: Seven host-owned totals, in order: chooser
 requests, chosen results, cancellations, denials, unavailable results,
 suppressed prompts, and development provisions.
+`clipboard-text`:: Changes the clipboard source granted to a fixture, and is
+rejected without an explicit fixture grant. The next application timer pull
+observes the new value through the production capability and host read route;
+the value is neither copied into capture evidence nor emitted as a diagnostic.
 `expect-image-owner-counters`:: The production image-data owner's staged-node,
 staged-byte, inspection, and failure totals. Image names, paths, encoded
 values, and dimensions are not capture evidence.
+`expect-asset-counters`:: The production asset owner's six totals, in order:
+opens, refused opens, manifest checks, reads, refused reads, and bytes read.
+Asset paths, file names, and asset content are not capture evidence.
 `revoke-file-grants`:: Invokes the trusted-host revocation seam. It is not an
 application event or a Roc capability API.
 

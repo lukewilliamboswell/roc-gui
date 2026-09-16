@@ -1,4 +1,6 @@
 (test "clipboard history scales through ordinary clipboard changes"
+  (grants
+    (clipboard fixture))
   (benchmark :warmups 0 :samples 1 :iterations 1 :scale 100 :initial-size 0 :change-size 100)
   (steps
     (click (role button :name "Start clipboard capture"))

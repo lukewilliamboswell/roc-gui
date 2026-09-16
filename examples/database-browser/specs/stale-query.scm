@@ -1,4 +1,6 @@
 (test "a superseded query cannot replace the newest result"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

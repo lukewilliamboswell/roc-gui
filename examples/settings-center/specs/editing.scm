@@ -1,10 +1,12 @@
 (test "edit, validate, apply, and revert a profile setting"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (expect-visible (role column :name "Settings Center"))
     (expect-visible (role textbox :name "Profile name"))
     (expect-visible (text "Settings are saved"))
     (replace-text (role textbox :name "Profile name") "Work profile")
-    (expect-visible (text "Unsaved changes"))
+    (expect-visible (text "Unsaved changes — apply them or revert"))
     (click (role button :name "Revert profile"))
     (expect-visible (text "Settings are saved"))
     (replace-text (role textbox :name "Profile name") "")
@@ -15,4 +17,4 @@
     (submit (role textbox :name "Profile name"))
     (expect-visible (text "Saving your changes…"))
     (await-task)
-    (expect-visible (text "✓ Your changes have been saved"))))
+    (expect-visible (text "Your changes have been saved"))))

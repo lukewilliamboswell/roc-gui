@@ -13,12 +13,14 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use gpui::{App, AppContext, AsyncApp, Keystroke, WindowHandle};
+use gpui::{App, AppContext, AsyncApp, Keystroke, WindowHandle, point, px, size};
 
 use crate::probe::{self, Rect};
 use crate::screenshot::{self, ShotError};
-use crate::spec::{BoundsExpectation, Command, Locator, Region, Screenshot, Spec, Step};
-use crate::{Runtime, runner, task_counts};
+use crate::spec::{
+    BoundsExpectation, Command, Locator, Region, Screenshot, ScrollMotion, Spec, Step,
+};
+use crate::{Runtime, ScrollTracker, runner, task_counts};
 
 /// Where a window run writes its evidence.
 pub struct Options {
@@ -53,8 +55,16 @@ pub enum StepError {
     Untypable(char),
     /// The control does not accept pointer activation.
     NotClickable(String),
+    /// A pointer press on this control reaches no click handler at all. A
+    /// canvas takes coordinates through its pointer route, so a `click` step
+    /// would otherwise report success having dispatched nothing.
+    NoClickRoute(String),
     /// A modal dialog is capturing interaction.
     BehindDialog(String),
+    /// A `scroll` step named something that does not scroll.
+    NotScrollable(String),
+    /// A `scroll :to` named a target that is not inside the region.
+    NotInRegion { region: String, target: String },
     /// A step this runner does not implement reached it anyway.
     Unsupported(&'static str),
 }
@@ -100,8 +110,17 @@ impl StepError {
             Self::NotClickable(locator) => {
                 format!("{locator} does not accept pointer activation; it may be disabled")
             }
+            Self::NoClickRoute(locator) => format!(
+                "{locator} takes pointer coordinates, not a click; press it with a `drag` step under --host-run-spec"
+            ),
             Self::BehindDialog(locator) => {
                 format!("{locator} is behind an active dialog and cannot be clicked")
+            }
+            Self::NotScrollable(locator) => format!(
+                "{locator} is not a scroll region or virtual list, so it cannot be scrolled"
+            ),
+            Self::NotInRegion { region, target } => {
+                format!("{target} is not inside {region}, so scrolling {region} cannot reach it")
             }
             Self::Unsupported(kind) => format!(
                 "step `{kind}` is semantic-only; run this specification with --host-run-spec"
@@ -167,13 +186,33 @@ fn resolve(runtime: &Runtime, locator: &Locator) -> Result<u64, StepError> {
     }
 }
 
+/// Where one node was laid out, in window coordinates.
+///
+/// A scrolling node is asked for its own rectangle rather than the probe's: the
+/// probe marker is a child of the scrolling element and therefore travels with
+/// the content, so once the region has moved it describes where the top of the
+/// content now is rather than the viewport it is clipped to. GPUI records the
+/// container on the tracked handle at every prepaint, and that does not move.
+/// Where a node is, as of a frame the window has actually drawn.
+///
+/// A scroll region's probe marker travels with its content, so once the region
+/// has moved the marker no longer describes the viewport the content is clipped
+/// to. The region's own tracker does, and it is written at every prepaint, so
+/// it is preferred where one exists and the recorded bounds answer otherwise.
+fn node_rect(runtime: &Runtime, frame: &probe::Frame<'_>, id: u64) -> Option<Rect> {
+    runtime
+        .scroll_trackers
+        .get(&id)
+        .map(|tracker| Rect::from_gpui(tracker.viewport()))
+        .filter(|rect| !rect.is_empty())
+        .or_else(|| frame.bounds(id))
+}
+
 /// Bounds for a node that actually took part in the last frame.
 fn painted_bounds(runtime: &Runtime, locator: &Locator) -> Result<Rect, StepError> {
     let id = resolve(runtime, locator)?;
     let frame = runtime.painted().map_err(stale)?;
-    frame
-        .bounds(id)
-        .ok_or_else(|| StepError::NotPainted(describe(locator)))
+    node_rect(runtime, &frame, id).ok_or_else(|| StepError::NotPainted(describe(locator)))
 }
 
 /// A graph the window has not drawn yet is a wait, not an answer.
@@ -192,12 +231,11 @@ fn stale(value: probe::Stale) -> StepError {
 fn visible_rect(runtime: &Runtime, locator: &Locator, viewport: Rect) -> Result<Rect, StepError> {
     let id = resolve(runtime, locator)?;
     let frame = runtime.painted().map_err(stale)?;
-    let bounds = frame
-        .bounds(id)
-        .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+    let bounds =
+        node_rect(runtime, &frame, id).ok_or_else(|| StepError::NotPainted(describe(locator)))?;
     let mut clip = viewport;
     for ancestor in runtime.graph.scroll_ancestors(id) {
-        if let Some(rect) = frame.bounds(ancestor) {
+        if let Some(rect) = node_rect(runtime, &frame, ancestor) {
             clip = match clip.intersect(rect) {
                 Some(value) => value,
                 None => {
@@ -284,6 +322,87 @@ async fn settle(
         if quiet_enough(&history, frames) {
             prune_bounds(window, cx)?;
             return Ok(());
+        }
+    }
+    let (accepted, completed) = task_counts();
+    Err(StepError::Timeout {
+        waited: started.elapsed(),
+        outstanding: accepted.saturating_sub(completed),
+    })
+}
+
+/// Await exactly one further worker completion, rather than quiescence.
+///
+/// An application whose timer restarts the moment a sample lands is never
+/// task-quiet, so settling for it can only ever time out. What the step
+/// actually claims is that one more accepted task has completed and its
+/// patch has been applied, which is a fact the counters carry directly.
+async fn await_completion(
+    window: WindowHandle<Runtime>,
+    timeout: Duration,
+    cx: &mut AsyncApp,
+) -> Result<(), StepError> {
+    let started = std::time::Instant::now();
+    let (accepted, completed) = task_counts();
+    // Nothing is in flight, so the task this step waits for has already landed
+    // and its patch is applied. Waiting for another would wait forever.
+    if accepted == completed {
+        prune_bounds(window, cx)?;
+        return Ok(());
+    }
+    while started.elapsed() < timeout {
+        next_frame(window, cx).await?;
+        let (_, now) = task_counts();
+        if now > completed {
+            prune_bounds(window, cx)?;
+            return Ok(());
+        }
+    }
+    let (accepted, completed) = task_counts();
+    Err(StepError::Timeout {
+        waited: started.elapsed(),
+        outstanding: accepted.saturating_sub(completed),
+    })
+}
+
+/// Await `count` further timer fires, and the completion each one carries.
+///
+/// `settle` cannot serve a polling application: a clipboard watcher rearms its
+/// read inside the completion that delivers the last one, so one task is
+/// outstanding at every instant and the counts never hold still.
+///
+/// Counting *fires* rather than completions is what makes the step meaningful
+/// after a `clipboard-text`. The semantic runner drives the timer itself, so its
+/// ticks are exact; here the timer is real wall-clock and a completion may have
+/// been in flight before the step began. A fire, by contrast, can only be one
+/// that started after this step did, so the read it carries is guaranteed to see
+/// what the preceding step put on the clipboard.
+async fn advance_timer_fires(
+    window: WindowHandle<Runtime>,
+    count: u32,
+    timeout: Duration,
+    cx: &mut AsyncApp,
+) -> Result<(), StepError> {
+    let started = std::time::Instant::now();
+    let target_fires = crate::timers::fired_count().saturating_add(u64::from(count));
+    while started.elapsed() < timeout {
+        next_frame(window, cx).await?;
+        if crate::timers::fired_count() >= target_fires {
+            // The fire has happened; its completion is what applies the state.
+            // Waiting for one completion after that point costs at most one more
+            // interval and cannot land before the fire we waited for.
+            let completed = task_counts().1;
+            while started.elapsed() < timeout {
+                next_frame(window, cx).await?;
+                if task_counts().1 > completed {
+                    // One more frame, so that state has been laid out and
+                    // painted before the next step asserts against it.
+                    next_frame(window, cx).await?;
+                    prune_bounds(window, cx)?;
+                    return Ok(());
+                }
+            }
+            break;
         }
     }
     let (accepted, completed) = task_counts();
@@ -579,6 +698,22 @@ async fn run_step(
             dispatch_chord(window, chord, cx)?;
             await_painted(window, options.timeout, cx).await
         }
+        Command::Resize { width, height } => {
+            cx.update_window(window.into(), |_, window, _| {
+                window.resize(size(px(*width as f32), px(*height as f32)));
+            })
+            .map_err(|_| StepError::WindowClosed)?;
+            settle(window, 2, options.timeout, cx).await
+        }
+        Command::Scroll { region, motion } => {
+            window
+                .update(cx, |runtime, _, _| scroll_region(runtime, region, motion))
+                .map_err(|_| StepError::WindowClosed)??;
+            // Two frames: GPUI applies a virtual list's deferred scroll during
+            // the next prepaint, and the rows it materializes are laid out in
+            // the one after that.
+            settle(window, 2, options.timeout, cx).await
+        }
         // Deliberately the same claim the semantic runner makes: present in
         // the mounted graph. The stronger pixel claim is `expect-on-screen`, so
         // one word does not mean two different things on two runners.
@@ -666,6 +801,35 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
+        // The five claims answered from the mounted graph alone, made by the
+        // same code the semantic runner calls, so the word means one thing.
+        Command::ExpectCanvasPrimitives(_, _)
+        | Command::ExpectValue(_, _)
+        | Command::ExpectValueBytes(_, _)
+        | Command::ExpectImageBytes(_, _)
+        | Command::ExpectBefore(_, _) => window
+            .update(cx, |runtime, _, _| {
+                runner::graph_claim(&runtime.graph, &step.command)
+                    .expect("graph claim is missing an arm")
+                    .0
+                    .map_err(StepError::Geometry)
+            })
+            .map_err(|_| StepError::WindowClosed)?,
+        Command::AwaitTask => await_completion(window, options.timeout, cx).await,
+        // An application that polls — a clipboard watcher rearms its read on
+        // every tick — never reaches the quiescence `settle` waits for, because
+        // one task is outstanding at every instant by construction. `await-ticks`
+        // therefore counts completions rather than waiting for there to be none,
+        // which is also what the step means: apply N successive wait completions.
+        Command::AwaitTicks(count) => advance_timer_fires(window, *count, options.timeout, cx).await,
+        // The fixture clipboard is one process-wide store, so changing the
+        // granted source here is the same act the semantic runner performs. One
+        // presented frame is all this step waits for; observing the change is
+        // the application's own timer's job, and `await-ticks` waits for that.
+        Command::ClipboardText(text) => match crate::clipboard::inject_fixture(text.clone()) {
+            Err(detail) => Err(StepError::Geometry(detail)),
+            Ok(()) => next_frame(window, cx).await,
+        },
         Command::AwaitCount(locator, expected) => {
             // A terminal answers on its own schedule, not the window's, so this
             // presents frames until the graph holds what the step names rather
@@ -700,20 +864,6 @@ async fn run_step(
                 next_frame(window, cx).await?;
             }
         }
-        // Weaker than its semantic namesake, deliberately and not silently.
-        //
-        // The semantic runner blocks on one completion and checks ownership.
-        // Neither half survives here. Frames are what apply completions and the
-        // preceding step presents frames, so the task this names has usually
-        // landed before the step begins; demanding another waits for work
-        // nobody enqueued. Demanding instead that nothing is in flight is
-        // unsatisfiable for any application holding a subscription open, as a
-        // terminal's read loop and a playback timer both do.
-        //
-        // So this settles, and a specification that means "wait until the
-        // application shows this" says so with `await-count`, which states its
-        // condition rather than trusting a count of completions.
-        Command::AwaitTask | Command::AwaitTicks(_) => settle(window, 2, options.timeout, cx).await,
         // Unreachable: `spec::check_runner` refuses a specification whose
         // steps this runner does not implement, so the refusal happens before
         // the window opens rather than part-way through a run.
@@ -743,6 +893,9 @@ fn clickable_target(
         .graph
         .node(id)
         .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+    if matches!(node.kind, crate::bridge::NodeKind::Canvas { .. }) {
+        return Err(StepError::NoClickRoute(describe(locator)));
+    }
     if !node.kind.accepts_pointer() {
         return Err(StepError::NotClickable(describe(locator)));
     }
@@ -754,6 +907,127 @@ fn clickable_target(
         return Err(StepError::BehindDialog(describe(locator)));
     }
     Ok(id)
+}
+
+/// Move one scroll region, through the handle the production element tracks.
+///
+/// This writes the same offset cell GPUI's own wheel handler writes: the
+/// element is given this handle with `track_scroll`, which replaces the offset
+/// GPUI would otherwise keep in per-element state. What is not exercised is the
+/// wheel event itself — hit testing, momentum, and rubber-banding belong to the
+/// pointer seam this host does not have. The offset is clamped by GPUI against
+/// the real content size at the next prepaint, so an overlarge request settles
+/// at the end of the content rather than past it.
+fn scroll_region(
+    runtime: &Runtime,
+    region: &Locator,
+    motion: &ScrollMotion,
+) -> Result<(), StepError> {
+    let region_id = resolve(runtime, region)?;
+    let tracker = runtime
+        .scroll_trackers
+        .get(&region_id)
+        .ok_or_else(|| StepError::NotScrollable(describe(region)))?;
+    match motion {
+        ScrollMotion::By(amount) => {
+            let horizontal = matches!(
+                runtime.graph.node(region_id).map(|node| &node.kind),
+                Some(crate::bridge::NodeKind::Scroll {
+                    axis: crate::bridge::ScrollAxis::Horizontal,
+                    ..
+                })
+            );
+            let delta = if horizontal {
+                point(px(*amount as f32), px(0.0))
+            } else {
+                point(px(0.0), px(*amount as f32))
+            };
+            tracker.scroll_by(delta);
+            Ok(())
+        }
+        ScrollMotion::To(target) => {
+            let target_id = resolve(runtime, target)?;
+            if target_id == region_id || !runtime.graph.is_descendant_of(target_id, region_id) {
+                return Err(StepError::NotInRegion {
+                    region: describe(region),
+                    target: describe(target),
+                });
+            }
+            if let ScrollTracker::List(_) = tracker {
+                // A row below the fold of a virtual list has no element and no
+                // bounds, so the only thing that can name it is its position.
+                let index = runtime
+                    .graph
+                    .child_index_containing(region_id, target_id)
+                    .ok_or_else(|| StepError::NotInRegion {
+                        region: describe(region),
+                        target: describe(target),
+                    })?;
+                tracker.scroll_to_row(index);
+                return Ok(());
+            }
+            // A scroll region lays every child out, below the fold included, so
+            // the distance to travel is real geometry rather than an estimate.
+            // It is read from the frame the preceding step settled, because a
+            // graph the window has not drawn cannot say where anything is.
+            let frame = runtime.painted().map_err(stale)?;
+            let bounds = frame
+                .bounds(target_id)
+                .ok_or_else(|| StepError::NotPainted(describe(target)))?;
+            let viewport = Rect::from_gpui(tracker.viewport());
+            tracker.scroll_by(point(px(axis_delta(bounds.left, bounds.right, viewport.left, viewport.right)), px(axis_delta(bounds.top, bounds.bottom, viewport.top, viewport.bottom))));
+            Ok(())
+        }
+    }
+}
+
+/// How far the content must move along one axis to bring `[near, far]` inside
+/// `[low, high]`. Positive moves the content towards its end.
+///
+/// A target taller than the viewport is aligned to its leading edge: there is
+/// no offset that shows all of it, and showing its start is what a person
+/// scrolling to it would expect.
+pub(crate) fn axis_delta(near: f32, far: f32, low: f32, high: f32) -> f32 {
+    if near < low || far - near > high - low {
+        near - low
+    } else if far > high {
+        far - high
+    } else {
+        0.0
+    }
+}
+
+/// Where one canvas primitive sits, in window coordinates.
+///
+/// A line is expanded by half its stroke on every side, because a line's
+/// coordinates describe its centre rather than its extent, and a zero-area
+/// rectangle photographs nothing. The floor of one point keeps a hairline
+/// visible in the result.
+pub(crate) fn primitive_rect(canvas: Rect, item: &crate::bridge::CanvasPrimitive) -> Rect {
+    use crate::bridge::CanvasPrimitiveKind;
+    let (left, top, right, bottom) = match item.kind {
+        CanvasPrimitiveKind::Rectangle | CanvasPrimitiveKind::Ellipse => (
+            item.x as f32,
+            item.y as f32,
+            item.x as f32 + item.width as f32,
+            item.y as f32 + item.height as f32,
+        ),
+        CanvasPrimitiveKind::Line => {
+            let margin = (item.stroke_width as f32 / 2.0).max(1.0);
+            (
+                item.x.min(item.x2) as f32 - margin,
+                item.y.min(item.y2) as f32 - margin,
+                item.x.max(item.x2) as f32 + margin,
+                item.y.max(item.y2) as f32 + margin,
+            )
+        }
+    };
+    Rect {
+        left: canvas.left + left,
+        top: canvas.top + top,
+        right: canvas.left + right,
+        bottom: canvas.top + bottom,
+    }
 }
 
 /// Send one chord through the window's real keymap.
@@ -820,8 +1094,54 @@ fn region_rect(
             (*x + *width) as f32,
             (*y + *height) as f32,
         )),
+        // A canvas primitive has no element and no recorded bounds of its own.
+        // Its rectangle is the canvas's, offset by the coordinates the owner
+        // drew it at — the same one-point-to-one-point mapping `canvas_target`
+        // inverts to decide what a press landed on.
+        Region::Locator(locator @ (Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_))) => {
+            let (canvas, item) = runner::canvas_item(&runtime.graph, locator).ok_or_else(|| {
+                StepError::LocatorMatched {
+                    locator: describe(locator),
+                    count: 0,
+                }
+            })?;
+            // The painted surface, not the node's div: a canvas's style may
+            // inset it, and the owner's coordinates are relative to where the
+            // picture is drawn. This is the same rectangle the hit test maps a
+            // press through.
+            let canvas_rect = runtime
+                .canvas_surfaces
+                .get(&canvas)
+                .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                .map(Rect::from_gpui)
+                .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+            let frame = runtime.painted().map_err(stale)?;
+            let mut clip = viewport;
+            for ancestor in runtime.graph.scroll_ancestors(canvas) {
+                if let Some(rect) = node_rect(runtime, &frame, ancestor) {
+                    clip = clip.intersect(rect).ok_or(StepError::OffScreen {
+                        locator: describe(locator),
+                        bounds: canvas_rect,
+                    })?;
+                }
+            }
+            // Clipped to its canvas as well as to the window: a shape drawn
+            // past the edge of the surface it belongs to is not painted there.
+            let bounds = primitive_rect(canvas_rect, item)
+                .intersect(canvas_rect)
+                .and_then(|rect| rect.intersect(clip))
+                .ok_or(StepError::OffScreen {
+                    locator: describe(locator),
+                    bounds: canvas_rect,
+                })?;
+            Ok((bounds.left, bounds.top, bounds.right, bounds.bottom))
+        }
+        // The visible part, not the laid-out part: an element half below the
+        // fold of its scroll region has no pixels down there to photograph, and
+        // a rectangle reaching past the window would capture whatever the
+        // desktop has behind it.
         Region::Locator(locator) => {
-            let bounds = painted_bounds(runtime, locator)?;
+            let bounds = visible_rect(runtime, locator, viewport)?;
             Ok((bounds.left, bounds.top, bounds.right, bounds.bottom))
         }
     }
@@ -1043,6 +1363,84 @@ mod tests {
         assert!(!quiet_enough(&[(3, 3), (3, 3), (4, 3)], 2));
         // A single quiet frame is enough when only one was asked for.
         assert!(quiet_enough(&[(3, 3), (3, 3)], 1));
+    }
+
+    #[test]
+    fn scrolling_moves_only_as_far_as_it_must() {
+        // Already inside the viewport: nothing moves.
+        assert_eq!(axis_delta(20.0, 60.0, 0.0, 100.0), 0.0);
+        // Below the fold: bring its far edge to the near edge of the fold.
+        assert_eq!(axis_delta(120.0, 160.0, 0.0, 100.0), 60.0);
+        // Above the start: travel back by the gap at the leading edge.
+        assert_eq!(axis_delta(-30.0, 10.0, 0.0, 100.0), -30.0);
+        // Taller than the viewport: show its start, since nothing shows all.
+        assert_eq!(axis_delta(150.0, 400.0, 0.0, 100.0), 150.0);
+    }
+
+    #[test]
+    fn a_canvas_primitive_sits_where_its_owner_drew_it() {
+        use crate::bridge::{CanvasPrimitive, CanvasPrimitiveKind};
+        let canvas = Rect {
+            left: 100.0,
+            top: 50.0,
+            right: 500.0,
+            bottom: 450.0,
+        };
+        let mut item = CanvasPrimitive {
+            kind: CanvasPrimitiveKind::Rectangle,
+            key: 1,
+            label: "Card".into(),
+            x: 10,
+            y: 20,
+            width: 40,
+            height: 30,
+            x2: 0,
+            y2: 0,
+            fill: None,
+            stroke: None,
+            stroke_width: 0,
+            radius: 0,
+        };
+        assert_eq!(
+            primitive_rect(canvas, &item),
+            Rect {
+                left: 110.0,
+                top: 70.0,
+                right: 150.0,
+                bottom: 100.0
+            }
+        );
+        // An ellipse fills the same box it was given.
+        item.kind = CanvasPrimitiveKind::Ellipse;
+        assert_eq!(primitive_rect(canvas, &item).right, 150.0);
+        // A line has no area of its own, so its stroke is what it covers, and
+        // its coordinates run in whichever direction the owner drew them.
+        item.kind = CanvasPrimitiveKind::Line;
+        item.x2 = 4;
+        item.y2 = 60;
+        item.stroke_width = 8;
+        assert_eq!(
+            primitive_rect(canvas, &item),
+            Rect {
+                left: 100.0,
+                top: 66.0,
+                right: 114.0,
+                bottom: 114.0
+            }
+        );
+    }
+
+    #[test]
+    fn a_scroll_step_names_what_it_could_not_reach() {
+        let message = StepError::NotScrollable("(role panel :name \"Body\")".to_owned()).message(4);
+        assert!(message.contains("cannot be scrolled"), "{message}");
+        let message = StepError::NotInRegion {
+            region: "(role scroll :name \"Contents\")".to_owned(),
+            target: "(text \"Elsewhere\")".to_owned(),
+        }
+        .message(9);
+        assert!(message.starts_with("line 9: "), "{message}");
+        assert!(message.contains("is not inside"), "{message}");
     }
 
     #[test]

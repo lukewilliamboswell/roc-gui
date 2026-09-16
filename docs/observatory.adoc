@@ -28,6 +28,7 @@ evidence-status rules remain visible.
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view semantic_health
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view roc_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view host_gpui_work
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_spans
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view virtual_list_materialization
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view process_resources
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view capture_health
@@ -41,6 +42,9 @@ update, application render, and platform lowering, and how much Roc allocation
 activity occurred inside each owned span?
 `host_gpui_work`:: How much time did graph validation, graph application, and
 available GPUI materialisation consume?
+`gpui_frame_spans`:: For each drawn frame, how long did the host's own root
+element spend requesting layout, prepainting, and painting the application
+subtree, and what is the status of the frame stages the host does not own?
 `virtual_list_materialization`:: For interactive GPUI frames, how many logical
 items intersected each viewport and how many native entities were
 materialised, recycled, and retained? Semantic-headless captures report this
@@ -91,6 +95,22 @@ and presentation are unavailable.
 
 This distinction matters: headless graph application is useful host evidence,
 but it is not a proxy for rendering a frame.
+
+== What a drawn frame measures
+
+A capture taken with a GPUI window records one `gpui_frames` row per drawn
+frame. The application's element tree hangs below a single host-owned element,
+and each row holds that element's own three stages for the whole subtree:
+`layout_request_ns` builds the subtree's styles and layout nodes,
+`prepaint_ns` resolves bounds, text, and hitboxes once layout is solved, and
+`paint_ns` produces the frame's scene. Each duration belongs to the call that
+performed it.
+
+Two frame stages are performed by GPUI outside any host-owned element and are
+therefore reported as unavailable rather than attributed. Taffy solves layout
+once for the window from GPUI's own root element, between the host element's
+layout request and its prepaint. Presentation and frame completion are private
+to GPUI; a compositor frame callback would be the seam that owns them.
 
 == Record an interactive application
 

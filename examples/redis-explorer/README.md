@@ -1,34 +1,50 @@
 # Redis Explorer
 
-A capability-scoped Redis browser that connects to one host-granted endpoint,
-scans a filtered keyspace without `KEYS`, and inspects native values and TTLs.
+A read-only Redis browser. It connects to the one TCP endpoint the host granted,
+scans the keyspace with SCAN against a glob pattern, and shows the type, TTL,
+and value of the key you select. Strings, lists, sets, hashes, and sorted sets
+are read; anything else is reported as unsupported.
 
-## Core capabilities
+The example exercises a long-lived capability-owned stream and package
+interoperability: RESP is encoded and decoded by `jaredramirez/roc-redis`, and
+the bytes travel over `pf.Tcp` on the ordinary `Action.task` route. Because RESP
+is a single ordered conversation, the stream is held inside the in-flight
+request rather than beside it, so the render function has no handle with which
+to start a second one. The endpoint bar reports what the explorer holds — no
+stream, opening, idle, busy with a named request, or closing — and distinguishes
+a refused grant from a granted endpoint that nothing is listening on.
 
-- Exact numeric development endpoint authority through an opaque `pf.Tcp`
-  stream, with explicit disconnect.
-- RESP encoding and decoding through `jaredramirez/roc-redis` 0.1.0-rc3.
-- Incremental SCAN filtering and virtualized key results.
-- Read-only strings, hashes, lists, sets, and sorted sets with TTL display.
-- Bounded network I/O through the production `Action.task` route.
+## Running
 
-## Happy paths
+```sh
+python3 build.py
+roc build --output=redis-explorer examples/redis-explorer/main.roc
+./redis-explorer -- --host-cap-tcp 127.0.0.1:6379
+```
 
-- Connect to the sample database, scan and filter keys, inspect each supported type, and refresh values.
-- Inspect a persistent key and a key with an expiry through the same value panel.
+The grant fixes one numeric address and port. Roc is never told which, and
+cannot derive another, so it can only connect where the host already pointed it.
+This is development provisioning, not a consent flow: there is no Connect dialog
+and no name resolution.
 
-## Error paths
+## Not yet built
 
-- Missing grants, connection failures, timeouts, protocol failures, and unsupported Redis types are surfaced without showing stale values as successful.
+- Read-only. No writing, deleting, expiring, or renaming of keys.
+- No database selection, authentication, cluster support, or server statistics.
+- One glob pattern at a time; results are a flat list, not a tree.
+- Values are rendered as lines of text, with no per-type editor or formatter.
 
-## High-level goals
+## Assets
 
-- Exercise package interoperability, heterogeneous remote values, incremental scans, and a persistent capability-owned stream.
-- Provide a smaller networked data application that complements the relational Database Browser.
-- SCM specs cover connection, scan/filter, native inspection, unsupported types, and a 10,000-key catalogue traversed through ordinary SCAN use.
+The three marks in `icons/` are vendored; their provenance and licences are in
+`icons/NOTICE.md` and `THIRD_PARTY_LICENSES.md`.
 
-Run the suite with `python3 scripts/run_specs.py 'examples/redis-explorer/specs/*.scm'`.
-For an interactive Redis server, run the application with
-`--host-cap-tcp 127.0.0.1:6379` after Roc's `--` argument separator. This
-provisions a development connection; it is not a user-consent flow or a general
-DNS-capable Connect UI.
+## Specifications
+
+Fourteen specifications run on the semantic runner, most of them against a
+Python fixture server, and cover connecting, disconnecting and reconnecting,
+scanning and filtering, inspecting each supported type, unsupported types,
+refusal, an unreachable endpoint, a timeout, a protocol failure, single-stream
+ownership under repeated presses, and a 10,000-key catalogue traversed by
+ordinary SCAN. One runs against the real window and photographs the console
+offline, connected, scanned, and inspected.

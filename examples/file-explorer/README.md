@@ -1,41 +1,61 @@
 # File Explorer
 
-A practical desktop file manager for navigating and organizing user-selected
-directories. Access begins with a read-only project grant and respects platform
-permission boundaries. Interactive use is defined around a trusted host-owned
-Open Project selection; development and automation provisioning enters the same
-grant registry without representing user consent.
+A desktop file manager for one folder: the one you hand it.
 
-The implemented read-authority slice navigates direct child folders without
-following links, maintains back/forward history and a root breadcrumb, exposes
-file and folder selection with bounded metadata, and virtualizes large
-directories. Filesystem failures remain operation-specific and visible.
+Access begins with a read-only project grant taken from the host's directory
+chooser. The application holds no path, resolves no name of its own, and can
+reach nothing above or beside the folder it was given.
 
-## Core capabilities
+The implemented slice is read authority grown into an application. It navigates
+into child folders with back, forward, Root, and Refresh in a toolbar; selects
+an entry and reports its kind and size; reads a file through the grant and shows
+the byte count with the file's own first line, because a control whose success
+looks like its idle state cannot be trusted; and lays out large directories
+through a virtual list. Closing the project is confirmed and returns the window
+to its first screen. Denial, dismissal, revocation, a folder that vanished, an
+entry that stopped being a folder, a directory too large to list, a name that is
+not valid UTF-8, and a file too large to read each get their own sentence and
+their own next step.
 
-- Breadcrumb, tree, list, and grid navigation with history, tabs, and optional split views.
-- Stable multi-selection, keyboard range selection, sorting, filtering, and hidden-file policy.
-- Create, rename, copy, move, duplicate, trash, and restore workflows with progress and cancellation.
-- Drag-and-drop, clipboard file operations, previews, metadata, and operating-system open/reveal actions.
-- Incremental directory loading and virtualization for large folders.
+Its smaller sibling, [Folder browser](../folder-browser/), is the same authority
+with none of the application around it.
 
-## Happy paths
+## Running
 
-- Grant a directory, traverse nested folders, use Back/Forward, and return through breadcrumbs.
-- Select multiple entries, copy or move them, resolve a name collision, and undo where supported.
-- Create and rename a folder, filter the current view, and open a file with its registered application.
-- Reopen the application and restore granted roots and navigation state as platform policy allows.
+```sh
+python3 build.py
+roc build --output=file-explorer examples/file-explorer/main.roc
+./file-explorer -- --host-cap-dir examples/file-explorer/fixture
+```
 
-## Error paths
+`--host-cap-dir` provisions a folder for the chooser to answer with, so the
+example runs without a person at the panel. It is development provisioning, not
+a person's consent; with no grant the chooser refuses, which the explorer
+explains rather than swallows.
 
-- Cancellation, denied access, revoked grants, missing entries, read-only destinations, and full disks are explicit states.
-- Partial batch operations report exactly which entries completed and which remain recoverable.
-- Symlink cycles and filesystem changes during enumeration do not corrupt navigation or selection.
-- Destructive operations identify exact targets and never follow unresolved or unexpectedly changed paths.
+## Not yet built
 
-## High-level goals
+- Multi-selection, sorting and filtering, and file watching.
+- Mutation of any kind: create, rename, copy, move, trash, drag-and-drop, and
+  clipboard file operations.
+- Tabs and split views.
+- Breadcrumb navigation is root-only. The segments between the root and the
+  current folder are text, because this slice retains a handle for the root and
+  for where you are, not for every level in between.
+- Links get a marker but are not followed.
 
-- Extend the existing folder-browser capability into a complete application without creating a second filesystem route.
-- Drive platform dialogs, grants, drag-and-drop, menus, large lists, icons, and file watching.
-- SCM specs use a repository-owned fixture and cover navigation, selection, mutation, conflicts, cancellation, and recovery.
-- A scaling case opens a naturally populated directory through the production enumeration and rendering path.
+## Assets
+
+`icons/` holds three glyphs whose licences are recorded per file in
+`icons/NOTICE.md` and in the repository's `THIRD_PARTY_LICENSES.md`.
+
+## Specifications
+
+Eleven specifications run on the semantic runner and cover navigation and the
+ends of the history, the empty state, closing a project and dismissing that
+confirmation, a refusal and the press that follows it, a dismissal, reading a
+file, and revocation of a grant and of a handle derived from one. They assert
+the capability counters alongside what is on screen, so an operation that never
+reached the host cannot pass by looking right. `open-dialog-100.scm` is the
+scaling case. Four `window-*.scm` cases drive the real window, scroll the
+listing, and photograph the rows, the selection, the refusal, and the dismissal.

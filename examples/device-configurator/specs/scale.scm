@@ -1,4 +1,6 @@
 (test "large configurable device uses the ordinary controls view"
+  (grants
+    (device virtual 100))
   (benchmark :warmups 1 :samples 3 :iterations 1 :scale 100 :initial-size 12 :change-size 88)
   (steps
     (click (role button :name "Discover devices"))

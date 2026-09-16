@@ -1,4 +1,6 @@
 (test "ordinary terminal output scales scrollback"
+  (grants
+    (process test-program))
   (benchmark :warmups 1 :samples 3 :iterations 2 :scale 100 :initial-size 0 :change-size 100)
   (steps
     (click (role button :name "New terminal"))
@@ -10,8 +12,8 @@
     (mark-metrics)
     ; A console flushes its output when it has it, over as many reads as it
     ; chooses, so wait for the scrollback the command produced.
-    (await-count (text-prefix "Terminal line: line-") 100)
-    (expect-count (text-prefix "Terminal line: line-") 100)
+    (await-count (text-prefix "line-") 100)
+    (expect-count (text-prefix "line-") 100)
     (click (role button :name "Stop terminal"))
     (await-task)
     (await-task)

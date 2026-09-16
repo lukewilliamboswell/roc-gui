@@ -1,4 +1,6 @@
 (test "reject invalid database and write query"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

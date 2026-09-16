@@ -1,4 +1,6 @@
 (test "record the device configurator gallery journey"
+  (grants
+    (device virtual))
   (steps
     (settle)
     (screenshot "disconnected")

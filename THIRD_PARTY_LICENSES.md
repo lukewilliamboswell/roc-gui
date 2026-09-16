@@ -13,6 +13,30 @@ through reviewed locks that record their exact identities, hashes, and sizes.
 - Space Grotesk and Plus Jakarta Sans, used to set the documentation: see
   `docs/theme/fonts/`. Both are licensed under the SIL Open Font License,
   version 1.1, and are redistributed here in their unmodified released form.
+- Lucide icons, used as the artwork of several examples -- including the
+  attention mark in `examples/system-monitor/icons/` and the attention and USB
+  marks in `examples/device-configurator/icons/`: see the `NOTICE.md`
+  beside each `examples/*/icons/` directory, which records every file's source
+  URL and licence. Lucide is licensed under the ISC License, whose text is at
+  `third_party/licenses/lucide/LICENSE`; the files derived from Feather carry
+  the MIT License as well. Each file is redistributed with one edit, its
+  `stroke` colour, because a standalone SVG has no inherited colour to resolve
+  `currentColor` against; the geometry is otherwise unmodified, and each file's
+  notice states the change.
+- "Horsehead and Flame nebula in Orion" by Taavi Niittee, used as the cover art
+  in `examples/music-player/assets/art/`. It is dedicated to the public domain
+  under CC0 1.0 Universal and is redistributed here in the unmodified
+  960-pixel-wide rendition Wikimedia Commons serves of the original.
+  `examples/music-player/assets/NOTICE.md` records the file page, the licence
+  fields the Commons API reports for it, and the digest of the vendored copy.
+- Four recordings of public-domain piano music by Chopin and Schubert, used as
+  the demonstration library in `examples/music-player/library/`. Each is
+  published on Wikimedia Commons under CC0 1.0 Universal, and each was
+  identified by the SHA-1 of its download so the licence quoted is the one on
+  that exact file page. They are redistributed as ten-second mono excerpts,
+  transcoded to PCM WAV because the host builds Rodio with the `wav` feature
+  only; `examples/music-player/library/NOTICE.md` records every file page, the
+  licence fields the Commons API reports, and the exact transcoding command.
 
 Dependency producer archives carry the notices applicable to their payload and
 the corresponding sources required by their redistribution terms. Host releases

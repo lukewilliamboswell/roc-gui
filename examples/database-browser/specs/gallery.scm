@@ -1,4 +1,6 @@
 (test "record the database browser gallery journey"
+  (grants
+    (directory "fixture"))
   (steps
     (settle)
     (screenshot "chooser")

@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 9;
+pub const SCHEMA_VERSION: u32 = 10;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -24,6 +24,7 @@ static ROC_ALLOC_REQUESTED_BYTES: AtomicU64 = AtomicU64::new(0);
 static ROC_DEALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
 static ROC_REALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
 static ROC_REALLOC_REQUESTED_BYTES: AtomicU64 = AtomicU64::new(0);
+static GPUI_FRAME_ORDINAL: AtomicU64 = AtomicU64::new(0);
 const ROC_WORK_KINDS: usize = 4;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -260,6 +261,12 @@ enum Event {
     },
     Step(Box<StepResult>),
     Cycle(Box<Cycle>),
+    GpuiFrame {
+        ordinal: u64,
+        layout_request_ns: u64,
+        prepaint_ns: u64,
+        paint_ns: u64,
+    },
     VirtualListFrame {
         list_id: u64,
         visible_items: u64,
@@ -498,6 +505,7 @@ pub fn start(config: Config) -> Result<(), String> {
         return Err("stats maximum database size must be positive".into());
     }
     DETAIL.store(config.detail.code(), Ordering::Relaxed);
+    GPUI_FRAME_ORDINAL.store(0, Ordering::Relaxed);
     OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -666,6 +674,29 @@ pub fn cycle(cycle: Cycle) {
     submit(Event::Cycle(Box::new(cycle)), false);
 }
 
+/// Record one GPUI frame's host-owned element spans.
+///
+/// Called by [`crate::frame_spans::FrameSpans`], the element that performs this
+/// work: each duration is the time that element's own `request_layout`,
+/// `prepaint`, or `paint` call spent on the application subtree. Taffy's layout
+/// solve and window presentation are performed by GPUI outside any host-owned
+/// element and are reported as unavailable rather than derived from these.
+pub fn gpui_frame(layout_request_ns: u64, prepaint_ns: u64, paint_ns: u64) {
+    if !active() {
+        return;
+    }
+    let ordinal = GPUI_FRAME_ORDINAL.fetch_add(1, Ordering::Relaxed);
+    submit(
+        Event::GpuiFrame {
+            ordinal,
+            layout_request_ns,
+            prepaint_ns,
+            paint_ns,
+        },
+        false,
+    );
+}
+
 pub fn virtual_list_frame(
     list_id: u64,
     visible_items: u64,
@@ -776,7 +807,12 @@ fn writer(
             // Runs, steps, and finalization are correctness/control evidence.
             // The terminal reserve is specifically held for them; only the
             // high-volume cycle stream is sacrificed at the admission limit.
-            if output_limited && matches!(event, Event::Cycle(_) | Event::VirtualListFrame { .. }) {
+            if output_limited
+                && matches!(
+                    event,
+                    Event::Cycle(_) | Event::VirtualListFrame { .. } | Event::GpuiFrame { .. }
+                )
+            {
                 omitted.fetch_add(1, Ordering::Relaxed);
                 continue;
             }
@@ -888,7 +924,7 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         ),
         (
             "unavailable_sources",
-            "gpu_timing,writer_thread_cpu_time,roc_live_allocation_bytes,roc_compiler_version,application_revision".into(),
+            "gpu_timing,gpui_layout_solve,gpui_presentation,writer_thread_cpu_time,roc_live_allocation_bytes,roc_compiler_version,application_revision".into(),
         ),
     ];
     for (key, value) in metadata {
@@ -973,6 +1009,32 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             } else {
                 "semantic headless execution has no viewport"
             },
+        ),
+        (
+            "gpui_frame_spans",
+            "summary",
+            if config.backend.starts_with("gpui-") {
+                "unfinalized"
+            } else {
+                "not_recorded"
+            },
+            if config.backend.starts_with("gpui-") {
+                "capture has not finalized"
+            } else {
+                "semantic headless execution draws no GPUI frame"
+            },
+        ),
+        (
+            "gpui_layout_solve",
+            "summary",
+            "unavailable",
+            "taffy solves layout inside GPUI's root element, outside any host-owned element",
+        ),
+        (
+            "gpui_presentation",
+            "summary",
+            "unavailable",
+            "GPUI 0.2.2 keeps window present and frame completion private to the crate",
         ),
         (
             "gpu_timing",
@@ -1126,6 +1188,10 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             }
             Ok(1)
         },
+        Event::GpuiFrame { ordinal, layout_request_ns, prepaint_ns, paint_ns } => connection.execute(
+            "INSERT INTO gpui_frames(run_id,ordinal,layout_request_ns,prepaint_ns,paint_ns) VALUES(1,?1,?2,?3,?4)",
+            params![as_i64(ordinal), as_i64(layout_request_ns), as_i64(prepaint_ns), as_i64(paint_ns)],
+        ),
         Event::VirtualListFrame { list_id, visible_items, materialized_entities, recycled_entities, live_entities } => connection.execute(
             "INSERT INTO virtual_list_frames(run_id,list_id,visible_items,materialized_entities,recycled_entities,live_entities) VALUES(1,?1,?2,?3,?4,?5)",
             params![as_i64(list_id), as_i64(visible_items), as_i64(materialized_entities), as_i64(recycled_entities), as_i64(live_entities)],
@@ -1184,7 +1250,7 @@ fn finalize(
         .map_err(|error| format!("cannot finalize drain metadata: {error}"))?;
     let partial = omitted > 0 || output_limited;
     connection.execute(
-        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
+        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN name='gpui_frame_spans' AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'unavailable' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN name='gpui_frame_spans' AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'no GPUI frame was drawn' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'gpui_frame_spans' THEN (SELECT count(*) FROM gpui_frames) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize measurement status: {error}"))?;
     connection.execute(
@@ -1371,6 +1437,15 @@ CREATE TABLE cycles(
     UNIQUE(run_id,ordinal),
     FOREIGN KEY(run_id,step_ordinal) REFERENCES steps(run_id,ordinal)
 );
+CREATE TABLE gpui_frames(
+    id INTEGER PRIMARY KEY,
+    run_id INTEGER NOT NULL REFERENCES runs(id),
+    ordinal INTEGER NOT NULL,
+    layout_request_ns INTEGER NOT NULL,
+    prepaint_ns INTEGER NOT NULL,
+    paint_ns INTEGER NOT NULL,
+    UNIQUE(run_id,ordinal)
+);
 CREATE TABLE virtual_list_frames(
     id INTEGER PRIMARY KEY,
     run_id INTEGER NOT NULL REFERENCES runs(id),
@@ -1413,6 +1488,7 @@ CREATE INDEX steps_by_run_ordinal ON steps(run_id,ordinal);
 CREATE INDEX cycles_by_run_ordinal ON cycles(run_id,ordinal);
 CREATE INDEX roc_work_spans_by_kind ON roc_work_spans(kind,cycle_id);
 CREATE INDEX virtual_list_frames_by_run ON virtual_list_frames(run_id,id);
+CREATE INDEX gpui_frames_by_run_ordinal ON gpui_frames(run_id,ordinal);
 "#;
 
 #[cfg(test)]
@@ -1580,6 +1656,129 @@ mod tests {
             )
             .unwrap(),
             "complete"
+        );
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn persists_gpui_frame_spans_and_keeps_unowned_stages_unavailable() {
+        let _guard = RECORDER_TEST.lock().unwrap();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-frame-spans-{}-{}.rgstats",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        start(Config {
+            path: path.clone(),
+            detail: Detail::Summary,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-wayland",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        run_start(1, "interactive", None, 0, 1);
+        gpui_frame(400, 900, 1_600);
+        gpui_frame(410, 910, 1_610);
+        run_end(1, "pass", 2, None);
+        finish("success").unwrap();
+        let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let values = db
+            .query_row(
+                "SELECT ordinal,layout_request_ns,prepaint_ns,paint_ns FROM gpui_frames ORDER BY ordinal LIMIT 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(values, (0, 400, 900, 1_600));
+        assert_eq!(
+            db.query_row(
+                "SELECT status,rows_recorded FROM measurement_status WHERE name='gpui_frame_spans'",
+                [],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            )
+            .unwrap(),
+            ("complete".to_string(), 2)
+        );
+        // The stages GPUI performs outside any host-owned element stay
+        // unavailable; they are never derived from the spans above.
+        for name in ["gpui_layout_solve", "gpui_presentation"] {
+            assert_eq!(
+                db.query_row(
+                    "SELECT status FROM measurement_status WHERE name=?1",
+                    params![name],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                "unavailable"
+            );
+        }
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn a_capture_with_no_frame_reports_frame_spans_unavailable() {
+        let _guard = RECORDER_TEST.lock().unwrap();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-frame-spans-absent-{}-{}.rgstats",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        start(Config {
+            path: path.clone(),
+            detail: Detail::Summary,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "semantic-headless",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        run_start(1, "interactive", None, 0, 1);
+        run_end(1, "pass", 2, None);
+        finish("success").unwrap();
+        let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM gpui_frames", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT status,reason FROM measurement_status WHERE name='gpui_frame_spans'",
+                [],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            )
+            .unwrap(),
+            (
+                "not_recorded".to_string(),
+                "semantic headless execution draws no GPUI frame".to_string()
+            )
         );
         drop(db);
         std::fs::remove_file(path).unwrap();

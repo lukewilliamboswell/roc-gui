@@ -1,11 +1,15 @@
 (test "sample pause inspect filter and resume"
+  (grants
+    (system-monitor standard))
   (steps
     (expect-system-samplers 0)
     (click (role button :name "Resume sampling"))
     (expect-system-samplers 1)
     (await-ticks 2)
     (expect-system-samples 2)
-    (expect-visible (text "CPU: 42.7%"))
+    (expect-visible (text "42.7"))
+    (expect-visible (text "of all cores"))
+    (expect-visible (text "37.5"))
     (expect-visible (text "Processes: 24"))
     (click (role button :name "Inspect process service-0000"))
     (expect-visible (text "Selected process 1000"))

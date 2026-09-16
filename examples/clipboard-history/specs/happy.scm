@@ -1,4 +1,6 @@
 (test "capture search pin restore delete and clear"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (expect-subscriptions 1)
@@ -17,5 +19,5 @@
     (expect-not-visible (text "beta task"))
     (click (role button :name "Restore item 1"))
     (await-task)
-    (expect-visible (text "Selected item restored"))
+    (expect-visible (text "Selected item is now on the clipboard"))
     (expect-clipboard-counters 1 1 2 1)))

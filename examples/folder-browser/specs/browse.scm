@@ -1,4 +1,6 @@
 (test "navigate a granted directory capability"
+  (grants
+    (directory "fixture"))
   (steps
     (expect-visible (role column :name "Folder browser"))
 	(expect-visible (role panel :name "Directory controls"))

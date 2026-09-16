@@ -2,7 +2,7 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 
 import pf.Action
 import pf.Elem
-import pf.Program exposing [Program]
+import pf.Program
 
 State : { count : U64, search : Str }
 
@@ -32,14 +32,14 @@ render = |state| {
 			Elem.row(
 				{},
 				[
-					Elem.button({ label: "Load 100 settings", name: "Load 100 settings", on_press: |current, _| Action.update({ ..current, count: 100 }) }),
-					Elem.button({ label: "Load 1,000 settings", name: "Load 1000 settings", on_press: |current, _| Action.update({ ..current, count: 1000 }) }),
-					Elem.button({ label: "Load 10,000 settings", name: "Load 10000 settings", on_press: |current, _| Action.update({ ..current, count: 10000 }) }),
+					Elem.button({ caption: "Load 100 settings", label: "Load 100 settings", on_press: |current, _| Action.update({ ..current, count: 100 }) }),
+					Elem.button({ caption: "Load 1,000 settings", label: "Load 1000 settings", on_press: |current, _| Action.update({ ..current, count: 1000 }) }),
+					Elem.button({ caption: "Load 10,000 settings", label: "Load 10000 settings", on_press: |current, _| Action.update({ ..current, count: 10000 }) }),
 				],
 			),
 			Elem.text_input(Elem.TextInputProps.{ label: "Search settings", value: state.search, on_change: |current, event| Action.update({ ..current, search: event.value }), on_submit: |_, _| Action.none }),
 			Elem.text("Matches: ${visible.len().to_str()}"),
-			Elem.virtual_list(Elem.VirtualListProps.{ name: "Matching settings", row_height: 34, items: visible.map(|setting| Elem.VirtualListItem.{ key: setting.id, content: Elem.text(setting.name) }) }),
+			Elem.virtual_list(Elem.VirtualListProps.{ label: "Matching settings", row_height: 34, items: visible.map(|setting| Elem.VirtualListItem.{ key: setting.id, content: Elem.text(setting.name) }) }),
 		],
 	)
 }

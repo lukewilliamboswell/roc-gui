@@ -1,78 +1,117 @@
+## Sampling sessions, and the state the window is drawn from.
+##
+## Nothing is read from the machine until a person asks for it. Asking acquires
+## a sampler, starts a timer, and opens a *session*: the pair of resources that
+## one run of sampling owns and is responsible for closing. Pausing closes both.
 import pf.Action
-import pf.Elem
 import pf.SystemMonitor
 import pf.Timer
 import Processes
-import Summary
 
 Monitor := [].{
 	State : State
+
+	## Where the instrument is, as a state rather than as a sentence. The window
+	## turns each of these into the words a person reads, which keeps the
+	## vocabulary in one place and keeps a refusal from being just another string
+	## in a status field.
+	Status : Status
+
+	## How many samples the history holds. The plot's horizontal pitch and the
+	## log's bound are the same number, so the two views agree about how far back
+	## "the history" reaches.
+	capacity : U64
+	capacity = capacity
+
 	init : State
-	init = { filter: "", history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: "Paused" }
-	render : State -> Elem.Elem(State)
-	render = render
+	init = { filter: "", generation: 0, history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: Idle }
+
+	## Begin a session. Acquisition is the whole authority question: if the host
+	## refuses, nothing is opened and nothing is read.
+	start! : State => Action.Action(State)
+	start! = start!
+
+	## End a session, closing both resources it owns and retiring its generation.
+	pause! : State, Session => Action.Action(State)
+	pause! = pause!
+
+	Session : Session
+	RunState : RunState
 }
 
-RunState : [Paused, Running({ sampler : SystemMonitor.Sampler, timer : Timer.Handle })]
-State : { filter : Str, history : List(SystemMonitor.Snapshot), latest : [None, Some(SystemMonitor.Snapshot)], run_state : RunState, selected : [None, Some(U64)], sort : Processes.Sort, status : Str }
-err_text = |err| match err { AcquireSystemErr(AccessDenied) => "System observation access denied", SampleSystemErr(Busy) => "A sample is already in progress", SampleSystemErr(Closed) => "Sampler closed", _ => "System sampling failed" }
+capacity = 120.U64
 
-wait_next = |state, session| Action.task({
-	pending: { ..state, run_state: Running(session), status: "Live" },
-	run: || match Timer.next!(session.timer) { Canceled => Stopped, Fired => match SystemMonitor.sample!(session.sampler) { Ok(snapshot) => Sampled(snapshot), Err(err) => SampleFailed(err) } },
-	resolve: |latest, result| match result {
-		Stopped => Action.update({ ..latest, run_state: Paused, status: "Paused" })
-		SampleFailed(err) => Action.update({ ..latest, run_state: Paused, status: err_text(err) })
+Session : { sampler : SystemMonitor.Sampler, timer : Timer.Handle }
+RunState : [Paused, Running(Session)]
+Status : [Failed(Str), Idle, Live, Paused, Refused]
+State : {
+	filter : Str,
+	generation : U64,
+	history : List(SystemMonitor.Snapshot),
+	latest : [None, Some(SystemMonitor.Snapshot)],
+	run_state : RunState,
+	selected : [None, Some(U64)],
+	sort : Processes.Sort,
+	status : Status,
+}
+
+## A refusal is not a failure, and the window says something quite different
+## about each, so they are separated the moment the error arrives rather than
+## being flattened into one line of text.
+acquire_status = |err| match err {
+	AcquireSystemErr(AccessDenied) => Refused
+	AcquireSystemErr(ResourceLimit) => Failed("The host has no sampler left to give")
+	_ => Failed("System observation could not be started")
+}
+
+sample_status = |err| match err {
+	SampleSystemErr(Busy) => Failed("A sample is already in progress")
+	SampleSystemErr(Closed) => Failed("The sampler was closed while it was sampling")
+	SampleSystemErr(Io) => Failed("The system sampler could not be read")
+	_ => Failed("System sampling stopped unexpectedly")
+}
+
+## A session owns its generation, so a cancelled one cannot pause, fail, or
+## extend the session that replaced it.
+wait_next = |state, session, generation| Action.task({
+	pending: { ..state, run_state: Running(session), status: Live },
+	run: || match session.timer.next!() {
+		Canceled => Stopped
+		Fired => match session.sampler.sample!() {
+			Ok(snapshot) => Sampled(snapshot)
+			Err(err) => SampleFailed(err)
+		}
+	},
+	resolve: |latest, result| if latest.generation != generation Action.none else match result {
+		Stopped => Action.update({ ..latest, run_state: Paused, status: Paused })
+		SampleFailed(err) => Action.update({ ..latest, run_state: Paused, status: sample_status(err) })
 		Sampled(snapshot) => match latest.run_state {
 			Paused => Action.update(latest)
 			Running(_) => {
 				next = latest.history.append(snapshot)
-				bounded = if next.len() > 120 next.drop_first(next.len() - 120) else next
-				wait_next({ ..latest, history: bounded, latest: Some(snapshot) }, session)
+				bounded = if next.len() > capacity next.drop_first(next.len() - capacity) else next
+				wait_next({ ..latest, history: bounded, latest: Some(snapshot) }, session, generation)
 			}
 		}
 	},
 })
 
-start! = |state| match SystemMonitor.acquire!({}) {
-	Err(err) => Action.update({ ..state, status: err_text(err) })
-	Ok(sampler) => match Timer.start!({ interval_ms: 1 }) {
-		Err(_) => {
-			_ = SystemMonitor.close!(sampler)
-			Action.update({ ..state, status: "Timer configuration rejected" })
+start! = |state| {
+	generation = state.generation + 1
+	match SystemMonitor.acquire!() {
+		Err(err) => Action.update({ ..state, status: acquire_status(err) })
+		Ok(sampler) => match Timer.start!({ interval_ms: 100 }) {
+			Err(_) => {
+				_ = sampler.close!()
+				Action.update({ ..state, status: Failed("The sampling timer was rejected by the host") })
+			}
+			Ok(timer) => wait_next({ ..state, generation }, { sampler, timer }, generation)
 		}
-		Ok(timer) => wait_next(state, { sampler, timer })
 	}
 }
+
 pause! = |state, session| {
-	_ = Timer.cancel!(session.timer)
-	_ = SystemMonitor.close!(session.sampler)
-	Action.update({ ..state, run_state: Paused, status: "Paused" })
-}
-history_items = |history| history.map(|snapshot| Elem.VirtualListItem.{ key: snapshot.sequence, content: Elem.text(Summary.history_text(snapshot)) })
-process_items = |state, processes| Processes.filter_sort(processes, state.filter, state.sort).map(|process| Elem.VirtualListItem.{ key: process.pid, content: Elem.action_button(Elem.ActionButtonProps.{ caption: "${process.name} — CPU ${(process.cpu_tenths / 10).to_str()}.${(process.cpu_tenths % 10).to_str()}%, ${process.memory_bytes.to_str()} bytes", label: "Inspect process ${process.name}", on_press: |current, _| Action.update({ ..current, selected: Some(process.pid) }) }) })
-
-process_panel = |state| match state.latest {
-	None => Elem.panel(Elem.PanelProps.{ label: "Processes", width: Fill }, [Elem.text("Processes: no sample")])
-	Some(snapshot) => match snapshot.processes {
-		Unavailable(_) => Elem.panel(Elem.PanelProps.{ label: "Processes", width: Fill }, [Elem.text("Processes: unavailable")])
-		Value(processes) => {
-			selection = match state.selected { None => "No process selected", Some(pid) => "Selected process ${pid.to_str()}" }
-			Elem.panel(Elem.PanelProps.{ label: "Processes", width: Fill, height: Fill, grow: True }, [
-				Elem.row(Elem.RowProps.{ label: "Process sorting" }, [
-					Elem.action_button(Elem.ActionButtonProps.{ caption: "CPU", label: "Sort processes by CPU", on_press: |current, _| Action.update({ ..current, sort: ByCpu }) }),
-					Elem.action_button(Elem.ActionButtonProps.{ caption: "Memory", label: "Sort processes by memory", on_press: |current, _| Action.update({ ..current, sort: ByMemory }) }),
-				]),
-				Elem.text_input(Elem.TextInputProps.{ label: "Filter processes", value: state.filter, on_change: |current, event| Action.update({ ..current, filter: event.value }), on_submit: |current, _| Action.update(current), width: Fill }),
-				Elem.text("Processes: ${List.len(processes).to_str()}"), Elem.text(selection),
-				Elem.virtual_list(Elem.VirtualListProps.{ name: "Process table", row_height: 34, items: process_items(state, processes) }),
-			])
-	}
-}
-}
-
-render = |state| {
-	control = match state.run_state { Paused => Elem.action_button(Elem.ActionButtonProps.{ caption: "Resume", label: "Resume sampling", on_press: |current, _| start!(current) }), Running(session) => Elem.action_button(Elem.ActionButtonProps.{ caption: "Pause", label: "Pause sampling", on_press: |current, _| pause!(current, session) }) }
-	summary = match state.latest { None => Elem.panel(Elem.PanelProps.{ label: "Resource summary", width: Fill }, [Elem.text("CPU: no sample"), Elem.text("Memory: no sample")]), Some(snapshot) => Summary.render(snapshot) }
-	Elem.col(Elem.ColProps.{ label: "System monitor", width: Fill, height: Fill, grow: True, padding: 24, gap: 12 }, [Elem.text("System Monitor"), Elem.row(Elem.RowProps.{ label: "Sampling controls" }, [control, Elem.text(state.status)]), summary, process_panel(state), Elem.virtual_list(Elem.VirtualListProps.{ name: "Observation history", row_height: 32, items: history_items(state.history) })])
+	_ = session.timer.cancel!()
+	_ = session.sampler.close!()
+	Action.update({ ..state, generation: state.generation + 1, run_state: Paused, status: Paused })
 }

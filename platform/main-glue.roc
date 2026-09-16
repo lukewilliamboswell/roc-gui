@@ -17,6 +17,7 @@ platform ""
 	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch! }
 	hosted {
 		"roc_gui_node_text": HostGlue.node_text!,
+		"roc_gui_node_styled_text": HostGlue.node_styled_text!,
 		"roc_gui_children_begin": HostGlue.children_begin!,
 		"roc_gui_children_push": HostGlue.children_push!,
 		"roc_gui_node_row": HostGlue.node_row!,
@@ -68,6 +69,8 @@ platform ""
 		"roc_system_sample": HostGlue.system_sample!,
 		"roc_system_close": HostGlue.system_close!,
 		"roc_image_inspect": HostGlue.image_inspect!,
+		"roc_assets_open": HostGlue.assets_open!,
+		"roc_assets_read": HostGlue.assets_read!,
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
 		"roc_gui_set_task_dispatch": HostGlue.set_task_dispatch!,
@@ -80,10 +83,10 @@ platform ""
 		"roc_gui_work_start": HostGlue.work_start!,
 		"roc_gui_work_end": HostGlue.work_end!,
 		"roc_gui_window_config": HostGlue.window_config!,
-		"roc_files_pick_directory": Files.pick_directory!,
-		"roc_files_dir_list": Files.Dir.list!,
-		"roc_files_dir_open_read": Files.Dir.open_read_dir!,
-		"roc_files_dir_read": Files.Dir.read!,
+		"roc_files_pick_directory": InternalFiles.pick_directory!,
+		"roc_files_dir_list": InternalFiles.dir_list!,
+		"roc_files_dir_open_read": InternalFiles.dir_open_read!,
+		"roc_files_dir_read": InternalFiles.dir_read!,
 	}
 	targets: {
 		inputs_dir: "targets/",

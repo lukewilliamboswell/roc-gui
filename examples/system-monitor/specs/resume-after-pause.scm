@@ -1,0 +1,20 @@
+(test "sampling resumes after a pause"
+  (grants
+    (system-monitor standard))
+  (steps
+    (click (role button :name "Resume sampling"))
+    (await-ticks 2)
+    (expect-count (text-prefix "Sample ") 2)
+    (click (role button :name "Pause sampling"))
+    (await-task)
+    (expect-visible (text "Paused"))
+    (expect-system-samplers 0)
+    (expect-subscriptions 0)
+    (click (role button :name "Resume sampling"))
+    (expect-system-samplers 1)
+    (expect-subscriptions 1)
+    (await-ticks 2)
+    (expect-visible (text "Live"))
+    (expect-count (text-prefix "Sample ") 4)
+    (click (role button :name "Pause sampling"))
+    (expect-system-samplers 0)))

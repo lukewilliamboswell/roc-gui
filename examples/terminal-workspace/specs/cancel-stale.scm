@@ -1,4 +1,6 @@
 (test "cancellation wakes a read and stale completion cannot revive a session"
+  (grants
+    (process test-program))
   (steps
     (click (role button :name "New terminal"))
     (await-task)

@@ -1,8 +1,11 @@
-= Specification reference
+= Specification language reference
 
 The complete `.scm` vocabulary: locators, operations, assertions, window steps,
-and case selection. The Testing your application chapter is the shorter path if
-you are verifying an application for the first time.
+and case selection. Read Testing your application first if you are verifying an
+application for the first time; this chapter is the one to reach for once you
+know what you want to say and need to know how to say it. Steps that depend on
+this repository's own fixtures are described in Contributing instead, so a
+vocabulary entry here means the same thing in any application.
 
 Specifications describe the application as a user sees it: find text, identify
 a button by its semantic name, press it, and check the result. Put `.scm` files
@@ -51,6 +54,71 @@ Each specification gets a fresh process. This isolates application state and
 produces one `.rgstats` SQLite capture beneath a timestamped
 `.test-out/specs/` directory. A failing assertion makes the command fail and
 prints the specification line and reason.
+
+== Grants
+
+A specification states the capabilities it needs beside its steps, so a case can
+be read on its own and nothing is inferred from a file name:
+
+[source,scheme]
+----
+(test "a corrupt track is isolated"
+  (grants
+    (directory "fixture")
+    (audio null))
+  (steps
+    (click (role button :name "Open library"))
+    (expect-visible (text "1 track skipped"))))
+----
+
+A specification with no `(grants ...)` clause, and one with an empty `(grants)`,
+both receive no capability at all. Write the empty clause when the absence is
+the point: a denial case takes the same refusal from the same production
+acquisition call that a real broker would give it.
+
+Each grant may appear once. A path is relative to the application directory, the
+one holding `main.roc`, and a path that leaves it is a parse error naming its
+line, as an unknown grant or a malformed one is.
+
+`(app-data "PATH")`:: Private application-data storage, seeded from `PATH`. The
+run receives a fresh private copy, so it writes through the production
+capability without changing the checked-in directory.
+`(assets "PATH")`:: The content directory an `Assets.content_directory` store
+resolves to. The application names no path of its own, so the case names the one
+the host provisions. Omit the grant and the open is `AccessDenied`, which is how
+a case exercises an application's missing-artwork path.
+`(audio null)`:: A paced null output in place of the system audio device. It
+changes only the final sink; decoding, mixing, playback, seeking, and status
+remain the production path.
+`(clipboard system)` and `(clipboard fixture)`:: Text clipboard authority. The
+system form reaches the real clipboard; the fixture form gives the case a
+clipboard the `clipboard-text` step drives, which is rejected without it.
+`(device virtual)` and `(device virtual N)`:: One deterministic virtual HID
+device, optionally with `N` controls, reached through the same host capability
+as physical hardware.
+`(device "VID:PID")`:: One physical HID device by hexadecimal vendor and product
+identifier.
+`(directory "PATH")`:: Read access to one directory, reached through the same
+opaque capability operations as an interactive grant.
+`(directory canceled)`:: A directory chooser the person dismisses without
+choosing. The chooser opens and the acquisition call runs, but no authority is
+produced and `Files.pick_directory!` answers `Ok(Canceled)`. Cancelling is not a
+failure, so this is its own provisioning rather than an absent grant, and it is
+how a case shows that an application returns to rest instead of accusing the
+person of a denial. It cannot be combined with `(directory "PATH")`.
+`(http-origin "ORIGIN")`:: HTTP access to exactly one origin. A request to any
+other origin is denied by the host.
+`(process local-shell)` and `(process test-program)`:: One PTY child profile.
+`test-program` is the fixed deterministic child; `local-shell` is the user's
+shell.
+`(server "PATH" PORT)`:: A loopback service the runner starts before the case
+and stops after it. `PATH` names a script beside the application, and `PORT` is
+the port it reports readiness on. This grants the harness, not the application:
+a case still needs `(http-origin ...)` or `(tcp ...)` to reach it.
+`(system-monitor standard)`, `(system-monitor unavailable)`, and
+`(system-monitor processes N)`:: A deterministic system sampler delivering its
+snapshots through the same ABI as the physical source.
+`(tcp "IP:PORT")`:: TCP access to exactly one endpoint.
 
 == Locators
 
@@ -127,11 +195,6 @@ same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
-`(clipboard-text "value")`:: Change the clipboard source granted to a semantic
-fixture. This step is rejected without an explicit fixture grant. The next
-application timer pull observes the new value through the production capability
-and host read route; the value is neither copied into capture evidence nor
-emitted as a diagnostic.
 `(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
 gesture through a canvas's production event route. Coordinates are integer
 logical pixels in canvas space.
@@ -157,6 +220,10 @@ Steps that check the application, in alphabetical order.
 
 `(expect-before FIRST SECOND)`:: Require a match for `FIRST` to occur before a
 match for `SECOND` in mounted-tree order.
+`(expect-asset-counters OPENS REFUSED CHECKS READS READS-REFUSED BYTES)`::
+Require the asset owner's six totals, in that order: opens, refused opens,
+manifest checks, reads, refused reads, and bytes read. No asset path, file name,
+or content becomes evidence.
 `(expect-canvas-primitives LOCATOR N)`:: Require one canvas owner to report
 exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.
@@ -255,8 +322,9 @@ python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 python3 scripts/run_specs.py --only window
 ----
 
-`--host-classify-specs PATH...` prints which runner each file needs, which is
-how the driver routes without keeping a second copy of the vocabulary.
+`--host-describe-specs PATH...` prints one JSON line per file giving the runner
+it needs and the capability flags its grants become, which is how the driver
+routes and wires a case without keeping a second copy of the vocabulary.
 
 === One vocabulary, split by capability
 
@@ -266,17 +334,26 @@ them silently:
 
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount. Also every step the
-window runner does not implement: `drag`, `replace-text`, `clipboard-text`,
-`submit`, `await-ticks`, `expect-canvas-primitives`, `expect-image-bytes`, the
-value and ordering assertions, the live-resource and owner counter assertions,
-and the repository fixture steps the Contributing chapter describes.
+window runner does not implement: `drag`, `replace-text`, `submit`, the
+live-resource and owner counter assertions, and the repository fixture steps the
+Contributing chapter describes.
 
-`window-only`:: `settle`, `screenshot`, `type`, `key`, `expect-on-screen`,
-`expect-rendered-count`, and `expect-bounds`. None of these mean anything
-without a presented frame.
+`window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
+`expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
+mean anything without a presented frame: without layout there is no fold for
+content to be below, and no size a window could be resized from.
 
-`both`:: `click`, `focus`, `press-key`, `await-task`, `await-count`,
-`expect-visible`, `expect-focused`, `expect-not-visible`, and `expect-count`.
+`both`:: `click`, `focus`, `press-key`, `await-task`, `await-count`, `clipboard-text`,
+`await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
+`expect-count`, and the value and ordering assertions — `expect-value`,
+`expect-value-bytes`, `expect-image-bytes`, `expect-before`, and
+`expect-canvas-primitives`. The fixture clipboard is one process-wide store, so
+changing the granted source and waiting for the application's own timer to
+observe it mean the same thing under either runner; without them a windowed
+case could not put a single item into a clipboard-driven application, and so
+could not photograph one. The value and ordering assertions read the mounted
+graph, which both runners hold, and both call the same code to answer them, so
+one window case can assert a semantic truth and photograph it in the same run.
 
 A step is classified by what a runner actually does, so a specification is
 refused before the window opens rather than part-way through a run.
@@ -294,6 +371,29 @@ activation keys and no modifiers.
 `(type "TEXT")`:: Send each character as a real keystroke into the focused
 element, through GPUI's own keystroke dispatch. The semantic `replace-text`
 sets a value directly and exercises none of the editing path.
+`(resize W H)`:: Resize the production window to `W` by `H` logical pixels, each
+64 to 8192. A layout is only proved at the size it was tested at, and
+`main.roc` asks for one size, so this is how a specification claims a narrow or
+a wide window rather than assuming one. Follow it with `(settle)` before
+asserting, as with any other input step.
+`(scroll REGION :by N)`:: Move a scroll region or a virtual list by `N` logical
+pixels. Positive moves towards the end of the content, which is the direction a
+wheel-down gesture moves it; negative moves back. The request is clamped against
+the real content size, so an overlarge `N` settles at the end rather than past
+it, which is how a specification returns a list to its start without knowing how
+tall it is.
+`(scroll REGION :to LOCATOR)`:: Move `REGION` only as far as it must to bring
+`LOCATOR` inside it. A target already in view does not move the region at all.
+The target must be inside the region, and a target taller than the region is
+aligned to its leading edge, since no offset shows all of it.
++
+For a scroll region the distance is real geometry: every child is laid out,
+below the fold included, so the travel is measured rather than estimated. A
+virtual list has no such rectangle — a row below the fold has no element at all
+— so the list is positioned by that row's index among the entries the
+application mounted, and the row materialises as a result. This is what brings
+an off-screen target on screen, and it is the only handle an unrendered row
+offers.
 `(settle)` / `(settle :frames N :timeout-ms N)`:: Wait for `N` consecutive
 presented frames during which no host task started or finished. Defaults are
 `:frames 2 :timeout-ms 2000`. A timeout fails the step; it never proceeds
@@ -312,9 +412,17 @@ the last frame. For a virtual list this is materialisation evidence;
 === Screenshots
 
 `(screenshot NAME)`:: Photograph the window's content area.
-`(screenshot NAME :region LOCATOR)`:: Crop to a located element's laid-out
+`(screenshot NAME :region LOCATOR)`:: Crop to a located element's visible
 bounds. These are the bounds `expect-on-screen` uses, so a shot frames what was
-asserted.
+asserted, and an element half below the fold of a scroll region is photographed
+where it has pixels rather than where it was laid out.
++
+A canvas-item locator works here too. A primitive has no element and no recorded
+bounds of its own, so its rectangle is the canvas's painted surface offset by
+the coordinates the owner drew at — the mapping `canvas_target` inverts to
+decide what a press landed on — clipped to that surface. A line is expanded by
+half its stroke, since its coordinates describe its centre. Give it `:pad`: a
+marker a few points across is unreadable cropped to itself.
 `(screenshot NAME :region (rect X Y WIDTH HEIGHT))`:: Crop to an explicit
 content-relative rectangle.
 `:pad N`:: Expand the region by `N` points on every side, then clamp to the
@@ -346,6 +454,11 @@ assertion stopped at is usually the most useful evidence in the run.
 === What input is real
 
 Keyboard steps send real keystrokes through the window's production keymap.
+`scroll` writes the offset cell of the scroll handle the production element
+tracks — the same cell GPUI's own wheel handler writes, and the same one that
+keeps a list where the person left it across a rerender. What it does not
+synthesise is a wheel event, so hit testing, momentum, and rubber-banding are
+not exercised; those belong to the pointer seam this host does not have.
 Pointer steps are simulated at the production handler, but are refused unless
 the control was laid out, is unclipped, is enabled, and is not behind a modal
 dialog, so a `click` a real user could not have performed fails rather than
@@ -363,7 +476,10 @@ compile-time one, so the shipped binary stays the tested binary.
   than a gap: an unmaterialised virtual-list row is genuinely absent from the
   frame.
 * Only a canvas node's own rectangle is recorded, never its primitives. A
-  canvas-item locator therefore has no geometry of its own.
+  canvas-item locator has no bounds of its own to assert against, so
+  `expect-bounds` and `expect-on-screen` do not take one; a screenshot region
+  does, because a primitive's rectangle is derivable from its canvas's painted
+  surface and the coordinates the owner drew at.
 * Bounds are recorded for nodes scrolled out of view, because they are laid
   out and merely clipped. `expect-on-screen` intersects against scrolling
   ancestors for this reason; asking only whether bounds exist would call a

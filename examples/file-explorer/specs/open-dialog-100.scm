@@ -1,4 +1,6 @@
 (test "open close-directory dialog over 100 entries"
+  (grants
+    (directory "fixture"))
   (benchmark :warmups 1 :samples 3 :iterations 2 :scale 100 :initial-size 100 :change-size 1)
   (steps
     (click (role button :name "Open project"))

@@ -1,6 +1,8 @@
 ; Photographs the list in a real window: one row treatment for every entry,
 ; names left-aligned at one x, folders first, long names truncated.
 (test "Folder browser presents a scannable list"
+  (grants
+    (directory "fixture"))
   (steps
     (settle)
     (screenshot "initial")
@@ -10,6 +12,10 @@
     (expect-on-screen (role row :name "Directory breadcrumbs"))
     (expect-on-screen (role row :name "Entry alpha.txt"))
     (expect-on-screen (role button :name "Open directory nested"))
+    ; The ordering the photograph below is evidence of, said out loud: folders
+    ; come before files whatever their names are. Until the ordering assertions
+    ; reached this runner, the claim and its picture could not be made together.
+    (expect-before (role row :name "Entry nested") (role row :name "Entry alpha.txt"))
     (screenshot "listing")
     (screenshot "rows" :region (role scroll :name "Directory contents") :pad 8)
     (screenshot "long-name" :region (role row :name "Entry a-very-long-file-name-that-should-be-truncated-with-an-ellipsis-in-the-row.txt") :pad 8)

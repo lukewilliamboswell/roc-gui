@@ -3,4 +3,18 @@ import pf.Program
 import Browser
 State : Browser.State
 
-main = Program.run({ init: Browser.init, render: Browser.render, window: { title: "Folder browser", width: 760, height: 560 } })
+## The window declares the ground its identity is drawn on rather than
+## inheriting one: every surface in `Browser.roc` is mixed against this
+## deep teal, and a host that changed its own default would otherwise pull
+## the whole palette out from under them.
+main = Program.run({
+	init: Browser.init,
+	render: Browser.render,
+	window: {
+		title: "Folder browser",
+		width: 760,
+		height: 560,
+		background: Browser.ground,
+		foreground: Browser.ink,
+	},
+})

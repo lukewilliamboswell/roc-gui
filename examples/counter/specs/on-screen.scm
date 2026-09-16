@@ -12,5 +12,8 @@
     (expect-on-screen (role column :name "Right counter"))
     (expect-on-screen (role button :name "Left increment"))
     (expect-on-screen (role button :name "Right decrement"))
-    (expect-bounds (role column :name "Left counter") :min-width 224 :max-width 236 :min-height 236 :max-height 248)
+    ; The two cards divide the page's measure between them: 640 wide, less 40
+    ; of padding on each side, less the 24 between them, is 268 each.
+    (expect-bounds (role column :name "Left counter") :min-width 262 :max-width 274 :min-height 236 :max-height 248)
+    (expect-bounds (role column :name "Right counter") :min-width 262 :max-width 274 :min-height 236 :max-height 248)
     (expect-bounds (role button :name "Left increment") :min-width 50 :max-width 60 :min-height 34 :max-height 44)))

@@ -1,4 +1,6 @@
 (test "dismiss close without losing the directory"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open project"))
     (await-task)

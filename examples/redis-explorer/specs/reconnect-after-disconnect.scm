@@ -1,0 +1,23 @@
+(test "reconnect after an explicit disconnect restores the keyspace"
+  (grants
+    (tcp "127.0.0.1:36379")
+    (server "fixture_server.py" 36379))
+  (steps
+    (click (role button :name "Connect to Redis"))
+    (await-task)
+    (click (role button :name "Refresh Redis keys"))
+    (await-task)
+    (expect-visible (text "Keys: 5"))
+    (click (role button :name "Disconnect from Redis"))
+    (await-task)
+    (expect-visible (text "Keys: 0"))
+    (expect-not-visible (role panel :name "Redis error"))
+    (expect-tcp-streams 0)
+    (click (role button :name "Connect to Redis"))
+    (await-task)
+    (expect-tcp-streams 1)
+    (click (role button :name "Refresh Redis keys"))
+    (await-task)
+    (expect-visible (text "Keys: 5"))
+    (expect-count (button-prefix "Inspect Redis key profile:") 5)
+    (expect-tcp-counters 1 2 4 4 1)))

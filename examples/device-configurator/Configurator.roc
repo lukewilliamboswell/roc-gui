@@ -1,25 +1,87 @@
+## Discovery, connection, and the acknowledged apply.
+##
+## Every operation here takes the resources it needs rather than looking them up
+## in the state and apologising when they are absent. `apply` cannot be called
+## without a connection and a configuration because it asks for both, and
+## `disconnect` cannot be called without a connection for the same reason. The
+## application used to answer "Connect a device first" and "No device is
+## connected" from branches the controls made unreachable; a message nobody can
+## ever read is not a safety net, it is a claim the type system should have been
+## making. The explanation a person actually needs is in the window, beside the
+## control that will not move.
 import pf.Action
 import pf.Device
-import pf.Elem
 import Protocol
 
 Configurator := [].{
 	State : State
+
+	## Where the application is with respect to one piece of hardware. The window
+	## turns each of these into the sentence a person reads, so a refusal or a
+	## lost connection is a state to design rather than a string to print.
+	Status : Status
+
+	## The bounds the device accepts, which the window shows and the editor
+	## enforces before anything is sent.
+	sensitivity_floor : U16
+	sensitivity_floor = sensitivity_floor
+	sensitivity_ceiling : U16
+	sensitivity_ceiling = sensitivity_ceiling
+	sensitivity_step : U16
+	sensitivity_step = sensitivity_step
+
 	init : State
-	init = { config: None, connected: None, devices: [], dirty: False, generation: 0, status: "Ready to discover devices" }
+	init = { config: None, connected: None, devices: [], dirty: False, generation: 0, status: Ready }
+
 	discover : State -> Action.Action(State)
 	discover = discover
+
 	connect : State -> Action.Action(State)
 	connect = connect
-	apply : State -> Action.Action(State)
+
+	## One transaction carrying the whole configuration, which the device must
+	## acknowledge before the application believes anything changed.
+	apply : State, Device.Connection, Protocol.Config -> Action.Action(State)
 	apply = apply
-	disconnect : State -> Action.Action(State)
+
+	disconnect : State, Device.Connection -> Action.Action(State)
 	disconnect = disconnect
-	render : State -> Elem.Elem(State)
-	render = render
+
+	change_sensitivity : State, Bool -> State
+	change_sensitivity = change_sensitivity
+	toggle_lighting : State, Bool -> State
+	toggle_lighting = toggle_lighting
+	select_profile : State, U8 -> State
+	select_profile = select_profile
 }
 
-State : { config : [None, Some(Protocol.Config)], connected : [None, Some(Device.Connection)], devices : List(Device.Info), dirty : Bool, generation : U64, status : Str }
+Status : [
+	Applied,
+	Applying,
+	Connected,
+	Connecting,
+	Dirty,
+	Disconnected,
+	Disconnecting,
+	Discovered(U64),
+	Discovering,
+	Lost(Str),
+	Ready,
+	Refused(Str),
+]
+
+State : {
+	config : [None, Some(Protocol.Config)],
+	connected : [None, Some(Device.Connection)],
+	devices : List(Device.Info),
+	dirty : Bool,
+	generation : U64,
+	status : Status,
+}
+
+sensitivity_floor = 100.U16
+sensitivity_ceiling = 3200.U16
+sensitivity_step = 100.U16
 
 message = |err| match err {
 	AcquireDeviceErr(AccessDenied) => "Device access denied"
@@ -30,94 +92,114 @@ message = |err| match err {
 	_ => "Device operation failed"
 }
 
+## A refusal of authority and a device that went away are different situations
+## with different remedies, so they are told apart where the error arrives.
+refusal = |err| match err {
+	AcquireDeviceErr(AccessDenied) => Refused(message(err))
+	_ => Lost(message(err))
+}
+
 discover = |state| {
 	next = state.generation + 1
 	Action.task({
-		pending: { ..state, generation: next, devices: [], status: "Discovering devices" },
-		run: || match Device.acquire!({}) { Err(err) => DiscoveryFailed(err), Ok(grant) => match Device.discover!(grant) { Err(err) => DiscoveryFailed(err), Ok(devices) => Discovered(devices) } },
-		resolve: |latest, result| if latest.generation != next Action.none else match result { DiscoveryFailed(err) => Action.update({ ..latest, status: message(err) }), Discovered(devices) => Action.update({ ..latest, devices, status: "Found ${List.len(devices).to_str()} device" }) },
+		pending: { ..state, generation: next, devices: [], status: Discovering },
+		run: || match Device.acquire!() {
+			Err(err) => DiscoveryFailed(err)
+			Ok(grant) => match grant.discover!() {
+				Err(err) => DiscoveryFailed(err)
+				Ok(devices) => Discovered(devices)
+			}
+		},
+		resolve: |latest, result| if latest.generation != next Action.none else match result {
+			DiscoveryFailed(err) => Action.update({ ..latest, status: refusal(err) })
+			Discovered(devices) => Action.update({ ..latest, devices, status: Discovered(List.len(devices)) })
+		},
 	})
 }
 
 connect = |state| {
 	next = state.generation + 1
 	Action.task({
-		pending: { ..state, generation: next, status: "Connecting" },
-		run: || match Device.acquire!({}) {
+		pending: { ..state, generation: next, status: Connecting },
+		run: || match Device.acquire!() {
 			Err(err) => ConnectFailed(err)
-			Ok(grant) => match Device.connect!(grant) {
+			Ok(grant) => match grant.connect!() {
 				Err(err) => ConnectFailed(err)
-				Ok(connection) => match Device.transact!(connection, Protocol.read_request) { Err(err) => ConnectFailed(err), Ok(bytes) => match Protocol.decode_config(bytes) { Err(_) => ProtocolFailed, Ok(config) => Connected({ config, connection }) } }
+				Ok(connection) => match connection.transact!(Protocol.read_request) {
+					Err(err) => ConnectFailed(err)
+					Ok(bytes) => match Protocol.decode_config(bytes) {
+						Err(_) => ProtocolFailed
+						Ok(config) => Connected({ config, connection })
+					}
+				}
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Action.none else match result { ConnectFailed(err) => Action.update({ ..latest, status: message(err) }), ProtocolFailed => Action.update({ ..latest, status: "Unsupported device protocol" }), Connected(value) => Action.update({ ..latest, config: Some(value.config), connected: Some(value.connection), dirty: False, status: "Connected and synchronized" }) },
+		resolve: |latest, result| if latest.generation != next Action.none else match result {
+			ConnectFailed(err) => Action.update({ ..latest, status: refusal(err) })
+			ProtocolFailed => Action.update({ ..latest, status: Lost("Unsupported device protocol") })
+			Connected(value) => Action.update({
+				..latest,
+				config: Some(value.config),
+				connected: Some(value.connection),
+				dirty: False,
+				status: Connected,
+			})
+		},
 	})
 }
 
+## A transaction that fails because the device went away leaves a handle that
+## refers to nothing. Keeping it would offer Disconnect and Apply for hardware
+## that is no longer there, so the connection is given up with the error.
+apply = |state, connection, config| Action.task({
+	pending: { ..state, status: Applying },
+	run: || match connection.transact!(Protocol.apply_request(config)) {
+		Err(err) => ApplyFailed(err)
+		Ok(bytes) => match Protocol.decode_apply(bytes) {
+			Ok(_) => Applied
+			Err(_) => ApplyProtocolFailed
+		}
+	},
+	resolve: |latest, result| match result {
+		Applied => Action.update({ ..latest, dirty: False, status: Applied })
+		ApplyProtocolFailed => Action.update({ ..latest, status: Lost("The device returned an invalid acknowledgement") })
+		ApplyFailed(err) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
+	},
+})
+
+disconnect = |state, connection| Action.task({
+	pending: { ..state, status: Disconnecting },
+	run: || connection.close!(),
+	resolve: |latest, result| match result {
+		Err(err) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
+		Ok(_) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Disconnected })
+	},
+})
+
+edited = |state, config| { ..state, config: Some(config), dirty: True, status: Dirty }
+
+## The bounds are enforced here rather than at the transaction, so a person is
+## never allowed to compose a request the device would refuse.
 change_sensitivity = |state, increase| match state.config {
 	None => state
 	Some(config) => {
-		next = if increase { if config.sensitivity >= 3100 3200 else config.sensitivity + 100 } else { if config.sensitivity <= 200 100 else config.sensitivity - 100 }
-		{ ..state, config: Some({ ..config, sensitivity: next }), dirty: True, status: "Unsaved changes" }
+		next = if increase {
+			if config.sensitivity + sensitivity_step >= sensitivity_ceiling sensitivity_ceiling else config.sensitivity + sensitivity_step
+		} else if config.sensitivity <= sensitivity_floor + sensitivity_step {
+			sensitivity_floor
+		} else {
+			config.sensitivity - sensitivity_step
+		}
+		edited(state, { ..config, sensitivity: next })
 	}
 }
 
-toggle_lighting = |state, checked| match state.config { None => state, Some(config) => { ..state, config: Some({ ..config, lighting: checked }), dirty: True, status: "Unsaved changes" } }
-select_profile = |state, profile| match state.config { None => state, Some(config) => { ..state, config: Some({ ..config, profile }), dirty: True, status: "Unsaved changes" } }
-
-apply = |state| match { connection: state.connected, config: state.config } {
-	{ connection: Some(connection), config: Some(config) } => Action.task({
-		pending: { ..state, status: "Applying configuration" },
-		run: || match Device.transact!(connection, Protocol.apply_request(config)) { Err(err) => ApplyFailed(err), Ok(bytes) => match Protocol.decode_apply(bytes) { Ok(_) => Applied, Err(_) => ApplyProtocolFailed } },
-		resolve: |latest, result| match result { Applied => Action.update({ ..latest, dirty: False, status: "Configuration applied" }), ApplyProtocolFailed => Action.update({ ..latest, status: "Device returned an invalid acknowledgement" }), ApplyFailed(err) => Action.update({ ..latest, status: message(err) }) },
-	})
-	_ => Action.update({ ..state, status: "Connect a device first" })
+toggle_lighting = |state, checked| match state.config {
+	None => state
+	Some(config) => edited(state, { ..config, lighting: checked })
 }
 
-disconnect = |state| match state.connected {
-	None => Action.update({ ..state, status: "No device is connected" })
-	Some(connection) => Action.task({
-		pending: { ..state, status: "Disconnecting" },
-		run: || Device.close!(connection),
-		resolve: |latest, result| match result { Err(err) => Action.update({ ..latest, status: message(err) }), Ok(_) => Action.update({ ..latest, connected: None, config: None, dirty: False, status: "Disconnected" }) },
-	})
-}
-
-control_items = |count| {
-	var $items = []
-	var $index = 0
-	while $index < U16.to_u64(count) {
-		key = $index
-		$items = $items.append(Elem.VirtualListItem.{ key, content: Elem.text("Control ${($index + 1).to_str()}: Primary action") })
-		$index = $index + 1
-	}
-	$items
-}
-
-render = |state| {
-	connected = match state.connected { Some(_) => True, None => False }
-	device_rows = state.devices.map_with_index(|device, index| Elem.text("Device ${index.to_str()}: ${device.manufacturer} ${device.product}"))
-	settings = match state.config {
-		None => [Elem.text("Connect to inspect configuration")]
-		Some(config) => [
-			Elem.text("Sensitivity: ${config.sensitivity.to_str()} DPI"),
-			Elem.row(Elem.RowProps.{ label: "Sensitivity controls" }, [
-				Elem.action_button(Elem.ActionButtonProps.{ caption: "Decrease", label: "Decrease sensitivity", on_press: |current, _| Action.update(change_sensitivity(current, False)) }),
-				Elem.action_button(Elem.ActionButtonProps.{ caption: "Increase", label: "Increase sensitivity", on_press: |current, _| Action.update(change_sensitivity(current, True)) }),
-			]),
-			Elem.checkbox(Elem.CheckboxProps.{ label: "Device lighting", checked: config.lighting, on_change: |current, event| Action.update(toggle_lighting(current, event.checked)) }),
-			Elem.row(Elem.RowProps.{ label: "Profile controls" }, [1, 2, 3, 4, 5].map(|profile| Elem.action_button(Elem.ActionButtonProps.{ caption: "Profile ${profile.to_str()}", label: "Select profile ${profile.to_str()}", on_press: |current, _| Action.update(select_profile(current, profile)) }))),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Apply changes", label: "Apply configuration", enabled: state.dirty, on_press: |current, _| apply(current) }),
-			Elem.virtual_list(Elem.VirtualListProps.{ name: "Device controls", row_height: 28, items: control_items(config.controls) }),
-		]
-	}
-	Elem.col(Elem.ColProps.{ label: "Device Configurator", width: Fill, height: Fill, grow: True, gap: 12 }, [
-		Elem.text("Device Configurator"),
-		Elem.row(Elem.RowProps.{ label: "Device actions" }, [
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Discover devices", label: "Discover devices", on_press: |current, _| discover(current) }),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Connect", label: "Connect device", enabled: List.len(state.devices) > 0 and !connected, on_press: |current, _| connect(current) }),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Disconnect", label: "Disconnect device", enabled: connected, on_press: |current, _| disconnect(current) }),
-			Elem.text(state.status),
-		]),
-	].concat(device_rows).concat(settings))
+select_profile = |state, profile| match state.config {
+	None => state
+	Some(config) => edited(state, { ..config, profile })
 }

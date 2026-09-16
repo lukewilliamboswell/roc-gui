@@ -58,6 +58,8 @@ pub enum NodeKind {
         label: String,
         checked: bool,
         enabled: bool,
+        /// The indicator's own colours, each None for the host's default.
+        indicator: CheckboxIndicator,
         style: Style,
     },
     Textarea {
@@ -95,6 +97,7 @@ pub enum NodeKind {
     Scroll {
         name: String,
         axis: ScrollAxis,
+        style: Style,
     },
     VirtualItem {
         key: u64,
@@ -102,6 +105,9 @@ pub enum NodeKind {
     VirtualList {
         name: String,
         row_height: u32,
+        /// Space held clear at the bottom of each row inside `row_height`.
+        row_gap: u32,
+        style: Style,
     },
     TextInput {
         label: String,
@@ -109,6 +115,15 @@ pub enum NodeKind {
         placeholder: String,
         enabled: bool,
         style: Style,
+    },
+    /// Text that carries its own type: colour, size, weight, and face, with no
+    /// container element to hold them.
+    StyledText {
+        value: String,
+        fg: Option<u32>,
+        font_size: u32,
+        font_weight: u32,
+        font_face: FontFace,
     },
     Text(String),
 }
@@ -165,10 +180,27 @@ impl NodeKind {
         )
     }
 
+    /// Whether a pointer press on this control is dispatched to Roc as a click.
+    ///
+    /// This is the single definition of what `Runtime::event_if_live` will
+    /// route; the window runner consults it so a simulated press cannot claim
+    /// to have activated a control the production handler would have ignored.
+    pub fn dispatches_click(&self) -> bool {
+        matches!(
+            self,
+            Self::Button { enabled: true, .. }
+                | Self::Checkbox { enabled: true, .. }
+                | Self::Dialog { .. }
+        )
+    }
+
     /// Whether this control accepts pointer activation.
     ///
     /// The production render path attaches a click handler only to enabled
-    /// controls, so a simulated click must honour the same condition.
+    /// controls, so a simulated click must honour the same condition. A canvas
+    /// is deliberately absent: it takes raw press, move, and release events
+    /// with coordinates through `Runtime::canvas_pointer`, not a click, so a
+    /// simulated click would reach no handler at all.
     pub fn accepts_pointer(&self) -> bool {
         matches!(
             self,
@@ -176,8 +208,58 @@ impl NodeKind {
                 | Self::Checkbox { enabled: true, .. }
                 | Self::TextInput { enabled: true, .. }
                 | Self::Textarea { enabled: true, .. }
-                | Self::Canvas { .. }
         )
+    }
+
+    /// Which kind this is, as a number, for identity comparisons.
+    ///
+    /// Two nodes are the same element across a patch only if they agree here:
+    /// a button that became a checkbox at the same place is a different
+    /// control, whatever it is called.
+    pub fn tag(&self) -> u8 {
+        match self {
+            Self::Canvas { .. } => 0,
+            Self::Button { .. } => 1,
+            Self::Checkbox { .. } => 2,
+            Self::Textarea { .. } => 3,
+            Self::Image { .. } => 4,
+            Self::Column { .. } => 5,
+            Self::Dialog { .. } => 6,
+            Self::Panel { .. } => 7,
+            Self::Row { .. } => 8,
+            Self::Scroll { .. } => 9,
+            Self::VirtualItem { .. } => 10,
+            Self::VirtualList { .. } => 11,
+            Self::TextInput { .. } => 12,
+            Self::Text(_) => 13,
+            Self::StyledText { .. } => 14,
+        }
+    }
+
+    /// The name this node carries among its siblings, when it has one a patch
+    /// preserves.
+    ///
+    /// This is the same name a specification locates the node by, which is
+    /// what makes it the application's own statement of what the thing is.
+    /// `Text` has no name — a paragraph is identified by where it sits — and a
+    /// virtual item is named by the key its application chose for the row.
+    pub fn sibling_name(&self) -> Option<String> {
+        let name = match self {
+            Self::Canvas { label, .. }
+            | Self::Button { label, .. }
+            | Self::Checkbox { label, .. }
+            | Self::Textarea { label, .. }
+            | Self::Image { label, .. }
+            | Self::Column { label, .. }
+            | Self::Dialog { label, .. }
+            | Self::Panel { label, .. }
+            | Self::Row { label, .. }
+            | Self::TextInput { label, .. } => label.clone(),
+            Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.clone(),
+            Self::VirtualItem { key } => key.to_string(),
+            Self::Text(_) | Self::StyledText { .. } => String::new(),
+        };
+        (!name.is_empty()).then_some(name)
     }
 
     pub fn focus_identity(&self) -> Option<(u8, String)> {
@@ -251,23 +333,98 @@ pub enum ImageFit {
     ScaleDown,
 }
 
+/// Where a container places its children across its layout axis.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Align {
+    /// The element's own native alignment.
+    #[default]
+    Native,
+    Start,
+    Center,
+    End,
+    Baseline,
+    Stretch,
+}
+
+/// How a container distributes its children along its layout axis.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Justify {
+    /// The element's own native distribution.
+    #[default]
+    Native,
+    Start,
+    Center,
+    End,
+    Between,
+    Around,
+}
+
+/// The checkbox indicator's colours. `fg` reaches the caption; these reach the
+/// box and its mark, which otherwise keep host values chosen for a dark ground.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CheckboxIndicator {
+    pub box_bg: Option<u32>,
+    pub box_checked_bg: Option<u32>,
+    pub box_border: Option<u32>,
+    pub mark_color: Option<u32>,
+}
+
+/// The typeface family a string is set in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FontFace {
+    #[default]
+    Default,
+    Monospace,
+}
+
+/// How a string behaves when it is wider than the space it was given.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TextOverflow {
+    #[default]
+    Wrap,
+    NoWrap,
+    Ellipsis,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Style {
     pub gap: u32,
-    pub padding: u32,
+    /// Top, right, bottom, left, already resolved from the shorthand.
+    pub padding: [u32; 4],
     pub width: Length,
     pub height: Length,
+    /// Floors and ceilings for the two sides. A fixed length is otherwise a
+    /// shrinkable basis, so a sibling's overflow can squeeze it.
+    pub min_width: Length,
+    pub min_height: Length,
+    pub max_width: Length,
+    pub max_height: Length,
     pub grow: bool,
     pub bg: Option<u32>,
     pub hover_bg: Option<u32>,
     pub active_bg: Option<u32>,
+    pub disabled_bg: Option<u32>,
+    pub disabled_fg: Option<u32>,
+    pub focus_color: Option<u32>,
     pub fg: Option<u32>,
     pub border_color: Option<u32>,
-    pub border_width: u32,
+    /// Top, right, bottom, left, already resolved from the shorthand.
+    pub border_width: [u32; 4],
     pub radius: u32,
     pub font_size: u32,
+    pub font_weight: u32,
+    /// A soft drop shadow: blur radius, downward offset, colour, and the
+    /// percentage of that colour it is painted at. A zero blur paints none.
+    pub shadow: u32,
+    pub shadow_y: u32,
+    pub shadow_color: Option<u32>,
+    pub shadow_alpha: u32,
+    pub font_face: FontFace,
+    pub text_overflow: TextOverflow,
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,
+    pub align: Align,
+    pub justify: Justify,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -312,6 +469,37 @@ pub struct GraphApply {
     pub parent: Option<(u64, usize)>,
 }
 
+/// One step of an [`ElementIdentity`]: a node's key among its siblings.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IdentitySegment {
+    /// The node names itself. `occurrence` separates siblings that share a
+    /// name, and is 0 for the overwhelmingly common unique case.
+    Named {
+        tag: u8,
+        name: String,
+        occurrence: u32,
+    },
+    /// The node has no name of its own, so its place among its siblings is
+    /// what identifies it.
+    Positional { index: usize },
+}
+
+impl IdentitySegment {
+    fn of(node: &Node, index: usize, occurrence: u32) -> Self {
+        match node.kind.sibling_name() {
+            Some(name) => Self::Named {
+                tag: node.kind.tag(),
+                name,
+                occurrence,
+            },
+            None => Self::Positional { index },
+        }
+    }
+}
+
+/// The path of sibling keys from the mounted root down to one node.
+pub type ElementIdentity = Vec<IdentitySegment>;
+
 /// The canonical mounted UI graph. Both semantic specs and the GPUI runtime
 /// apply patches here; GPUI entities are only a materialized view of this state.
 #[derive(Default)]
@@ -341,6 +529,80 @@ impl MountedGraph {
             pending.extend(node.children.iter().rev().copied());
         }
         ordered
+    }
+
+    /// Where every mounted node sits, named rather than numbered.
+    ///
+    /// A mounted node id is deliberately never reused, so it cannot say that
+    /// the control in this frame is the control a person is already pressing
+    /// in the last one. This is the identity that can: the path of sibling
+    /// keys from the root, each key the node's own name when it has one and
+    /// its position when it has not. It is stable across a patch that rebuilds
+    /// the whole tree, and it changes the moment the application says the
+    /// control is a different control.
+    ///
+    /// Repeated names among siblings are disambiguated by occurrence, so the
+    /// identity of a node is unique within the graph even when an application
+    /// gives two sibling buttons the same name.
+    pub fn element_identities(&self) -> HashMap<u64, ElementIdentity> {
+        let mut identities = HashMap::new();
+        if let Some(root) = self.root {
+            let key = self
+                .node(root)
+                .map(|node| IdentitySegment::of(node, 0, 0))
+                .unwrap_or(IdentitySegment::Positional { index: 0 });
+            self.identities_below(root, key, &[], &mut identities);
+        }
+        identities
+    }
+
+    /// The sibling keys of one node's children, in child order.
+    ///
+    /// Repeated names are separated here, where the siblings are all in view.
+    pub fn child_segments(&self, parent: u64) -> Vec<(u64, IdentitySegment)> {
+        let Some(node) = self.node(parent) else {
+            return Vec::new();
+        };
+        let mut seen: HashMap<(u8, String), u32> = HashMap::new();
+        let mut segments = Vec::with_capacity(node.children.len());
+        for (index, child) in node.children.iter().enumerate() {
+            let Some(child_node) = self.node(*child) else {
+                continue;
+            };
+            let occurrence = match child_node.kind.sibling_name() {
+                Some(name) => {
+                    let slot = seen.entry((child_node.kind.tag(), name)).or_default();
+                    let occurrence = *slot;
+                    *slot += 1;
+                    occurrence
+                }
+                None => 0,
+            };
+            segments.push((*child, IdentitySegment::of(child_node, index, occurrence)));
+        }
+        segments
+    }
+
+    /// Record identities for `root` and everything beneath it, given the
+    /// identity of its parent and its own key among that parent's children.
+    pub fn identities_below(
+        &self,
+        root: u64,
+        own: IdentitySegment,
+        parent_identity: &[IdentitySegment],
+        into: &mut HashMap<u64, ElementIdentity>,
+    ) {
+        let mut identity = parent_identity.to_vec();
+        identity.push(own);
+        let mut pending = vec![(root, identity)];
+        while let Some((id, identity)) = pending.pop() {
+            for (child, segment) in self.child_segments(id) {
+                let mut child_identity = identity.clone();
+                child_identity.push(segment);
+                pending.push((child, child_identity));
+            }
+            into.insert(id, identity);
+        }
     }
 
     pub fn active_dialog(&self) -> Option<u64> {
@@ -387,11 +649,54 @@ impl MountedGraph {
         found
     }
 
+    /// Which child of `ancestor` contains `id`, by position.
+    ///
+    /// A virtual list's rows below the fold are in the mounted graph but have
+    /// no element and no laid-out bounds, so bringing one into view is an
+    /// index, not a rectangle. `None` when `id` is not under `ancestor`.
+    pub fn child_index_containing(&self, ancestor: u64, id: u64) -> Option<usize> {
+        let mut current = id;
+        loop {
+            let parent = self.nodes.get(&current).and_then(|entry| entry.parent)?.0;
+            if parent == ancestor {
+                return self
+                    .nodes
+                    .get(&ancestor)
+                    .and_then(|entry| entry.node.children.iter().position(|child| *child == current));
+            }
+            current = parent;
+        }
+    }
+
     pub fn first_focusable_in(&self, ancestor: u64) -> Option<u64> {
         self.nodes_preorder().into_iter().find_map(|node| {
             (self.is_descendant_of(node.id, ancestor) && node.kind.focus_identity().is_some())
                 .then_some(node.id)
         })
+    }
+
+    /// Every focusable control, in the order Tab visits them.
+    pub fn focus_order(&self) -> Vec<u64> {
+        self.nodes_preorder()
+            .into_iter()
+            .filter_map(|node| node.kind.focus_identity().is_some().then_some(node.id))
+            .collect()
+    }
+
+    /// Where focus should go when the control that had it is gone from this
+    /// graph entirely.
+    ///
+    /// The control held position `was_at` in the previous graph's focus order.
+    /// Focus moves to whatever now occupies that position — which, when a row
+    /// is deleted from a list, is the row that followed it — and to the last
+    /// focusable control when the removed one was at the end. A graph with
+    /// nothing focusable yields nothing, because there is nowhere to go.
+    pub fn focus_destination(&self, was_at: usize) -> Option<u64> {
+        let order = self.focus_order();
+        if order.is_empty() {
+            return None;
+        }
+        Some(order[was_at.min(order.len() - 1)])
     }
 
     pub fn find_focus_identity(&self, identity: &(u8, String)) -> Option<u64> {
@@ -872,6 +1177,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     for node in nodes {
         match node.kind {
             NodeKind::Text(_)
+            | NodeKind::StyledText { .. }
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
@@ -961,6 +1267,7 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
     for node in nodes {
         match node.kind {
             NodeKind::Text(_)
+            | NodeKind::StyledText { .. }
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
@@ -1019,6 +1326,58 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn focus_moves_to_whatever_took_the_place_of_a_removed_control() {
+        let mut graph = MountedGraph::default();
+        let button = |id: u64, name: &str| Node {
+            id,
+            kind: NodeKind::Button {
+                caption: name.into(),
+                label: name.into(),
+                enabled: true,
+                style: Style::default(),
+            },
+            children: vec![],
+        };
+        let row = |id: u64, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Row {
+                label: String::new(),
+                style: Style::default(),
+            },
+            children,
+        };
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![row(1, vec![2, 3, 4]), button(2, "a"), button(3, "b"), button(4, "c")],
+            })
+            .expect("mount");
+        assert_eq!(graph.focus_order(), vec![2, 3, 4]);
+
+        // "b" had focus, at position 1, and is gone from the next graph.
+        graph
+            .apply(Patch::Replace {
+                old_root: 1,
+                root: 5,
+                nodes: vec![row(5, vec![6, 7]), button(6, "a"), button(7, "c")],
+            })
+            .expect("replace");
+        assert_eq!(
+            graph.focus_destination(1),
+            Some(7),
+            "focus should land on the control that took the removed one's place"
+        );
+        // The last control removed: focus lands on the new last one.
+        assert_eq!(graph.focus_destination(9), Some(7));
+    }
+
+    #[test]
+    fn a_graph_with_nothing_focusable_offers_nowhere_for_focus_to_go() {
+        let graph = MountedGraph::default();
+        assert_eq!(graph.focus_destination(0), None);
+    }
     use super::*;
 
     fn button(label: &str, enabled: bool) -> NodeKind {
@@ -1027,6 +1386,56 @@ mod tests {
             label: label.into(),
             enabled,
             style: Style::default(),
+        }
+    }
+
+    /// Every control a simulated pointer is allowed to press must have somewhere
+    /// for that press to go: it either dispatches a click through the Roc event
+    /// route, or it takes keyboard focus instead. A kind that satisfies neither
+    /// would let the window runner report a successful `click` while the
+    /// application never saw the press.
+    #[test]
+    fn every_pointer_target_either_dispatches_or_takes_focus() {
+        let kinds = [
+            button("Open", true),
+            NodeKind::Checkbox {
+                label: "Show files".into(),
+                checked: false,
+                enabled: true,
+                indicator: CheckboxIndicator::default(),
+                style: Style::default(),
+            },
+            NodeKind::TextInput {
+                label: "Name".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Style::default(),
+            },
+            NodeKind::Textarea {
+                label: "Notes".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                read_only: false,
+                style: Style::default(),
+            },
+            NodeKind::Canvas {
+                label: "Timeline track".into(),
+                primitives: vec![],
+                style: Style::default(),
+            },
+            NodeKind::Dialog {
+                label: "Confirm".into(),
+                style: Style::default(),
+            },
+            NodeKind::Text("Frame 0".into()),
+        ];
+        for kind in &kinds {
+            assert!(
+                !kind.accepts_pointer() || kind.dispatches_click() || kind.focuses_on_pointer(),
+                "{kind:?} accepts a pointer press that reaches no handler"
+            );
         }
     }
 
@@ -1042,23 +1451,8 @@ mod tests {
             label: "Show files".into(),
             checked: false,
             enabled: true,
-            style: Style {
-                gap: 0,
-                padding: 0,
-                width: Length::Auto,
-                height: Length::Auto,
-                grow: false,
-                bg: None,
-                hover_bg: None,
-                active_bg: None,
-                fg: None,
-                border_color: None,
-                border_width: 0,
-                radius: 0,
-                font_size: 0,
-                overflow_x: Overflow::Visible,
-                overflow_y: Overflow::Visible,
-            },
+            indicator: CheckboxIndicator::default(),
+            style: Style::default(),
         };
         let disabled = match &enabled {
             NodeKind::Checkbox {
@@ -1070,6 +1464,7 @@ mod tests {
                 label: label.clone(),
                 checked: *checked,
                 enabled: false,
+                indicator: CheckboxIndicator::default(),
                 style: *style,
             },
             _ => unreachable!(),
@@ -1092,6 +1487,125 @@ mod tests {
             kind: NodeKind::Text(value.into()),
             children: vec![],
         }
+    }
+
+    /// Identity is what survives a patch that renumbers every node. Two trees
+    /// that describe the same controls must produce the same identities even
+    /// though they share no node id.
+    #[test]
+    fn identity_survives_a_rebuild_that_renumbers_every_node() {
+        let tree = |base: u64| {
+            vec![
+                Node {
+                    id: base,
+                    kind: NodeKind::Column {
+                        label: "Transport".into(),
+                        style: Style::default(),
+                    },
+                    children: vec![base + 1, base + 2, base + 3],
+                },
+                text(base + 1, "Frame 12"),
+                Node {
+                    id: base + 2,
+                    kind: button("Pause", true),
+                    children: vec![],
+                },
+                Node {
+                    id: base + 3,
+                    kind: button("Stop", true),
+                    children: vec![],
+                },
+            ]
+        };
+        let mut first = MountedGraph::default();
+        first
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: tree(1),
+            })
+            .expect("first mount");
+        let mut second = MountedGraph::default();
+        second
+            .apply(Patch::Mount {
+                root: 100,
+                nodes: tree(100),
+            })
+            .expect("second mount");
+        let before = first.element_identities();
+        let after = second.element_identities();
+        assert_eq!(before[&3], after[&102], "Pause changed identity");
+        assert_eq!(before[&1], after[&100], "the column changed identity");
+        assert_ne!(before[&3], before[&4], "two buttons share an identity");
+    }
+
+    /// Identity has to be unique inside one graph, or two controls would claim
+    /// the same GPUI element. Sibling names an application repeats, and
+    /// unnamed nodes, both have to stay apart.
+    #[test]
+    fn identity_is_unique_even_when_siblings_share_a_name() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![
+                    Node {
+                        id: 1,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default(),
+                        },
+                        children: vec![2, 3, 4, 5],
+                    },
+                    Node {
+                        id: 2,
+                        kind: button("Delete", true),
+                        children: vec![],
+                    },
+                    Node {
+                        id: 3,
+                        kind: button("Delete", true),
+                        children: vec![],
+                    },
+                    text(4, "one"),
+                    text(5, "two"),
+                ],
+            })
+            .expect("mount");
+        let identities = graph.element_identities();
+        let distinct = identities.values().collect::<HashSet<_>>();
+        assert_eq!(distinct.len(), identities.len());
+    }
+
+    /// A control whose name changes is a different control. That is what makes
+    /// a press on a control that left the tree get dropped rather than handed
+    /// to whatever replaced it.
+    #[test]
+    fn renaming_a_control_changes_its_identity() {
+        let mount = |name: &str| {
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: 1,
+                    nodes: vec![
+                        Node {
+                            id: 1,
+                            kind: NodeKind::Row {
+                                label: "Transport".into(),
+                                style: Style::default(),
+                            },
+                            children: vec![2],
+                        },
+                        Node {
+                            id: 2,
+                            kind: button(name, true),
+                            children: vec![],
+                        },
+                    ],
+                })
+                .expect("mount");
+            graph.element_identities()[&2].clone()
+        };
+        assert_ne!(mount("Pause"), mount("Play"));
     }
 
     #[test]
@@ -1205,6 +1719,7 @@ mod tests {
             kind: NodeKind::Scroll {
                 name: "contents".into(),
                 axis: ScrollAxis::Vertical,
+                style: Style::default(),
             },
             children: vec![],
         }];
@@ -1235,6 +1750,8 @@ mod tests {
                 kind: NodeKind::VirtualList {
                     name: "rows".into(),
                     row_height: 24,
+                    row_gap: 0,
+                    style: Style::default(),
                 },
                 children: vec![2, 4],
             },
@@ -1261,6 +1778,8 @@ mod tests {
                 kind: NodeKind::VirtualList {
                     name: "rows".into(),
                     row_height: 24,
+                    row_gap: 0,
+                    style: Style::default(),
                 },
                 children: vec![2],
             },
@@ -1268,6 +1787,38 @@ mod tests {
         graph.apply(Patch::Mount { root: 3, nodes }).unwrap();
         assert_eq!(graph.nodes_preorder().len(), 3);
         assert_eq!(graph.virtual_descendant_ids(), HashSet::from([1, 2]));
+    }
+
+    /// Bringing a virtual-list row into view is an index, not a rectangle: the
+    /// row below the fold is in the graph but has no element.
+    #[test]
+    fn a_rows_position_in_its_list_is_recoverable_from_a_descendant() {
+        let mut graph = MountedGraph::default();
+        let mut nodes = vec![Node {
+            id: 30,
+            kind: NodeKind::VirtualList {
+                name: "rows".into(),
+                row_height: 24,
+                row_gap: 0,
+                style: Style::default(),
+            },
+            children: vec![2, 4, 6],
+        }];
+        for (index, (item, leaf)) in [(2, 1), (4, 3), (6, 5)].into_iter().enumerate() {
+            nodes.push(text(leaf, &format!("row {index}")));
+            nodes.push(Node {
+                id: item,
+                kind: NodeKind::VirtualItem { key: item },
+                children: vec![leaf],
+            });
+        }
+        graph.apply(Patch::Mount { root: 30, nodes }).unwrap();
+        // The deepest node, two levels below the list, still names row two.
+        assert_eq!(graph.child_index_containing(30, 5), Some(2));
+        assert_eq!(graph.child_index_containing(30, 2), Some(0));
+        // The list is not inside itself, and an unrelated id is nowhere.
+        assert_eq!(graph.child_index_containing(30, 30), None);
+        assert_eq!(graph.child_index_containing(30, 99), None);
     }
 
     #[test]

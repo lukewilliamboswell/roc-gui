@@ -1,44 +1,48 @@
 # HTTP Workbench
 
-A local-first desktop client for composing, sending, inspecting, and organizing
-HTTP requests. It should be credible for everyday API development while remaining
-immediately useful with a bundled local sample service.
+A single-document HTTP client. One request is on screen at a time: method, URL,
+query string, one header, and a body. Sending it produces a read-only readout of
+the status line, the response headers, and the response body.
 
-The executable composes bounded canonical HTTP requests asynchronously with a
-method, URL, query string, one explicit header, and multiline body. It presents
-response status, headers, and body independently, retains operation-tagged
-errors, supports retry and dismissing obsolete results, and uses generation
-tracking so a superseded response cannot replace the latest one. Grant its
-development destination with
-`roc examples/http-workbench/main.roc -- --host-cap-http-origin http://127.0.0.1:38191`.
-Run its colocated specifications with
-`python3 scripts/run_specs.py 'examples/http-workbench/specs/*.scm'`.
+The example exercises HTTP authority scoped to one exact origin. That authority
+cannot be inspected, only exercised, so the bench names three honest states in
+its authority bar — not yet exercised, granted for an origin, refused for an
+origin — and a refusal names the exact grant that would answer it. Sends run as
+worker tasks with generation tracking, so a superseded reply cannot overwrite a
+newer one, and Dismiss retires a reply that is still in flight.
 
-## Core capabilities
+## Running
 
-- Request documents with method, URL, query, header, and body editors.
-- Asynchronous HTTP execution with explicit redirects, timeouts, response limits, and stale-result suppression.
-- Structured JSON and text response views, search, syntax highlighting, and large-content virtualization.
-- Secret-safe request history, named collections, environment values, and import/export.
-- Resizable panes, keyboard commands, focus management, and accessible status reporting.
+```sh
+python3 build.py
+roc build --output=http-workbench examples/http-workbench/main.roc
+./http-workbench -- --host-cap-http-origin http://127.0.0.1:38191
+```
 
-## Happy paths
+The grant names the one origin the bench may reach; without it every send comes
+back refused. `fixture_server.py` in this directory serves that origin and is
+started automatically by the specifications.
 
-- Open the sample collection, send a request, and inspect status, headers, timing, and formatted JSON.
-- Edit parameters and headers, duplicate a request, cancel an in-flight request, and resend it.
-- Save requests into a collection, reopen the application, and recover tabs and non-secret state.
-- Import a cURL request and export a collection without changing its meaning.
+## Not yet built
 
-## Error paths
+- No history, collections, environments, tabs, or import and export. Nothing is
+  persisted; the document starts from the same default every run.
+- No JSON formatting, syntax highlighting, search, or virtualisation. Headers
+  and body are shown as plain monospaced text.
+- One header per request, edited as a name and a value.
+- No resizable panes; the two sides are fixed.
+- The windowed runner cannot yet photograph a completed response, because a
+  worker task does not finish under it.
 
-- Invalid URLs, unsupported methods, malformed headers, and invalid structured bodies are rejected at the owning field.
-- DNS, connection, TLS, timeout, redirect-loop, cancellation, and truncated-response failures remain distinguishable.
-- Stale responses cannot replace a newer request, and a failed save never destroys the last valid collection.
-- Secrets are redacted from diagnostics, captures, history previews, and exported examples.
+## Assets
 
-## High-level goals
+The three shield marks in `icons/` are vendored; their provenance and licences
+are in `icons/NOTICE.md` and `THIRD_PARTY_LICENSES.md`.
 
-- Establish the production pattern for tasks, cancellation, stale-result suppression, and progress.
-- Drive multiline editing, large text, tree views, split panes, and clipboard interoperability.
-- SCM specs cover request editing, send/cancel/retry, persistence, import/export, errors, and keyboard-only use.
-- A scaling case loads a realistically large paginated response through the same bundled service and response renderer.
+## Specifications
+
+Sixteen specifications run on the semantic runner against the fixture server,
+covering the first send, keyboard submission, response headers, validation,
+refusals, body limits, dismissal, and stale-response suppression. Two run
+against the real window and assert the standing layout and the authority bar in
+its unexercised and refused readings.

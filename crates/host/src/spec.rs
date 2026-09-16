@@ -6,7 +6,86 @@ use crate::bridge::ControlKey;
 pub struct Spec {
     pub name: String,
     pub benchmark: Option<Benchmark>,
+    pub grants: Vec<Grant>,
     pub steps: Vec<Step>,
+}
+
+/// One capability a specification asks for.
+///
+/// A specification states everything it needs beside its steps, so the case can
+/// be read on its own. A specification that declares no grant receives no
+/// capability, and exercises denial through the application's ordinary
+/// acquisition path.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Grant {
+    /// Read access to one directory, relative to the application directory.
+    Directory(String),
+    /// A directory chooser the person dismisses without choosing.
+    ///
+    /// `(directory canceled)` provisions the chooser itself rather than a
+    /// grant: the acquisition path runs, no authority is produced, and
+    /// `pick_directory!` answers `Ok(Canceled)`. Cancelling is not a failure,
+    /// and an application that cannot be shown cancelling cannot be shown
+    /// treating it as one.
+    DirectoryCanceled,
+    /// Private application-data storage seeded from this directory.
+    AppData(String),
+    /// The content directory an `Assets.content_directory` store resolves to.
+    /// The application names no path of its own, so the case names the one the
+    /// host provisions.
+    Assets(String),
+    /// Clipboard authority: the real system clipboard, or a fixture source the
+    /// `clipboard-text` step drives.
+    Clipboard { system: bool },
+    /// A paced null audio sink in place of the system output device.
+    AudioNull,
+    /// HTTP access to exactly one origin.
+    HttpOrigin(String),
+    /// TCP access to exactly one `IP:PORT` endpoint.
+    Tcp(String),
+    /// A loopback service the harness starts before the case, and the port it
+    /// reports readiness on.
+    Server { script: String, port: u32 },
+    /// A PTY child profile: `local-shell` or `test-program`.
+    Process(String),
+    /// One HID device: `virtual`, `virtual:COUNT`, or a hexadecimal `VID:PID`.
+    Device(String),
+    /// A system sampler: `standard`, `unavailable`, or `processes:N`.
+    SystemMonitor(String),
+}
+
+impl Grant {
+    /// The grant's vocabulary name, which is also its uniqueness key.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Directory(_) | Self::DirectoryCanceled => "directory",
+            Self::AppData(_) => "app-data",
+            Self::Assets(_) => "assets",
+            Self::Clipboard { .. } => "clipboard",
+            Self::AudioNull => "audio",
+            Self::HttpOrigin(_) => "http-origin",
+            Self::Tcp(_) => "tcp",
+            Self::Server { .. } => "server",
+            Self::Process(_) => "process",
+            Self::Device(_) => "device",
+            Self::SystemMonitor(_) => "system-monitor",
+        }
+    }
+
+    /// The application-relative path this grant names, if it names one.
+    ///
+    /// Every path a specification supplies reaches a capability only after the
+    /// harness resolves it against the application directory and proves it
+    /// stays inside.
+    pub fn path(&self) -> Option<&str> {
+        match self {
+            Self::Directory(path)
+            | Self::AppData(path)
+            | Self::Assets(path)
+            | Self::Server { script: path, .. } => Some(path),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,6 +190,10 @@ pub enum Command {
     ExpectFileAccess([u64; 3]),
     RevokeFileGrants,
     ExpectImageOwnerCounters([u64; 4]),
+    /// Asset-store owner counters: opens, refused opens, manifest checks, reads,
+    /// refused reads, and bytes read. All six are numeric; no path, file name,
+    /// or asset content ever becomes evidence.
+    ExpectAssetCounters([u64; 6]),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -141,6 +224,31 @@ pub enum Command {
     Type(String),
     /// Send one real key chord, such as "cmd-a", through the keymap.
     Key(String),
+    /// Resize the production window, so a layout can be proved at a size other
+    /// than the one `main.roc` asks for.
+    Resize {
+        width: u32,
+        height: u32,
+    },
+    /// Move a scroll region or virtual list, so that content below the fold can
+    /// be asserted, clicked, and photographed.
+    Scroll {
+        region: Locator,
+        motion: ScrollMotion,
+    },
+}
+
+/// How far a `scroll` step moves its region.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScrollMotion {
+    /// By a signed number of logical pixels. Positive moves towards the end of
+    /// the content, the direction a wheel-down gesture moves it.
+    By(i32),
+    /// Until the located element is inside the region's viewport. The target
+    /// must be inside the region; for a virtual list it need not be
+    /// materialized, because the list is positioned by the target's index among
+    /// the region's children.
+    To(Locator),
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
@@ -254,6 +362,7 @@ impl Command {
             Self::ExpectFileAccess(_) => "expect-file-access",
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
+            Self::ExpectAssetCounters(_) => "expect-asset-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -273,6 +382,8 @@ impl Command {
             Self::Screenshot(_) => "screenshot",
             Self::Type(_) => "type",
             Self::Key(_) => "key",
+            Self::Resize { .. } => "resize",
+            Self::Scroll { .. } => "scroll",
         }
     }
 
@@ -293,17 +404,37 @@ impl Command {
             | Self::ExpectBounds(_, _)
             | Self::Screenshot(_)
             | Self::Type(_)
-            | Self::Key(_) => Capability::Window,
+            | Self::Key(_)
+            | Self::Resize { .. }
+            // Scrolling is a fact about a viewport and a content size, neither
+            // of which the semantic runner has: without layout there is no
+            // fold for content to be below.
+            | Self::Scroll { .. } => Capability::Window,
             // Shared with the semantic runner, and implemented by both.
             Self::Click(_)
             | Self::Focus(_)
             | Self::PressKey(_)
             | Self::AwaitTask
+            // The fixture clipboard is one process-wide store, so changing the
+            // granted source and waiting for the application's own timer to
+            // observe it mean the same thing under either runner. Without these
+            // two a windowed case could not put a single item into a
+            // clipboard-driven application, and so could not photograph one.
+            | Self::ClipboardText(_)
+            | Self::AwaitTicks(_)
             | Self::AwaitCount(_, _)
             | Self::ExpectVisible(_)
             | Self::ExpectFocused(_)
             | Self::ExpectNotVisible(_)
-            | Self::ExpectCount(_, _) => Capability::Both,
+            | Self::ExpectCount(_, _)
+            // Answered from the mounted graph alone, which both runners hold,
+            // and by one shared implementation rather than two. A window case
+            // can therefore assert a semantic truth and photograph it.
+            | Self::ExpectCanvasPrimitives(_, _)
+            | Self::ExpectValue(_, _)
+            | Self::ExpectValueBytes(_, _)
+            | Self::ExpectImageBytes(_, _)
+            | Self::ExpectBefore(_, _) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
             // They are honest claims, made by one runner rather than two; the
             // alternative of accepting a specification and then refusing a step
@@ -311,15 +442,8 @@ impl Command {
             // than about the application.
             Self::Drag(..)
             | Self::ReplaceText(_, _)
-            | Self::ClipboardText(_)
-            | Self::AwaitTicks(_)
             | Self::Submit(_)
             | Self::RevokeFileGrants
-            | Self::ExpectCanvasPrimitives(_, _)
-            | Self::ExpectValue(_, _)
-            | Self::ExpectValueBytes(_, _)
-            | Self::ExpectImageBytes(_, _)
-            | Self::ExpectBefore(_, _)
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
             | Self::ExpectProcesses(_)
@@ -339,7 +463,8 @@ impl Command {
             | Self::ExpectFileSelectionCounters(_)
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
-            | Self::ExpectImageOwnerCounters(_) => Capability::Semantic,
+            | Self::ExpectImageOwnerCounters(_)
+            | Self::ExpectAssetCounters(_) => Capability::Semantic,
         }
     }
 
@@ -357,6 +482,7 @@ impl Command {
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
                 | Self::RevokeFileGrants
+                | Self::Scroll { .. }
         )
     }
 }
@@ -499,10 +625,17 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
         .ok_or_else(|| error(root, "test requires a string name"))?
         .to_owned();
     let mut benchmark = None;
+    let mut grants = None;
     let mut steps = None;
     for section in &values[2..] {
         let list = require_list(section, "test section")?;
         match list.first().and_then(SExpr::atom) {
+            Some("grants") => {
+                if grants.is_some() {
+                    return Err(error(section, "duplicate grants clause"));
+                }
+                grants = Some(parse_grants(&list[1..])?);
+            }
             Some("benchmark") => {
                 if benchmark.is_some() {
                     return Err(error(section, "duplicate benchmark clause"));
@@ -558,8 +691,144 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
     Ok(Spec {
         name,
         benchmark,
+        grants: grants.unwrap_or_default(),
         steps,
     })
+}
+
+/// Parse the `(grants ...)` clause.
+///
+/// An absent clause and an empty clause both mean the same thing: this case
+/// receives no capability. The empty clause is how a denial case says so out
+/// loud.
+fn parse_grants(entries: &[SExpr]) -> Result<Vec<Grant>, ParseError> {
+    let mut grants: Vec<Grant> = Vec::new();
+    for entry in entries {
+        let list = require_list(entry, "grant")?;
+        let grant = parse_grant(entry, list)?;
+        if grants.iter().any(|existing| existing.name() == grant.name()) {
+            return Err(error(entry, format!("duplicate {} grant", grant.name())));
+        }
+        grants.push(grant);
+    }
+    Ok(grants)
+}
+
+fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
+    let name = list
+        .first()
+        .and_then(SExpr::atom)
+        .ok_or_else(|| error(node, "grant requires a name"))?;
+    match (name, list.len()) {
+        // `canceled` is an atom and a path is a string, so the two directory
+        // forms cannot be confused for one another.
+        ("directory", 2) if list[1].atom() == Some("canceled") => Ok(Grant::DirectoryCanceled),
+        ("directory", 2) => Ok(Grant::Directory(grant_path(&list[1], "directory")?)),
+        ("app-data", 2) => Ok(Grant::AppData(grant_path(&list[1], "app-data")?)),
+        ("assets", 2) => Ok(Grant::Assets(grant_path(&list[1], "assets")?)),
+        ("clipboard", 2) => match list[1].atom() {
+            Some("system") => Ok(Grant::Clipboard { system: true }),
+            Some("fixture") => Ok(Grant::Clipboard { system: false }),
+            _ => Err(error(node, "clipboard grant must be system or fixture")),
+        },
+        ("audio", 2) if list[1].atom() == Some("null") => Ok(Grant::AudioNull),
+        ("http-origin", 2) => Ok(Grant::HttpOrigin(grant_string(&list[1], "http-origin")?)),
+        ("tcp", 2) => Ok(Grant::Tcp(grant_string(&list[1], "tcp")?)),
+        ("server", 3) => {
+            let script = grant_path(&list[1], "server")?;
+            let port = list[2]
+                .atom()
+                .and_then(|value| value.parse::<u32>().ok())
+                .filter(|port| (1..=65535).contains(port))
+                .ok_or_else(|| error(node, "server grant requires a readiness port 1..65535"))?;
+            Ok(Grant::Server { script, port })
+        }
+        ("process", 2) => match list[1].atom() {
+            Some(profile @ ("local-shell" | "test-program")) => {
+                Ok(Grant::Process(profile.to_owned()))
+            }
+            _ => Err(error(node, "process grant must be local-shell or test-program")),
+        },
+        ("device", 2 | 3) => {
+            if list[1].atom() != Some("virtual") {
+                let identifier = grant_string(&list[1], "device")?;
+                if list.len() != 2 {
+                    return Err(error(node, "a VID:PID device grant takes no control count"));
+                }
+                return Ok(Grant::Device(identifier));
+            }
+            match list.get(2) {
+                None => Ok(Grant::Device("virtual".to_owned())),
+                Some(count) => {
+                    let controls = count
+                        .atom()
+                        .and_then(|value| value.parse::<u32>().ok())
+                        .ok_or_else(|| error(node, "virtual device control count must be an integer"))?;
+                    Ok(Grant::Device(format!("virtual:{controls}")))
+                }
+            }
+        }
+        ("system-monitor", 2 | 3) => match (list[1].atom(), list.get(2)) {
+            (Some(kind @ ("standard" | "unavailable")), None) => {
+                Ok(Grant::SystemMonitor(kind.to_owned()))
+            }
+            (Some("processes"), Some(count)) => {
+                let processes = count
+                    .atom()
+                    .and_then(|value| value.parse::<u32>().ok())
+                    .ok_or_else(|| error(node, "system-monitor process count must be an integer"))?;
+                Ok(Grant::SystemMonitor(format!("processes:{processes}")))
+            }
+            _ => Err(error(
+                node,
+                "system-monitor grant must be standard, unavailable, or (processes N)",
+            )),
+        },
+        (
+            "directory" | "app-data" | "assets" | "clipboard" | "audio" | "http-origin" | "tcp"
+            | "server" | "process" | "device" | "system-monitor",
+            _,
+        ) => Err(error(node, format!("malformed {name} grant"))),
+        _ => Err(error(
+            node,
+            format!(
+                "unsupported grant {name}; supported grants are app-data, audio, clipboard, \
+                 device, directory, http-origin, process, server, system-monitor, and tcp"
+            ),
+        )),
+    }
+}
+
+fn grant_string(node: &SExpr, name: &str) -> Result<String, ParseError> {
+    node.string()
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .ok_or_else(|| error(node, format!("{name} grant requires a non-empty string")))
+}
+
+/// Validate a path a specification supplies.
+///
+/// A grant path is relative to the application directory and may not leave it.
+/// The check is lexical and happens at parse time, so a path that escapes is a
+/// parse error naming its line rather than a capability the harness hands out.
+fn grant_path(node: &SExpr, name: &str) -> Result<String, ParseError> {
+    let value = grant_string(node, name)?;
+    if value.starts_with('/') || value.starts_with('\\') || value.contains('\0') {
+        return Err(error(
+            node,
+            format!("{name} grant path must be relative to the application directory"),
+        ));
+    }
+    if value
+        .split('/')
+        .any(|segment| segment.is_empty() || segment == "." || segment == "..")
+    {
+        return Err(error(
+            node,
+            format!("{name} grant path must stay inside the application directory"),
+        ));
+    }
+    Ok(value)
 }
 
 fn parse_benchmark(node: &SExpr, values: &[SExpr]) -> Result<Benchmark, ParseError> {
@@ -865,6 +1134,48 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectBounds(locator, expectation)
         }
+        "resize" if values.len() == 3 => {
+            let dimension = |index: usize, name: &str| -> Result<u32, ParseError> {
+                values[index]
+                    .atom()
+                    .and_then(|value| value.parse::<u32>().ok())
+                    .filter(|value| (64..=8192).contains(value))
+                    .ok_or_else(|| {
+                        error(
+                            &values[index],
+                            &format!("resize {name} is 64 to 8192 logical pixels"),
+                        )
+                    })
+            };
+            Command::Resize {
+                width: dimension(1, "width")?,
+                height: dimension(2, "height")?,
+            }
+        }
+        "scroll" if values.len() >= 2 => {
+            let region = parse_locator(&values[1])?;
+            let keywords = parse_keywords(head, &values[2..], &[":by", ":to"])?;
+            let motion = match (keywords.expr(":by"), keywords.expr(":to")) {
+                (Some(by), None) => {
+                    let amount = by
+                        .atom()
+                        .and_then(|text| text.parse::<i32>().ok())
+                        .filter(|value| value.unsigned_abs() >= 1 && value.unsigned_abs() <= 100_000)
+                        .ok_or_else(|| {
+                            error(by, "scroll :by is a non-zero number of logical pixels, up to 100000")
+                        })?;
+                    ScrollMotion::By(amount)
+                }
+                (None, Some(to)) => ScrollMotion::To(parse_locator(to)?),
+                _ => {
+                    return Err(error(
+                        node,
+                        "scroll requires exactly one of :by and :to",
+                    ));
+                }
+            };
+            Command::Scroll { region, motion }
+        }
         "settle" => {
             let keywords = parse_keywords(head, &values[1..], &[":frames", ":timeout-ms"])?;
             Command::Settle {
@@ -1061,6 +1372,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectImageOwnerCounters(expected)
         }
+        "expect-asset-counters" if values.len() == 7 => {
+            let mut expected = [0u64; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-asset-counters")? as u64;
+            }
+            Command::ExpectAssetCounters(expected)
+        }
         "expect-file-selection-counters" if values.len() == 8 => {
             let mut expected = [0u64; 7];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1217,6 +1535,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-access"
         | "revoke-file-grants"
         | "expect-image-owner-counters"
+        | "expect-asset-counters"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
@@ -1233,7 +1552,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-bounds"
         | "screenshot"
         | "type"
-        | "key" => {
+        | "key"
+        | "scroll" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -1270,19 +1590,7 @@ fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
             height: numbers[3],
         });
     }
-    let locator = parse_locator(node)?;
-    // Only a canvas node's own rectangle is recorded, never its primitives, so
-    // a canvas-item region would silently photograph the whole canvas.
-    if matches!(
-        locator,
-        Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
-    ) {
-        return Err(error(
-            node,
-            "canvas items have no recorded bounds; screenshot the canvas instead",
-        ));
-    }
-    Ok(Region::Locator(locator))
+    Ok(Region::Locator(parse_locator(node)?))
 }
 
 fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
@@ -1757,6 +2065,60 @@ mod tests {
     }
 
     #[test]
+    fn scroll_takes_a_distance_or_a_target_but_not_both() {
+        let spec = parse(
+            r#"(test "scroll"
+                (steps
+                  (scroll (role scroll :name "Directory contents") :by 240)
+                  (scroll (role scroll :name "Directory contents")
+                          :to (role row :name "Entry item-26.txt"))))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Scroll {
+                region: Locator::ScrollName("Directory contents".into()),
+                motion: ScrollMotion::By(240),
+            }
+        );
+        assert_eq!(
+            spec.steps[1].command,
+            Command::Scroll {
+                region: Locator::ScrollName("Directory contents".into()),
+                motion: ScrollMotion::To(Locator::RowName("Entry item-26.txt".into())),
+            }
+        );
+        // A negative distance scrolls back towards the start.
+        assert!(matches!(
+            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by -80)))"#)
+                .unwrap()
+                .steps[0]
+                .command,
+            Command::Scroll {
+                motion: ScrollMotion::By(-80),
+                ..
+            }
+        ));
+        for bad in [
+            r#"(test "s" (steps (scroll (role scroll :name "c"))))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :by 0)))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :by 10 :to (text "x"))))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :toward 10)))"#,
+        ] {
+            assert!(parse(bad).is_err(), "accepted {bad}");
+        }
+    }
+
+    #[test]
+    fn scrolling_is_window_only() {
+        let spec =
+            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by 40)))"#).unwrap();
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        let refusal = check_runner(&spec, Runner::Semantic).unwrap_err();
+        assert!(refusal.contains("window-only"), "{refusal}");
+    }
+
+    #[test]
     fn parses_named_scroll_region() {
         let spec = parse(
             r#"(test "scroll" (steps (expect-visible (role scroll :name "Directory contents"))))"#,
@@ -1777,6 +2139,17 @@ mod tests {
             spec.steps[0].command,
             Command::ExpectVisible(Locator::VirtualListName("Rows".into()))
         );
+    }
+
+    #[test]
+    fn parses_asset_owner_counters_as_six_numbers() {
+        let case = parse(r#"(test "assets" (steps (expect-asset-counters 1 0 1 2 0 4096)))"#)
+            .expect("asset counters parse");
+        assert_eq!(
+            case.steps[0].command,
+            Command::ExpectAssetCounters([1, 0, 1, 2, 0, 4096])
+        );
+        assert!(parse(r#"(test "assets" (steps (expect-asset-counters 1 2 3)))"#).is_err());
     }
 
     #[test]
@@ -1830,6 +2203,118 @@ mod tests {
         assert_eq!(spec.steps[1].command, Command::PressKey(ControlKey::Enter));
         assert_eq!(spec.steps[2].command, Command::PressKey(ControlKey::Escape));
         assert_eq!(spec.steps[3].command, Command::PressKey(ControlKey::Space));
+    }
+
+    #[test]
+    fn parses_a_complete_grant_set() {
+        let case = parse(
+            r#"(test "grants"
+                 (grants
+                   (directory "fixture")
+                   (app-data "app-data-fixture/default")
+                   (clipboard fixture)
+                   (audio null)
+                   (http-origin "http://127.0.0.1:38191")
+                   (tcp "127.0.0.1:36379")
+                   (server "fixture_server.py" 36379)
+                   (process test-program)
+                   (device virtual 100)
+                   (system-monitor processes 500))
+                 (steps (await-ticks 1)))"#,
+        )
+        .expect("grants parse");
+        assert_eq!(
+            case.grants,
+            vec![
+                Grant::Directory("fixture".into()),
+                Grant::AppData("app-data-fixture/default".into()),
+                Grant::Clipboard { system: false },
+                Grant::AudioNull,
+                Grant::HttpOrigin("http://127.0.0.1:38191".into()),
+                Grant::Tcp("127.0.0.1:36379".into()),
+                Grant::Server {
+                    script: "fixture_server.py".into(),
+                    port: 36379,
+                },
+                Grant::Process("test-program".into()),
+                Grant::Device("virtual:100".into()),
+                Grant::SystemMonitor("processes:500".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_specification_without_grants_receives_nothing() {
+        let declared = parse(r#"(test "none" (grants) (steps (await-ticks 1)))"#).unwrap();
+        let absent = parse(r#"(test "none" (steps (await-ticks 1)))"#).unwrap();
+        assert!(declared.grants.is_empty());
+        assert_eq!(declared.grants, absent.grants);
+    }
+
+    /// A cancelled chooser is provisioned, not absent: it is the one directory
+    /// outcome that produces no authority and is still not a failure.
+    #[test]
+    fn a_canceled_chooser_is_its_own_directory_provisioning() {
+        let case = parse(r#"(test "c" (grants (directory canceled)) (steps (await-ticks 1)))"#)
+            .expect("canceled chooser parses");
+        assert_eq!(case.grants, vec![Grant::DirectoryCanceled]);
+        assert_eq!(case.grants[0].name(), "directory");
+        assert_eq!(case.grants[0].path(), None);
+        // It occupies the directory slot, so a case cannot ask to be both
+        // cancelled and granted.
+        let duplicate = parse(
+            r#"(test "c" (grants (directory canceled) (directory "fixture")) (steps (await-ticks 1)))"#,
+        )
+        .unwrap_err();
+        assert!(duplicate.message.contains("duplicate directory grant"));
+        // A path stays a path: only the bare atom means cancellation.
+        assert_eq!(
+            parse(r#"(test "c" (grants (directory "canceled")) (steps (await-ticks 1)))"#)
+                .expect("quoted path parses")
+                .grants,
+            vec![Grant::Directory("canceled".into())]
+        );
+    }
+
+    #[test]
+    fn rejects_an_unknown_grant() {
+        let error = parse(r#"(test "g" (grants (webcam full)) (steps (await-ticks 1)))"#)
+            .unwrap_err();
+        assert_eq!(error.line, 1);
+        assert!(error.message.contains("unsupported grant webcam"));
+    }
+
+    #[test]
+    fn rejects_a_malformed_grant() {
+        let error = parse(
+            "(test \"g\"\n  (grants\n    (directory))\n  (steps (await-ticks 1)))",
+        )
+        .unwrap_err();
+        assert_eq!(error.line, 3);
+        assert!(error.message.contains("malformed directory grant"));
+        let profile = parse(r#"(test "g" (grants (process sudo)) (steps (await-ticks 1)))"#)
+            .unwrap_err();
+        assert!(profile.message.contains("local-shell or test-program"));
+        let duplicate =
+            parse(r#"(test "g" (grants (audio null) (audio null)) (steps (await-ticks 1)))"#)
+                .unwrap_err();
+        assert!(duplicate.message.contains("duplicate audio grant"));
+    }
+
+    #[test]
+    fn rejects_a_grant_path_leaving_the_application_directory() {
+        for path in ["../secrets", "/etc", "fixture/../../elsewhere", "./fixture"] {
+            let source = format!(
+                "(test \"g\"\n  (grants\n    (directory \"{path}\"))\n  (steps (await-ticks 1)))"
+            );
+            let error = parse(&source).unwrap_err();
+            assert_eq!(error.line, 3, "{path}");
+            assert!(
+                error.message.contains("application directory"),
+                "{path}: {}",
+                error.message
+            );
+        }
     }
 
     #[test]
@@ -2106,6 +2591,22 @@ mod tests {
         assert!(check_runner(&measured, Runner::Semantic).is_ok());
     }
 
+    /// Driving the fixture clipboard is the only way to put an item into a
+    /// clipboard-driven application, so a windowed case that cannot do it
+    /// cannot photograph one. Both runners reach the same process-wide store.
+    #[test]
+    fn the_fixture_clipboard_can_be_driven_by_either_runner() {
+        let spec = parse(
+            r#"(test "s" (steps (clipboard-text "copied") (await-ticks 1) (expect-visible (text "copied"))))"#,
+        )
+        .unwrap();
+        for step in &spec.steps {
+            assert_eq!(step.command.capability(), Capability::Both);
+        }
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+    }
+
     #[test]
     fn benchmark_clauses_are_semantic_only() {
         let spec = parse(
@@ -2196,25 +2697,49 @@ mod tests {
         }
     }
 
-    /// Only a canvas node's own rectangle is recorded, so a canvas-item region
-    /// would silently photograph the whole canvas.
+    /// A canvas primitive's rectangle is its canvas's, offset by the
+    /// coordinates the owner drew it at, so it is a region like any other.
     #[test]
-    fn screenshot_refuses_canvas_item_regions() {
-        let error =
+    fn screenshot_regions_reach_canvas_items() {
+        let spec =
             parse(r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#)
-                .unwrap_err();
-        assert!(
-            error
-                .message
-                .contains("canvas items have no recorded bounds"),
-            "{}",
-            error.message
+                .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Screenshot(Screenshot {
+                name: "a".into(),
+                region: Region::Locator(Locator::CanvasItemName("dot".into())),
+                pad: 0,
+            })
         );
     }
 
     /// The guard for the committed suite: every specification parses, and
     /// belongs to exactly one runner. Both kinds share a directory, so the file
     /// contents are the only thing that decides which runner takes it.
+    #[test]
+    fn resize_takes_a_bounded_logical_size() {
+        let parsed = parse("(test \"t\" (steps (resize 900 600)))").expect("valid resize");
+        assert!(matches!(
+            parsed.steps[0].command,
+            Command::Resize {
+                width: 900,
+                height: 600
+            }
+        ));
+        assert!(matches!(
+            parsed.steps[0].command.capability(),
+            Capability::Window
+        ));
+        for bad in [
+            "(test \"t\" (steps (resize 32 600)))",
+            "(test \"t\" (steps (resize 900 9000)))",
+            "(test \"t\" (steps (resize 900)))",
+        ] {
+            assert!(parse(bad).is_err(), "accepted {bad}");
+        }
+    }
+
     #[test]
     fn every_committed_spec_belongs_to_exactly_one_runner() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))

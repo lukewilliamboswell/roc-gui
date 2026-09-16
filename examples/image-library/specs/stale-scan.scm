@@ -1,4 +1,6 @@
 (test "a superseded folder scan cannot replace the current request"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open image folder"))
     (click (role button :name "Open image folder"))

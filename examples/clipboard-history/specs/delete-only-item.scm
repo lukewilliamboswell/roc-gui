@@ -1,0 +1,17 @@
+(test "deleting the only item leaves an empty history that still captures"
+  (grants
+    (clipboard fixture))
+  (steps
+    (click (role button :name "Start clipboard capture"))
+    (clipboard-text "alpha note")
+    (await-ticks 1)
+    (expect-visible (text "1 matching items"))
+    (click (role button :name "Delete item 1"))
+    (expect-visible (text "Item removed"))
+    (expect-visible (text "0 matching items"))
+    (expect-not-visible (text "alpha note"))
+    (expect-not-visible (role button :name "Delete item 1"))
+    (clipboard-text "beta task")
+    (await-ticks 1)
+    (expect-visible (text "1 matching items"))
+    (expect-visible (role button :name "Delete item 2"))))

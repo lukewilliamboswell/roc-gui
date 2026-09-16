@@ -1,5 +1,5 @@
 import pf.Action
-import pf.Elem exposing [Elem]
+import pf.Elem
 import pf.Gui
 
 ## A counter card in the "quiet paper" identity: an oversized numeral on a
@@ -17,6 +17,10 @@ Counter := [].{
 	rule = Gui.rgb(0xDCD5C4)
 	control_hover = Gui.rgb(0xEFE9DA)
 	control_active = Gui.rgb(0xE2DAC6)
+
+	## The keyboard focus ring. The host's amber suits its own dark ground and
+	## fights this paper one, so the card picks the ink it already uses.
+	focus_ring = Gui.rgb(0x9B4A32)
 
 	## Ink for the numeral: negative counts read in a muted red so the sign is
 	## legible at a glance rather than only in the glyph.
@@ -47,19 +51,27 @@ Counter := [].{
 			border_color: rule,
 			border_width: 1,
 			radius: 10,
+			focus_color: focus_ring,
 		},
 	)
 
-	## The numeral itself: clipped rather than reflowed, so a long value can
-	## never push the controls out of the card.
+	## The numeral itself. It takes whatever height the card has left rather
+	## than claiming a fixed one, so the caption, the numeral, and the controls
+	## always add up to the card instead of overrunning it by a few pixels, and
+	## the numeral sits on the optical centre of that space whatever size the
+	## value forced it down to. It stays on one line and ends in an ellipsis
+	## rather than reflowing, so a long value can never push the controls out of
+	## the card, and a shortened one never looks complete.
 	numeral = |count| Elem.col(
 		Elem.ColProps.{
 			gap: 0,
 			fg: numeral_ink(count),
 			font_size: numeral_size(count),
 			width: Fill,
-			height: Px(104),
-			overflow_x: Scroll,
+			grow: True,
+			justify: Center,
+			text_overflow: Ellipsis,
+			overflow_x: Clip,
 			overflow_y: Clip,
 		},
 		[Elem.text(count.to_str())],
@@ -69,7 +81,11 @@ Counter := [].{
 	render = |name, state| Elem.col(
 		Elem.ColProps.{
 			label: "${name} counter",
-			width: Px(232),
+			## The cards divide the page's measure between them rather than
+			## sitting at a fixed width with the remainder left over: a page
+			## that ends in dead space reads as an accident.
+			width: Fill,
+			grow: True,
 			height: Px(244),
 			padding: 28,
 			gap: 18,
@@ -77,6 +93,14 @@ Counter := [].{
 			border_color: rule,
 			border_width: 1,
 			radius: 16,
+			## The card is raised off the paper rather than outlined onto it: a
+			## hairline rule in this palette all but disappears against the
+			## ground it was chosen to sit quietly against, so the separation is
+			## a soft shadow in the page's own ink instead.
+			shadow: 18,
+			shadow_y: 6,
+			shadow_color: ink,
+			shadow_alpha: 10,
 		},
 		[
 			Elem.col(

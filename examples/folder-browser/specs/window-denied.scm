@@ -1,9 +1,14 @@
 ; The denial path: no directory grant, so the chooser refuses. The explanation
 ; belongs in the content area, with a way forward beside Retry.
 (test "Folder browser explains a refused directory grant"
+  (grants)
   (steps
     (settle)
+    ; The empty state belongs in the middle of the content area, not in its
+    ; top-left corner with padding standing in for alignment.
+    (expect-on-screen (role column :name "Directory notice"))
     (screenshot "before-choosing")
+    (screenshot "empty-state" :region (role column :name "Directory notice"))
     (click (role button :name "Choose directory"))
     (await-task)
     (settle)

@@ -1,4 +1,6 @@
 (test "surface unsupported and corrupt files without blocking the gallery"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open image folder"))
     (await-task)

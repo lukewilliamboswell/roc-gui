@@ -13,11 +13,11 @@ Audio := [].{
 	Reason : [AccessDenied, DecodeFailed, InvalidCapability, InvalidName, OutputUnavailable, ResourceLimit, Unsupported, Unavailable]
 	AudioErr : [AcquireAudioErr(Reason), LoadAudioErr(Reason), PauseAudioErr(Reason), PlayAudioErr(Reason), SeekAudioErr(Reason), StatusAudioErr(Reason), StopAudioErr(Reason)]
 
-	acquire! : {} => Try(Output, AudioErr)
-	acquire! = |{}| Host.audio_acquire!({}).map_err(|raw| AcquireAudioErr(decode_reason(raw.code)))
+	acquire! : () => Try(Output, AudioErr)
+	acquire! = || Host.audio_acquire!().map_err(|raw| AcquireAudioErr(decode_reason(raw.code)))
 
 	load! : Output, Files.Dir.Read, Str => Try(LoadedTrack, AudioErr)
-	load! = |output, directory, name| Host.audio_load!(output, directory, name).map_err(|raw| LoadAudioErr(decode_reason(raw.code)))
+	load! = |output, directory, name| Host.audio_load!(output, directory.resource(), name).map_err(|raw| LoadAudioErr(decode_reason(raw.code)))
 
 	play! : Track => Try({}, AudioErr)
 	play! = |track| Host.audio_play!(track).map_err(|raw| PlayAudioErr(decode_reason(raw.code)))

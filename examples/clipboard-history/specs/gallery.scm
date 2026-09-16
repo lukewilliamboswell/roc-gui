@@ -1,4 +1,6 @@
 (test "record the clipboard history gallery journey"
+  (grants
+    (clipboard fixture))
   (steps
     (settle)
     (screenshot "empty")

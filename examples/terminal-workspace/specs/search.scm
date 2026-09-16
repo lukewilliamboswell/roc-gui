@@ -1,4 +1,6 @@
 (test "scrollback search filters terminal output"
+  (grants
+    (process test-program))
   (steps
     (click (role button :name "New terminal"))
     (await-task)
@@ -12,8 +14,8 @@
     (await-task)
     (await-task)
     (replace-text (role textbox :name "Search terminal") "echo:beta")
-    (expect-visible (text-prefix "Terminal line: echo:beta"))
-    (expect-not-visible (text-prefix "Terminal line: echo:alpha"))
+    (expect-visible (text-prefix "echo:beta"))
+    (expect-not-visible (text-prefix "echo:alpha"))
     (click (role button :name "Stop terminal"))
     (await-task)
     (await-task)

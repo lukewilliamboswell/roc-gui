@@ -5,7 +5,7 @@ import pf.ImageData
 Gallery := [].{
 	Asset : { bytes : List(U8), format : Elem.ImageFormat, height : U32, name : Str, width : U32 }
 	Item : [Failed({ name : Str, reason : Str }), Ready(Asset)]
-	Scan : { items : List(Item), ordinary_files : U64 }
+	Scan : { items : List(Item) }
 	format_for : Str -> Try(Elem.ImageFormat, [Unsupported])
 	format_for = format_for
 	scan! : Files.Dir.Read, List(Files.Entry) => Scan
@@ -22,13 +22,11 @@ format_for = |file_name| if file_name.ends_with(".png") { Ok(Png) } else if file
 
 scan! = |directory, entries| {
 	var $items = []
-	var $ordinary = 0
 	for entry in entries {
 		if entry.kind == File {
-			$ordinary = $ordinary + 1
 			match format_for(entry.name) {
 				Err(_) => { $items = $items.append(Failed({ name: entry.name, reason: "Unsupported format" })) }
-				Ok(format) => match Files.Dir.read!(directory, entry.name) {
+				Ok(format) => match directory.read!(entry.name) {
 					Err(_) => { $items = $items.append(Failed({ name: entry.name, reason: "Read failed" })) }
 					Ok(bytes) => match ImageData.inspect!(bytes, format) {
 						Err(InspectImageErr(Corrupt)) => { $items = $items.append(Failed({ name: entry.name, reason: "Corrupt image" })) }
@@ -41,5 +39,5 @@ scan! = |directory, entries| {
 			}
 		}
 	}
-	{ items: $items, ordinary_files: $ordinary }
+	{ items: $items }
 }

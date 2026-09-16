@@ -1,4 +1,7 @@
 (test "reject unsupported methods and malformed headers at their document fields"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
   (steps
     (replace-text (role textbox :name "HTTP method") "BREW")
     (click (role button :name "Send request"))

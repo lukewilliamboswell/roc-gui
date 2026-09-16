@@ -1,4 +1,6 @@
 (test "reject a write statement"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

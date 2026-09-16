@@ -1,0 +1,18 @@
+(test "a cancelled session cannot pause the session that replaced it"
+  (grants
+    (system-monitor standard))
+  (steps
+    (click (role button :name "Resume sampling"))
+    (await-ticks 1)
+    (expect-visible (text "Live"))
+    (click (role button :name "Pause sampling"))
+    (click (role button :name "Resume sampling"))
+    (await-task)
+    (expect-visible (text "Live"))
+    (expect-system-samplers 1)
+    (expect-subscriptions 1)
+    (await-ticks 1)
+    (expect-visible (text "Live"))
+    (click (role button :name "Pause sampling"))
+    (expect-system-samplers 0)
+    (expect-subscriptions 0)))

@@ -1,6 +1,6 @@
 import Host
-import Action exposing [Action]
-import Elem exposing [Elem]
+import Action
+import Elem
 import Gui
 
 Internal := [].{
@@ -42,30 +42,107 @@ Internal := [].{
 		Scroll => 2
 	}
 
+	inset = |value, fallback| match value {
+		Same => fallback
+		Px(pixels) => if pixels <= max_style_value {
+			pixels
+		} else {
+			crash "Gui per-side padding is at most 16384 logical pixels"
+		}
+	}
+
+	font_face = |value| match value {
+		Default => 0
+		Monospace => 1
+	}
+
+	text_overflow = |value| match value {
+		Wrap => 0
+		NoWrap => 1
+		Ellipsis => 2
+	}
+
+	align = |value| match value {
+		Default => 0
+		Start => 1
+		Center => 2
+		End => 3
+		Baseline => 4
+		Stretch => 5
+	}
+
+	justify = |value| match value {
+		Default => 0
+		Start => 1
+		Center => 2
+		End => 3
+		Between => 4
+		Around => 5
+	}
+
 	style_args = |style| {
 		if style.gap > max_style_value or style.padding > max_style_value or style.border_width > max_style_value or style.radius > max_style_value or style.font_size > max_style_value {
 			crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
 		}
+		if style.font_weight != 0 and (style.font_weight < 100 or style.font_weight > 900) {
+			crash "Gui font_weight is 0 for the native default, or 100 through 900"
+		}
+		if style.shadow > max_style_value or style.shadow_y > max_style_value {
+			crash "Gui shadow blur and offset are at most 16384 logical pixels"
+		}
+		if style.shadow_alpha > 100 {
+			crash "Gui shadow_alpha is 0 through 100 percent"
+		}
 		width = length(style.width)
 		height = length(style.height)
+		min_width = length(style.min_width)
+		min_height = length(style.min_height)
+		max_width = length(style.max_width)
+		max_height = length(style.max_height)
 		{
 			gap: style.gap,
-			padding: style.padding,
+			padding_top: inset(style.padding_top, style.padding),
+			padding_right: inset(style.padding_right, style.padding),
+			padding_bottom: inset(style.padding_bottom, style.padding),
+			padding_left: inset(style.padding_left, style.padding),
 			width_kind: width.kind,
 			width: width.value,
 			height_kind: height.kind,
 			height: height.value,
+			min_width_kind: min_width.kind,
+			min_width: min_width.value,
+			min_height_kind: min_height.kind,
+			min_height: min_height.value,
+			max_width_kind: max_width.kind,
+			max_width: max_width.value,
+			max_height_kind: max_height.kind,
+			max_height: max_height.value,
 			grow: style.grow,
 			bg: color(style.bg),
 			hover_bg: color(style.hover_bg),
 			active_bg: color(style.active_bg),
+			disabled_bg: color(style.disabled_bg),
+			disabled_fg: color(style.disabled_fg),
+			focus_color: color(style.focus_color),
 			fg: color(style.fg),
 			border_color: color(style.border_color),
-			border_width: style.border_width,
+			border_top: inset(style.border_top, style.border_width),
+			border_right: inset(style.border_right, style.border_width),
+			border_bottom: inset(style.border_bottom, style.border_width),
+			border_left: inset(style.border_left, style.border_width),
 			radius: style.radius,
 			font_size: style.font_size,
+			font_weight: style.font_weight,
+			shadow: style.shadow,
+			shadow_y: style.shadow_y,
+			shadow_color: color(style.shadow_color),
+			shadow_alpha: style.shadow_alpha,
+			font_face: font_face(style.font_face),
+			text_overflow: text_overflow(style.text_overflow),
 			overflow_x: overflow(style.overflow_x),
 			overflow_y: overflow(style.overflow_y),
+			align: align(style.align),
+			justify: justify(style.justify),
 		}
 	}
 
@@ -101,33 +178,57 @@ Internal := [].{
 			id = Host.node_text!(value)
 			{ root: id, next_boundary, routes, boundaries }
 		}
+		StyledText(value) => {
+			if value.font_size > max_style_value {
+				crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
+			}
+			if value.font_weight != 0 and (value.font_weight < 100 or value.font_weight > 900) {
+				crash "Gui font_weight is 0 for the native default, or 100 through 900"
+			}
+			id = Host.node_styled_text!({ value: value.value, fg: color(value.fg), font_size: value.font_size, font_weight: value.font_weight, font_face: font_face(value.font_face) })
+			{ root: id, next_boundary, routes, boundaries }
+		}
 		Row(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_row!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			id = Host.node_row!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Column(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_column!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			id = Host.node_column!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Dialog(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_dialog!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			id = Host.node_dialog!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = { id, boundary: active_boundary, boundary_path, fire: |current, _| (value.props.on_dismiss)(current, {}) }
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes.append(route), boundaries: lowered.boundaries }
 		}
 		Panel(value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
+			# The heading is the panel's own, so the platform paints it rather
+			# than each application opening its surface with a caption element.
+			if value.props.heading != "" {
+				if value.props.heading_size > max_style_value {
+					crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
+				}
+				if value.props.heading_weight != 0 and (value.props.heading_weight < 100 or value.props.heading_weight > 900) {
+					crash "Gui font_weight is 0 for the native default, or 100 through 900"
+				}
+				heading = Host.node_styled_text!({ value: value.props.heading, fg: color(value.props.heading_color), font_size: value.props.heading_size, font_weight: value.props.heading_weight, font_face: 0 })
+				Host.children_push!(builder, heading)
+			} else {
+				{}
+			}
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)
 			style = style_args(value.props)
-			id = Host.node_panel!({ builder, label: value.props.label, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			id = Host.node_panel!({ builder, label: value.props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary: lowered.next_boundary, routes: lowered.routes, boundaries: lowered.boundaries }
 		}
 		Scroll(scroll_value) => {
@@ -137,11 +238,12 @@ Internal := [].{
 				Horizontal => 1
 				Both => 2
 			}
-			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.name })
+			style = style_args(scroll_value)
+			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify, })
 			{ root: id, next_boundary: child.next_boundary, routes: child.routes, boundaries: child.boundaries }
 		}
 		VirtualList(list_value) => {
-			builder = Host.children_begin!({})
+			builder = Host.children_begin!()
 			var $next = next_boundary
 			var $routes = routes
 			var $boundaries = boundaries
@@ -153,12 +255,13 @@ Internal := [].{
 				$routes = lowered.routes
 				$boundaries = lowered.boundaries
 			}
-			id = Host.node_virtual_list!({ builder, name: list_value.name, row_height: list_value.row_height })
+			style = style_args(list_value)
+			id = Host.node_virtual_list!({ builder, name: list_value.label, row_height: list_value.row_height, row_gap: list_value.row_gap, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify, })
 			{ root: id, next_boundary: $next, routes: $routes, boundaries: $boundaries }
 		}
 		ActionButton(button_value) => {
 			style = style_args(button_value)
-			id = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			id = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = {
 				id,
 				boundary: active_boundary,
@@ -177,23 +280,53 @@ Internal := [].{
 				label: checkbox_value.label,
 				checked: checkbox_value.checked,
 				enabled: checkbox_value.enabled,
+				box_bg: color(checkbox_value.box_bg),
+				box_checked_bg: color(checkbox_value.box_checked_bg),
+				box_border: color(checkbox_value.box_border),
+				mark_color: color(checkbox_value.mark_color),
 				gap: style.gap,
-				padding: style.padding,
+				padding_top: style.padding_top,
+				padding_right: style.padding_right,
+				padding_bottom: style.padding_bottom,
+				padding_left: style.padding_left,
 				width_kind: style.width_kind,
 				width: style.width,
 				height_kind: style.height_kind,
 				height: style.height,
+				min_width_kind: style.min_width_kind,
+				min_width: style.min_width,
+				min_height_kind: style.min_height_kind,
+				min_height: style.min_height,
+				max_width_kind: style.max_width_kind,
+				max_width: style.max_width,
+				max_height_kind: style.max_height_kind,
+				max_height: style.max_height,
 				grow: style.grow,
 				bg: style.bg,
 				hover_bg: style.hover_bg,
 				active_bg: style.active_bg,
+				disabled_bg: style.disabled_bg,
+				disabled_fg: style.disabled_fg,
+				focus_color: style.focus_color,
 				fg: style.fg,
 				border_color: style.border_color,
-				border_width: style.border_width,
+				border_top: style.border_top,
+				border_right: style.border_right,
+				border_bottom: style.border_bottom,
+				border_left: style.border_left,
 				radius: style.radius,
 				font_size: style.font_size,
+				font_weight: style.font_weight,
+				shadow: style.shadow,
+				shadow_y: style.shadow_y,
+				shadow_color: style.shadow_color,
+				shadow_alpha: style.shadow_alpha,
+				font_face: style.font_face,
+				text_overflow: style.text_overflow,
 				overflow_x: style.overflow_x,
 				overflow_y: style.overflow_y,
+				align: style.align,
+				justify: style.justify,
 			})
 			route = {
 				id,
@@ -209,7 +342,7 @@ Internal := [].{
 		}
 		Textarea(textarea_value) => {
 			style = style_args(textarea_value)
-			id = Host.node_textarea!({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			id = Host.node_textarea!({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = {
 				id,
 				boundary: active_boundary,
@@ -240,7 +373,7 @@ Internal := [].{
 				None => 3
 				ScaleDown => 4
 			}
-			id = Host.node_image!({ label: image_value.label, bytes: image_value.bytes, format, fit, grayscale: image_value.grayscale, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			id = Host.node_image!({ label: image_value.label, bytes: image_value.bytes, format, fit, grayscale: image_value.grayscale, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			{ root: id, next_boundary, routes, boundaries }
 		}
 		Canvas(canvas_value) => {
@@ -253,7 +386,7 @@ Internal := [].{
 			})
 			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.grow, bg: color(canvas_value.bg), border_color: color(canvas_value.border_color), border_width: canvas_value.border_width, radius: canvas_value.radius })
 			route = { id, boundary: active_boundary, boundary_path, fire: |current, _| {
-				event = Host.canvas_event!({})
+				event = Host.canvas_event!()
 				phase = match event.phase {
 					0 => Begin
 					1 => Move
@@ -270,7 +403,7 @@ Internal := [].{
 		}
 		TextInput(input_value) => {
 			style = style_args(input_value)
-			ids = Host.node_text_input!({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, gap: style.gap, padding: style.padding, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, fg: style.fg, border_color: style.border_color, border_width: style.border_width, radius: style.radius, font_size: style.font_size, overflow_x: style.overflow_x, overflow_y: style.overflow_y })
+			ids = Host.node_text_input!({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			change_route : Route(a)
 			change_route = {
 				id: ids.change,
@@ -347,7 +480,7 @@ Internal := [].{
 			match route_result {
 				Ok(route) => {
 					Host.work_start!(1)
-					input = Host.input_value!({})
+					input = Host.input_value!()
 					action = (route.fire)(state, input)
 					Host.work_end!(1)
 					apply_action!(action, state, route.boundary, root_renderer, routes, boundaries, next_boundary)
@@ -369,9 +502,9 @@ Internal := [].{
 		Host.set_task_dispatch!(Box.box(complete!))
 	}
 
-	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32 } => {}
+	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Gui.Color, foreground : Gui.Color } => {}
 	start! = |initial, render, window| {
-		Host.window_config!(window.title, window.width, window.height)
+		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
 		root_renderer = render
 		Host.work_start!(2)
 		rendered = render(initial)

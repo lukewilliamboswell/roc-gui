@@ -1,4 +1,6 @@
 (test "record the image library gallery journey"
+  (grants
+    (directory "fixture"))
   (steps
     (settle)
     (screenshot "empty")
