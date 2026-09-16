@@ -87,11 +87,17 @@ Theme := [].{
 		[],
 	)
 
-	## A panel: the standard surface everything in the body sits on.
-	panel : Str, List(Elem.Elem(a)) -> Elem.Elem(a)
-	panel = |label, children| Elem.panel(
+	## A panel: the standard surface everything in the body sits on. Its heading
+	## is the panel's own rather than a caption element each surface opens with,
+	## so it is painted once, in the same place, whatever the body is showing.
+	panel : Str, Str, List(Elem.Elem(a)) -> Elem.Elem(a)
+	panel = |label, heading, children| Elem.panel(
 		Elem.PanelProps.{
 			label,
+			heading,
+			heading_size: 11,
+			heading_weight: 700,
+			heading_color: muted,
 			width: Fill,
 			padding: 16,
 			gap: 12,

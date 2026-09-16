@@ -163,6 +163,14 @@ Elem(a) :: [
 	## surfaces by default, and carry a stable semantic `label`.
 	PanelProps := {
 		label : Str,
+		## The panel's own visible heading, distinct from `label`, which stays a
+		## semantic locator. An empty heading paints none. `heading_size`,
+		## `heading_weight`, and `heading_color` set it apart from the panel's
+		## body text; each zero or `Default` keeps the panel's own.
+		heading : Str ?? "",
+		heading_size : U32 ?? 0,
+		heading_weight : U32 ?? 0,
+		heading_color : Gui.Color ?? Default,
 		gap : U32 ?? 8,
 		padding : U32 ?? 16,
 		padding_top : Gui.Inset ?? Same,

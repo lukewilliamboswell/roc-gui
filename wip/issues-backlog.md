@@ -71,12 +71,6 @@ the change lands; do not soften the docs to match the gap.
 
 ## Element appearance
 
-- [ ] **Panel labels are never painted.** `Elem.panel`'s `label` is a semantic
-  locator name, and several applications use it for a status phrase rather than
-  a heading, so painting it as a header would both duplicate body text and move
-  every existing layout. Close with an explicit heading on the panel element,
-  distinct from the locator name, rendered with its own weight and size.
-
 - [ ] **Lists carry no style of their own.** `Elem.virtual_list` and
   `Elem.scroll` take only a name, a row height, and their content, so a list has
   no ground, padding, radius, or row spacing. Found while giving `music-player`
