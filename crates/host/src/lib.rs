@@ -271,22 +271,60 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
-    files::route_dealloc(pointer);
-    assets::route_dealloc(pointer);
-    audio::route_dealloc(pointer);
-    sqlite::route_dealloc(pointer);
-    app_data::route_dealloc(pointer);
-    clipboard::route_dealloc(pointer);
-    device::route_dealloc(pointer);
-    system_monitor::route_dealloc(pointer);
-    tcp::route_dealloc(pointer);
-    process::route_dealloc(pointer);
-    timers::route_dealloc(pointer);
-    http::route_dealloc(pointer);
+    if RESOURCE_ROUTING.enabled() {
+        files::route_dealloc(pointer);
+        assets::route_dealloc(pointer);
+        audio::route_dealloc(pointer);
+        sqlite::route_dealloc(pointer);
+        app_data::route_dealloc(pointer);
+        clipboard::route_dealloc(pointer);
+        device::route_dealloc(pointer);
+        system_monitor::route_dealloc(pointer);
+        tcp::route_dealloc(pointer);
+        process::route_dealloc(pointer);
+        timers::route_dealloc(pointer);
+        http::route_dealloc(pointer);
+    }
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
 
-/// Every Roc allocation visits the capability deallocation routes. HashMap's
+/// Monotonic: registration enables routing before the handle can escape to
+/// Roc or another thread. Never reset this when stores empty or sessions end;
+/// that would require synchronizing with concurrent registration/deallocation.
+struct ResourceRouting(std::sync::atomic::AtomicBool);
+
+impl ResourceRouting {
+    const fn new() -> Self {
+        Self(std::sync::atomic::AtomicBool::new(false))
+    }
+
+    fn enabled(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+
+    fn register<V, S: std::hash::BuildHasher>(
+        &self,
+        allocations: &mut std::collections::HashMap<usize, V, S>,
+        base: usize,
+        value: V,
+    ) -> Option<V> {
+        self.0.store(true, Ordering::Release);
+        allocations.insert(base, value)
+    }
+}
+
+static RESOURCE_ROUTING: ResourceRouting = ResourceRouting::new();
+
+/// All resource allocation maps must register here before publishing a handle.
+pub(crate) fn register_resource_allocation<V, S: std::hash::BuildHasher>(
+    allocations: &mut std::collections::HashMap<usize, V, S>,
+    base: usize,
+    value: V,
+) -> Option<V> {
+    RESOURCE_ROUTING.register(allocations, base, value)
+}
+
+/// Once resource routing is enabled, every Roc free visits its routes. HashMap's
 /// remove hashes even an empty map, so avoid that work for inactive domains.
 /// The caller still holds its store lock; live-handle removal is unchanged.
 pub(crate) fn remove_resource_allocation<V, S: std::hash::BuildHasher>(
@@ -302,10 +340,33 @@ pub(crate) fn remove_resource_allocation<V, S: std::hash::BuildHasher>(
 
 #[cfg(test)]
 mod resource_allocation_tests {
-    use super::remove_resource_allocation;
+    use super::{ResourceRouting, remove_resource_allocation};
     use std::{cell::Cell, collections::HashMap, hash::BuildHasher};
 
     struct CountHashes<'a>(&'a Cell<usize>);
+
+    #[test]
+    fn registration_enables_routing_permanently_before_publication() {
+        let routing = ResourceRouting::new();
+        let mut allocations = HashMap::new();
+        assert!(!routing.enabled());
+        std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    assert_eq!(routing.register(&mut allocations, 8, 42), None);
+                    assert!(routing.enabled());
+                })
+                .join()
+                .unwrap();
+        });
+        assert!(routing.enabled());
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), Some(42));
+        allocations.clear();
+        assert!(routing.enabled());
+        assert_eq!(routing.register(&mut allocations, 16, 99), None);
+        assert_eq!(remove_resource_allocation(&mut allocations, 16), Some(99));
+        assert!(routing.enabled());
+    }
 
     impl BuildHasher for CountHashes<'_> {
         type Hasher = std::collections::hash_map::DefaultHasher;

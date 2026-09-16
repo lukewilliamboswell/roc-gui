@@ -92,7 +92,7 @@ fn allocate_handle(guard: &mut Store, directory: Arc<Dir>) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.handles.insert(id, directory);
-    guard.allocations.insert(base as usize, id);
+    crate::register_resource_allocation(&mut guard.allocations, base as usize, id);
     handle
 }
 

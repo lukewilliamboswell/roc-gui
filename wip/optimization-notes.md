@@ -159,6 +159,34 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Iteration 4: enable resource routing on first registration
+
+Leaf samples continued to land in resource-store deallocation routes after
+chunking. The host now skips these routes until any resource handle is
+registered. A monotonic atomic gate is enabled before publishing the first
+handle and never disabled, including when stores clear or sessions end. All
+fourteen registration sites across twelve domains use the shared helper.
+Once enabled, the existing locks, lookups and release paths are unchanged.
+This deliberately does not optimize resource-using applications after their
+first registration; it avoids a new per-domain concurrent cache protocol.
+
+All 187 host tests passed, including registration on another thread and the
+gate remaining enabled after removal/clear. Serial selection results:
+
+| Rows | Before ms | After ms | After A/A ms |
+|---|---:|---:|---:|
+| 100 | 5.562 | 3.421 | 3.408 |
+| 1,000 | 57.310 | 36.644 | 36.840 |
+| 10,000 | 635.200 | 436.135 | 437.782 |
+
+Marked allocation counts and bytes match before/after/A/A exactly at every
+scale. All selection semantic gates and repeats passed. A fresh leaf-only 1k
+lifecycle profile had 118 samples; resource-store deallocation routines no
+longer appeared in the top 25 symbols. Generated Roc reference-count helpers,
+other generated functions, and allocator work remain prominent. All 243 semantic
+specs and both counter real-window interaction specs passed. Three requested
+screenshots were explicitly unavailable because the capture tool was missing.
+
 ### Iteration 3: bounded route-ID chunks
 
 DWARF sampling did not yield usable stack frames with the installed profiler;

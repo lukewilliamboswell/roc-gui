@@ -152,7 +152,7 @@ pub extern "C" fn roc_process_acquire() -> HostGlueProcessAcquireResult {
     let id = next_id(&mut guard);
     let (handle, base) = allocate_handle(id);
     guard.grants.insert(id, profile);
-    guard.grant_allocations.insert(base, id);
+    crate::register_resource_allocation(&mut guard.grant_allocations, base, id);
     HostGlueProcessAcquireResult {
         payload: HostGlueProcessAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
@@ -203,7 +203,7 @@ pub extern "C" fn roc_process_spawn(
             let id = next_id(&mut guard);
             let (handle, base) = allocate_handle(id);
             guard.ptys.insert(id, Arc::new(pty));
-            guard.pty_allocations.insert(base, id);
+            crate::register_resource_allocation(&mut guard.pty_allocations, base, id);
             SPAWNED.fetch_add(1, Ordering::Relaxed);
             HostGlueProcessSpawnResult {
                 payload: HostGlueProcessSpawnResultPayload {

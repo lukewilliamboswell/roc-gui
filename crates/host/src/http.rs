@@ -101,7 +101,7 @@ pub fn acquire() -> HostGlueHttpAcquireResult {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
     g.clients.insert(id, Arc::new(origin));
-    g.allocations.insert(base, id);
+    crate::register_resource_allocation(&mut g.allocations, base, id);
     HostGlueHttpAcquireResult {
         payload: HostGlueHttpAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
