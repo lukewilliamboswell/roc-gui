@@ -307,8 +307,8 @@ them silently:
 
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount. Also every step the
-window runner does not implement: `drag`, `replace-text`, `clipboard-text`,
-`submit`, `await-ticks`, `expect-canvas-primitives`, `expect-image-bytes`, the
+window runner does not implement: `drag`, `replace-text`,
+`submit`, `expect-canvas-primitives`, `expect-image-bytes`, the
 value and ordering assertions, the live-resource and owner counter assertions,
 and the repository fixture steps the Contributing chapter describes.
 
@@ -316,8 +316,13 @@ and the repository fixture steps the Contributing chapter describes.
 `expect-rendered-count`, and `expect-bounds`. None of these mean anything
 without a presented frame.
 
-`both`:: `click`, `focus`, `press-key`, `await-task`, `expect-visible`,
-`expect-focused`, `expect-not-visible`, and `expect-count`.
+`both`:: `click`, `focus`, `press-key`, `await-task`, `clipboard-text`,
+`await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`, and
+`expect-count`. The fixture clipboard is one process-wide store, so changing the
+granted source and waiting for the application's own timer to observe it mean
+the same thing under either runner; without them a windowed case could not put a
+single item into a clipboard-driven application, and so could not photograph
+one.
 
 A step is classified by what a runner actually does, so a specification is
 refused before the window opens rather than part-way through a run.

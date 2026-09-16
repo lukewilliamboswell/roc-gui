@@ -262,6 +262,53 @@ async fn settle(
     })
 }
 
+/// Await `count` further timer fires, and the completion each one carries.
+///
+/// `settle` cannot serve a polling application: a clipboard watcher rearms its
+/// read inside the completion that delivers the last one, so one task is
+/// outstanding at every instant and the counts never hold still.
+///
+/// Counting *fires* rather than completions is what makes the step meaningful
+/// after a `clipboard-text`. The semantic runner drives the timer itself, so its
+/// ticks are exact; here the timer is real wall-clock and a completion may have
+/// been in flight before the step began. A fire, by contrast, can only be one
+/// that started after this step did, so the read it carries is guaranteed to see
+/// what the preceding step put on the clipboard.
+async fn advance_timer_fires(
+    window: WindowHandle<Runtime>,
+    count: u32,
+    timeout: Duration,
+    cx: &mut AsyncApp,
+) -> Result<(), StepError> {
+    let started = std::time::Instant::now();
+    let target_fires = crate::timers::fired_count().saturating_add(u64::from(count));
+    while started.elapsed() < timeout {
+        next_frame(window, cx).await?;
+        if crate::timers::fired_count() >= target_fires {
+            // The fire has happened; its completion is what applies the state.
+            // Waiting for one completion after that point costs at most one more
+            // interval and cannot land before the fire we waited for.
+            let completed = task_counts().1;
+            while started.elapsed() < timeout {
+                next_frame(window, cx).await?;
+                if task_counts().1 > completed {
+                    // One more frame, so that state has been laid out and
+                    // painted before the next step asserts against it.
+                    next_frame(window, cx).await?;
+                    prune_bounds(window, cx)?;
+                    return Ok(());
+                }
+            }
+            break;
+        }
+    }
+    let (accepted, completed) = task_counts();
+    Err(StepError::Timeout {
+        waited: started.elapsed(),
+        outstanding: accepted.saturating_sub(completed),
+    })
+}
+
 /// Drop recorded bounds for nodes that have left the mounted graph.
 fn prune_bounds(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<(), StepError> {
     window
@@ -589,9 +636,21 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
-        Command::AwaitTask | Command::AwaitTicks(_) => {
-            settle(window, 2, options.timeout, cx).await
-        }
+        Command::AwaitTask => settle(window, 2, options.timeout, cx).await,
+        // An application that polls — a clipboard watcher rearms its read on
+        // every tick — never reaches the quiescence `settle` waits for, because
+        // one task is outstanding at every instant by construction. `await-ticks`
+        // therefore counts completions rather than waiting for there to be none,
+        // which is also what the step means: apply N successive wait completions.
+        Command::AwaitTicks(count) => advance_timer_fires(window, *count, options.timeout, cx).await,
+        // The fixture clipboard is one process-wide store, so changing the
+        // granted source here is the same act the semantic runner performs. One
+        // presented frame is all this step waits for; observing the change is
+        // the application's own timer's job, and `await-ticks` waits for that.
+        Command::ClipboardText(text) => match crate::clipboard::inject_fixture(text.clone()) {
+            Err(detail) => Err(StepError::Geometry(detail)),
+            Ok(()) => next_frame(window, cx).await,
+        },
         // Unreachable: `spec::check_runner` refuses a specification whose
         // steps this runner does not implement, so the refusal happens before
         // the window opens rather than part-way through a run.
