@@ -105,7 +105,7 @@ discover = |state| {
 		pending: { ..state, generation: next, devices: [], status: Discovering },
 		run: || match Device.acquire!() {
 			Err(err) => DiscoveryFailed(err)
-			Ok(grant) => match Device.discover!(grant) {
+			Ok(grant) => match grant.discover!() {
 				Err(err) => DiscoveryFailed(err)
 				Ok(devices) => Discovered(devices)
 			}
@@ -123,9 +123,9 @@ connect = |state| {
 		pending: { ..state, generation: next, status: Connecting },
 		run: || match Device.acquire!() {
 			Err(err) => ConnectFailed(err)
-			Ok(grant) => match Device.connect!(grant) {
+			Ok(grant) => match grant.connect!() {
 				Err(err) => ConnectFailed(err)
-				Ok(connection) => match Device.transact!(connection, Protocol.read_request) {
+				Ok(connection) => match connection.transact!(Protocol.read_request) {
 					Err(err) => ConnectFailed(err)
 					Ok(bytes) => match Protocol.decode_config(bytes) {
 						Err(_) => ProtocolFailed
@@ -153,7 +153,7 @@ connect = |state| {
 ## that is no longer there, so the connection is given up with the error.
 apply = |state, connection, config| Action.task({
 	pending: { ..state, status: Applying },
-	run: || match Device.transact!(connection, Protocol.apply_request(config)) {
+	run: || match connection.transact!(Protocol.apply_request(config)) {
 		Err(err) => ApplyFailed(err)
 		Ok(bytes) => match Protocol.decode_apply(bytes) {
 			Ok(_) => Applied
@@ -169,7 +169,7 @@ apply = |state, connection, config| Action.task({
 
 disconnect = |state, connection| Action.task({
 	pending: { ..state, status: Disconnecting },
-	run: || Device.close!(connection),
+	run: || connection.close!(),
 	resolve: |latest, result| match result {
 		Err(err) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
 		Ok(_) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Disconnected })

@@ -82,10 +82,10 @@ platform ""
 		"roc_gui_work_start": HostGlue.work_start!,
 		"roc_gui_work_end": HostGlue.work_end!,
 		"roc_gui_window_config": HostGlue.window_config!,
-		"roc_files_pick_directory": Files.pick_directory!,
-		"roc_files_dir_list": Files.Dir.list!,
-		"roc_files_dir_open_read": Files.Dir.open_read_dir!,
-		"roc_files_dir_read": Files.Dir.read!,
+		"roc_files_pick_directory": InternalFiles.pick_directory!,
+		"roc_files_dir_list": InternalFiles.dir_list!,
+		"roc_files_dir_open_read": InternalFiles.dir_open_read!,
+		"roc_files_dir_read": InternalFiles.dir_read!,
 	}
 	targets: {
 		inputs_dir: "targets/",

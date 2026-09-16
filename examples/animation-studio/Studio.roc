@@ -187,7 +187,7 @@ Studio := [].{
 
 	wait_frame = |state, handle| Action.task({
 		pending: state,
-		run: || Timer.next!(handle),
+		run: || handle.next!(),
 		resolve: |latest, result| match result {
 			Canceled => Action.update({ ..latest, playback: Paused, status: "Paused at ${frame_status(latest.frame)}" })
 			Fired => {
@@ -201,7 +201,7 @@ Studio := [].{
 		Ok(handle) => wait_frame({ ..state, playback: Playing(handle), status: "Playing" }, handle)
 	}
 	pause! = |state, handle| {
-		_ = Timer.cancel!(handle)
+		_ = handle.cancel!()
 		Action.update({ ..state, playback: Paused, status: "Paused at ${frame_status(state.frame)}" })
 	}
 }

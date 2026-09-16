@@ -65,7 +65,7 @@ art_manifest = { asset_set: "nocturne-art", schema: 1.U32, content_version: 1.U3
 read_cover! : {} => Art
 read_cover! = |{}| match Assets.open!(Assets.with_manifest(Assets.working_directory("examples/music-player/assets"), art_manifest)) {
 	Err(_) => NoCover
-	Ok(store) => match Assets.read!(store, "art/nocturne-cover.jpg") {
+	Ok(store) => match store.read!("art/nocturne-cover.jpg") {
 		Err(_) => NoCover
 		Ok(bytes) => Cover(bytes)
 	}
@@ -113,7 +113,7 @@ scan = |state| Action.task({
 			Ok(Canceled) => ScanCanceled
 			Ok(Chosen(selection)) => match Audio.acquire!() {
 				Err(err) => ScanFailed(audio_error(err))
-				Ok(output) => match Files.Dir.list!(selection.directory) {
+				Ok(output) => match selection.directory.list!() {
 					Err(_) => ScanFailed("Music folder could not be read")
 					Ok(entries) => {
 						tracks = List.keep_oks(entries, |entry| if entry.kind == File and is_audio(entry.name) { Ok({ name: entry.name, title: track_title(entry.name) }) } else { Err({}) })
@@ -441,7 +441,7 @@ render = |state| {
 			Elem.text("Grant a music folder to build the queue."),
 		])
 		Loaded(library) => Elem.panel(Elem.PanelProps.{ label: "Music library", grow: True, width: Fill, padding: 10, gap: 0, bg: surface, border_color: hairline, radius: 16, overflow_y: Clip }, [
-			Elem.virtual_list(Elem.VirtualListProps.{ name: "Tracks", row_height: 44, items: track_items(state, library) }),
+			Elem.virtual_list(Elem.VirtualListProps.{ label: "Tracks", row_height: 44, items: track_items(state, library) }),
 		])
 	}
 	Elem.col(Elem.ColProps.{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 }, [

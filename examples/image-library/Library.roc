@@ -25,7 +25,7 @@ pick = |state| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match Files.pick_directory!() {
-			Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) { Ok(entries) => Scanned(Gallery.scan!(selection.directory, entries)), Err(_) => ScanFailed }
+			Ok(Chosen(selection)) => match selection.directory.list!() { Ok(entries) => Scanned(Gallery.scan!(selection.directory, entries)), Err(_) => ScanFailed }
 			Ok(Canceled) => ScanCanceled
 			Err(_) => ScanDenied
 		},
@@ -160,7 +160,7 @@ gallery = |state| match state.scan {
 			[
 				Elem.text_input(Elem.TextInputProps.{ label: "Filter images", value: state.filter, placeholder: "Search this folder", on_change: |current, event| Action.update({ ..current, filter: event.value }), on_submit: |_, _| Action.none, width: Fill, height: Px(44), padding: 14, font_size: Theme.body, bg: Theme.card, fg: Theme.ink, border_width: 0, radius: Theme.control_radius }),
 				quiet_text("Gallery count", "${visible.len().to_str()} of ${scan.items.len().to_str()} entries"),
-				Elem.virtual_list(Elem.VirtualListProps.{ name: "Image thumbnails", row_height: Theme.row_height, items: item_rows(visible, chosen_name_of(state)) }),
+				Elem.virtual_list(Elem.VirtualListProps.{ label: "Image thumbnails", row_height: Theme.row_height, items: item_rows(visible, chosen_name_of(state)) }),
 			],
 		)
 	}

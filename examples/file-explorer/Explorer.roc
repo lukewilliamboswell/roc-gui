@@ -133,7 +133,7 @@ preview_of = |bytes| {
 
 refresh = |state, folder| Action.task({
 	pending: { ..state, status: Busy },
-	run: || Files.Dir.list!(folder.directory),
+	run: || folder.directory.list!(),
 	resolve: |latest, result| match result {
 		Err(error) => Action.update({ ..latest, status: fail(error) })
 		Ok(entries) => Action.update({ ..latest, status: Ready, view: Showing({ ..folder, entries }) })
@@ -142,7 +142,7 @@ refresh = |state, folder| Action.task({
 
 read_file = |state, folder, name| Action.task({
 	pending: { ..state, read: Unread, status: Busy },
-	run: || Files.Dir.read!(folder.directory, name),
+	run: || folder.directory.read!(name),
 	resolve: |latest, result| match result {
 		Err(error) => Action.update({ ..latest, status: fail(error) })
 		Ok(bytes) => Action.update({ ..latest, read: ReadOf({ bytes: bytes.len(), name, preview: preview_of(bytes) }), status: Ready })
@@ -154,7 +154,7 @@ choose_directory = |state| Action.task({
 	run: || match Files.pick_directory!() {
 		Err(error) => LoadFailed({ hint: hint_for(error), message: describe(error) })
 		Ok(Canceled) => LoadCanceled
-		Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {
+		Ok(Chosen(selection)) => match selection.directory.list!() {
 			Err(error) => LoadFailed({ hint: hint_for(error), message: describe(error) })
 			Ok(entries) => Loaded({ directory: selection.directory, entries, name: selection.name, trail: [selection.name] })
 		}
@@ -169,9 +169,9 @@ choose_directory = |state| Action.task({
 
 open_folder = |state, current, name| Action.task({
 	pending: { ..state, status: Busy },
-	run: || match Files.Dir.open_read_dir!(current.directory, name) {
+	run: || match current.directory.open_dir!(name) {
 		Err(error) => LoadFailed({ hint: hint_for(error), message: describe(error) })
-		Ok(directory) => match Files.Dir.list!(directory) {
+		Ok(directory) => match directory.list!() {
 			Err(error) => LoadFailed({ hint: hint_for(error), message: describe(error) })
 			Ok(entries) => Loaded({ directory, entries, name, trail: current.trail.append(name) })
 		}
@@ -602,7 +602,7 @@ render = |state| {
 						toolbar_button("Close project", "Close directory", True, |current, _| Action.update({ ..current, dialog: ConfirmClose(folder.name) })),
 					],
 				),
-				Elem.virtual_list(Elem.VirtualListProps.{ name: "Directory entries", row_height: 34, items: entry_items(state, folder) }),
+				Elem.virtual_list(Elem.VirtualListProps.{ label: "Directory entries", row_height: 34, items: entry_items(state, folder) }),
 			],
 		)
 	}

@@ -5,7 +5,19 @@ import Host
 import Resource
 
 Sqlite := [].{
-	Read : Resource.SqliteRead
+	## An open read-only connection to one database file.
+	Db := Resource.SqliteRead.{
+
+		## Execute one read-only statement and return typed cells. Query text,
+		## result dimensions, and aggregate value bytes are bounded by the host.
+		query! : Db, Str => Try(Result, SqliteErr)
+		query! = |Db.(database), query| Host.sqlite_query!(database, query).map_ok(
+			|raw| {
+				columns: raw.columns,
+				rows: raw.rows.map(|row| row.map(decode_value)),
+			},
+		).map_err(|raw| QueryDatabaseErr(decode_reason(raw)))
+	}
 
 	Value : [Bytes(List(U8)), Integer(I64), Null, Real(F64), String(Str)]
 	Result : { columns : List(Str), rows : List(List(Value)) }
@@ -16,18 +28,8 @@ Sqlite := [].{
 	## Open a direct child database as an immutable, in-memory read-only
 	## connection. The directory authority is consumed normally and may be
 	## retained by application state through Roc reference counting.
-	open_read! : Files.Dir.Read, Str => Try(Read, SqliteErr)
-	open_read! = |directory, name| Host.sqlite_open_read!(directory, name).map_err(|raw| OpenDatabaseErr(decode_reason(raw)))
-
-	## Execute one read-only statement and return typed cells. Query text, result
-	## dimensions, and aggregate value bytes are bounded by the host.
-	query! : Read, Str => Try(Result, SqliteErr)
-	query! = |database, query| Host.sqlite_query!(database, query).map_ok(
-		|raw| {
-			columns: raw.columns,
-			rows: raw.rows.map(|row| row.map(decode_value)),
-		},
-	).map_err(|raw| QueryDatabaseErr(decode_reason(raw)))
+	open_read! : Files.Dir.Read, Str => Try(Db, SqliteErr)
+	open_read! = |directory, name| Host.sqlite_open_read!(directory.resource(), name).map_ok(|database| Db.(database)).map_err(|raw| OpenDatabaseErr(decode_reason(raw)))
 
 	decode_value = |raw| match raw.kind {
 		0 => Null

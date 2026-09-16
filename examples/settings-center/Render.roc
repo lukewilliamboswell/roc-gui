@@ -301,7 +301,7 @@ Render := [].{
 						} else {
 							Elem.virtual_list(
 								Elem.VirtualListProps.{
-									name: "Matching settings",
+									label: "Matching settings",
 									row_height: 56,
 									items: visible_settings.map(
 										|setting| Elem.VirtualListItem.{ key: setting.id, content: catalogue_row(setting) },
@@ -500,7 +500,7 @@ Render := [].{
 							[
 								Elem.scroll(
 									Elem.ScrollProps.{
-										name: "Settings pages",
+										label: "Settings pages",
 										content: Elem.col(
 											Elem.ColProps.{ label: "Settings pages content", width: Fill, gap: 16 },
 											[profile, managed],

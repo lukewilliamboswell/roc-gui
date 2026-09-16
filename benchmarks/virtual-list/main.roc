@@ -21,18 +21,18 @@ render = |state| Elem.col(
 		Elem.row(
 			{},
 			[
-				Elem.button({ label: "Load 100 rows", name: "Load 100 rows", on_press: |_, _| Action.update({ rows: make_rows(100), selected: 100 }) }),
-				Elem.button({ label: "Load 1,000 rows", name: "Load 1000 rows", on_press: |_, _| Action.update({ rows: make_rows(1000), selected: 1000 }) }),
-				Elem.button({ label: "Load 10,000 rows", name: "Load 10000 rows", on_press: |_, _| Action.update({ rows: make_rows(10000), selected: 10000 }) }),
+				Elem.button({ caption: "Load 100 rows", label: "Load 100 rows", on_press: |_, _| Action.update({ rows: make_rows(100), selected: 100 }) }),
+				Elem.button({ caption: "Load 1,000 rows", label: "Load 1000 rows", on_press: |_, _| Action.update({ rows: make_rows(1000), selected: 1000 }) }),
+				Elem.button({ caption: "Load 10,000 rows", label: "Load 10000 rows", on_press: |_, _| Action.update({ rows: make_rows(10000), selected: 10000 }) }),
 			],
 		),
 		Elem.text("Rows: ${state.rows.len().to_str()}"),
 		Elem.text("Selected: ${state.selected.to_str()}"),
 		Elem.virtual_list(
 			Elem.VirtualListProps.{
-				name: "Rows",
+				label: "Rows",
 				row_height: 28,
-				items: state.rows.map(|row| Elem.VirtualListItem.{ key: row, content: Elem.button({ label: "Virtual row ${row.to_str()}", name: "Select virtual row ${row.to_str()}", on_press: |current, _| Action.update({ ..current, selected: row }) }) }),
+				items: state.rows.map(|row| Elem.VirtualListItem.{ key: row, content: Elem.button({ caption: "Virtual row ${row.to_str()}", label: "Select virtual row ${row.to_str()}", on_press: |current, _| Action.update({ ..current, selected: row }) }) }),
 			},
 		),
 	],

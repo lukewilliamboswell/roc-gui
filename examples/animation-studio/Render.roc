@@ -87,7 +87,7 @@ Render := [].{
 	layers_panel = |state| Elem.panel(Elem.PanelProps.{ label: "Layers", width: Px(230), height: Fill, gap: 10, bg: sunken, border_color: edge, overflow_y: Clip }, [
 		Elem.row(Elem.RowProps.{ width: Fill, font_size: caps_size, font_weight: 600, fg: ink_quiet }, [Elem.text("LAYERS (${state.document.shapes.len().to_str()})")]),
 		Elem.scroll(Elem.ScrollProps.{
-			name: "Layer list",
+			label: "Layer list",
 			content: Elem.col(Elem.ColProps.{ label: "Layer rows", width: Fill, gap: 4 }, state.document.shapes.map(|shape| layer_row(shape, state.selected))),
 		}),
 	])

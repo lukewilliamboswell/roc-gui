@@ -438,7 +438,7 @@ render = |state| {
 							empty_history(state)
 						} else {
 							Elem.virtual_list(
-								Elem.VirtualListProps.{ name: "Clipboard items", row_height: Theme.row_height, items },
+								Elem.VirtualListProps.{ label: "Clipboard items", row_height: Theme.row_height, items },
 							)
 						},
 					],

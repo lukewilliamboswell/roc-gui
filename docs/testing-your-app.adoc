@@ -113,7 +113,7 @@ greet = |_, _| Action.update({ message: "Hello from Roc" })
 
 Elem.col({}, [
     Elem.text(state.message),
-    Elem.button({ label: "Greet", name: "Greet", on_press: greet }),
+    Elem.button({ caption: "Greet", label: "Greet", on_press: greet }),
 ])
 ----
 

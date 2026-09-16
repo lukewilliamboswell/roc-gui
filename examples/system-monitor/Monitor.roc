@@ -75,9 +75,9 @@ sample_status = |err| match err {
 ## extend the session that replaced it.
 wait_next = |state, session, generation| Action.task({
 	pending: { ..state, run_state: Running(session), status: Live },
-	run: || match Timer.next!(session.timer) {
+	run: || match session.timer.next!() {
 		Canceled => Stopped
-		Fired => match SystemMonitor.sample!(session.sampler) {
+		Fired => match session.sampler.sample!() {
 			Ok(snapshot) => Sampled(snapshot)
 			Err(err) => SampleFailed(err)
 		}
@@ -102,7 +102,7 @@ start! = |state| {
 		Err(err) => Action.update({ ..state, status: acquire_status(err) })
 		Ok(sampler) => match Timer.start!({ interval_ms: 1 }) {
 			Err(_) => {
-				_ = SystemMonitor.close!(sampler)
+				_ = sampler.close!()
 				Action.update({ ..state, status: Failed("The sampling timer was rejected by the host") })
 			}
 			Ok(timer) => wait_next({ ..state, generation }, { sampler, timer }, generation)
@@ -111,7 +111,7 @@ start! = |state| {
 }
 
 pause! = |state, session| {
-	_ = Timer.cancel!(session.timer)
-	_ = SystemMonitor.close!(session.sampler)
+	_ = session.timer.cancel!()
+	_ = session.sampler.close!()
 	Action.update({ ..state, generation: state.generation + 1, run_state: Paused, status: Paused })
 }

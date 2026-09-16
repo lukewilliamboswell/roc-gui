@@ -319,7 +319,7 @@ log = |state| Theme.panel(
 			Theme.note("No samples yet.")
 		} else {
 			Elem.virtual_list(
-				Elem.VirtualListProps.{ name: "Observation history", row_height: 22, items: log_items(state.history) },
+				Elem.VirtualListProps.{ label: "Observation history", row_height: 22, items: log_items(state.history) },
 			)
 		},
 	],
@@ -436,7 +436,7 @@ process_table = |state, processes| {
 		[
 			Elem.virtual_list(
 				Elem.VirtualListProps.{
-					name: "Process table",
+					label: "Process table",
 					row_height: 30,
 					items: visible.map(|process| Elem.VirtualListItem.{ key: process.pid, content: process_row(state, process) }),
 				},

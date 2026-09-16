@@ -45,9 +45,9 @@ History := [].{
 
 	wait_next = |state, timer, clipboard| Action.task({
 		pending: { ..state, run_state: Running(timer, clipboard) },
-		run: || match Timer.next!(timer) {
+		run: || match timer.next!() {
 			Canceled => Stopped
-			Fired => ReadResult(Clipboard.read_text!(clipboard))
+			Fired => ReadResult(clipboard.read_text!())
 		},
 		resolve: |latest, result| match result {
 			Stopped => Action.update({ ..latest, run_state: Paused, tone: Rest, status: "Capture is paused" })
@@ -74,7 +74,7 @@ History := [].{
 	## so nothing can be discarded, and the band saying "the next copied item
 	## will be discarded" would have been a lie until capture resumed.
 	pause! = |state, timer| {
-		_ = Timer.cancel!(timer)
+		_ = timer.cancel!()
 		Action.update({ ..state, run_state: Paused, private_next: False, tone: Rest, status: "Capture is paused" })
 	}
 	toggle_pin = |state, id| {
@@ -107,7 +107,7 @@ History := [].{
 	}
 	restore = |state, entry, clipboard| Action.task({
 		pending: { ..state, tone: Rest, status: "Restoring selected item" },
-		run: || Clipboard.write_text!(clipboard, entry.text),
+		run: || clipboard.write_text!(entry.text),
 		resolve: |latest, result| match result {
 			Ok({}) => Action.update({ ..latest, tone: Live, status: "Selected item is now on the clipboard" })
 			Err(error) => Action.update({ ..latest, tone: Refused, status: describe(error) })

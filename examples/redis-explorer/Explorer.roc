@@ -25,8 +25,8 @@ import RedisData exposing [Key, Selection]
 Link : [
 	Offline,
 	Opening(U64),
-	Idle(Tcp.Stream.Handle),
-	Busy({ stream : Tcp.Stream.Handle, id : U64, doing : Str }),
+	Idle(Tcp.Stream),
+	Busy({ stream : Tcp.Stream, id : U64, doing : Str }),
 	Closing(U64),
 ]
 
@@ -44,18 +44,18 @@ Explorer := [].{
 	init = { keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
 	connect : State -> Action(State)
 	connect = connect
-	disconnect : State, Tcp.Stream.Handle -> Action(State)
+	disconnect : State, Tcp.Stream -> Action(State)
 	disconnect = disconnect
-	scan : State, Tcp.Stream.Handle -> Action(State)
+	scan : State, Tcp.Stream -> Action(State)
 	scan = scan
-	inspect : State, Tcp.Stream.Handle, Key -> Action(State)
+	inspect : State, Tcp.Stream, Key -> Action(State)
 	inspect = inspect
 	set_pattern : State, Str -> State
 	set_pattern = |state, pattern| { ..state, pattern }
 }
 
 connection = |stream| {
-	transport = Transport.from_bytes_io({ read_bytes!: |max_bytes| Tcp.Stream.read_up_to!(stream, max_bytes), write_all!: |bytes| Tcp.Stream.write_all!(stream, bytes) })
+	transport = Transport.from_bytes_io({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
 	Client.{}.attach(transport)
 }
 
@@ -98,7 +98,7 @@ disconnect = |state, stream| {
 	id = state.next_request
 	Action.task({
 		pending: { ..state, keys: [], next_request: id + 1, selection: None, link: Closing(id), trouble: None },
-		run: || Tcp.Stream.close!(stream),
+		run: || stream.close!(),
 		resolve: |latest, outcome| if still_current(latest.link, id) {
 			match outcome {
 				Ok({}) => Action.update({ ..latest, link: Offline, trouble: None })
@@ -223,10 +223,10 @@ inspect = |state, stream, key| {
 }
 
 tcp_trouble = |error| match error {
-	ConnectErr(reason) => tcp_reason(reason)
-	ReadErr(reason) => tcp_reason(reason)
-	WriteErr(reason) => tcp_reason(reason)
-	CloseErr(reason) => tcp_reason(reason)
+	ConnectTcpErr(reason) => tcp_reason(reason)
+	ReadTcpErr(reason) => tcp_reason(reason)
+	WriteTcpErr(reason) => tcp_reason(reason)
+	CloseTcpErr(reason) => tcp_reason(reason)
 }
 
 ## The one distinction that matters here is between "the host granted no
@@ -245,8 +245,8 @@ tcp_reason = |reason| match reason {
 
 redis_trouble = |error| match error {
 	ExchangeFailed(details) => match details {
-		ReadFailed(ReadErr(Timeout)) => tcp_reason(Timeout)
-		WriteFailed(WriteErr(Timeout)) => tcp_reason(Timeout)
+		ReadFailed(ReadTcpErr(Timeout)) => tcp_reason(Timeout)
+		WriteFailed(WriteTcpErr(Timeout)) => tcp_reason(Timeout)
 		ProtocolFailure(_) => { message: "Redis returned an invalid protocol frame", remedy: "Whatever answered the granted endpoint is not speaking RESP.", denied: False }
 		_ => { message: "Redis connection failed during the protocol exchange", remedy: "The stream broke part-way through a request. Connect again.", denied: False }
 	}

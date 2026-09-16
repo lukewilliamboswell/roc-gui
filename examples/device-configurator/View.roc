@@ -469,7 +469,7 @@ settings_panel = |state| Theme.panel(
 				[
 					Theme.caption("CONTROLS ON THIS DEVICE"),
 					Elem.virtual_list(
-						Elem.VirtualListProps.{ name: "Device controls", row_height: 22, items: control_items(config.controls) },
+						Elem.VirtualListProps.{ label: "Device controls", row_height: 22, items: control_items(config.controls) },
 					),
 				],
 			),

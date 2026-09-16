@@ -75,8 +75,8 @@ render_row = |row| Elem.row(
 	[
 		Elem.text("Row ${row.id.to_str()}: ${row.value.to_str()}"),
 		Elem.button({
-			label: "Select",
-			name: "Select row ${row.id.to_str()}",
+			caption: "Select",
+			label: "Select row ${row.id.to_str()}",
 			on_press: |state, _| if state.selected == row.id {
 				Action.none
 			} else {
@@ -84,8 +84,8 @@ render_row = |row| Elem.row(
 			},
 		}),
 		Elem.button({
-			label: "Delete",
-			name: "Delete row ${row.id.to_str()}",
+			caption: "Delete",
+			label: "Delete row ${row.id.to_str()}",
 			on_press: |state, _| Action.update(delete_row(state, row.id)),
 		}),
 	],
@@ -103,16 +103,16 @@ render = |state| {
 			Elem.row(
 				{},
 				[
-					Elem.button({ label: "Create 100", name: "Create 100 rows", on_press: |_, _| Action.update(create(100)) }),
-					Elem.button({ label: "Create 1,000", name: "Create 1,000 rows", on_press: |_, _| Action.update(create(1000)) }),
-					Elem.button({ label: "Create 10,000", name: "Create 10,000 rows", on_press: |_, _| Action.update(create(10000)) }),
-					Elem.button({ label: "Create 100,000", name: "Create 100,000 rows", on_press: |_, _| Action.update(create(100000)) }),
-					Elem.button({ label: "Append 1,000", name: "Append 1,000 rows", on_press: |value, _| Action.update(append_rows(value, 1000)) }),
-					Elem.button({ label: "Update every tenth", name: "Update every tenth row", on_press: |value, _| Action.update(update_every_tenth(value)) }),
-					Elem.button({ label: "Swap", name: "Swap rows 2 and 999", on_press: |value, _| Action.update(swap_rows(value, 1, 998)) }),
-					Elem.button({ label: "Swap small", name: "Swap rows 2 and 99", on_press: |value, _| Action.update(swap_rows(value, 1, 98)) }),
-					Elem.button({ label: "Swap far", name: "Swap rows 2 and 9999", on_press: |value, _| Action.update(swap_rows(value, 1, 9998)) }),
-					Elem.button({ label: "Clear", name: "Clear rows", on_press: |value, _| Action.update({ ..value, rows: [], selected: 0 }) }),
+					Elem.button({ caption: "Create 100", label: "Create 100 rows", on_press: |_, _| Action.update(create(100)) }),
+					Elem.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |_, _| Action.update(create(1000)) }),
+					Elem.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |_, _| Action.update(create(10000)) }),
+					Elem.button({ caption: "Create 100,000", label: "Create 100,000 rows", on_press: |_, _| Action.update(create(100000)) }),
+					Elem.button({ caption: "Append 1,000", label: "Append 1,000 rows", on_press: |value, _| Action.update(append_rows(value, 1000)) }),
+					Elem.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Action.update(update_every_tenth(value)) }),
+					Elem.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Action.update(swap_rows(value, 1, 998)) }),
+					Elem.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Action.update(swap_rows(value, 1, 98)) }),
+					Elem.button({ caption: "Swap far", label: "Swap rows 2 and 9999", on_press: |value, _| Action.update(swap_rows(value, 1, 9998)) }),
+					Elem.button({ caption: "Clear", label: "Clear rows", on_press: |value, _| Action.update({ ..value, rows: [], selected: 0 }) }),
 				],
 			),
 			Elem.text("Rows: ${state.rows.len().to_str()}"),
