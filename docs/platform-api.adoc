@@ -620,7 +620,7 @@ replace a newer result. `examples/database-browser` demonstrates this pattern.
 
 `Tcp.connect!()` opens an ordered byte stream to the single numeric
 `IP:PORT` endpoint granted with `--host-cap-tcp`. Without that host grant it
-returns `ConnectErr(AccessDenied)`. The application cannot select or derive a
+returns `ConnectTcpErr(AccessDenied)`. The application cannot select or derive a
 different destination from the opaque handle, and releasing its final
 reference closes the socket and removes the host registry entry.
 
@@ -629,8 +629,8 @@ one-MiB requested maximum; an empty list means orderly end of stream.
 `stream.write_all!(bytes)` writes the complete value or fails and
 accepts at most 16 MiB. `stream.close!()` is idempotent. Connections,
 reads, and writes have finite native timeouts, and failures use the
-operation-tagged `Tcp.TcpErr` union: `ConnectErr`, `ReadErr`, `WriteErr`, or
-`CloseErr` wraps a portable reason.
+operation-tagged `Tcp.TcpErr` union: `ConnectTcpErr`, `ReadTcpErr`,
+`WriteTcpErr`, or `CloseTcpErr` wraps a portable reason.
 
 The numeric endpoint has no DNS resolution or ambient destination selection.
 The command-line grant provisions development and automation authority; a

@@ -223,10 +223,10 @@ inspect = |state, stream, key| {
 }
 
 tcp_trouble = |error| match error {
-	ConnectErr(reason) => tcp_reason(reason)
-	ReadErr(reason) => tcp_reason(reason)
-	WriteErr(reason) => tcp_reason(reason)
-	CloseErr(reason) => tcp_reason(reason)
+	ConnectTcpErr(reason) => tcp_reason(reason)
+	ReadTcpErr(reason) => tcp_reason(reason)
+	WriteTcpErr(reason) => tcp_reason(reason)
+	CloseTcpErr(reason) => tcp_reason(reason)
 }
 
 ## The one distinction that matters here is between "the host granted no
@@ -245,8 +245,8 @@ tcp_reason = |reason| match reason {
 
 redis_trouble = |error| match error {
 	ExchangeFailed(details) => match details {
-		ReadFailed(ReadErr(Timeout)) => tcp_reason(Timeout)
-		WriteFailed(WriteErr(Timeout)) => tcp_reason(Timeout)
+		ReadFailed(ReadTcpErr(Timeout)) => tcp_reason(Timeout)
+		WriteFailed(WriteTcpErr(Timeout)) => tcp_reason(Timeout)
 		ProtocolFailure(_) => { message: "Redis returned an invalid protocol frame", remedy: "Whatever answered the granted endpoint is not speaking RESP.", denied: False }
 		_ => { message: "Redis connection failed during the protocol exchange", remedy: "The stream broke part-way through a request. Connect again.", denied: False }
 	}
