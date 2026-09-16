@@ -159,6 +159,34 @@ names the evidence so a fix can be verified against the same case.
   minimized. Minimize it against the pinned compiler, report it, and update the
   pin when fixed.
 
+- [ ] **An unannotated helper that reads a field of its own result segfaults
+  `roc check`.** Reaching for undo and redo that reconcile a stale selection in
+  `examples/animation-studio`, this shape crashed the compiler itself — not the
+  built application — with SIGSEGV at fault address `0x3f8`, with no diagnostic
+  and no stack trace:
+
+  ----
+  restore = |state, document, status| {
+      settled = apply_frame({ ..state, document, drag: Idle, status })
+      keeps = match settled.selected {
+          None => False
+          Some(id) => match settled.document.shapes.find_first(|shape| shape.id == id) {
+              Ok(_) => True
+              Err(_) => False
+          }
+      }
+      if keeps settled else { ..settled, selected: None }
+  }
+  ----
+
+  Adding the annotation `restore : State, Document, Str -> State` makes it
+  compile, and nothing else about the body has to change, so the trigger is
+  inference over a helper whose parameter and result types are only pinned down
+  by another unannotated helper (`apply_frame`) in the same module block.
+  Reordering the two definitions makes no difference. The example carries the
+  annotation. Minimize it against the pinned compiler, report it, and update the
+  pin when fixed.
+
 - [ ] **Full-root replacement remains superlinear at 100,000 rows.** The
   production 100,000-row sparse-update case confirms the effect after dense
   validation, host-owned child streaming, and consolidation of mounted node
