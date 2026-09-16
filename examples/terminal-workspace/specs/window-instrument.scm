@@ -10,23 +10,21 @@
     (screenshot "idle")
     (click (role button :name "New terminal"))
     (await-task)
-    (await-task)
-    ; A terminal answers on its own schedule, not the window's: wait for more
-    ; quiet frames than a repaint needs, so its first output is in hand.
-    (settle :frames 8)
+    ; A terminal answers on its own schedule, not the window's.
+    (await-count (text "Session active") 1)
     (expect-visible (text "Session active"))
     (screenshot "session")
     (focus (role textbox :name "Terminal command"))
     (type "lines:40")
     (key "enter")
-    (await-task)
-    (await-task)
-    (settle :frames 8)
+    ; The command reaches the shell before its output can come back, so failing
+    ; here names a lost keystroke rather than a terminal that stayed silent.
+    (await-count (text "Command sent") 1)
+    (await-count (text-prefix "Terminal line: line-000001") 1)
     (expect-on-screen (text-prefix "Terminal line: line-000001"))
     (screenshot "dense")
     (screenshot "footer" :region (role row :name "Workspace footer") :pad 4)
     (click (role button :name "Stop terminal"))
     (await-task)
-    (await-task)
-    (settle :frames 8)
+    (await-count (text "Session canceled") 1)
     (expect-visible (text "Session canceled"))))

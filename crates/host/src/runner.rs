@@ -638,6 +638,60 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 cycle_ordinal += 1;
                 Ok(())
             }
+            Command::AwaitCount(locator, expected) => {
+                // Waiting for the graph, not for a number of completions the
+                // specification cannot predict. Every task this resolves is one
+                // the application asked for, so the counters still account for
+                // each of them exactly.
+                let before = task_counts();
+                let cycle_started = Instant::now();
+                observatory::reset_roc_work();
+                let roc_started = Instant::now();
+                let deadline = cycle_started + crate::TASK_BUDGET;
+                let mut completions = 0u64;
+                let mut applied = None;
+                let outcome = loop {
+                    let found = matches(&graph, locator).len();
+                    if found == *expected {
+                        break Ok(());
+                    }
+                    if Instant::now() >= deadline {
+                        break Err(format!(
+                            "line {}: expected locator to match {expected} nodes within {} seconds, but it matched {found}",
+                            step.line,
+                            crate::TASK_BUDGET.as_secs(),
+                        ));
+                    }
+                    let completion = await_task_completion()?;
+                    let patch = complete(completion);
+                    applied = Some(graph.apply_measured(patch)?.facts);
+                    completions += 1;
+                };
+                let roc_ns = elapsed_ns(roc_started);
+                let after = task_counts();
+                if after.1 != before.1 + completions || after.1 > after.0 {
+                    return Err("task completion counters violated ownership invariants".into());
+                }
+                let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                count_evidence = Some((*expected as u64, matches(&graph, locator).len() as u64));
+                if let Some(facts) = applied {
+                    last_patch = Some(facts);
+                    pending_cycle = Some(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "task",
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
+                }
+                outcome
+            }
             Command::ClipboardText(text) => crate::clipboard::inject_fixture(text.clone())
                 .map_err(|message| format!("line {}: {message}", step.line)),
             Command::AwaitTicks(count) => {
@@ -975,6 +1029,17 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             }
             Command::ExpectCanvasPrimitives(locator, expected) => {
                 let found = matches(&graph, locator);
+                // A locator that matched nothing, or many things, answers
+                // nothing about primitives. Without this the zero case passes
+                // on a misspelling, as its value and byte siblings already
+                // refuse to.
+                if found.len() != 1 {
+                    return Err(format!(
+                        "line {}: expect-canvas-primitives locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ));
+                }
                 let actual = if found.len() == 1 {
                     match graph.node(found[0]).map(|node| &node.kind) {
                         Some(NodeKind::Canvas { primitives, .. }) => primitives.len(),
@@ -1069,7 +1134,10 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ))
                 }
             }
-            Command::ExpectPatch(expected) => match last_patch {
+            // Taken, not borrowed: a second `expect-patch` with no interaction
+            // between them would otherwise inspect the same patch twice and
+            // report a fact about a step that produced none.
+            Command::ExpectPatch(expected) => match last_patch.take() {
                 None => Err(format!(
                     "line {}: no preceding interaction patch to inspect",
                     step.line

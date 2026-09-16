@@ -923,9 +923,25 @@ pub extern "C" fn roc_gui_enqueue_task(task: RocErasedCallable) {
         .expect("Roc task runtime stopped");
 }
 
+/// How long one task may run before a specification calls it hung.
+///
+/// This catches a task that will never finish, so it is deliberately generous
+/// rather than a latency bound. A Windows specification's first read waits for
+/// a pseudo console to start a shell, which on a freshly provisioned machine
+/// costs seconds before the program prints anything at all.
+pub(crate) const TASK_BUDGET: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// How long a wait holds its core before it starts sleeping between polls.
+///
+/// Long enough that no application driven by a timer is still pending: the
+/// shortest interval a specification arms is a millisecond, so a task that has
+/// not completed in fifty of them is waiting on something else entirely.
+const SPIN_BEFORE_SLEEPING: std::time::Duration = std::time::Duration::from_millis(50);
+
 fn await_task_completion() -> Result<RocErasedCallable, String> {
     let runtime = task_runtime();
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let started = std::time::Instant::now();
+    let deadline = started + TASK_BUDGET;
     loop {
         match runtime.completions.try_recv() {
             Ok(value) => {
@@ -934,10 +950,24 @@ fn await_task_completion() -> Result<RocErasedCallable, String> {
             }
             Err(async_channel::TryRecvError::Closed) => return Err("task runtime stopped".into()),
             Err(async_channel::TryRecvError::Empty) if std::time::Instant::now() < deadline => {
-                std::thread::yield_now();
+                // Two regimes, and sleeping in the wrong one is a bug: a timer
+                // application can complete a task every millisecond, so any
+                // sleep here would let its work run on while this waits, and a
+                // specification counting ticks would see one too many. Past the
+                // threshold no such task is pending, the wait is on something
+                // slow like a console starting, and holding a core would slow
+                // the very work being waited for.
+                if started.elapsed() < SPIN_BEFORE_SLEEPING {
+                    std::thread::yield_now();
+                } else {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
             }
             Err(async_channel::TryRecvError::Empty) => {
-                return Err("task did not complete within 10 seconds".into());
+                return Err(format!(
+                    "task did not complete within {} seconds",
+                    TASK_BUDGET.as_secs()
+                ));
             }
         }
     }
@@ -1757,6 +1787,12 @@ impl Render for NodeView {
 
 struct Runtime {
     graph: MountedGraph,
+    /// How many patches this runtime has applied.
+    ///
+    /// A painted question is only answerable about a generation the window has
+    /// drawn, so every applied patch moves this forward and every frame stamps
+    /// the generation it drew. See [`crate::probe::Frame`].
+    generation: u64,
     views: HashMap<u64, Entity<NodeView>>,
     virtual_views: HashMap<(u64, u64), VirtualCached>,
     focus_handles: HashMap<u64, FocusHandle>,
@@ -1788,6 +1824,7 @@ impl Runtime {
     fn new(initial: InitialMount, cx: &mut Context<Self>) -> Self {
         let mut runtime = Self {
             graph: MountedGraph::default(),
+            generation: 0,
             views: HashMap::new(),
             virtual_views: HashMap::new(),
             focus_handles: HashMap::new(),
@@ -2099,7 +2136,15 @@ impl Runtime {
         self.cycle_ordinal += 1;
     }
 
+    /// Where a painted read is admitted, once the window has drawn this graph.
+    fn painted(&self) -> Result<probe::Frame<'_>, probe::Stale> {
+        probe::frame(self.generation)
+    }
+
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+        // Every applied patch leaves the window a frame behind, which is what
+        // makes a painted read of the new tree refuse until it catches up.
+        self.generation += 1;
         if !applied.staged_ids.is_empty() || !applied.removed_ids.is_empty() || applied.retired_root
         {
             let mut recycled = HashMap::<u64, u64>::new();
@@ -2435,6 +2480,9 @@ impl Render for Runtime {
             GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
         }
         watchdog::milestone(watchdog::Milestone::FirstRender);
+        // What this frame is drawing, so a painted read can tell whether the
+        // window has caught up with the graph it is being asked about.
+        probe::begin_frame(self.generation);
         if let Some(target) = self.focus_after_render.take()
             && let Some(handle) = self.focus_handles.get(&target)
         {
