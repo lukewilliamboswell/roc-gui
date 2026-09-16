@@ -203,7 +203,7 @@ names the evidence so a fix can be verified against the same case.
   and the existing 100k full-root sparse update makes 3,008,082.
   Investigate indexed maintenance and reference-count
   overhead without weakening revision checks or atomic graph/session acceptance.
-  See `wip/optimization-notes.md` for accepted changes and rejected follow-ups.
+  See PR #23 for the measured optimization history and rejected follow-ups.
   Timing alone must not gate correctness.
 
 - [ ] **Investigate remaining full-root scaling after keyed component retention.**
