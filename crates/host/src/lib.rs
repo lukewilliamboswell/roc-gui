@@ -27,9 +27,10 @@ mod watchdog;
 mod window_runner;
 
 use bridge::{
-    Align, BridgeState, CanvasPrimitive, CheckboxIndicator, CanvasPrimitiveKind, ControlKey, ImageFit,
-    ImageFormat as BridgeImageFormat, Justify, Length, MountedGraph, Node, NodeKind, Overflow,
-    Patch, FontFace, ScrollAxis, Style, TextOverflow, decode_commit, validate_tree,
+    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CheckboxIndicator, ControlKey,
+    ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify, Length,
+    MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis, Style, TextOverflow, decode_commit,
+    validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -885,7 +886,32 @@ fn take_patch() -> Patch {
     })
 }
 
+// A stand-in for the Roc dispatcher, installed only by host tests.
+//
+// The event route into Roc is a linked symbol, so a test that wants to drive
+// GPUI's own dispatch tree — press, patch, release — has no application to
+// answer the click. This seam lets a test answer it in Rust. It is compiled
+// out of the shipped binary.
+#[cfg(test)]
+thread_local! {
+    static TEST_DISPATCHER: RefCell<Option<Box<dyn Fn(u64) -> Patch>>> =
+        const { RefCell::new(None) };
+}
+
+#[cfg(test)]
+fn install_test_dispatcher(dispatcher: impl Fn(u64) -> Patch + 'static) {
+    TEST_DISPATCHER.with(|slot| *slot.borrow_mut() = Some(Box::new(dispatcher)));
+}
+
 fn dispatch(event_id: u64) -> Patch {
+    #[cfg(test)]
+    {
+        let answered =
+            TEST_DISPATCHER.with(|slot| slot.borrow().as_ref().map(|dispatch| dispatch(event_id)));
+        if let Some(patch) = answered {
+            return patch;
+        }
+    }
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
             .borrow_mut()
@@ -1044,6 +1070,11 @@ fn headless_smoke() {
 
 struct NodeView {
     node: Node,
+    /// Where this node sits, named rather than numbered. Two mounted nodes
+    /// from different patches with the same identity are the same control, and
+    /// share this one GPUI entity — which is what lets a press survive a
+    /// rerender under the finger.
+    identity: ElementIdentity,
     children: Vec<Entity<NodeView>>,
     runtime: WeakEntity<Runtime>,
     is_root: bool,
@@ -1266,7 +1297,13 @@ fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
 
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        let mut element = div().id(("node", self.node.id));
+        // The element key is the view's own, not the mounted node id: a node id
+        // is never reused, so keying by it gave every control a new GPUI
+        // element on every patch and threw away the element state — including
+        // the pending mouse-down that turns a press and a release into a
+        // click. This view is already the node's stable identity, so a
+        // constant key inside it is both stable and unique.
+        let mut element = div().id("node");
         let mut append_children = true;
         if self.is_root {
             element = element.size_full().min_h_0().min_w_0();
@@ -1408,7 +1445,7 @@ impl Render for NodeView {
                 let dialog_id = self.node.id;
                 let runtime = self.runtime.clone();
                 let inner = apply_style(
-                    div().id(("dialog-surface", dialog_id)).flex().flex_col(),
+                    div().id("dialog-surface").flex().flex_col(),
                     style,
                 )
                 .children(self.children.iter().cloned().map(AnyView::from));
@@ -1462,7 +1499,7 @@ impl Render for NodeView {
                     .min_h_0()
                     .max_h_full()
                     .child(
-                        uniform_list(("virtual-list", list_id), count, move |range, _, cx| {
+                        uniform_list("virtual-list", count, move |range, _, cx| {
                             runtime
                                 .update(cx, |runtime, cx| {
                                     runtime.virtual_range(list_id, range, height, cx)
@@ -1778,6 +1815,14 @@ impl Render for NodeView {
 struct Runtime {
     graph: MountedGraph,
     views: HashMap<u64, Entity<NodeView>>,
+    /// Where each mounted node sits, for the graph currently mounted. Captured
+    /// so that when a patch retires those nodes their views can still be found
+    /// by identity rather than by the id that is about to disappear.
+    identities: HashMap<u64, ElementIdentity>,
+    /// Views whose nodes the last patch retired, indexed by identity. A staged
+    /// node that names the same control claims the entity back instead of
+    /// getting a fresh one. Held only until the next patch.
+    recyclable: HashMap<ElementIdentity, Entity<NodeView>>,
     virtual_views: HashMap<(u64, u64), VirtualCached>,
     focus_handles: HashMap<u64, FocusHandle>,
     root: Option<Entity<NodeView>>,
@@ -1809,6 +1854,8 @@ impl Runtime {
         let mut runtime = Self {
             graph: MountedGraph::default(),
             views: HashMap::new(),
+            identities: HashMap::new(),
+            recyclable: HashMap::new(),
             virtual_views: HashMap::new(),
             focus_handles: HashMap::new(),
             root: None,
@@ -2136,6 +2183,23 @@ impl Runtime {
     }
 
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+        // Offer every view whose node this patch retired back to the staged
+        // nodes, indexed by identity. A whole-root rebuild stages a complete
+        // new set of node ids for what is, to the person using the
+        // application, the same controls; without this each of them would get
+        // a fresh GPUI entity and lose whatever element state it was carrying.
+        self.recyclable.clear();
+        let mut doomed: std::collections::HashSet<u64> =
+            applied.removed_ids.iter().copied().collect();
+        if applied.retired_root {
+            doomed.extend(self.views.keys().copied());
+        }
+        for id in doomed {
+            if let Some(view) = self.views.get(&id) {
+                let identity = view.read(cx).identity.clone();
+                self.recyclable.insert(identity, view.clone());
+            }
+        }
         if !applied.staged_ids.is_empty() || !applied.removed_ids.is_empty() || applied.retired_root
         {
             let mut recycled = HashMap::<u64, u64>::new();
@@ -2145,11 +2209,23 @@ impl Runtime {
             for (list, entities) in recycled {
                 observatory::virtual_list_frame(list, 0, 0, entities, 0);
             }
+            // A virtual row's views live only in this cache, so offer them back
+            // by identity too before it is dropped: a control inside a list is
+            // exposed to exactly the same lost press as one outside it.
+            let rows = self
+                .virtual_views
+                .values()
+                .map(|cached| cached.view.clone())
+                .collect::<Vec<_>>();
+            for row in rows {
+                self.offer_subtree(row, cx);
+            }
             self.virtual_views.clear();
         }
         if applied.retired_root {
             self.views.clear();
         }
+        refresh_identities(&self.graph, applied, &mut self.identities);
         self.materialize(&applied.staged_ids, cx);
         let next_dialog = self.graph.active_dialog();
         match (self.active_dialog.is_some(), next_dialog) {
@@ -2222,6 +2298,84 @@ impl Runtime {
         self.editors.retain(|label, _| live_labels.contains(label));
     }
 
+    /// Give a staged node its GPUI entity.
+    ///
+    /// A retired view of the same identity and the same kind is claimed back
+    /// rather than replaced. Nothing of the old node's content survives — the
+    /// view is refreshed from the staged node, and every handler is rebuilt
+    /// from it on the next render, so a click still routes to the live node id
+    /// and a control that left the tree still drops its press. What survives
+    /// is the entity, and with it GPUI's element state: the pending press, the
+    /// scroll offset, the focus handle.
+    fn claim_view(
+        &mut self,
+        node: Node,
+        input_enabled: bool,
+        cx: &mut Context<Self>,
+    ) -> Entity<NodeView> {
+        let identity = self.identities.get(&node.id).cloned().unwrap_or_default();
+        // An empty identity is not an identity: it would make every unplaced
+        // node the same control as every other.
+        let claimed = (!identity.is_empty())
+            .then(|| self.recyclable.remove(&identity))
+            .flatten()
+            .filter(|view| view.read(cx).node.kind.tag() == node.kind.tag());
+        let editor = self.editor_for_node(&node, input_enabled, cx);
+        let focus_handle = if let Some(editor) = &editor {
+            Some(editor.read(cx).focus_handle())
+        } else if node.kind.focus_identity().is_some() {
+            // Reusing the handle is what keeps keyboard focus on a control
+            // whose application rerendered under it, rather than restoring it
+            // a frame later.
+            claimed
+                .as_ref()
+                .and_then(|view| view.read(cx).focus_handle.clone())
+                .or_else(|| Some(cx.focus_handle()))
+        } else {
+            None
+        };
+        match claimed {
+            Some(view) => {
+                view.update(cx, |existing, cx| {
+                    existing.node = node;
+                    existing.children = vec![];
+                    existing.is_root = false;
+                    existing.input_enabled = input_enabled;
+                    existing.focus_handle = focus_handle;
+                    existing.input = editor;
+                    cx.notify();
+                });
+                view
+            }
+            None => {
+                let runtime = cx.entity().downgrade();
+                cx.new(|_| NodeView {
+                    node,
+                    identity,
+                    children: vec![],
+                    runtime,
+                    is_root: false,
+                    input_enabled,
+                    focus_handle,
+                    input: editor,
+                    canvas_bounds: Arc::new(Mutex::new(None)),
+                })
+            }
+        }
+    }
+
+    /// Index a retired view and everything under it by identity.
+    fn offer_subtree(&mut self, view: Entity<NodeView>, cx: &mut Context<Self>) {
+        let (identity, children) = {
+            let node = view.read(cx);
+            (node.identity.clone(), node.children.clone())
+        };
+        self.recyclable.insert(identity, view);
+        for child in children {
+            self.offer_subtree(child, cx);
+        }
+    }
+
     fn materialize(&mut self, node_ids: &[u64], cx: &mut Context<Self>) {
         let virtualized = self.graph.virtual_descendant_ids();
         let eager = node_ids
@@ -2240,32 +2394,14 @@ impl Runtime {
                 "node id {} was reused",
                 node.id
             );
-            let value = node.clone();
             let input_enabled = self
                 .active_dialog
                 .is_none_or(|dialog| self.graph.is_descendant_of(node.id, dialog));
-            let editor = self.editor_for_node(&node, input_enabled, cx);
-            let focus_handle = if let Some(editor) = &editor {
-                Some(editor.read(cx).focus_handle())
-            } else {
-                node.kind.focus_identity().map(|_| cx.focus_handle())
-            };
-            let view_focus = focus_handle.clone();
-            let runtime = cx.entity().downgrade();
-            let view = cx.new(|_| NodeView {
-                node: value,
-                children: vec![],
-                runtime,
-                is_root: false,
-                input_enabled,
-                focus_handle: view_focus,
-                input: editor,
-                canvas_bounds: Arc::new(Mutex::new(None)),
-            });
-            if let Some(handle) = focus_handle {
-                self.focus_handles.insert(node.id, handle);
+            let view = self.claim_view(node, input_enabled, cx);
+            if let Some(handle) = view.read(cx).focus_handle.clone() {
+                self.focus_handles.insert(*id, handle);
             }
-            self.views.insert(node.id, view);
+            self.views.insert(*id, view);
         }
         for id in &eager {
             let node = self.graph.node(*id).expect("applied node is missing");
@@ -2368,28 +2504,12 @@ impl Runtime {
             let count = built.iter().map(|(_, count)| *count).sum();
             (built.into_iter().map(|(view, _)| view).collect(), count)
         };
-        let runtime = cx.entity().downgrade();
         let input_enabled = self
             .active_dialog
             .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
-        let input = self.editor_for_node(&node, input_enabled, cx);
-        let focus_handle = if let Some(editor) = &input {
-            Some(editor.read(cx).focus_handle())
-        } else {
-            node.kind.focus_identity().map(|_| cx.focus_handle())
-        };
-        let view_focus = focus_handle.clone();
-        let view = cx.new(|_| NodeView {
-            node,
-            children,
-            runtime,
-            is_root: false,
-            input_enabled,
-            focus_handle: view_focus,
-            input,
-            canvas_bounds: Arc::new(Mutex::new(None)),
-        });
-        if let Some(handle) = focus_handle {
+        let view = self.claim_view(node, input_enabled, cx);
+        view.update(cx, |view, _| view.children = children);
+        if let Some(handle) = view.read(cx).focus_handle.clone() {
             self.focus_handles.insert(id, handle);
         }
         (view, descendants + 1)
@@ -2460,6 +2580,42 @@ impl Runtime {
                     .into_any_element()
             })
             .collect()
+    }
+}
+
+/// Bring an identity map up to date with the patch just applied.
+///
+/// A replacement changes identities only inside the replaced subtree, and among
+/// its parent's children where a changed name shifts an occurrence. Recomputing
+/// the whole graph instead would make a small update in a large application pay
+/// for every node it did not touch, on every event.
+fn refresh_identities(
+    graph: &MountedGraph,
+    applied: &bridge::GraphApply,
+    identities: &mut HashMap<u64, ElementIdentity>,
+) {
+    for id in &applied.removed_ids {
+        identities.remove(id);
+    }
+    let parent_identity = match (applied.retired_root, applied.parent) {
+        (false, Some((parent, _))) => identities.get(&parent).cloned(),
+        _ => None,
+    };
+    let (Some((parent, _)), Some(parent_identity)) = (applied.parent, parent_identity) else {
+        *identities = graph.element_identities();
+        return;
+    };
+    let staged = applied
+        .staged_ids
+        .iter()
+        .copied()
+        .collect::<std::collections::HashSet<_>>();
+    for (child, segment) in graph.child_segments(parent) {
+        let settled = !staged.contains(&child)
+            && identities.get(&child).and_then(|identity| identity.last()) == Some(&segment);
+        if !settled {
+            graph.identities_below(child, segment, &parent_identity, identities);
+        }
     }
 }
 
@@ -3415,10 +3571,20 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    use super::{ActivateEnter, InitialMount, Runtime, install_test_dispatcher};
     use super::{
         CanvasPrimitive, CanvasPrimitiveKind, WindowConfig, canvas_target, counted_roc_alloc,
         counted_roc_dealloc, counted_roc_realloc, make_counted_roc_host, validate_window_config,
     };
+    use crate::bridge::{Length, MountedGraph, Node, NodeKind, Patch, Style};
+    use crate::observatory;
+    use gpui::{
+        Bounds, Modifiers, MouseButton, Pixels, Point, TestAppContext, VisualTestContext,
+        WindowBounds, WindowOptions, point, px, size,
+    };
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::time::Instant;
 
     #[test]
     fn host_internal_allocators_use_counted_runtime_routes() {
@@ -3495,5 +3661,369 @@ mod tests {
         assert_eq!(canvas_target(&shapes, 20, 0), Some(1));
         assert_eq!(canvas_target(&shapes, 20, 40), Some(3));
         assert_eq!(canvas_target(&shapes, 20, 34), None);
+    }
+
+    /// A transport tree: one full-bleed column holding one full-bleed button.
+    /// Every node id is fresh, exactly as a whole-root `Action.update` rebuild
+    /// produces, so consecutive trees share nothing but their semantic names.
+    fn transport_tree(base: u64, caption: &str, label: &str) -> (u64, Vec<Node>) {
+        let fill = Style {
+            width: Length::Fill,
+            height: Length::Fill,
+            ..Style::default()
+        };
+        let column = base;
+        let button = base + 1;
+        (
+            column,
+            vec![
+                Node {
+                    id: column,
+                    kind: NodeKind::Column {
+                        label: "Transport".into(),
+                        style: fill,
+                    },
+                    children: vec![button],
+                },
+                Node {
+                    id: button,
+                    kind: NodeKind::Button {
+                        caption: caption.into(),
+                        label: label.into(),
+                        enabled: true,
+                        style: fill,
+                    },
+                    children: vec![],
+                },
+            ],
+        )
+    }
+
+    /// Identities are refreshed incrementally, because recomputing the whole
+    /// graph on every event would make a small update in a large application
+    /// pay for every node it did not touch. The incremental result has to be
+    /// the result a full recompute would have given, including where a
+    /// replacement shifts a repeated sibling name's occurrence.
+    #[test]
+    fn an_incremental_identity_refresh_matches_a_full_recompute() {
+        let row = |id: u64, label: &str, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Row {
+                label: label.into(),
+                style: Style::default(),
+            },
+            children,
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![
+                    row(1, "Shell", vec![2, 3, 4]),
+                    row(2, "Slot", vec![]),
+                    row(3, "Slot", vec![]),
+                    row(4, "Footer", vec![]),
+                ],
+            })
+            .expect("mount");
+        let mut identities = graph.element_identities();
+
+        // The replacement renames the first "Slot", which moves the second one
+        // from the second occurrence of that name to the first.
+        let applied = graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 10,
+                nodes: vec![row(10, "Header", vec![11]), row(11, "Title", vec![])],
+            })
+            .expect("replace");
+        super::refresh_identities(&graph, &applied, &mut identities);
+        assert_eq!(identities, graph.element_identities());
+    }
+
+    /// A one-row virtual list, so a press can be aimed at a control the list
+    /// materialises rather than one the eager tree holds.
+    fn queue_tree(base: u64) -> (u64, Vec<Node>) {
+        let fill = Style {
+            width: Length::Fill,
+            height: Length::Fill,
+            ..Style::default()
+        };
+        (
+            base,
+            vec![
+                Node {
+                    id: base,
+                    kind: NodeKind::Column {
+                        label: "Queue".into(),
+                        style: fill,
+                    },
+                    children: vec![base + 1],
+                },
+                Node {
+                    id: base + 1,
+                    kind: NodeKind::VirtualList {
+                        name: "Tracks".into(),
+                        row_height: 40,
+                    },
+                    children: vec![base + 2],
+                },
+                Node {
+                    id: base + 2,
+                    kind: NodeKind::VirtualItem { key: 7 },
+                    children: vec![base + 3],
+                },
+                Node {
+                    id: base + 3,
+                    kind: NodeKind::Button {
+                        caption: "Track seven".into(),
+                        label: "Play track seven".into(),
+                        enabled: true,
+                        style: fill,
+                    },
+                    children: vec![],
+                },
+            ],
+        )
+    }
+
+    fn initial_mount(patch: Patch) -> InitialMount {
+        InitialMount {
+            patch,
+            cycle_started: Instant::now(),
+            roc_callback_ns: 0,
+            roc_work: [observatory::RocWork::default(); 4],
+            roc_work_valid: false,
+        }
+    }
+
+    fn recording_dispatcher() -> Rc<RefCell<Vec<u64>>> {
+        let clicks: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
+        let recorded = clicks.clone();
+        install_test_dispatcher(move |event_id| {
+            recorded.borrow_mut().push(event_id);
+            Patch::NoChange
+        });
+        clicks
+    }
+
+    /// The baseline the two tests below are measured against: with nothing
+    /// intervening, a press and a release over GPUI's dispatch tree do reach
+    /// the production click handler and the Roc event route.
+    #[gpui::test]
+    fn a_press_and_release_on_a_still_control_clicks(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_button = point(px(60.0), px(60.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert_eq!(clicks.borrow().as_slice(), &[1001]);
+    }
+
+    /// The defect this guards: an application that rebuilds its tree while a
+    /// person is holding a control used to lose the press entirely, because
+    /// every GPUI element was keyed by a mounted node id that is never reused.
+    /// The release then landed on an element that had never seen the press.
+    ///
+    /// Input here goes through GPUI's own dispatch tree, which is the only
+    /// place the press/release pairing actually lives. The window runner's
+    /// `click` step calls the production handler directly and cannot see this.
+    #[gpui::test]
+    fn a_control_rerendered_under_the_finger_still_completes_its_click(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_button = point(px(60.0), px(60.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        assert!(
+            clicks.borrow().is_empty(),
+            "a press alone dispatched a click"
+        );
+
+        // Twenty whole-root rebuilds under the held finger, every node id new
+        // each time: a 50 ms playback timer held for a second, or a 5 ms one
+        // held for a tenth of a second.
+        let mut root = 1000;
+        let mut live_button = 1001;
+        for generation in 1..=20u64 {
+            let base = 1000 + generation * 10;
+            let (next_root, nodes) = transport_tree(base, "Pause", "Pause");
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: root,
+                        root: next_root,
+                        nodes,
+                    },
+                    cx,
+                )
+            });
+            root = next_root;
+            live_button = base + 1;
+            cx.run_until_parked();
+        }
+
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert_eq!(
+            clicks.borrow().as_slice(),
+            &[live_button],
+            "the press was lost across the rebuilds, or was routed to a retired node"
+        );
+    }
+
+    /// Keyboard activation has to survive the same rebuilds. Focus lives on a
+    /// focus handle owned by the view, so the view being claimed back by
+    /// identity is what keeps the focused control focused rather than losing
+    /// and restoring it a frame later.
+    #[gpui::test]
+    fn keyboard_activation_survives_rebuilds_under_the_focused_control(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        runtime.update(cx, |runtime, cx| {
+            runtime.focus_after_render = Some(1001);
+            cx.notify();
+        });
+        cx.run_until_parked();
+
+        let mut root = 1000;
+        let mut live_button = 1001;
+        for generation in 1..=5u64 {
+            let base = 1000 + generation * 10;
+            let (next_root, nodes) = transport_tree(base, "Pause", "Pause");
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: root,
+                        root: next_root,
+                        nodes,
+                    },
+                    cx,
+                )
+            });
+            root = next_root;
+            live_button = base + 1;
+            cx.run_until_parked();
+        }
+
+        cx.dispatch_action(ActivateEnter);
+        assert_eq!(
+            clicks.borrow().as_slice(),
+            &[live_button],
+            "keyboard focus did not survive the rebuilds"
+        );
+    }
+
+    /// A virtual list's rows are rebuilt from the graph on every patch, so a
+    /// control inside one is exposed to the same lost press as one outside it.
+    /// The row views are offered back by identity too.
+    #[gpui::test]
+    fn a_control_inside_a_virtual_list_keeps_its_press_across_a_rebuild(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = queue_tree(1000);
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_first_row = point(px(20.0), px(20.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_first_row, None, Modifiers::none());
+        cx.simulate_mouse_down(on_first_row, MouseButton::Left, Modifiers::none());
+
+        let mut root = 1000;
+        let mut live_button = 1003;
+        for generation in 1..=5u64 {
+            let base = 1000 + generation * 10;
+            let (next_root, nodes) = queue_tree(base);
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: root,
+                        root: next_root,
+                        nodes,
+                    },
+                    cx,
+                )
+            });
+            root = next_root;
+            live_button = base + 3;
+            cx.run_until_parked();
+        }
+
+        cx.simulate_mouse_up(on_first_row, MouseButton::Left, Modifiers::none());
+        assert_eq!(
+            clicks.borrow().as_slice(),
+            &[live_button],
+            "a press inside a virtual list was lost across the rebuilds"
+        );
+    }
+
+    /// The other half of the rule: element identity is semantic, so a press on
+    /// a control that leaves the tree is dropped rather than handed to whatever
+    /// took its place.
+    #[gpui::test]
+    fn a_press_on_a_control_that_is_replaced_is_dropped(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, nodes) = transport_tree(1000, "Pause", "Pause");
+        let initial = initial_mount(Patch::Mount { root, nodes });
+        let (runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        let on_button = point(px(60.0), px(60.0));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        let (next_root, nodes) = transport_tree(2000, "Play", "Play");
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1000,
+                    root: next_root,
+                    nodes,
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert!(
+            clicks.borrow().is_empty(),
+            "a press on a control that left the tree was handed to its replacement"
+        );
+    }
+}
+
+/// Roc-shaped symbols so the host's own test binary links without a compiled
+/// Roc application.
+///
+/// Nothing under `cargo test` calls into Roc: the event route is answered by
+/// [`install_test_dispatcher`] instead. These exist only because the test
+/// binary links the whole host, and are absent from the shipped staticlib.
+#[cfg(test)]
+mod roc_test_symbols {
+    use crate::roc_platform_abi::RocErasedCallable;
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_init() {
+        unreachable!("a host test called into Roc");
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_dispatch(_dispatcher: RocErasedCallable, _event: u64) {
+        unreachable!("a host test called into Roc");
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_complete(_dispatcher: RocErasedCallable, _completion: RocErasedCallable) {
+        unreachable!("a host test called into Roc");
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_run_task(_task: RocErasedCallable) -> RocErasedCallable {
+        unreachable!("a host test called into Roc");
     }
 }

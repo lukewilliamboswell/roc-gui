@@ -198,6 +198,56 @@ impl NodeKind {
         )
     }
 
+    /// Which kind this is, as a number, for identity comparisons.
+    ///
+    /// Two nodes are the same element across a patch only if they agree here:
+    /// a button that became a checkbox at the same place is a different
+    /// control, whatever it is called.
+    pub fn tag(&self) -> u8 {
+        match self {
+            Self::Canvas { .. } => 0,
+            Self::Button { .. } => 1,
+            Self::Checkbox { .. } => 2,
+            Self::Textarea { .. } => 3,
+            Self::Image { .. } => 4,
+            Self::Column { .. } => 5,
+            Self::Dialog { .. } => 6,
+            Self::Panel { .. } => 7,
+            Self::Row { .. } => 8,
+            Self::Scroll { .. } => 9,
+            Self::VirtualItem { .. } => 10,
+            Self::VirtualList { .. } => 11,
+            Self::TextInput { .. } => 12,
+            Self::Text(_) => 13,
+        }
+    }
+
+    /// The name this node carries among its siblings, when it has one a patch
+    /// preserves.
+    ///
+    /// This is the same name a specification locates the node by, which is
+    /// what makes it the application's own statement of what the thing is.
+    /// `Text` has no name — a paragraph is identified by where it sits — and a
+    /// virtual item is named by the key its application chose for the row.
+    pub fn sibling_name(&self) -> Option<String> {
+        let name = match self {
+            Self::Canvas { label, .. }
+            | Self::Button { label, .. }
+            | Self::Checkbox { label, .. }
+            | Self::Textarea { label, .. }
+            | Self::Image { label, .. }
+            | Self::Column { label, .. }
+            | Self::Dialog { label, .. }
+            | Self::Panel { label, .. }
+            | Self::Row { label, .. }
+            | Self::TextInput { label, .. } => label.clone(),
+            Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.clone(),
+            Self::VirtualItem { key } => key.to_string(),
+            Self::Text(_) => String::new(),
+        };
+        (!name.is_empty()).then_some(name)
+    }
+
     pub fn focus_identity(&self) -> Option<(u8, String)> {
         match self {
             Self::Button {
@@ -409,6 +459,37 @@ pub struct GraphApply {
     pub parent: Option<(u64, usize)>,
 }
 
+/// One step of an [`ElementIdentity`]: a node's key among its siblings.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IdentitySegment {
+    /// The node names itself. `occurrence` separates siblings that share a
+    /// name, and is 0 for the overwhelmingly common unique case.
+    Named {
+        tag: u8,
+        name: String,
+        occurrence: u32,
+    },
+    /// The node has no name of its own, so its place among its siblings is
+    /// what identifies it.
+    Positional { index: usize },
+}
+
+impl IdentitySegment {
+    fn of(node: &Node, index: usize, occurrence: u32) -> Self {
+        match node.kind.sibling_name() {
+            Some(name) => Self::Named {
+                tag: node.kind.tag(),
+                name,
+                occurrence,
+            },
+            None => Self::Positional { index },
+        }
+    }
+}
+
+/// The path of sibling keys from the mounted root down to one node.
+pub type ElementIdentity = Vec<IdentitySegment>;
+
 /// The canonical mounted UI graph. Both semantic specs and the GPUI runtime
 /// apply patches here; GPUI entities are only a materialized view of this state.
 #[derive(Default)]
@@ -438,6 +519,80 @@ impl MountedGraph {
             pending.extend(node.children.iter().rev().copied());
         }
         ordered
+    }
+
+    /// Where every mounted node sits, named rather than numbered.
+    ///
+    /// A mounted node id is deliberately never reused, so it cannot say that
+    /// the control in this frame is the control a person is already pressing
+    /// in the last one. This is the identity that can: the path of sibling
+    /// keys from the root, each key the node's own name when it has one and
+    /// its position when it has not. It is stable across a patch that rebuilds
+    /// the whole tree, and it changes the moment the application says the
+    /// control is a different control.
+    ///
+    /// Repeated names among siblings are disambiguated by occurrence, so the
+    /// identity of a node is unique within the graph even when an application
+    /// gives two sibling buttons the same name.
+    pub fn element_identities(&self) -> HashMap<u64, ElementIdentity> {
+        let mut identities = HashMap::new();
+        if let Some(root) = self.root {
+            let key = self
+                .node(root)
+                .map(|node| IdentitySegment::of(node, 0, 0))
+                .unwrap_or(IdentitySegment::Positional { index: 0 });
+            self.identities_below(root, key, &[], &mut identities);
+        }
+        identities
+    }
+
+    /// The sibling keys of one node's children, in child order.
+    ///
+    /// Repeated names are separated here, where the siblings are all in view.
+    pub fn child_segments(&self, parent: u64) -> Vec<(u64, IdentitySegment)> {
+        let Some(node) = self.node(parent) else {
+            return Vec::new();
+        };
+        let mut seen: HashMap<(u8, String), u32> = HashMap::new();
+        let mut segments = Vec::with_capacity(node.children.len());
+        for (index, child) in node.children.iter().enumerate() {
+            let Some(child_node) = self.node(*child) else {
+                continue;
+            };
+            let occurrence = match child_node.kind.sibling_name() {
+                Some(name) => {
+                    let slot = seen.entry((child_node.kind.tag(), name)).or_default();
+                    let occurrence = *slot;
+                    *slot += 1;
+                    occurrence
+                }
+                None => 0,
+            };
+            segments.push((*child, IdentitySegment::of(child_node, index, occurrence)));
+        }
+        segments
+    }
+
+    /// Record identities for `root` and everything beneath it, given the
+    /// identity of its parent and its own key among that parent's children.
+    pub fn identities_below(
+        &self,
+        root: u64,
+        own: IdentitySegment,
+        parent_identity: &[IdentitySegment],
+        into: &mut HashMap<u64, ElementIdentity>,
+    ) {
+        let mut identity = parent_identity.to_vec();
+        identity.push(own);
+        let mut pending = vec![(root, identity)];
+        while let Some((id, identity)) = pending.pop() {
+            for (child, segment) in self.child_segments(id) {
+                let mut child_identity = identity.clone();
+                child_identity.push(segment);
+                pending.push((child, child_identity));
+            }
+            into.insert(id, identity);
+        }
     }
 
     pub fn active_dialog(&self) -> Option<u64> {
@@ -1225,6 +1380,125 @@ mod tests {
             kind: NodeKind::Text(value.into()),
             children: vec![],
         }
+    }
+
+    /// Identity is what survives a patch that renumbers every node. Two trees
+    /// that describe the same controls must produce the same identities even
+    /// though they share no node id.
+    #[test]
+    fn identity_survives_a_rebuild_that_renumbers_every_node() {
+        let tree = |base: u64| {
+            vec![
+                Node {
+                    id: base,
+                    kind: NodeKind::Column {
+                        label: "Transport".into(),
+                        style: Style::default(),
+                    },
+                    children: vec![base + 1, base + 2, base + 3],
+                },
+                text(base + 1, "Frame 12"),
+                Node {
+                    id: base + 2,
+                    kind: button("Pause", true),
+                    children: vec![],
+                },
+                Node {
+                    id: base + 3,
+                    kind: button("Stop", true),
+                    children: vec![],
+                },
+            ]
+        };
+        let mut first = MountedGraph::default();
+        first
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: tree(1),
+            })
+            .expect("first mount");
+        let mut second = MountedGraph::default();
+        second
+            .apply(Patch::Mount {
+                root: 100,
+                nodes: tree(100),
+            })
+            .expect("second mount");
+        let before = first.element_identities();
+        let after = second.element_identities();
+        assert_eq!(before[&3], after[&102], "Pause changed identity");
+        assert_eq!(before[&1], after[&100], "the column changed identity");
+        assert_ne!(before[&3], before[&4], "two buttons share an identity");
+    }
+
+    /// Identity has to be unique inside one graph, or two controls would claim
+    /// the same GPUI element. Sibling names an application repeats, and
+    /// unnamed nodes, both have to stay apart.
+    #[test]
+    fn identity_is_unique_even_when_siblings_share_a_name() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![
+                    Node {
+                        id: 1,
+                        kind: NodeKind::Row {
+                            label: String::new(),
+                            style: Style::default(),
+                        },
+                        children: vec![2, 3, 4, 5],
+                    },
+                    Node {
+                        id: 2,
+                        kind: button("Delete", true),
+                        children: vec![],
+                    },
+                    Node {
+                        id: 3,
+                        kind: button("Delete", true),
+                        children: vec![],
+                    },
+                    text(4, "one"),
+                    text(5, "two"),
+                ],
+            })
+            .expect("mount");
+        let identities = graph.element_identities();
+        let distinct = identities.values().collect::<HashSet<_>>();
+        assert_eq!(distinct.len(), identities.len());
+    }
+
+    /// A control whose name changes is a different control. That is what makes
+    /// a press on a control that left the tree get dropped rather than handed
+    /// to whatever replaced it.
+    #[test]
+    fn renaming_a_control_changes_its_identity() {
+        let mount = |name: &str| {
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: 1,
+                    nodes: vec![
+                        Node {
+                            id: 1,
+                            kind: NodeKind::Row {
+                                label: "Transport".into(),
+                                style: Style::default(),
+                            },
+                            children: vec![2],
+                        },
+                        Node {
+                            id: 2,
+                            kind: button(name, true),
+                            children: vec![],
+                        },
+                    ],
+                })
+                .expect("mount");
+            graph.element_identities()[&2].clone()
+        };
+        assert_ne!(mount("Pause"), mount("Play"));
     }
 
     #[test]
