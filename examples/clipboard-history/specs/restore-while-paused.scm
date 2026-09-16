@@ -12,5 +12,5 @@
     (click (role button :name "Restore item 1"))
     (expect-visible (text "Capture is paused"))
     (expect-not-visible (text "Restoring selected item"))
-    (expect-not-visible (text "Selected item restored"))
+    (expect-not-visible (text "Selected item is now on the clipboard"))
     (expect-clipboard-counters 0 1 1 0)))
