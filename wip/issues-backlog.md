@@ -212,6 +212,30 @@ names the evidence so a fix can be verified against the same case.
   Keyboard input is real, through `Window::dispatch_keystroke`; pointer input is
   simulated at the production handler, gated on real laid-out geometry, because
   GPUI exposes no usable pointer seam. See `docs/specifications.adoc`.
+- [ ] **A control that rerenders while it is being pressed loses the press.**
+  Reported from using `animation-studio`: while playback runs, pressing Pause
+  does nothing, and the specifications cannot see it. Every GPUI element is
+  keyed by its mounted node id (`div().id(("node", self.node.id))`), node ids
+  come from a counter that never reuses a value, and an ordinary
+  `Action.update` with no boundary rebuilds the whole root. So a playing
+  animation-studio, whose timer fires every 50 ms, replaces the Pause button
+  with a different GPUI element twenty times a second. GPUI completes a click
+  only when the press and the release land on the same element, and a human
+  click takes longer than one frame, so the release lands on an element that
+  did not receive the press and the click never happens. It is not specific to
+  this example: any application that rerenders while a person is pressing a
+  control is exposed, and the faster it rerenders the worse it is.
+
+  `specs/playback-resume.scm` covers pause thoroughly — subscriptions drop to
+  zero, the frame holds, a tick already in flight does not advance it — and
+  passes, because the window runner invokes the production click handler
+  directly rather than going through GPUI's dispatch tree. The simulated
+  pointer is honest about occlusion and hover, which it documents, but it also
+  cannot observe element identity across a rerender, which nothing said. Closing
+  this needs stable element identity for a control that is semantically the same
+  control across a patch, and the evidence has to come from a real pointer or
+  from a host test over GPUI's dispatch rather than from the current click step.
+
 - [ ] **A real pointer seam.** Pointer input is currently simulated at the
   production click handler. GPUI 0.2.2 offers no alternative:
   `Window::dispatch_event` is `pub fn` but returns the crate-private
