@@ -20,7 +20,7 @@ Folder : { name : Str, directory : Files.Dir.Read, entries : List(Files.Entry) }
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
 State : {
-	database : [None, Some(Sqlite.Read)],
+	database : [None, Some(Sqlite.Db)],
 	folder : [None, Some(Folder)],
 	grant : Grant,
 	next_request : U64,
@@ -52,7 +52,7 @@ Browser := [].{
 	choose = choose
 	open_database : State, Files.Dir.Read, Str -> Action(State)
 	open_database = open_database
-	run_query : State, Sqlite.Read, Str -> Action(State)
+	run_query : State, Sqlite.Db, Str -> Action(State)
 	run_query = run_query
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
@@ -75,7 +75,7 @@ choose = |state| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match Files.pick_directory!() {
-			Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {
+			Ok(Chosen(selection)) => match selection.directory.list!() {
 				Ok(entries) => ChosenFolder({ name: selection.name, directory: selection.directory, entries })
 				Err(_) => ChooseFailed
 			}
@@ -106,7 +106,7 @@ open_database = |state, directory, name| {
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match Sqlite.open_read!(directory, name) {
 			Err(error) => Err(OpenFailed("Could not open SQLite database: ${Sqlite.detail(error)}"))
-			Ok(database) => match Sqlite.query!(database, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") {
+			Ok(database) => match database.query!("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") {
 				Err(error) => Err(OpenFailed("Could not inspect SQLite schema: ${Sqlite.detail(error)}"))
 				Ok(result) => Ok({ database, result })
 			}
@@ -140,7 +140,7 @@ run_query = |state, database, sql| {
 	id = state.next_request
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || Sqlite.query!(database, sql),
+		run: || database.query!(sql),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
 				Ok(result) => Action.update({ ..latest, result: Some(result), status: Ready })

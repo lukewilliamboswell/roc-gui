@@ -60,7 +60,7 @@ the change lands; do not soften the docs to match the gap.
 ## Terminal workspace follow-on features
 
 - [ ] Propagate live pane dimensions through the layout owner to
-  `Process.resize!` and specify the resulting PTY size without exposing a
+  `Process.Pty.resize!` and specify the resulting PTY size without exposing a
   fixed-size product control.
 - [ ] Add ANSI/VT cell parsing, wide and combining glyph layout, selection,
   clipboard policy, and URL recognition on top of the ordered PTY byte stream.
@@ -467,7 +467,7 @@ names the evidence so a fix can be verified against the same case.
   with no error and exactly one scan's worth of traffic on the wire.
 
 - [ ] **A resource handle captured by a task closure cannot be stored by its
-  completion.** Writing `Tcp.Stream.Handle` back into application state from
+  completion.** Writing `Tcp.Stream` back into application state from
   inside `resolve`, using the handle the surrounding `Action.task` captured,
   segfaults the process non-deterministically — the capture is released when the
   task's closure is, so the completion stores a dangling resource. Recovering the
@@ -478,7 +478,7 @@ names the evidence so a fix can be verified against the same case.
   rejected at compile time.
 
 - [ ] **A window specification cannot wait for an HTTP request.** In the window
-  runner `await-task` is `settle 2`, and a real `Http.send!` over loopback does
+  runner `await-task` is `settle 2`, and a real `Http.Client.send!` over loopback does
   not land inside it: the readout is still "in flight" when the next step runs.
   Asking for more settling makes it worse rather than better — repeated
   `await-task` steps, or one `settle :frames 45`, leave the windowed host

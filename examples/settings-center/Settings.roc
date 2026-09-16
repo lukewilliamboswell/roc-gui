@@ -110,9 +110,9 @@ Settings := [].{
 			pending: { ..state, next_request: id + 1, status: Loading(id) },
 			run: || match Files.app_data!() {
 				Err(error) => LoadFailed(preference_error_message(error))
-				Ok(store) => match Files.Dir.read_utf8!(store, "profile-name") {
+				Ok(store) => match store.read_utf8!("profile-name") {
 					Err(error) => LoadFailed(preference_error_message(error))
-					Ok(name_result) => match Files.Dir.read_utf8!(store, "profile-notes") {
+					Ok(name_result) => match store.read_utf8!("profile-notes") {
 						Err(error) => LoadFailed(preference_error_message(error))
 						Ok(notes_result) => {
 							name = match name_result {
@@ -148,9 +148,9 @@ Settings := [].{
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
 			run: || match Files.app_data!() {
 				Err(error) => SaveFailed(preference_error_message(error))
-				Ok(store) => match Files.Dir.write_utf8_atomic!(store, "profile-name", name_to_save) {
+				Ok(store) => match store.write_utf8_atomic!("profile-name", name_to_save) {
 					Err(error) => SaveFailed(preference_error_message(error))
-					Ok({}) => match Files.Dir.write_utf8_atomic!(store, "profile-notes", notes_to_save) {
+					Ok({}) => match store.write_utf8_atomic!("profile-notes", notes_to_save) {
 						Err(error) => SaveFailed(preference_error_message(error))
 						Ok({}) => SaveSucceeded
 					}

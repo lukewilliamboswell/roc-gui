@@ -162,7 +162,7 @@ start_pick = |state| {
 		run: || match Files.pick_directory!() {
 			Err(error) => PickFailed({ hint: hint_for(error), message: describe(error) })
 			Ok(Canceled) => PickCanceled
-			Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) {
+			Ok(Chosen(selection)) => match selection.directory.list!() {
 				Err(error) => PickFailed({ hint: hint_for(error), message: describe(error) })
 				Ok(entries) => Picked({ entries, location: { directory: selection.directory, name: selection.name } })
 			}
@@ -189,9 +189,9 @@ open_child = |state, parent, name| {
 	}
 	Action.task({
 		pending: request.pending,
-		run: || match Files.Dir.open_read_dir!(parent.directory, name) {
+		run: || match parent.directory.open_dir!(name) {
 			Err(error) => OpenFailed({ hint: hint_for(error), message: describe(error) })
-			Ok(directory) => match Files.Dir.list!(directory) {
+			Ok(directory) => match directory.list!() {
 				Err(error) => OpenFailed({ hint: hint_for(error), message: describe(error) })
 				Ok(entries) => Opened({ entries, location: { directory, name } })
 			}
@@ -218,7 +218,7 @@ go_to = |state, depth| match state.view {
 			request = begin(state)
 			Action.task({
 				pending: request.pending,
-				run: || Files.Dir.list!(target.directory),
+				run: || target.directory.list!(),
 				resolve: |latest, result| if !is_current(latest, request.id) {
 					Action.none
 				} else {

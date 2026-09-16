@@ -55,12 +55,12 @@ architecture chapter records that origin and the reasoning behind it.
 == Timers and subscriptions
 
 `Timer.start!({ interval_ms })` creates an opaque `Timer.Handle` for intervals
-from 1 through 60,000 milliseconds. `Timer.next!(handle)` waits for one tick
+from 1 through 60,000 milliseconds. `handle.next!()` waits for one tick
 and belongs inside `Action.task`; the next wait is started only after the
 previous completion has been applied. This pull contract bounds backpressure
 at one in-flight wait and does not accumulate missed ticks.
 
-`Timer.cancel!(handle)` is idempotent, wakes an outstanding wait, and makes it
+`handle.cancel!()` is idempotent, wakes an outstanding wait, and makes it
 resolve as `Canceled`. Dropping the last typed `Box(U64)` handle also releases
 the host registry entry. Applications retain the handle in state and decide
 whether a `Fired` result schedules another wait.
@@ -283,11 +283,11 @@ their immediate parent and inherited source. This metadata is host-private; no
 path or grant identity enters captures. `--host-cap-dir` remains development
 and automation provisioning and never represents consent.
 
-`Files.Dir.list!(directory)` lists at most 10,000 direct children and 4 MiB of
+`directory.list!()` lists at most 10,000 direct children and 4 MiB of
 UTF-8 names. Entries distinguish files, directories, symlinks, and other file
-types. `Files.Dir.open_read_dir!(directory, name)` acquires a direct child
+types. `directory.open_dir!(name)` acquires a direct child
 directory without following the final symlink; names containing traversal or
-multiple path components are rejected. `Files.Dir.read!(directory, name)` reads
+multiple path components are rejected. `directory.read!(name)` reads
 one direct ordinary file as a bounded `List(U8)` without following links. The
 64 MiB bound returns `ResourceLimit` instead of constructing an unbounded
 application value. Run filesystem operations inside `Action.task`, as
@@ -369,7 +369,7 @@ checkout wants.
 this application. The application names no path here, so an asset store is
 never a route to a directory the host did not hand it.
 
-`Assets.open!` returns an opaque `Assets.Store`; `Assets.read!(store, path)`
+`Assets.open!` returns an opaque `Assets.Store`; `store.read!(path)`
 returns the bytes of one asset beneath it. Both touch the disk, so both belong
 inside `Action.task`, which runs them on the bounded worker pool and resolves on
 the UI thread:
@@ -380,7 +380,7 @@ Action.task({
     pending: { ..state, banner: Loading },
     run: || {
         store = Assets.open!(Assets.beside_executable("assets"))?
-        Assets.read!(store, "banners/hero.png")
+        store.read!("banners/hero.png")
     },
     resolve: |latest, result| match result {
         Ok(bytes) => Action.update({ ..latest, banner: Loaded(bytes) })
@@ -389,7 +389,7 @@ Action.task({
 })
 ----
 
-`Assets.stub` is the resource-free store value. An application that keeps a
+`Assets.Store.stub` is the resource-free store value. An application that keeps a
 store in its state needs one to write that state down in a pure `expect`; reads
 through it fail, and it proves nothing about asset resolution.
 
@@ -442,13 +442,13 @@ evidence.
 `Process.acquire!` returns an opaque process grant only when the application is
 launched with `--host-cap-process=local-shell` or
 `--host-cap-process=test-program`. The grant fixes the only profile that may be
-started. `Process.spawn!` accepts only the grant and terminal dimensions;
+started. `grant.spawn!` accepts only terminal dimensions;
 applications never provide a profile, executable path, arguments, environment
 variables, or command lines to the host.
 
-`Process.spawn!` creates a real pseudo-terminal with an explicitly bounded row
-and column size. `Process.read!`, `Process.write!`, `Process.resize!`, and
-`Process.cancel!` require its typed `Process.Pty` handle. Reads and writes are
+`Grant.spawn!` creates a real pseudo-terminal with an explicitly bounded row
+and column size. `read!`, `write!`, `resize!`, and
+`cancel!` are methods on its typed `Process.Pty` handle. Reads and writes are
 capped at 65,536 bytes per call, one read may wait on a PTY, and cancellation
 wakes that wait. Blocking operations belong in `Action.task`, whose completion
 is reconciled with the latest state on the ordinary event route.
@@ -463,10 +463,10 @@ kinds.
 `Device.acquire!` returns an opaque grant only when the host has authorised one
 exact virtual device or physical USB vendor/product identity. Applications
 cannot request arbitrary hardware, inspect operating-system device paths, or
-read serial numbers. `Device.discover!` lists only comparison-safe identity
-within that grant, and `Device.connect!` connects exactly the granted device.
+read serial numbers. `grant.discover!()` lists only comparison-safe identity
+within that grant, and `grant.connect!()` connects exactly the granted device.
 
-Connections are typed `Box(U64)` resources. `Device.transact!` exchanges one
+Connections are typed `Box(U64)` resources. `connection.transact!` exchanges one
 bounded byte request and response; device-specific framing and values belong in
 an application or protocol package rather than the platform. Physical HID and
 deterministic virtual transports enter this same operation. Blocking discovery,
@@ -479,9 +479,9 @@ transaction lifecycle counts are recorded by the host that owns those events.
 == System observation capabilities
 
 `SystemMonitor.acquire!` returns an opaque typed sampler only when the host has
-granted read-only system observation. `SystemMonitor.sample!` refreshes CPU,
+granted read-only system observation. `sampler.sample!()` refreshes CPU,
 memory, aggregate process disk I/O, network I/O, and a bounded process list on a
-task worker. `SystemMonitor.close!` is idempotent. Applications cannot request
+task worker. `sampler.close!()` is idempotent. Applications cannot request
 another machine or broaden the grant.
 
 Every snapshot field is a tagged `Value` or `Unavailable(Unsupported)` value.
@@ -501,8 +501,8 @@ environment, hostname, and machine identity do not.
 granted by `--host-cap-app-data PATH`. The result is an opaque typed
 `Files.Dir.ReadWrite` handle; applications cannot recover the host path.
 
-`Files.Dir.read_utf8!(directory, name)` distinguishes `Missing` from
-`Value(Str)`. `Files.Dir.write_utf8_atomic!(directory, name, value)`
+`directory.read_utf8!(name)` distinguishes `Missing` from
+`Value(Str)`. `directory.write_utf8_atomic!(name, value)`
 synchronises a private temporary file before replacing the direct child in the
 same directory. Names are flat ASCII identifiers of at most 128 bytes, values
 are UTF-8 of at most one MiB, and the ordinary operation-tagged `Files.FileErr`
@@ -518,13 +518,13 @@ route and retains a newer draft when an older load completes.
 Playing sound through the shared system mixer is an automatically provisioned
 service with no prompt, and the handle lasts for the session; exclusive access
 or unusual routing would be separate scope. Acquisition fails when the machine
-has no usable output device. `Audio.load!(output, directory, name)` loads
+has no usable output device. `output.load!(directory, name)` loads
 one direct file through an existing `Files.Dir.Read` grant; names with traversal
 or multiple components are rejected and encoded input is bounded to 64 MiB.
 The host delegates media decoding and playback to Rodio and Symphonia.
 
-`Audio.Track` is an opaque host resource. `Audio.play!`, `Audio.pause!`,
-`Audio.seek!`, `Audio.status!`, and `Audio.stop!` are bounded operations intended
+`Audio.Track` is an opaque host resource. `play!`, `pause!`,
+`seek!`, `status!`, and `stop!` are bounded operations on that handle intended
 for `Action.task`. Status reports the decoder-owned duration, playback position,
 and `Playing`, `Paused`, or `Stopped` state. `Audio.AudioErr` identifies
 the failed operation and carries a portable reason such as `DecodeFailed`,
@@ -541,9 +541,9 @@ was launched with `--host-cap-clipboard`. Its opaque `Clipboard.Handle` uses
 the common typed `Box(U64)` representation and cannot be manufactured or
 confused with another resource family.
 
-`Clipboard.read_text!(handle)` returns a bounded UTF-8 snapshot with a
+`handle.read_text!()` returns a bounded UTF-8 snapshot with a
 monotonic sequence. Applications compare sequences to suppress stale reads and
-deduplicate repeated content. `Clipboard.write_text!(handle, text)` schedules
+deduplicate repeated content. `handle.write_text!(text)` schedules
 replacement on GPUI's owning UI context. Both directions reject values larger
 than 64 KiB. `Clipboard.ClipboardErr` identifies acquisition, reading, and
 writing with distinct operation tags carrying a portable reason.
@@ -569,7 +569,7 @@ URLs, and pins an accepted non-literal destination resolution for the exchange.
 Literal loopback or private addresses remain usable only when named explicitly
 by the provisioned origin.
 
-`Http.send!(client, config, request)` performs one bounded exchange and returns
+`client.send!(config, request)` performs one bounded exchange and returns
 the package's canonical `Response`. Call it from `Action.task` so connection,
 TLS, and response work runs on the native worker pool and its reducer returns
 through the ordinary UI-thread completion dispatcher.
@@ -594,10 +594,10 @@ newer response without creating a second completion route.
 `Sqlite.open_read!(directory, name)` opens one direct ordinary child of a
 granted directory as a read-only database capability. The operation rejects
 path traversal and symlinks and never exposes an ambient path. Database bytes
-are bounded to 64 MiB and the returned `Sqlite.Read` is an opaque, reference-
+are bounded to 64 MiB and the returned `Sqlite.Db` is an opaque, reference-
 counted `Box(U64)` handle whose final release closes the native connection.
 
-`Sqlite.query!(database, sql)` prepares and executes one read-only statement.
+`database.query!(sql)` prepares and executes one read-only statement.
 Results preserve SQLite's `Null`, `Integer`, `Real`, `String`, and `Bytes`
 value kinds. Queries are bounded to 64 KiB of SQL, 256 columns, 10,000 rows,
 and 16 MiB of returned text and blob bytes. Limit violations and invalid,
@@ -620,10 +620,10 @@ returns `ConnectErr(AccessDenied)`. The application cannot select or derive a
 different destination from the opaque handle, and releasing its final
 reference closes the socket and removes the host registry entry.
 
-`Tcp.Stream.read_up_to!(stream, max_bytes)` reads between one byte and a
+`stream.read_up_to!(max_bytes)` reads between one byte and a
 one-MiB requested maximum; an empty list means orderly end of stream.
-`Tcp.Stream.write_all!(stream, bytes)` writes the complete value or fails and
-accepts at most 16 MiB. `Tcp.Stream.close!(stream)` is idempotent. Connections,
+`stream.write_all!(bytes)` writes the complete value or fails and
+accepts at most 16 MiB. `stream.close!()` is idempotent. Connections,
 reads, and writes have finite native timeouts, and failures use the
 operation-tagged `Tcp.TcpErr` union: `ConnectErr`, `ReadErr`, `WriteErr`, or
 `CloseErr` wraps a portable reason.

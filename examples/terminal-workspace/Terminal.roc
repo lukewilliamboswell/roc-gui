@@ -53,7 +53,7 @@ append_bytes = |state, bytes| match Str.from_utf8(bytes) {
 
 read_next = |state, pty, generation| Action.task({
 	pending: { ..state, phase: Live({ pty, reading: True }) },
-	run: || Process.read!(pty, { max_bytes: 65536 }),
+	run: || pty.read!({ max_bytes: 65536 }),
 	resolve: |latest, result| if latest.generation != generation {
 		Action.none
 	} else {
@@ -73,7 +73,7 @@ start = |state| {
 		pending: { ..state, generation: next_generation, lines: [], phase: Starting, status: "Starting session", tone: Attached },
 		run: || match Process.acquire!() {
 			Err(err) => StartFailed(err)
-			Ok(grant) => match Process.spawn!(grant, { columns: 100, rows: 30 }) {
+			Ok(grant) => match grant.spawn!({ columns: 100, rows: 30 }) {
 				Err(err) => StartFailed(err)
 				Ok(pty) => Started(pty)
 			}
@@ -93,7 +93,7 @@ submit : State, Str -> Action.Action(State)
 submit = |state, command| match state.phase {
 	Live(session) => Action.task({
 		pending: { ..state, command: "", status: "Sending command", tone: Attached },
-		run: || Process.write!(session.pty, "${command}\n".to_utf8()),
+		run: || session.pty.write!("${command}\n".to_utf8()),
 		resolve: |latest, result| match result {
 			Err(err) => Action.update({ ..latest, status: err_message(err), tone: Refused })
 			Ok(_) => Action.update({ ..latest, status: "Command sent", tone: Attached })
@@ -108,7 +108,7 @@ cancel = |state| match state.phase {
 		next_generation = state.generation + 1
 		Action.task({
 			pending: { ..state, generation: next_generation, status: "Stopping session", tone: Attached },
-			run: || Process.cancel!(session.pty),
+			run: || session.pty.cancel!(),
 			resolve: |latest, result| match result {
 				Err(err) => Action.update({ ..latest, phase: Stopped, status: err_message(err), tone: Refused })
 				Ok(_) => Action.update({ ..latest, phase: Stopped, status: "Session canceled", tone: Rest })

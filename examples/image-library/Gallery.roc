@@ -26,7 +26,7 @@ scan! = |directory, entries| {
 		if entry.kind == File {
 			match format_for(entry.name) {
 				Err(_) => { $items = $items.append(Failed({ name: entry.name, reason: "Unsupported format" })) }
-				Ok(format) => match Files.Dir.read!(directory, entry.name) {
+				Ok(format) => match directory.read!(entry.name) {
 					Err(_) => { $items = $items.append(Failed({ name: entry.name, reason: "Read failed" })) }
 					Ok(bytes) => match ImageData.inspect!(bytes, format) {
 						Err(InspectImageErr(Corrupt)) => { $items = $items.append(Failed({ name: entry.name, reason: "Corrupt image" })) }

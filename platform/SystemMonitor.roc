@@ -4,7 +4,19 @@ import Resource
 ## Host-granted, read-only system observation. No operation exposes host,
 ## machine, user, executable path, command line, or environment identity.
 SystemMonitor := [].{
-	Sampler : Resource.SystemSampler
+
+	## Opaque authority to sample this machine's bounded resource counters.
+	Sampler := Resource.SystemSampler.{
+
+		## Refresh and return one bounded snapshot. Call from `Action.task`.
+		sample! : Sampler => Try(Snapshot, SystemErr)
+		sample! = |Sampler.(sampler)| Host.system_sample!(sampler).map_ok(decode_snapshot).map_err(|code| SampleSystemErr(decode_reason(code)))
+
+		## Release the sampler. Repeated close is successful.
+		close! : Sampler => Try({}, SystemErr)
+		close! = |Sampler.(sampler)| Host.system_close!(sampler).map_err(|code| CloseSystemErr(decode_reason(code)))
+	}
+
 	UnavailableReason : [Unsupported]
 	Value(a) : [Unavailable(UnavailableReason), Value(a)]
 	Process : { cpu_tenths : U16, memory_bytes : U64, name : Str, pid : U64 }
@@ -19,16 +31,9 @@ SystemMonitor := [].{
 	Reason : [AccessDenied, Busy, Closed, InvalidCapability, Io, ResourceLimit, Unavailable]
 	SystemErr : [AcquireSystemErr(Reason), CloseSystemErr(Reason), SampleSystemErr(Reason)]
 
+	## Acquire the system-observation authority granted by the host.
 	acquire! : () => Try(Sampler, SystemErr)
-	acquire! = || Host.system_acquire!().map_err(|code| AcquireSystemErr(decode_reason(code)))
-
-	## Refresh and return one bounded snapshot. Call from `Action.task`.
-	sample! : Sampler => Try(Snapshot, SystemErr)
-	sample! = |sampler| Host.system_sample!(sampler).map_ok(decode_snapshot).map_err(|code| SampleSystemErr(decode_reason(code)))
-
-	## Release the sampler. Repeated close is successful.
-	close! : Sampler => Try({}, SystemErr)
-	close! = |sampler| Host.system_close!(sampler).map_err(|code| CloseSystemErr(decode_reason(code)))
+	acquire! = || Host.system_acquire!().map_ok(|sampler| Sampler.(sampler)).map_err(|code| AcquireSystemErr(decode_reason(code)))
 
 	decode_reason = |code| match code { 0 => AccessDenied, 1 => Busy, 2 => Closed, 3 => InvalidCapability, 4 => Io, 5 => ResourceLimit, _ => Unavailable }
 	available = |is_available, value| if is_available Value(value) else Unavailable(Unsupported)

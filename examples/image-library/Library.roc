@@ -25,7 +25,7 @@ pick = |state| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match Files.pick_directory!() {
-			Ok(Chosen(selection)) => match Files.Dir.list!(selection.directory) { Ok(entries) => Scanned(Gallery.scan!(selection.directory, entries)), Err(_) => ScanFailed }
+			Ok(Chosen(selection)) => match selection.directory.list!() { Ok(entries) => Scanned(Gallery.scan!(selection.directory, entries)), Err(_) => ScanFailed }
 			Ok(Canceled) => ScanCanceled
 			Err(_) => ScanDenied
 		},

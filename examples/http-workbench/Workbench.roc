@@ -129,7 +129,7 @@ send_method = |state, method| {
 		pending: { ..state, next_id: id + 1, active_id: id, sending: True, error: "", remedy: "" },
 		run: || {
 			client = Http.acquire!()?
-			Http.send!(client, { timeout_ms: 2_000, max_response_bytes: 262_144, max_redirects: 3 }, request)
+			client.send!({ timeout_ms: 2_000, max_response_bytes: 262_144, max_redirects: 3 }, request)
 		},
 		resolve: |latest, result| if latest.active_id != id Action.none else match result {
 			Ok(response) => {

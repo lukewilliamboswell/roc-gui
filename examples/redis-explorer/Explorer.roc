@@ -25,8 +25,8 @@ import RedisData exposing [Key, Selection]
 Link : [
 	Offline,
 	Opening(U64),
-	Idle(Tcp.Stream.Handle),
-	Busy({ stream : Tcp.Stream.Handle, id : U64, doing : Str }),
+	Idle(Tcp.Stream),
+	Busy({ stream : Tcp.Stream, id : U64, doing : Str }),
 	Closing(U64),
 ]
 
@@ -44,18 +44,18 @@ Explorer := [].{
 	init = { keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
 	connect : State -> Action(State)
 	connect = connect
-	disconnect : State, Tcp.Stream.Handle -> Action(State)
+	disconnect : State, Tcp.Stream -> Action(State)
 	disconnect = disconnect
-	scan : State, Tcp.Stream.Handle -> Action(State)
+	scan : State, Tcp.Stream -> Action(State)
 	scan = scan
-	inspect : State, Tcp.Stream.Handle, Key -> Action(State)
+	inspect : State, Tcp.Stream, Key -> Action(State)
 	inspect = inspect
 	set_pattern : State, Str -> State
 	set_pattern = |state, pattern| { ..state, pattern }
 }
 
 connection = |stream| {
-	transport = Transport.from_bytes_io({ read_bytes!: |max_bytes| Tcp.Stream.read_up_to!(stream, max_bytes), write_all!: |bytes| Tcp.Stream.write_all!(stream, bytes) })
+	transport = Transport.from_bytes_io({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
 	Client.{}.attach(transport)
 }
 
@@ -98,7 +98,7 @@ disconnect = |state, stream| {
 	id = state.next_request
 	Action.task({
 		pending: { ..state, keys: [], next_request: id + 1, selection: None, link: Closing(id), trouble: None },
-		run: || Tcp.Stream.close!(stream),
+		run: || stream.close!(),
 		resolve: |latest, outcome| if still_current(latest.link, id) {
 			match outcome {
 				Ok({}) => Action.update({ ..latest, link: Offline, trouble: None })

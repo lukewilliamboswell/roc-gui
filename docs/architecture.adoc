@@ -199,7 +199,7 @@ patch, and installs successor dispatchers. Roc values cross threads only as
 owned erased callables; generic state and actions remain boxed across the ABI.
 
 Periodic subscriptions use the same route. A timer has at most one waiting
-`Timer.next!` task. Its wait parks on a worker and returns a normal boxed
+`Timer.Handle.next!` task. Its wait parks on a worker and returns a normal boxed
 reducer; the UI thread applies that reducer with the installed task dispatcher.
 Cancellation wakes the waiter, and cadence advances from the completion of the
 preceding pull, so a slow consumer cannot create an unbounded event backlog.

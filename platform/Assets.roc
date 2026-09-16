@@ -31,7 +31,7 @@
 ##     pending: { ..state, banner: Loading },
 ##     run: || {
 ##         store = Assets.open!(Assets.beside_executable("assets"))?
-##         Assets.read!(store, "banners/hero.png")
+##         store.read!("banners/hero.png")
 ##     },
 ##     resolve: |latest, result| match result {
 ##         Ok(bytes) => Action.update({ ..latest, banner: Loaded(bytes) })
@@ -47,13 +47,27 @@ Assets := [].{
 	## An opened asset store: an opaque handle to one directory the host holds
 	## open. Every read is made through that handle rather than through the
 	## process working directory, which the host never changes.
-	Store : Resource.AssetStore
+	Store := Resource.AssetStore.{
 
-	## The resource-free store value, for pure tests. It lets an application
-	## that keeps a store in its state write that state down in an `expect`.
-	## Reads through it fail; it proves nothing about asset resolution.
-	stub : Store
-	stub = Resource.asset_store_stub
+		## The resource-free store value, for pure tests. It lets an application
+		## that keeps a store in its state write that state down in an `expect`.
+		## Reads through it fail; it proves nothing about asset resolution.
+		stub : Store
+		stub = Store.(Resource.asset_store_stub)
+
+		## Read one asset's bytes, relative to the store's root. Call it from
+		## `Action.task`; it blocks on the disk.
+		##
+		## `path` may name a file in a subdirectory, written with `/`
+		## separators. `InvalidName` is a path that is absolute, empty, holds a
+		## NUL, or contains a `.` or `..` component, and is answered before any
+		## file is touched. `NotFound` is no such file beneath the root,
+		## `Unsupported` is an entry that is a symbolic link or is not a regular
+		## file, and `ResourceLimit` is a file larger than the host reads into
+		## one value.
+		read! : Store, Str => Try(List(U8), AssetErr)
+		read! = |Store.(handle), path| Host.assets_read!(handle, path).map_err(|code| ReadAssetErr(decode_reason(code)))
+	}
 
 	## Where a store's root is. The three choices are separate names because
 	## moving an executable, changing the working directory, and installing
@@ -152,19 +166,7 @@ Assets := [].{
 	## `InvalidExpectation` is an expectation this host cannot use, such as a
 	## `Sha256` string that is not 64 hexadecimal characters.
 	open! : StoreConfig => Try(Store, AssetErr)
-	open! = |config| Host.assets_open!(encode_config(config)).map_err(|code| OpenStoreErr(decode_reason(code)))
-
-	## Read one asset's bytes, relative to the store's root. Call it from
-	## `Action.task`; it blocks on the disk.
-	##
-	## `path` may name a file in a subdirectory, written with `/` separators.
-	## `InvalidName` is a path that is absolute, empty, holds a NUL, or contains
-	## a `.` or `..` component, and is answered before any file is touched.
-	## `NotFound` is no such file beneath the root, `Unsupported` is an entry
-	## that is a symbolic link or is not a regular file, and `ResourceLimit` is
-	## a file larger than the host reads into one value.
-	read! : Store, Str => Try(List(U8), AssetErr)
-	read! = |store, path| Host.assets_read!(store, path).map_err(|code| ReadAssetErr(decode_reason(code)))
+	open! = |config| Host.assets_open!(encode_config(config)).map_ok(|handle| Store.(handle)).map_err(|code| OpenStoreErr(decode_reason(code)))
 
 	encode_config : StoreConfig -> { root_kind : U8, root : Str, manifest_required : Bool, asset_set : Str, schema : U32, content_version : U32, content_mode : U8, content_hash : Str }
 	encode_config = |config| {
