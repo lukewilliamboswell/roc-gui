@@ -563,6 +563,7 @@ mod tests {
         assert!(read_child_bounded(&store, "big.bin", 4096).is_ok());
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_symbolic_link_inside_the_store_is_refused_rather_than_followed() {
         let root = Scratch::new("symlink");

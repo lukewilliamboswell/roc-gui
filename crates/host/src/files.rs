@@ -589,12 +589,6 @@ fn portal_directory() -> PortalSelection {
     })
 }
 
-/// Choosers answered by GPUI's native dialog on the UI thread. `None` means the
-/// user dismissed the dialog; `Err` that the platform could not show one.
-#[cfg(not(target_os = "linux"))]
-#[cfg(not(target_os = "linux"))]
-#[cfg(not(target_os = "linux"))]
-
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_files_pick_directory() -> InternalFilesPickDirectoryResult {
     record_operation(0);
@@ -846,6 +840,7 @@ mod tests {
 
     /// The seam is one process-wide registration, so both of its outcomes are
     /// exercised in one test rather than racing each other.
+    #[cfg(not(target_os = "linux"))]
     #[test]
     fn the_native_chooser_answers_a_waiting_task_and_refuses_the_window_thread() {
         let (requests, pending) = async_channel::unbounded();
