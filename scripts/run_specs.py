@@ -333,10 +333,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-missing-shots", action="store_true",
                         help="report unavailable screenshots instead of failing; hosted CI "
                              "runners cannot grant screen recording")
+    parser.add_argument("--window-retries", type=int, default=0,
+                        help="retry a failed window case this many times with fresh artifacts")
     parser.add_argument("--roc", default=os.environ.get("ROC", "roc"))
     args = parser.parse_args()
-    if args.jobs < 1 or args.timeout <= 0:
-        parser.error("jobs and timeout must be positive")
+    if args.jobs < 1 or args.timeout <= 0 or args.window_retries < 0:
+        parser.error("jobs and timeout must be positive; window retries cannot be negative")
     if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
         parser.error("shard index must be within shard count")
     return args
@@ -399,15 +401,23 @@ def main() -> int:
             # focused application, so concurrent runs would photograph each
             # other.
             for case in window:
-                result = run_case(
-                    case,
-                    described[case.spec],
-                    args.timeout,
-                    1,
-                    args.detail,
-                    runner="window",
-                    allow_missing_shots=args.allow_missing_shots,
-                )
+                for attempt in range(args.window_retries + 1):
+                    if attempt:
+                        artifacts = window_artifacts(case)
+                        shutil.rmtree(artifacts, ignore_errors=True)
+                        print(f"RETRY {case.spec.relative_to(ROOT)} "
+                              f"({attempt}/{args.window_retries})", file=sys.stderr)
+                    result = run_case(
+                        case,
+                        described[case.spec],
+                        args.timeout,
+                        1,
+                        args.detail,
+                        runner="window",
+                        allow_missing_shots=args.allow_missing_shots,
+                    )
+                    if result[1] is None:
+                        break
                 results.append(result)
                 if args.fail_fast and result[1] is not None:
                     break
