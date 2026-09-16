@@ -5,6 +5,7 @@ app [State, main] {
 }
 import pf.Program
 import Explorer
+import View
 State : Explorer.State
 
-main = Program.run({ init: Explorer.init, render: Explorer.render, window: { title: "Redis Explorer", width: 1080, height: 720 } })
+main = Program.run({ init: Explorer.init, render: View.render, window: { title: "Redis Explorer", width: 1080, height: 720 } })

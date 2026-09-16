@@ -1,0 +1,18 @@
+(test "a refusal names the origin it was about and the grant that would answer it"
+  (grants)
+  (steps
+    (settle)
+    (focus (role textbox :name "Request URL"))
+    (type "http://127.0.0.1:38191/echo")
+    (click (role button :name "Send request"))
+    (await-task)
+    (await-task)
+    (settle)
+    (expect-on-screen (role panel :name "Request error"))
+    (expect-visible (text "HTTP access was not granted for this origin"))
+    (expect-visible (text "Restart with --host-cap-http-origin http://127.0.0.1:38191"))
+    (expect-visible (text "refused for http://127.0.0.1:38191"))
+    (expect-on-screen (role column :name "Request document"))
+    (expect-on-screen (role column :name "Response readout"))
+    (screenshot "refused")
+    (screenshot "refusal-band" :region (role panel :name "Request error") :pad 4)))

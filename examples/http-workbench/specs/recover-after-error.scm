@@ -13,7 +13,7 @@
     (await-task)
     (expect-not-visible (role panel :name "Request error"))
     (expect-visible (text "Status 200"))
-    (expect-value (role textarea :name "Response body") "Status 200\nrecovered")
+    (expect-value (role textarea :name "Response body") "recovered")
     (replace-text (role textbox :name "Request URL") "file:///etc/passwd")
     (click (role button :name "Send request"))
     (await-task)

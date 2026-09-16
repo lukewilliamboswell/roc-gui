@@ -7,5 +7,5 @@
     (replace-text (role textarea :name "Request body") "keyboard")
     (submit (role textbox :name "Request URL"))
     (await-task)
-    (expect-value (role textarea :name "Response body") "Status 200\nkeyboard")
+    (expect-value (role textarea :name "Response body") "keyboard")
     (expect-http-counters 0 1 1 0)))
