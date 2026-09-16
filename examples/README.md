@@ -14,6 +14,8 @@ Implementations and SCM behaviour specifications belong in the same directory.
 | [HTTP Workbench](http-workbench/) | HTTP client | asynchronous work and large structured text |
 | [Database Browser](database-browser/) | relational database client | data grids and transactional work |
 | [File Explorer](file-explorer/) | desktop file manager | filesystem integration and navigation |
+| [Folder browser](folder-browser/) | single-folder reader | the trusted directory grant on its own |
+| [Counter](counter/) | two independent tallies | state boundaries and component embedding |
 | [Terminal Workspace](terminal-workspace/) | terminal emulator | high-rate text and keyboard input |
 | [Image Library](image-library/) | image browser and viewer | media loading and direct manipulation |
 | [Music Player](music-player/) | local music library | background playback and persistent media state |
