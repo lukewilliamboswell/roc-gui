@@ -1,61 +1,50 @@
 # Settings Center
 
-A polished control-center application for editing a substantial hierarchy of
-typed preferences with safe preview, apply, revert, and persistence behavior.
+A two-column preferences window. The left column is a searchable catalogue of
+twelve settings in four categories, narrowed by a query and a category chip that
+compose; the right column holds a profile form — a name and a notes field —
+along with one setting shown as locked by an organisation.
 
-The implemented profile path loads and atomically saves through an app-scoped
-capability on worker tasks. Request identities keep obsolete completions from
-overwriting a newer draft.
+It exercises controlled text inputs and a textarea, a virtualised list, a modal
+dialog, and durable storage: the profile is loaded and atomically saved through
+an application-data capability on worker tasks. Each request carries an
+identity, so a completion belonging to an older request cannot overwrite a newer
+draft.
 
-## Appearance
+## Running
 
-A control centre read by scanning. `Render.roc` holds one palette and a four-step
-type scale — window title, panel title, a setting's own name and a form value,
-and everything explanatory below that — so a heading, a name, and the line
-describing it are never within two points of each other.
+```sh
+python3 build.py
+roc build --output=settings-center examples/settings-center/main.roc
+./settings-center -- --host-cap-app-data ./settings-store
+```
 
-A catalogue row is a name over one line saying what the setting does, separated
-from the next by a hairline. The category is its own field rather than a prefix
-glued onto every name, which is what lets a category chip be a real filter that
-composes with the search rather than being a search for the category's own word.
+The grant provisions the private directory the profile is read from and written
+to. Without it, loading reports that preferences storage was not granted, and
+the rest of the window still works.
 
-A status at rest is a sentence with a check mark, not a surface. Framing it gave
-it exactly the shape of the text fields above it, so "Settings are saved" read as
-one more thing to type in. Only a state waiting on an action — a storage failure
-with its Retry, a validation message the Apply button is held back by — is
-framed, and then in the failure colour.
+## Not yet built
 
-Apply and Revert are a pair acting on the draft in front of the person. Reload
-discards that draft and re-reads the store, so it sits apart at the far edge
-rather than third in a row of three identical-looking buttons.
+- The twelve catalogue settings are a searchable list only. None of them can be
+  changed, and nothing in the catalogue is stored.
+- Only the profile name and notes are persisted, into two files.
+- Validation is one rule: the profile name may not be empty.
+- There is no theme switch, no keyboard traversal, and no import or export.
 
-## Core capabilities
+## Assets
 
-- A searchable catalogue narrowed by a category chip and a query that compose.
-- A profile form with inline validation, dirty-state tracking, apply, and revert.
-- Durable atomic saves through an app-scoped capability on worker tasks, with
-  request identities so an obsolete completion cannot overwrite a newer draft.
-- A modal rename whose Cancel cancels, and a managed setting shown as locked
-  rather than silently ignored.
-- A layout that holds together at three window sizes.
+`icons/` holds three SVGs imported into the executable at compile time. Their
+sources and licences are recorded in `icons/NOTICE.md` and in
+`THIRD_PARTY_LICENSES.md`.
 
-## Happy paths
+## Specifications
 
-- Find a setting by its name, its summary, or its category; hold a category and
-  narrow it further with a query; release either without disturbing the other.
-- Edit the profile, review its changed state, apply it, and reload it back.
-- Empty the catalogue and be told which of the two narrowings emptied it, with
-  one button that releases both.
-
-## Error paths
-
-- Invalid values identify the owning control and prevent only the unsafe apply operation.
-- Failed or interrupted saves preserve the last valid configuration and the user's pending edits.
-- Unsupported settings are shown as unavailable rather than silently ignored or recorded as defaults.
-
-## High-level goals
-
-- Become the comprehensive forms, validation, navigation, theme, and preference example.
-- Establish atomic persistence and consistent dirty/apply/revert interaction patterns.
-- SCM specs cover search, category composition, an empty result, validation, apply, revert, reload, a stale completion, a storage failure and its retry, the rename dialog, and the layout at three window sizes.
-- A scaling case contains a realistic breadth of categorized settings and search terms.
+Sixteen semantic specifications in `specs/` cover search, the two narrowings
+composing, the empty result, editing and reverting, apply and its boundary, the
+rename dialog and its cancellation, the locked setting, a stale completion, a
+storage failure and its retry, and three scaling cases that save notes of 100,
+1,000, and 10,000 bytes. Five window specifications drive the real window: the
+layout, the layout at two further sizes, the dialog, the storage failure, and
+the fixed-height status slot.
+Every specification seeds its own application-data fixture from
+`app-data-fixture/`.

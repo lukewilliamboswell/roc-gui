@@ -1,58 +1,61 @@
 # Device Configurator
 
-A desktop utility for discovering and configuring an explicitly granted HID
-peripheral. It uses the platform's bounded device transaction capability and a
-small versioned protocol owned by the application.
+A utility for discovering and configuring one granted HID peripheral. It
+searches for the granted device, opens it, reads back its current sensitivity,
+lighting, profile, and control inventory over a small framed protocol owned by
+the application, and sends edits as one transaction the device has to
+acknowledge.
 
-The application discovers the granted device without exposing its
-operating-system path or serial number, connects and synchronizes its current
-sensitivity, lighting, profile, and ordinary control inventory, then applies
-locally validated changes as one acknowledged transaction.
+It exercises the platform's device capability: acquire, discover, connect,
+transact, close. The protocol lives in `Protocol.roc`; the state machine and its
+bounds live in `Configurator.roc`, which takes the connection as an argument
+rather than looking one up, so an apply cannot be expressed without a device.
 
-## What the design is for
+## Running
 
-The subject is a physical object on a desk, and the window is arranged the way
-a person reasons about one: on the left, whether there is a device and whether
-it is open; on the right, what it is set to. The right side stays empty until
-the left is settled, because there genuinely is nothing to show -- every value
-in it was read from the device rather than invented here.
+```sh
+python3 build.py
+roc build --output=device-configurator examples/device-configurator/main.roc
+./device-configurator -- --host-cap-device virtual
+```
 
-Colour answers two questions before a word is read. Green means an open
-connection and nothing else. Amber means an edit that is held in this window
-and that the device has not been told about. Red means refused or lost. The
-link light in the header, the device card, the profile control, and the apply
-footer all use the same three, so a person can see at a glance whether the
-device is plugged in and whether it agrees with what is on screen.
+The grant names one device and only that device: either `virtual` — a
+deterministic in-process device that speaks the same framed protocol — or a
+`VID:PID` pair for real hardware, reached through `hidapi`. Without the grant,
+discovery is refused and the window says so. `virtual:100` grants a device
+reporting a hundred controls.
 
-## States, not reports
+## What is editable
 
-Each state of the connection is drawn rather than announced: nothing
-discovered, discovery refused, discovered but closed, open, and lost each have
-their own surface and their own sentence about what to do next. A refusal says
-what was and was not done -- nothing was searched for, nothing was opened --
-and says that access is granted one device at a time, outside this window,
-which is the part a person cannot guess.
+Sensitivity moves in steps of 100 between 100 and 3200, clamped at both ends
+before anything is sent. Lighting is a checkbox and the profile is one of a row
+of buttons. The control inventory is a virtualised read-only list. Apply sends
+the whole configuration at once; a transaction that fails because the device
+went away gives up the connection along with the error, so no control is left
+offering to act on hardware that is gone.
 
-Connect and Disconnect live on the device card, and are never both offered.
-There is no card before discovery, so neither control exists until it could do
-something; and the only control that is ever disabled -- Apply, when there is
-nothing to send -- carries the reason beside it. This replaces two status
-messages the old design could never reach, because the controls that would have
-produced them were disabled in exactly the states that produced them.
+## Not yet built
 
-Searching again empties the device list, and the open connection is offered
-from a card in that list, so a discovery started while a handle is open would
-strand it. That control is withheld while a connection is open and says why.
+- The device's own path and serial number are never shown, and cannot be.
+- The list of controls is read back and displayed; individual controls cannot be
+  remapped or named.
+- Nothing is saved. There are no stored profiles and no export.
+- Only one device is connected at a time, and a discovery is withheld while a
+  connection is open rather than queued.
+
+## Assets
+
+`icons/` holds two SVGs imported into the executable at compile time. Their
+sources and licences are recorded in `icons/NOTICE.md` and in
+`THIRD_PARTY_LICENSES.md`.
 
 ## Specifications
 
-The host supports physical HID devices through the established `hidapi`
-package. Specifications grant a deterministic virtual device which implements
-the identical framed protocol and state machine; it is not a UI test double.
-Semantic specs cover the first press before anything exists, authority denial,
-discovery, a superseded discovery, connection and resynchronization, bounded
-editing at both ends of the range, the acknowledged apply, a withheld second
-discovery, resource ownership, and a realistic 100-control scaling case through
-the ordinary virtualized controls view. `window-connection.scm` and
-`window-refused.scm` open the production window and photograph each state of
-the connection.
+Nine semantic specifications in `specs/` cover a press before anything has been
+discovered, a denied grant, discovery, a superseded discovery, connection and
+resynchronisation, a withheld second discovery, editing at both ends of the
+sensitivity range, the acknowledged apply, and a scaling case that connects a
+hundred-control device. Two window specifications drive the real window and
+photograph a connection and a refusal. Every specification but the two
+grant-free ones asks for `--host-cap-device virtual`; the runner supplies it
+from the specification's own `grants` form.

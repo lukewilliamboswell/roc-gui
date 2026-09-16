@@ -1,49 +1,50 @@
 # Terminal Workspace
 
-A terminal workspace whose process access is an explicit host grant. It uses a
-real pseudo-terminal, bounded asynchronous I/O through `Action.task`, searchable
-virtualized scrollback, and stale-completion protection.
+One terminal pane attached to a real pseudo-terminal. Press New terminal to
+spawn a 100×30 child, type a command into the command bar, and watch its output
+arrive in a virtualised scrollback well. A filter bar narrows the rows that are
+already on screen without touching the running child; Stop cancels the session.
 
-## Core capabilities
+The example exercises process authority, which is an explicit host grant rather
+than an ambient executable API, and the long-running side of `Action.task`: each
+bounded read schedules the next, so output arrives incrementally, and a
+generation counter means a completion from a session that has been stopped is
+discarded rather than reviving it. Control sequences are stripped, so scrollback
+holds only the text the child wrote.
 
-- Host-granted local-shell and deterministic-test profiles without an ambient executable API.
-- Opaque typed grants and PTYs, bounded I/O, child exit, and cancellation.
-- Virtualized line scrollback and incremental search through semantic controls.
-- Generation-based reconciliation so stale worker completions cannot revive stopped sessions.
+## Running
 
-## Happy paths
+```sh
+python3 build.py
+roc build --output=terminal-workspace examples/terminal-workspace/main.roc
+./terminal-workspace -- --host-cap-process local-shell
+```
 
-- Start the granted profile, send text, and observe ordered PTY output.
-- Search scrollback without changing the running child.
-- Generate a realistic body of output with the ordinary `lines:N` fixture command.
-- Stop a live child while a read is waiting and receive a cancellation completion.
+The grant names the profile the workspace may spawn: `local-shell` for your
+login shell, or `test-program` for the deterministic child the specifications
+drive. Launched without it, the well says so and names the flag.
 
-## Appearance
+## Not yet built
 
-An instrument panel: a charcoal ground, regions divided by hairline borders and
-a one-point seam, 12-point body type over 18-point scrollback rows, a two-point
-radius, and two status colours — amber for a session that is attached, red for
-one that was refused or failed. `Theme.roc` holds every colour and measure the
-application uses.
+- One pane. No tabs, splits, or multiple concurrent sessions.
+- No terminal emulation: escape sequences are discarded rather than interpreted,
+  so there is no cursor addressing, colour, or full-screen program support.
+- The filter is a plain substring match, with no regular expressions, no
+  highlighting, and no jump-to-match.
+- Scrollback is unbounded and lives only in memory; it is cleared when a new
+  session starts, and never written to disk.
+- The terminal size is fixed at 100×30 and does not follow the window.
 
-The command bar and the filter are not peers. The command bar sends text to a
-child; the filter only narrows what is already on screen, so it sits as the
-header of the well it filters.
+## Assets
 
-An empty well is never a black rectangle. It carries a placard naming what the
-state is and what would change it: nothing attached, attaching, waiting for
-output, a session that ended, a filter that matches nothing, or a refusal that
-names the exact `--host-cap-process` grant the workspace was launched without.
+The two marks in `icons/` are vendored; their provenance and licences are in
+`icons/NOTICE.md` and `THIRD_PARTY_LICENSES.md`.
 
-## Error paths
+## Specifications
 
-- Missing process grants are actionable.
-- Invalid sizes, oversized I/O, concurrent reads, stale handles, invalid UTF-8, and child exits have typed outcomes.
-- A stopped application generation ignores a late read completion.
-
-## High-level goals
-
-- Stress incremental rendering and the complete text-input/task-completion path.
-- Establish a reusable explicit process-capability and PTY lifecycle pattern.
-- SCM specs exercise a deterministic child through the real PTY and cover input, output, search, denial, stale completion, and cancellation.
-- A scaling case produces long, varied scrollback through an ordinary terminal command.
+Eight specifications run on the semantic runner against the deterministic
+`test-program` child, covering a session's life, command submission, filtering,
+searching, restarting, refusal and retry, a stale completion after cancellation,
+and a scaling case that produces a hundred lines through an ordinary command.
+Two run against the real window: one photographs the instrument idle, attached,
+and dense with scrollback; the other photographs the refusal placard.
