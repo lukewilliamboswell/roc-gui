@@ -159,6 +159,22 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Follow-up: borrowed sibling names show no significant improvement
+
+Changed sibling_name to return Cow<str>, borrowing application labels for
+occurrence counting and comparison while preserving owned stored identities
+and decimal virtual-item keys. All 187 host tests and the selection ladder/A/A
+passed. Medians at 100/1k/10k were 0.579/7.039/119.468 ms versus
+0.591/6.613/119.133 ms before. The 10k A/A median was 118.023 ms; sample
+spreads were 3.321 and 4.446 ms. No significant improvement was demonstrated.
+Reverted the candidate. Captures are in opt-borrowed-sibling-names; unit tests
+completed before measured runs. No native allocation-byte claim is made.
+
+Together with the rejected child-buffer change, these results suggest
+diminishing returns for the sampled native micro-optimizations on ancestor
+selection. The final full-root scaling ladder still needs fresh evidence
+before concluding the pass; earlier 100k results predate compact index leaves.
+
 ### Follow-up: native child-buffer handoff rejected
 
 The fresh profile included MountedGraph.insert_nodes (14 of 480 lifecycle
