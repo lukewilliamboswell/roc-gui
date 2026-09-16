@@ -22,4 +22,4 @@
     (expect-visible (text "320 × 180 pixels; 396 encoded bytes"))
     (expect-image-owner-counters 31 8368 26 1)
     (click (role button :name "Show actual image size"))
-    (expect-visible (text "View: Actual size"))))
+    (expect-visible (role button :name "Show actual image size, current view"))))
