@@ -12,6 +12,12 @@ Browser := [].{
 	init = { next_request: 1, show_files: True, status: Ready, view: Empty }
 	render : State -> Elem(State)
 	render = render
+	## The window's own ground and ink, so `main.roc` can declare the identity
+	## instead of leaving the space behind the root element to the host.
+	ground : Gui.Color
+	ground = ground
+	ink : Gui.Color
+	ink = ink
 }
 
 Location : { directory : Files.Dir.Read, name : Str }
@@ -22,16 +28,35 @@ Retry : [PickAgain, OpenAgain({ name : Str, parent : Location }), ReturnAgain(U6
 
 Failure : { hint : Str, message : Str, retry : Retry }
 
-Status : [Busy(U64), Failed(Failure), Ready]
+## `Dismissed` is a resting state, not a failure: the person opened the chooser
+## and closed it again, which is an answer and not a fault. It is distinct from
+## `Ready` only so that the first screen can acknowledge the answer instead of
+## looking as though the press did nothing.
+Status : [Busy(U64), Dismissed, Failed(Failure), Ready]
 
 State : { next_request : U64, show_files : Bool, status : Status, view : View }
 
+## Deep teal, lit from one direction: the window's ground is the darkest
+## surface, panels sit one step above it, and rows one step above those. Nothing
+## in the browser is brighter than the name of the folder you are looking at.
+ground = Gui.rgb(0x0e1a21)
+surface = Gui.rgb(0x14232b)
+rule = Gui.rgb(0x2a4753)
 row_bg = Gui.rgb(0x17272f)
 row_hover = Gui.rgb(0x27414f)
 link_fg = Gui.rgb(0x9bdcf0)
+ink = Gui.rgb(0xdbe7ed)
 muted_fg = Gui.rgb(0x93a7b2)
 title_fg = Gui.rgb(0xf2f6f8)
 chip_bg = Gui.rgb(0x203944)
+
+## The one action that asks for authority. It is the only saturated surface in
+## the window, so the press that a grant begins with is the press that looks
+## like the point of the screen.
+accent = Gui.rgb(0x2f6f85)
+accent_hover = Gui.rgb(0x3d8aa3)
+accent_active = Gui.rgb(0x265a6d)
+accent_ink = Gui.rgb(0xf2fbff)
 
 name_limit : U64
 name_limit = 52
@@ -72,6 +97,7 @@ begin = |state| {
 
 is_current = |state, id| match state.status {
 	Busy(active) => active == id
+	Dismissed => False
 	Ready => False
 	Failed(_) => False
 }
@@ -146,7 +172,9 @@ start_pick = |state| {
 		} else {
 			match result {
 				PickFailed(failure) => Action.update({ ..latest, status: Failed({ hint: failure.hint, message: failure.message, retry: PickAgain }) })
-				PickCanceled => Action.update({ ..latest, status: Ready })
+				## Closing the chooser is an answer. It leaves whatever was open
+				## open, and only the first screen says anything about it.
+				PickCanceled => Action.update({ ..latest, status: Dismissed })
 				Picked(value) => Action.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: [value.location] }) })
 			}
 		},
@@ -264,11 +292,12 @@ error_panel = |failure| Elem.panel(
 	],
 )
 
-busy_panel = Elem.panel(Elem.PanelProps.{ label: "Loading status", padding: 10, bg: chip_bg }, [Elem.text("Loading…")])
+busy_panel = Elem.panel(Elem.PanelProps.{ label: "Loading status", padding: 10, bg: chip_bg, border_color: rule, fg: muted_fg }, [Elem.text("Loading…")])
 
 status_blocks = |status| match status {
 	Busy(_) => [busy_panel]
 	Failed(failure) => [error_panel(failure)]
+	Dismissed => []
 	Ready => []
 }
 
@@ -291,32 +320,56 @@ render = |state| {
 		_ => False
 	}
 	controls = Elem.row(
-		Elem.RowProps.{ label: "Directory actions", width: Fill, gap: 16 },
+		## The action that asks for authority sits at the head of the bar and the
+		## filter that only changes what is already on screen sits at its far
+		## end, so the two are not read as a pair of equal buttons.
+		Elem.RowProps.{ label: "Directory actions", width: Fill, gap: 16, align: Center, justify: Between },
 		[
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Choose directory", label: "Choose directory", enabled: !is_busy, padding: 8, fg: Gui.rgb(0xeeeeea), on_press: |current, _| start_pick(current) }),
+			Elem.action_button(
+				Elem.ActionButtonProps.{
+					caption: "Choose directory",
+					label: "Choose directory",
+					enabled: !is_busy,
+					padding: 10,
+					padding_left: Px(16),
+					padding_right: Px(16),
+					font_size: 14,
+					bg: accent,
+					hover_bg: accent_hover,
+					active_bg: accent_active,
+					fg: accent_ink,
+					radius: 7,
+					on_press: |current, _| start_pick(current),
+				},
+			),
 			Elem.checkbox(
 				Elem.CheckboxProps.{
 					label: "Show files as well as folders",
 					checked: state.show_files,
 					on_change: |current, event| Action.update({ ..current, show_files: event.checked }),
-					padding: 8,
+					padding: 10,
+					font_size: 14,
 					bg: chip_bg,
 					hover_bg: row_hover,
-					fg: Gui.rgb(0xeeeeea),
-					border_color: Gui.rgb(0x79b8ca),
+					fg: ink,
+					border_color: rule,
 					border_width: 1,
-					radius: 6,
+					radius: 7,
 				},
 			),
 		],
 	)
 	content = match state.view {
 		Empty => Elem.panel(
-			Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True, gap: 12, overflow_y: Clip },
+			Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True, gap: 12, bg: surface, border_color: rule, overflow_y: Clip },
 			match state.status {
 				Failed(failure) => [error_panel(failure)]
 				Busy(_) => [busy_panel]
-				Ready => [notice("No folder open", "Choose a directory to browse what it contains.")]
+				## A closed chooser is answered, not ignored. Saying so is the
+				## difference between a press that did nothing and a press
+				## whose answer was "not now".
+				Dismissed => [notice("No folder chosen", "The chooser was closed. Choose a directory whenever you are ready.")]
+				Ready => [notice("No folder open", "This browser reads only the folders you hand it. Choose a directory to begin.")]
 			},
 		)
 		Showing(view) => {
@@ -337,7 +390,7 @@ render = |state| {
 				Elem.scroll(Elem.ScrollProps.{ name: "Directory contents", content: Elem.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 2 }, shown.map(|entry| entry_row(entry, current))) })
 			}
 			Elem.panel(
-				Elem.PanelProps.{ label: "Directory view", width: Fill, grow: True, gap: 8, overflow_y: Clip },
+				Elem.PanelProps.{ label: "Directory view", width: Fill, grow: True, gap: 8, bg: surface, border_color: rule, overflow_y: Clip },
 				[
 					Elem.row(Elem.RowProps.{ label: "Directory breadcrumbs", width: Fill, gap: 6 }, back.concat(breadcrumbs(view.trail))),
 					styled_text(counts(view.entries, state.show_files), muted_fg, 13),
@@ -350,8 +403,17 @@ render = |state| {
 	Elem.col(
 		Elem.ColProps.{ label: "Folder browser", width: Fill, height: Fill, grow: True, padding: 20, gap: 14, overflow_y: Clip },
 		[
-			styled_text("Folder browser", title_fg, 22),
-			Elem.panel(Elem.PanelProps.{ label: "Directory controls", width: Fill, padding: 12 }, [controls]),
+			## The subtitle states the bargain the application is made of. It is
+			## the one thing a person needs to know before the first press, and
+			## it stops being worth saying once a folder is on screen.
+			Elem.col(
+				Elem.ColProps.{ label: "Folder browser heading", gap: 4 },
+				[
+					styled_text("Folder browser", title_fg, 22),
+					styled_text("Read only the folders you hand it, one at a time", muted_fg, 13),
+				],
+			),
+			Elem.panel(Elem.PanelProps.{ label: "Directory controls", width: Fill, padding: 12, bg: surface, border_color: rule }, [controls]),
 			content,
 		],
 	)
