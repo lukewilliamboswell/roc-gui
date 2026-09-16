@@ -195,6 +195,15 @@ names the evidence so a fix can be verified against the same case.
   cursor), or a compositor seam on Wayland. Until then `click` cannot exercise
   GPUI's dispatch tree, occlusion by unrelated elements, or hover styling, and
   there is deliberately no `hover` step.
+- [ ] **A window specification cannot run while the screen is locked.** A
+  locked macOS session presents no frame, so every window case reaches
+  `driver-started` and waits for one that never arrives until the watchdog
+  fires. The watchdog now names the cause rather than reporting only a
+  deadline, which is the difference between an environmental note and an
+  apparent defect in the host, but the constraint stands: window evidence needs
+  an unlocked session. This is why continuous integration needs the headless
+  compositor lane below rather than a desktop session.
+
 - [ ] **A scroll step for window specifications.** Found by driving
   `folder-browser`: a list application's rows below the fold cannot be reached,
   clicked, or photographed at all. A `(scroll LOCATOR ...)` step would close

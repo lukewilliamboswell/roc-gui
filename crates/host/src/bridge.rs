@@ -167,10 +167,27 @@ impl NodeKind {
         )
     }
 
+    /// Whether a pointer press on this control is dispatched to Roc as a click.
+    ///
+    /// This is the single definition of what `Runtime::event_if_live` will
+    /// route; the window runner consults it so a simulated press cannot claim
+    /// to have activated a control the production handler would have ignored.
+    pub fn dispatches_click(&self) -> bool {
+        matches!(
+            self,
+            Self::Button { enabled: true, .. }
+                | Self::Checkbox { enabled: true, .. }
+                | Self::Dialog { .. }
+        )
+    }
+
     /// Whether this control accepts pointer activation.
     ///
     /// The production render path attaches a click handler only to enabled
-    /// controls, so a simulated click must honour the same condition.
+    /// controls, so a simulated click must honour the same condition. A canvas
+    /// is deliberately absent: it takes raw press, move, and release events
+    /// with coordinates through `Runtime::canvas_pointer`, not a click, so a
+    /// simulated click would reach no handler at all.
     pub fn accepts_pointer(&self) -> bool {
         matches!(
             self,
@@ -178,7 +195,6 @@ impl NodeKind {
                 | Self::Checkbox { enabled: true, .. }
                 | Self::TextInput { enabled: true, .. }
                 | Self::Textarea { enabled: true, .. }
-                | Self::Canvas { .. }
         )
     }
 
@@ -1108,6 +1124,56 @@ mod tests {
             label: label.into(),
             enabled,
             style: Style::default(),
+        }
+    }
+
+    /// Every control a simulated pointer is allowed to press must have somewhere
+    /// for that press to go: it either dispatches a click through the Roc event
+    /// route, or it takes keyboard focus instead. A kind that satisfies neither
+    /// would let the window runner report a successful `click` while the
+    /// application never saw the press.
+    #[test]
+    fn every_pointer_target_either_dispatches_or_takes_focus() {
+        let kinds = [
+            button("Open", true),
+            NodeKind::Checkbox {
+                label: "Show files".into(),
+                checked: false,
+                enabled: true,
+                indicator: CheckboxIndicator::default(),
+                style: Style::default(),
+            },
+            NodeKind::TextInput {
+                label: "Name".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Style::default(),
+            },
+            NodeKind::Textarea {
+                label: "Notes".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                read_only: false,
+                style: Style::default(),
+            },
+            NodeKind::Canvas {
+                label: "Timeline track".into(),
+                primitives: vec![],
+                style: Style::default(),
+            },
+            NodeKind::Dialog {
+                label: "Confirm".into(),
+                style: Style::default(),
+            },
+            NodeKind::Text("Frame 0".into()),
+        ];
+        for kind in &kinds {
+            assert!(
+                !kind.accepts_pointer() || kind.dispatches_click() || kind.focuses_on_pointer(),
+                "{kind:?} accepts a pointer press that reaches no handler"
+            );
         }
     }
 

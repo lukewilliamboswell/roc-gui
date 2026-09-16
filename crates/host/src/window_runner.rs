@@ -51,6 +51,10 @@ pub enum StepError {
     Untypable(char),
     /// The control does not accept pointer activation.
     NotClickable(String),
+    /// A pointer press on this control reaches no click handler at all. A
+    /// canvas takes coordinates through its pointer route, so a `click` step
+    /// would otherwise report success having dispatched nothing.
+    NoClickRoute(String),
     /// A modal dialog is capturing interaction.
     BehindDialog(String),
     /// A step this runner does not implement reached it anyway.
@@ -87,6 +91,9 @@ impl StepError {
             }
             Self::NotClickable(locator) => format!(
                 "{locator} does not accept pointer activation; it may be disabled"
+            ),
+            Self::NoClickRoute(locator) => format!(
+                "{locator} takes pointer coordinates, not a click; press it with a `drag` step under --host-run-spec"
             ),
             Self::BehindDialog(locator) => {
                 format!("{locator} is behind an active dialog and cannot be clicked")
@@ -655,6 +662,9 @@ fn clickable_target(
         .graph
         .node(id)
         .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+    if matches!(node.kind, crate::bridge::NodeKind::Canvas { .. }) {
+        return Err(StepError::NoClickRoute(describe(locator)));
+    }
     if !node.kind.accepts_pointer() {
         return Err(StepError::NotClickable(describe(locator)));
     }

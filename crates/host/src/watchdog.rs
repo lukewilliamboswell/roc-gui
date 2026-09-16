@@ -89,13 +89,43 @@ pub fn arm(deadline: Duration) {
                 std::thread::sleep(POLL.min(deadline));
             }
             eprintln!(
-                "FAIL: windowed host did not finish within {}ms (last milestone: {})",
+                "FAIL: windowed host did not finish within {}ms (last milestone: {}){}",
                 deadline.as_millis(),
-                reached().label()
+                reached().label(),
+                blocked_by_locked_screen()
             );
             std::process::exit(101);
         })
         .expect("failed to spawn the roc-gui watchdog thread");
+}
+
+/// Name the one environmental cause that looks exactly like a hung host.
+///
+/// A locked macOS screen never presents a frame, so every window specification
+/// reaches `driver-started` and then waits for a frame that will not arrive.
+/// The deadline alone reads as a defect in the host, which sends whoever hit it
+/// looking in the wrong place.
+fn blocked_by_locked_screen() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        let locked = std::process::Command::new("ioreg")
+            .args(["-n", "Root", "-d1", "-a"])
+            .output()
+            .ok()
+            .and_then(|out| String::from_utf8(out.stdout).ok())
+            .is_some_and(|text| {
+                // ...<key>CGSSessionScreenIsLocked</key>\n\t<true/>...
+                text.split("CGSSessionScreenIsLocked").nth(1).is_some_and(|rest| {
+                    let value = rest.split("<key>").next().unwrap_or_default();
+                    value.contains("<true/>")
+                })
+            });
+        if locked {
+            return "\n       The screen is locked, so no frame is ever presented. \
+Window specifications need an unlocked session; this is the environment, not the host.";
+        }
+    }
+    ""
 }
 
 #[cfg(test)]
