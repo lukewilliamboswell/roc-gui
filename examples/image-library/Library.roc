@@ -102,12 +102,10 @@ item_rows = |items, chosen_name| {
 			)
 			## A thumbnail is square, and the row says so rather than leaving
 			## its height to whatever the row happens to be. It is still drawn
-			## taller than it is wide, and with square corners: the platform
-			## does not treat an image's declared box as authoritative, which
-			## is recorded in wip/issues-backlog.md under "An image's width,
-			## height, and fit do not size the picture". The declaration here is
-			## the correct one and will start being obeyed when that closes; it
-			## is not worked around by distorting the fixtures.
+			## exactly this square: the declared box is authoritative and `fit`
+			## maps the decoded pixels into it, which
+			## examples/image-library/specs/window-gallery.scm asserts from real
+			## laid-out geometry rather than leaving to a screenshot.
 			Ready(asset) => Elem.row(
 				Elem.RowProps.{ label: "Image ${asset.name}", gap: Theme.within, padding: 0, align: Center },
 				[

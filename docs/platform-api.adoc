@@ -99,8 +99,11 @@ and default to a 160-logical-pixel editing viewport.
 capability-safe in-memory image bytes through GPUI. The explicit format is one
 of `Png`, `Jpeg`, `Webp`, `Gif`, `Svg`, `Bmp`, or `Tiff`; fit defaults to
 `Contain` and also supports `Cover`, `Fill`, `ScaleDown`, and `None`.
-`grayscale` applies a native rendering effect. Image sources are values, never
-ambient filesystem paths or URLs, and `label` is the stable semantic name.
+`grayscale` applies a native rendering effect. The declared box is
+authoritative: `width`, `height`, and the minimum and maximum fields size the
+element, and `fit` is the rule that maps the decoded pixels into that box. Image
+sources are values, never ambient filesystem paths or URLs, and `label` is the
+stable semantic name.
 `Elem.text_input(Elem.TextInputProps.{ ... })`:: Display a controlled,
 single-line native editor. `label` is its stable semantic name, `value` is the
 authoritative application value, and `placeholder` is shown only while empty.

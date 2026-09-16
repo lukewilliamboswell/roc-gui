@@ -1668,10 +1668,19 @@ impl Render for NodeView {
                 if style.radius > 0 {
                     picture = picture.rounded(px(style.radius as f32));
                 }
-                element = apply_style(element, style)
-                    .min_w_0()
-                    .min_h_0()
-                    .child(picture);
+                // Releasing the container's flex minimum is what stops an
+                // intrinsically larger picture laying out past the box it was
+                // given. It must not overrule a floor the application declared,
+                // though: min_w_0 on a box with min_width: Px(88) is how a
+                // square thumbnail ended up 61.5 points wide beside a caption.
+                element = apply_style(element, style);
+                if matches!(style.min_width, Length::Auto) {
+                    element = element.min_w_0();
+                }
+                if matches!(style.min_height, Length::Auto) {
+                    element = element.min_h_0();
+                }
+                element = element.child(picture);
             }
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
