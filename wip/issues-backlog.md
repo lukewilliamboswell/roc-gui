@@ -238,10 +238,6 @@ names the evidence so a fix can be verified against the same case.
   one task is outstanding at every instant and quiescence never arrives, and
   `await-ticks` therefore counts timer *fires* rather than completions, since a
   fire can only be one that started after the step did.
-- [ ] **Bring off-screen targets on screen.** `expect-on-screen` distinguishes
-  laid out from actually visible, but large row cases place targets outside the
-  window and the platform still has no scrolling feature to bring them into
-  view.
 - [ ] **Layout, paint, and presentation spans** owned by the GPUI side of the
   host. Presentation may need a Wayland frame callback.
 - [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
