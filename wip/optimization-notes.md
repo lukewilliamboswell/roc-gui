@@ -159,6 +159,50 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Iteration 3: bounded route-ID chunks
+
+DWARF sampling did not yield usable stack frames with the installed profiler;
+the available BPF tracer requires root. A targeted debugger stop at an 8,008-byte
+Roc allocation exposed a generated caller but could not unwind reliably beyond
+it. These attempts do not constitute allocation-site attribution. Raw profiler
+data was streamed, not saved.
+
+The production owner metadata now experimentally uses linked chunks of at most
+64 route IDs. Appending cannot copy the entire growing ownership list; event
+lookup still uses the same persistent index. Retirement folds over membership
+newest chunk first (emission order is not an event-dispatch contract). This
+representation passed all 243 semantic specs, the targeted retained-route,
+nested ownership and deep-tree cases, and unit tests for empty membership,
+4,097 exact IDs across chunks, and preservation of a shared snapshot.
+
+| Rows | Median ms | A/A ms | New bytes per marked turn | Allocation calls per marked turn |
+|---|---:|---:|---:|---:|
+| 100 | 5.562 | 5.520 | 2,477,904 | 22,973 |
+| 1,000 | 57.310 | 57.273 | 23,871,760 | 220,005 |
+| 10,000 | 635.200 | 634.554 | 234,130,840 | 2,149,572 |
+
+All three selection scales and A/A repeats passed with matching allocation
+totals. At 10k, lowering allocation requests fell from 1.715 GB to 121.972 MB;
+total marked requests fell from 1.827 GB to 234.131 MB. Allocation growth is
+now approximately linear across this ladder. Latency regressed by 1.6% at 10k
+and more at smaller scales, so this is not a demonstrated speed improvement.
+The allocation improvement strongly supports the growing route list as the
+source of the prior superlinear traffic, not a specific compiler-bug diagnosis.
+An adjacent 10k baseline/candidate rerun confirmed the tradeoff: 622.661 ms
+versus 634.885 ms (about 2% slower). At 100k, the existing full-root sparse-update
+workload improved substantially:
+
+| Variant | Median ms | A/A ms | New allocation bytes per marked turn |
+|---|---:|---:|---:|
+| Before chunks | 6,628.192 | 6,600.393 | 161,453,467,504 |
+| After chunks | 4,697.304 | 4,698.824 | 1,492,217,736 |
+
+These captures ran serially using the previous and candidate executables;
+comparisons were mechanically compatible and semantic gates passed. Accept
+the representation for the approximately linear allocation scaling and the
+29% latency improvement at 100k, while preserving the measured small-scale
+latency regression in these notes. No compiler defect has been established.
+
 ### Follow-up: two source-level uniqueness experiments rejected
 
 With the boxed implementation as baseline, moved route append into a helper

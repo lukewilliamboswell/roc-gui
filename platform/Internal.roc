@@ -4,6 +4,7 @@ import Elem
 import Gui
 import Session
 import Index
+import RouteIds
 
 Internal := [].{
 	Route(a) : { boundary : U64, id : U64, revision : U64, fire : (a, Str => Action(a)) }
@@ -17,7 +18,7 @@ Internal := [].{
 		bound : [None, Some(Elem.BoundComponent(a))],
 		memo : [Unknown, Known(Box(a -> Bool))],
 		revision : U64,
-		route_ids : List(U64),
+		route_ids : RouteIds,
 		children : List(U64),
 	}
 
@@ -27,7 +28,7 @@ Internal := [].{
 		routes : Index(Route(a)),
 	}
 
-	BuildingOwner : { key : U64, revision : U64, path : List(U64), route_ids : List(U64), children : List(U64) }
+	BuildingOwner : { key : U64, revision : U64, path : List(U64), route_ids : RouteIds, children : List(U64) }
 
 	# Keep the active metadata boxed across recursive lowering. With the 09-12
 	# compiler, passing even this slim record by value overflows the normal stack
@@ -587,7 +588,7 @@ Internal := [].{
 		if owner.key != key {
 			crash "mismatched route owner"
 		}
-		{ stored: boundaries.stored, active: Box.box({ ..owner, route_ids: owner.route_ids.append(id) }) }
+		{ stored: boundaries.stored, active: Box.box({ ..owner, route_ids: RouteIds.append(owner.route_ids, id) }) }
 	}
 
 	unchanged! : BoundaryInfo(a), a => Bool
@@ -623,7 +624,7 @@ Internal := [].{
 			Ok(previous) => { ..previous, bound: Some(bound), render: bound.render }
 			Err(_) => {
 				Host.component_work!(3, 1)
-				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: [], children: [] }
+				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [] }
 			}
 		}
 		with_parent = Box.box({ ..parent_info, children: parent_info.children.append(resolved.instance) })
@@ -654,9 +655,7 @@ Internal := [].{
 			$routes = retired.routes
 			$boundaries = retired.boundaries
 		}
-		for id in owner.route_ids {
-			$routes = Index.remove($routes, id)
-		}
+		$routes = RouteIds.fold(owner.route_ids, $routes, |current, id| Index.remove(current, id))
 		Host.component_work!(4, 1)
 		{ routes: $routes, boundaries: Index.remove($boundaries, key) }
 	}
@@ -665,13 +664,11 @@ Internal := [].{
 	rebuild! = |owner, state, routes, boundaries| {
 		Host.work_start!(0)
 		var $routes = routes
-		for id in owner.route_ids {
-			$routes = Index.remove($routes, id)
-		}
-		cleared = { ..owner, revision: owner.revision + 1, route_ids: [], children: [], memo: Unknown }
+		$routes = RouteIds.fold(owner.route_ids, $routes, |current, id| Index.remove(current, id))
+		cleared = { ..owner, revision: owner.revision + 1, route_ids: RouteIds.empty, children: [], memo: Unknown }
 		# Keep growing metadata out of the persistent index until this owner is
 		# complete; per-route publication shares and repeatedly copies its lists.
-		prepared = { stored: boundaries, active: Box.box({ key: cleared.key, revision: cleared.revision, path: cleared.path, route_ids: [], children: [] }) }
+		prepared = { stored: boundaries, active: Box.box({ key: cleared.key, revision: cleared.revision, path: cleared.path, route_ids: RouteIds.empty, children: [] }) }
 		Host.work_end!(0)
 		Host.work_start!(2)
 		Host.component_work!(0, 1)
@@ -836,7 +833,7 @@ Internal := [].{
 	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Gui.Color, foreground : Gui.Color } => {}
 	start! = |initial, render, window| {
 		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
-		root = { key: 0, parent: None, path: [0], render, root: 0, bound: None, memo: Unknown, revision: 0, route_ids: [], children: [] }
+		root = { key: 0, parent: None, path: [0], render, root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [] }
 		Host.begin_render!(0)
 		lowered = rebuild!(root, initial, Index.empty, Index.empty)
 		Host.apply!(Mount({ root: lowered.root }))

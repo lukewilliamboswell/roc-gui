@@ -196,18 +196,14 @@ names the evidence so a fix can be verified against the same case.
   annotation. Minimize it against the pinned compiler, report it, and update the
   pin when fixed.
 
-- [ ] **Ancestor rebuilds still have excessive metadata allocation.** Serial
-  schema-11 selection captures with memoized row boundaries show large
-  allocation traffic even when every row skips rendering. After owner-local
-  metadata accumulation, the boxed candidate requests about 1.715 GB in
-  lowering for a 10,000-row selection. Route-list prefix copying is a strong
-  suspect, not a proven compiler defect. Removing/reinserting the owner before
-  each append regressed performance; destructuring the accumulator argument
-  did not change allocation traffic. See `wip/optimization-notes.md` for the
-  controlled experiments and verification. Further work must preserve
-  indexed routing, revision checks, atomic graph/session acceptance, and the
-  normal-stack deep-tree specifications. Do not replace these constraints with
-  a benchmark-specific path or a larger application stack.
+- [ ] **Persistent-index maintenance retains a high allocation constant.**
+  Bounded route-ID chunks removed the superlinear ownership-list allocation
+  term. A 10k memoized ancestor selection still makes about 2.15 million
+  measured allocation requests, and the existing 100k full-root sparse update
+  makes about 14.77 million. Investigate indexed maintenance and reference-count
+  overhead without weakening revision checks or atomic graph/session acceptance.
+  See `wip/optimization-notes.md` for the verified chunking improvement and its
+  small-scale latency tradeoff. Timing alone must not gate correctness.
 
 - [ ] **Reestablish full-root scaling after keyed component retention.** The
   pre-component production 100,000-row sparse-update case showed superlinear
