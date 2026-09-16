@@ -13,6 +13,20 @@ through reviewed locks that record their exact identities, hashes, and sizes.
 - Space Grotesk and Plus Jakarta Sans, used to set the documentation: see
   `docs/theme/fonts/`. Both are licensed under the SIL Open Font License,
   version 1.1, and are redistributed here in their unmodified released form.
+- Lucide icons, used by two examples: `square` and `circle` in
+  `examples/animation-studio/icons/`, and `image-off` in
+  `examples/image-library/icons/`. All three are licensed under the ISC License,
+  whose text is at `third_party/licenses/lucide/LICENSE`. Each icon was renamed
+  and had its `stroke="currentColor"` replaced with the literal colour of the
+  application it serves, because a standalone SVG has no inherited colour to
+  resolve `currentColor` against; the geometry is otherwise unmodified. The
+  `NOTICE.md` in each directory records the source URL and the change per file.
+- "Horsehead and Flame nebula in Orion" by Taavi Niittee, used as the cover art
+  in `examples/music-player/assets/art/`. It is dedicated to the public domain
+  under CC0 1.0 Universal and is redistributed here in the unmodified
+  960-pixel-wide rendition Wikimedia Commons serves of the original.
+  `examples/music-player/assets/NOTICE.md` records the file page, the licence
+  fields the Commons API reports for it, and the digest of the vendored copy.
 
 Dependency producer archives carry the notices applicable to their payload and
 the corresponding sources required by their redistribution terms. Host releases

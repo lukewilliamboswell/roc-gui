@@ -3,7 +3,8 @@
 (test "A decode failure is legible against the night ground"
   (grants
     (directory "fixture")
-    (audio null))
+    (audio null)
+    (assets "assets"))
   (steps
     (settle)
     (click (role button :name "Choose music folder"))

@@ -83,6 +83,10 @@ line, as an unknown grant or a malformed one is.
 `(app-data "PATH")`:: Private application-data storage, seeded from `PATH`. The
 run receives a fresh private copy, so it writes through the production
 capability without changing the checked-in directory.
+`(assets "PATH")`:: The content directory an `Assets.content_directory` store
+resolves to. The application names no path of its own, so the case names the one
+the host provisions. Omit the grant and the open is `AccessDenied`, which is how
+a case exercises an application's missing-artwork path.
 `(audio null)`:: A paced null output in place of the system audio device. It
 changes only the final sink; decoding, mixing, playback, seeking, and status
 remain the production path.
@@ -189,6 +193,10 @@ Steps that check the application, in alphabetical order.
 
 `(expect-before FIRST SECOND)`:: Require a match for `FIRST` to occur before a
 match for `SECOND` in mounted-tree order.
+`(expect-asset-counters OPENS REFUSED CHECKS READS READS-REFUSED BYTES)`::
+Require the asset owner's six totals, in that order: opens, refused opens,
+manifest checks, reads, refused reads, and bytes read. No asset path, file name,
+or content becomes evidence.
 `(expect-canvas-primitives LOCATOR N)`:: Require one canvas owner to report
 exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.

@@ -3,6 +3,11 @@ import pf.Elem
 import pf.Gui
 import Studio
 
+## Two icons small enough to live in the executable. A compile-time file import
+## needs no capability and no store: the bytes are the program's own.
+import "icons/shape-rectangle.svg" as rectangle_glyph : List(U8)
+import "icons/shape-ellipse.svg" as ellipse_glyph : List(U8)
+
 Render := [].{
 	render = |state| {
 		selected_shape = match state.selected {
@@ -51,10 +56,32 @@ Render := [].{
 		}),
 	])
 
+	## A layer's name says what it is for, never what shape it is: "Title card"
+	## and "Accent" are rectangles and ellipses and read the same. The glyph is
+	## the only place the stage's two primitives are told apart in the list, so
+	## it carries meaning rather than repeating the caption beside it. Selection
+	## is already carried by the row's ground, so no second marker is drawn.
+	glyph_size = 16.U32
+	kind_glyph = |shape| {
+		art = match shape.kind {
+			Rectangle => rectangle_glyph
+			Ellipse => ellipse_glyph
+		}
+		Elem.row(Elem.RowProps.{ width: Px(26), padding: 0, gap: 0, justify: Center }, [
+			Elem.image(Elem.ImageProps.{
+				label: "${Studio.kind_name(shape.kind)} layer",
+				bytes: art,
+				format: Svg,
+				width: Px(glyph_size), height: Px(glyph_size),
+				min_width: Px(glyph_size), min_height: Px(glyph_size),
+			}),
+		])
+	}
+
 	layer_row = |shape, selected| {
 		is_selected = selected == Some(shape.id)
 		Elem.row(Elem.RowProps.{ gap: 0, width: Fill, radius: 6, bg: if is_selected Rgb(0x2b4a57) else Default }, [
-			Elem.row(Elem.RowProps.{ width: Px(18), padding: 0, fg: Rgb(0xf2cc8f) }, [Elem.text(if is_selected "●" else "")]),
+			kind_glyph(shape),
 			Elem.action_button(Elem.ActionButtonProps.{
 				caption: shape.name,
 				label: "Select ${shape.name}",
@@ -71,14 +98,10 @@ Render := [].{
 		rows = match selected_shape {
 			Err(_) => [Elem.text("No layer selected"), Elem.text("Select a layer or press a shape on the stage.")]
 			Ok(shape) => {
-				kind = match shape.kind {
-					Rectangle => "Rectangle"
-					Ellipse => "Ellipse"
-				}
 				keys = state.document.keyframes.keep_if(|key| key.shape_id == shape.id).len()
 				[
 					Elem.row(Elem.RowProps.{ width: Fill, font_size: 17 }, [Elem.text(shape.name)]),
-					field("Kind", kind),
+					field("Kind", Studio.kind_name(shape.kind)),
 					field("Position", "${shape.x.to_str()}, ${shape.y.to_str()}"),
 					field("Size", "${shape.width.to_str()} × ${shape.height.to_str()}"),
 					field("Keyframes", keys.to_str()),

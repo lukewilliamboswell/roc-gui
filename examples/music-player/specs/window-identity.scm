@@ -4,7 +4,8 @@
 (test "Music player wears its night identity"
   (grants
     (directory "fixture")
-    (audio null))
+    (audio null)
+    (assets "assets"))
   (steps
     (settle)
     (expect-on-screen (role button :name "Choose music folder"))
