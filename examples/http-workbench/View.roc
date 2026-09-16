@@ -177,7 +177,7 @@ request_side = |state| Elem.col(
 		field_row("URL", [input({ label: "Request URL", value: state.url, placeholder: "http://127.0.0.1:38191/echo", on_change: |current, event| Action.update(Workbench.set_url(current, event.value)), width: Fill, grow: True })]),
 		field_row("QUERY", [input({ label: "Query parameters", value: state.query, placeholder: "page=1&limit=100", on_change: |current, event| Action.update(Workbench.set_query(current, event.value)), width: Fill, grow: True })]),
 		field_row("HEADER", [
-			input({ label: "Header name", value: state.header_name, placeholder: "accept", on_change: |current, event| Action.update(Workbench.set_header_name(current, event.value)), width: Px(132), grow: False }),
+			input({ label: "Header name", value: state.header_name, placeholder: "accept", on_change: |current, event| Action.update(Workbench.set_header_name(current, event.value)), width: Px(156), grow: False }),
 			input({ label: "Header value", value: state.header_value, placeholder: "application/json", on_change: |current, event| Action.update(Workbench.set_header_value(current, event.value)), width: Fill, grow: True }),
 		]),
 		meta("BODY"),
