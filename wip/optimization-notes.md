@@ -159,6 +159,18 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Follow-up: two source-level uniqueness experiments rejected
+
+With the boxed implementation as baseline, moved route append into a helper
+that destructures all five `BuildingOwner` fields and reconstructs the record
+without spread syntax. Marked allocation counts and bytes matched baseline
+exactly. A separate experiment moved boxed revision projection into a helper
+to test temporary lifetime effects; the 10k median was 624.353 ms versus
+624.903 ms baseline, with identical allocation traffic. Both experiments passed
+the 10k selection spec and A/A repeats. Both source changes were removed.
+Neither supports a compiler-bug claim. Allocation-site evidence is the next
+step before more source rewrites.
+
 - Repeated route/child list appends inside the persistent owner registry may
   copy growing prefixes. Confirm with a production-path change and allocation
   evidence; batch construction rather than weaken transaction ownership.
