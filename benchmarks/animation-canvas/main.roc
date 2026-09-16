@@ -50,4 +50,4 @@ render = |state| Elem.canvas(Elem.CanvasProps.{
 })
 
 main : Program(State)
-main = Program.run({ init: { shapes: presentation(1000), drag: Idle }, render, window: { title: "Large animated presentation", width: 1000, height: 700 } })
+main = Program.run({ setup: || { state: { shapes: presentation(1000), drag: Idle }, render }, window: { title: "Large animated presentation", width: 1000, height: 700 } })

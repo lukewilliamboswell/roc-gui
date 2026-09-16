@@ -101,6 +101,15 @@ the change lands; do not soften the docs to match the gap.
 
 ## Trust: measurements that can mislead a decision
 
+- [ ] **General GPUI entity lifecycle counts are not captured.** The virtual
+  list reports viewport-owned entity materialisation, retention, and recycling,
+  but eager native views do not yet emit general materialised, rebound, and
+  retired entity counts. Direct native identity tests prove reuse semantics;
+  schema-11 component and mounted-node counts do not measure native entity
+  construction or rebinding. Add owner-populated counters and then their schema,
+  queries, and production-window assertions together, without inferring them
+  from graph retention or a timer.
+
 - [ ] **All benchmark captures come from the headless runner.** Every capture
   under `benchmarks/` has backend `semantic-headless` and holds no frame
   evidence: no layout request, no prepaint, no paint, no `gpui_apply_ns`. Frame
@@ -116,6 +125,18 @@ the change lands; do not soften the docs to match the gap.
 
 Defects in the platform or host that the benchmark suite has exposed. Each
 names the evidence so a fix can be verified against the same case.
+
+- [ ] **The pinned Roc compiler crashes on inline component setup.** On
+  `nightly-2026-09-12-220fd47`, an inline `Program.run({ setup: || ... })`
+  closure that creates and captures either `Component.define!` or
+  `Component.memo!` segfaults during `roc check`. Moving the same constructor,
+  getter, setter, renderer, and comparator into a named top-level `setup!`
+  succeeds in both checking and a dev build. An explicit setup type is
+  recommended but was not required by the minimal reproduction. Inline setup
+  without component definitions also passes. Keep the named helper in examples;
+  minimize/report the compiler defect and remove this workaround when the pin
+  accepts both forms. This is a compiler-feasibility gap, not a second component
+  API or a reason to make rendering effectful.
 
 - [ ] **The Roc development optimization mode miscompiles the deep tree scaling
   case on x64glibc.** An explicit `roc build --opt=dev` produces an executable
@@ -175,8 +196,9 @@ names the evidence so a fix can be verified against the same case.
   annotation. Minimize it against the pinned compiler, report it, and update the
   pin when fixed.
 
-- [ ] **Full-root replacement remains superlinear at 100,000 rows.** The
-  production 100,000-row sparse-update case confirms the effect after dense
+- [ ] **Reestablish full-root scaling after keyed component retention.** The
+  pre-component production 100,000-row sparse-update case showed superlinear
+  work after dense
   validation, host-owned child streaming, and consolidation of mounted node
   and parent storage. In a serial same-executable run, 10,000 to 100,000 rows
   grew from 9.47 ms to 139 ms overall. Roc callback work grew 11.4x, validation
@@ -184,13 +206,26 @@ names the evidence so a fix can be verified against the same case.
   bytes grew 10.0x. Further work must preserve the generic tree-integrity
   checks and exact patch counters. The full-root rebuild itself is intentional
   application semantics, with row boundaries providing the local-update
-  alternative.
+  alternative. These numbers are a historical baseline, not evidence for the
+  component implementation. Repeat serial same-executable captures with the
+  pinned compiler and schema-11 owner counters. Separate application keyed
+  lookup, Roc comparison and rendering, fresh/frontier validation, and native
+  materialisation before assigning the remaining growth to an owner.
 - [ ] **Text and tree-shape families currently measure node count only.** Long
   and short messages at 10,000 rows differ by under 15%, and depth has no
   measurable effect, because the headless path has no layout or paint. These
   families become informative only with the GPUI runner.
 
 ## Runner: test what we fly
+
+- [ ] **Native frame focus work still scans unaffected controls.**
+  `Runtime::render` walks focus handles and computes the graph's focus order on
+  focused frames. Deleted-focus and canvas-drag recovery also reverse-search
+  native identities. These preexisting paths are separate from graph patch
+  work, so bounded component renders and validation visits do not establish
+  end-to-end work proportional to changed nodes. Index focus/identity recovery
+  and update it from accepted graph deltas, while preserving dialog focus and
+  native interaction behavior through production window specifications.
 
 - [x] **End-to-end GPUI spec runner.** Delivered as window specifications:
   `crates/host/src/window_runner.rs` drives the production window from inside
@@ -206,10 +241,12 @@ names the evidence so a fix can be verified against the same case.
   — is keyed by its position. If such a node is pressed and its siblings are
   reordered or one before it is removed in the same patch, the identity that
   was pressed now belongs to a different node, and the release completes on
-  that one. Named controls are unaffected: a named node keeps its own key
-  wherever it moves, and one that leaves the tree drops the press. Close by
-  giving every element a name, or by refusing positional identity to anything
-  that takes a pointer press.
+  that one. Explicit keyed components establish a stronger scoped identity,
+  but they do not grant arbitrary reparenting: named controls retain identity
+  only while their structural ancestor scope survives. Keep this gap for
+  anonymous positional control ancestry until a production pointer regression
+  proves the required behavior. Do not treat named component reorder coverage
+  as proof that every unnamed layout path is safe.
 
 - [ ] **A real pointer seam.** Pointer input is currently simulated at the
   production click handler. GPUI 0.2.2 offers no alternative:
@@ -559,15 +596,6 @@ names the evidence so a fix can be verified against the same case.
   `spec::Grant` and to `docs/specifications.adoc`, and `expect-asset-counters`
   was added to the assertion reference, where it had been documented only in
   `docs/development.adoc`.
-
-- [ ] **`Program` has no effectful startup, so a store is opened on a task.**
-  `Program.init` is a pure value, so an application that wants its banner
-  present in the first frame cannot open a store and read it before the first
-  render; it must render a loading state and fill it in from `Action.task`. That
-  is a sound route and the documented one, but it means every asset-backed
-  application writes the same three-state field. An effectful `init!` that
-  blocks startup, as roc-ray's does, would remove it. That is a change to the
-  program model rather than to the asset surface, and it was not made here.
 
 - [ ] **No asset root resolves relative to the application itself.** The three
   roots are the executable's directory, the process working directory, and the

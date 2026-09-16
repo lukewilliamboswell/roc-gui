@@ -11,6 +11,17 @@ HostGlue := [].{
 	node_styled_text! : { value : Str, fg : U32, font_size : U32, font_weight : U32, font_face : U8 } => U64
 	children_begin! : () => U64
 	children_push! : U64, U64 => {}
+	component_setup! : Bool => {}
+	component_define! : () => U64
+	component_work! : U8, U64 => {}
+	node_boundary! : U64, U64 => U64
+	retain_subtree! : U64 => U64
+	begin_render! : U64 => {}
+	scope_enter! : U8, Str, U64 => {}
+	scope_exit! : () => {}
+	component_resolve! : U64, U8, Str, U64 => { instance : U64, root : U64 }
+	component_enter! : U64 => {}
+	component_exit! : () => {}
 	node_row! : {
 		builder : U64,
 		label : Str,
@@ -501,8 +512,15 @@ HostGlue := [].{
 	node_canvas! : {
 		label : Str,
 		primitives : List({ kind : U8, key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, x2 : I32, y2 : I32, fill : U32, stroke : U32, stroke_width : U32, radius : U32 }),
-		width_kind : U8, width : U32, height_kind : U8, height : U32, grow : Bool,
-		bg : U32, border_color : U32, border_width : U32, radius : U32,
+		width_kind : U8,
+		width : U32,
+		height_kind : U8,
+		height : U32,
+		grow : Bool,
+		bg : U32,
+		border_color : U32,
+		border_width : U32,
+		radius : U32,
 	} => U64
 	canvas_event! : () => { phase : U8, x : I32, y : I32, target : U64 }
 	input_value! : () => Str
@@ -590,8 +608,7 @@ HostGlue := [].{
 	assets_read! : Resource.AssetStore, Str => Try(List(U8), U8)
 	apply! : Patch => {}
 	set_dispatch! : Box((U64 => {})) => {}
-	set_task_dispatch! : Box((U64 => {})) => {}
-	enqueue_task! : Box((U64 => {})) => {}
+	enqueue_task! : U64, Box((U64 => {})) => {}
 	timer_start! : U64 => Resource.Timer
 	timer_next! : Resource.Timer => Bool
 	timer_cancel! : Resource.Timer => Bool

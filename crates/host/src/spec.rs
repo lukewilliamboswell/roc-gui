@@ -194,6 +194,8 @@ pub enum Command {
     /// refused reads, and bytes read. All six are numeric; no path, file name,
     /// or asset content ever becomes evidence.
     ExpectAssetCounters([u64; 6]),
+    /// Counts from the most recently committed production action turn.
+    ExpectComponentWork([Option<u64>; crate::observatory::COMPONENT_WORK_NAMES.len()]),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -363,6 +365,7 @@ impl Command {
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
+            Self::ExpectComponentWork(_) => "expect-component-work",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -434,6 +437,7 @@ impl Command {
             | Self::ExpectValue(_, _)
             | Self::ExpectValueBytes(_, _)
             | Self::ExpectImageBytes(_, _)
+            | Self::ExpectComponentWork(_)
             | Self::ExpectBefore(_, _) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
             // They are honest claims, made by one runner rather than two; the
@@ -496,6 +500,7 @@ pub struct PatchExpectation {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Locator {
+    Within(Box<Locator>, Box<Locator>),
     Text(String),
     TextPrefix(String),
     ButtonName(String),
@@ -516,11 +521,24 @@ pub enum Locator {
     TextInputName(String),
 }
 
+impl Locator {
+    /// The final target role, without changing the scope used for resolution.
+    pub(crate) fn target(&self) -> &Self {
+        match self {
+            Self::Within(_, target) => target.target(),
+            _ => self,
+        }
+    }
+}
+
 impl fmt::Display for Locator {
     /// Render a locator the way it is written in a specification, so a failure
     /// message quotes the author's own words back to them.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (form, value) = match self {
+            Self::Within(ancestor, target) => {
+                return write!(formatter, "(within {ancestor} {target})");
+            }
             Self::Text(value) => ("(text", value),
             Self::TextPrefix(value) => ("(text-prefix", value),
             Self::ButtonName(value) => ("(role button :name", value),
@@ -706,7 +724,10 @@ fn parse_grants(entries: &[SExpr]) -> Result<Vec<Grant>, ParseError> {
     for entry in entries {
         let list = require_list(entry, "grant")?;
         let grant = parse_grant(entry, list)?;
-        if grants.iter().any(|existing| existing.name() == grant.name()) {
+        if grants
+            .iter()
+            .any(|existing| existing.name() == grant.name())
+        {
             return Err(error(entry, format!("duplicate {} grant", grant.name())));
         }
         grants.push(grant);
@@ -747,7 +768,10 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
             Some(profile @ ("local-shell" | "test-program")) => {
                 Ok(Grant::Process(profile.to_owned()))
             }
-            _ => Err(error(node, "process grant must be local-shell or test-program")),
+            _ => Err(error(
+                node,
+                "process grant must be local-shell or test-program",
+            )),
         },
         ("device", 2 | 3) => {
             if list[1].atom() != Some("virtual") {
@@ -763,7 +787,9 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
                     let controls = count
                         .atom()
                         .and_then(|value| value.parse::<u32>().ok())
-                        .ok_or_else(|| error(node, "virtual device control count must be an integer"))?;
+                        .ok_or_else(|| {
+                            error(node, "virtual device control count must be an integer")
+                        })?;
                     Ok(Grant::Device(format!("virtual:{controls}")))
                 }
             }
@@ -776,7 +802,9 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
                 let processes = count
                     .atom()
                     .and_then(|value| value.parse::<u32>().ok())
-                    .ok_or_else(|| error(node, "system-monitor process count must be an integer"))?;
+                    .ok_or_else(|| {
+                        error(node, "system-monitor process count must be an integer")
+                    })?;
                 Ok(Grant::SystemMonitor(format!("processes:{processes}")))
             }
             _ => Err(error(
@@ -1160,18 +1188,20 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     let amount = by
                         .atom()
                         .and_then(|text| text.parse::<i32>().ok())
-                        .filter(|value| value.unsigned_abs() >= 1 && value.unsigned_abs() <= 100_000)
+                        .filter(|value| {
+                            value.unsigned_abs() >= 1 && value.unsigned_abs() <= 100_000
+                        })
                         .ok_or_else(|| {
-                            error(by, "scroll :by is a non-zero number of logical pixels, up to 100000")
+                            error(
+                                by,
+                                "scroll :by is a non-zero number of logical pixels, up to 100000",
+                            )
                         })?;
                     ScrollMotion::By(amount)
                 }
                 (None, Some(to)) => ScrollMotion::To(parse_locator(to)?),
                 _ => {
-                    return Err(error(
-                        node,
-                        "scroll requires exactly one of :by and :to",
-                    ));
+                    return Err(error(node, "scroll requires exactly one of :by and :to"));
                 }
             };
             Command::Scroll { region, motion }
@@ -1469,6 +1499,45 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         "expect-before" if values.len() == 3 => {
             Command::ExpectBefore(parse_locator(&values[1])?, parse_locator(&values[2])?)
         }
+        "expect-component-work" if values.len() >= 3 && values.len() % 2 == 1 => {
+            let mut expected = [None; crate::observatory::COMPONENT_WORK_NAMES.len()];
+            for pair in values[1..].chunks_exact(2) {
+                let name = pair[0]
+                    .atom()
+                    .and_then(|name| name.strip_prefix(':'))
+                    .ok_or_else(|| {
+                        error(
+                            &pair[0],
+                            "component work requires named :counter COUNT pairs",
+                        )
+                    })?;
+                let index = crate::observatory::COMPONENT_WORK_NAMES
+                    .iter()
+                    .position(|candidate| candidate.replace('_', "-") == name)
+                    .ok_or_else(|| error(&pair[0], "unknown component work counter"))?;
+                if expected[index].is_some() {
+                    return Err(error(&pair[0], "duplicate component work counter"));
+                }
+                expected[index] = Some(
+                    pair[1]
+                        .atom()
+                        .ok_or_else(|| {
+                            error(
+                                &pair[1],
+                                "component work count must be a non-negative integer",
+                            )
+                        })?
+                        .parse::<u64>()
+                        .map_err(|_| {
+                            error(
+                                &pair[1],
+                                "component work count must be a non-negative integer",
+                            )
+                        })?,
+                );
+            }
+            Command::ExpectComponentWork(expected)
+        }
         "expect-patch" if values.len() == 7 => {
             if values[1].atom() != Some(":kind")
                 || values[3].atom() != Some(":staged")
@@ -1536,6 +1605,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "revoke-file-grants"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
+        | "expect-component-work"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
@@ -1596,6 +1666,14 @@ fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
 fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
     let values = require_list(node, "locator")?;
     match values.first().and_then(SExpr::atom) {
+        Some("within") if values.len() == 3 => Ok(Locator::Within(
+            Box::new(parse_locator(&values[1])?),
+            Box::new(parse_locator(&values[2])?),
+        )),
+        Some("within") => Err(error(
+            node,
+            "within requires an ancestor and a target locator",
+        )),
         Some("text") if values.len() == 2 => values[1]
             .string()
             .map(|value| Locator::Text(value.to_owned()))
@@ -1971,6 +2049,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn component_work_assertions_name_optional_last_turn_counts_on_both_runners() {
+        let spec = parse(
+            r#"(test "component work" (steps
+            (expect-component-work :skipped 2 :rendered 1 :registry-visits 5)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectComponentWork([Some(1), None, Some(2), None, None, Some(5), None,])
+        );
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(!spec.steps[0].command.is_operation());
+    }
+
+    #[test]
+    fn component_work_assertions_reject_ambiguous_or_invalid_counts() {
+        for command in [
+            "(expect-component-work)",
+            "(expect-component-work :rendered)",
+            "(expect-component-work :rendered -1)",
+            "(expect-component-work :rendered 1 :rendered 2)",
+            "(expect-component-work :registry_visits 1)",
+            "(expect-component-work :unknown 0)",
+            "(expect-component-work :rendered 18446744073709551616)",
+        ] {
+            assert!(
+                parse(&format!("(test \"invalid\" (steps {command}))")).is_err(),
+                "{command}"
+            );
+        }
+    }
+
+    #[test]
     fn parses_clipboard_fixture_changes_without_exposing_an_ambient_source() {
         let spec = parse(
             r#"(test "clipboard"
@@ -2065,6 +2177,37 @@ mod tests {
     }
 
     #[test]
+    fn within_locators_nest_and_display_as_authored() {
+        let locator = r#"(within (role panel :name "Left") (within (role row :name "Editor") (role textbox :name "Value")))"#;
+        let spec = parse(&format!("(test \"scope\" (steps (focus {locator})))")).unwrap();
+        let Command::Focus(parsed) = &spec.steps[0].command else {
+            panic!("expected focus");
+        };
+        assert_eq!(parsed.to_string(), locator);
+        assert_eq!(parsed.target(), &Locator::TextInputName("Value".into()));
+        assert_eq!(spec.steps[0].command.capability(), Capability::Both);
+    }
+
+    #[test]
+    fn within_rejects_missing_extra_or_invalid_locators() {
+        for locator in [
+            "(within)",
+            "(within (text \"a\"))",
+            "(within (text \"a\") (text \"b\") (text \"c\"))",
+            "(within \"a\" (text \"b\"))",
+            "(within (text \"a\") (unknown \"b\"))",
+        ] {
+            assert!(
+                parse(&format!(
+                    "(test \"scope\" (steps (expect-visible {locator})))"
+                ))
+                .is_err(),
+                "accepted {locator}",
+            );
+        }
+    }
+
+    #[test]
     fn scroll_takes_a_distance_or_a_target_but_not_both() {
         let spec = parse(
             r#"(test "scroll"
@@ -2111,8 +2254,7 @@ mod tests {
 
     #[test]
     fn scrolling_is_window_only() {
-        let spec =
-            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by 40)))"#).unwrap();
+        let spec = parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by 40)))"#).unwrap();
         assert!(check_runner(&spec, Runner::Window).is_ok());
         let refusal = check_runner(&spec, Runner::Semantic).unwrap_err();
         assert!(refusal.contains("window-only"), "{refusal}");
@@ -2278,22 +2420,20 @@ mod tests {
 
     #[test]
     fn rejects_an_unknown_grant() {
-        let error = parse(r#"(test "g" (grants (webcam full)) (steps (await-ticks 1)))"#)
-            .unwrap_err();
+        let error =
+            parse(r#"(test "g" (grants (webcam full)) (steps (await-ticks 1)))"#).unwrap_err();
         assert_eq!(error.line, 1);
         assert!(error.message.contains("unsupported grant webcam"));
     }
 
     #[test]
     fn rejects_a_malformed_grant() {
-        let error = parse(
-            "(test \"g\"\n  (grants\n    (directory))\n  (steps (await-ticks 1)))",
-        )
-        .unwrap_err();
+        let error = parse("(test \"g\"\n  (grants\n    (directory))\n  (steps (await-ticks 1)))")
+            .unwrap_err();
         assert_eq!(error.line, 3);
         assert!(error.message.contains("malformed directory grant"));
-        let profile = parse(r#"(test "g" (grants (process sudo)) (steps (await-ticks 1)))"#)
-            .unwrap_err();
+        let profile =
+            parse(r#"(test "g" (grants (process sudo)) (steps (await-ticks 1)))"#).unwrap_err();
         assert!(profile.message.contains("local-shell or test-program"));
         let duplicate =
             parse(r#"(test "g" (grants (audio null) (audio null)) (steps (await-ticks 1)))"#)

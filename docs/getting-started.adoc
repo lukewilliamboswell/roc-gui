@@ -44,11 +44,11 @@ State : { greeting : Str }
 render : State -> Elem(State)
 render = |state| Elem.text(state.greeting)
 
+setup! : () => { state : State, render : State -> Elem(State) }
+setup! = || { state: { greeting: "Hello from Roc" }, render }
+
 main : Program(State)
-main = Program.run({
-    init: { greeting: "Hello from Roc" },
-    render,
-})
+main = Program.run({ setup: setup! })
 ----
 
 Choose an executable name explicitly when building your application:
@@ -85,7 +85,7 @@ resource access chapter.
 == Run the specifications
 
 Every application keeps its specifications in one `specs/` directory beside
-`main.roc`. The counter has five:
+`main.roc`. Run the counter's cases with:
 
 [source,sh]
 ----

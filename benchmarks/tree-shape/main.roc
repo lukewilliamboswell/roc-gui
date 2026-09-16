@@ -56,4 +56,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: { shape: Empty }, render })
+main = Program.run({ setup: || { state: { shape: Empty }, render } })

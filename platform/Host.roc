@@ -1,4 +1,5 @@
 import Action
+import Session
 import Resource
 import InternalHttp
 
@@ -12,6 +13,17 @@ Host := [].{
 	children_begin! : () => U64
 
 	children_push! : U64, U64 => {}
+	component_setup! : Bool => {}
+	component_define! : () => U64
+	component_work! : U8, U64 => {}
+	node_boundary! : U64, U64 => U64
+	retain_subtree! : U64 => U64
+	begin_render! : U64 => {}
+	scope_enter! : U8, Str, U64 => {}
+	scope_exit! : () => {}
+	component_resolve! : U64, U8, Str, U64 => { instance : U64, root : U64 }
+	component_enter! : U64 => {}
+	component_exit! : () => {}
 
 	node_row! : {
 		builder : U64,
@@ -615,11 +627,9 @@ Host := [].{
 
 	apply! : Patch => {}
 
-	set_dispatch! : Box((U64 => {})) => {}
+	set_dispatch! : Box((Session(a) => {})) => {}
 
-	set_task_dispatch! : Box((Box((Box(a) -> Box(Action(a)))) => {})) => {}
-
-	enqueue_task! : Box((() => Box((Box(a) -> Box(Action(a)))))) => {}
+	enqueue_task! : U64, Box((() => Box((Box(a) -> Box(Action(a)))))) => {}
 
 	timer_start! : U64 => Resource.Timer
 

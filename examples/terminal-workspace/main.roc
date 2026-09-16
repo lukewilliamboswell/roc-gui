@@ -2,4 +2,4 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 import pf.Program
 import Workspace
 State : Workspace.State
-main = Program.run({ init: Workspace.init, render: Workspace.render, window: { title: "Terminal Workspace", width: 900, height: 650 } })
+main = Program.run({ setup: Workspace.setup!, window: { title: "Terminal Workspace", width: 900, height: 650 } })

@@ -1,6 +1,6 @@
 use crate::{
     SUBMIT_EVENT_BIT, await_task_completion,
-    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind},
+    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind, Patch},
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
@@ -8,6 +8,48 @@ use crate::{
     take_patch, task_counts,
 };
 use std::time::Instant;
+
+/// Apply the production graph transaction before publishing its Roc session.
+fn apply_transaction(graph: &mut MountedGraph, patch: Patch) -> Result<ApplyFacts, String> {
+    match graph.apply_measured(patch) {
+        Ok(applied) => {
+            crate::accept_transaction(graph, &applied);
+            Ok(applied.facts)
+        }
+        Err(error) => {
+            crate::reject_transaction();
+            Err(error)
+        }
+    }
+}
+
+/// Both runners read the same completed owner observation, never reconstruct it.
+pub(crate) fn component_work_claim(
+    expected: &[Option<u64>; observatory::COMPONENT_WORK_NAMES.len()],
+) -> (Result<(), String>, Option<observatory::ComponentWork>) {
+    let observed = observatory::last_component_work();
+    let Some(work) = observed else {
+        return (
+            Err("component work is unavailable: no production turn has committed".into()),
+            None,
+        );
+    };
+    for (index, expected) in expected.iter().enumerate() {
+        if let Some(expected) = expected {
+            if *expected != work.0[index] {
+                return (
+                    Err(format!(
+                        "expected component {} count {expected}, observed {}",
+                        observatory::COMPONENT_WORK_NAMES[index],
+                        work.0[index]
+                    )),
+                    observed,
+                );
+            }
+        }
+    }
+    (Ok(()), observed)
+}
 
 /// The one primitive a canvas-item locator names, and the canvas that owns it.
 ///
@@ -20,21 +62,26 @@ pub(crate) fn canvas_item<'a>(
     graph: &'a MountedGraph,
     locator: &Locator,
 ) -> Option<(u64, &'a CanvasPrimitive)> {
-    let matching = |item: &CanvasPrimitive| match locator {
+    let candidates: std::collections::HashSet<_> = matches(graph, locator).into_iter().collect();
+    let matching = |item: &CanvasPrimitive| match locator.target() {
         Locator::CanvasItemName(name) => item.label == *name,
         Locator::CanvasItemPrefix(prefix) => item.label.starts_with(prefix),
         _ => false,
     };
-    let mut found = graph.nodes_preorder().into_iter().flat_map(|node| {
-        let primitives = match &node.kind {
-            NodeKind::Canvas { primitives, .. } => primitives.as_slice(),
-            _ => &[][..],
-        };
-        primitives
-            .iter()
-            .filter(|item| matching(item))
-            .map(move |item| (node.id, item))
-    });
+    let mut found = graph
+        .nodes_preorder()
+        .into_iter()
+        .filter(|node| candidates.contains(&node.id))
+        .flat_map(|node| {
+            let primitives = match &node.kind {
+                NodeKind::Canvas { primitives, .. } => primitives.as_slice(),
+                _ => &[][..],
+            };
+            primitives
+                .iter()
+                .filter(|item| matching(item))
+                .map(move |item| (node.id, item))
+        });
     let first = found.next()?;
     found.next().is_none().then_some(first)
 }
@@ -162,6 +209,41 @@ pub(crate) fn graph_claim(
 /// Shared with the window runner so both resolve locators identically rather
 /// than keeping two implementations in step by hand.
 pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
+    if let Locator::Within(ancestor, target) = locator {
+        // Canvas primitives are semantic leaves. Their event address is their
+        // canvas, but that does not make a primitive a scope for its siblings.
+        if matches!(
+            ancestor.target(),
+            Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+        ) {
+            return vec![];
+        }
+        let ancestors: std::collections::HashSet<_> =
+            matches(graph, ancestor).into_iter().collect();
+        let primitive_target = matches!(
+            target.target(),
+            Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+        );
+        return matches(graph, target)
+            .into_iter()
+            .filter(|id| {
+                // A node is not its own descendant. A primitive's shared
+                // event address names its semantic parent, the canvas.
+                let mut next = if primitive_target {
+                    Some(*id)
+                } else {
+                    graph.parent(*id).map(|(parent, _)| parent)
+                };
+                while let Some(parent) = next {
+                    if ancestors.contains(&parent) {
+                        return true;
+                    }
+                    next = graph.parent(parent).map(|(parent, _)| parent);
+                }
+                false
+            })
+            .collect();
+    }
     if let Locator::CanvasItemPrefix(prefix) = locator {
         return graph
             .nodes_preorder()
@@ -325,12 +407,13 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut graph = MountedGraph::default();
     let cycle_started = Instant::now();
     observatory::reset_roc_work();
+    observatory::begin_component_work();
     let roc_started = Instant::now();
     unsafe { roc_gui_init() };
     let roc_ns = elapsed_ns(roc_started);
     let (roc_work, roc_work_valid) = observatory::take_roc_work();
     let patch = take_patch();
-    let facts = graph.apply_measured(patch)?.facts;
+    let facts = apply_transaction(&mut graph, patch)?;
     observatory::cycle(make_cycle(
         run_id,
         0,
@@ -364,6 +447,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         let mut sqlite_counter_evidence = None;
         let mut http_counter_evidence = None;
         let mut tcp_counter_evidence = None;
+        let mut component_work_evidence = None;
         let mut patch_evidence = None;
         let result = match &step.command {
             // Unreachable in practice: `spec::check_runner` rejects window-only
@@ -382,6 +466,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 step.line,
                 step.command.kind(),
             )),
+            Command::ExpectComponentWork(expected) => {
+                let (result, observed) = component_work_claim(expected);
+                component_work_evidence = Some((*expected, observed));
+                result.map_err(|message| format!("line {}: {message}", step.line))
+            }
             Command::MarkMetrics => {
                 marked = true;
                 Ok(())
@@ -420,7 +509,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let patch = dispatch(matches[0]);
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                    let facts = graph.apply_measured(patch)?.facts;
+                    let facts = apply_transaction(&mut graph, patch)?;
                     let next_dialog = graph.active_dialog();
                     match (previous_dialog, next_dialog) {
                         (None, Some(dialog)) => {
@@ -476,7 +565,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             target,
                         },
                     );
-                    let _ = graph.apply_measured(patch)?.facts;
+                    let _ = apply_transaction(&mut graph, patch)?;
                     id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
                         format!("line {}: canvas disappeared during drag", step.line)
                     })?;
@@ -489,7 +578,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             target,
                         },
                     );
-                    let _ = graph.apply_measured(patch)?.facts;
+                    let _ = apply_transaction(&mut graph, patch)?;
                     id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
                         format!("line {}: canvas disappeared during drag", step.line)
                     })?;
@@ -502,7 +591,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             target,
                         },
                     );
-                    let facts = graph.apply_measured(patch)?.facts;
+                    let facts = apply_transaction(&mut graph, patch)?;
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
                     last_patch = Some(facts);
@@ -564,7 +653,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let patch = crate::dispatch_input(node_id, value.clone());
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                    let facts = graph.apply_measured(patch)?.facts;
+                    let facts = apply_transaction(&mut graph, patch)?;
                     last_patch = Some(facts);
                     pending_cycle = Some(make_cycle(
                         run_id,
@@ -624,7 +713,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let patch = crate::dispatch_input(event_id, value.clone());
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                    let facts = graph.apply_measured(patch)?.facts;
+                    let facts = apply_transaction(&mut graph, patch)?;
                     let next_dialog = graph.active_dialog();
                     if previous_dialog.is_some() && next_dialog.is_none() {
                         focused = dialog_return_focus
@@ -725,7 +814,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             let patch = dispatch(id);
                             let roc_ns = elapsed_ns(roc_started);
                             let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                            let facts = graph.apply_measured(patch)?.facts;
+                            let facts = apply_transaction(&mut graph, patch)?;
                             let next_dialog = graph.active_dialog();
                             match (previous_dialog, next_dialog) {
                                 (None, Some(dialog)) => {
@@ -771,7 +860,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     return Err("task completion counters violated ownership invariants".into());
                 }
                 let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                let facts = graph.apply_measured(patch)?.facts;
+                let facts = apply_transaction(&mut graph, patch)?;
                 last_patch = Some(facts);
                 pending_cycle = Some(make_cycle(
                     run_id,
@@ -814,7 +903,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     }
                     let completion = await_task_completion()?;
                     let patch = complete(completion);
-                    applied = Some(graph.apply_measured(patch)?.facts);
+                    applied = Some(apply_transaction(&mut graph, patch)?);
                     completions += 1;
                 };
                 let roc_ns = elapsed_ns(roc_started);
@@ -861,7 +950,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         ));
                     }
                     timer_fired_seen += 1;
-                    last_patch = Some(graph.apply_measured(patch)?.facts);
+                    last_patch = Some(apply_transaction(&mut graph, patch)?);
                 }
                 Ok(())
             }
@@ -1257,6 +1346,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             sqlite_counters: sqlite_counter_evidence,
             http_counters: http_counter_evidence,
             tcp_counters: tcp_counter_evidence,
+            component_work: component_work_evidence,
             expected_patch_kind: patch_evidence.as_ref().map(|value| value.0.clone()),
             observed_patch_kind: patch_evidence.as_ref().map(|value| value.1),
             expected_staged_nodes: patch_evidence.as_ref().map(|value| value.2),
@@ -1285,7 +1375,7 @@ fn make_cycle(
     trigger: &'static str,
     cycle_started: Instant,
     roc_callback_ns: u64,
-    roc_work: [observatory::RocWork; 4],
+    roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
     facts: &ApplyFacts,
     roc_work_valid: bool,
 ) -> Cycle {
@@ -1306,11 +1396,209 @@ fn make_cycle(
         removed_nodes: facts.removed,
         live_nodes: facts.live,
         parent_nodes_scanned: facts.scanned,
+        retained_nodes: facts.retained_nodes,
+        validation_visits: facts.validation_visits,
         roc_work,
         roc_work_valid,
+        component_work: observatory::component_cycle_work(),
     }
 }
 
 fn elapsed_ns(start: Instant) -> u64 {
     start.elapsed().as_nanos().try_into().unwrap_or(u64::MAX)
+}
+
+#[cfg(test)]
+mod component_work_tests {
+    use super::*;
+
+    #[test]
+    fn shared_component_claim_distinguishes_unavailable_zero_and_a_failed_count() {
+        observatory::clear_component_work();
+        let expected = [Some(0), None, None, None, None, None, None];
+        let (result, observed) = component_work_claim(&expected);
+        assert!(result.unwrap_err().contains("unavailable"));
+        assert_eq!(observed, None);
+        observatory::begin_component_work();
+        observatory::commit_component_work();
+        assert!(component_work_claim(&expected).0.is_ok());
+        observatory::begin_component_work();
+        observatory::note_component_work(0, 2);
+        observatory::commit_component_work();
+        assert!(
+            component_work_claim(&expected)
+                .0
+                .unwrap_err()
+                .contains("observed 2")
+        );
+        observatory::clear_component_work();
+    }
+}
+
+#[cfg(test)]
+mod locator_tests {
+    use super::*;
+    use crate::bridge::{CanvasPrimitiveKind, Node, Style};
+
+    fn within(ancestor: Locator, target: Locator) -> Locator {
+        Locator::Within(Box::new(ancestor), Box::new(target))
+    }
+
+    fn graph() -> MountedGraph {
+        let style = Style::default();
+        let node = |id, kind, children| Node { id, kind, children };
+        let panel = |label: &str| NodeKind::Panel {
+            label: label.into(),
+            style: style.clone(),
+        };
+        let input = || NodeKind::TextInput {
+            label: "Value".into(),
+            value: String::new(),
+            placeholder: String::new(),
+            enabled: true,
+            style: style.clone(),
+        };
+        let primitive = |key, label: &str| CanvasPrimitive {
+            kind: CanvasPrimitiveKind::Rectangle,
+            key,
+            label: label.into(),
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            x2: 0,
+            y2: 0,
+            fill: None,
+            stroke: None,
+            stroke_width: 0,
+            radius: 0,
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![
+                    node(1, panel("Page"), vec![2, 5]),
+                    node(2, panel("Left"), vec![3]),
+                    node(3, NodeKind::Boundary { instance: 11 }, vec![4]),
+                    node(
+                        4,
+                        NodeKind::Row {
+                            label: "Contents".into(),
+                            style: style.clone(),
+                        },
+                        vec![8, 10],
+                    ),
+                    node(5, panel("Right"), vec![6]),
+                    node(6, NodeKind::Boundary { instance: 22 }, vec![7]),
+                    node(
+                        7,
+                        NodeKind::Row {
+                            label: "Contents".into(),
+                            style: style.clone(),
+                        },
+                        vec![9, 12],
+                    ),
+                    node(8, input(), vec![]),
+                    node(9, input(), vec![]),
+                    node(
+                        10,
+                        NodeKind::Canvas {
+                            label: "Canvas".into(),
+                            primitives: vec![primitive(1, "Dot one"), primitive(2, "Dot two")],
+                            style: style.clone(),
+                        },
+                        vec![],
+                    ),
+                    node(
+                        12,
+                        NodeKind::Canvas {
+                            label: "Canvas".into(),
+                            primitives: vec![primitive(1, "Dot one")],
+                            style,
+                        },
+                        vec![],
+                    ),
+                ],
+            })
+            .unwrap();
+        graph
+    }
+
+    #[test]
+    fn within_filters_duplicate_component_labels_without_hiding_ambiguity() {
+        let graph = graph();
+        let target = Locator::TextInputName("Value".into());
+        assert_eq!(matches(&graph, &target), vec![8, 9]);
+        assert_eq!(
+            matches(
+                &graph,
+                &within(Locator::PanelName("Left".into()), target.clone())
+            ),
+            vec![8]
+        );
+        assert_eq!(
+            matches(
+                &graph,
+                &within(Locator::PanelName("Page".into()), target.clone())
+            ),
+            vec![8, 9]
+        );
+        assert_eq!(
+            matches(
+                &graph,
+                &within(Locator::PanelName("Missing".into()), target)
+            ),
+            Vec::<u64>::new()
+        );
+    }
+
+    #[test]
+    fn within_is_strict_and_nested_targets_use_the_same_graph_path() {
+        let graph = graph();
+        let page = Locator::PanelName("Page".into());
+        assert!(matches(&graph, &within(page.clone(), page)).is_empty());
+        let target = within(
+            Locator::RowName("Contents".into()),
+            Locator::TextInputName("Value".into()),
+        );
+        assert_eq!(
+            matches(&graph, &within(Locator::PanelName("Left".into()), target)),
+            vec![8]
+        );
+    }
+
+    #[test]
+    fn scoped_canvas_counts_and_screenshot_targets_share_scope_resolution() {
+        let graph = graph();
+        let prefix = within(
+            Locator::PanelName("Left".into()),
+            Locator::CanvasItemPrefix("Dot".into()),
+        );
+        assert_eq!(matches(&graph, &prefix), vec![10, 10]);
+        assert!(canvas_item(&graph, &prefix).is_none());
+        let item = within(
+            Locator::PanelName("Right".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert_eq!(matches(&graph, &item), vec![12]);
+        let (owner, item) = canvas_item(&graph, &item).unwrap();
+        assert_eq!(owner, 12);
+        assert_eq!(item.label, "Dot one");
+    }
+
+    #[test]
+    fn canvas_primitive_is_a_strict_semantic_child_not_an_ancestor() {
+        let graph = graph();
+        let canvas = within(
+            Locator::PanelName("Left".into()),
+            Locator::CanvasName("Canvas".into()),
+        );
+        let primitive = Locator::CanvasItemName("Dot one".into());
+        let scoped = within(canvas.clone(), primitive.clone());
+        assert_eq!(matches(&graph, &scoped), vec![10]);
+        assert_eq!(canvas_item(&graph, &scoped).unwrap().0, 10);
+        assert!(matches(&graph, &within(canvas.clone(), canvas)).is_empty());
+        assert!(matches(&graph, &within(primitive.clone(), primitive)).is_empty());
+    }
 }

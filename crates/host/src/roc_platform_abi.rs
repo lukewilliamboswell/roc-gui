@@ -1131,6 +1131,33 @@ const _: () = assert!(core::mem::size_of::<AnonStructB050404c6fb0b263>() == 28, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructB050404c6fb0b263>() == 4, "AnonStructB050404c6fb0b263 alignment mismatch");
 
+/// Element type for __AnonStruct_2c3712e02fef0cd
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct2c3712e02fef0cd {
+    pub instance: u64,
+    pub root: u64,
+}
+
+/// Element type for __AnonStruct_2c3712e02fef0cd
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct2c3712e02fef0cd {
+    pub instance: u64,
+    pub root: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct2c3712e02fef0cd>() == 16, "AnonStruct2c3712e02fef0cd size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct2c3712e02fef0cd>() == 8, "AnonStruct2c3712e02fef0cd alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct2c3712e02fef0cd>() == 16, "AnonStruct2c3712e02fef0cd size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct2c3712e02fef0cd>() == 8, "AnonStruct2c3712e02fef0cd alignment mismatch");
+
 /// Element type for __AnonStruct_8f1f3c623bb69cc9
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8436,6 +8463,35 @@ const _: () = assert!(core::mem::align_of::<InternalFilesWriteUtf8AtomicResult>(
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(InternalFilesWriteUtf8AtomicResult, tag) == 16, "InternalFilesWriteUtf8AtomicResult tag offset mismatch");
 
+/// Return type record for HostGlue.component_resolve!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueComponentResolveRetRecord {
+    pub instance: u64,
+    pub root: u64,
+}
+
+/// Return type record for HostGlue.component_resolve!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueComponentResolveRetRecord {
+    pub instance: u64,
+    pub root: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueComponentResolveRetRecord>() == 16, "HostGlueComponentResolveRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueComponentResolveRetRecord>() == 8, "HostGlueComponentResolveRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueComponentResolveRetRecord>() == 16, "HostGlueComponentResolveRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueComponentResolveRetRecord>() == 8, "HostGlueComponentResolveRetRecord alignment mismatch");
+
 /// Return type record for HostGlue.canvas_event!
 /// Fields ordered by compiler-emitted ABI offsets.
 #[cfg(target_pointer_width = "32")]
@@ -8583,6 +8639,85 @@ unsafe impl RocRelease<HostGlueNodeStyledTextArgs> for HostGlueNodeStyledTextArg
 pub struct HostGlueChildrenPushArgs {
     pub arg0: u64,
     pub arg1: u64,
+}
+
+/// Arguments for HostGlue.component_setup!
+/// Roc signature: Bool => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueComponentSetupArgs {
+    pub arg0: bool,
+}
+
+/// Arguments for HostGlue.component_work!
+/// Roc signature: U8, U64 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueComponentWorkArgs {
+    pub arg0: u8,
+    pub arg1: u64,
+}
+
+/// Arguments for HostGlue.node_boundary!
+/// Roc signature: U64, U64 => U64
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeBoundaryArgs {
+    pub arg0: u64,
+    pub arg1: u64,
+}
+
+/// Arguments for HostGlue.retain_subtree!
+/// Roc signature: U64 => U64
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueRetainSubtreeArgs {
+    pub arg0: u64,
+}
+
+/// Arguments for HostGlue.begin_render!
+/// Roc signature: U64 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueBeginRenderArgs {
+    pub arg0: u64,
+}
+
+/// Arguments for HostGlue.scope_enter!
+/// Roc signature: U8, Str, U64 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueScopeEnterArgs {
+    pub arg0: u8,
+    pub arg1: RocStr,
+    pub arg2: u64,
+}
+
+/// Arguments for HostGlue.component_resolve!
+/// Roc signature: U64, U8, Str, U64 => { instance : U64, root : U64 }
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueComponentResolveArgs {
+    pub arg0: u64,
+    pub arg1: u8,
+    pub arg2: RocStr,
+    pub arg3: u64,
+}
+
+/// Arguments for HostGlue.component_enter!
+/// Roc signature: U64 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueComponentEnterArgs {
+    pub arg0: u64,
 }
 
 /// Arguments for HostGlue.node_row!
@@ -10691,22 +10826,14 @@ pub struct HostGlueSetDispatchArgs {
     pub arg0: RocErasedCallable,
 }
 
-/// Arguments for HostGlue.set_task_dispatch!
-/// Roc signature: Box(U64 => {}) => {}
-/// Refcounted fields are owned by the hosted function.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct HostGlueSetTaskDispatchArgs {
-    pub arg0: RocErasedCallable,
-}
-
 /// Arguments for HostGlue.enqueue_task!
-/// Roc signature: Box(U64 => {}) => {}
+/// Roc signature: U64, Box(U64 => {}) => {}
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueEnqueueTaskArgs {
-    pub arg0: RocErasedCallable,
+    pub arg0: u64,
+    pub arg1: RocErasedCallable,
 }
 
 /// Arguments for HostGlue.timer_start!
@@ -10881,6 +11008,7 @@ pub struct InternalFilesDirReadArgs {
 // Platform Type Aliases
 
 pub type HostGlueNodeStyledTextArg0 = AnonStructB050404c6fb0b263;
+pub type HostGlueComponentResolve = AnonStruct2c3712e02fef0cd;
 pub type HostGlueNodeRowArg0 = AnonStruct8f1f3c623bb69cc9;
 pub type HostGlueNodeColumnArg0 = AnonStruct8f1f3c623bb69cc9;
 pub type HostGlueNodeDialogArg0 = AnonStruct8f1f3c623bb69cc9;
@@ -11138,6 +11266,37 @@ pub struct AnonStructB050404c6fb0b263Release;
 
 unsafe impl RocRelease<AnonStructB050404c6fb0b263> for AnonStructB050404c6fb0b263Release {
     unsafe fn release(value: AnonStructB050404c6fb0b263, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct2c3712e02fef0cd {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct2c3712e02fef0cdRelease;
+
+unsafe impl RocRelease<AnonStruct2c3712e02fef0cd> for AnonStruct2c3712e02fef0cdRelease {
+    unsafe fn release(value: AnonStruct2c3712e02fef0cd, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -14516,6 +14675,56 @@ unsafe extern "C" {
     /// Roc signature: U64, U64 => {}
     pub fn roc_gui_children_push(arg0: u64, arg1: u64);
 
+    /// Hosted symbol for HostGlue.component_setup!
+    /// Roc signature: Bool => {}
+    pub fn roc_gui_component_setup(arg0: bool);
+
+    /// Hosted symbol for HostGlue.component_define!
+    /// Roc signature: {} => U64
+    pub fn roc_gui_component_define() -> u64;
+
+    /// Hosted symbol for HostGlue.component_work!
+    /// Roc signature: U8, U64 => {}
+    pub fn roc_gui_component_work(arg0: u8, arg1: u64);
+
+    /// Hosted symbol for HostGlue.node_boundary!
+    /// Roc signature: U64, U64 => U64
+    pub fn roc_gui_node_boundary(arg0: u64, arg1: u64) -> u64;
+
+    /// Hosted symbol for HostGlue.retain_subtree!
+    /// Roc signature: U64 => U64
+    pub fn roc_gui_retain_subtree(arg0: u64) -> u64;
+
+    /// Hosted symbol for HostGlue.begin_render!
+    /// Roc signature: U64 => {}
+    pub fn roc_gui_begin_render(arg0: u64);
+
+    /// Hosted symbol for HostGlue.scope_enter!
+    /// Roc signature: U8, Str, U64 => {}
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg1.decref(roc_host); }
+    pub fn roc_gui_scope_enter(arg0: u8, arg1: RocStr, arg2: u64);
+
+    /// Hosted symbol for HostGlue.scope_exit!
+    /// Roc signature: {} => {}
+    pub fn roc_gui_scope_exit();
+
+    /// Hosted symbol for HostGlue.component_resolve!
+    /// Roc signature: U64, U8, Str, U64 => { instance : U64, root : U64 }
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg2.decref(roc_host); }
+    pub fn roc_gui_component_resolve(arg0: u64, arg1: u8, arg2: RocStr, arg3: u64) -> AnonStruct2c3712e02fef0cd;
+
+    /// Hosted symbol for HostGlue.component_enter!
+    /// Roc signature: U64 => {}
+    pub fn roc_gui_component_enter(arg0: u64);
+
+    /// Hosted symbol for HostGlue.component_exit!
+    /// Roc signature: {} => {}
+    pub fn roc_gui_component_exit();
+
     /// Hosted symbol for HostGlue.node_row!
     /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
@@ -14900,19 +15109,12 @@ unsafe extern "C" {
     ///     unsafe { decref_erased_callable(arg0, roc_host); }
     pub fn roc_gui_set_dispatch(arg0: RocErasedCallable);
 
-    /// Hosted symbol for HostGlue.set_task_dispatch!
-    /// Roc signature: Box(U64 => {}) => {}
-    /// Owned arguments. Release each exactly once before returning, unless it is
-    /// moved into storage or into the result:
-    ///     unsafe { decref_erased_callable(arg0, roc_host); }
-    pub fn roc_gui_set_task_dispatch(arg0: RocErasedCallable);
-
     /// Hosted symbol for HostGlue.enqueue_task!
-    /// Roc signature: Box(U64 => {}) => {}
+    /// Roc signature: U64, Box(U64 => {}) => {}
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
-    ///     unsafe { decref_erased_callable(arg0, roc_host); }
-    pub fn roc_gui_enqueue_task(arg0: RocErasedCallable);
+    ///     unsafe { decref_erased_callable(arg1, roc_host); }
+    pub fn roc_gui_enqueue_task(arg0: u64, arg1: RocErasedCallable);
 
     /// Hosted symbol for HostGlue.timer_start!
     /// Roc signature: U64 => Resource.Handle([TimerResource])

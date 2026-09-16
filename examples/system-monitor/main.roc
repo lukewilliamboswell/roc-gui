@@ -4,4 +4,4 @@ import Monitor
 import View
 State : Monitor.State
 
-main = Program.run({ init: Monitor.init, render: View.render, window: { title: "System Monitor", width: 1280, height: 800 } })
+main = Program.run({ setup: || { state: Monitor.init, render: View.render }, window: { title: "System Monitor", width: 1280, height: 800 } })

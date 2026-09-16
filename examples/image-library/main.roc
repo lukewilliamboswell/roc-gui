@@ -3,4 +3,4 @@ import pf.Program
 import Library
 State : Library.State
 
-main = Program.run({ init: Library.init, render: Library.render, window: { title: "Image Library", width: 960, height: 680 } })
+main = Program.run({ setup: || { state: Library.init, render: Library.render }, window: { title: "Image Library", width: 960, height: 680 } })

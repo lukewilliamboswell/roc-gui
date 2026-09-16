@@ -27,6 +27,7 @@ evidence-status rules remain visible.
 ----
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view semantic_health
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view roc_work
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view component_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view host_gpui_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_spans
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view virtual_list_materialization
@@ -38,10 +39,14 @@ python3 scripts/analyze_stats.py CAPTURE.rgstats --view spec_results
 
 `semantic_health`:: Did runs and steps pass, and is their evidence complete?
 `roc_work`:: How much callback time belonged to platform routing, application
-update, application render, and platform lowering, and how much Roc allocation
-activity occurred inside each owned span?
+update, application render, component comparison, and platform lowering, and
+how much Roc allocation activity occurred inside each owned span?
+`component_work`:: How many renders, comparisons, skips, component mounts and
+retirements, registry visits, and ancestor invalidations did the component
+runtime perform in marked sample turns?
 `host_gpui_work`:: How much time did graph validation, graph application, and
-available GPUI materialisation consume?
+available GPUI materialisation consume, and how many native nodes were retained
+or visited during structural validation?
 `gpui_frame_spans`:: For each drawn frame, how long did the host's own root
 element spend requesting layout, prepainting, and painting the application
 subtree, and what is the status of the frame stages the host does not own?
@@ -78,6 +83,41 @@ TCP assertions retain live streams and connect, read, write, and close attempts
 in `tcp_counter_assertions`. Endpoint, Redis key, and Redis value text are not
 capture fields.
 
+Schema 11 records component work in `component_work_counts`, keyed by cycle
+and numeric kind. Kinds are `0 rendered`, `1 compared`, `2 skipped`, `3 mounted`,
+`4 retired`, `5 registry_visits`, and `6 ancestor_invalidations`. The Roc runtime
+reports each count at the operation that owns it. A turn publishes its
+observation when the mounted graph accepts its transaction. Rejected turns do
+not replace the last committed observation.
+
+`rendered` includes the application root renderer as well as component
+renderers; `mounted` and `retired` count component instances, not that implicit
+root. `compared` counts comparisons against valid saved input, and `skipped`
+counts successful comparisons. `registry_visits` counts logical event-route
+lookups and emitted-component instance lookups, not every internal radix-index
+step, state projection, or ancestor walk. `ancestor_invalidations` counts strict
+ancestor invalidation operations, including ancestors whose snapshot was
+already unknown. These are owner-defined events, not estimates of total work.
+
+Capture cycles use the difference between the owner's totals at their start
+and end. A gesture containing several action turns includes all their work;
+the last-turn specification assertion still describes its final committed turn.
+
+`cycles.component_work_recorded` distinguishes a measured turn with no component
+work from a turn with no observation. Positive counts have rows; an absent kind
+means zero only for a cycle whose recorded flag is set. The component report
+withholds totals when observation coverage is incomplete.
+`component_work_assertions` records numeric kind, expected count, and observed
+count for each requested assertion field, without component keys or application
+state. An unavailable observed count is `NULL`.
+
+The graph owner supplies `cycles.retained_nodes` and
+`cycles.validation_visits`. Retained nodes are mounted nodes preserved by
+explicit subtree retention. Validation visits count payload examinations in
+fresh-node shape validation, rooted fresh/frontier traversal, retirement
+discovery, and retained-root liveness checks. They do not stand for metadata
+index lookups, identity ancestry work, or all host operations.
+
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.
@@ -88,8 +128,9 @@ than a fabricated zero.
 application still renders through the platform, events still use its installed
 dispatcher, and patches still enter the host's canonical mounted graph. The
 runner does not open a GPUI window. Consequently its captures can attribute
-platform routing and lowering, application update and render, allocation
-activity within each span, the enclosing Roc callback, host validation, graph
+platform routing and lowering, application update and render, component
+comparisons, allocation activity within each span, the enclosing Roc callback,
+host validation, graph
 application, CPU, RSS, and deterministic graph work, while GPUI layout, paint,
 and presentation are unavailable.
 
@@ -139,7 +180,9 @@ cycles, making the extra observer work explicit.
 
 The recorder batches writes on a separate thread. When recording is disabled,
 the event hot path skips clocks and event construction behind a predictable
-inactive branch. When it is enabled, recording failure is evidence failure; it
+inactive branch. Deterministic component counts remain available to
+specifications independently of capture recording. When it is enabled,
+recording failure is evidence failure; it
 does not change application behaviour.
 
 == Comparison identity and privacy

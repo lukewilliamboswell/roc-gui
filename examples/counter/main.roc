@@ -1,6 +1,7 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
 import Counter
+import pf.Component
 import pf.Elem
 import pf.Gui
 import pf.Program
@@ -11,12 +12,31 @@ State : {
 	right : Counter.State,
 }
 
+CounterInput : { name : Str, counter : Counter.State }
+
+counter_get : State, Elem.Key -> Try(CounterInput, [Removed])
+counter_get = |parent, key| match Elem.Key.inspect(key) {
+	Name("Left") => Ok({ name: "Left", counter: parent.left }),
+	Name("Right") => Ok({ name: "Right", counter: parent.right }),
+	_ => Err(Removed),
+}
+
+counter_set : State, Elem.Key, CounterInput -> Try(State, [Removed])
+counter_set = |parent, key, child| match Elem.Key.inspect(key) {
+	Name("Left") => Ok({ ..parent, left: child.counter }),
+	Name("Right") => Ok({ ..parent, right: child.counter }),
+	_ => Err(Removed),
+}
+
+counter_render : CounterInput -> Elem(CounterInput)
+counter_render = |child| Elem.lift(Counter.render(child.name, child.counter), |input| input.counter, |input, next| { ..input, counter: next })
+
 paper = Gui.rgb(0xF2EFE6)
 ink = Gui.rgb(0x1F1C17)
 muted_ink = Gui.rgb(0x8C8474)
 
-render : State -> Elem(State)
-render = |state| Elem.col(
+render : Component(State), State -> Elem(State)
+render = |counter, state| Elem.col(
 	Elem.ColProps.{
 		label: "Counter page",
 		width: Fill,
@@ -38,20 +58,27 @@ render = |state| Elem.col(
 		Elem.row(
 			Elem.RowProps.{ width: Fill, gap: 24 },
 			[
-				Elem.translate(|child| Counter.render("Left", child), |parent| parent.left, |parent, child| { ..parent, left: child }),
-				Elem.translate(|child| Counter.render("Right", child), |parent| parent.right, |parent, child| { ..parent, right: child }),
+				Elem.component(counter, Name("Left")),
+				Elem.component(counter, Name("Right")),
 			],
 		),
 	],
 )
 
+setup! : () => { state : State, render : State -> Elem(State) }
+setup! = || {
+	counter : Component(State)
+	counter = Component.memo!({
+		get: counter_get,
+		set: counter_set,
+		render: counter_render,
+		same: |left, right| left.name == right.name and left.counter.count == right.counter.count,
+	})
+	{ state: { left: Counter.init(-1), right: Counter.init(3), title: "Counter" }, render: |state| render(counter, state) }
+}
+
 main : Program(State)
 main = Program.run({
-	init: {
-		left: Counter.init(-1),
-		right: Counter.init(3),
-		title: "Counter",
-	},
-	render,
+	setup: setup!,
 	window: { title: "Counter", width: 640, height: 400, background: paper, foreground: ink },
 })

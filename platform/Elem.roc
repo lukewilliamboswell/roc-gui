@@ -4,9 +4,9 @@ import Gui
 
 ## A declarative UI tree whose event handlers transition application state `a`.
 ## Use `text`, `action_button`, `checkbox`, `row`, `col`, and `panel` to build a tree, and
-## `translate` or `lift` to embed UI over smaller component state.
+## `component` or `lift` to embed UI over smaller component state.
 Elem(a) :: [
-	Boundary(a -> Elem(a)),
+	Component(BoundComponent(a)),
 	ActionButton(ActionButtonProps(a)),
 	Checkbox(CheckboxProps(a)),
 	Textarea(TextareaProps(a)),
@@ -22,6 +22,28 @@ Elem(a) :: [
 	StyledText(TextProps),
 	Text(Str),
 ].{
+	Key := [Name(Str), Id(U64)].{
+		is_eq : _
+		inspect : Key -> [Name(Str), Id(U64)]
+		inspect = |Key.(key)| key
+	}
+
+	BoundComponent(a) := {
+		definition : U64,
+		key : Key,
+		render : a -> Elem(a),
+		exists : a -> Bool,
+		remember : [None, Some(a -> Box(a -> Bool))],
+		update_scope : [Local, Parent],
+	}
+
+	## Mount a keyed instance of an immutable component definition.
+	component : definition, Key -> Elem(a) where [definition.mount : definition, Key -> Elem(a)]
+	component = |definition, key| definition.mount(key)
+
+	## Platform descriptor constructor used by Component.
+	bound_component : BoundComponent(a) -> Elem(a)
+	bound_component = |bound| Component(bound)
 
 	## Properties for `col`. `label` is an optional stable semantic locator.
 	## The remaining fields control the column's native layout and presentation.
@@ -163,6 +185,7 @@ Elem(a) :: [
 	## surfaces by default, and carry a stable semantic `label`.
 	PanelProps := {
 		label : Str,
+
 		## The panel's own visible heading, distinct from `label`, which stays a
 		## semantic locator. An empty heading paints none. `heading_size`,
 		## `heading_weight`, and `heading_color` set it apart from the panel's
@@ -372,6 +395,7 @@ Elem(a) :: [
 		items : List(VirtualListItem(a)),
 		label : Str,
 		row_height : U32,
+
 		## The space held clear at the bottom of each row inside `row_height`,
 		## so rows read as separate surfaces rather than one continuous block.
 		row_gap : U32 ?? 0,
@@ -425,6 +449,7 @@ Elem(a) :: [
 		checked : Bool,
 		enabled : Bool ?? True,
 		on_change : (a, Event.Check => Action(a)),
+
 		## The indicator's own colours. `fg` reaches the caption; these reach the
 		## box and its mark, which otherwise keep host values chosen for a dark
 		## ground. Each defaults to the host's own.
@@ -699,39 +724,126 @@ Elem(a) :: [
 
 	## Adapt an already-built child tree to parent state.
 	lift : Elem(child), (parent -> child), (parent, child -> parent) -> Elem(parent)
-	lift = |elem, get_child, set_child| match elem {
+	lift = |elem, get_child, set_child| lift_with(elem, get_child, set_child, |action, parent| Action.lift(action, parent, get_child, set_child))
+
+	lift_with : Elem(child), (parent -> child), (parent, child -> parent), (Action(child), parent -> Action(parent)) -> Elem(parent)
+	lift_with = |elem, get_child, set_child, adapt_action| match elem {
 		Text(value) => Text(value)
 		StyledText(text_value) => StyledText(text_value)
-		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
-		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
+		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)) })
+		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)) })
 		Dialog(value) => {
 			child_handler = value.props.on_dismiss
-			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
 			Dialog({
-				children: value.children.map(|child| lift(child, get_child, set_child)),
+				children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)),
 				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, shadow: value.props.shadow, shadow_y: value.props.shadow_y, shadow_color: value.props.shadow_color, shadow_alpha: value.props.shadow_alpha, font_face: value.props.font_face, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
 			})
 		}
-		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
-		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), label: scroll_value.label, gap: scroll_value.gap, padding: scroll_value.padding, padding_top: scroll_value.padding_top, padding_right: scroll_value.padding_right, padding_bottom: scroll_value.padding_bottom, padding_left: scroll_value.padding_left, width: scroll_value.width, height: scroll_value.height, min_width: scroll_value.min_width, min_height: scroll_value.min_height, max_width: scroll_value.max_width, max_height: scroll_value.max_height, grow: scroll_value.grow, bg: scroll_value.bg, hover_bg: scroll_value.hover_bg, active_bg: scroll_value.active_bg, disabled_bg: scroll_value.disabled_bg, disabled_fg: scroll_value.disabled_fg, focus_color: scroll_value.focus_color, fg: scroll_value.fg, border_color: scroll_value.border_color, border_width: scroll_value.border_width, border_top: scroll_value.border_top, border_right: scroll_value.border_right, border_bottom: scroll_value.border_bottom, border_left: scroll_value.border_left, radius: scroll_value.radius, font_size: scroll_value.font_size, font_weight: scroll_value.font_weight, shadow: scroll_value.shadow, shadow_y: scroll_value.shadow_y, shadow_color: scroll_value.shadow_color, shadow_alpha: scroll_value.shadow_alpha, font_face: scroll_value.font_face, text_overflow: scroll_value.text_overflow, overflow_x: scroll_value.overflow_x, overflow_y: scroll_value.overflow_y, align: scroll_value.align, justify: scroll_value.justify, })
+		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)) })
+		Scroll(scroll_value) => Scroll(
+			ScrollProps.{
+				axis: scroll_value.axis,
+				content: lift_with(scroll_value.content, get_child, set_child, adapt_action),
+				label: scroll_value.label,
+				gap: scroll_value.gap,
+				padding: scroll_value.padding,
+				padding_top: scroll_value.padding_top,
+				padding_right: scroll_value.padding_right,
+				padding_bottom: scroll_value.padding_bottom,
+				padding_left: scroll_value.padding_left,
+				width: scroll_value.width,
+				height: scroll_value.height,
+				min_width: scroll_value.min_width,
+				min_height: scroll_value.min_height,
+				max_width: scroll_value.max_width,
+				max_height: scroll_value.max_height,
+				grow: scroll_value.grow,
+				bg: scroll_value.bg,
+				hover_bg: scroll_value.hover_bg,
+				active_bg: scroll_value.active_bg,
+				disabled_bg: scroll_value.disabled_bg,
+				disabled_fg: scroll_value.disabled_fg,
+				focus_color: scroll_value.focus_color,
+				fg: scroll_value.fg,
+				border_color: scroll_value.border_color,
+				border_width: scroll_value.border_width,
+				border_top: scroll_value.border_top,
+				border_right: scroll_value.border_right,
+				border_bottom: scroll_value.border_bottom,
+				border_left: scroll_value.border_left,
+				radius: scroll_value.radius,
+				font_size: scroll_value.font_size,
+				font_weight: scroll_value.font_weight,
+				shadow: scroll_value.shadow,
+				shadow_y: scroll_value.shadow_y,
+				shadow_color: scroll_value.shadow_color,
+				shadow_alpha: scroll_value.shadow_alpha,
+				font_face: scroll_value.font_face,
+				text_overflow: scroll_value.text_overflow,
+				overflow_x: scroll_value.overflow_x,
+				overflow_y: scroll_value.overflow_y,
+				align: scroll_value.align,
+				justify: scroll_value.justify,
+			},
+		)
 		VirtualList(list_value) => VirtualList(
 			VirtualListProps.{
 				label: list_value.label,
 				row_height: list_value.row_height,
-				items: list_value.items.map(|item| { key: item.key, content: lift(item.content, get_child, set_child) }),
-				row_gap: list_value.row_gap, gap: list_value.gap, padding: list_value.padding, padding_top: list_value.padding_top, padding_right: list_value.padding_right, padding_bottom: list_value.padding_bottom, padding_left: list_value.padding_left, width: list_value.width, height: list_value.height, min_width: list_value.min_width, min_height: list_value.min_height, max_width: list_value.max_width, max_height: list_value.max_height, grow: list_value.grow, bg: list_value.bg, hover_bg: list_value.hover_bg, active_bg: list_value.active_bg, disabled_bg: list_value.disabled_bg, disabled_fg: list_value.disabled_fg, focus_color: list_value.focus_color, fg: list_value.fg, border_color: list_value.border_color, border_width: list_value.border_width, border_top: list_value.border_top, border_right: list_value.border_right, border_bottom: list_value.border_bottom, border_left: list_value.border_left, radius: list_value.radius, font_size: list_value.font_size, font_weight: list_value.font_weight, shadow: list_value.shadow, shadow_y: list_value.shadow_y, shadow_color: list_value.shadow_color, shadow_alpha: list_value.shadow_alpha, font_face: list_value.font_face, text_overflow: list_value.text_overflow, overflow_x: list_value.overflow_x, overflow_y: list_value.overflow_y, align: list_value.align, justify: list_value.justify,
+				items: list_value.items.map(|item| { key: item.key, content: lift_with(item.content, get_child, set_child, adapt_action) }),
+				row_gap: list_value.row_gap,
+				gap: list_value.gap,
+				padding: list_value.padding,
+				padding_top: list_value.padding_top,
+				padding_right: list_value.padding_right,
+				padding_bottom: list_value.padding_bottom,
+				padding_left: list_value.padding_left,
+				width: list_value.width,
+				height: list_value.height,
+				min_width: list_value.min_width,
+				min_height: list_value.min_height,
+				max_width: list_value.max_width,
+				max_height: list_value.max_height,
+				grow: list_value.grow,
+				bg: list_value.bg,
+				hover_bg: list_value.hover_bg,
+				active_bg: list_value.active_bg,
+				disabled_bg: list_value.disabled_bg,
+				disabled_fg: list_value.disabled_fg,
+				focus_color: list_value.focus_color,
+				fg: list_value.fg,
+				border_color: list_value.border_color,
+				border_width: list_value.border_width,
+				border_top: list_value.border_top,
+				border_right: list_value.border_right,
+				border_bottom: list_value.border_bottom,
+				border_left: list_value.border_left,
+				radius: list_value.radius,
+				font_size: list_value.font_size,
+				font_weight: list_value.font_weight,
+				shadow: list_value.shadow,
+				shadow_y: list_value.shadow_y,
+				shadow_color: list_value.shadow_color,
+				shadow_alpha: list_value.shadow_alpha,
+				font_face: list_value.font_face,
+				text_overflow: list_value.text_overflow,
+				overflow_x: list_value.overflow_x,
+				overflow_y: list_value.overflow_y,
+				align: list_value.align,
+				justify: list_value.justify,
 			},
 		)
 		TextInput(input_value) => {
 			child_change = input_value.on_change
 			child_submit = input_value.on_submit
-			parent_change! = |parent, event| Action.lift(child_change(get_child(parent), event), parent, get_child, set_child)
-			parent_submit! = |parent, event| Action.lift(child_submit(get_child(parent), event), parent, get_child, set_child)
+			parent_change! = |parent, event| adapt_action(child_change(get_child(parent), event), parent)
+			parent_submit! = |parent, event| adapt_action(child_submit(get_child(parent), event), parent)
 			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, shadow: input_value.shadow, shadow_y: input_value.shadow_y, shadow_color: input_value.shadow_color, shadow_alpha: input_value.shadow_alpha, font_face: input_value.font_face, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
 		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
-			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
 			ActionButton(
 				ActionButtonProps.{
 					caption: button_value.caption,
@@ -766,7 +878,11 @@ Elem(a) :: [
 					border_left: button_value.border_left,
 					radius: button_value.radius,
 					font_size: button_value.font_size,
-					font_weight: button_value.font_weight, shadow: button_value.shadow, shadow_y: button_value.shadow_y, shadow_color: button_value.shadow_color, shadow_alpha: button_value.shadow_alpha,
+					font_weight: button_value.font_weight,
+					shadow: button_value.shadow,
+					shadow_y: button_value.shadow_y,
+					shadow_color: button_value.shadow_color,
+					shadow_alpha: button_value.shadow_alpha,
 					font_face: button_value.font_face,
 					text_overflow: button_value.text_overflow,
 					overflow_x: button_value.overflow_x,
@@ -778,7 +894,7 @@ Elem(a) :: [
 		}
 		Checkbox(checkbox_value) => {
 			child_handler = checkbox_value.on_change
-			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
 			Checkbox(
 				CheckboxProps.{
 					label: checkbox_value.label,
@@ -817,7 +933,11 @@ Elem(a) :: [
 					border_left: checkbox_value.border_left,
 					radius: checkbox_value.radius,
 					font_size: checkbox_value.font_size,
-					font_weight: checkbox_value.font_weight, shadow: checkbox_value.shadow, shadow_y: checkbox_value.shadow_y, shadow_color: checkbox_value.shadow_color, shadow_alpha: checkbox_value.shadow_alpha,
+					font_weight: checkbox_value.font_weight,
+					shadow: checkbox_value.shadow,
+					shadow_y: checkbox_value.shadow_y,
+					shadow_color: checkbox_value.shadow_color,
+					shadow_alpha: checkbox_value.shadow_alpha,
 					font_face: checkbox_value.font_face,
 					text_overflow: checkbox_value.text_overflow,
 					overflow_x: checkbox_value.overflow_x,
@@ -829,33 +949,42 @@ Elem(a) :: [
 		}
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
-			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
 			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, shadow: textarea_value.shadow, shadow_y: textarea_value.shadow_y, shadow_color: textarea_value.shadow_color, shadow_alpha: textarea_value.shadow_alpha, font_face: textarea_value.font_face, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
 		}
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
-			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
+			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
 			Canvas(CanvasProps.{ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, width: canvas_value.width, height: canvas_value.height, min_width: canvas_value.min_width, min_height: canvas_value.min_height, max_width: canvas_value.max_width, max_height: canvas_value.max_height, grow: canvas_value.grow, bg: canvas_value.bg, border_color: canvas_value.border_color, border_width: canvas_value.border_width, border_top: canvas_value.border_top, border_right: canvas_value.border_right, border_bottom: canvas_value.border_bottom, border_left: canvas_value.border_left, radius: canvas_value.radius })
 		}
-		Boundary(child_renderer) => {
-			parent_renderer = |parent| lift(child_renderer(get_child(parent)), get_child, set_child)
-			Boundary(parent_renderer)
+		Component(bound) => {
+			remember = match bound.remember {
+				None => None
+				Some(capture) => Some(
+					|parent| {
+						test = Box.unbox(capture(get_child(parent)))
+						Box.box(|next| test(get_child(next)))
+					},
+				)
+			}
+			Component(
+				BoundComponent.{
+					definition: bound.definition,
+					key: bound.key,
+					render: |parent| lift_with((bound.render)(get_child(parent)), get_child, set_child, adapt_action),
+					exists: |parent| (bound.exists)(get_child(parent)),
+					remember,
+					update_scope: bound.update_scope,
+				},
+			)
 		}
-	}
-
-	## Build a state boundary that renders child state and maps its actions back
-	## into parent state.
-	translate : (child -> Elem(child)), (parent -> child), (parent, child -> parent) -> Elem(parent)
-	translate = |render_child, get_child, set_child| {
-		render_parent = |parent| lift(render_child(get_child(parent)), get_child, set_child)
-		Boundary(render_parent)
 	}
 
 	## Reveal an element descriptor. This supports platform-side traversal and
 	## libraries that transform element trees.
 	inspect : Elem(a) -> [
-		Boundary(a -> Elem(a)),
+		Component(BoundComponent(a)),
 		ActionButton(ActionButtonProps(a)),
 		Checkbox(CheckboxProps(a)),
 		Textarea(TextareaProps(a)),
@@ -872,7 +1001,7 @@ Elem(a) :: [
 		Text(Str),
 	]
 	inspect = |value| match value {
-		Boundary(renderer) => Boundary(renderer)
+		Component(bound) => Component(bound)
 		ActionButton(button_value) => ActionButton(button_value)
 		Checkbox(checkbox_value) => Checkbox(checkbox_value)
 		Textarea(textarea_value) => Textarea(textarea_value)

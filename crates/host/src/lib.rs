@@ -37,21 +37,21 @@ use bridge::{
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueHttpAcquireResult,
-    HostGlueHttpSendArgs, HostGlueHttpSendResult, HostGlueNodeActionButtonArgs,
-    HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
-    HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueComponentResolve,
+    HostGlueHttpAcquireResult, HostGlueHttpSendArgs, HostGlueHttpSendResult,
+    HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs,
+    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
+    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
+    decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
     collections::HashMap,
     ffi::c_void,
     path::PathBuf,
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering},
     sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
 };
@@ -68,25 +68,54 @@ actions!(
 );
 
 unsafe extern "C" {
-    fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable);
+    fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable, owner: u64);
     fn roc_gui_run_task(task: RocErasedCallable) -> RocErasedCallable;
 }
 
+#[derive(Debug)]
+struct TaskEnvelope {
+    callable: usize,
+    owner: u64,
+    epoch: u64,
+}
+
+impl TaskEnvelope {
+    fn take_callable(&mut self) -> RocErasedCallable {
+        std::mem::take(&mut self.callable) as RocErasedCallable
+    }
+}
+
+impl Drop for TaskEnvelope {
+    fn drop(&mut self) {
+        if self.callable != 0 {
+            unsafe { decref_erased_callable(self.take_callable(), roc_host()) };
+        }
+    }
+}
+
 struct TaskRuntime {
-    jobs: async_channel::Sender<usize>,
-    completions: async_channel::Receiver<usize>,
+    jobs: async_channel::Sender<TaskEnvelope>,
+    pending_jobs: async_channel::Receiver<TaskEnvelope>,
+    completions: async_channel::Receiver<TaskEnvelope>,
     accepted: AtomicU64,
     completed: AtomicU64,
+    /// The process-lived allocator remains valid after UI session retirement.
+    allocator_host: usize,
 }
 
 static TASK_RUNTIME: OnceLock<TaskRuntime> = OnceLock::new();
+static TASK_EPOCH: AtomicU64 = AtomicU64::new(1);
+/// Retirement and publication share one short gate. A result cannot land just
+/// after retirement drained the completion queue and lost its last consumer.
+static TASK_PUBLICATION: Mutex<()> = Mutex::new(());
+static NEXT_COMPONENT_DEFINITION: AtomicU64 = AtomicU64::new(1);
 static GPUI_SMOKE: AtomicBool = AtomicBool::new(false);
 static GPUI_SMOKE_RENDERS: AtomicU64 = AtomicU64::new(0);
 
 fn task_runtime() -> &'static TaskRuntime {
     TASK_RUNTIME.get_or_init(|| {
-        let (job_sender, job_receiver) = async_channel::unbounded::<usize>();
-        let (completion_sender, completion_receiver) = async_channel::unbounded::<usize>();
+        let (job_sender, job_receiver) = async_channel::unbounded::<TaskEnvelope>();
+        let (completion_sender, completion_receiver) = async_channel::unbounded::<TaskEnvelope>();
         let worker_count = std::thread::available_parallelism()
             .map(usize::from)
             .unwrap_or(4)
@@ -97,10 +126,15 @@ fn task_runtime() -> &'static TaskRuntime {
             std::thread::Builder::new()
                 .name(format!("roc-gui-worker-{ordinal}"))
                 .spawn(move || {
-                    while let Ok(task) = jobs.recv_blocking() {
-                        let completion = unsafe { roc_gui_run_task(task as RocErasedCallable) };
-                        if completions.send_blocking(completion as usize).is_err() {
-                            break;
+                    while let Ok(mut task) = jobs.recv_blocking() {
+                        if task.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+                            continue;
+                        }
+                        let completion = unsafe { roc_gui_run_task(task.take_callable()) };
+                        task.callable = completion as usize;
+                        let _publication = TASK_PUBLICATION.lock().expect("task publication gate");
+                        if task.epoch == TASK_EPOCH.load(Ordering::Acquire) {
+                            let _ = completions.send_blocking(task);
                         }
                     }
                 })
@@ -108,20 +142,30 @@ fn task_runtime() -> &'static TaskRuntime {
         }
         TaskRuntime {
             jobs: job_sender,
+            pending_jobs: job_receiver,
             completions: completion_receiver,
             accepted: AtomicU64::new(0),
             completed: AtomicU64::new(0),
+            allocator_host: ROC_HOST.load(Ordering::Acquire) as usize,
         }
     })
 }
 
-static mut ROC_HOST: *mut RocHost = core::ptr::null_mut();
+static ROC_HOST: AtomicPtr<RocHost> = AtomicPtr::new(core::ptr::null_mut());
+
+#[derive(Default)]
+struct StagedTurn {
+    dispatcher: Option<RocErasedCallable>,
+    jobs: Vec<TaskEnvelope>,
+}
 
 thread_local! {
     static BRIDGE: RefCell<BridgeState> = const { RefCell::new(BridgeState::new()) };
     static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
     static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
+    static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
+    static COMPONENT_SETUP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 #[derive(Clone, Copy)]
@@ -197,11 +241,16 @@ pub extern "C" fn roc_gui_window_config(
 }
 
 fn set_roc_host(host: *mut RocHost) {
-    unsafe { ROC_HOST = host };
+    ROC_HOST.store(host, Ordering::Release);
 }
 
 fn roc_host_ptr() -> *mut RocHost {
-    let pointer = unsafe { ROC_HOST };
+    let mut pointer = ROC_HOST.load(Ordering::Acquire);
+    if pointer.is_null() {
+        pointer = TASK_RUNTIME.get().map_or(core::ptr::null_mut(), |runtime| {
+            runtime.allocator_host as *mut RocHost
+        });
+    }
     if pointer.is_null() {
         eprintln!("roc-gui host error: RocHost is not initialized");
         std::process::abort();
@@ -298,6 +347,100 @@ fn stage_node(kind: NodeKind, children: Vec<u64>) -> u64 {
             .stage_node(kind, children)
             .unwrap_or_else(|message| panic!("invalid native node build: {message}"))
     })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_setup(enabled: bool) {
+    COMPONENT_SETUP.with(|setup| setup.set(enabled));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_define() -> u64 {
+    assert!(
+        COMPONENT_SETUP.with(|setup| setup.get()),
+        "components must be defined during setup"
+    );
+    NEXT_COMPONENT_DEFINITION
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+            value.checked_add(1)
+        })
+        .expect("component definition identity exhausted")
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_boundary(instance: u64, child: u64) -> u64 {
+    stage_node(NodeKind::Boundary { instance }, vec![child])
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_retain_subtree(root: u64) -> u64 {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .retain_subtree(root)
+            .unwrap_or_else(|message| panic!("invalid retained component: {message}"))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_work(kind: u8, amount: u64) {
+    observatory::note_component_work(kind, amount);
+}
+
+fn with_component_registry<T>(
+    operation: impl FnOnce(&mut bridge::ComponentRegistry) -> Result<T, String>,
+) -> T {
+    BRIDGE.with(|bridge| {
+        operation(
+            bridge
+                .borrow_mut()
+                .components
+                .get_or_insert_with(Default::default),
+        )
+        .unwrap_or_else(|message| panic!("invalid component reconciliation: {message}"))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_begin_render(owner: u64) {
+    with_component_registry(|registry| registry.begin_render(owner));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_scope_enter(tag: u8, label: RocStr, position: u64) {
+    let label_text = label.as_str().to_owned();
+    unsafe { label.decref(roc_host()) };
+    with_component_registry(|registry| registry.scope_enter(tag, &label_text, position));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_scope_exit() {
+    with_component_registry(|registry| registry.scope_exit());
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_resolve(
+    definition: u64,
+    key_kind: u8,
+    key_name: RocStr,
+    key_id: u64,
+) -> HostGlueComponentResolve {
+    let key_text = key_name.as_str().to_owned();
+    unsafe { key_name.decref(roc_host()) };
+    let (instance, root) = with_component_registry(|registry| {
+        registry.resolve(definition, key_kind, &key_text, key_id)
+    });
+    HostGlueComponentResolve { instance, root }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_enter(instance: u64) {
+    with_component_registry(|registry| registry.component_enter(instance));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_exit() {
+    with_component_registry(|registry| registry.component_exit());
 }
 
 /// Stage one owned text node and return its fresh host identity.
@@ -809,22 +952,8 @@ pub extern "C" fn roc_gui_apply(patch: MountOrNoChangeOrReplace) {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_set_dispatch(dispatcher: RocErasedCallable) {
     assert!(!dispatcher.is_null(), "Roc installed a null dispatcher");
-    BRIDGE.with(|bridge| {
-        let previous = bridge.borrow_mut().dispatcher.replace(dispatcher);
-        if let Some(previous) = previous {
-            unsafe { decref_erased_callable(previous, roc_host()) };
-        }
-    });
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_set_task_dispatch(dispatcher: RocErasedCallable) {
-    assert!(
-        !dispatcher.is_null(),
-        "Roc installed a null task dispatcher"
-    );
-    BRIDGE.with(|bridge| {
-        let previous = bridge.borrow_mut().task_dispatcher.replace(dispatcher);
+    STAGED_TURN.with(|turn| {
+        let previous = turn.borrow_mut().dispatcher.replace(dispatcher);
         if let Some(previous) = previous {
             unsafe { decref_erased_callable(previous, roc_host()) };
         }
@@ -857,14 +986,56 @@ pub extern "C" fn roc_http_acquire() -> HostGlueHttpAcquireResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_enqueue_task(task: RocErasedCallable) {
+pub extern "C" fn roc_gui_enqueue_task(owner: u64, task: RocErasedCallable) {
     assert!(!task.is_null(), "Roc enqueued a null task");
-    let runtime = task_runtime();
-    runtime.accepted.fetch_add(1, Ordering::Relaxed);
-    runtime
-        .jobs
-        .send_blocking(task as usize)
-        .expect("Roc task runtime stopped");
+    STAGED_TURN.with(|turn| {
+        turn.borrow_mut().jobs.push(TaskEnvelope {
+            callable: task as usize,
+            owner,
+            epoch: TASK_EPOCH.load(Ordering::Acquire),
+        })
+    });
+}
+
+/// Publish a turn only after the mounted graph accepted its patch. Jobs cannot
+/// race validation or observe a session that failed to mount.
+pub(crate) fn accept_transaction(graph: &MountedGraph, applied: &bridge::GraphApply) {
+    let turn = STAGED_TURN.with(|staged| std::mem::take(&mut *staged.borrow_mut()));
+    BRIDGE.with(|bridge| {
+        let mut bridge = bridge.borrow_mut();
+        if let Some(components) = &mut bridge.components {
+            components.commit(graph, applied);
+        }
+        if let Some(next) = turn.dispatcher {
+            if let Some(previous) = bridge.dispatcher.replace(next) {
+                unsafe { decref_erased_callable(previous, roc_host()) };
+            }
+        }
+    });
+    observatory::commit_component_work();
+    for job in turn.jobs {
+        if job.owner == 0 || graph.boundary_root(job.owner).is_some() {
+            let runtime = task_runtime();
+            runtime.accepted.fetch_add(1, Ordering::Relaxed);
+            runtime
+                .jobs
+                .send_blocking(job)
+                .expect("Roc task runtime stopped");
+        }
+    }
+}
+
+pub(crate) fn reject_transaction() {
+    BRIDGE.with(|bridge| {
+        if let Some(components) = &mut bridge.borrow_mut().components {
+            components.abort();
+        }
+    });
+    let turn = STAGED_TURN.with(|staged| std::mem::take(&mut *staged.borrow_mut()));
+    if let Some(callable) = turn.dispatcher {
+        unsafe { decref_erased_callable(callable, roc_host()) };
+    }
+    observatory::reject_component_work();
 }
 
 /// How long one task may run before a specification calls it hung.
@@ -882,15 +1053,18 @@ pub(crate) const TASK_BUDGET: std::time::Duration = std::time::Duration::from_se
 /// not completed in fifty of them is waiting on something else entirely.
 const SPIN_BEFORE_SLEEPING: std::time::Duration = std::time::Duration::from_millis(50);
 
-fn await_task_completion() -> Result<RocErasedCallable, String> {
+fn await_task_completion() -> Result<TaskEnvelope, String> {
     let runtime = task_runtime();
     let started = std::time::Instant::now();
     let deadline = started + TASK_BUDGET;
     loop {
         match runtime.completions.try_recv() {
             Ok(value) => {
+                if value.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+                    continue;
+                }
                 runtime.completed.fetch_add(1, Ordering::Relaxed);
-                return Ok(value as RocErasedCallable);
+                return Ok(value);
             }
             Err(async_channel::TryRecvError::Closed) => return Err("task runtime stopped".into()),
             Err(async_channel::TryRecvError::Empty) if std::time::Instant::now() < deadline => {
@@ -963,6 +1137,7 @@ fn install_test_dispatcher(dispatcher: impl Fn(u64) -> Patch + 'static) {
 }
 
 fn dispatch(event_id: u64) -> Patch {
+    observatory::begin_component_work();
     #[cfg(test)]
     {
         let answered =
@@ -973,15 +1148,15 @@ fn dispatch(event_id: u64) -> Patch {
     }
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
-            .borrow_mut()
+            .borrow()
             .dispatcher
-            .take()
             .expect("Roc dispatcher is not installed")
     });
+    unsafe { incref_erased_callable(dispatcher, 1) };
     unsafe { roc_gui_dispatch(dispatcher, event_id) };
-    BRIDGE.with(|bridge| {
+    STAGED_TURN.with(|turn| {
         assert!(
-            bridge.borrow().dispatcher.is_some(),
+            turn.borrow().dispatcher.is_some(),
             "Roc dispatch did not install its successor"
         );
     });
@@ -1016,18 +1191,22 @@ fn dispatch_canvas(event_id: u64, event: CanvasEventPayload) -> Patch {
     patch
 }
 
-fn complete(completion: RocErasedCallable) -> Patch {
+fn complete(mut completion: TaskEnvelope) -> Patch {
+    observatory::begin_component_work();
+    if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+        return Patch::NoChange;
+    }
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
-            .borrow_mut()
-            .task_dispatcher
-            .take()
-            .expect("Roc task dispatcher is not installed")
+            .borrow()
+            .dispatcher
+            .expect("Roc session dispatcher is not installed")
     });
-    unsafe { roc_gui_complete(dispatcher, completion) };
-    BRIDGE.with(|bridge| {
+    unsafe { incref_erased_callable(dispatcher, 1) };
+    unsafe { roc_gui_complete(dispatcher, completion.take_callable(), completion.owner) };
+    STAGED_TURN.with(|turn| {
         assert!(
-            bridge.borrow().task_dispatcher.is_some(),
+            turn.borrow().dispatcher.is_some(),
             "Roc completion did not install its successor"
         );
     });
@@ -1035,13 +1214,33 @@ fn complete(completion: RocErasedCallable) -> Patch {
 }
 
 fn clear_bridge() {
+    let retired = {
+        let _publication = TASK_PUBLICATION.lock().expect("task publication gate");
+        TASK_EPOCH.fetch_add(1, Ordering::AcqRel);
+        let mut retired = Vec::new();
+        if let Some(runtime) = TASK_RUNTIME.get() {
+            while let Ok(ready) = runtime.completions.try_recv() {
+                retired.push(ready);
+            }
+            // Waiting workers may all be blocked inside effects. Queued jobs
+            // have not started and need not keep their captures until one wakes.
+            while let Ok(pending) = runtime.pending_jobs.try_recv() {
+                retired.push(pending);
+            }
+            runtime.accepted.store(0, Ordering::Relaxed);
+            runtime.completed.store(0, Ordering::Relaxed);
+        }
+        retired
+    };
+    drop(retired);
+    reject_transaction();
+    observatory::clear_component_work();
+    COMPONENT_SETUP.with(|setup| setup.set(false));
     BRIDGE.with(|bridge| {
         let mut bridge = bridge.borrow_mut();
         bridge.pending = None;
+        bridge.components = None;
         if let Some(dispatcher) = bridge.dispatcher.take() {
-            unsafe { decref_erased_callable(dispatcher, roc_host()) };
-        }
-        if let Some(dispatcher) = bridge.task_dispatcher.take() {
             unsafe { decref_erased_callable(dispatcher, roc_host()) };
         }
     });
@@ -1069,12 +1268,21 @@ fn contains_text(nodes: &[Node], expected: &str) -> bool {
 }
 
 fn headless_smoke() {
+    observatory::begin_component_work();
     unsafe { roc_gui_init() };
     let (initial_root, initial_nodes) = match take_patch() {
         Patch::Mount { root, nodes } => (root, nodes),
         other => panic!("expected initial mount, got {other:?}"),
     };
     validate_tree(initial_root, &initial_nodes).expect("invalid initial counter tree");
+    let mut graph = MountedGraph::default();
+    let applied = graph
+        .apply(Patch::Mount {
+            root: initial_root,
+            nodes: initial_nodes.clone(),
+        })
+        .expect("invalid smoke mount");
+    accept_transaction(&graph, &applied);
     assert!(contains_text(&initial_nodes, "Counter"));
     assert!(contains_text(&initial_nodes, "-1"));
     assert!(contains_text(&initial_nodes, "3"));
@@ -1086,6 +1294,10 @@ fn headless_smoke() {
         Patch::NoChange,
         "stale event was not ignored"
     );
+    let applied = graph
+        .apply(Patch::NoChange)
+        .expect("invalid smoke no-change");
+    accept_transaction(&graph, &applied);
 
     let (first_target, first_nodes) = match dispatch(initial_plus) {
         Patch::Replace {
@@ -1094,6 +1306,14 @@ fn headless_smoke() {
             nodes,
         } => {
             validate_tree(root, &nodes).expect("invalid first counter replacement");
+            let applied = graph
+                .apply(Patch::Replace {
+                    old_root,
+                    root,
+                    nodes: nodes.clone(),
+                })
+                .expect("invalid smoke update");
+            accept_transaction(&graph, &applied);
             (old_root, nodes)
         }
         other => panic!("expected first subtree replacement, got {other:?}"),
@@ -1112,12 +1332,28 @@ fn headless_smoke() {
         Patch::NoChange,
         "removed button id was not treated as stale"
     );
+    let applied = graph
+        .apply(Patch::NoChange)
+        .expect("invalid smoke no-change");
+    accept_transaction(&graph, &applied);
 
     let next_plus = button_with_name(&first_nodes, "Left increment")
         .expect("replacement increment button is missing");
     let second_nodes = match dispatch(next_plus) {
-        Patch::Replace { root, nodes, .. } => {
+        Patch::Replace {
+            old_root,
+            root,
+            nodes,
+        } => {
             validate_tree(root, &nodes).expect("invalid second counter replacement");
+            let applied = graph
+                .apply(Patch::Replace {
+                    old_root,
+                    root,
+                    nodes: nodes.clone(),
+                })
+                .expect("invalid smoke update");
+            accept_transaction(&graph, &applied);
             nodes
         }
         other => panic!("expected second subtree replacement, got {other:?}"),
@@ -1443,6 +1679,11 @@ fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
 
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        // A component boundary owns identity and updates, but contributes no
+        // flex item, padding, or other native layout box.
+        if matches!(self.node.kind, NodeKind::Boundary { .. }) {
+            return AnyView::from(self.children[0].clone()).into_any_element();
+        }
         // The element key is the view's own, not the mounted node id: a node id
         // is never reused, so keying by it gave every control a new GPUI
         // element on every patch and threw away the element state — including
@@ -1455,8 +1696,9 @@ impl Render for NodeView {
             element = element.size_full().min_h_0().min_w_0();
         }
         match &self.node.kind {
+            NodeKind::Boundary { .. } => unreachable!("boundary rendered above"),
             NodeKind::Canvas {
-                label,
+                label: _,
                 primitives,
                 style,
             } => {
@@ -1466,8 +1708,7 @@ impl Render for NodeView {
                 let down_bounds = self.canvas_bounds.clone();
                 let down_runtime = self.runtime.clone();
                 let paint_runtime = self.runtime.clone();
-                let down_label = label.clone();
-                let paint_label = label.clone();
+                let canvas_id = self.node.id;
                 let drawing = canvas(
                     move |bounds, _, _| {
                         *bounds_slot.lock().expect("canvas bounds poisoned") = Some(bounds);
@@ -1542,7 +1783,6 @@ impl Render for NodeView {
                             }
                         }
                         let move_runtime = paint_runtime.clone();
-                        let move_label = paint_label.clone();
                         window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Bubble {
                                 let x =
@@ -1550,12 +1790,11 @@ impl Render for NodeView {
                                 let y =
                                     f32::from(event.position.y - bounds.origin.y).round() as i32;
                                 let _ = move_runtime.update(cx, |runtime, cx| {
-                                    runtime.canvas_pointer(&move_label, 1, x, y, 0, cx)
+                                    runtime.canvas_pointer_for_node(canvas_id, 1, x, y, 0, cx)
                                 });
                             }
                         });
                         let up_runtime = paint_runtime.clone();
-                        let up_label = paint_label.clone();
                         window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
                             if phase == DispatchPhase::Bubble && event.button == MouseButton::Left {
                                 let x =
@@ -1563,7 +1802,7 @@ impl Render for NodeView {
                                 let y =
                                     f32::from(event.position.y - bounds.origin.y).round() as i32;
                                 let _ = up_runtime.update(cx, |runtime, cx| {
-                                    runtime.canvas_pointer(&up_label, 2, x, y, 0, cx)
+                                    runtime.canvas_pointer_for_node(canvas_id, 2, x, y, 0, cx)
                                 });
                             }
                         });
@@ -1579,7 +1818,7 @@ impl Render for NodeView {
                             let y = f32::from(event.position.y - bounds.origin.y).round() as i32;
                             let target = canvas_target(&hit_items, x, y).unwrap_or(0);
                             let _ = down_runtime.update(cx, |runtime, cx| {
-                                runtime.canvas_pointer(&down_label, 0, x, y, target, cx)
+                                runtime.canvas_pointer_for_node(canvas_id, 0, x, y, target, cx)
                             });
                         }
                     });
@@ -1590,11 +1829,8 @@ impl Render for NodeView {
             NodeKind::Dialog { style, .. } => {
                 let dialog_id = self.node.id;
                 let runtime = self.runtime.clone();
-                let inner = apply_style(
-                    div().id("dialog-surface").flex().flex_col(),
-                    style,
-                )
-                .children(self.children.iter().cloned().map(AnyView::from));
+                let inner = apply_style(div().id("dialog-surface").flex().flex_col(), style)
+                    .children(self.children.iter().cloned().map(AnyView::from));
                 element = element
                     .absolute()
                     .top_0()
@@ -1652,24 +1888,20 @@ impl Render for NodeView {
                 element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .min_h_0()
                     .max_h_full()
-                    .child(
-                        {
-                            let list = uniform_list("virtual-list", count, move |range, _, cx| {
-                                runtime
-                                    .update(cx, |runtime, cx| {
-                                        runtime.virtual_range(list_id, range, height, gap, cx)
-                                    })
-                                    .unwrap_or_default()
-                            })
-                            .size_full();
-                            match &self.scroll {
-                                Some(ScrollTracker::List(handle)) => {
-                                    list.track_scroll(handle.clone())
-                                }
-                                _ => list,
-                            }
-                        },
-                    );
+                    .child({
+                        let list = uniform_list("virtual-list", count, move |range, _, cx| {
+                            runtime
+                                .update(cx, |runtime, cx| {
+                                    runtime.virtual_range(list_id, range, height, gap, cx)
+                                })
+                                .unwrap_or_default()
+                        })
+                        .size_full();
+                        match &self.scroll {
+                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle.clone()),
+                            _ => list,
+                        }
+                    });
             }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
@@ -1735,8 +1967,7 @@ impl Render for NodeView {
                             cx.stop_propagation();
                             let _ = runtime
                                 .update(cx, |runtime, cx| runtime.input_if_live(node_id, next, cx));
-                        },
-                    );
+                        });
                 } else if !*enabled {
                     element = apply_disabled(element, style);
                 }
@@ -2001,9 +2232,11 @@ impl Render for NodeView {
             element = element.child(probe::marker(self.node.id));
         }
         if append_children {
-            element.children(self.children.iter().cloned().map(AnyView::from))
-        } else {
             element
+                .children(self.children.iter().cloned().map(AnyView::from))
+                .into_any_element()
+        } else {
+            element.into_any_element()
         }
     }
 }
@@ -2026,6 +2259,11 @@ struct Runtime {
     /// getting a fresh one. Held only until the next patch.
     recyclable: HashMap<ElementIdentity, Entity<NodeView>>,
     virtual_views: HashMap<(u64, u64), VirtualCached>,
+    virtual_row_owners: HashMap<u64, u64>,
+    virtual_lists: HashMap<u64, VirtualListCache>,
+    virtual_entities: HashMap<u64, VirtualCached>,
+    preserved_virtual: std::collections::HashSet<u64>,
+    virtual_constructions: u64,
     focus_handles: HashMap<u64, FocusHandle>,
     /// The live scroll position of every mounted scrolling node, by id. The
     /// same tracker the node's view holds, so writing through it moves the
@@ -2040,19 +2278,27 @@ struct Runtime {
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
     active_dialog: Option<u64>,
-    dialog_return_focus: Option<(u8, String)>,
-    last_trigger_focus: Option<(u8, String)>,
-    focused_identity: Option<(u64, (u8, String))>,
+    dialog_return_focus: Option<ElementIdentity>,
+    last_trigger_focus: Option<ElementIdentity>,
+    focused_identity: Option<(u64, ElementIdentity)>,
     /// The focused control's position in the focus order when it was last
     /// rendered. It is the only thing that survives the control itself.
     focused_position: Option<usize>,
     focus_after_render: Option<u64>,
-    editors: HashMap<String, Entity<input::TextInput>>,
-    canvas_drag: Option<(String, u64)>,
+    editors: HashMap<ElementIdentity, Entity<input::TextInput>>,
+    editor_nodes: HashMap<ElementIdentity, u64>,
+    canvas_drag: Option<(ElementIdentity, u64)>,
 }
 
+#[derive(Clone)]
 struct VirtualCached {
     view: Entity<NodeView>,
+    entities: u64,
+}
+
+#[derive(Default)]
+struct VirtualListCache {
+    rows: std::collections::HashSet<u64>,
     entities: u64,
 }
 
@@ -2060,7 +2306,7 @@ struct InitialMount {
     patch: Patch,
     cycle_started: Instant,
     roc_callback_ns: u64,
-    roc_work: [observatory::RocWork; 4],
+    roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
     roc_work_valid: bool,
 }
 
@@ -2073,6 +2319,11 @@ impl Runtime {
             identities: HashMap::new(),
             recyclable: HashMap::new(),
             virtual_views: HashMap::new(),
+            virtual_row_owners: HashMap::new(),
+            virtual_lists: HashMap::new(),
+            virtual_entities: HashMap::new(),
+            preserved_virtual: std::collections::HashSet::new(),
+            virtual_constructions: 0,
             focus_handles: HashMap::new(),
             scroll_trackers: HashMap::new(),
             canvas_surfaces: HashMap::new(),
@@ -2085,6 +2336,7 @@ impl Runtime {
             focused_position: None,
             focus_after_render: None,
             editors: HashMap::new(),
+            editor_nodes: HashMap::new(),
             canvas_drag: None,
         };
         if observatory::active() {
@@ -2103,10 +2355,13 @@ impl Runtime {
         let completions = task_runtime().completions.clone();
         cx.spawn(async move |runtime, cx| {
             while let Ok(completion) = completions.recv().await {
+                if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+                    continue;
+                }
                 task_runtime().completed.fetch_add(1, Ordering::Relaxed);
                 if runtime
                     .update(cx, |runtime, cx| {
-                        let patch = complete(completion as RocErasedCallable);
+                        let patch = complete(completion);
                         runtime.apply_unrecorded(patch, cx);
                     })
                     .is_err()
@@ -2120,7 +2375,8 @@ impl Runtime {
         // who presses Open waits for the panel, and every millisecond between
         // the press and the panel is time the application looks unresponsive
         // for no reason.
-        let (chooser_requests, chooser_pending) = async_channel::unbounded::<files::ChooserRequest>();
+        let (chooser_requests, chooser_pending) =
+            async_channel::unbounded::<files::ChooserRequest>();
         files::install_chooser(chooser_requests);
         cx.spawn(async move |_, cx| {
             while let Ok(request) = chooser_pending.recv().await {
@@ -2173,22 +2429,44 @@ impl Runtime {
         target: u64,
         cx: &mut Context<Self>,
     ) {
-        let resolved_target = match phase {
-            0 => {
-                self.canvas_drag = Some((label.to_owned(), target));
-                target
-            }
-            1 | 2 => match &self.canvas_drag {
-                Some((active, target)) if active == label => *target,
-                _ => return,
-            },
-            _ => return,
-        };
         let id = self.graph.nodes_preorder().into_iter().find_map(|node| {
             matches!(&node.kind, NodeKind::Canvas { label: current, .. } if current == label)
                 .then_some(node.id)
         });
-        let Some(id) = id else { return };
+        if let Some(id) = id {
+            self.canvas_pointer_for_node(id, phase, x, y, target, cx);
+        }
+    }
+
+    fn canvas_pointer_for_node(
+        &mut self,
+        id: u64,
+        phase: u8,
+        x: i32,
+        y: i32,
+        target: u64,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(
+            self.graph.node(id).map(|node| &node.kind),
+            Some(NodeKind::Canvas { .. })
+        ) {
+            return;
+        }
+        let Some(identity) = self.identities.get(&id).cloned() else {
+            return;
+        };
+        let resolved_target = match phase {
+            0 => {
+                self.canvas_drag = Some((identity.clone(), target));
+                target
+            }
+            1 | 2 => match &self.canvas_drag {
+                Some((active, target)) if *active == identity => *target,
+                _ => return,
+            },
+            _ => return,
+        };
         let event = CanvasEventPayload {
             phase,
             x,
@@ -2220,26 +2498,32 @@ impl Runtime {
             self.graph.node(id).map(|node| &node.kind),
             Some(NodeKind::Dialog { .. })
         ) {
-            self.last_trigger_focus = self
-                .graph
-                .node(id)
-                .and_then(|node| node.kind.focus_identity());
+            self.last_trigger_focus = self.identities.get(&id).cloned();
         }
         self.dispatch_live_event(id, "click", cx);
     }
 
     fn text_event_if_live(
         &mut self,
+        identity: &ElementIdentity,
         node_id: u64,
         event_id: u64,
         value: String,
         trigger: &'static str,
         cx: &mut Context<Self>,
     ) {
+        let acknowledgement = self
+            .editors
+            .get(identity)
+            .cloned()
+            .map(|editor| (editor, value.clone()));
         if self
             .active_dialog
             .is_some_and(|dialog| !self.graph.is_descendant_of(node_id, dialog))
         {
+            if let Some((editor, submitted)) = acknowledgement {
+                editor.update(cx, |editor, cx| editor.acknowledge(&submitted, cx));
+            }
             return;
         }
         let valid = self
@@ -2252,7 +2536,13 @@ impl Runtime {
                 _ => false,
             });
         if !valid {
+            if let Some((editor, submitted)) = acknowledgement {
+                editor.update(cx, |editor, cx| editor.acknowledge(&submitted, cx));
+            }
             return;
+        }
+        if let Some((editor, submitted)) = &acknowledgement {
+            editor.update(cx, |editor, _| editor.begin_acknowledgement(submitted));
         }
         if observatory::active() {
             let cycle_started = Instant::now();
@@ -2273,6 +2563,9 @@ impl Runtime {
         } else {
             let patch = dispatch_input(event_id, value);
             self.apply_unrecorded(patch, cx);
+        }
+        if let Some((editor, submitted)) = acknowledgement {
+            editor.update(cx, |editor, cx| editor.acknowledge(&submitted, cx));
         }
     }
 
@@ -2353,10 +2646,11 @@ impl Runtime {
     /// The counterpart to [`Self::apply_recorded`], for patches that are not
     /// themselves a measurable interaction.
     fn apply_unrecorded(&mut self, patch: Patch, cx: &mut Context<Self>) {
-        let applied = self
-            .graph
-            .apply(patch)
-            .unwrap_or_else(|message| panic!("invalid native graph patch: {message}"));
+        let applied = self.graph.apply(patch).unwrap_or_else(|message| {
+            reject_transaction();
+            panic!("invalid native graph patch: {message}")
+        });
+        accept_transaction(&self.graph, &applied);
         self.apply_to_gpui(&applied, cx);
     }
 
@@ -2368,14 +2662,15 @@ impl Runtime {
         trigger: &'static str,
         cycle_started: Instant,
         roc_callback_ns: u64,
-        roc_work: [observatory::RocWork; 4],
+        roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
         roc_work_valid: bool,
         cx: &mut Context<Self>,
     ) {
-        let applied = self
-            .graph
-            .apply_measured(patch)
-            .unwrap_or_else(|message| panic!("invalid native graph patch: {message}"));
+        let applied = self.graph.apply_measured(patch).unwrap_or_else(|message| {
+            reject_transaction();
+            panic!("invalid native graph patch: {message}")
+        });
+        accept_transaction(&self.graph, &applied);
         let graph_apply_ns = applied.facts.apply_ns;
         let gpui_started = Instant::now();
         self.apply_to_gpui(&applied, cx);
@@ -2399,6 +2694,9 @@ impl Runtime {
             parent_nodes_scanned: applied.facts.scanned,
             roc_work,
             roc_work_valid,
+            component_work: observatory::component_cycle_work(),
+            retained_nodes: applied.facts.retained_nodes,
+            validation_visits: applied.facts.validation_visits,
         });
         self.cycle_ordinal += 1;
     }
@@ -2409,6 +2707,47 @@ impl Runtime {
     }
 
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+        if applied.facts.kind == "no_change" {
+            return;
+        }
+        let retired_identities = applied
+            .removed_ids
+            .iter()
+            .filter_map(|id| {
+                self.identities
+                    .get(id)
+                    .cloned()
+                    .map(|identity| (*id, identity))
+            })
+            .collect::<Vec<_>>();
+        let virtual_parent = applied
+            .parent
+            .filter(|(parent, _)| self.virtual_entities.contains_key(parent));
+        let old_virtual_root = virtual_parent.map(|(parent, position)| {
+            self.virtual_entities[&parent].view.read(cx).children[position].clone()
+        });
+        let old_virtual_entities = old_virtual_root.as_ref().map_or(0, |root| {
+            self.virtual_entities[&root.read(cx).node.id].entities
+        });
+        // Count only this list's materialized tree. Nested list rows have
+        // separate cache ownership, and retained frontiers contribute no
+        // retirements even though their ancestors are replaced.
+        let mut removed_virtual = 0;
+        let mut retired_views = old_virtual_root.into_iter().collect::<Vec<_>>();
+        while let Some(view) = retired_views.pop() {
+            let view = view.read(cx);
+            if self.graph.node(view.node.id).is_none() {
+                removed_virtual += 1;
+                retired_views.extend(view.children.iter().cloned());
+            }
+        }
+        self.preserved_virtual.extend(
+            applied
+                .retained_roots
+                .iter()
+                .copied()
+                .filter(|id| self.virtual_entities.contains_key(id)),
+        );
         // Offer every view whose node this patch retired back to the staged
         // nodes, indexed by identity. A whole-root rebuild stages a complete
         // new set of node ids for what is, to the person using the
@@ -2421,7 +2760,11 @@ impl Runtime {
             doomed.extend(self.views.keys().copied());
         }
         for id in doomed {
-            if let Some(view) = self.views.get(&id) {
+            if let Some(view) = self
+                .views
+                .get(&id)
+                .or_else(|| self.virtual_entities.get(&id).map(|cached| &cached.view))
+            {
                 let identity = view.read(cx).identity.clone();
                 self.recyclable.insert(identity, view.clone());
             }
@@ -2429,33 +2772,103 @@ impl Runtime {
         // Every applied patch leaves the window a frame behind, which is what
         // makes a painted read of the new tree refuse until it catches up.
         self.generation += 1;
-        if !applied.staged_ids.is_empty() || !applied.removed_ids.is_empty() || applied.retired_root
         {
-            let mut recycled = HashMap::<u64, u64>::new();
-            for ((list, _), cached) in &self.virtual_views {
-                *recycled.entry(*list).or_default() += cached.entities;
+            let mut affected = std::collections::HashSet::new();
+            for id in &applied.removed_ids {
+                if self.virtual_row_owners.contains_key(id) {
+                    affected.insert(*id);
+                }
+                if let Some(list) = self.virtual_lists.get(id) {
+                    affected.extend(list.rows.iter().copied());
+                }
             }
-            for (list, entities) in recycled {
-                observatory::virtual_list_frame(list, 0, 0, entities, 0);
+            for item in affected {
+                let old_list = self.virtual_row_owners[&item];
+                let cached = self
+                    .uncache_virtual_row(old_list, item)
+                    .expect("affected virtual row");
+                let owner = self
+                    .graph
+                    .parent(item)
+                    .map(|(parent, _)| parent)
+                    .filter(|parent| {
+                        matches!(
+                            self.graph.node(*parent).map(|node| &node.kind),
+                            Some(NodeKind::VirtualList { .. })
+                        )
+                    });
+                if let Some(owner) = owner {
+                    // A retained visible item can move to a newly staged list
+                    // without rebuilding any of its native descendants.
+                    self.cache_virtual_row(owner, item, cached);
+                } else {
+                    observatory::virtual_list_frame(old_list, 0, 0, cached.entities, 0);
+                    self.offer_subtree(cached.view, cx);
+                }
             }
-            // A virtual row's views live only in this cache, so offer them back
-            // by identity too before it is dropped: a control inside a list is
-            // exposed to exactly the same lost press as one outside it.
-            let rows = self
-                .virtual_views
-                .values()
-                .map(|cached| cached.view.clone())
-                .collect::<Vec<_>>();
-            for row in rows {
-                self.offer_subtree(row, cx);
-            }
-            self.virtual_views.clear();
         }
         if applied.retired_root {
             self.views.clear();
         }
         refresh_identities(&self.graph, applied, &mut self.identities);
         self.materialize(&applied.staged_ids, cx);
+        if let (Some(root), Some((parent, _))) = (applied.root, virtual_parent) {
+            let constructions_before = self.virtual_constructions;
+            let (_, new_virtual_entities) = self.build_virtual_node(root, cx);
+            let mut ancestor = Some(parent);
+            let mut changed_list = None;
+            while let Some(id) = ancestor {
+                // A list view does not materialize its rows as ordinary
+                // children. A nested list's local work stops at that edge.
+                if matches!(
+                    self.graph.node(id).map(|node| &node.kind),
+                    Some(NodeKind::VirtualList { .. })
+                ) {
+                    changed_list = Some(id);
+                    break;
+                }
+                if let Some(cached) = self.virtual_entities.get_mut(&id) {
+                    cached.entities = cached
+                        .entities
+                        .checked_sub(old_virtual_entities)
+                        .expect("virtual ancestor count underflow")
+                        + new_virtual_entities;
+                }
+                if let Some(list) = self.virtual_row_owners.get(&id).copied() {
+                    let cached = self
+                        .virtual_views
+                        .get_mut(&(list, id))
+                        .expect("indexed virtual row");
+                    cached.entities = cached
+                        .entities
+                        .checked_sub(old_virtual_entities)
+                        .expect("virtual row count underflow")
+                        + new_virtual_entities;
+                    let summary = self
+                        .virtual_lists
+                        .get_mut(&list)
+                        .expect("indexed virtual list");
+                    summary.entities = summary
+                        .entities
+                        .checked_sub(old_virtual_entities)
+                        .expect("virtual list count underflow")
+                        + new_virtual_entities;
+                }
+                ancestor = self.graph.parent(id).map(|(parent, _)| parent);
+            }
+            if let Some(list) = changed_list {
+                let (items, entities) = self.virtual_lists.get(&list).map_or((0, 0), |summary| {
+                    (summary.rows.len() as u64, summary.entities)
+                });
+                observatory::virtual_list_frame(
+                    list,
+                    items,
+                    self.virtual_constructions - constructions_before,
+                    removed_virtual,
+                    entities,
+                );
+            }
+        }
         let next_dialog = self.graph.active_dialog();
         match (self.active_dialog.is_some(), next_dialog) {
             (false, Some(dialog)) => {
@@ -2466,7 +2879,7 @@ impl Runtime {
                 self.focus_after_render = self
                     .dialog_return_focus
                     .take()
-                    .and_then(|identity| self.graph.find_focus_identity(&identity));
+                    .and_then(|identity| self.find_native_identity(&identity));
             }
             _ => {
                 if let Some((id, identity)) = self.focused_identity.clone() {
@@ -2475,10 +2888,8 @@ impl Runtime {
                         // control that is gone hands focus to whatever now
                         // holds its place, rather than dropping it and
                         // leaving a person's next Tab starting from nowhere.
-                        self.focus_after_render = self
-                            .graph
-                            .find_focus_identity(&identity)
-                            .or_else(|| {
+                        self.focus_after_render =
+                            self.find_native_identity(&identity).or_else(|| {
                                 self.focused_position
                                     .and_then(|was_at| self.graph.focus_destination(was_at))
                             });
@@ -2486,22 +2897,45 @@ impl Runtime {
                 }
             }
         }
-        self.active_dialog = next_dialog;
-        for (id, view) in &self.views {
-            let enabled = next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
-            view.update(cx, |view, _| view.input_enabled = enabled);
+        if self.active_dialog != next_dialog {
+            for (id, view) in self.views.iter().chain(
+                self.virtual_entities
+                    .iter()
+                    .map(|(id, cached)| (id, &cached.view)),
+            ) {
+                let enabled =
+                    next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
+                view.update(cx, |view, cx| {
+                    view.input_enabled = enabled;
+                    if let Some(editor) = &view.input {
+                        let accepts_input =
+                            matches!(view.node.kind, NodeKind::TextInput { enabled: true, .. });
+                        editor.update(cx, |editor, cx| {
+                            editor.set_enabled(enabled && accepts_input, cx)
+                        });
+                    }
+                    cx.notify();
+                });
+            }
         }
+        self.active_dialog = next_dialog;
         if let Some(root_id) = applied.root {
             if let (Some((_parent_id, position)), Some(new_root), Some(parent_view)) = (
                 applied.parent,
-                self.views.get(&root_id).cloned(),
+                self.native_view(root_id),
                 applied
                     .parent
-                    .and_then(|(parent, _)| self.views.get(&parent).cloned()),
+                    .and_then(|(parent, _)| self.native_view(parent)),
             ) {
                 parent_view.update(cx, |view, cx| {
                     view.node.children[position] = root_id;
                     view.children[position] = new_root.clone();
+                    if view.is_root && matches!(view.node.kind, NodeKind::Boundary { .. }) {
+                        new_root.update(cx, |child, cx| {
+                            child.is_root = true;
+                            cx.notify();
+                        });
+                    }
                     cx.notify();
                 });
             } else if applied.parent.is_some() {
@@ -2513,30 +2947,58 @@ impl Runtime {
                 }
             } else {
                 let new_root = self.views[&root_id].clone();
-                new_root.update(cx, |view, cx| {
-                    view.is_root = true;
-                    cx.notify();
-                });
+                let mut layout_root = new_root.clone();
+                loop {
+                    let next = layout_root.update(cx, |view, cx| {
+                        view.is_root = true;
+                        cx.notify();
+                        matches!(view.node.kind, NodeKind::Boundary { .. })
+                            .then(|| view.children[0].clone())
+                    });
+                    match next {
+                        Some(child) => layout_root = child,
+                        None => break,
+                    }
+                }
                 self.root = Some(new_root);
                 cx.notify();
             }
         }
         for id in &applied.removed_ids {
             self.views.remove(id);
+            self.virtual_entities.remove(id);
+            self.preserved_virtual.remove(id);
             self.focus_handles.remove(id);
             self.scroll_trackers.remove(id);
             self.canvas_surfaces.remove(id);
         }
-        let live_labels: std::collections::HashSet<String> = self
-            .graph
-            .nodes_preorder()
-            .into_iter()
-            .filter_map(|node| match &node.kind {
-                NodeKind::TextInput { label, .. } => Some(label.clone()),
-                _ => None,
-            })
-            .collect();
-        self.editors.retain(|label, _| live_labels.contains(label));
+        for (retired, identity) in retired_identities {
+            if self.editor_nodes.get(&identity) == Some(&retired) {
+                self.editor_nodes.remove(&identity);
+                self.editors.remove(&identity);
+            }
+        }
+        if self
+            .canvas_drag
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_drag = None;
+        }
+    }
+
+    fn find_native_identity(&self, identity: &ElementIdentity) -> Option<u64> {
+        self.identities.iter().find_map(|(id, candidate)| {
+            (candidate == identity && self.graph.node(*id).is_some()).then_some(*id)
+        })
+    }
+
+    fn native_view(&self, id: u64) -> Option<Entity<NodeView>> {
+        self.views.get(&id).cloned().or_else(|| {
+            self.virtual_entities
+                .get(&id)
+                .map(|cached| cached.view.clone())
+        })
     }
 
     /// Give a staged node its GPUI entity.
@@ -2616,6 +3078,9 @@ impl Runtime {
 
     /// Index a retired view and everything under it by identity.
     fn offer_subtree(&mut self, view: Entity<NodeView>, cx: &mut Context<Self>) {
+        if self.preserved_virtual.contains(&view.read(cx).node.id) {
+            return;
+        }
         let (identity, children) = {
             let node = view.read(cx);
             (node.identity.clone(), node.children.clone())
@@ -2627,11 +3092,24 @@ impl Runtime {
     }
 
     fn materialize(&mut self, node_ids: &[u64], cx: &mut Context<Self>) {
-        let virtualized = self.graph.virtual_descendant_ids();
+        for id in node_ids {
+            if matches!(
+                self.graph.node(*id).map(|node| &node.kind),
+                Some(NodeKind::TextInput { .. })
+            ) {
+                if let Some(identity) = self
+                    .identities
+                    .get(id)
+                    .filter(|identity| self.editors.contains_key(*identity))
+                {
+                    self.editor_nodes.insert(identity.clone(), *id);
+                }
+            }
+        }
         let eager = node_ids
             .iter()
             .copied()
-            .filter(|id| !virtualized.contains(id))
+            .filter(|id| !self.graph.is_virtual_descendant(*id))
             .collect::<Vec<_>>();
         for id in &eager {
             let node = self
@@ -2665,7 +3143,7 @@ impl Runtime {
             let children = node
                 .children
                 .iter()
-                .filter(|id| !virtualized.contains(id))
+                .filter(|id| !self.graph.is_virtual_descendant(**id))
                 .map(|id| {
                     self.views
                         .get(id)
@@ -2684,25 +3162,40 @@ impl Runtime {
         cx: &mut Context<Self>,
     ) -> Option<Entity<input::TextInput>> {
         if let NodeKind::TextInput {
-            label,
+            label: _,
             value,
             placeholder,
             enabled,
             ..
         } = &node.kind
         {
+            let identity = self
+                .identities
+                .get(&node.id)
+                .cloned()
+                .expect("input identity is missing");
+            let change_identity = identity.clone();
+            let submit_identity = identity.clone();
             let runtime = cx.entity().downgrade();
             let change_runtime = runtime.clone();
             let submit_runtime = runtime.clone();
             let node_id = node.id;
             let change: input::TextCallback = std::rc::Rc::new(move |text, cx| {
                 let _ = change_runtime.update(cx, |runtime, cx| {
-                    runtime.text_event_if_live(node_id, node_id, text, "text_change", cx)
+                    runtime.text_event_if_live(
+                        &change_identity,
+                        node_id,
+                        node_id,
+                        text,
+                        "text_change",
+                        cx,
+                    )
                 });
             });
             let submit: input::TextCallback = std::rc::Rc::new(move |text, cx| {
                 let _ = submit_runtime.update(cx, |runtime, cx| {
                     runtime.text_event_if_live(
+                        &submit_identity,
                         node_id,
                         node_id | SUBMIT_EVENT_BIT,
                         text,
@@ -2711,7 +3204,8 @@ impl Runtime {
                     )
                 });
             });
-            if let Some(editor) = self.editors.get(label).cloned() {
+            self.editor_nodes.insert(identity.clone(), node.id);
+            if let Some(editor) = self.editors.get(&identity).cloned() {
                 editor.update(cx, |editor, cx| {
                     editor.configure(
                         value,
@@ -2734,7 +3228,7 @@ impl Runtime {
                         cx,
                     )
                 });
-                self.editors.insert(label.clone(), editor.clone());
+                self.editors.insert(identity, editor.clone());
                 Some(editor)
             }
         } else {
@@ -2743,6 +3237,11 @@ impl Runtime {
     }
 
     fn build_virtual_node(&mut self, id: u64, cx: &mut Context<Self>) -> (Entity<NodeView>, u64) {
+        if self.preserved_virtual.remove(&id) {
+            if let Some(cached) = self.virtual_entities.get(&id) {
+                return (cached.view.clone(), cached.entities);
+            }
+        }
         let node = self
             .graph
             .node(id)
@@ -2774,7 +3273,67 @@ impl Runtime {
             self.canvas_surfaces
                 .insert(id, view.read(cx).canvas_bounds.clone());
         }
-        (view, descendants + 1)
+        let entities = descendants + 1;
+        self.virtual_constructions += 1;
+        self.virtual_entities.insert(
+            id,
+            VirtualCached {
+                view: view.clone(),
+                entities,
+            },
+        );
+        (view, entities)
+    }
+
+    fn forget_virtual_subtree(&mut self, root: Entity<NodeView>, cx: &App) {
+        let mut pending = vec![root];
+        while let Some(view) = pending.pop() {
+            let view = view.read(cx);
+            pending.extend(view.children.iter().cloned());
+            if let Some(list) = self.virtual_lists.get(&view.node.id) {
+                let rows = list.rows.iter().copied().collect::<Vec<_>>();
+                for row in rows {
+                    if let Some(cached) = self.uncache_virtual_row(view.node.id, row) {
+                        pending.push(cached.view);
+                    }
+                }
+            }
+            self.virtual_entities.remove(&view.node.id);
+            self.preserved_virtual.remove(&view.node.id);
+            self.focus_handles.remove(&view.node.id);
+            self.scroll_trackers.remove(&view.node.id);
+            self.canvas_surfaces.remove(&view.node.id);
+        }
+    }
+
+    fn cache_virtual_row(&mut self, list: u64, item: u64, cached: VirtualCached) {
+        assert!(
+            !self.virtual_row_owners.contains_key(&item),
+            "virtual row already cached"
+        );
+        self.virtual_row_owners.insert(item, list);
+        let summary = self.virtual_lists.entry(list).or_default();
+        summary.rows.insert(item);
+        summary.entities += cached.entities;
+        self.virtual_views.insert((list, item), cached);
+    }
+
+    fn uncache_virtual_row(&mut self, list: u64, item: u64) -> Option<VirtualCached> {
+        let cached = self.virtual_views.remove(&(list, item))?;
+        self.virtual_row_owners.remove(&item);
+        let summary = self
+            .virtual_lists
+            .get_mut(&list)
+            .expect("cached virtual list");
+        summary.rows.remove(&item);
+        summary.entities = summary
+            .entities
+            .checked_sub(cached.entities)
+            .expect("cached virtual list count underflow");
+        if summary.rows.is_empty() {
+            self.virtual_lists.remove(&list);
+        }
+        Some(cached)
     }
 
     fn virtual_range(
@@ -2785,46 +3344,65 @@ impl Runtime {
         row_gap: u32,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
-        let item_ids = self
-            .graph
-            .node(list_id)
-            .expect("virtual list is missing")
-            .children
-            .clone();
+        let list = self.graph.node(list_id).expect("virtual list is missing");
         let wanted = range
-            .filter_map(|index| item_ids.get(index).copied())
+            .filter_map(|index| list.children.get(index).copied())
             .collect::<Vec<_>>();
         let wanted_set = wanted
             .iter()
             .copied()
             .collect::<std::collections::HashSet<_>>();
-        let recycled = self
-            .virtual_views
+        let evicted = self
+            .virtual_lists
+            .get(&list_id)
+            .into_iter()
+            .flat_map(|summary| summary.rows.iter().copied())
+            .filter(|item| !wanted_set.contains(item))
+            .collect::<Vec<_>>();
+        let mut recycled = 0;
+        for item in evicted {
+            let cached = self
+                .uncache_virtual_row(list_id, item)
+                .expect("virtual cache disappeared");
+            recycled += cached.entities;
+            self.forget_virtual_subtree(cached.view, cx);
+        }
+        let abandoned = self
+            .preserved_virtual
             .iter()
-            .filter(|((owner, item), _)| *owner == list_id && !wanted_set.contains(item))
-            .map(|(_, cached)| cached.entities)
-            .sum();
-        self.virtual_views
-            .retain(|(owner, item), _| *owner != list_id || wanted_set.contains(item));
-        let mut materialized = 0;
+            .copied()
+            .filter(|id| {
+                let mut child = *id;
+                while let Some((parent, _)) = self.graph.parent(child) {
+                    if parent == list_id {
+                        return !wanted_set.contains(&child);
+                    }
+                    child = parent;
+                }
+                false
+            })
+            .collect::<Vec<_>>();
+        for id in abandoned {
+            if let Some(cached) = self.virtual_entities.get(&id).cloned() {
+                recycled += cached.entities;
+                self.forget_virtual_subtree(cached.view, cx);
+            }
+        }
+        let construction_start = self.virtual_constructions;
         for item in &wanted {
             if !self.virtual_views.contains_key(&(list_id, *item)) {
                 let (view, entities) = self.build_virtual_node(*item, cx);
-                materialized += entities;
-                self.virtual_views
-                    .insert((list_id, *item), VirtualCached { view, entities });
+                self.cache_virtual_row(list_id, *item, VirtualCached { view, entities });
             }
         }
         let live_entities = self
-            .virtual_views
-            .iter()
-            .filter(|((owner, _), _)| *owner == list_id)
-            .map(|(_, cached)| cached.entities)
-            .sum();
+            .virtual_lists
+            .get(&list_id)
+            .map_or(0, |summary| summary.entities);
         observatory::virtual_list_frame(
             list_id,
             wanted.len() as u64,
-            materialized,
+            self.virtual_constructions - construction_start,
             recycled,
             live_entities,
         );
@@ -2864,14 +3442,58 @@ fn refresh_identities(
     for id in &applied.removed_ids {
         identities.remove(id);
     }
+    let retained = applied
+        .retained_roots
+        .iter()
+        .copied()
+        .collect::<std::collections::HashSet<_>>();
+    let refresh = |root: u64,
+                   own: bridge::IdentitySegment,
+                   parent: &[bridge::IdentitySegment],
+                   identities: &mut HashMap<u64, ElementIdentity>| {
+        let mut pending = vec![(root, own, parent.to_vec())];
+        while let Some((id, own, parent)) = pending.pop() {
+            if retained.contains(&id) && identities.contains_key(&id) {
+                continue;
+            }
+            let mut identity = if matches!(own, bridge::IdentitySegment::Boundary { .. }) {
+                vec![]
+            } else {
+                parent
+            };
+            identity.push(own);
+            identities.insert(id, identity.clone());
+            pending.extend(
+                graph
+                    .child_segments(id)
+                    .into_iter()
+                    .map(|(child, own)| (child, own, identity.clone())),
+            );
+        }
+    };
     let parent_identity = match (applied.retired_root, applied.parent) {
         (false, Some((parent, _))) => identities.get(&parent).cloned(),
         _ => None,
     };
     let (Some((parent, _)), Some(parent_identity)) = (applied.parent, parent_identity) else {
-        *identities = graph.element_identities();
+        if let Some(root) = applied.root.and_then(|id| graph.node(id)) {
+            refresh(
+                root.id,
+                bridge::IdentitySegment::of(root, 0, 0),
+                &[],
+                identities,
+            );
+        }
         return;
     };
+    if let Some(root) = applied.root
+        && let Some(segment @ bridge::IdentitySegment::Boundary { .. }) = graph.cached_segment(root)
+    {
+        // A component token fixes this segment independently of its siblings.
+        // Replacing the boundary cannot renumber any sibling occurrence.
+        refresh(root, segment.clone(), &parent_identity, identities);
+        return;
+    }
     let staged = applied
         .staged_ids
         .iter()
@@ -2881,7 +3503,7 @@ fn refresh_identities(
         let settled = !staged.contains(&child)
             && identities.get(&child).and_then(|identity| identity.last()) == Some(&segment);
         if !settled {
-            graph.identities_below(child, segment, &parent_identity, identities);
+            refresh(child, segment, &parent_identity, identities);
         }
     }
 }
@@ -2909,12 +3531,16 @@ impl Render for Runtime {
             .iter()
             .find(|(_, handle)| handle.is_focused(window))
             .map(|(id, _)| *id);
-        self.focused_position = focused_now
-            .and_then(|id| self.graph.focus_order().into_iter().position(|other| other == id));
+        self.focused_position = focused_now.and_then(|id| {
+            self.graph
+                .focus_order()
+                .into_iter()
+                .position(|other| other == id)
+        });
         self.focused_identity = focused_now.and_then(|id| {
             self.graph
                 .node(id)
-                .and_then(|node| node.kind.focus_identity())
+                .and_then(|_| self.identities.get(&id).cloned())
                 .map(|identity| (id, identity))
         });
         // The application's tree hangs below one `FrameSpans`, the element that
@@ -3296,7 +3922,10 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
             spec::Grant::Directory(_) => {
                 let path = resolved.expect("directory grant names a path");
                 if !path.is_dir() {
-                    return Err(format!("directory grant does not exist: {}", path.display()));
+                    return Err(format!(
+                        "directory grant does not exist: {}",
+                        path.display()
+                    ));
                 }
                 flags.push("--host-cap-dir".into());
                 flags.push(path.display().to_string());
@@ -3538,14 +4167,15 @@ fn start_requested_recorder(
 /// # Safety
 ///
 /// Must only be called once, by the C runtime startup code, on the main thread
-/// before any other host function runs. It installs a stack-allocated Roc host
-/// for the lifetime of the call and clears it before returning. The C
+/// before any other host function runs. Its allocator context lives for the
+/// process lifetime so a retired session's workers can release owned results.
+/// UI dispatch authority is retired separately before returning. The C
 /// arguments are ignored; arguments are read through `std::env` instead.
 #[unsafe(no_mangle)]
 #[cfg(not(test))]
 pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
-    let mut host = make_counted_roc_host(core::ptr::null_mut());
-    set_roc_host(&mut host);
+    let host = Box::leak(Box::new(make_counted_roc_host(core::ptr::null_mut())));
+    set_roc_host(host);
 
     let args = match parse_host_args() {
         Ok(args) => args,
@@ -3630,10 +4260,9 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         return 2;
     }
     assets::configure(args.cap_assets.as_deref());
-    if let Err(message) = clipboard::configure(
-        args.cap_clipboard_system,
-        args.cap_clipboard_fixture,
-    ) {
+    if let Err(message) =
+        clipboard::configure(args.cap_clipboard_system, args.cap_clipboard_fixture)
+    {
         eprintln!("roc-gui clipboard capability error: {message}");
         set_roc_host(core::ptr::null_mut());
         return 2;
@@ -3725,6 +4354,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let cycle_started = Instant::now();
     observatory::reset_roc_work();
     let roc_started = Instant::now();
+    observatory::begin_component_work();
     unsafe { roc_gui_init() };
     let roc_callback_ns = elapsed_ns(roc_started);
     let (roc_work, roc_work_valid) = observatory::take_roc_work();
@@ -3808,16 +4438,21 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         // observers synchronously before terminating; finalizing here is what
         // makes a window capture readable at all. `finish` is idempotent, so
         // the tail below remains correct on platforms whose run does return.
-        if observatory::active() {
-            cx.on_app_quit(|_| {
+        cx.on_app_quit(|_| {
+            if observatory::active() {
                 observatory::run_end(1, "pass", observatory::now_ns(), None);
                 if let Err(message) = observatory::finish("success") {
                     eprintln!("roc-gui stats error: {message}");
                 }
-                async {}
-            })
-            .detach();
-        }
+            }
+            // Some platforms terminate inside GPUI's quit path. Retire the
+            // session here as well as in the returning run-loop tail; late
+            // workers retain only the process-lived allocator context.
+            clear_bridge();
+            set_roc_host(core::ptr::null_mut());
+            async {}
+        })
+        .detach();
         if let Some(case) = window_spec {
             window_runner::spawn(
                 case,
@@ -3905,6 +4540,122 @@ mod tests {
             host.roc_realloc as usize,
             counted_roc_realloc as *const () as usize
         );
+    }
+
+    /// Use the generated callable allocator and final-drop ABI, without
+    /// inventing a second representation for the transaction ownership tests.
+    fn counted_callable(
+        dropped: &std::sync::Arc<std::sync::atomic::AtomicU64>,
+    ) -> crate::roc_platform_abi::RocErasedCallable {
+        use crate::roc_platform_abi::{
+            RocHost, roc_erased_callable_allocate, roc_erased_callable_capture_ptr,
+        };
+        use std::sync::{Arc, atomic::Ordering};
+        extern "C" fn never_called(
+            _: *mut RocHost,
+            _: *mut u8,
+            _: *const u8,
+            _: *mut u8,
+            _: *mut u8,
+            _: *mut *const std::ffi::c_void,
+        ) {
+            unreachable!("a lifetime test invoked a Roc callable");
+        }
+        extern "C" fn on_drop(capture: *mut u8, _: *mut RocHost) {
+            let counter = unsafe {
+                Arc::from_raw(capture.cast::<*const std::sync::atomic::AtomicU64>().read())
+            };
+            counter.fetch_add(1, Ordering::Relaxed);
+        }
+        if super::ROC_HOST.load(Ordering::Acquire).is_null() {
+            let host = Box::into_raw(Box::new(make_counted_roc_host(core::ptr::null_mut())));
+            if super::ROC_HOST
+                .compare_exchange(
+                    core::ptr::null_mut(),
+                    host,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                )
+                .is_err()
+            {
+                unsafe { drop(Box::from_raw(host)) };
+            }
+        }
+        unsafe {
+            let callable = roc_erased_callable_allocate(
+                super::roc_host(),
+                never_called,
+                Some(on_drop),
+                std::mem::size_of::<usize>(),
+            );
+            roc_erased_callable_capture_ptr(callable)
+                .cast::<*const std::sync::atomic::AtomicU64>()
+                .write(Arc::into_raw(dropped.clone()));
+            callable
+        }
+    }
+
+    #[test]
+    fn rejected_transaction_releases_candidate_and_worker_but_preserves_session() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let old_drops = Arc::new(AtomicU64::new(0));
+        let next_drops = Arc::new(AtomicU64::new(0));
+        let task_drops = Arc::new(AtomicU64::new(0));
+        let old = counted_callable(&old_drops);
+        super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher = Some(old));
+        super::roc_gui_set_dispatch(counted_callable(&next_drops));
+        super::roc_gui_enqueue_task(0, counted_callable(&task_drops));
+
+        super::reject_transaction();
+        super::reject_transaction();
+
+        assert_eq!(old_drops.load(Ordering::Relaxed), 0);
+        assert_eq!(next_drops.load(Ordering::Relaxed), 1);
+        assert_eq!(task_drops.load(Ordering::Relaxed), 1);
+        let retained = super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher.take());
+        assert_eq!(retained, Some(old));
+        unsafe { super::decref_erased_callable(old, super::roc_host()) };
+        assert_eq!(old_drops.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn accepted_transaction_discards_a_worker_whose_owner_was_removed() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let mut graph = MountedGraph::default();
+        let applied = graph.apply(Patch::NoChange).expect("empty accepted turn");
+        super::roc_gui_enqueue_task(42, counted_callable(&drops));
+
+        super::accept_transaction(&graph, &applied);
+
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        super::STAGED_TURN.with(|turn| assert!(turn.borrow().jobs.is_empty()));
+    }
+
+    #[test]
+    fn stale_epoch_completion_is_dropped_without_invoking_the_session() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let completion = super::TaskEnvelope {
+            callable: counted_callable(&drops) as usize,
+            owner: 0,
+            epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+        };
+
+        assert!(matches!(super::complete(completion), Patch::NoChange));
+
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        super::STAGED_TURN.with(|turn| assert!(turn.borrow().dispatcher.is_none()));
+        observatory::reject_component_work();
     }
 
     #[test]
@@ -4097,7 +4848,7 @@ mod tests {
             patch,
             cycle_started: Instant::now(),
             roc_callback_ns: 0,
-            roc_work: [observatory::RocWork::default(); 4],
+            roc_work: [observatory::RocWork::default(); observatory::ROC_WORK_KINDS],
             roc_work_valid: false,
         }
     }
@@ -4110,6 +4861,273 @@ mod tests {
             Patch::NoChange
         });
         clicks
+    }
+
+    #[gpui::test]
+    fn retained_component_keeps_native_entity_and_pending_press(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, mut nodes) = transport_tree(1000, "Press", "Press");
+        nodes[0].children = vec![1002];
+        nodes.push(Node {
+            id: 1002,
+            kind: NodeKind::Boundary { instance: 7 },
+            children: vec![1001],
+        });
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        let original = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        let point = point(px(60.0), px(60.0));
+        cx.simulate_mouse_move(point, None, Modifiers::none());
+        cx.simulate_mouse_down(point, MouseButton::Left, Modifiers::none());
+        runtime.update(cx, |runtime, cx| {
+            let mut next = runtime.graph.node(1000).unwrap().clone();
+            next.id = 2000;
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 2000,
+                    nodes: vec![next],
+                    retained_roots: vec![1002],
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&1001].entity_id(), original);
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::none());
+        assert_eq!(clicks.borrow().as_slice(), &[1001]);
+    }
+
+    #[gpui::test]
+    fn a_local_virtual_component_update_keeps_its_row_and_press(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, mut nodes) = queue_tree(1000);
+        nodes
+            .iter_mut()
+            .find(|node| node.id == 1002)
+            .unwrap()
+            .children = vec![1004];
+        nodes.push(Node {
+            id: 1004,
+            kind: NodeKind::Boundary { instance: 50 },
+            children: vec![1003],
+        });
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        let (row, button) = runtime.read_with(cx, |runtime, _| {
+            (
+                runtime.virtual_views[&(1001, 1002)].view.entity_id(),
+                runtime.virtual_entities[&1003].view.entity_id(),
+            )
+        });
+        let on_button = point(px(20.0), px(20.0));
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        runtime.update(cx, |runtime, cx| {
+            let mut next_button = runtime.graph.node(1003).unwrap().clone();
+            next_button.id = 1006;
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1004,
+                    root: 1005,
+                    nodes: vec![
+                        Node {
+                            id: 1005,
+                            kind: NodeKind::Boundary { instance: 50 },
+                            children: vec![1006],
+                        },
+                        next_button,
+                    ],
+                },
+                cx,
+            );
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].view.entity_id(), row);
+            assert_eq!(runtime.virtual_entities[&1006].view.entity_id(), button);
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].entities, 3);
+            assert!(!runtime.virtual_entities.contains_key(&1003));
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert_eq!(clicks.borrow().as_slice(), &[1006]);
+    }
+
+    #[gpui::test]
+    fn retiring_a_nested_virtual_list_does_not_subtract_its_rows_from_the_outer_cache(
+        cx: &mut TestAppContext,
+    ) {
+        let (root, mut nodes) = queue_tree(1000);
+        let button = nodes.pop().unwrap();
+        nodes.extend([
+            Node {
+                id: 1003,
+                kind: NodeKind::Boundary { instance: 50 },
+                children: vec![1004],
+            },
+            Node {
+                id: 1004,
+                kind: NodeKind::VirtualList {
+                    name: "Nested".into(),
+                    row_height: 20,
+                    row_gap: 0,
+                    style: Style::default(),
+                },
+                children: vec![1005],
+            },
+            Node {
+                id: 1005,
+                kind: NodeKind::VirtualItem { key: 9 },
+                children: vec![1006],
+            },
+            Node {
+                id: 1006,
+                ..button.clone()
+            },
+        ]);
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            // Drive the production range callback for both mounted lists.
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            drop(runtime.virtual_range(1004, 0..1, 20, 0, cx));
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].entities, 3);
+            assert_eq!(runtime.virtual_views[&(1004, 1005)].entities, 2);
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1003,
+                    root: 2003,
+                    nodes: vec![
+                        Node {
+                            id: 2003,
+                            kind: NodeKind::Boundary { instance: 50 },
+                            children: vec![2004],
+                        },
+                        Node { id: 2004, ..button },
+                    ],
+                },
+                cx,
+            );
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].entities, 3);
+            assert_eq!(runtime.virtual_lists[&1001].entities, 3);
+            assert!(!runtime.virtual_lists.contains_key(&1004));
+            assert!(!runtime.virtual_row_owners.contains_key(&1005));
+        });
+    }
+
+    #[gpui::test]
+    fn equally_named_inputs_in_different_components_have_separate_editors(cx: &mut TestAppContext) {
+        let input = |id| Node {
+            id,
+            kind: NodeKind::TextInput {
+                label: "Name".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Style::default(),
+            },
+            children: vec![],
+        };
+        let nodes = vec![
+            Node {
+                id: 1,
+                kind: NodeKind::Column {
+                    label: "Form".into(),
+                    style: Style::default(),
+                },
+                children: vec![2, 4],
+            },
+            Node {
+                id: 2,
+                kind: NodeKind::Boundary { instance: 10 },
+                children: vec![3],
+            },
+            input(3),
+            Node {
+                id: 4,
+                kind: NodeKind::Boundary { instance: 20 },
+                children: vec![5],
+            },
+            input(5),
+        ];
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1, nodes }), cx)
+        });
+        runtime.read_with(cx, |runtime, cx| {
+            assert_ne!(
+                runtime.views[&3]
+                    .read(cx)
+                    .input
+                    .as_ref()
+                    .unwrap()
+                    .entity_id(),
+                runtime.views[&5]
+                    .read(cx)
+                    .input
+                    .as_ref()
+                    .unwrap()
+                    .entity_id()
+            );
+            assert_ne!(runtime.identities[&3], runtime.identities[&5]);
+        });
+    }
+
+    #[gpui::test]
+    fn an_edit_queued_before_rerender_is_acknowledged_when_its_route_is_stale(
+        cx: &mut TestAppContext,
+    ) {
+        install_test_dispatcher(|_| panic!("stale native edit reached Roc"));
+        let node = |id| Node {
+            id,
+            kind: NodeKind::TextInput {
+                label: "Name".into(),
+                value: "saved".into(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Style::default(),
+            },
+            children: vec![],
+        };
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![node(1)],
+                }),
+                cx,
+            )
+        });
+        let editor = runtime.read_with(cx, |runtime, cx| {
+            runtime.views[&1].read(cx).input.as_ref().unwrap().clone()
+        });
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                gpui::EntityInputHandler::replace_text_in_range(
+                    editor,
+                    Some(0..5),
+                    "queued",
+                    window,
+                    cx,
+                );
+            });
+            // Apply before the deferred native input callback. The reused
+            // editor still has the original controlled value.
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: 1,
+                        root: 2,
+                        nodes: vec![node(2)],
+                    },
+                    cx,
+                )
+            });
+        });
+        cx.run_until_parked();
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.displayed_value(), "saved")
+        });
     }
 
     /// The baseline the two tests below are measured against: with nothing
@@ -4323,7 +5341,11 @@ mod roc_test_symbols {
     }
 
     #[unsafe(no_mangle)]
-    extern "C" fn roc_gui_complete(_dispatcher: RocErasedCallable, _completion: RocErasedCallable) {
+    extern "C" fn roc_gui_complete(
+        _dispatcher: RocErasedCallable,
+        _completion: RocErasedCallable,
+        _owner: u64,
+    ) {
         unreachable!("a host test called into Roc");
     }
 

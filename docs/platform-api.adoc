@@ -27,19 +27,26 @@ render = |state| Elem.col({}, [
     }),
 ])
 
+setup! : () => { state : State, render : State -> Elem(State) }
+setup! = || { state: { count: 0 }, render }
+
 main : Program(State)
-main = Program.run({ init: { count: 0 }, render })
+main = Program.run({ setup: setup! })
 ----
 
 `render` is pure: it reads state and returns an `Elem(State)`. A button handler
 receives the state associated with its render boundary and an `Event.Press`.
-It returns one of three actions:
+It returns an action:
 
-`Action.update(next_state)`:: Replace the boundary's state and render it again.
+`Action.update(next_state)`:: Propose the next state and update the required
+render scope, subject to explicit memoization.
 `Action.none`:: Keep the existing state and element tree unchanged.
+`Action.delegate(next_state)`:: Propose a child change to the nearest component's
+parent policy. That policy returns the action to accept, revise, veto, or
+delegate further.
 `Action.task({ pending, run, resolve })`:: Commit `pending`, run `run` on the
 bounded native worker pool, then invoke `resolve` against the latest state on
-the UI thread.
+the UI thread if the task's owning component instance still exists.
 
 Use `Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
@@ -51,6 +58,21 @@ platform to apply it. Every transition is applied on one thread, one at a time,
 so a handler's first argument is always the state that precedes it. This model
 is Richard Feldman's, from his design document _Design Idea: Action-State_; the
 architecture chapter records that origin and the reasoning behind it.
+
+=== Setup runs before the first render
+
+`Program.run({ setup, window })` describes the application. `setup` is an
+effectful, zero-argument function returning `{ state, render }`; `window` is
+optional. Setup runs once. Use a named, explicitly typed helper as above, and
+create component definitions there before capturing their handles in the
+returned renderer. Resource acquisition in setup must use the same granted
+capabilities as task work. Window-dependent interactions belong in actions once
+the window exists.
+
+Define nested components from the leaves upward, passing existing definition
+handles into their parents' immutable renderer closures. The definition graph
+is acyclic; ordinary recursive functions may still build recursive element
+trees. Definitions cannot be created inside render functions or event handlers.
 
 == Timers and subscriptions
 
@@ -111,8 +133,9 @@ Committed edits deliver the complete value in `Event.TextChange`; Enter delivers
 `Event.TextSubmit`. The host retains focus, caret, selection, and an active IME
 composition across controlled rerenders. Disabled fields accept neither edits
 nor submission. Text values are bounded to one MiB of UTF-8.
-Text-input labels are non-empty and unique in the mounted graph because they
-also preserve the native editor entity across controlled rerenders.
+Text-input labels are non-empty and unique within their component instance
+scope because they also preserve native editor identity across controlled
+rerenders. Distinct keyed instances can reuse the same local input label.
 `Elem.styled_text(Elem.TextProps.{ value, fg, font_size, font_weight, font_face })`::
 Display a string in its own colour, size, weight, and face. Plain `Elem.text`
 inherits all four from its container, so every typographic step otherwise costs a
@@ -233,7 +256,7 @@ layout order is also the default keyboard order. Keep labels concise and
 semantic names stable across state updates.
 
 `Program.run` also accepts a `window` record with an initial logical `width`,
-`height`, and titlebar `title`. Defaults preserve the compact two-field form;
+`height`, and titlebar `title`. Defaults allow a setup-only configuration;
 windows remain resizable and layout elements using `Fill` follow the available
 viewport.
 
@@ -243,47 +266,185 @@ including its rounded corners and the edge above the root element, which a
 grown root element cannot cover. Both default to the host's own ground, so an
 application that says nothing keeps it.
 
-== Local state with `Elem.translate`
+== Keyed components and local state
 
-A large application often contains parts that can update independently.
-`Elem.translate` adapts an element whose handlers work with child state into an
-element that participates in a parent application:
+A component definition fixes how to read and replace child state, render it,
+and handle delegation. `Component.define!` creates an ordinary definition during
+setup. `Elem.component(definition, key)` mounts an instance while rendering:
 
 [source,roc]
 ----
+import pf.Component
+
 State : { title : Str, counter : Counter.State }
 
-render : State -> Elem(State)
-render = |state| Elem.col({}, [
+counter_get : State, Elem.Key -> Try(Counter.State, [Removed])
+counter_get = |parent, key| match Elem.Key.inspect(key) {
+    Name("Main") => Ok(parent.counter)
+    _ => Err(Removed)
+}
+
+counter_set : State, Elem.Key, Counter.State -> Try(State, [Removed])
+counter_set = |parent, key, child| match Elem.Key.inspect(key) {
+    Name("Main") => Ok({ ..parent, counter: child })
+    _ => Err(Removed)
+}
+
+counter_render : Counter.State -> Elem(Counter.State)
+counter_render = |child| Counter.render("Main", child)
+
+render : Component(State), State -> Elem(State)
+render = |counter, state| Elem.col({}, [
     Elem.text(state.title),
-    Elem.translate(
-        |child| Counter.render("Main", child),
-        |parent| parent.counter,
-        |parent, child| { ..parent, counter: child },
-    ),
+    Elem.component(counter, Name("Main")),
 ])
+
+setup! : () => { state : State, render : State -> Elem(State) }
+setup! = || {
+    counter : Component(State)
+    counter = Component.define!({
+        get: counter_get,
+        set: counter_set,
+        render: counter_render,
+    })
+    {
+        state: { title: "Counter", counter: Counter.init(0) },
+        render: |state| render(counter, state),
+    }
+}
+
+main : Program(State)
+main = Program.run({ setup: setup! })
 ----
 
-Its arguments are:
+`Component.Config(parent, child)` contains:
 
-. a renderer for the child state;
-. a getter that extracts child state from parent state;
-. a setter that returns parent state with the child replaced.
+`get : parent, Elem.Key -> Try(child, [Removed])`:: Select current child input
+by stable key. Return `Err(Removed)` when that instance's state is absent.
+`set : parent, Elem.Key, child -> Try(parent, [Removed])`:: Replace that child in
+the latest parent. Return `Err(Removed)` instead of inserting a missing child.
+`render : child -> Elem(child)`:: Render the complete child input, with handlers
+typed to that input.
+`update_scope : [Local, Parent]`:: Declare the minimum render scope. Defaults to
+`Local`.
+`on_delegate : parent, Elem.Key -> Action(parent)`:: Decide what to do with a
+candidate parent after `Action.delegate`. Defaults to accepting it with
+`Action.update`.
 
-Translation is also a render boundary. A button inside the counter receives
-`Counter.State`; when it updates, the platform writes that child back into the
-parent and replaces the counter subtree. The title and other sibling subtrees
-are not rebuilt.
+The definition's renderer, adapters, and policies are immutable. All changing
+inputs must come through `get`, including properties borrowed from parent state
+that rendering or captured handlers use. For a collection, resolve the stable
+key against the latest collection; do not capture a render-time row index.
+The getter and setter succeed for a live projection. A successful setter
+preserves that instance's key and presence, changes only its writable child
+state, and preserves unrelated parent fields; it cannot resurrect an absent
+row. Removing or moving ownership belongs to the parent action, not to a child
+setter that silently changes its own identity. Rendering a component for which
+`get` returns `Removed` is a contract
+error: omit that instance from the element tree instead.
 
-Use a boundary around a component that owns a coherent slice of state and
-changes independently. Do not add boundaries merely to group layout; use rows
-and columns for visual grouping.
+=== Keys identify instances within a scope
 
-The architecture chapter describes what a boundary retains and replaces, and why
-this is a boundary operation rather than a virtual-tree diff.
+`Elem.Key` is `Name(Str)` or `Id(U64)`: `Name("7")` and `Id(7)` are distinct.
+Keys are unique among components in the same structural parent scope, even
+when the definitions differ. Reordering keyed siblings within that scope keeps
+their instance lifetimes. A different definition at the same key, changing the
+structural ancestor path, or removing and later recreating a key mounts a new
+instance.
+
+A key is not a global native-widget identity. Keep surrounding container kinds
+and semantic names stable when interaction state should survive. Components
+add no padding or layout surface, and directly nested components have separate
+lifetime markers even when their visible content has one native root.
+
+=== Render ownership is explicit
+
+In the example, the title does not depend on the count, so a local counter
+update can leave the parent and its siblings untouched. If the parent also
+renders a total derived from that child, set `update_scope: Parent` on the
+definition. Rendering then reaches the parent boundary, and enclosing `Parent`
+policies propagate through further ancestors. The selected scope must contain
+every UI consumer of the changed state. A getter and setter do not establish
+exclusive ownership, and the platform does not infer dependencies from reads.
+
+`Elem.lift(element, get, set)` adapts a prebuilt element to parent state without
+creating a component. It does not add a render scope, lifetime, or memoization,
+and does not intercept delegation. Its non-fallible getter and setter must
+remain valid throughout the existing owner's lifetime. Use a fallible
+component boundary for a projection that can be removed.
+
+=== Delegation lets the parent decide
+
+`Action.delegate(next_child)` crosses the nearest actual component boundary.
+The platform writes the proposed child into a candidate parent, then calls the
+definition's `on_delegate(candidate, key)`. The callback may:
+
+* return `Action.update(candidate)` to accept;
+* return an update with revised parent data;
+* return `Action.none` to veto the whole proposal without committing child data;
+* return `Action.task` to start work owned by the parent; or
+* return `Action.delegate` to continue to the next parent policy.
+
+Render promotion through `update_scope: Parent` neither calls this callback
+nor transfers task ownership. A reusable child can delegate an intent while
+its parent decides whether that intent should mutate a collection, close a
+view, or begin work that must survive the child's removal.
+
+=== Opt-in memoization
+
+Use `Component.memo!` when comparing input is worthwhile. It accepts the same
+fields as `Component.define!` plus `same : child, child -> Bool`:
+
+[source,roc]
+----
+counter = Component.memo!({
+    get: counter_get,
+    set: counter_set,
+    render: counter_render,
+    same: |previous, next| previous.count == next.count,
+})
+----
+
+The comparison runs only when a mounted snapshot is valid. Returning `True`
+promises that retaining the old subtree, including its captured handlers, is
+equivalent to rebuilding it with `next`. Include every changing render and
+handler dependency in the child input and comparison. Comparing a visible count
+alone is wrong if a button also captures a changing increment amount, label,
+or layout property. Immutable definition identity avoids comparing functions.
+
+Equality is not automatically this contract. A custom equality may omit fields;
+floating-point equality may equate positive and negative zero even if rendering
+distinguishes them. An unnecessary miss costs work, but an incorrect hit keeps
+stale behavior. An ordinary definition has no comparison requirement and is
+appropriate for opaque resources and inputs without a useful equivalence.
+
+A hit during ancestor rendering retains the complete child graph, event routes,
+nested instances, and native views. A miss rerenders the component and can
+still retain matching memoized descendants. Local descendant updates invalidate
+ancestor snapshots so a later ancestor render cannot mistake an old snapshot
+for the mounted output. Saved inputs consume memory and may inhibit Roc's
+in-place updates; memoization is a deliberate cost tradeoff, not a default.
+
+=== Tasks follow the action owner
+
+Tasks are submitted only after their pending-state graph transaction is
+accepted. A completion resolves against the latest state of its original
+component instance, not against a render-time snapshot. Matching rerenders and
+keyed reorders preserve that lifetime. Removal revokes completion delivery
+before any captured getter or resolver runs; reusing the key later does not
+revive old work. A delegated task returned by the parent's policy belongs to
+that parent instead.
+
+Revocation releases the completed result and captures through ordinary
+reference counting. It does not cancel an arbitrary running operation. Use
+capability-specific cancellation for blocked work, and application request IDs
+to reject superseded results within an instance that remains alive.
 
 For a complete reusable component, see `examples/counter/Counter.roc` and its
-composition in `examples/counter/main.roc`.
+composition in `examples/counter/main.roc`. `examples/review-queue` composes
+nested components and specifies parent summaries, captured-handler inputs,
+delegation, removal, and local versus parent-owned task completion. The terminal
+workspace mounts resource-bearing terminal state with an ordinary definition.
 
 == Directory capabilities and tasks
 

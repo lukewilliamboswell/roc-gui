@@ -1,91 +1,108 @@
-## A state transition returned by an element event handler. Applications usually
-## construct one with `Action.update`, `Action.none`, or `Action.task`.
-ActionValue(a) := [
-	NoChange,
-	Task({ pending : a, run : Box((() => Box((Box(a) -> Box(Action(a)))))) }),
-	Update(a),
-].{
-
-	## The representation of an action that leaves state unchanged.
-	none : ActionValue(a)
-	none = NoChange
-
-	## The representation of an immediate state replacement.
-	update : a -> ActionValue(a)
-	update = |value| Update(value)
-
-	## The representation of an asynchronous state transition.
-	task : { pending : a, run : Box((() => Box((Box(a) -> Box(Action(a)))))) } -> ActionValue(a)
-	task = |value| Task(value)
-
-	## Reveal the platform representation of an action value.
-	inspect : ActionValue(a) -> [NoChange, Task({ pending : a, run : Box((() => Box((Box(a) -> Box(Action(a)))))) }), Update(a)]
-	inspect = |value| match value {
-		NoChange => NoChange
-		Task(task_value) => Task(task_value)
-		Update(next) => Update(next)
-	}
-}
-
-## An event handler's requested transition for application state `a`.
-Action(a) :: [Action(ActionValue(a))].{
-
-	## Replace application state immediately.
-	update : a -> Action(a)
-	update = |value| Action(ActionValue.update(value))
-
-	## Leave application state and the rendered tree unchanged.
+## An immutable transition. Constructing an action does not commit state or run
+## its worker. Delegation constructs a candidate parent and may be vetoed.
+Action(a) := {
+	value : [NoChange, Update(a), Delegate(a), Task({ pending : a, run : Box((() => Box((Box(a) -> Box(Action(a)))))) })],
+	levels : U64,
+}.{
 	none : Action(a)
-	none = Action(ActionValue.none)
+	none = Action.{ value: NoChange, levels: 0 }
 
-	## Commit `pending` immediately, run `run` on a worker thread, then call
-	## `resolve` with the latest application state on the UI thread. This lets
-	## other events update state while the task is running without being lost.
+	update : a -> Action(a)
+	update = |state| Action.{ value: Update(state), levels: 0 }
+
+	delegate : a -> Action(a)
+	delegate = |state| Action.{ value: Delegate(state), levels: 0 }
+
 	task : { pending : a, run : (() => result), resolve : (a, result -> Action(a)) } -> Action(a)
 	task = |config| {
 		run! = config.run
 		resolve = config.resolve
 		worker! = || {
 			result = run!()
-			complete = |latest_box| Box.box(resolve(Box.unbox(latest_box), result))
+			complete = |latest| Box.box(resolve(Box.unbox(latest), result))
 			Box.box(complete)
 		}
-		result : Action(a)
-		result = Action(ActionValue.task({ pending: config.pending, run: Box.box(worker!) }))
-		result
+		Action.{ value: Task({ pending: config.pending, run: Box.box(worker!) }), levels: 0 }
 	}
 
-	## Adapt an action over component state to its owning application state.
+	inspect : Action(a) -> [NoChange, Update(a), Delegate(a), Task({ pending : a, run : Box((() => Box((Box(a) -> Box(Action(a)))))) })]
+	inspect = |Action.(action)| action.value
+
+	owner_levels : Action(a) -> U64
+	owner_levels = |Action.(action)| action.levels
+
+	with_levels : Action(a), U64 -> Action(a)
+	with_levels = |Action.(action), levels| Action.{ ..action, levels }
+
+	## An adapter has no component lifetime and does not consume delegation.
 	lift : Action(child), parent, (parent -> child), (parent, child -> parent) -> Action(parent)
-	lift = |action, parent, get_child, set_child| match inspect(action) {
-		NoChange => none
-		Update(next_child) => update(set_child(parent, next_child))
-		Task(task_value) => {
-			child_worker_box = task_value.run
-			parent_worker! = || {
-				child_worker! = Box.unbox(child_worker_box)
-				child_complete_box = child_worker!()
-				parent_complete = |latest_parent_box| {
-					latest_parent = Box.unbox(latest_parent_box)
-					child_complete = Box.unbox(child_complete_box)
-					child_action = Box.unbox(child_complete(Box.box(get_child(latest_parent))))
-					Box.box(lift(child_action, latest_parent, get_child, set_child))
+	lift = |action, parent, get, set| adapt(action, parent, get, set, None)
+
+	## Cross one actual component boundary. The callback receives a candidate;
+	## its returned action decides whether that proposal is accepted.
+	through_boundary : Action(child), parent, (parent -> child), (parent, child -> parent), (parent -> Action(parent)) -> Action(parent)
+	through_boundary = |action, parent, get, set, delegated| adapt(action, parent, get, set, Some(delegated))
+
+	adapt : Action(child), parent, (parent -> child), (parent, child -> parent), [None, Some(parent -> Action(parent))] -> Action(parent)
+	adapt = |action, parent, get, set, delegated| {
+		levels = owner_levels(action)
+		match inspect(action) {
+			NoChange => none
+			Update(child) => with_levels(update(set(parent, child)), levels)
+			Delegate(child) => match delegated {
+				None => with_levels(delegate(set(parent, child)), levels)
+				Some(handle) => {
+					accepted = handle(set(parent, child))
+					with_levels(accepted, levels + owner_levels(accepted) + 1)
 				}
-				Box.box(parent_complete)
 			}
-			result : Action(parent)
-			result = Action(
-				ActionValue.task({
-					pending: set_child(parent, task_value.pending),
-					run: Box.box(parent_worker!),
-				}),
-			)
-			result
+			Task(task_value) => {
+
+				## Capture only the worker, never the task record's pending state.
+				child_run = task_value.run
+				worker! = || {
+					child_worker! = Box.unbox(child_run)
+					child_complete = Box.unbox(child_worker!())
+					complete = |latest_box| {
+						latest = Box.unbox(latest_box)
+						child_action = Box.unbox(child_complete(Box.box(get(latest))))
+						Box.box(adapt(child_action, latest, get, set, delegated))
+					}
+					Box.box(complete)
+				}
+				Action.{ value: Task({ pending: set(parent, task_value.pending), run: Box.box(worker!) }), levels }
+			}
 		}
 	}
+}
 
-	## Reveal an action's platform representation. Application UI normally uses
-	## the constructors instead; this is useful when building state adapters.
-	inspect : Action(a) -> [NoChange, Task({ pending : a, run : Box((() => Box((Box(a) -> Box(Action(a)))))) }), Update(a)]
-	inspect = |Action(value)| ActionValue.inspect(value)
+expect {
+	parent = { child: 1.I64, saved: 0.I64 }
+	get = |state| state.child
+	set = |state, child| { ..state, child }
+	proposal = Action.lift(Action.delegate(2.I64), parent, get, set)
+	match Action.inspect(proposal) {
+		Delegate(candidate) => candidate.child == 2 and Action.owner_levels(proposal) == 0
+		_ => False
+	}
+}
+
+expect {
+	parent = { child: 1.I64, saved: 0.I64 }
+	get = |state| state.child
+	set = |state, child| { ..state, child }
+	accepted = Action.through_boundary(Action.delegate(2.I64), parent, get, set, |candidate| Action.update({ ..candidate, saved: candidate.child }))
+	match Action.inspect(accepted) {
+		Update(next) => next.child == 2 and next.saved == 2 and Action.owner_levels(accepted) == 1
+		_ => False
+	}
+}
+
+expect {
+	parent = { child: 1.I64 }
+	vetoed = Action.through_boundary(Action.delegate(2.I64), parent, |state| state.child, |state, child| { ..state, child }, |_| Action.none)
+	match Action.inspect(vetoed) {
+		NoChange => True
+		_ => False
+	}
 }

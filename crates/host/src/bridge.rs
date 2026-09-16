@@ -43,6 +43,10 @@ type NodeSet = HashSet<u64, BuildHasherDefault<NodeIdHasher>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
+    /// A mounted component's lifetime. This node adds no layout surface.
+    Boundary {
+        instance: u64,
+    },
     Canvas {
         label: String,
         primitives: Vec<CanvasPrimitive>,
@@ -233,6 +237,7 @@ impl NodeKind {
             Self::TextInput { .. } => 12,
             Self::Text(_) => 13,
             Self::StyledText { .. } => 14,
+            Self::Boundary { .. } => 15,
         }
     }
 
@@ -257,7 +262,7 @@ impl NodeKind {
             | Self::TextInput { label, .. } => label.clone(),
             Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.clone(),
             Self::VirtualItem { key } => key.to_string(),
-            Self::Text(_) | Self::StyledText { .. } => String::new(),
+            Self::Text(_) | Self::StyledText { .. } | Self::Boundary { .. } => String::new(),
         };
         (!name.is_empty()).then_some(name)
     }
@@ -446,6 +451,13 @@ pub enum Patch {
         root: u64,
         nodes: Vec<Node>,
     },
+    /// Fresh nodes joined to complete, still-mounted component subtrees.
+    ReplaceRetaining {
+        old_root: u64,
+        root: u64,
+        nodes: Vec<Node>,
+        retained_roots: Vec<u64>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -455,6 +467,8 @@ pub struct ApplyFacts {
     pub removed: u64,
     pub live: u64,
     pub scanned: u64,
+    pub retained_nodes: u64,
+    pub validation_visits: u64,
     pub validate_ns: u64,
     pub apply_ns: u64,
 }
@@ -467,11 +481,19 @@ pub struct GraphApply {
     pub removed_ids: Vec<u64>,
     pub retired_root: bool,
     pub parent: Option<(u64, usize)>,
+    pub retained_roots: Vec<u64>,
+    pub retained_nodes: u64,
+    /// Structural validation visits; excludes indexed metadata/scope lookups.
+    pub validation_visits: u64,
+    pub removed_instances: Vec<u64>,
+    pub staged_instances: Vec<u64>,
 }
 
 /// One step of an [`ElementIdentity`]: a node's key among its siblings.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum IdentitySegment {
+    /// An explicit component lifetime cannot inherit a removed component's state.
+    Boundary { instance: u64 },
     /// The node names itself. `occurrence` separates siblings that share a
     /// name, and is 0 for the overwhelmingly common unique case.
     Named {
@@ -481,23 +503,29 @@ pub enum IdentitySegment {
     },
     /// The node has no name of its own, so its place among its siblings is
     /// what identifies it.
-    Positional { index: usize },
+    Positional { tag: u8, index: usize },
 }
 
 impl IdentitySegment {
-    fn of(node: &Node, index: usize, occurrence: u32) -> Self {
+    pub(crate) fn of(node: &Node, index: usize, occurrence: u32) -> Self {
+        if let NodeKind::Boundary { instance } = node.kind {
+            return Self::Boundary { instance };
+        }
         match node.kind.sibling_name() {
             Some(name) => Self::Named {
                 tag: node.kind.tag(),
                 name,
                 occurrence,
             },
-            None => Self::Positional { index },
+            None => Self::Positional {
+                tag: node.kind.tag(),
+                index,
+            },
         }
     }
 }
 
-/// The path of sibling keys from the mounted root down to one node.
+/// A native key path, anchored at the nearest component boundary when present.
 pub type ElementIdentity = Vec<IdentitySegment>;
 
 /// The canonical mounted UI graph. Both semantic specs and the GPUI runtime
@@ -507,16 +535,76 @@ pub struct MountedGraph {
     nodes: NodeMap<MountedNode>,
     root: Option<u64>,
     max_seen_node_id: u64,
+    max_seen_instance: Option<u64>,
+    boundary_instances: NodeMap<u64>,
+    input_labels: HashMap<(Option<u64>, String), u64>,
+    input_owners: NodeMap<Option<u64>>,
+    dialog: Option<u64>,
 }
 
 struct MountedNode {
     node: Node,
     parent: Option<(u64, usize)>,
+    subtree_size: u64,
+    segment: IdentitySegment,
 }
 
 impl MountedGraph {
     pub fn node(&self, id: u64) -> Option<&Node> {
         self.nodes.get(&id).map(|entry| &entry.node)
+    }
+
+    pub fn parent(&self, id: u64) -> Option<(u64, usize)> {
+        self.nodes.get(&id).and_then(|entry| entry.parent)
+    }
+
+    pub fn subtree_size(&self, id: u64) -> Option<u64> {
+        self.nodes.get(&id).map(|entry| entry.subtree_size)
+    }
+
+    /// This node's committed sibling key, without enumerating its siblings.
+    pub fn cached_segment(&self, id: u64) -> Option<&IdentitySegment> {
+        self.nodes.get(&id).map(|entry| &entry.segment)
+    }
+
+    pub fn boundary_root(&self, instance: u64) -> Option<u64> {
+        self.boundary_instances.get(&instance).copied()
+    }
+
+    fn component_owner(&self, mut id: u64) -> Option<u64> {
+        loop {
+            let entry = self.nodes.get(&id)?;
+            if let NodeKind::Boundary { instance } = entry.node.kind {
+                return Some(instance);
+            }
+            id = entry.parent?.0;
+        }
+    }
+
+    pub fn is_virtual_descendant(&self, id: u64) -> bool {
+        let mut parent = self.parent(id);
+        while let Some((id, _)) = parent {
+            if matches!(
+                self.node(id).map(|node| &node.kind),
+                Some(NodeKind::VirtualList { .. })
+            ) {
+                return true;
+            }
+            parent = self.parent(id);
+        }
+        false
+    }
+
+    fn identity(&self, id: u64) -> ElementIdentity {
+        let mut identity = Vec::new();
+        let mut current = Some(id);
+        while let Some(id) = current {
+            let entry = &self.nodes[&id];
+            identity.push(entry.segment.clone());
+            current = entry.parent.map(|(parent, _)| parent);
+        }
+        identity.reverse();
+        identity
     }
 
     /// Nodes in production child order, suitable for semantic ordering checks.
@@ -536,10 +624,11 @@ impl MountedGraph {
     /// A mounted node id is deliberately never reused, so it cannot say that
     /// the control in this frame is the control a person is already pressing
     /// in the last one. This is the identity that can: the path of sibling
-    /// keys from the root, each key the node's own name when it has one and
-    /// its position when it has not. It is stable across a patch that rebuilds
-    /// the whole tree, and it changes the moment the application says the
-    /// control is a different control.
+    /// keys from the nearest component boundary (or mounted root), each key
+    /// the node's own name when it has one and its position when it has not.
+    /// Boundaries reset the prefix to their never-reused instance token. The
+    /// identity is stable across a rebuild within the same component lifetime,
+    /// and changes when the application identifies a different control.
     ///
     /// Repeated names among siblings are disambiguated by occurrence, so the
     /// identity of a node is unique within the graph even when an application
@@ -550,7 +639,7 @@ impl MountedGraph {
             let key = self
                 .node(root)
                 .map(|node| IdentitySegment::of(node, 0, 0))
-                .unwrap_or(IdentitySegment::Positional { index: 0 });
+                .unwrap_or(IdentitySegment::Positional { tag: 0, index: 0 });
             self.identities_below(root, key, &[], &mut identities);
         }
         identities
@@ -595,7 +684,16 @@ impl MountedGraph {
         let mut identity = parent_identity.to_vec();
         identity.push(own);
         let mut pending = vec![(root, identity)];
-        while let Some((id, identity)) = pending.pop() {
+        while let Some((id, mut identity)) = pending.pop() {
+            if let Some(Node {
+                kind: NodeKind::Boundary { instance },
+                ..
+            }) = self.node(id)
+            {
+                identity = vec![IdentitySegment::Boundary {
+                    instance: *instance,
+                }];
+            }
             for (child, segment) in self.child_segments(id) {
                 let mut child_identity = identity.clone();
                 child_identity.push(segment);
@@ -606,9 +704,7 @@ impl MountedGraph {
     }
 
     pub fn active_dialog(&self) -> Option<u64> {
-        self.nodes_preorder()
-            .into_iter()
-            .find_map(|node| matches!(node.kind, NodeKind::Dialog { .. }).then_some(node.id))
+        self.dialog
     }
 
     pub fn is_descendant_of(&self, mut id: u64, ancestor: u64) -> bool {
@@ -659,10 +755,13 @@ impl MountedGraph {
         loop {
             let parent = self.nodes.get(&current).and_then(|entry| entry.parent)?.0;
             if parent == ancestor {
-                return self
-                    .nodes
-                    .get(&ancestor)
-                    .and_then(|entry| entry.node.children.iter().position(|child| *child == current));
+                return self.nodes.get(&ancestor).and_then(|entry| {
+                    entry
+                        .node
+                        .children
+                        .iter()
+                        .position(|child| *child == current)
+                });
             }
             current = parent;
         }
@@ -739,211 +838,352 @@ impl MountedGraph {
 
     fn apply_inner<const MEASURE: bool>(&mut self, patch: Patch) -> Result<GraphApply, String> {
         let validate_started = MEASURE.then(Instant::now);
-        match &patch {
-            Patch::Mount { root, nodes } | Patch::Replace { root, nodes, .. } => {
-                validate_tree(*root, nodes)?;
+        let (old_root, root, nodes, retained_roots) = match patch {
+            Patch::NoChange => {
+                let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
+                let apply_started = MEASURE.then(Instant::now);
+                return Ok(GraphApply {
+                    facts: ApplyFacts {
+                        kind: "no_change",
+                        staged: 0,
+                        removed: 0,
+                        live: self.nodes.len() as u64,
+                        scanned: 0,
+                        retained_nodes: 0,
+                        validation_visits: 0,
+                        validate_ns,
+                        apply_ns: apply_started.map(elapsed_ns).unwrap_or(0),
+                    },
+                    root: None,
+                    staged_ids: vec![],
+                    removed_ids: vec![],
+                    retired_root: false,
+                    parent: None,
+                    retained_roots: vec![],
+                    retained_nodes: 0,
+                    validation_visits: 0,
+                    removed_instances: vec![],
+                    staged_instances: vec![],
+                });
             }
-            Patch::NoChange => {}
+            Patch::Mount { root, nodes } => (None, root, nodes, vec![]),
+            Patch::Replace {
+                old_root,
+                root,
+                nodes,
+            } => (Some(old_root), root, nodes, vec![]),
+            Patch::ReplaceRetaining {
+                old_root,
+                root,
+                nodes,
+                retained_roots,
+            } => (Some(old_root), root, nodes, retained_roots),
+        };
+        if old_root.is_none() && self.root.is_some() {
+            return Err("application attempted to mount twice".into());
         }
-        if let Patch::Replace {
-            old_root, nodes, ..
-        } = &patch
-        {
-            let retained_dialogs = self
-                .nodes
-                .values()
-                .filter(|entry| matches!(entry.node.kind, NodeKind::Dialog { .. }))
-                .filter(|entry| !self.is_descendant_of(entry.node.id, *old_root))
-                .count();
-            let new_dialogs = nodes
-                .iter()
-                .filter(|node| matches!(node.kind, NodeKind::Dialog { .. }))
-                .count();
-            if retained_dialogs + new_dialogs > 1 {
-                return Err("mounted graph would contain more than one modal dialog".into());
+        if let Some(id) = old_root {
+            if !self.nodes.contains_key(&id) {
+                return Err(format!("replacement target {id} is missing"));
             }
-            let mut input_labels = self
+        }
+        let parent = old_root.and_then(|id| self.parent(id));
+        if old_root.is_some() && parent.is_none() && old_root != self.root {
+            return Err("replacement target is detached".into());
+        }
+        let mut frontier = NodeSet::default();
+        let mut retained_nodes = 0;
+        let mut validation_visits = 0;
+        for id in &retained_roots {
+            if !frontier.insert(*id) {
+                return Err(format!("duplicate retained root {id}"));
+            }
+            validation_visits += 1;
+            let entry = self
                 .nodes
-                .values()
-                .filter(|entry| !self.is_descendant_of(entry.node.id, *old_root))
-                .filter_map(|entry| match &entry.node.kind {
-                    NodeKind::TextInput { label, .. } => Some(label.clone()),
-                    _ => None,
+                .get(id)
+                .ok_or_else(|| format!("retained root {id} is not mounted"))?;
+            if !matches!(entry.node.kind, NodeKind::Boundary { .. }) {
+                return Err(format!("retained root {id} is not a component boundary"));
+            }
+            if Some(*id) == old_root {
+                return Err("retain of replacement target must use NoChange".into());
+            }
+            retained_nodes += entry.subtree_size;
+        }
+        // Walk only the retired portion. Stopping at the frontier both proves
+        // disjoint ancestry and avoids examining unchanged subtree interiors.
+        let mut removed_ids = Vec::new();
+        let mut found_frontier = NodeSet::default();
+        let mut pending = old_root.into_iter().collect::<Vec<_>>();
+        while let Some(id) = pending.pop() {
+            if frontier.contains(&id) {
+                found_frontier.insert(id);
+                continue;
+            }
+            let entry = &self.nodes[&id];
+            validation_visits += 1;
+            removed_ids.push(id);
+            pending.extend(entry.node.children.iter().rev().copied());
+        }
+        if found_frontier != frontier {
+            return Err("retained roots overlap or are outside the replacement target".into());
+        }
+        let removed = removed_ids.iter().copied().collect::<NodeSet>();
+        let owner = parent.and_then(|(id, _)| self.component_owner(id));
+        let validated = validate_fragment(root, &nodes, &frontier, owner, |id| self.node(id))?;
+        validation_visits += validated.visits;
+        for node in &nodes {
+            if node.id <= self.max_seen_node_id {
+                return Err("replacement reused a previously issued node id".into());
+            }
+            match &node.kind {
+                NodeKind::Dialog { .. } if self.dialog.is_some_and(|id| !removed.contains(&id)) => {
+                    return Err("mounted graph would contain more than one modal dialog".into());
+                }
+                NodeKind::TextInput { label, .. } => {
+                    if self
+                        .input_labels
+                        .get(&(validated.input_owners[&node.id], label.clone()))
+                        .is_some_and(|id| !removed.contains(id))
+                    {
+                        return Err(format!(
+                            "mounted graph contains duplicate text input label {label:?}"
+                        ));
+                    }
+                }
+                NodeKind::Boundary { instance } => match self.boundary_instances.get(instance) {
+                    Some(id) if !removed.contains(id) => {
+                        return Err(format!("component instance {instance} is already mounted"));
+                    }
+                    None if self.max_seen_instance.is_some_and(|max| *instance <= max) => {
+                        return Err(format!("component instance {instance} was retired"));
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+        let outer_identity = parent.map(|(id, _)| self.identity(id)).unwrap_or_default();
+        let root_segment = if let Some((parent_id, position)) = parent {
+            let node = validated
+                .lookup(root, &nodes, |id| self.node(id))
+                .expect("validated root");
+            let occurrence = node
+                .kind
+                .sibling_name()
+                .map(|name| {
+                    self.nodes[&parent_id].node.children[..position]
+                        .iter()
+                        .filter(|id| {
+                            let other = &self.nodes[id].node;
+                            other.kind.tag() == node.kind.tag()
+                                && other.kind.sibling_name().as_ref() == Some(&name)
+                        })
+                        .count() as u32
                 })
-                .collect::<HashSet<_>>();
-            for label in nodes.iter().filter_map(|node| match &node.kind {
-                NodeKind::TextInput { label, .. } => Some(label),
-                _ => None,
-            }) {
-                if !input_labels.insert(label.clone()) {
-                    return Err(format!(
-                        "mounted graph contains duplicate text input label {label:?}"
-                    ));
+                .unwrap_or(0);
+            IdentitySegment::of(node, position, occurrence)
+        } else {
+            IdentitySegment::of(
+                validated
+                    .lookup(root, &nodes, |id| self.node(id))
+                    .expect("validated root"),
+                0,
+                0,
+            )
+        };
+        let parent_segments_unchanged = old_root
+            .and_then(|id| self.cached_segment(id))
+            .is_some_and(|old_segment| old_segment == &root_segment);
+        // A live component may be rebuilt or retained only in its original
+        // structural scope. Native GPUI element identity includes that path.
+        let mut identity = outer_identity;
+        let mut pending = vec![(root, root_segment.clone(), false)];
+        while let Some((id, segment, exiting)) = pending.pop() {
+            if exiting {
+                identity.pop();
+                continue;
+            }
+            identity.push(segment);
+            if frontier.contains(&id) {
+                if self.identity(id) != identity {
+                    return Err(format!("retained component {id} changed structural scope"));
+                }
+                identity.pop();
+                continue;
+            }
+            let node = &nodes[validated.indices[&id]];
+            if let NodeKind::Boundary { instance } = node.kind {
+                if let Some(old) = self.boundary_instances.get(&instance) {
+                    if self.identity(*old) != identity {
+                        return Err(format!(
+                            "component instance {instance} changed structural scope"
+                        ));
+                    }
                 }
             }
+            pending.push((id, root_segment.clone(), true));
+            let mut occurrences = HashMap::new();
+            let mut children = Vec::with_capacity(node.children.len());
+            for (position, child) in node.children.iter().enumerate() {
+                let child_node = validated
+                    .lookup(*child, &nodes, |id| self.node(id))
+                    .expect("validated child");
+                let occurrence = match child_node.kind.sibling_name() {
+                    Some(name) => {
+                        let count = occurrences
+                            .entry((child_node.kind.tag(), name))
+                            .or_insert(0);
+                        let previous = *count;
+                        *count += 1;
+                        previous
+                    }
+                    None => 0,
+                };
+                children.push((
+                    *child,
+                    IdentitySegment::of(child_node, position, occurrence),
+                    false,
+                ));
+            }
+            pending.extend(children.into_iter().rev());
         }
         let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
         let apply_started = MEASURE.then(Instant::now);
-
-        let (kind, root, staged_ids, removed_ids, removed, retired_root, parent, scanned) =
-            match patch {
-                Patch::NoChange => ("no_change", None, vec![], vec![], 0, false, None, 0),
-                Patch::Mount { root, nodes } => {
-                    if !self.nodes.is_empty() {
-                        return Err("application attempted to mount twice".into());
-                    }
-                    let staged_ids = nodes.iter().map(|node| node.id).collect();
-                    self.insert_nodes(nodes);
-                    self.root = Some(root);
-                    ("mount", Some(root), staged_ids, vec![], 0, false, None, 0)
+        let old_size = old_root.and_then(|id| self.subtree_size(id)).unwrap_or(0);
+        let staged_ids = nodes.iter().map(|node| node.id).collect::<Vec<_>>();
+        let staged_instances = nodes
+            .iter()
+            .filter_map(|node| match node.kind {
+                NodeKind::Boundary { instance } => Some(instance),
+                _ => None,
+            })
+            .collect();
+        let mut removed_instances = Vec::new();
+        let retired_root = old_root == self.root && old_root.is_some() && frontier.is_empty();
+        for id in &removed_ids {
+            let entry = self.nodes.remove(id).expect("validated retirement");
+            match entry.node.kind {
+                NodeKind::Boundary { instance } => {
+                    self.boundary_instances.remove(&instance);
+                    removed_instances.push(instance);
                 }
-                Patch::Replace {
-                    old_root,
-                    root,
-                    nodes,
-                } => {
-                    let replacing_root = self.root == Some(old_root);
-                    let (removed_ids, removed) = if replacing_root {
-                        (vec![], self.nodes.len() as u64)
-                    } else {
-                        let ids = self.subtree_ids(old_root)?.into_iter().collect::<Vec<_>>();
-                        let count = ids.len() as u64;
-                        (ids, count)
-                    };
-                    let production_fresh = contiguous_id_start(&nodes)
-                        .is_some_and(|first| first > self.max_seen_node_id);
-                    if !production_fresh
-                        && nodes.iter().any(|node| self.nodes.contains_key(&node.id))
-                    {
-                        return Err("replacement reused a live node id".into());
-                    }
-                    let parent = self.nodes.get(&old_root).and_then(|entry| entry.parent);
-                    let scanned = u64::from(parent.is_some());
-                    if parent.is_none() && !replacing_root {
-                        return Err("replacement target is detached".into());
-                    }
-                    let staged_ids = nodes.iter().map(|node| node.id).collect();
-                    // Retire the old subtree before admitting its replacement. Node ids have
-                    // already been checked for overlap, and removing first lets both maps reuse
-                    // their existing allocation instead of briefly growing to hold two complete
-                    // roots at once.
-                    if replacing_root {
-                        self.nodes.clear();
-                    } else {
-                        for id in &removed_ids {
-                            self.nodes.remove(id);
-                        }
-                    }
-                    self.insert_nodes(nodes);
-                    if let Some((parent_id, position)) = parent {
-                        self.nodes
-                            .get_mut(&parent_id)
-                            .expect("located parent disappeared")
-                            .node
-                            .children[position] = root;
-                        self.nodes
-                            .get_mut(&root)
-                            .expect("replacement root disappeared")
-                            .parent = Some((parent_id, position));
-                    } else {
-                        self.root = Some(root);
-                    }
-                    (
-                        "replace",
-                        Some(root),
-                        staged_ids,
-                        removed_ids,
-                        removed,
-                        replacing_root,
-                        parent,
-                        scanned,
-                    )
+                NodeKind::TextInput { label, .. } => {
+                    let owner = self.input_owners.remove(id).flatten();
+                    self.input_labels.remove(&(owner, label));
                 }
-            };
+                NodeKind::Dialog { .. } => {
+                    self.dialog = None;
+                }
+                _ => {}
+            }
+        }
+        self.insert_nodes(nodes, &validated);
+        self.nodes.get_mut(&root).expect("validated root").parent = parent;
+        self.nodes.get_mut(&root).expect("validated root").segment = root_segment;
+        let new_size = self.nodes[&root].subtree_size;
+        if let Some((parent_id, position)) = parent {
+            self.nodes
+                .get_mut(&parent_id)
+                .expect("validated parent")
+                .node
+                .children[position] = root;
+            // Replacing a component's content preserves its boundary key.
+            // None of the other siblings' occurrence keys can change, even
+            // when this parent has thousands of directly mounted components.
+            if !parent_segments_unchanged {
+                self.refresh_child_segments(parent_id);
+            }
+            let mut ancestor = Some(parent_id);
+            while let Some(id) = ancestor {
+                let entry = self.nodes.get_mut(&id).expect("mounted ancestor");
+                entry.subtree_size = entry.subtree_size - old_size + new_size;
+                ancestor = entry.parent.map(|(id, _)| id);
+            }
+        } else {
+            self.root = Some(root);
+        }
         let facts = ApplyFacts {
-            kind,
+            kind: if old_root.is_some() {
+                "replace"
+            } else {
+                "mount"
+            },
             staged: staged_ids.len() as u64,
-            removed,
+            removed: removed_ids.len() as u64,
             live: self.nodes.len() as u64,
-            scanned,
+            scanned: u64::from(parent.is_some()),
+            retained_nodes,
+            validation_visits,
             validate_ns,
             apply_ns: apply_started.map(elapsed_ns).unwrap_or(0),
         };
         Ok(GraphApply {
             facts,
-            root,
+            root: Some(root),
             staged_ids,
             removed_ids,
             retired_root,
             parent,
+            retained_roots,
+            retained_nodes,
+            validation_visits,
+            removed_instances,
+            staged_instances,
         })
     }
 
-    fn subtree_ids(&self, root: u64) -> Result<NodeSet, String> {
-        let mut found = NodeSet::default();
-        let mut pending = vec![root];
-        while let Some(id) = pending.pop() {
-            if !found.insert(id) {
-                return Err(format!("cycle in mounted tree at node {id}"));
+    fn insert_nodes(&mut self, nodes: Vec<Node>, validated: &ValidatedFragment) {
+        for node in nodes {
+            self.max_seen_node_id = self.max_seen_node_id.max(node.id);
+            match &node.kind {
+                NodeKind::Boundary { instance } => {
+                    self.boundary_instances.insert(*instance, node.id);
+                    self.max_seen_instance = Some(
+                        self.max_seen_instance
+                            .map_or(*instance, |max| max.max(*instance)),
+                    );
+                }
+                NodeKind::TextInput { label, .. } => {
+                    let owner = validated.input_owners[&node.id];
+                    self.input_owners.insert(node.id, owner);
+                    self.input_labels.insert((owner, label.clone()), node.id);
+                }
+                NodeKind::Dialog { .. } => {
+                    self.dialog = Some(node.id);
+                }
+                _ => {}
             }
-            let node = &self
-                .nodes
-                .get(&id)
-                .ok_or_else(|| format!("replacement target {id} is missing"))?
-                .node;
-            pending.extend(node.children.iter().copied());
+            let segment = IdentitySegment::of(&node, 0, 0);
+            self.nodes.insert(
+                node.id,
+                MountedNode {
+                    node,
+                    parent: None,
+                    subtree_size: 1,
+                    segment,
+                },
+            );
         }
-        Ok(found)
+        for id in &validated.postorder {
+            let children = self.nodes[id].node.children.clone();
+            let size = 1 + children
+                .iter()
+                .map(|id| self.nodes[id].subtree_size)
+                .sum::<u64>();
+            self.nodes.get_mut(id).expect("inserted node").subtree_size = size;
+            for (position, child) in children.into_iter().enumerate() {
+                self.nodes.get_mut(&child).expect("validated child").parent = Some((*id, position));
+            }
+            self.refresh_child_segments(*id);
+        }
     }
 
-    fn insert_nodes(&mut self, nodes: Vec<Node>) {
-        let mut entries = nodes
-            .into_iter()
-            .map(|node| MountedNode { node, parent: None })
-            .collect::<Vec<_>>();
-
-        // BridgeState allocates production node IDs contiguously and lowering
-        // emits them in allocation order. Populate parent metadata directly in
-        // that dense vector. Keep arbitrary hand-built patches supported by a
-        // temporary index without paying for a second persistent graph map.
-        let dense_base = entries.first().map(|entry| entry.node.id);
-        let dense = dense_base.is_some_and(|base| {
-            entries
-                .iter()
-                .enumerate()
-                .all(|(index, entry)| base.checked_add(index as u64) == Some(entry.node.id))
-        });
-        if dense {
-            let base = dense_base.expect("dense entries have a base");
-            for parent_index in 0..entries.len() {
-                let parent_id = entries[parent_index].node.id;
-                for position in 0..entries[parent_index].node.children.len() {
-                    let child = entries[parent_index].node.children[position];
-                    let child_index = usize::try_from(child - base)
-                        .expect("validated dense child index fits usize");
-                    entries[child_index].parent = Some((parent_id, position));
-                }
-            }
-        } else {
-            let indices = entries
-                .iter()
-                .enumerate()
-                .map(|(index, entry)| (entry.node.id, index))
-                .collect::<NodeMap<_>>();
-            for parent_index in 0..entries.len() {
-                let parent_id = entries[parent_index].node.id;
-                for position in 0..entries[parent_index].node.children.len() {
-                    let child = entries[parent_index].node.children[position];
-                    let child_index = indices[&child];
-                    entries[child_index].parent = Some((parent_id, position));
-                }
-            }
+    fn refresh_child_segments(&mut self, parent: u64) {
+        for (id, segment) in self.child_segments(parent) {
+            self.nodes.get_mut(&id).expect("mounted child").segment = segment;
         }
-
-        let inserted_max = entries.iter().map(|entry| entry.node.id).max().unwrap_or(0);
-        self.nodes
-            .extend(entries.into_iter().map(|entry| (entry.node.id, entry)));
-        self.max_seen_node_id = self.max_seen_node_id.max(inserted_max);
     }
 }
 
@@ -958,12 +1198,265 @@ pub enum Commit {
     Replace { old_root: u64, root: u64 },
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum ComponentKey {
+    Numeric(u64),
+    Named(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ComponentLocation {
+    scope: ElementIdentity,
+    key: ComponentKey,
+}
+
+#[derive(Clone, Copy)]
+struct ComponentMount {
+    definition: u64,
+    instance: u64,
+    root: u64,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScopeKind {
+    Render,
+    Native,
+    Component,
+}
+
+struct ComponentScope {
+    identity: ElementIdentity,
+    occurrences: HashMap<(u8, String), u32>,
+    kind: ScopeKind,
+}
+
+/// Identity reconciliation for the production Roc lowering walk. Pending
+/// choices never replace committed mount metadata until the graph accepts its
+/// transaction. Names remain private runtime data and are not capture identity.
+pub struct ComponentRegistry {
+    next_instance: u64,
+    live: HashMap<ComponentLocation, ComponentMount>,
+    instances: NodeMap<ComponentLocation>,
+    pending: HashMap<ComponentLocation, ComponentMount>,
+    pending_instances: NodeSet,
+    seen: HashSet<ComponentLocation>,
+    scopes: Vec<ComponentScope>,
+    rendering: bool,
+}
+
+impl Default for ComponentRegistry {
+    fn default() -> Self {
+        Self {
+            // Instance zero is the permanent application root.
+            next_instance: 1,
+            live: HashMap::new(),
+            instances: NodeMap::default(),
+            pending: HashMap::new(),
+            pending_instances: NodeSet::default(),
+            seen: HashSet::new(),
+            scopes: Vec::new(),
+            rendering: false,
+        }
+    }
+}
+
+impl ComponentRegistry {
+    pub fn begin_render(&mut self, owner: u64) -> Result<(), String> {
+        if self.rendering || !self.pending.is_empty() {
+            return Err("component render began before its preceding transaction committed".into());
+        }
+        if owner != 0 && !self.instances.contains_key(&owner) {
+            return Err(format!("component render owner {owner} is not mounted"));
+        }
+        self.rendering = true;
+        self.scopes.push(ComponentScope {
+            identity: vec![IdentitySegment::Boundary { instance: owner }],
+            occurrences: HashMap::new(),
+            kind: ScopeKind::Render,
+        });
+        Ok(())
+    }
+
+    pub fn scope_enter(&mut self, tag: u8, label: &str, position: u64) -> Result<(), String> {
+        let position =
+            usize::try_from(position).map_err(|_| "native scope position is too large")?;
+        if tag >= 15 {
+            return Err("native scope has invalid kind".into());
+        }
+        if self.scopes.len() >= MAX_STAGED_NODES {
+            return Err("component scope nesting exceeds native tree limit".into());
+        }
+        let parent = self
+            .scopes
+            .last_mut()
+            .ok_or("native scope entered outside a render")?;
+        let segment = if label.is_empty() {
+            IdentitySegment::Positional {
+                tag,
+                index: position,
+            }
+        } else {
+            let occurrence = parent
+                .occurrences
+                .entry((tag, label.to_owned()))
+                .or_default();
+            let segment = IdentitySegment::Named {
+                tag,
+                name: label.to_owned(),
+                occurrence: *occurrence,
+            };
+            *occurrence = occurrence
+                .checked_add(1)
+                .ok_or("native scope occurrence overflow")?;
+            segment
+        };
+        let mut identity = parent.identity.clone();
+        identity.push(segment);
+        self.scopes.push(ComponentScope {
+            identity,
+            occurrences: HashMap::new(),
+            kind: ScopeKind::Native,
+        });
+        Ok(())
+    }
+
+    pub fn scope_exit(&mut self) -> Result<(), String> {
+        self.exit_scope(ScopeKind::Native)
+    }
+
+    pub fn resolve(
+        &mut self,
+        definition: u64,
+        key_kind: u8,
+        key_name: &str,
+        key_id: u64,
+    ) -> Result<(u64, u64), String> {
+        let key = match key_kind {
+            0 => ComponentKey::Numeric(key_id),
+            1 => ComponentKey::Named(key_name.to_owned()),
+            _ => return Err("invalid component key kind".into()),
+        };
+        let scope = self
+            .scopes
+            .last()
+            .ok_or("component resolved outside a render")?
+            .identity
+            .clone();
+        let location = ComponentLocation { scope, key };
+        // Definition identity deliberately does not participate in duplicate
+        // key detection: replacing a definition under one key is a remount.
+        if !self.seen.insert(location.clone()) {
+            return Err("duplicate component key in one structural parent scope".into());
+        }
+        let mount = match self.live.get(&location).copied() {
+            Some(mount) if mount.definition == definition => mount,
+            _ => {
+                let instance = self.next_instance;
+                self.next_instance = instance
+                    .checked_add(1)
+                    .ok_or("component instance space exhausted")?;
+                ComponentMount {
+                    definition,
+                    instance,
+                    root: 0,
+                }
+            }
+        };
+        self.pending_instances.insert(mount.instance);
+        self.pending.insert(location, mount);
+        Ok((mount.instance, mount.root))
+    }
+
+    pub fn component_enter(&mut self, instance: u64) -> Result<(), String> {
+        if self.scopes.is_empty() || !self.pending_instances.contains(&instance) {
+            return Err(format!(
+                "component {instance} was not resolved in this render"
+            ));
+        }
+        if self.scopes.len() >= MAX_STAGED_NODES {
+            return Err("component scope nesting exceeds native tree limit".into());
+        }
+        self.scopes.push(ComponentScope {
+            identity: vec![IdentitySegment::Boundary { instance }],
+            occurrences: HashMap::new(),
+            kind: ScopeKind::Component,
+        });
+        Ok(())
+    }
+
+    pub fn component_exit(&mut self) -> Result<(), String> {
+        self.exit_scope(ScopeKind::Component)
+    }
+
+    fn exit_scope(&mut self, kind: ScopeKind) -> Result<(), String> {
+        if !self.scopes.last().is_some_and(|scope| scope.kind == kind) {
+            return Err("mismatched component/native scope exit".into());
+        }
+        self.scopes.pop();
+        Ok(())
+    }
+
+    /// Called by the bridge commit before making a patch available to the host.
+    pub fn finish_render(&mut self) -> Result<(), String> {
+        if !self.rendering {
+            return Ok(());
+        }
+        if self.scopes.len() != 1 || self.scopes[0].kind != ScopeKind::Render {
+            return Err("component render committed with unfinished scopes".into());
+        }
+        self.scopes.clear();
+        Ok(())
+    }
+
+    /// Accept only the metadata associated with nodes in the accepted graph.
+    /// Retirement and root updates follow the graph delta, never a full scan.
+    pub fn commit(&mut self, graph: &MountedGraph, applied: &GraphApply) {
+        for instance in &applied.removed_instances {
+            if graph.boundary_root(*instance).is_none() {
+                if let Some(location) = self.instances.remove(instance) {
+                    self.live.remove(&location);
+                }
+            }
+        }
+        for (location, mut mount) in std::mem::take(&mut self.pending) {
+            if let Some(root) = graph.boundary_root(mount.instance) {
+                mount.root = root;
+                self.instances.insert(mount.instance, location.clone());
+                self.live.insert(location, mount);
+            }
+        }
+        for instance in &applied.staged_instances {
+            if let Some(location) = self.instances.get(instance) {
+                if let Some(mount) = self.live.get_mut(location) {
+                    mount.root = graph
+                        .boundary_root(*instance)
+                        .expect("staged component is mounted");
+                }
+            }
+        }
+        self.abort();
+    }
+
+    /// Discard unaccepted reconciliation without reusing allocated identities.
+    pub fn abort(&mut self) {
+        // Hash-table iteration and clearing can depend on capacity. Scratch
+        // from a large ancestor render must not tax the next small local one.
+        self.pending = HashMap::new();
+        self.pending_instances = NodeSet::default();
+        self.seen = HashSet::new();
+        self.scopes.clear();
+        self.rendering = false;
+    }
+}
+
 pub struct BridgeState {
     pub dispatcher: Option<RocErasedCallable>,
-    pub task_dispatcher: Option<RocErasedCallable>,
     pub pending: Option<Patch>,
+    pub components: Option<ComponentRegistry>,
     next_node_id: u64,
     staged: Vec<Node>,
+    retained_roots: Vec<u64>,
+    retained_lookup: Option<NodeSet>,
     child_builders: Vec<(u64, Vec<u64>)>,
     next_child_builder_id: u64,
 }
@@ -972,10 +1465,12 @@ impl BridgeState {
     pub const fn new() -> Self {
         Self {
             dispatcher: None,
-            task_dispatcher: None,
             pending: None,
+            components: None,
             next_node_id: 1,
             staged: Vec::new(),
+            retained_roots: Vec::new(),
+            retained_lookup: None,
             child_builders: Vec::new(),
             next_child_builder_id: 1,
         }
@@ -1026,13 +1521,17 @@ impl BridgeState {
         if self.pending.is_some() {
             return Err("Roc built a node before the previous patch was consumed".into());
         }
-        if self.staged.len() >= MAX_STAGED_NODES {
+        if self.staged.len() + self.retained_roots.len() >= MAX_STAGED_NODES {
             return Err(format!("native subtree exceeds {MAX_STAGED_NODES} nodes"));
         }
 
         let staged_start = self.staged.first().map(|node| node.id);
         if let Some(child) = children.iter().find(|child| {
             !staged_start.is_some_and(|start| start <= **child && **child < self.next_node_id)
+                && !self
+                    .retained_lookup
+                    .as_ref()
+                    .is_some_and(|roots| roots.contains(child))
         }) {
             return Err(format!("new node references unstaged child {child}"));
         }
@@ -1045,6 +1544,35 @@ impl BridgeState {
         Ok(id)
     }
 
+    /// Declare a mounted component root as an opaque leaf of this transaction.
+    /// Liveness, component kind, scope, and ancestry are checked by the graph.
+    pub fn retain_subtree(&mut self, root: u64) -> Result<u64, String> {
+        if self.pending.is_some() {
+            return Err("Roc retained a subtree before the previous patch was consumed".into());
+        }
+        if root == 0
+            || root
+                >= self
+                    .staged
+                    .first()
+                    .map_or(self.next_node_id, |node| node.id)
+        {
+            return Err(format!("retained root {root} was not previously issued"));
+        }
+        if self.retained_roots.len() + self.staged.len() >= MAX_STAGED_NODES {
+            return Err(format!("native subtree exceeds {MAX_STAGED_NODES} nodes"));
+        }
+        if !self
+            .retained_lookup
+            .get_or_insert_with(NodeSet::default)
+            .insert(root)
+        {
+            return Err(format!("duplicate retained root {root}"));
+        }
+        self.retained_roots.push(root);
+        Ok(root)
+    }
+
     pub fn commit(&mut self, commit: Commit) -> Result<(), String> {
         if self.pending.is_some() {
             return Err("Roc emitted two patches in one dispatch".into());
@@ -1052,23 +1580,47 @@ impl BridgeState {
         if !self.child_builders.is_empty() {
             return Err("Roc committed a patch with unfinished child builders".into());
         }
+        if let Some(components) = &mut self.components {
+            components.finish_render()?;
+        }
 
         let patch = match commit {
             Commit::NoChange => {
                 if !self.staged.is_empty() {
                     return Err("NoChange followed staged node creation".into());
                 }
+                if !self.retained_roots.is_empty() {
+                    return Err("NoChange followed subtree retention".into());
+                }
                 Patch::NoChange
             }
-            Commit::Mount { root } => Patch::Mount {
-                root,
-                nodes: std::mem::take(&mut self.staged),
-            },
-            Commit::Replace { old_root, root } => Patch::Replace {
-                old_root,
-                root,
-                nodes: std::mem::take(&mut self.staged),
-            },
+            Commit::Mount { root } => {
+                if !self.retained_roots.is_empty() {
+                    return Err("Mount followed subtree retention".into());
+                }
+                Patch::Mount {
+                    root,
+                    nodes: std::mem::take(&mut self.staged),
+                }
+            }
+            Commit::Replace { old_root, root } => {
+                let nodes = std::mem::take(&mut self.staged);
+                if self.retained_roots.is_empty() {
+                    Patch::Replace {
+                        old_root,
+                        root,
+                        nodes,
+                    }
+                } else {
+                    self.retained_lookup = None;
+                    Patch::ReplaceRetaining {
+                        old_root,
+                        root,
+                        nodes,
+                        retained_roots: std::mem::take(&mut self.retained_roots),
+                    }
+                }
+            }
         };
         self.pending = Some(patch);
         Ok(())
@@ -1120,61 +1672,89 @@ fn validate_virtual_keys<'a>(
 }
 
 pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
+    validate_fragment(root, nodes, &NodeSet::default(), None, |_| None).map(|_| ())
+}
+
+struct ValidatedFragment {
+    indices: NodeMap<usize>,
+    input_owners: NodeMap<Option<u64>>,
+    /// Fresh nodes only, with children before their parents.
+    postorder: Vec<u64>,
+    visits: u64,
+}
+
+impl ValidatedFragment {
+    fn lookup<'a>(
+        &self,
+        id: u64,
+        nodes: &'a [Node],
+        mounted: impl FnOnce(u64) -> Option<&'a Node>,
+    ) -> Option<&'a Node> {
+        self.indices
+            .get(&id)
+            .map(|index| &nodes[*index])
+            .or_else(|| mounted(id))
+    }
+}
+
+/// Validate the replacement with retained roots treated as opaque leaves.
+/// Mounted descendants have already been validated and are never walked here.
+fn validate_fragment<'a>(
+    root: u64,
+    nodes: &'a [Node],
+    retained: &NodeSet,
+    owner: Option<u64>,
+    mounted: impl Fn(u64) -> Option<&'a Node>,
+) -> Result<ValidatedFragment, String> {
     if root == 0 {
         return Err("node id 0 is reserved".into());
     }
-    if nodes.len() > MAX_STAGED_NODES {
+    if nodes.len().saturating_add(retained.len()) > MAX_STAGED_NODES {
         return Err(format!("native subtree exceeds {MAX_STAGED_NODES} nodes"));
     }
-    if nodes
-        .iter()
-        .filter(|node| matches!(node.kind, NodeKind::Dialog { .. }))
-        .count()
-        > 1
-    {
-        return Err("native subtree contains more than one modal dialog".into());
-    }
-    let mut input_labels = HashSet::new();
-    for label in nodes.iter().filter_map(|node| match &node.kind {
-        NodeKind::TextInput { label, .. } => Some(label),
-        _ => None,
-    }) {
-        if label.is_empty() {
-            return Err("text input label must not be empty".into());
-        }
-        if !input_labels.insert(label) {
-            return Err(format!(
-                "native subtree contains duplicate text input label {label:?}"
-            ));
-        }
-    }
-
-    // BridgeState assigns one monotonically increasing id to every staged node
-    // and keeps those nodes in assignment order. Validate that production shape
-    // without hashing every id. Hand-built/non-canonical patches still take the
-    // general validator below, so validate_tree retains its complete contract.
-    if let Some(first_id) = contiguous_id_start(nodes) {
-        return validate_contiguous_tree(root, first_id, nodes);
-    }
-
-    // Keep membership and ownership in one table. Validation still runs in two
-    // passes so duplicate/root errors retain precedence over shape and edge
-    // errors, but edges no longer require separate id, lookup, and parent sets.
-    let mut ownership = HashMap::with_capacity(nodes.len());
-    for node in nodes {
+    let mut indices = NodeMap::default();
+    let mut ownership = NodeSet::default();
+    for (index, node) in nodes.iter().enumerate() {
         if node.id == 0 {
             return Err("node id 0 is reserved".into());
         }
-        if ownership.insert(node.id, false).is_some() {
+        if retained.contains(&node.id) || indices.insert(node.id, index).is_some() {
             return Err(format!("duplicate node id {}", node.id));
         }
     }
-    if !ownership.contains_key(&root) {
+    if !indices.contains_key(&root) && !retained.contains(&root) {
         return Err(format!("subtree root {root} is missing"));
     }
-
-    let mut parent_count = 0;
+    let mut result = ValidatedFragment {
+        indices,
+        input_owners: NodeMap::default(),
+        postorder: Vec::with_capacity(nodes.len()),
+        visits: 0,
+    };
+    let mut dialogs = 0;
+    let mut input_labels = HashSet::new();
+    let mut instances = NodeSet::default();
     for node in nodes {
+        result.visits += 1;
+        match &node.kind {
+            NodeKind::Dialog { .. } => {
+                dialogs += 1;
+                if dialogs > 1 {
+                    return Err("native subtree contains more than one modal dialog".into());
+                }
+            }
+            NodeKind::TextInput { label, .. } => {
+                if label.is_empty() {
+                    return Err("text input label must not be empty".into());
+                }
+            }
+            NodeKind::Boundary { instance } => {
+                if !instances.insert(*instance) {
+                    return Err(format!("duplicate component instance {instance}"));
+                }
+            }
+            _ => {}
+        }
         match node.kind {
             NodeKind::Text(_)
             | NodeKind::StyledText { .. }
@@ -1187,6 +1767,12 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
                 if !node.children.is_empty() =>
             {
                 return Err(format!("leaf node {} has children", node.id));
+            }
+            NodeKind::Boundary { .. } if node.children.len() != 1 => {
+                return Err(format!(
+                    "boundary node {} must have one content child",
+                    node.id
+                ));
             }
             NodeKind::Scroll { .. } if node.children.len() != 1 => {
                 return Err(format!(
@@ -1207,123 +1793,65 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
                 ));
             }
             NodeKind::VirtualList { .. } => {
-                validate_virtual_keys(node, |id| nodes.iter().find(|candidate| candidate.id == id))?
+                validate_virtual_keys(node, |id| result.lookup(id, nodes, &mounted))?
             }
             _ => {}
         }
         for child in &node.children {
-            match ownership.get_mut(child) {
-                None => {
-                    return Err(format!("node {} references missing child {child}", node.id));
-                }
-                Some(has_parent @ false) => {
-                    *has_parent = true;
-                    parent_count += 1;
-                }
-                Some(true) => {
-                    return Err(format!("node {child} has more than one parent"));
-                }
+            if !result.indices.contains_key(child) && !retained.contains(child) {
+                return Err(format!("node {} references missing child {child}", node.id));
             }
-        }
-    }
-    if ownership[&root] {
-        return Err(format!("subtree root {root} has a parent"));
-    }
-    if parent_count + 1 != nodes.len() {
-        return Err("native subtree is disconnected".into());
-    }
-    Ok(())
-}
-
-fn contiguous_id_start(nodes: &[Node]) -> Option<u64> {
-    let first_id = nodes.first()?.id;
-    if first_id == 0 {
-        return None;
-    }
-    nodes
-        .iter()
-        .enumerate()
-        .all(|(offset, node)| {
-            u64::try_from(offset)
-                .ok()
-                .and_then(|offset| first_id.checked_add(offset))
-                == Some(node.id)
-        })
-        .then_some(first_id)
-}
-
-fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<(), String> {
-    let root_index = root
-        .checked_sub(first_id)
-        .and_then(|offset| usize::try_from(offset).ok())
-        .filter(|index| *index < nodes.len())
-        .ok_or_else(|| format!("subtree root {root} is missing"))?;
-
-    // Production staging needs one dense ownership byte per node instead of a
-    // hash-table entry for every id. Bytes avoid the read/modify/write and proxy
-    // cost of bit packing while remaining small beside the staged node graph.
-    let mut has_parent = vec![0_u8; nodes.len()];
-    let mut parent_count = 0;
-    for node in nodes {
-        match node.kind {
-            NodeKind::Text(_)
-            | NodeKind::StyledText { .. }
-            | NodeKind::Checkbox { .. }
-            | NodeKind::Button { .. }
-            | NodeKind::Textarea { .. }
-            | NodeKind::Image { .. }
-            | NodeKind::Canvas { .. }
-            | NodeKind::TextInput { .. }
-                if !node.children.is_empty() =>
-            {
-                return Err(format!("leaf node {} has children", node.id));
-            }
-            NodeKind::Scroll { .. } if node.children.len() != 1 => {
-                return Err(format!(
-                    "scroll node {} must have one content child",
-                    node.id
-                ));
-            }
-            NodeKind::VirtualItem { .. } if node.children.len() != 1 => {
-                return Err(format!(
-                    "virtual item node {} must have one content child",
-                    node.id
-                ));
-            }
-            NodeKind::VirtualList { row_height, .. } if !(1..=16_384).contains(&row_height) => {
-                return Err(format!(
-                    "virtual list node {} has invalid row height",
-                    node.id
-                ));
-            }
-            NodeKind::VirtualList { .. } => validate_virtual_keys(node, |id| {
-                id.checked_sub(first_id)
-                    .and_then(|offset| usize::try_from(offset).ok())
-                    .and_then(|index| nodes.get(index))
-            })?,
-            _ => {}
-        }
-        for child in &node.children {
-            let child_index = child
-                .checked_sub(first_id)
-                .and_then(|offset| usize::try_from(offset).ok())
-                .filter(|index| *index < nodes.len())
-                .ok_or_else(|| format!("node {} references missing child {child}", node.id))?;
-            if std::mem::replace(&mut has_parent[child_index], 1) != 0 {
+            if !ownership.insert(*child) {
                 return Err(format!("node {child} has more than one parent"));
             }
-            parent_count += 1;
         }
     }
-    if has_parent[root_index] != 0 {
+    if ownership.contains(&root) {
         return Err(format!("subtree root {root} has a parent"));
     }
-    if parent_count + 1 != nodes.len() {
+    // Parent counts alone cannot distinguish a valid tree from an isolated
+    // root plus a disconnected cycle. Prove reachability from the actual root.
+    let mut reached = NodeSet::default();
+    let mut pending = vec![(root, false, owner)];
+    while let Some((id, exiting, owner)) = pending.pop() {
+        if exiting {
+            result.postorder.push(id);
+            continue;
+        }
+        result.visits += 1;
+        if !reached.insert(id) {
+            return Err(format!("cycle in native subtree at node {id}"));
+        }
+        if retained.contains(&id) {
+            continue;
+        }
+        let node = &nodes[result.indices[&id]];
+        let owner = match &node.kind {
+            NodeKind::Boundary { instance } => Some(*instance),
+            NodeKind::TextInput { label, .. } => {
+                if !input_labels.insert((owner, label)) {
+                    return Err(format!(
+                        "native subtree contains duplicate text input label {label:?}"
+                    ));
+                }
+                result.input_owners.insert(id, owner);
+                owner
+            }
+            _ => owner,
+        };
+        pending.push((id, true, owner));
+        pending.extend(
+            node.children
+                .iter()
+                .rev()
+                .map(|child| (*child, false, owner)),
+        );
+    }
+    if reached.len() != nodes.len() + retained.len() {
         return Err("native subtree is disconnected".into());
     }
-    Ok(())
+    Ok(result)
 }
-
 #[cfg(test)]
 mod tests {
 
@@ -1351,7 +1879,12 @@ mod tests {
         graph
             .apply(Patch::Mount {
                 root: 1,
-                nodes: vec![row(1, vec![2, 3, 4]), button(2, "a"), button(3, "b"), button(4, "c")],
+                nodes: vec![
+                    row(1, vec![2, 3, 4]),
+                    button(2, "a"),
+                    button(3, "b"),
+                    button(4, "c"),
+                ],
             })
             .expect("mount");
         assert_eq!(graph.focus_order(), vec![2, 3, 4]);
@@ -2240,11 +2773,831 @@ mod tests {
         assert_eq!(replaced.facts.removed, 2);
         assert_eq!(replaced.facts.live, 2);
         assert!(replaced.retired_root);
-        assert!(replaced.removed_ids.is_empty());
+        assert_eq!(replaced.removed_ids, vec![2, 1]);
         assert_eq!(replaced.parent, None);
         assert_eq!(graph.root(), Some(4));
         assert!(graph.node(1).is_none());
         assert!(graph.node(2).is_none());
         assert_eq!(graph.node(4).unwrap().children, vec![3]);
+    }
+
+    fn component(id: u64, instance: u64, child: u64) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Boundary { instance },
+            children: vec![child],
+        }
+    }
+
+    fn column(id: u64, children: Vec<u64>) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Column {
+                label: "root".into(),
+                style: Style::default(),
+            },
+            children,
+        }
+    }
+
+    fn two_components() -> MountedGraph {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 5,
+                nodes: vec![
+                    text(1, "first"),
+                    component(2, 1, 1),
+                    text(3, "second"),
+                    component(4, 2, 3),
+                    column(5, vec![2, 4]),
+                ],
+            })
+            .unwrap();
+        graph
+    }
+
+    #[test]
+    fn retaining_reordered_components_preserves_ids_and_reattaches_roots() {
+        let mut graph = two_components();
+        let identities = graph.element_identities();
+        let applied = graph
+            .apply(Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![4, 2])],
+                retained_roots: vec![2, 4],
+            })
+            .unwrap();
+        assert_eq!(applied.staged_ids, vec![6]);
+        assert_eq!(applied.removed_ids, vec![5]);
+        assert_eq!(applied.retained_nodes, 4);
+        assert_eq!(applied.facts.live, 5);
+        assert!(!applied.retired_root);
+        assert_eq!(graph.parent(4), Some((6, 0)));
+        assert_eq!(graph.parent(2), Some((6, 1)));
+        assert_eq!(graph.parent(1), Some((2, 0)));
+        assert_eq!(graph.subtree_size(6), Some(5));
+        assert_eq!(graph.element_identities()[&1], identities[&1]);
+        assert_eq!(graph.element_identities()[&3], identities[&3]);
+        assert_eq!(graph.boundary_root(1), Some(2));
+    }
+
+    #[test]
+    fn retained_parent_links_support_the_next_local_replacement() {
+        let mut graph = two_components();
+        graph
+            .apply(Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![4, 2])],
+                retained_roots: vec![2, 4],
+            })
+            .unwrap();
+        let applied = graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 9,
+                nodes: vec![
+                    text(7, "changed"),
+                    text(8, "additional"),
+                    column(10, vec![7, 8]),
+                    component(9, 1, 10),
+                ],
+            })
+            .unwrap();
+        assert_eq!(applied.parent, Some((6, 1)));
+        assert_eq!(graph.node(6).unwrap().children, vec![4, 9]);
+        assert_eq!(graph.subtree_size(6), Some(7));
+        assert_eq!(graph.subtree_size(9), Some(4));
+        assert_eq!(graph.boundary_root(1), Some(9));
+    }
+
+    #[test]
+    fn invalid_retention_is_atomic() {
+        let cases = vec![
+            Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![2, 4])],
+                retained_roots: vec![2, 2, 4],
+            },
+            Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![1])],
+                retained_roots: vec![1],
+            },
+            Patch::ReplaceRetaining {
+                old_root: 2,
+                root: 6,
+                nodes: vec![column(6, vec![4])],
+                retained_roots: vec![4],
+            },
+            Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![2, 2])],
+                retained_roots: vec![2],
+            },
+            Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![2]), text(7, "unreachable")],
+                retained_roots: vec![2],
+            },
+            Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![2])],
+                retained_roots: vec![2, 4],
+            },
+            Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![99])],
+                retained_roots: vec![99],
+            },
+        ];
+        for patch in cases {
+            let mut graph = two_components();
+            let before = graph
+                .nodes_preorder()
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>();
+            assert!(graph.apply(patch).is_err());
+            assert_eq!(
+                graph
+                    .nodes_preorder()
+                    .into_iter()
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                before
+            );
+            assert_eq!(graph.boundary_root(1), Some(2));
+            assert_eq!(graph.subtree_size(5), Some(5));
+            graph
+                .apply(Patch::Replace {
+                    old_root: 1,
+                    root: 6,
+                    nodes: vec![text(6, "valid afterwards")],
+                })
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn retained_roots_must_be_disjoint() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 4,
+                nodes: vec![
+                    text(1, "leaf"),
+                    component(2, 1, 1),
+                    component(3, 2, 2),
+                    column(4, vec![3]),
+                ],
+            })
+            .unwrap();
+        let error = graph
+            .apply(Patch::ReplaceRetaining {
+                old_root: 4,
+                root: 5,
+                nodes: vec![column(5, vec![3, 2])],
+                retained_roots: vec![2, 3],
+            })
+            .unwrap_err();
+        assert!(error.contains("overlap"));
+        assert_eq!(graph.root(), Some(4));
+    }
+
+    #[test]
+    fn changed_native_scope_requires_new_component_lifetime() {
+        let mut graph = two_components();
+        let error = graph
+            .apply(Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![Node {
+                    id: 6,
+                    kind: NodeKind::Row {
+                        label: "root".into(),
+                        style: Style::default(),
+                    },
+                    children: vec![2, 4],
+                }],
+                retained_roots: vec![2, 4],
+            })
+            .unwrap_err();
+        assert!(error.contains("structural scope"));
+        let error = graph
+            .apply(Patch::Replace {
+                old_root: 5,
+                root: 8,
+                nodes: vec![
+                    text(6, "new"),
+                    component(7, 1, 6),
+                    Node {
+                        id: 8,
+                        kind: NodeKind::Row {
+                            label: "root".into(),
+                            style: Style::default(),
+                        },
+                        children: vec![7],
+                    },
+                ],
+            })
+            .unwrap_err();
+        assert!(error.contains("structural scope"));
+    }
+
+    #[test]
+    fn retired_node_ids_and_component_instances_cannot_be_resurrected() {
+        let mut graph = two_components();
+        graph
+            .apply(Patch::ReplaceRetaining {
+                old_root: 5,
+                root: 6,
+                nodes: vec![column(6, vec![2])],
+                retained_roots: vec![2],
+            })
+            .unwrap();
+        assert_eq!(graph.boundary_root(2), None);
+        assert!(
+            graph
+                .apply(Patch::Replace {
+                    old_root: 1,
+                    root: 3,
+                    nodes: vec![text(3, "reused")]
+                })
+                .unwrap_err()
+                .contains("previously issued")
+        );
+        assert!(
+            graph
+                .apply(Patch::Replace {
+                    old_root: 2,
+                    root: 8,
+                    nodes: vec![text(7, "recreated"), component(8, 2, 7)],
+                })
+                .unwrap_err()
+                .contains("retired")
+        );
+        graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 8,
+                nodes: vec![text(7, "new lifetime"), component(8, 3, 7)],
+            })
+            .unwrap();
+        assert_eq!(graph.boundary_root(3), Some(8));
+    }
+
+    #[test]
+    fn disconnected_cycles_are_rejected_for_dense_and_sparse_ids() {
+        for (root, a, b) in [(1, 2, 3), (10, 20, 30)] {
+            assert!(
+                validate_tree(
+                    root,
+                    &[column(root, vec![]), column(a, vec![b]), column(b, vec![a])]
+                )
+                .unwrap_err()
+                .contains("disconnected")
+            );
+        }
+    }
+
+    #[test]
+    fn local_replacement_among_direct_component_siblings_keeps_bounded_graph_work() {
+        for count in [100_u64, 1_000, 10_000] {
+            let mut graph = MountedGraph::default();
+            let parent = count * 2 + 1;
+            let mut nodes = Vec::new();
+            let mut children = Vec::new();
+            for instance in 1..=count {
+                let content = instance * 2 - 1;
+                let boundary = instance * 2;
+                nodes.push(text(content, "row"));
+                nodes.push(component(boundary, instance, content));
+                children.push(boundary);
+            }
+            nodes.push(column(parent, children));
+            graph
+                .apply(Patch::Mount {
+                    root: parent,
+                    nodes,
+                })
+                .unwrap();
+
+            let instance = count / 2;
+            let old_root = instance * 2;
+            let root = parent + 2;
+            let applied = graph
+                .apply(Patch::Replace {
+                    old_root,
+                    root,
+                    nodes: vec![
+                        text(parent + 1, "edited"),
+                        component(root, instance, parent + 1),
+                    ],
+                })
+                .unwrap();
+
+            assert_eq!(applied.facts.staged, 2);
+            assert_eq!(applied.facts.removed, 2);
+            assert_eq!(applied.facts.validation_visits, 6);
+            assert_eq!(applied.facts.scanned, 1);
+            assert_eq!(graph.subtree_size(parent), Some(count * 2 + 1));
+            assert_eq!(graph.parent(root), Some((parent, instance as usize - 1)));
+            assert_eq!(
+                graph.cached_segment(root),
+                Some(&IdentitySegment::Boundary { instance })
+            );
+            for sibling in [1, instance - 1, instance + 1, count] {
+                assert_eq!(graph.boundary_root(sibling), Some(sibling * 2));
+                assert_eq!(
+                    graph.cached_segment(sibling * 2),
+                    Some(&IdentitySegment::Boundary { instance: sibling })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn boundaries_have_one_child_and_unique_live_instances() {
+        assert!(
+            validate_tree(
+                1,
+                &[Node {
+                    id: 1,
+                    kind: NodeKind::Boundary { instance: 0 },
+                    children: vec![]
+                }]
+            )
+            .unwrap_err()
+            .contains("one content child")
+        );
+        assert!(
+            validate_tree(
+                5,
+                &[
+                    text(1, "a"),
+                    component(2, 1, 1),
+                    text(3, "b"),
+                    component(4, 1, 3),
+                    column(5, vec![2, 4])
+                ]
+            )
+            .unwrap_err()
+            .contains("duplicate component instance")
+        );
+        let mut graph = two_components();
+        assert!(
+            graph
+                .apply(Patch::ReplaceRetaining {
+                    old_root: 5,
+                    root: 8,
+                    nodes: vec![
+                        text(6, "duplicate"),
+                        component(7, 1, 6),
+                        column(8, vec![2, 7])
+                    ],
+                    retained_roots: vec![2],
+                })
+                .unwrap_err()
+                .contains("already mounted")
+        );
+    }
+
+    #[test]
+    fn retained_constraints_distinguish_global_dialogs_from_component_input_labels() {
+        let kinds = [
+            NodeKind::Dialog {
+                label: "modal".into(),
+                style: Style::default(),
+            },
+            NodeKind::TextInput {
+                label: "field".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Style::default(),
+            },
+        ];
+        for kind in kinds {
+            let is_dialog = matches!(kind, NodeKind::Dialog { .. });
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: 3,
+                    nodes: vec![
+                        Node {
+                            id: 1,
+                            kind: kind.clone(),
+                            children: vec![],
+                        },
+                        component(2, 1, 1),
+                        column(3, vec![2]),
+                    ],
+                })
+                .unwrap();
+            let result = graph.apply(Patch::ReplaceRetaining {
+                old_root: 3,
+                root: 5,
+                nodes: vec![
+                    Node {
+                        id: 4,
+                        kind,
+                        children: vec![],
+                    },
+                    column(5, vec![2, 4]),
+                ],
+                retained_roots: vec![2],
+            });
+            if is_dialog {
+                assert!(result.is_err());
+                assert_eq!(graph.root(), Some(3));
+            } else {
+                assert!(
+                    result.is_ok(),
+                    "same input label in different component scopes is valid"
+                );
+                assert_eq!(graph.root(), Some(5));
+            }
+        }
+    }
+
+    #[test]
+    fn input_label_indices_follow_component_scope_during_local_replacement() {
+        let field = |id| Node {
+            id,
+            kind: NodeKind::TextInput {
+                label: "Name".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Style::default(),
+            },
+            children: vec![],
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 8,
+                nodes: vec![
+                    field(1),
+                    text(2, "slot"),
+                    column(3, vec![1, 2]),
+                    component(4, 1, 3),
+                    field(5),
+                    component(6, 2, 5),
+                    column(7, vec![4, 6]),
+                    component(8, 0, 7),
+                ],
+            })
+            .unwrap();
+        graph
+            .apply(Patch::Replace {
+                old_root: 5,
+                root: 9,
+                nodes: vec![field(9)],
+            })
+            .unwrap();
+        assert!(
+            graph
+                .apply(Patch::Replace {
+                    old_root: 2,
+                    root: 10,
+                    nodes: vec![field(10)]
+                })
+                .unwrap_err()
+                .contains("duplicate text input label")
+        );
+        graph
+            .apply(Patch::Replace {
+                old_root: 1,
+                root: 10,
+                nodes: vec![field(10)],
+            })
+            .unwrap();
+        assert_eq!(graph.input_labels.get(&(Some(1), "Name".into())), Some(&10));
+        assert_eq!(graph.input_labels.get(&(Some(2), "Name".into())), Some(&9));
+    }
+
+    #[test]
+    fn staging_accepts_only_explicit_retention_and_rejects_dirty_no_change() {
+        let mut bridge = BridgeState::new();
+        let leaf = bridge
+            .stage_node(NodeKind::Text("leaf".into()), vec![])
+            .unwrap();
+        let boundary = bridge
+            .stage_node(NodeKind::Boundary { instance: 0 }, vec![leaf])
+            .unwrap();
+        bridge.commit(Commit::Mount { root: boundary }).unwrap();
+        bridge.pending.take();
+        assert_eq!(bridge.retain_subtree(boundary), Ok(boundary));
+        assert!(
+            bridge
+                .retain_subtree(boundary)
+                .unwrap_err()
+                .contains("duplicate")
+        );
+        assert!(
+            bridge
+                .commit(Commit::NoChange)
+                .unwrap_err()
+                .contains("retention")
+        );
+        assert!(
+            bridge
+                .commit(Commit::Mount { root: boundary })
+                .unwrap_err()
+                .contains("retention")
+        );
+        let root = bridge
+            .stage_node(
+                NodeKind::Column {
+                    label: "root".into(),
+                    style: Style::default(),
+                },
+                vec![boundary],
+            )
+            .unwrap();
+        bridge
+            .commit(Commit::Replace {
+                old_root: boundary,
+                root,
+            })
+            .unwrap();
+        assert!(
+            matches!(bridge.pending.take(), Some(Patch::ReplaceRetaining { retained_roots, .. }) if retained_roots == vec![boundary])
+        );
+        assert!(
+            bridge
+                .stage_node(
+                    NodeKind::Column {
+                        label: "other".into(),
+                        style: Style::default()
+                    },
+                    vec![boundary]
+                )
+                .unwrap_err()
+                .contains("unstaged")
+        );
+    }
+
+    #[test]
+    fn no_change_has_no_graph_validation_or_retirement_work() {
+        let mut graph = two_components();
+        let result = graph.apply(Patch::NoChange).unwrap();
+        assert_eq!(result.validation_visits, 0);
+        assert_eq!(result.facts.staged, 0);
+        assert_eq!(result.facts.removed, 0);
+        assert_eq!(result.facts.live, 5);
+    }
+
+    #[test]
+    fn retention_validation_does_not_visit_unchanged_interiors() {
+        let mut visits = Vec::new();
+        for count in [1_u64, 1000, 10_000] {
+            let mut nodes = (1..=count).map(|id| text(id, "row")).collect::<Vec<_>>();
+            nodes.push(column(count + 1, (1..=count).collect()));
+            nodes.push(component(count + 2, 1, count + 1));
+            nodes.push(column(count + 3, vec![count + 2]));
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: count + 3,
+                    nodes,
+                })
+                .unwrap();
+            let applied = graph
+                .apply(Patch::ReplaceRetaining {
+                    old_root: count + 3,
+                    root: count + 4,
+                    nodes: vec![column(count + 4, vec![count + 2])],
+                    retained_roots: vec![count + 2],
+                })
+                .unwrap();
+            assert_eq!(applied.retained_nodes, count + 2);
+            assert_eq!(applied.facts.staged, 1);
+            assert_eq!(applied.facts.removed, 1);
+            visits.push(applied.validation_visits);
+        }
+        assert_eq!(visits, vec![5, 5, 5]);
+    }
+
+    fn registered_component() -> (ComponentRegistry, MountedGraph) {
+        let mut registry = ComponentRegistry::default();
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((1, 0)));
+        registry.component_enter(1).unwrap();
+        registry.component_exit().unwrap();
+        registry.scope_exit().unwrap();
+        registry.finish_render().unwrap();
+        let mut graph = MountedGraph::default();
+        let applied = graph
+            .apply(Patch::Mount {
+                root: 4,
+                nodes: vec![
+                    text(1, "leaf"),
+                    component(2, 1, 1),
+                    column(3, vec![2]),
+                    component(4, 0, 3),
+                ],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        (registry, graph)
+    }
+
+    #[test]
+    fn component_registry_scratch_capacity_belongs_to_only_one_transaction() {
+        let mut registry = ComponentRegistry::default();
+        let mut graph = MountedGraph::default();
+        let count = 10_000;
+        let mut nodes = Vec::new();
+        let mut children = Vec::new();
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        for key in 1..=count {
+            let (instance, old_root) = registry.resolve(100, 0, "", key).unwrap();
+            assert_eq!(old_root, 0);
+            nodes.push(text(key * 2 - 1, "row"));
+            nodes.push(component(key * 2, instance, key * 2 - 1));
+            children.push(key * 2);
+        }
+        registry.scope_exit().unwrap();
+        registry.finish_render().unwrap();
+        assert!(registry.pending.capacity() >= count as usize);
+        nodes.push(column(count * 2 + 1, children));
+        let applied = graph
+            .apply(Patch::Mount {
+                root: count * 2 + 1,
+                nodes,
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        assert_eq!(registry.live.len(), count as usize);
+        assert_eq!(registry.pending.capacity(), 0);
+        assert_eq!(registry.pending_instances.capacity(), 0);
+        assert_eq!(registry.seen.capacity(), 0);
+
+        registry.begin_render(count / 2).unwrap();
+        registry.resolve(100, 0, "", 1).unwrap();
+        assert!(registry.pending.capacity() < 16);
+        assert!(registry.pending_instances.capacity() < 16);
+        assert!(registry.seen.capacity() < 16);
+        registry.abort();
+        assert_eq!(registry.pending.capacity(), 0);
+        assert_eq!(registry.pending_instances.capacity(), 0);
+        assert_eq!(registry.seen.capacity(), 0);
+        assert_eq!(registry.live.len(), count as usize);
+    }
+
+    #[test]
+    fn component_registry_matches_scoped_keys_after_retention() {
+        let (mut registry, mut graph) = registered_component();
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((1, 2)));
+        registry.scope_exit().unwrap();
+        registry.finish_render().unwrap();
+        let applied = graph
+            .apply(Patch::ReplaceRetaining {
+                old_root: 4,
+                root: 6,
+                nodes: vec![column(5, vec![2]), component(6, 0, 5)],
+                retained_roots: vec![2],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        registry.begin_render(1).unwrap();
+        registry.finish_render().unwrap();
+        let applied = graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 8,
+                nodes: vec![text(7, "changed"), component(8, 1, 7)],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((1, 8)));
+    }
+
+    #[test]
+    fn component_registry_definition_changes_and_retirement_allocate_new_lifetimes() {
+        let (mut registry, mut graph) = registered_component();
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert_eq!(registry.resolve(101, 1, "child", 0), Ok((2, 0)));
+        registry.scope_exit().unwrap();
+        registry.finish_render().unwrap();
+        let applied = graph
+            .apply(Patch::Replace {
+                old_root: 4,
+                root: 8,
+                nodes: vec![
+                    text(5, "new definition"),
+                    component(6, 2, 5),
+                    column(7, vec![6]),
+                    component(8, 0, 7),
+                ],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        assert!(
+            registry
+                .begin_render(1)
+                .unwrap_err()
+                .contains("not mounted")
+        );
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((3, 0)));
+        registry.abort();
+        let applied = graph
+            .apply(Patch::Replace {
+                old_root: 8,
+                root: 10,
+                nodes: vec![column(9, vec![]), component(10, 0, 9)],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert_eq!(registry.resolve(101, 1, "child", 0), Ok((4, 0)));
+    }
+
+    #[test]
+    fn component_registry_rejects_duplicate_keys_across_definitions() {
+        let mut registry = ComponentRegistry::default();
+        registry.begin_render(0).unwrap();
+        assert_eq!(registry.resolve(100, 0, "", 7), Ok((1, 0)));
+        assert!(
+            registry
+                .resolve(101, 0, "", 7)
+                .unwrap_err()
+                .contains("duplicate component key")
+        );
+        assert_eq!(registry.resolve(100, 1, "7", 0), Ok((2, 0)));
+        registry.abort();
+        registry.begin_render(0).unwrap();
+        assert_eq!(
+            registry.resolve(100, 0, "", 7),
+            Ok((3, 0)),
+            "aborted allocation cannot be reused"
+        );
+    }
+
+    #[test]
+    fn component_registry_native_scope_changes_remount() {
+        let (mut registry, _) = registered_component();
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(8, "root", 0).unwrap();
+        assert_eq!(
+            registry.resolve(100, 1, "child", 0),
+            Ok((2, 0)),
+            "Column became Row"
+        );
+        registry.abort();
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "wrapper", 0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert_eq!(
+            registry.resolve(100, 1, "child", 0),
+            Ok((3, 0)),
+            "new native wrapper changes scope"
+        );
+    }
+
+    #[test]
+    fn component_registry_scopes_must_balance_before_commit() {
+        let mut registry = ComponentRegistry::default();
+        assert!(registry.resolve(100, 0, "", 0).is_err());
+        registry.begin_render(0).unwrap();
+        registry.scope_enter(5, "root", 0).unwrap();
+        assert!(
+            registry
+                .finish_render()
+                .unwrap_err()
+                .contains("unfinished scopes")
+        );
+        assert!(registry.component_exit().is_err());
+        registry.resolve(100, 1, "child", 0).unwrap();
+        registry.component_enter(1).unwrap();
+        assert!(registry.scope_exit().is_err());
+        registry.component_exit().unwrap();
+        registry.scope_exit().unwrap();
+        registry.finish_render().unwrap();
+        assert!(
+            registry.begin_render(0).is_err(),
+            "finished lowering still awaits graph acceptance"
+        );
     }
 }

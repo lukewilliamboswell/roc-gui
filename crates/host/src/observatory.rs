@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 10;
+pub const SCHEMA_VERSION: u32 = 11;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -25,7 +25,119 @@ static ROC_DEALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
 static ROC_REALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
 static ROC_REALLOC_REQUESTED_BYTES: AtomicU64 = AtomicU64::new(0);
 static GPUI_FRAME_ORDINAL: AtomicU64 = AtomicU64::new(0);
-const ROC_WORK_KINDS: usize = 4;
+pub const ROC_WORK_KINDS: usize = 5;
+
+/// Numeric work reported by the Roc component runtime at the owning operation.
+/// The order is the `component_work!` ABI; changing it requires a schema change.
+pub const COMPONENT_WORK_NAMES: [&str; 7] = [
+    "rendered",
+    "compared",
+    "skipped",
+    "mounted",
+    "retired",
+    "registry_visits",
+    "ancestor_invalidations",
+];
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ComponentWork(pub [u64; COMPONENT_WORK_NAMES.len()]);
+
+#[derive(Default)]
+struct ComponentWorkOwner {
+    totals: ComponentWork,
+    pending: Option<ComponentWork>,
+    committed: Option<ComponentWork>,
+    commits: u64,
+    cycle_start: ComponentWork,
+    cycle_start_commits: u64,
+}
+
+thread_local! {
+    static COMPONENT_WORK: std::cell::RefCell<ComponentWorkOwner> = Default::default();
+}
+
+/// Start one production action turn, independently of whether capture is enabled.
+pub fn begin_component_work() {
+    COMPONENT_WORK.with(|owner| {
+        let mut owner = owner.borrow_mut();
+        assert!(owner.pending.is_none(), "nested component work turn");
+        owner.pending = Some(ComponentWork::default());
+    });
+}
+
+pub fn note_component_work(kind: u8, amount: u64) {
+    let kind = usize::from(kind);
+    assert!(
+        kind < COMPONENT_WORK_NAMES.len(),
+        "unknown component work kind"
+    );
+    COMPONENT_WORK.with(|owner| {
+        let mut owner = owner.borrow_mut();
+        let pending = owner
+            .pending
+            .as_mut()
+            .expect("component work outside a turn");
+        pending.0[kind] = pending.0[kind]
+            .checked_add(amount)
+            .expect("component work overflow");
+        owner.totals.0[kind] = owner.totals.0[kind]
+            .checked_add(amount)
+            .expect("component work overflow");
+    });
+}
+
+/// Publish only after the mounted graph accepts the same action transaction.
+pub fn commit_component_work() {
+    COMPONENT_WORK.with(|owner| {
+        let mut owner = owner.borrow_mut();
+        owner.committed = owner.pending.take();
+        if owner.committed.is_some() {
+            owner.commits = owner
+                .commits
+                .checked_add(1)
+                .expect("component turn overflow");
+        }
+    });
+}
+
+pub fn reject_component_work() {
+    COMPONENT_WORK.with(|owner| owner.borrow_mut().pending = None);
+}
+
+pub fn clear_component_work() {
+    COMPONENT_WORK.with(|owner| *owner.borrow_mut() = ComponentWorkOwner::default());
+}
+
+/// None means no production turn has supplied a committed observation.
+pub fn last_component_work() -> Option<ComponentWork> {
+    COMPONENT_WORK.with(|owner| owner.borrow().committed)
+}
+
+#[cfg(test)]
+fn total_component_work() -> ComponentWork {
+    COMPONENT_WORK.with(|owner| owner.borrow().totals)
+}
+
+fn reset_component_cycle() {
+    COMPONENT_WORK.with(|owner| {
+        let mut owner = owner.borrow_mut();
+        owner.cycle_start = owner.totals;
+        owner.cycle_start_commits = owner.commits;
+    });
+}
+
+/// A measured cycle may contain several turns, such as a complete drag gesture.
+/// Subtract owner totals instead of attributing only its final turn to the cycle.
+pub fn component_cycle_work() -> Option<ComponentWork> {
+    COMPONENT_WORK.with(|owner| {
+        let owner = owner.borrow();
+        (owner.commits != owner.cycle_start_commits).then(|| {
+            ComponentWork(std::array::from_fn(|kind| {
+                owner.totals.0[kind] - owner.cycle_start.0[kind]
+            }))
+        })
+    })
+}
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RocWork {
@@ -55,6 +167,7 @@ pub const ROC_WORK_NAMES: [&str; ROC_WORK_KINDS] = [
     "application_update",
     "application_render",
     "platform_lowering",
+    "component_comparison",
 ];
 const TRANSACTION_EVENTS: usize = 1024;
 const TRANSACTION_COALESCE: Duration = Duration::from_millis(2);
@@ -137,11 +250,15 @@ pub struct Cycle {
     pub removed_nodes: u64,
     pub live_nodes: u64,
     pub parent_nodes_scanned: u64,
+    pub retained_nodes: u64,
+    pub validation_visits: u64,
     pub roc_work: [RocWork; ROC_WORK_KINDS],
     pub roc_work_valid: bool,
+    pub component_work: Option<ComponentWork>,
 }
 
 pub fn reset_roc_work() {
+    reset_component_cycle();
     if !active() {
         return;
     }
@@ -234,6 +351,10 @@ pub struct StepResult {
     pub sqlite_counters: Option<([u64; 3], [u64; 3])>,
     pub http_counters: Option<([u64; 4], [u64; 4])>,
     pub tcp_counters: Option<([u64; 5], [u64; 5])>,
+    pub component_work: Option<(
+        [Option<u64>; COMPONENT_WORK_NAMES.len()],
+        Option<ComponentWork>,
+    )>,
     pub expected_patch_kind: Option<String>,
     pub observed_patch_kind: Option<&'static str>,
     pub expected_staged_nodes: Option<u64>,
@@ -977,6 +1098,12 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             "capture has not finalized",
         ),
         (
+            "component_work",
+            "summary",
+            "unfinalized",
+            "capture has not finalized",
+        ),
+        (
             "patch_accounting",
             "summary",
             "unfinalized",
@@ -1134,6 +1261,7 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             let sqlite_counters = result.sqlite_counters;
             let http_counters = result.http_counters;
             let tcp_counters = result.tcp_counters;
+            let component_work = result.component_work;
             connection.execute(
             "INSERT INTO steps(run_id,ordinal,source_line,kind,role,status,duration_ns,expected_count,observed_count,expected_patch_kind,observed_patch_kind,expected_staged_nodes,observed_staged_nodes,expected_removed_nodes,observed_removed_nodes,diagnostic) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
             params![result.run_id, result.ordinal as i64, result.source_line as i64, result.kind, result.role, result.status, result.duration_ns.map(as_i64), result.expected_count.map(as_i64), result.observed_count.map(as_i64), result.expected_patch_kind, result.observed_patch_kind, result.expected_staged_nodes.map(as_i64), result.observed_staged_nodes.map(as_i64), result.expected_removed_nodes.map(as_i64), result.observed_removed_nodes.map(as_i64), result.diagnostic],
@@ -1168,15 +1296,33 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
                     params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3]), as_i64(expected[4]), as_i64(observed[4])],
                 ).map_err(|error| format!("cannot write TCP counter assertion: {error}"))?;
             }
+            if let Some((expected, observed)) = component_work {
+                for (kind, expected) in expected.into_iter().enumerate() {
+                    if let Some(expected) = expected {
+                        connection.execute(
+                            "INSERT INTO component_work_assertions(step_id,kind,expected_count,observed_count) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5)",
+                            params![result.run_id, result.ordinal as i64, kind as i64, as_i64(expected), observed.map(|work| as_i64(work.0[kind]))],
+                        ).map_err(|error| format!("cannot write component work assertion: {error}"))?;
+                    }
+                }
+            }
             Ok(1)
         },
         Event::Cycle(cycle) => {
             connection.execute(
-                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
-                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid)],
+                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
+                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits)],
             )
             .map_err(|error| format!("cannot write cycle row: {error}"))?;
             let cycle_id = connection.last_insert_rowid();
+            if let Some(work) = cycle.component_work {
+                for (kind, count) in work.0.into_iter().enumerate().filter(|(_, count)| *count != 0) {
+                    connection.execute(
+                        "INSERT INTO component_work_counts(cycle_id,kind,count) VALUES(?1,?2,?3)",
+                        params![cycle_id, kind as i64, as_i64(count)],
+                    ).map_err(|error| format!("cannot write component work count: {error}"))?;
+                }
+            }
             for (kind, work) in ROC_WORK_NAMES.iter().zip(cycle.roc_work) {
                 if !work.occurred {
                     continue;
@@ -1257,6 +1403,10 @@ fn finalize(
         "UPDATE measurement_status SET status=CASE WHEN ?1 THEN 'partial' WHEN NOT EXISTS(SELECT 1 FROM cycles) THEN 'unavailable' WHEN EXISTS(SELECT 1 FROM cycles WHERE roc_work_valid=0) THEN 'partial' WHEN NOT EXISTS(SELECT 1 FROM roc_work_spans) THEN 'unavailable' ELSE 'complete' END, reason=CASE WHEN ?1 THEN 'recorder omitted events' WHEN NOT EXISTS(SELECT 1 FROM cycles) THEN 'no host cycles were recorded' WHEN EXISTS(SELECT 1 FROM cycles WHERE roc_work_valid=0) THEN 'one or more callbacks had invalid or incomplete work spans' WHEN NOT EXISTS(SELECT 1 FROM roc_work_spans) THEN 'no attributed Roc work span occurred' ELSE 'every recorded callback has valid span evidence' END, rows_recorded=(SELECT count(*) FROM roc_work_spans), omitted_events=?2 WHERE name='roc_work_spans'",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize Roc work status: {error}"))?;
+    connection.execute(
+        "UPDATE measurement_status SET status=CASE WHEN ?1 THEN 'partial' WHEN NOT EXISTS(SELECT 1 FROM cycles WHERE component_work_recorded=1) THEN 'unavailable' WHEN EXISTS(SELECT 1 FROM cycles WHERE component_work_recorded=0) THEN 'partial' ELSE 'complete' END, reason=CASE WHEN ?1 THEN 'recorder omitted events' WHEN NOT EXISTS(SELECT 1 FROM cycles WHERE component_work_recorded=1) THEN 'no committed component work observation was recorded' WHEN EXISTS(SELECT 1 FROM cycles WHERE component_work_recorded=0) THEN 'one or more cycles have no committed component work observation' ELSE 'every recorded cycle has component owner evidence' END, rows_recorded=(SELECT count(*) FROM cycles WHERE component_work_recorded=1), omitted_events=?2 WHERE name='component_work'",
+        params![partial, as_i64(omitted)],
+    ).map_err(|error| format!("cannot finalize component work status: {error}"))?;
     let orphan_count: i64 = connection
         .query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |row| {
             row.get(0)
@@ -1317,7 +1467,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=5;
+PRAGMA user_version=11;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1433,9 +1583,25 @@ CREATE TABLE cycles(
     removed_nodes INTEGER NOT NULL,
     live_nodes INTEGER NOT NULL,
     parent_nodes_scanned INTEGER NOT NULL,
+    retained_nodes INTEGER NOT NULL,
+    validation_visits INTEGER NOT NULL,
     roc_work_valid INTEGER NOT NULL CHECK(roc_work_valid IN (0,1)),
+    component_work_recorded INTEGER NOT NULL CHECK(component_work_recorded IN (0,1)),
     UNIQUE(run_id,ordinal),
     FOREIGN KEY(run_id,step_ordinal) REFERENCES steps(run_id,ordinal)
+);
+CREATE TABLE component_work_counts(
+    cycle_id INTEGER NOT NULL REFERENCES cycles(id),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 6),
+    count INTEGER NOT NULL CHECK(count > 0),
+    PRIMARY KEY(cycle_id,kind)
+);
+CREATE TABLE component_work_assertions(
+    step_id INTEGER NOT NULL REFERENCES steps(id),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 6),
+    expected_count INTEGER NOT NULL CHECK(expected_count >= 0),
+    observed_count INTEGER CHECK(observed_count >= 0),
+    PRIMARY KEY(step_id,kind)
 );
 CREATE TABLE gpui_frames(
     id INTEGER PRIMARY KEY,
@@ -1463,7 +1629,7 @@ CREATE TABLE recording_gaps(
 );
 CREATE TABLE roc_work_spans(
     cycle_id INTEGER NOT NULL REFERENCES cycles(id),
-    kind TEXT NOT NULL CHECK(kind IN ('routing','application_update','application_render','platform_lowering')),
+    kind TEXT NOT NULL CHECK(kind IN ('routing','application_update','application_render','platform_lowering','component_comparison')),
     duration_ns INTEGER NOT NULL,
     alloc_calls INTEGER NOT NULL,
     allocated_bytes INTEGER NOT NULL,
@@ -1497,6 +1663,55 @@ mod tests {
 
     static RECORDER_TEST: Mutex<()> = Mutex::new(());
 
+    #[test]
+    fn component_work_is_owned_by_committed_turns_without_a_recorder() {
+        clear_component_work();
+        assert_eq!(last_component_work(), None);
+        begin_component_work();
+        note_component_work(0, 2);
+        note_component_work(1, 3);
+        assert_eq!(last_component_work(), None);
+        commit_component_work();
+        let first = ComponentWork([2, 3, 0, 0, 0, 0, 0]);
+        assert_eq!(last_component_work(), Some(first));
+        begin_component_work();
+        note_component_work(0, 1);
+        reject_component_work();
+        assert_eq!(last_component_work(), Some(first));
+        assert_eq!(total_component_work(), ComponentWork([3, 3, 0, 0, 0, 0, 0]));
+        begin_component_work();
+        commit_component_work();
+        assert_eq!(last_component_work(), Some(ComponentWork::default()));
+        clear_component_work();
+        assert_eq!(last_component_work(), None);
+    }
+
+    #[test]
+    fn component_cycle_sums_actual_turns_and_does_not_reuse_a_previous_cycle() {
+        clear_component_work();
+        reset_component_cycle();
+        assert_eq!(component_cycle_work(), None);
+        for renders in [2, 3] {
+            begin_component_work();
+            note_component_work(0, renders);
+            commit_component_work();
+        }
+        assert_eq!(
+            last_component_work(),
+            Some(ComponentWork([3, 0, 0, 0, 0, 0, 0]))
+        );
+        assert_eq!(
+            component_cycle_work(),
+            Some(ComponentWork([5, 0, 0, 0, 0, 0, 0]))
+        );
+        reset_component_cycle();
+        assert_eq!(component_cycle_work(), None);
+        begin_component_work();
+        commit_component_work();
+        assert_eq!(component_cycle_work(), Some(ComponentWork::default()));
+        clear_component_work();
+    }
+
     fn test_cycle(phase: &'static str, ordinal: u64, patch_kind: &'static str) -> Cycle {
         Cycle {
             run_id: 1,
@@ -1515,8 +1730,11 @@ mod tests {
             removed_nodes: 0,
             live_nodes: 1,
             parent_nodes_scanned: 1,
+            retained_nodes: 0,
+            validation_visits: 1,
             roc_work: [RocWork::default(); ROC_WORK_KINDS],
             roc_work_valid: true,
+            component_work: None,
         }
     }
 
@@ -1611,6 +1829,23 @@ mod tests {
                 .unwrap();
             assert_eq!(rows, vec![("unavailable".into(), None)]);
             drop(report);
+            let mut component_report = db
+                .prepare(include_str!(
+                    "../../../scripts/stats_queries/component_work.sql"
+                ))
+                .unwrap();
+            let component_rows = component_report
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, Option<i64>>(4)?))
+                })
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            assert_eq!(
+                component_rows,
+                vec![("unavailable".into(), None); COMPONENT_WORK_NAMES.len()]
+            );
+            drop(component_report);
             drop(db);
             std::fs::remove_file(path).unwrap();
         }
@@ -1816,6 +2051,8 @@ mod tests {
         note_roc_realloc(48);
         note_roc_dealloc();
         end_roc_work(2);
+        start_roc_work(4);
+        end_roc_work(4);
         let (attributed, valid) = take_roc_work();
         assert!(valid);
         assert!(attributed[2].duration_ns > 0);
@@ -1825,6 +2062,7 @@ mod tests {
         assert_eq!(attributed[2].realloc_calls, 1);
         assert_eq!(attributed[2].reallocated_bytes, 48);
         assert_eq!(attributed[0].alloc_calls, 0);
+        assert!(attributed[4].occurred);
         note_roc_alloc(64);
         note_roc_realloc(128);
         note_roc_dealloc();
@@ -1843,6 +2081,10 @@ mod tests {
             sqlite_counters: None,
             http_counters: None,
             tcp_counters: None,
+            component_work: Some((
+                [Some(2), Some(1), Some(0), None, None, None, None],
+                Some(ComponentWork([2, 1, 0, 0, 0, 0, 0])),
+            )),
             expected_patch_kind: Some("replace".into()),
             observed_patch_kind: Some("replace"),
             expected_staged_nodes: Some(7),
@@ -1852,6 +2094,9 @@ mod tests {
             diagnostic: None,
         });
         let mut update = test_cycle("measured", 0, "replace");
+        update.component_work = Some(ComponentWork([2, 1, 0, 0, 0, 0, 0]));
+        update.retained_nodes = 7;
+        update.validation_visits = 9;
         update.roc_work = attributed;
         update.roc_work[0] = RocWork {
             occurred: true,
@@ -1860,6 +2105,7 @@ mod tests {
         };
         cycle(update);
         let mut stale = test_cycle("measured", 1, "no_change");
+        stale.component_work = Some(ComponentWork::default());
         stale.roc_work[0] = RocWork {
             occurred: true,
             duration_ns: 3,
@@ -1893,10 +2139,57 @@ mod tests {
             1
         );
         assert_eq!(
+            db.query_row("SELECT count(*) FROM component_work_counts", [], |row| row
+                .get::<_, i64>(
+                0
+            ))
+            .unwrap(),
+            2
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT count(*) FROM cycles WHERE component_work_recorded=1",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+            2
+        );
+        assert_eq!(db.query_row("SELECT count(*) FROM component_work_assertions WHERE expected_count=observed_count", [], |row| row.get::<_, i64>(0)).unwrap(), 3);
+        let mut component_report = db
+            .prepare(include_str!(
+                "../../../scripts/stats_queries/component_work.sql"
+            ))
+            .unwrap();
+        let counts = component_report
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<i64>>(4)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(counts.len(), COMPONENT_WORK_NAMES.len());
+        assert_eq!(counts[0], ("complete".into(), "rendered".into(), Some(2)));
+        assert_eq!(counts[2], ("complete".into(), "skipped".into(), Some(0)));
+        drop(component_report);
+        assert_eq!(
+            db.query_row(
+                include_str!("../../../scripts/stats_queries/host_gpui_work.sql"),
+                [],
+                |row| Ok((row.get::<_, i64>(12)?, row.get::<_, i64>(13)?))
+            )
+            .unwrap(),
+            (7, 10)
+        );
+        assert_eq!(
             db.query_row("SELECT count(*) FROM roc_work_spans", [], |row| row
                 .get::<_, i64>(0))
                 .unwrap(),
-            3,
+            4,
             "absent render/lowering work must not be persisted as zero-valued occurrence"
         );
         assert_eq!(
@@ -1921,6 +2214,7 @@ mod tests {
             rows,
             vec![
                 ("complete".into(), Some("application_render".into())),
+                ("complete".into(), Some("component_comparison".into())),
                 ("complete".into(), Some("routing".into()))
             ]
         );
@@ -2047,6 +2341,7 @@ mod tests {
             sqlite_counters: None,
             http_counters: None,
             tcp_counters: None,
+            component_work: None,
             expected_patch_kind: None,
             observed_patch_kind: None,
             expected_staged_nodes: None,

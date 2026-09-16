@@ -110,9 +110,16 @@ exercises styled button lowering, native materialisation, dispatch, and
 replacement at realistic application sizes.
 Row boundaries:: Update the first, middle, and last item when each row owns its
 own render boundary, and exercise selection, deletion, swaps, and sparse
-updates whose invariants are owned by the collection. This contrasts local
-replacement with collection-wide work while exposing boundary lookup cost as
-collection position and size grow.
+updates whose invariants are owned by the collection. Stable-ID-indexed row
+storage is separate from display order, so resolving a row does not scan the
+collection. Local edits render one row and replace four nodes: its boundary
+marker, row, text, and button. Collection-owned changes enumerate the component
+frontier and retain rows whose complete input is equivalent. The compact-view
+toggle removes per-row management controls and puts keyed components directly
+beside each other under the list container; its local-edit cases exercise
+direct sibling identity without per-row wrapper scopes. Component, patch, and
+validation counts establish this work independently of row position, while
+captured timings and allocation spans expose state-copying and native costs.
 Text rows:: Vary short, long, and metadata-rich text across row counts.
 Checkboxes:: Lower and replace 10,000 real styled controls through their
 ordinary check event route.

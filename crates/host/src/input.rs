@@ -38,6 +38,7 @@ pub struct TextInput {
     focus: FocusHandle,
     content: SharedString,
     controlled: SharedString,
+    in_flight_edit: Option<String>,
     placeholder: SharedString,
     selection: Range<usize>,
     reversed: bool,
@@ -64,6 +65,7 @@ impl TextInput {
             focus: cx.focus_handle().tab_stop(enabled),
             content: value.clone().into(),
             controlled: value.into(),
+            in_flight_edit: None,
             placeholder: placeholder.into(),
             selection: 0..0,
             reversed: false,
@@ -90,7 +92,11 @@ impl TextInput {
         self.placeholder = placeholder.to_owned().into();
         if self.controlled.as_ref() != value {
             self.controlled = value.to_owned().into();
-            if self.content.as_ref() != value {
+            let newer_edit = self
+                .in_flight_edit
+                .as_ref()
+                .is_some_and(|submitted| self.content.as_ref() != submitted);
+            if self.content.as_ref() != value && !newer_edit {
                 self.content = value.to_owned().into();
                 let cursor = self.content.len();
                 self.selection = cursor..cursor;
@@ -98,15 +104,50 @@ impl TextInput {
                 self.marked = None;
             }
         }
+        self.set_enabled(enabled, cx);
+        cx.notify();
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
         if self.enabled != enabled {
             self.enabled = enabled;
             self.focus = self.focus.clone().tab_stop(enabled);
+            self.selecting = false;
+            cx.notify();
         }
-        cx.notify();
     }
 
     pub fn focus_handle(&self) -> FocusHandle {
         self.focus.clone()
+    }
+
+    /// The text the native editor displays, including an uncommitted preedit.
+    #[cfg(test)]
+    pub fn displayed_value(&self) -> &str {
+        self.content.as_ref()
+    }
+
+    /// Settle a committed edit after its ordinary application event turn.
+    /// A rejected edit can leave the controlled value unchanged, so configure
+    /// alone cannot acknowledge it. A later edit or IME preedit owns its own
+    /// acknowledgement and must not be overwritten by this earlier turn.
+    pub fn acknowledge(&mut self, submitted: &str, cx: &mut Context<Self>) {
+        self.in_flight_edit = None;
+        if self.marked.is_some() || self.content.as_ref() != submitted {
+            return;
+        }
+        if self.content != self.controlled {
+            self.content = self.controlled.clone();
+            let cursor = self.content.len();
+            self.selection = cursor..cursor;
+            self.reversed = false;
+            self.layout = None;
+            cx.notify();
+        }
+    }
+
+    pub fn begin_acknowledgement(&mut self, submitted: &str) {
+        self.in_flight_edit = Some(submitted.to_owned());
     }
 
     fn cursor(&self) -> usize {
@@ -458,6 +499,89 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("end", End, Some("TextInput")),
         KeyBinding::new("enter", Submit, Some("TextInput")),
     ]);
+}
+
+#[cfg(test)]
+mod acknowledgement_tests {
+    use super::*;
+    use gpui::TestAppContext;
+
+    #[gpui::test]
+    fn controlled_acknowledgement_restores_rejected_edit(cx: &mut TestAppContext) {
+        let (editor, cx) = cx.add_window_view(|_, cx| {
+            TextInput::new(
+                "saved".into(),
+                String::new(),
+                true,
+                Rc::new(|_, _| {}),
+                Rc::new(|_, _| {}),
+                cx,
+            )
+        });
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.replace_text_in_range(Some(0..5), "rejected", window, cx);
+                editor.acknowledge("rejected", cx);
+                assert_eq!(editor.content.as_ref(), "saved");
+                assert_eq!(editor.selection, 5..5);
+            })
+        });
+    }
+
+    #[gpui::test]
+    fn acknowledgement_preserves_accepted_caret_and_newer_preedit(cx: &mut TestAppContext) {
+        let (editor, cx) = cx.add_window_view(|_, cx| {
+            TextInput::new(
+                "ab".into(),
+                String::new(),
+                true,
+                Rc::new(|_, _| {}),
+                Rc::new(|_, _| {}),
+                cx,
+            )
+        });
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.replace_text_in_range(Some(1..1), "x", window, cx);
+                editor.configure("axb", "", true, Rc::new(|_, _| {}), Rc::new(|_, _| {}), cx);
+                editor.acknowledge("axb", cx);
+                assert_eq!(editor.selection, 2..2);
+                editor.replace_and_mark_text_in_range(Some(2..2), "z", None, window, cx);
+                editor.acknowledge("axb", cx);
+                assert_eq!(editor.content.as_ref(), "axzb");
+                assert_eq!(editor.marked, Some(2..3));
+            })
+        });
+    }
+
+    #[gpui::test]
+    fn earlier_turn_does_not_overwrite_a_newer_queued_edit(cx: &mut TestAppContext) {
+        let (editor, cx) = cx.add_window_view(|_, cx| {
+            TextInput::new(
+                String::new(),
+                String::new(),
+                true,
+                Rc::new(|_, _| {}),
+                Rc::new(|_, _| {}),
+                cx,
+            )
+        });
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.replace_text_in_range(None, "a", window, cx);
+                editor.replace_text_in_range(None, "b", window, cx);
+                editor.begin_acknowledgement("a");
+                editor.configure("a", "", true, Rc::new(|_, _| {}), Rc::new(|_, _| {}), cx);
+                editor.acknowledge("a", cx);
+                assert_eq!(editor.content.as_ref(), "ab");
+                editor.begin_acknowledgement("ab");
+                editor.configure("ab", "", true, Rc::new(|_, _| {}), Rc::new(|_, _| {}), cx);
+                editor.acknowledge("ab", cx);
+                assert_eq!(editor.content.as_ref(), "ab");
+                assert_eq!(editor.selection, 2..2);
+            })
+        });
+    }
 }
 
 struct TextElement {

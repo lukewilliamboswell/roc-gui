@@ -24,4 +24,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: { body: "" }, render, window: { title: "Textarea benchmark", width: 900, height: 650 } })
+main = Program.run({ setup: || { state: { body: "" }, render }, window: { title: "Textarea benchmark", width: 900, height: 650 } })

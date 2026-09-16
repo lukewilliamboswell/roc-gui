@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio, Device, SystemMonitor, ImageData, Assets]
+	exposes [Program, Component, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio, Device, SystemMonitor, ImageData, Assets]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -13,6 +13,17 @@ platform ""
 		"roc_gui_node_styled_text": Host.node_styled_text!,
 		"roc_gui_children_begin": Host.children_begin!,
 		"roc_gui_children_push": Host.children_push!,
+		"roc_gui_component_setup": Host.component_setup!,
+		"roc_gui_component_define": Host.component_define!,
+		"roc_gui_component_work": Host.component_work!,
+		"roc_gui_node_boundary": Host.node_boundary!,
+		"roc_gui_retain_subtree": Host.retain_subtree!,
+		"roc_gui_begin_render": Host.begin_render!,
+		"roc_gui_scope_enter": Host.scope_enter!,
+		"roc_gui_scope_exit": Host.scope_exit!,
+		"roc_gui_component_resolve": Host.component_resolve!,
+		"roc_gui_component_enter": Host.component_enter!,
+		"roc_gui_component_exit": Host.component_exit!,
 		"roc_gui_node_row": Host.node_row!,
 		"roc_gui_node_column": Host.node_column!,
 		"roc_gui_node_dialog": Host.node_dialog!,
@@ -66,7 +77,6 @@ platform ""
 		"roc_assets_read": Host.assets_read!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
-		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,
 		"roc_gui_enqueue_task": Host.enqueue_task!,
 		"roc_gui_timer_start": Host.timer_start!,
 		"roc_gui_timer_next": Host.timer_next!,
@@ -90,7 +100,9 @@ platform ""
 
 import Program
 import Elem
+import Component
 import Action
+import Session
 import Event
 import Gui
 import Files
@@ -111,11 +123,11 @@ import Host
 gui_init! : () => {}
 gui_init! = || Program.start!(main)
 
-gui_dispatch! : Box((U64 => {})), U64 => {}
-gui_dispatch! = |dispatch_box, event_id| Box.unbox(dispatch_box)(event_id)
+gui_dispatch! : Box((Session(state) => {})), U64 => {}
+gui_dispatch! = |dispatch_box, event_id| Box.unbox(dispatch_box)(Session.event(event_id))
 
-gui_complete! : Box((Box((Box(state) -> Box(Action.Action(state)))) => {})), Box((Box(state) -> Box(Action.Action(state)))) => {}
-gui_complete! = |dispatch_box, completion_box| Box.unbox(dispatch_box)(completion_box)
+gui_complete! : Box((Session(state) => {})), Box((Box(state) -> Box(Action.Action(state)))), U64 => {}
+gui_complete! = |dispatch_box, completion_box, owner| Box.unbox(dispatch_box)(Session.completion(owner, completion_box))
 
 gui_run_task! : Box((() => Box((Box(state) -> Box(Action.Action(state)))))) => Box((Box(state) -> Box(Action.Action(state))))
 gui_run_task! = |task_box| Box.unbox(task_box)()

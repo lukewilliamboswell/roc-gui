@@ -732,19 +732,19 @@ async fn run_step(
         Command::ExpectRenderedCount(locator, expected) => {
             await_painted(window, options.timeout, cx).await?;
             window
-            .update(cx, |runtime, _, _| {
-                let ids = runner::matches(&runtime.graph, locator);
-                let painted = runtime.painted().map_err(stale)?.laid_out_count(&ids);
-                if painted == *expected {
-                    Ok(())
-                } else {
-                    Err(StepError::Geometry(format!(
-                        "{} laid out {painted} instances; expected {expected}",
-                        describe(locator)
-                    )))
-                }
-            })
-            .map_err(|_| StepError::WindowClosed)?
+                .update(cx, |runtime, _, _| {
+                    let ids = runner::matches(&runtime.graph, locator);
+                    let painted = runtime.painted().map_err(stale)?.laid_out_count(&ids);
+                    if painted == *expected {
+                        Ok(())
+                    } else {
+                        Err(StepError::Geometry(format!(
+                            "{} laid out {painted} instances; expected {expected}",
+                            describe(locator)
+                        )))
+                    }
+                })
+                .map_err(|_| StepError::WindowClosed)?
         }
         Command::ExpectBounds(locator, expectation) => {
             await_painted(window, options.timeout, cx).await?;
@@ -801,6 +801,13 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
+        Command::ExpectComponentWork(expected) => window
+            .update(cx, |_, _, _| {
+                runner::component_work_claim(expected)
+                    .0
+                    .map_err(StepError::Geometry)
+            })
+            .map_err(|_| StepError::WindowClosed)?,
         // The five claims answered from the mounted graph alone, made by the
         // same code the semantic runner calls, so the word means one thing.
         Command::ExpectCanvasPrimitives(_, _)
@@ -821,7 +828,9 @@ async fn run_step(
         // one task is outstanding at every instant by construction. `await-ticks`
         // therefore counts completions rather than waiting for there to be none,
         // which is also what the step means: apply N successive wait completions.
-        Command::AwaitTicks(count) => advance_timer_fires(window, *count, options.timeout, cx).await,
+        Command::AwaitTicks(count) => {
+            advance_timer_fires(window, *count, options.timeout, cx).await
+        }
         // The fixture clipboard is one process-wide store, so changing the
         // granted source here is the same act the semantic runner performs. One
         // presented frame is all this step waits for; observing the change is
@@ -975,7 +984,20 @@ fn scroll_region(
                 .bounds(target_id)
                 .ok_or_else(|| StepError::NotPainted(describe(target)))?;
             let viewport = Rect::from_gpui(tracker.viewport());
-            tracker.scroll_by(point(px(axis_delta(bounds.left, bounds.right, viewport.left, viewport.right)), px(axis_delta(bounds.top, bounds.bottom, viewport.top, viewport.bottom))));
+            tracker.scroll_by(point(
+                px(axis_delta(
+                    bounds.left,
+                    bounds.right,
+                    viewport.left,
+                    viewport.right,
+                )),
+                px(axis_delta(
+                    bounds.top,
+                    bounds.bottom,
+                    viewport.top,
+                    viewport.bottom,
+                )),
+            ));
             Ok(())
         }
     }
@@ -1098,7 +1120,12 @@ fn region_rect(
         // Its rectangle is the canvas's, offset by the coordinates the owner
         // drew it at — the same one-point-to-one-point mapping `canvas_target`
         // inverts to decide what a press landed on.
-        Region::Locator(locator @ (Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_))) => {
+        Region::Locator(locator)
+            if matches!(
+                locator.target(),
+                Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+            ) =>
+        {
             let (canvas, item) = runner::canvas_item(&runtime.graph, locator).ok_or_else(|| {
                 StepError::LocatorMatched {
                     locator: describe(locator),

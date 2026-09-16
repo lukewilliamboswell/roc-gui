@@ -6,4 +6,4 @@ import Render
 
 State : History.State
 main : Program(State)
-main = Program.run({ init: History.initial, render: Render.render, window: { title: "Clipboard History", width: 900, height: 720 } })
+main = Program.run({ setup: || { state: History.initial, render: Render.render }, window: { title: "Clipboard History", width: 900, height: 720 } })

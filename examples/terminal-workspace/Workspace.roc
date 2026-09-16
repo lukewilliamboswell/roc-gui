@@ -1,4 +1,5 @@
 import pf.Action
+import pf.Component
 import pf.Elem
 import Terminal
 import Theme
@@ -7,11 +8,30 @@ Workspace := [].{
 	State : State
 	init : State
 	init = { terminal: Terminal.init }
-	render : State -> Elem.Elem(State)
-	render = render
+	setup! : () => { state : State, render : State -> Elem.Elem(State) }
+	setup! = || {
+		terminal : Component(State)
+		terminal = Component.define!({ get: terminal_get, set: terminal_set, render: terminal_render })
+		{ state: Workspace.init, render: |state| render(terminal, state) }
+	}
 }
 
 State : { terminal : Terminal.State }
+
+terminal_get : State, Elem.Key -> Try(Terminal.State, [Removed])
+terminal_get = |state, key| match Elem.Key.inspect(key) {
+	Name("terminal") => Ok(state.terminal)
+	_ => Err(Removed)
+}
+
+terminal_set : State, Elem.Key, Terminal.State -> Try(State, [Removed])
+terminal_set = |state, key, terminal| match Elem.Key.inspect(key) {
+	Name("terminal") => Ok({ ..state, terminal })
+	_ => Err(Removed)
+}
+
+terminal_render : Terminal.State -> Elem.Elem(Terminal.State)
+terminal_render = Terminal.render
 
 divider = |caption| Elem.row(
 	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.line, font_size: Theme.meta },
@@ -53,7 +73,8 @@ header = Elem.row(
 	],
 )
 
-render = |_state| Elem.col(
+render : Component(State), State -> Elem.Elem(State)
+render = |terminal, _state| Elem.col(
 	Elem.ColProps.{
 		label: "Terminal workspace",
 		width: Fill,
@@ -67,6 +88,6 @@ render = |_state| Elem.col(
 	},
 	[
 		header,
-		Elem.translate(Terminal.render, |current| current.terminal, |current, terminal| { ..current, terminal }),
+		Elem.component(terminal, Name("terminal")),
 	],
 )

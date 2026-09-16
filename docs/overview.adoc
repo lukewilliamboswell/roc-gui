@@ -9,8 +9,8 @@ A Roc GUI application has three parts:
 
 State:: The data that completely describes the application at a point in time.
 Render:: A pure function from state to an element tree.
-Action:: The result of handling an event: either a replacement state or no
-change.
+Action:: The result of handling an event: an update, no change, a proposal to
+the parent, or asynchronous work with a pending state and completion.
 
 [mermaid]
 ....
@@ -39,8 +39,15 @@ Element tree:: The nested elements returned by `render`; for example, a column
 whose children are text and a row of buttons.
 Mounted graph:: The host-owned representation of the element tree the
 application displays.
-Render boundary:: A subtree created with `Elem.translate` that can update
-without rebuilding its siblings.
+Component definition:: Immutable renderer, keyed state adapters, and ownership
+policies registered once during application setup.
+Component instance:: A definition mounted with `Elem.component` and a key in
+one structural parent scope. Removal ends that instance's lifetime.
+Render boundary:: A component subtree that declares the scope of an update.
+Local ownership leaves siblings untouched; parent ownership includes dependent
+parent output.
+Memoization:: An explicit comparison contract allowing a component to retain
+its complete mounted subtree and handlers when its input is equivalent.
 Specification:: A `.scm` file that drives user actions and assertions against an
 application. The steps it contains decide whether the semantic runner or the
 window runner takes it.
@@ -59,7 +66,7 @@ performance evidence to a SQLite `.rgstats` capture.
 * images decoded from in-memory bytes;
 * horizontal rows, vertical columns, panels, and modal dialogs;
 * scrolling regions, virtual lists, and a retained canvas;
-* render boundaries for independently changing parts of a UI;
+* keyed components, explicit render ownership, and opt-in subtree memoization;
 * `.scm` specifications stored beside each application;
 * opt-in SQLite captures for correctness and performance evidence.
 
