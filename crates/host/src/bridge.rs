@@ -112,6 +112,15 @@ pub enum NodeKind {
         enabled: bool,
         style: Style,
     },
+    /// Text that carries its own type: colour, size, weight, and face, with no
+    /// container element to hold them.
+    StyledText {
+        value: String,
+        fg: Option<u32>,
+        font_size: u32,
+        font_weight: u32,
+        font_face: FontFace,
+    },
     Text(String),
 }
 
@@ -219,6 +228,7 @@ impl NodeKind {
             Self::VirtualList { .. } => 11,
             Self::TextInput { .. } => 12,
             Self::Text(_) => 13,
+            Self::StyledText { .. } => 14,
         }
     }
 
@@ -243,7 +253,7 @@ impl NodeKind {
             | Self::TextInput { label, .. } => label.clone(),
             Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.clone(),
             Self::VirtualItem { key } => key.to_string(),
-            Self::Text(_) => String::new(),
+            Self::Text(_) | Self::StyledText { .. } => String::new(),
         };
         (!name.is_empty()).then_some(name)
     }
@@ -1130,6 +1140,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     for node in nodes {
         match node.kind {
             NodeKind::Text(_)
+            | NodeKind::StyledText { .. }
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
@@ -1219,6 +1230,7 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
     for node in nodes {
         match node.kind {
             NodeKind::Text(_)
+            | NodeKind::StyledText { .. }
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }

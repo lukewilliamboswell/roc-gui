@@ -84,11 +84,6 @@ the change lands; do not soften the docs to match the gap.
   every row repaints that surface itself, and row spacing exists only because
   each row button is deliberately shorter than `row_height`. Close by giving
   both list elements the shared `Gui.Style` fields, with a separate row gap.
-- [ ] **`Elem.text` has no style.** Colour and size reach a string only by
-  inheritance from an enclosing row or column, so every typographic step costs a
-  wrapper element that exists for no other reason. `music-player`'s wordmark and
-  status line are each a one-child `row` whose only job is `fg` and `font_size`.
-  Close with a styled text element carrying the same colour and size fields.
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
   label from ordinary body text once family is unavailable. `counter`'s per-card

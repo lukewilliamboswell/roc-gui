@@ -19,6 +19,7 @@ Elem(a) :: [
 	Scroll(ScrollProps(a)),
 	VirtualList(VirtualListProps(a)),
 	TextInput(TextInputProps(a)),
+	StyledText(TextProps),
 	Text(Str),
 ].{
 
@@ -517,9 +518,25 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 	}
 
-	## Display literal text.
+	## Properties for `styled_text`. A string is the only thing a typographic
+	## step is about, so these are the type fields alone: a typographic step
+	## costs no container, and none of a container's layout is implied.
+	TextProps := {
+		value : Str,
+		fg : Gui.Color ?? Default,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		font_face : Gui.FontFace ?? Default,
+	}
+
+	## Display literal text. It inherits colour and size from its container.
 	text : Str -> Elem(a)
 	text = |value| Text(value)
+
+	## Display text in its own colour, size, weight, and face, without a
+	## container element that exists only to carry them.
+	styled_text : TextProps -> Elem(a)
+	styled_text = |props| StyledText(props)
 
 	## Display a named text button and handle presses. `caption` is its visible
 	## text and `label` is its stable semantic locator, the same two names the
@@ -587,6 +604,7 @@ Elem(a) :: [
 	lift : Elem(child), (parent -> child), (parent, child -> parent) -> Elem(parent)
 	lift = |elem, get_child, set_child| match elem {
 		Text(value) => Text(value)
+		StyledText(text_value) => StyledText(text_value)
 		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Dialog(value) => {
@@ -752,6 +770,7 @@ Elem(a) :: [
 		Scroll(ScrollProps(a)),
 		VirtualList(VirtualListProps(a)),
 		TextInput(TextInputProps(a)),
+		StyledText(TextProps),
 		Text(Str),
 	]
 	inspect = |value| match value {
@@ -768,6 +787,7 @@ Elem(a) :: [
 		Scroll(scroll_value) => Scroll(scroll_value)
 		VirtualList(list_value) => VirtualList(list_value)
 		TextInput(input_value) => TextInput(input_value)
+		StyledText(styled_value) => StyledText(styled_value)
 		Text(text_value) => Text(text_value)
 	}
 }

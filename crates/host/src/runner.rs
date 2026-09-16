@@ -32,14 +32,14 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
         .nodes_preorder()
         .into_iter()
         .filter_map(|node| match (locator, &node.kind) {
-            (Locator::Text(expected), NodeKind::Text(actual)) if expected == actual => {
-                Some(node.id)
-            }
-            (Locator::TextPrefix(expected), NodeKind::Text(actual))
-                if actual.starts_with(expected) =>
-            {
-                Some(node.id)
-            }
+            (
+                Locator::Text(expected),
+                NodeKind::Text(actual) | NodeKind::StyledText { value: actual, .. },
+            ) if expected == actual => Some(node.id),
+            (
+                Locator::TextPrefix(expected),
+                NodeKind::Text(actual) | NodeKind::StyledText { value: actual, .. },
+            ) if actual.starts_with(expected) => Some(node.id),
             (Locator::ButtonName(expected), NodeKind::Button { label, .. })
                 if expected == label =>
             {

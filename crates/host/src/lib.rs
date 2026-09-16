@@ -38,7 +38,7 @@ use roc_platform_abi::{
     HostGlueHttpSendArgs, HostGlueHttpSendResult, HostGlueNodeActionButtonArgs,
     HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
     HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
     HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
     MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
     make_roc_host, roc_gui_dispatch, roc_gui_init,
@@ -303,6 +303,23 @@ pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
     let text = value.as_str().to_owned();
     unsafe { value.decref(roc_host()) };
     stage_node(NodeKind::Text(text), vec![])
+}
+
+/// Stage one text node that carries its own type rather than inheriting it.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> u64 {
+    let value = args.value.as_str().to_owned();
+    unsafe { args.value.decref(roc_host()) };
+    stage_node(
+        NodeKind::StyledText {
+            value,
+            fg: decode_color(args.fg),
+            font_size: args.font_size,
+            font_weight: args.font_weight,
+            font_face: decode_font_face(args.font_face),
+        },
+        vec![],
+    )
 }
 
 /// Begin a host-owned child sequence. Builders may be nested while recursively lowering.
@@ -1008,7 +1025,9 @@ fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
 fn contains_text(nodes: &[Node], expected: &str) -> bool {
     nodes
         .iter()
-        .any(|node| matches!(&node.kind, NodeKind::Text(value) if value == expected))
+        .any(|node| {
+            matches!(&node.kind, NodeKind::Text(value) | NodeKind::StyledText { value, .. } if value == expected)
+        })
 }
 
 fn headless_smoke() {
@@ -1534,6 +1553,30 @@ impl Render for NodeView {
             }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
+            }
+            // A typographic step is about the string alone, so it costs no
+            // container: the colour, size, weight, and face are the text
+            // element's own and nothing else about the layout changes.
+            NodeKind::StyledText {
+                value,
+                fg,
+                font_size,
+                font_weight,
+                font_face,
+            } => {
+                element = element.child(value.clone());
+                if let Some(color) = fg {
+                    element = element.text_color(rgb(*color));
+                }
+                if *font_size > 0 {
+                    element = element.text_size(px(*font_size as f32));
+                }
+                if *font_weight > 0 {
+                    element = element.font_weight(FontWeight(*font_weight as f32));
+                }
+                if let FontFace::Monospace = font_face {
+                    element = element.font_family(MONOSPACE_FAMILY);
+                }
             }
             NodeKind::Textarea {
                 label,

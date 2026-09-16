@@ -178,6 +178,16 @@ Internal := [].{
 			id = Host.node_text!(value)
 			{ root: id, next_boundary, routes, boundaries }
 		}
+		StyledText(value) => {
+			if value.font_size > max_style_value {
+				crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
+			}
+			if value.font_weight != 0 and (value.font_weight < 100 or value.font_weight > 900) {
+				crash "Gui font_weight is 0 for the native default, or 100 through 900"
+			}
+			id = Host.node_styled_text!({ value: value.value, fg: color(value.fg), font_size: value.font_size, font_weight: value.font_weight, font_face: font_face(value.font_face) })
+			{ root: id, next_boundary, routes, boundaries }
+		}
 		Row(value) => {
 			builder = Host.children_begin!()
 			lowered = lower_children!(value.children, state, next_boundary, active_boundary, boundary_path, routes, boundaries, builder)

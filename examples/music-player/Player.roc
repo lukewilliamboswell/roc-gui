@@ -414,7 +414,7 @@ sleeve = |art| match art {
 ## A missing cover is said once, quietly, and only after the read was tried.
 ## An empty square with no explanation is a defect a person cannot report.
 sleeve_caption = |art| match art {
-	NoCover => [Elem.row(Elem.RowProps.{ label: "Cover art status", padding: 0, gap: 0, fg: muted, font_size: 13, font_weight: 400 }, [Elem.text("Cover art unavailable")])]
+	NoCover => [Elem.styled_text(Elem.TextProps.{ value: "Cover art unavailable", fg: muted, font_size: 13, font_weight: 400 })]
 	NoArt | Cover(_) => []
 }
 
@@ -446,7 +446,7 @@ render = |state| {
 	}
 	Elem.col(Elem.ColProps.{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 }, [
 		Elem.row(Elem.RowProps.{ label: "Header", width: Fill, gap: 16 }, [
-			Elem.row(Elem.RowProps.{ label: "Wordmark", grow: True, fg: accent, font_size: 28, font_weight: 700 }, [Elem.text("NOCTURNE")]),
+			Elem.styled_text(Elem.TextProps.{ value: "NOCTURNE", fg: accent, font_size: 28, font_weight: 700 }),
 			Elem.action_button(Elem.ActionButtonProps.{
 				caption: "Choose folder",
 				label: "Choose music folder",
@@ -470,8 +470,8 @@ render = |state| {
 					Elem.ColProps.{ label: "Now playing text", grow: True, gap: 6, padding: 0 },
 					[
 						Elem.text("NOW PLAYING"),
-						Elem.row(Elem.RowProps.{ label: "Track title", padding: 0, gap: 0, fg: ink, font_size: 19, font_weight: 400 }, [Elem.text(now_playing_title(state))]),
-						Elem.row(Elem.RowProps.{ label: "Status line", padding: 0, gap: 0, fg: if state.alarm alarm else muted, font_size: 13, font_weight: 400 }, [Elem.text(state.status)]),
+						Elem.styled_text(Elem.TextProps.{ value: now_playing_title(state), fg: ink, font_size: 19, font_weight: 400 }),
+						Elem.styled_text(Elem.TextProps.{ value: state.status, fg: if state.alarm alarm else muted, font_size: 13, font_weight: 400 }),
 					].concat(sleeve_caption(state.art)),
 				),
 			]),

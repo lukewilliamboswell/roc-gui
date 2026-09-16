@@ -7,6 +7,8 @@ import InternalHttp
 HostGlue := [].{
 	Patch : [Mount({ root : U64 }), NoChange, Replace({ old_root : U64, root : U64 })]
 	node_text! : Str => U64
+
+	node_styled_text! : { value : Str, fg : U32, font_size : U32, font_weight : U32, font_face : U8 } => U64
 	children_begin! : () => U64
 	children_push! : U64, U64 => {}
 	node_row! : {

@@ -67,7 +67,8 @@ whether a `Fired` result schedules another wait.
 
 == Elements and layout
 
-`Elem.text(value)`:: Display a string.
+`Elem.text(value)`:: Display a string, inheriting colour and size from its
+container.
 `Elem.action_button(Elem.ActionButtonProps.{ ... })`:: Display a controlled,
 styled action button. `caption` is visible text, `label` is its stable semantic
 name, and `enabled` defaults to `True`. Enabled buttons participate in keyboard
@@ -109,6 +110,11 @@ composition across controlled rerenders. Disabled fields accept neither edits
 nor submission. Text values are bounded to one MiB of UTF-8.
 Text-input labels are non-empty and unique in the mounted graph because they
 also preserve the native editor entity across controlled rerenders.
+`Elem.styled_text(Elem.TextProps.{ value, fg, font_size, font_weight, font_face })`::
+Display a string in its own colour, size, weight, and face. Plain `Elem.text`
+inherits all four from its container, so every typographic step otherwise costs a
+one-child row or column that exists for no other reason; a wordmark, an eyebrow
+label, and a status line are each a string, not a layout.
 `Elem.scroll(Elem.ScrollProps.{ label, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `label` is the stable semantic identity.
