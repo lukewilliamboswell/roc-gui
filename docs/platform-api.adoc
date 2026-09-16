@@ -519,13 +519,13 @@ route and retains a newer draft when an older load completes.
 Playing sound through the shared system mixer is an automatically provisioned
 service with no prompt, and the handle lasts for the session; exclusive access
 or unusual routing would be separate scope. Acquisition fails when the machine
-has no usable output device. `output.load!(directory, name)` loads
+has no usable output device. `Audio.load!(output, directory, name)` loads
 one direct file through an existing `Files.Dir.Read` grant; names with traversal
 or multiple components are rejected and encoded input is bounded to 64 MiB.
 The host delegates media decoding and playback to Rodio and Symphonia.
 
-`Audio.Track` is an opaque host resource. `play!`, `pause!`,
-`seek!`, `status!`, and `stop!` are bounded operations on that handle intended
+`Audio.Track` is an opaque host resource. `Audio.play!`, `Audio.pause!`,
+`Audio.seek!`, `Audio.status!`, and `Audio.stop!` are bounded operations intended
 for `Action.task`. Status reports the decoder-owned duration, playback position,
 and `Playing`, `Paused`, or `Stopped` state. `Audio.AudioErr` identifies
 the failed operation and carries a portable reason such as `DecodeFailed`,

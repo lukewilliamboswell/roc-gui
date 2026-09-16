@@ -466,6 +466,24 @@ names the evidence so a fix can be verified against the same case.
   Refresh three times inside one scan and asserts the newest keyspace arrives
   with no error and exactly one scan's worth of traffic on the wire.
 
+- [ ] **Audio is the one resource whose operations are not methods on its
+  handle.** Every other host resource is a nominal type carrying its own
+  operations, so a caller writes `store.read!(path)` and `pty.read!(opts)`.
+  `Audio.Output` and `Audio.Track` are still plain aliases of their `Resource`
+  representation with module-level `Audio.load!`, `Audio.play!` and the rest,
+  because the pinned compiler cannot build an application that uses them in
+  nominal form. Making both nominal and leaving the rest of the platform
+  untouched, `roc check` on `examples/music-player` passes and
+  `roc build examples/music-player/main.roc` never terminates -- it was left
+  for fifty-five minutes of CPU against 5.1 seconds for the same example with
+  `Audio` as aliases, with memory still climbing. Making only `Audio.Output`
+  nominal segfaults the compiler outright. Nothing about music-player's own use
+  is unusual: it holds the handles in application state and passes them through
+  `Action.task`, which `image-library` and `file-explorer` also do with
+  `Assets.Store` and `Files.Dir.Read` and which compile in seconds. Closing this
+  needs the compiler defect fixed and reported upstream; the platform change
+  itself is then the same one made for every other resource.
+
 - [ ] **A resource handle captured by a task closure cannot be stored by its
   completion.** Writing `Tcp.Stream` back into application state from
   inside `resolve`, using the handle the surrounding `Action.task` captured,

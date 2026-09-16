@@ -140,22 +140,22 @@ play_index = |state, library, index| match library.tracks.get(index) {
 		generation = state.generation + 1
 		Action.task({
 		pending: report({ ..state, chosen: At(index), generation }, "Loading…"),
-		run: || match library.output.load!(library.directory, item.name) {
+		run: || match Audio.load!(library.output, library.directory, item.name) {
 			Err(err) => PlayFailed(generation, audio_error(err))
-			Ok(loaded) => match loaded.track.play!() {
+			Ok(loaded) => match Audio.play!(loaded.track) {
 				Err(err) => PlayFailed(generation, audio_error(err))
 				Ok(_) => PlayStarted(generation, index, loaded.track)
 			}
 		},
 		resolve: |latest, result| match result {
 			PlayFailed(request, message) => if request == latest.generation { Action.update(alarmed(latest, message)) } else { Action.update(latest) }
-			PlayStarted(request, started_index, track) => if request == latest.generation { Action.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing")) } else { Action.task({ pending: latest, run: || track.stop!(), resolve: |current, _| Action.update(current) }) }
+			PlayStarted(request, started_index, track) => if request == latest.generation { Action.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing")) } else { Action.task({ pending: latest, run: || Audio.stop!(track), resolve: |current, _| Action.update(current) }) }
 		},
 	}) }
 }
 
 stop = |state| match state.playback {
-	Active(current) => Action.task({ pending: report({ ..state, generation: state.generation + 1 }, "Stopping…"), run: || current.track.stop!(), resolve: |latest, result| match result { Ok(_) => Action.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
+	Active(current) => Action.task({ pending: report({ ..state, generation: state.generation + 1 }, "Stopping…"), run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
 		Err(_) => Action.update(alarmed(latest, "Stop failed")) } })
 	_ => Action.update(state)
 }
@@ -171,11 +171,11 @@ skip_ahead_ms = 5000
 skip_forward = |state| match state.playback {
 	Active(current) => Action.task({
 		pending: report(state, "Skipping…"),
-		run: || match current.track.status!() {
+		run: || match Audio.status!(current.track) {
 			Err(err) => SkipFailed(audio_error(err))
 			Ok(status) => {
 				target = status.position_ms + skip_ahead_ms
-				match current.track.seek!(target) {
+				match Audio.seek!(current.track, target) {
 					Err(err) => SkipFailed(audio_error(err))
 					Ok(_) => Skipped(target)
 				}
@@ -190,7 +190,7 @@ skip_forward = |state| match state.playback {
 }
 
 show_position = |state| match state.playback {
-	Active(current) => Action.task({ pending: state, run: || current.track.status!(), resolve: |latest, result| match result { Ok(status) => Action.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
+	Active(current) => Action.task({ pending: state, run: || Audio.status!(current.track), resolve: |latest, result| match result { Ok(status) => Action.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
 		Err(err) => Action.update(alarmed(latest, audio_error(err))) } })
 	_ => Action.update(state)
 }
@@ -212,12 +212,12 @@ toggle = |state| match state.playback {
 		Loaded(library) => play_index(state, library, 0)
 	}
 	Active(current) => if current.paused {
-		Action.task({ pending: report(state, "Resuming…"), run: || current.track.play!(), resolve: |latest, result| match result {
+		Action.task({ pending: report(state, "Resuming…"), run: || Audio.play!(current.track), resolve: |latest, result| match result {
 			Ok(_) => Action.update(report({ ..latest, playback: Active({ ..current, paused: False }) }, "Playing"))
 			Err(_) => Action.update(alarmed(latest, "Resume failed"))
 		} })
 	} else {
-		Action.task({ pending: report(state, "Pausing…"), run: || current.track.pause!(), resolve: |latest, result| match result {
+		Action.task({ pending: report(state, "Pausing…"), run: || Audio.pause!(current.track), resolve: |latest, result| match result {
 			Ok(_) => Action.update(report({ ..latest, playback: Active({ ..current, paused: True }) }, "Paused"))
 			Err(_) => Action.update(alarmed(latest, "Pause failed"))
 		} })
@@ -259,7 +259,7 @@ step = |state, delta| match state.library {
 
 stop_then_play = |state, track, next| Action.task({
 	pending: report({ ..state, generation: state.generation + 1 }, "Changing track…"),
-	run: || track.stop!(),
+	run: || Audio.stop!(track),
 	resolve: |latest, result| match result {
 		Err(err) => Action.update(alarmed(latest, audio_error(err)))
 		## The old track really has stopped, so the transport stops believing it
