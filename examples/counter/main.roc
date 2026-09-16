@@ -65,6 +65,9 @@ render = |counter, state| Elem.col(
 	],
 )
 
+## Compiler workaround (09-12): defining the component in an inline
+## Program.run setup closure crashes roc check. Keep this named helper until
+## the inline-setup reproducer in wip/optimization-notes.md passes, then revisit.
 setup! : () => { state : State, render : State -> Elem(State) }
 setup! = || {
 	counter : Component(State)

@@ -196,6 +196,19 @@ names the evidence so a fix can be verified against the same case.
   annotation. Minimize it against the pinned compiler, report it, and update the
   pin when fixed.
 
+- [ ] **Ancestor rebuilds still have excessive metadata allocation.** Serial
+  schema-11 selection captures with memoized row boundaries show large
+  allocation traffic even when every row skips rendering. After owner-local
+  metadata accumulation, the boxed candidate requests about 1.715 GB in
+  lowering for a 10,000-row selection. Route-list prefix copying is a strong
+  suspect, not a proven compiler defect. Removing/reinserting the owner before
+  each append regressed performance; destructuring the accumulator argument
+  did not change allocation traffic. See `wip/optimization-notes.md` for the
+  controlled experiments and verification. Further work must preserve
+  indexed routing, revision checks, atomic graph/session acceptance, and the
+  normal-stack deep-tree specifications. Do not replace these constraints with
+  a benchmark-specific path or a larger application stack.
+
 - [ ] **Reestablish full-root scaling after keyed component retention.** The
   pre-component production 100,000-row sparse-update case showed superlinear
   work after dense
