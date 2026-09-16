@@ -63,8 +63,8 @@ def build_windows(debug: bool) -> None:
     with tempfile.TemporaryDirectory(prefix="roc-gui-windows-build-") as temporary, \
             tempfile.TemporaryDirectory(dir=destination, prefix=".host-") as staged_path:
         staged = Path(staged_path)
-        payload, zig = execute(Path(temporary) / "build", jobs=os.cpu_count() or 2,
-                               cargo_target=cargo_target, debug=debug)
+        payload, zig, _environment = execute(Path(temporary) / "build", jobs=os.cpu_count() or 2,
+                                             cargo_target=cargo_target, debug=debug)
         # Roc's link supplies DLL imports from the verified import libraries, so
         # the Rust archive's own import members are separated out byte-for-byte.
         with verified_windows_gnu() as verified:

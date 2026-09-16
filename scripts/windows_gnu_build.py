@@ -35,11 +35,20 @@ def verify(path, expected):
 
 
 def compiler_args(mode, args):
-    """Zig cannot parse the `pc` vendor that cc-rs spells for the GNU triple."""
+    """Zig cannot parse the `pc` vendor that cc-rs spells for the GNU triple.
+
+    A released archive carries no build machine identity. Rust remaps its own
+    paths, but a C compilation records the directory it ran in, the sources it
+    read, and the command line that drove it, all inside debug information.
+    Linux and macOS delete that by stripping the archive; Zig's `objcopy` reads
+    only ELF, so these objects are compiled without debug information instead.
+    The flags follow the caller's own, which is what lets them win.
+    """
     if mode == "ar":
         return ["ar", *args]
     return [mode, "-target", "x86_64-windows-gnu", "-mcpu=baseline",
-            *(a for a in args if a != "--target=x86_64-pc-windows-gnu")]
+            *(a for a in args if a != "--target=x86_64-pc-windows-gnu"),
+            "-g0", "-fdebug-compilation-dir=.", "-fcoverage-compilation-dir=."]
 
 
 def run(args, env=None, output=None):
@@ -163,8 +172,14 @@ def zig_toolchain(tool_dir):
 
 def cargo_environment(tool_dir, zig, fxc, cargo_target):
     env = os.environ.copy()
+    # Zig compiles each C source through its cache and records that object's
+    # path in the COFF symbol table, which no flag removes. Keeping the cache
+    # beside this build keeps the build directory's own name in the archive
+    # rather than whoever ran it.
+    cache = Path(tool_dir).parent / "zig-cache"
     env.update(RUSTUP_TOOLCHAIN="1.95.0", CARGO_TARGET_DIR=str(cargo_target),
-               GPUI_FXC_PATH=str(fxc), ROC_GUI_WINDOWS_ZIG=str(zig))
+               GPUI_FXC_PATH=str(fxc), ROC_GUI_WINDOWS_ZIG=str(zig),
+               ZIG_LOCAL_CACHE_DIR=str(cache), ZIG_GLOBAL_CACHE_DIR=str(cache))
     for variable, mode in (("CC", "cc"), ("CXX", "c++"), ("AR", "ar")):
         wrapper = tool_dir / (variable.lower() + ".cmd")
         wrapper.write_text('@echo off\n"' + sys.executable + '" "' + str(Path(__file__).resolve()) + '" ' + mode + ' %*\n')
@@ -172,8 +187,14 @@ def cargo_environment(tool_dir, zig, fxc, cargo_target):
     return env
 
 
-def execute(output, *, jobs=2, cargo_target=None, debug=False):
-    """Build libhost.a and roc-gui.res; native dependency releases are installed separately."""
+def execute(output, *, jobs=2, cargo_target=None, debug=False, extra_env=None):
+    """Build libhost.a and roc-gui.res; native dependency releases are installed separately.
+
+    `extra_env` lets a release capture add its own Cargo settings, such as path
+    remapping and an isolated registry, without moving the toolchain selection
+    out of this recipe. Returns the payload, the pinned Zig, and the exact
+    environment the build ran in, so a caller can reuse it for `cargo metadata`.
+    """
     if jobs < 1:
         raise ValueError("Cargo build jobs must be positive")
     if sys.platform != "win32":
@@ -194,6 +215,7 @@ def execute(output, *, jobs=2, cargo_target=None, debug=False):
     fxc, inventory = shader_tools(output, pinned=pinned)
     zig = zig_toolchain(output / "tools")
     env = cargo_environment(output / "tools", zig, fxc, cargo_target)
+    env.update(extra_env or {})
     versions = {"rustc": subprocess.check_output(["rustc", "-vV"], env=env, text=True),
                 "cargo": subprocess.check_output(["cargo", "-V"], env=env, text=True),
                 "zig": "0.16.0"}
@@ -223,7 +245,7 @@ def execute(output, *, jobs=2, cargo_target=None, debug=False):
                "outputs": {p.name: identity(p) for p in payload.iterdir()},
                "shaders": {p.name: identity(p) for p in shaders.iterdir()}}
     (output / "build.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    return payload, zig
+    return payload, zig, env
 
 
 def main():
