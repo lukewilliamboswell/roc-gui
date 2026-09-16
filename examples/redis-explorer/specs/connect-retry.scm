@@ -1,4 +1,6 @@
 (test "connection can be retried after it failed"
+  (grants
+    (tcp "127.0.0.1:36378"))
   (steps
     (click (role button :name "Connect to Redis"))
     (await-task)

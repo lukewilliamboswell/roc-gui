@@ -55,6 +55,61 @@ produces one `.rgstats` SQLite capture beneath a timestamped
 `.test-out/specs/` directory. A failing assertion makes the command fail and
 prints the specification line and reason.
 
+== Grants
+
+A specification states the capabilities it needs beside its steps, so a case can
+be read on its own and nothing is inferred from a file name:
+
+[source,scheme]
+----
+(test "a corrupt track is isolated"
+  (grants
+    (directory "fixture")
+    (audio null))
+  (steps
+    (click (role button :name "Open library"))
+    (expect-visible (text "1 track skipped"))))
+----
+
+A specification with no `(grants ...)` clause, and one with an empty `(grants)`,
+both receive no capability at all. Write the empty clause when the absence is
+the point: a denial case takes the same refusal from the same production
+acquisition call that a real broker would give it.
+
+Each grant may appear once. A path is relative to the application directory, the
+one holding `main.roc`, and a path that leaves it is a parse error naming its
+line, as an unknown grant or a malformed one is.
+
+`(app-data "PATH")`:: Private application-data storage, seeded from `PATH`. The
+run receives a fresh private copy, so it writes through the production
+capability without changing the checked-in directory.
+`(audio null)`:: A paced null output in place of the system audio device. It
+changes only the final sink; decoding, mixing, playback, seeking, and status
+remain the production path.
+`(clipboard system)` and `(clipboard fixture)`:: Text clipboard authority. The
+system form reaches the real clipboard; the fixture form gives the case a
+clipboard the `clipboard-text` step drives, which is rejected without it.
+`(device virtual)` and `(device virtual N)`:: One deterministic virtual HID
+device, optionally with `N` controls, reached through the same host capability
+as physical hardware.
+`(device "VID:PID")`:: One physical HID device by hexadecimal vendor and product
+identifier.
+`(directory "PATH")`:: Read access to one directory, reached through the same
+opaque capability operations as an interactive grant.
+`(http-origin "ORIGIN")`:: HTTP access to exactly one origin. A request to any
+other origin is denied by the host.
+`(process local-shell)` and `(process test-program)`:: One PTY child profile.
+`test-program` is the fixed deterministic child; `local-shell` is the user's
+shell.
+`(server "PATH" PORT)`:: A loopback service the runner starts before the case
+and stops after it. `PATH` names a script beside the application, and `PORT` is
+the port it reports readiness on. This grants the harness, not the application:
+a case still needs `(http-origin ...)` or `(tcp ...)` to reach it.
+`(system-monitor standard)`, `(system-monitor unavailable)`, and
+`(system-monitor processes N)`:: A deterministic system sampler delivering its
+snapshots through the same ABI as the physical source.
+`(tcp "IP:PORT")`:: TCP access to exactly one endpoint.
+
 == Locators
 
 Text and prefix locators come first, then role locators in alphabetical order
@@ -232,8 +287,9 @@ python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 python3 scripts/run_specs.py --only window
 ----
 
-`--host-classify-specs PATH...` prints which runner each file needs, which is
-how the driver routes without keeping a second copy of the vocabulary.
+`--host-describe-specs PATH...` prints one JSON line per file giving the runner
+it needs and the capability flags its grants become, which is how the driver
+routes and wires a case without keeping a second copy of the vocabulary.
 
 === One vocabulary, split by capability
 

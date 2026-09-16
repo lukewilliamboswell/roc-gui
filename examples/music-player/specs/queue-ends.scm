@@ -2,6 +2,9 @@
 ; wrapping onto the last, and Next on the last row stays there rather than
 ; falling off the end.
 (test "the queue clamps at its first and last rows"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

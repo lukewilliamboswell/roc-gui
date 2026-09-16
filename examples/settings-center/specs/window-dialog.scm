@@ -1,4 +1,6 @@
 (test "the rename dialog offers a labelled field, a primary confirm, and a secondary cancel"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (settle)
     (click (role button :name "Open rename dialog"))

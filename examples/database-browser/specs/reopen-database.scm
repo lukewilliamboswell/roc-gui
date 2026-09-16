@@ -1,4 +1,6 @@
 (test "reopening a database clears the previous result"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

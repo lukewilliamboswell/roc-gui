@@ -1,4 +1,6 @@
 (test "a selected process survives later samples and a pause"
+  (grants
+    (system-monitor standard))
   (steps
     (click (role button :name "Resume sampling"))
     (await-ticks 1)

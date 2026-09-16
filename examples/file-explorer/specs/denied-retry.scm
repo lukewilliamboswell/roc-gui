@@ -1,4 +1,5 @@
 (test "a refused project grant can be asked for again"
+  (grants)
   (steps
     (click (role button :name "Open project"))
     (await-task)

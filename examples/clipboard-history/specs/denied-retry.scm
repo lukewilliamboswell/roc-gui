@@ -1,4 +1,5 @@
 (test "a second start after denial observes nothing"
+  (grants)
   (steps
     (click (role button :name "Start clipboard capture"))
     (expect-visible (text "Clipboard access was not granted"))

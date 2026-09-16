@@ -1,4 +1,6 @@
 (test "navigate nested folders, select entries, and preserve history"
+  (grants
+    (directory "fixture"))
   (steps
     (expect-file-picks 0) (expect-file-lists 0) (expect-file-opens 0) (expect-file-reads 0)
     (expect-file-selection-counters 0 0 0 0 0 0 1)

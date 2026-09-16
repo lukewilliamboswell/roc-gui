@@ -1,4 +1,7 @@
 (test "dismiss an obsolete response and retry the document"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
   (steps
     (replace-text (role textbox :name "Request URL") "http://127.0.0.1:38191/slow")
     (replace-text (role textarea :name "Request body") "obsolete")

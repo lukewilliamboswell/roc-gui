@@ -3,6 +3,8 @@
 ; reads the device's own configuration back rather than the edit that was
 ; abandoned with the previous connection.
 (test "reconnecting resynchronizes and discards an unapplied edit"
+  (grants
+    (device virtual))
   (steps
     (click (role button :name "Discover devices"))
     (await-task)

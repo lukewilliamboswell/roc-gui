@@ -2,6 +2,9 @@
 ; person actually takes: press Play, land on the corrupt first track, and then
 ; use Next and the queue itself to get somewhere.
 (test "next and the queue work from a stopped transport"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

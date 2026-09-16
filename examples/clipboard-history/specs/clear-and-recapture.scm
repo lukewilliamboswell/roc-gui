@@ -1,4 +1,6 @@
 (test "capture continues after the history is cleared"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")

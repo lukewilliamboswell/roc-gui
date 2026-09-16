@@ -2,7 +2,6 @@ use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
     mem::ManuallyDrop,
-    path::Path,
     sync::{
         Mutex, OnceLock,
         atomic::{AtomicU64, Ordering},
@@ -44,17 +43,14 @@ fn store() -> &'static Mutex<Store> {
     })
 }
 
-pub fn configure(system: bool, fixture: Option<&Path>) -> Result<(), String> {
-    if system && fixture.is_some() {
+pub fn configure(system: bool, fixture: bool) -> Result<(), String> {
+    if system && fixture {
         return Err("choose either system or fixture clipboard authority".into());
-    }
-    if fixture.is_some_and(|path| !path.is_dir()) {
-        return Err("clipboard fixture grant must name a directory".into());
     }
     let mut guard = store()
         .lock()
         .map_err(|_| "clipboard unavailable".to_string())?;
-    guard.grant = if fixture.is_some() {
+    guard.grant = if fixture {
         Grant::Fixture
     } else if system {
         Grant::System

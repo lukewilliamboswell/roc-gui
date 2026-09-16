@@ -35,8 +35,8 @@ roc build my-app.roc
     --host-window-shot-dir=.test-out
 ----
 
-`./my-app --host-classify-specs specs/*.scm` prints which runner each file
-needs, one `runner<tab>path` line per specification.
+`./my-app --host-describe-specs specs/*.scm` prints one JSON line per
+specification giving the runner it needs and the capabilities it declares.
 
 === Host flags
 
@@ -65,8 +65,8 @@ needs, one `runner<tab>path` line per specification.
   failing the run. Use it where capture is impossible, such as a continuous
   integration runner that cannot grant screen recording.
 
-| `--host-classify-specs PATH...`
-| Print which runner each specification needs.
+| `--host-describe-specs PATH...`
+| Print each specification's runner and declared grants as JSON.
 |===
 
 `--host-help` lists these flags along with the capability and measurement
@@ -86,9 +86,21 @@ same refusal it would take from a real broker.
 ./my-app --host-run-spec specs/saving.scm --host-cap-dir ./documents
 ----
 
-`--host-help` lists every capability flag. Nothing about a specification file
-confers authority; the flags do, which is why what a run may touch is visible
-in the command that started it.
+`--host-help` lists every capability flag. The flags confer the authority, which
+is why what a run may touch is visible in the command that started it.
+
+A specification also states what it needs, in a `(grants ...)` clause beside its
+steps. A runner reads that clause and passes the matching flags, so a case
+carries its own requirements instead of depending on how it was launched. The
+specification language reference lists the grant vocabulary.
+
+[source,scheme]
+----
+(test "saving writes the note"
+  (grants
+    (directory "fixture"))
+  (steps ...))
+----
 
 == A first window specification
 

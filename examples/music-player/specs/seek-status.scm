@@ -1,4 +1,7 @@
 (test "seek and status use the active production player"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

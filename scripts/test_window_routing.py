@@ -115,8 +115,8 @@ class ReportTests(unittest.TestCase):
             self.assertIn("no report written", captured.getvalue())
 
 
-class ClassificationTests(unittest.TestCase):
-    def test_classification_requires_a_built_executable(self) -> None:
+class DescriptionTests(unittest.TestCase):
+    def test_description_requires_a_built_executable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = Case(
                 spec=ROOT / "examples/counter/specs/counting.scm",
@@ -125,7 +125,7 @@ class ClassificationTests(unittest.TestCase):
                 capture=Path(directory) / "counting.rgstats",
             )
             with self.assertRaises(RuntimeError):
-                run_specs.classify([case])
+                run_specs.describe([case])
 
 
 if __name__ == "__main__":

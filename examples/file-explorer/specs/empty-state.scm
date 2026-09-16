@@ -1,4 +1,6 @@
 (test "the empty state offers one action and is returned to intact"
+  (grants
+    (directory "fixture"))
   (steps
     (expect-visible (text "Open a project to begin"))
     (expect-not-visible (role button :name "Back"))

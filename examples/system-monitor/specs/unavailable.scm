@@ -1,4 +1,6 @@
 (test "unsupported sensors remain explicitly unavailable"
+  (grants
+    (system-monitor unavailable))
   (steps
     (click (role button :name "Resume sampling"))
     (await-ticks 1)

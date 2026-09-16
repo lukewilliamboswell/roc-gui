@@ -1,4 +1,5 @@
 (test "a refused folder grant opens no database"
+  (grants)
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

@@ -1,6 +1,9 @@
 ; Reversing a pause. A paused track resumes the same track rather than
 ; restarting the queue, and the primary control says which way it will go.
 (test "a paused track resumes where it was left"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

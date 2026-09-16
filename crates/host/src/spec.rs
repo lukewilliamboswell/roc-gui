@@ -6,7 +6,72 @@ use crate::bridge::ControlKey;
 pub struct Spec {
     pub name: String,
     pub benchmark: Option<Benchmark>,
+    pub grants: Vec<Grant>,
     pub steps: Vec<Step>,
+}
+
+/// One capability a specification asks for.
+///
+/// A specification states everything it needs beside its steps, so the case can
+/// be read on its own. A specification that declares no grant receives no
+/// capability, and exercises denial through the application's ordinary
+/// acquisition path.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Grant {
+    /// Read access to one directory, relative to the application directory.
+    Directory(String),
+    /// Private application-data storage seeded from this directory.
+    AppData(String),
+    /// Clipboard authority: the real system clipboard, or a fixture source the
+    /// `clipboard-text` step drives.
+    Clipboard { system: bool },
+    /// A paced null audio sink in place of the system output device.
+    AudioNull,
+    /// HTTP access to exactly one origin.
+    HttpOrigin(String),
+    /// TCP access to exactly one `IP:PORT` endpoint.
+    Tcp(String),
+    /// A loopback service the harness starts before the case, and the port it
+    /// reports readiness on.
+    Server { script: String, port: u32 },
+    /// A PTY child profile: `local-shell` or `test-program`.
+    Process(String),
+    /// One HID device: `virtual`, `virtual:COUNT`, or a hexadecimal `VID:PID`.
+    Device(String),
+    /// A system sampler: `standard`, `unavailable`, or `processes:N`.
+    SystemMonitor(String),
+}
+
+impl Grant {
+    /// The grant's vocabulary name, which is also its uniqueness key.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Directory(_) => "directory",
+            Self::AppData(_) => "app-data",
+            Self::Clipboard { .. } => "clipboard",
+            Self::AudioNull => "audio",
+            Self::HttpOrigin(_) => "http-origin",
+            Self::Tcp(_) => "tcp",
+            Self::Server { .. } => "server",
+            Self::Process(_) => "process",
+            Self::Device(_) => "device",
+            Self::SystemMonitor(_) => "system-monitor",
+        }
+    }
+
+    /// The application-relative path this grant names, if it names one.
+    ///
+    /// Every path a specification supplies reaches a capability only after the
+    /// harness resolves it against the application directory and proves it
+    /// stays inside.
+    pub fn path(&self) -> Option<&str> {
+        match self {
+            Self::Directory(path) | Self::AppData(path) | Self::Server { script: path, .. } => {
+                Some(path)
+            }
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -123,7 +188,10 @@ pub enum Command {
     ExpectPatch(PatchExpectation),
     MarkMetrics,
     /// Wait for `frames` consecutive quiet presented frames, or fail.
-    Settle { frames: u32, timeout_ms: u32 },
+    Settle {
+        frames: u32,
+        timeout_ms: u32,
+    },
     /// Painted this frame and not clipped away by a scroll ancestor.
     ExpectOnScreen(Locator),
     /// How many instances actually took part in the last frame.
@@ -139,7 +207,10 @@ pub enum Command {
     Key(String),
     /// Resize the production window, so a layout can be proved at a size other
     /// than the one `main.roc` asks for.
-    Resize { width: u32, height: u32 },
+    Resize {
+        width: u32,
+        height: u32,
+    },
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
@@ -176,7 +247,12 @@ pub enum Region {
     /// Cropped to a located element's laid-out bounds.
     Locator(Locator),
     /// An explicit content-relative rectangle.
-    Rect { x: u32, y: u32, width: u32, height: u32 },
+    Rect {
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    },
 }
 
 /// A named screenshot request.
@@ -494,10 +570,17 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
         .ok_or_else(|| error(root, "test requires a string name"))?
         .to_owned();
     let mut benchmark = None;
+    let mut grants = None;
     let mut steps = None;
     for section in &values[2..] {
         let list = require_list(section, "test section")?;
         match list.first().and_then(SExpr::atom) {
+            Some("grants") => {
+                if grants.is_some() {
+                    return Err(error(section, "duplicate grants clause"));
+                }
+                grants = Some(parse_grants(&list[1..])?);
+            }
             Some("benchmark") => {
                 if benchmark.is_some() {
                     return Err(error(section, "duplicate benchmark clause"));
@@ -553,8 +636,140 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
     Ok(Spec {
         name,
         benchmark,
+        grants: grants.unwrap_or_default(),
         steps,
     })
+}
+
+/// Parse the `(grants ...)` clause.
+///
+/// An absent clause and an empty clause both mean the same thing: this case
+/// receives no capability. The empty clause is how a denial case says so out
+/// loud.
+fn parse_grants(entries: &[SExpr]) -> Result<Vec<Grant>, ParseError> {
+    let mut grants: Vec<Grant> = Vec::new();
+    for entry in entries {
+        let list = require_list(entry, "grant")?;
+        let grant = parse_grant(entry, list)?;
+        if grants.iter().any(|existing| existing.name() == grant.name()) {
+            return Err(error(entry, format!("duplicate {} grant", grant.name())));
+        }
+        grants.push(grant);
+    }
+    Ok(grants)
+}
+
+fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
+    let name = list
+        .first()
+        .and_then(SExpr::atom)
+        .ok_or_else(|| error(node, "grant requires a name"))?;
+    match (name, list.len()) {
+        ("directory", 2) => Ok(Grant::Directory(grant_path(&list[1], "directory")?)),
+        ("app-data", 2) => Ok(Grant::AppData(grant_path(&list[1], "app-data")?)),
+        ("clipboard", 2) => match list[1].atom() {
+            Some("system") => Ok(Grant::Clipboard { system: true }),
+            Some("fixture") => Ok(Grant::Clipboard { system: false }),
+            _ => Err(error(node, "clipboard grant must be system or fixture")),
+        },
+        ("audio", 2) if list[1].atom() == Some("null") => Ok(Grant::AudioNull),
+        ("http-origin", 2) => Ok(Grant::HttpOrigin(grant_string(&list[1], "http-origin")?)),
+        ("tcp", 2) => Ok(Grant::Tcp(grant_string(&list[1], "tcp")?)),
+        ("server", 3) => {
+            let script = grant_path(&list[1], "server")?;
+            let port = list[2]
+                .atom()
+                .and_then(|value| value.parse::<u32>().ok())
+                .filter(|port| (1..=65535).contains(port))
+                .ok_or_else(|| error(node, "server grant requires a readiness port 1..65535"))?;
+            Ok(Grant::Server { script, port })
+        }
+        ("process", 2) => match list[1].atom() {
+            Some(profile @ ("local-shell" | "test-program")) => {
+                Ok(Grant::Process(profile.to_owned()))
+            }
+            _ => Err(error(node, "process grant must be local-shell or test-program")),
+        },
+        ("device", 2 | 3) => {
+            if list[1].atom() != Some("virtual") {
+                let identifier = grant_string(&list[1], "device")?;
+                if list.len() != 2 {
+                    return Err(error(node, "a VID:PID device grant takes no control count"));
+                }
+                return Ok(Grant::Device(identifier));
+            }
+            match list.get(2) {
+                None => Ok(Grant::Device("virtual".to_owned())),
+                Some(count) => {
+                    let controls = count
+                        .atom()
+                        .and_then(|value| value.parse::<u32>().ok())
+                        .ok_or_else(|| error(node, "virtual device control count must be an integer"))?;
+                    Ok(Grant::Device(format!("virtual:{controls}")))
+                }
+            }
+        }
+        ("system-monitor", 2 | 3) => match (list[1].atom(), list.get(2)) {
+            (Some(kind @ ("standard" | "unavailable")), None) => {
+                Ok(Grant::SystemMonitor(kind.to_owned()))
+            }
+            (Some("processes"), Some(count)) => {
+                let processes = count
+                    .atom()
+                    .and_then(|value| value.parse::<u32>().ok())
+                    .ok_or_else(|| error(node, "system-monitor process count must be an integer"))?;
+                Ok(Grant::SystemMonitor(format!("processes:{processes}")))
+            }
+            _ => Err(error(
+                node,
+                "system-monitor grant must be standard, unavailable, or (processes N)",
+            )),
+        },
+        (
+            "directory" | "app-data" | "clipboard" | "audio" | "http-origin" | "tcp" | "server"
+            | "process" | "device" | "system-monitor",
+            _,
+        ) => Err(error(node, format!("malformed {name} grant"))),
+        _ => Err(error(
+            node,
+            format!(
+                "unsupported grant {name}; supported grants are app-data, audio, clipboard, \
+                 device, directory, http-origin, process, server, system-monitor, and tcp"
+            ),
+        )),
+    }
+}
+
+fn grant_string(node: &SExpr, name: &str) -> Result<String, ParseError> {
+    node.string()
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .ok_or_else(|| error(node, format!("{name} grant requires a non-empty string")))
+}
+
+/// Validate a path a specification supplies.
+///
+/// A grant path is relative to the application directory and may not leave it.
+/// The check is lexical and happens at parse time, so a path that escapes is a
+/// parse error naming its line rather than a capability the harness hands out.
+fn grant_path(node: &SExpr, name: &str) -> Result<String, ParseError> {
+    let value = grant_string(node, name)?;
+    if value.starts_with('/') || value.starts_with('\\') || value.contains('\0') {
+        return Err(error(
+            node,
+            format!("{name} grant path must be relative to the application directory"),
+        ));
+    }
+    if value
+        .split('/')
+        .any(|segment| segment.is_empty() || segment == "." || segment == "..")
+    {
+        return Err(error(
+            node,
+            format!("{name} grant path must stay inside the application directory"),
+        ));
+    }
+    Ok(value)
 }
 
 fn parse_benchmark(node: &SExpr, values: &[SExpr]) -> Result<Benchmark, ParseError> {
@@ -678,11 +893,17 @@ fn parse_keywords<'a>(
         if !allowed.contains(&key) {
             return Err(error(
                 &rest[index],
-                format!("unsupported key {key} for {head}; expected {}", allowed.join(", ")),
+                format!(
+                    "unsupported key {key} for {head}; expected {}",
+                    allowed.join(", ")
+                ),
             ));
         }
         if pairs.iter().any(|(seen, _)| *seen == key) {
-            return Err(error(&rest[index], format!("duplicate key {key} for {head}")));
+            return Err(error(
+                &rest[index],
+                format!("duplicate key {key} for {head}"),
+            ));
         }
         let value = rest
             .get(index + 1)
@@ -701,7 +922,11 @@ impl<'a> Keywords<'a> {
             .map(|(_, value)| *value)
     }
 
-    fn u32_in(&self, key: &str, range: std::ops::RangeInclusive<u32>) -> Result<Option<u32>, ParseError> {
+    fn u32_in(
+        &self,
+        key: &str,
+        range: std::ops::RangeInclusive<u32>,
+    ) -> Result<Option<u32>, ParseError> {
         let Some(value) = self.expr(key) else {
             return Ok(None);
         };
@@ -722,7 +947,6 @@ impl<'a> Keywords<'a> {
         }
         Ok(Some(parsed))
     }
-
 }
 
 fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
@@ -1261,7 +1485,10 @@ fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
                 .ok_or_else(|| error(value, "rect region requires non-negative integers"))?;
         }
         if numbers[2] == 0 || numbers[3] == 0 {
-            return Err(error(node, "rect region requires a non-zero width and height"));
+            return Err(error(
+                node,
+                "rect region requires a non-zero width and height",
+            ));
         }
         return Ok(Region::Rect {
             x: numbers[0],
@@ -1844,6 +2071,93 @@ mod tests {
     }
 
     #[test]
+    fn parses_a_complete_grant_set() {
+        let case = parse(
+            r#"(test "grants"
+                 (grants
+                   (directory "fixture")
+                   (app-data "app-data-fixture/default")
+                   (clipboard fixture)
+                   (audio null)
+                   (http-origin "http://127.0.0.1:38191")
+                   (tcp "127.0.0.1:36379")
+                   (server "fixture_server.py" 36379)
+                   (process test-program)
+                   (device virtual 100)
+                   (system-monitor processes 500))
+                 (steps (await-ticks 1)))"#,
+        )
+        .expect("grants parse");
+        assert_eq!(
+            case.grants,
+            vec![
+                Grant::Directory("fixture".into()),
+                Grant::AppData("app-data-fixture/default".into()),
+                Grant::Clipboard { system: false },
+                Grant::AudioNull,
+                Grant::HttpOrigin("http://127.0.0.1:38191".into()),
+                Grant::Tcp("127.0.0.1:36379".into()),
+                Grant::Server {
+                    script: "fixture_server.py".into(),
+                    port: 36379,
+                },
+                Grant::Process("test-program".into()),
+                Grant::Device("virtual:100".into()),
+                Grant::SystemMonitor("processes:500".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_specification_without_grants_receives_nothing() {
+        let declared = parse(r#"(test "none" (grants) (steps (await-ticks 1)))"#).unwrap();
+        let absent = parse(r#"(test "none" (steps (await-ticks 1)))"#).unwrap();
+        assert!(declared.grants.is_empty());
+        assert_eq!(declared.grants, absent.grants);
+    }
+
+    #[test]
+    fn rejects_an_unknown_grant() {
+        let error = parse(r#"(test "g" (grants (webcam full)) (steps (await-ticks 1)))"#)
+            .unwrap_err();
+        assert_eq!(error.line, 1);
+        assert!(error.message.contains("unsupported grant webcam"));
+    }
+
+    #[test]
+    fn rejects_a_malformed_grant() {
+        let error = parse(
+            "(test \"g\"\n  (grants\n    (directory))\n  (steps (await-ticks 1)))",
+        )
+        .unwrap_err();
+        assert_eq!(error.line, 3);
+        assert!(error.message.contains("malformed directory grant"));
+        let profile = parse(r#"(test "g" (grants (process sudo)) (steps (await-ticks 1)))"#)
+            .unwrap_err();
+        assert!(profile.message.contains("local-shell or test-program"));
+        let duplicate =
+            parse(r#"(test "g" (grants (audio null) (audio null)) (steps (await-ticks 1)))"#)
+                .unwrap_err();
+        assert!(duplicate.message.contains("duplicate audio grant"));
+    }
+
+    #[test]
+    fn rejects_a_grant_path_leaving_the_application_directory() {
+        for path in ["../secrets", "/etc", "fixture/../../elsewhere", "./fixture"] {
+            let source = format!(
+                "(test \"g\"\n  (grants\n    (directory \"{path}\"))\n  (steps (await-ticks 1)))"
+            );
+            let error = parse(&source).unwrap_err();
+            assert_eq!(error.line, 3, "{path}");
+            assert!(
+                error.message.contains("application directory"),
+                "{path}: {}",
+                error.message
+            );
+        }
+    }
+
+    #[test]
     fn rejects_unsupported_semantic_key() {
         let error = parse(r#"(test "keyboard" (steps (press-key Tab)))"#).unwrap_err();
         assert!(error.message.contains("Enter, Escape, or Space"));
@@ -1997,15 +2311,30 @@ mod tests {
     fn settle_rejects_malformed_keywords() {
         for (source, expected) in [
             (r#"(test "s" (steps (settle :frames)))"#, "requires a value"),
-            (r#"(test "s" (steps (settle :frames 0)))"#, "must be between 1 and 60"),
-            (r#"(test "s" (steps (settle :frames 99)))"#, "must be between 1 and 60"),
-            (r#"(test "s" (steps (settle :frames x)))"#, "requires an integer"),
-            (r#"(test "s" (steps (settle :nope 1)))"#, "unsupported key :nope"),
+            (
+                r#"(test "s" (steps (settle :frames 0)))"#,
+                "must be between 1 and 60",
+            ),
+            (
+                r#"(test "s" (steps (settle :frames 99)))"#,
+                "must be between 1 and 60",
+            ),
+            (
+                r#"(test "s" (steps (settle :frames x)))"#,
+                "requires an integer",
+            ),
+            (
+                r#"(test "s" (steps (settle :nope 1)))"#,
+                "unsupported key :nope",
+            ),
             (
                 r#"(test "s" (steps (settle :frames 1 :frames 2)))"#,
                 "duplicate key :frames",
             ),
-            (r#"(test "s" (steps (settle 2)))"#, "expects :key value pairs"),
+            (
+                r#"(test "s" (steps (settle 2)))"#,
+                "expects :key value pairs",
+            ),
         ] {
             let error = parse(source).unwrap_err();
             assert!(
@@ -2018,7 +2347,8 @@ mod tests {
 
     #[test]
     fn typing_and_chords_parse() {
-        let spec = parse(r#"(test "s" (steps (type "hello") (key "cmd-a") (key "escape")))"#).unwrap();
+        let spec =
+            parse(r#"(test "s" (steps (type "hello") (key "cmd-a") (key "escape")))"#).unwrap();
         assert_eq!(spec.steps[0].command, Command::Type("hello".to_owned()));
         assert_eq!(spec.steps[1].command, Command::Key("cmd-a".to_owned()));
         assert_eq!(spec.steps[2].command, Command::Key("escape".to_owned()));
@@ -2030,7 +2360,10 @@ mod tests {
             (r#"(test "s" (steps (type "")))"#, "non-empty string"),
             (r#"(test "s" (steps (type x)))"#, "type requires a string"),
             (r#"(test "s" (steps (key "cmd-")))"#, "key requires a chord"),
-            (r#"(test "s" (steps (key "nope-a")))"#, "key requires a chord"),
+            (
+                r#"(test "s" (steps (key "nope-a")))"#,
+                "key requires a chord",
+            ),
             (r#"(test "s" (steps (key "")))"#, "key requires a chord"),
         ] {
             let error = parse(source).unwrap_err();
@@ -2070,13 +2403,19 @@ mod tests {
     fn each_runner_refuses_the_other_runners_steps() {
         let windowed = parse(r#"(test "s" (steps (expect-visible (text "x")) (settle)))"#).unwrap();
         let message = check_runner(&windowed, Runner::Semantic).unwrap_err();
-        assert!(message.contains("line 1: step `settle` is window-only"), "{message}");
+        assert!(
+            message.contains("line 1: step `settle` is window-only"),
+            "{message}"
+        );
         assert!(message.contains("--host-run-window-spec"), "{message}");
         assert!(check_runner(&windowed, Runner::Window).is_ok());
 
         let measured = parse(r#"(test "s" (steps (mark-metrics)))"#).unwrap();
         let message = check_runner(&measured, Runner::Window).unwrap_err();
-        assert!(message.contains("`mark-metrics` is semantic-only"), "{message}");
+        assert!(
+            message.contains("`mark-metrics` is semantic-only"),
+            "{message}"
+        );
         assert!(check_runner(&measured, Runner::Semantic).is_ok());
     }
 
@@ -2087,7 +2426,10 @@ mod tests {
         )
         .unwrap();
         let message = check_runner(&spec, Runner::Window).unwrap_err();
-        assert!(message.contains("benchmark clauses are semantic-only"), "{message}");
+        assert!(
+            message.contains("benchmark clauses are semantic-only"),
+            "{message}"
+        );
     }
 
     #[test]
@@ -2171,12 +2513,13 @@ mod tests {
     /// would silently photograph the whole canvas.
     #[test]
     fn screenshot_refuses_canvas_item_regions() {
-        let error = parse(
-            r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#,
-        )
-        .unwrap_err();
+        let error =
+            parse(r#"(test "s" (steps (screenshot "a" :region (role canvas-item :name "dot"))))"#)
+                .unwrap_err();
         assert!(
-            error.message.contains("canvas items have no recorded bounds"),
+            error
+                .message
+                .contains("canvas items have no recorded bounds"),
             "{}",
             error.message
         );

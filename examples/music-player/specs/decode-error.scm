@@ -1,4 +1,7 @@
 (test "a corrupt track is isolated"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

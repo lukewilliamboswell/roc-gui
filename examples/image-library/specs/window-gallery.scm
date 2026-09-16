@@ -1,4 +1,6 @@
 (test "the gallery wall presents an empty wall, a populated wall, and one work"
+  (grants
+    (directory "fixture"))
   (steps
     (settle)
     (expect-on-screen (role row :name "Library header"))

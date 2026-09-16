@@ -1,4 +1,6 @@
 (test "capture search pin restore delete and clear"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (expect-subscriptions 1)

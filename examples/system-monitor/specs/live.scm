@@ -1,4 +1,6 @@
 (test "sample pause inspect filter and resume"
+  (grants
+    (system-monitor standard))
   (steps
     (expect-system-samplers 0)
     (click (role button :name "Resume sampling"))

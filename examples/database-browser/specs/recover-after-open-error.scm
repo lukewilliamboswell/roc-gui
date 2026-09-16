@@ -1,4 +1,6 @@
 (test "a valid database opens after an invalid one failed"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

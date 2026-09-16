@@ -1,6 +1,8 @@
 ; Photographs the list in a real window: one row treatment for every entry,
 ; names left-aligned at one x, folders first, long names truncated.
 (test "Folder browser presents a scannable list"
+  (grants
+    (directory "fixture"))
   (steps
     (settle)
     (screenshot "initial")

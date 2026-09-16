@@ -1,4 +1,6 @@
 (test "disabled text input cannot dispatch a change"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (expect-visible (role textbox :name "Disabled example"))
     (replace-text (role textbox :name "Disabled example") "changed")

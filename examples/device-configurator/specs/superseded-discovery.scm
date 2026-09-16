@@ -2,6 +2,8 @@
 ; belongs to a generation nobody is waiting for, so it must not populate the
 ; device list behind the discovery still in flight.
 (test "the superseded discovery applies nothing when it lands"
+  (grants
+    (device virtual))
   (steps
     (click (role button :name "Discover devices"))
     (click (role button :name "Discover devices"))

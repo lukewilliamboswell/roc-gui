@@ -1,4 +1,6 @@
 (test "private clipboard content never enters the graph"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (click (role button :name "Discard next clipboard item"))

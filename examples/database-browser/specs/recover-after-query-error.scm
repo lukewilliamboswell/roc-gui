@@ -1,4 +1,6 @@
 (test "a rejected query is followed by a working one"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

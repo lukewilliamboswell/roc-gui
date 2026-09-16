@@ -1,4 +1,7 @@
 (test "the first send of an unedited document is rejected at its URL"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
   (steps
     (expect-visible (text "No response"))
     (expect-visible (text "Response headers: 0"))

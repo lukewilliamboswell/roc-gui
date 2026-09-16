@@ -1,4 +1,6 @@
 (test "dialog focuses and edits its text input"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (click (role button :name "Open rename dialog"))
     (expect-visible (role dialog :name "Rename workspace"))

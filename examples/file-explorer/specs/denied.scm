@@ -1,4 +1,5 @@
 (test "directory authority denial is explicit"
+  (grants)
   (steps
     (expect-file-picks 0) (expect-file-lists 0) (expect-file-opens 0) (expect-file-reads 0)
     (expect-file-selection-counters 0 0 0 0 0 0 0)

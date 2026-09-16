@@ -1,6 +1,8 @@
 ; A folder that holds only files, with files hidden, says so instead of
 ; presenting an empty panel.
 (test "Folder browser names an empty result"
+  (grants
+    (directory "files-only-fixture"))
   (steps
     (settle)
     (click (role button :name "Choose directory"))

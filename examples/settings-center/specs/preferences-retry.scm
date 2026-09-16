@@ -1,4 +1,6 @@
 (test "a storage failure can be retried and edited past"
+  (grants
+    (app-data "app-data-fixture/preferences-retry"))
   (steps
     (click (role button :name "Load saved profile"))
     (await-task)

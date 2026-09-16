@@ -1,4 +1,6 @@
 (test "search the settings catalogue"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (expect-visible (role virtual-list :name "Matching settings"))
     (expect-count (text-prefix "Appearance — ") 3)

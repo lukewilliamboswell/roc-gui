@@ -1,4 +1,6 @@
 (test "ordinary terminal output scales scrollback"
+  (grants
+    (process test-program))
   (benchmark :warmups 1 :samples 3 :iterations 2 :scale 100 :initial-size 0 :change-size 100)
   (steps
     (click (role button :name "New terminal"))

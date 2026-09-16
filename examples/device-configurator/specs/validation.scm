@@ -1,4 +1,6 @@
 (test "configuration remains bounded before apply"
+  (grants
+    (device virtual))
   (steps
     (click (role button :name "Discover devices"))
     (await-task)

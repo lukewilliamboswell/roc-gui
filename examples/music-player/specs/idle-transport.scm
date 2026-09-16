@@ -3,6 +3,9 @@
 ; than merely unused: nothing sounds, nothing is acquired, and the invitation
 ; to choose a folder still stands.
 (test "the transport is harmless before a folder is granted"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (expect-visible (text "Choose a music folder"))
     (click (role button :name "Toggle playback"))

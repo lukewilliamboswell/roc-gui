@@ -1,4 +1,5 @@
 (test "connection authority is explicit"
+  (grants)
   (steps
     (click (role button :name "Connect to Redis"))
     (await-task)

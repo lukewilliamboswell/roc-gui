@@ -1,4 +1,6 @@
 (test "save a realistic 100-byte profile note"
+  (grants
+    (app-data "app-data-fixture/default"))
   (benchmark :warmups 1 :samples 3 :iterations 1 :scale 100 :initial-size 0 :change-size 100)
   (steps
     (replace-text (role textarea :name "Profile notes") "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")

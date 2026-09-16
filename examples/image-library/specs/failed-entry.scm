@@ -2,6 +2,8 @@
 ; its reason and offers no way into the viewer, so a person cannot open one and
 ; land on a blank picture; and a filter that matches nothing says so.
 (test "a failed entry names its reason and offers no viewer"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open image folder"))
     (await-task)

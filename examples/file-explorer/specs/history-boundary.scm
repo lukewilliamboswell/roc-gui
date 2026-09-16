@@ -1,4 +1,6 @@
 (test "history presses at their boundaries change nothing"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open project"))
     (await-task)

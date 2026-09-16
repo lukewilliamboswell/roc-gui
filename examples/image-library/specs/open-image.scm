@@ -1,4 +1,6 @@
 (test "browse and transform a capability-scoped image"
+  (grants
+    (directory "fixture"))
   (steps
     (expect-image-owner-counters 0 0 0 0)
     (click (role button :name "Open image folder"))

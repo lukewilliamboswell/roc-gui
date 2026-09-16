@@ -1,4 +1,6 @@
 (test "an empty clipboard change adds no entry"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")

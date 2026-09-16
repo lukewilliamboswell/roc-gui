@@ -1,4 +1,7 @@
 (test "scan and inspect native Redis values"
+  (grants
+    (tcp "127.0.0.1:36379")
+    (server "fixture_server.py" 36379))
   (steps
     (expect-visible (role column :name "Redis Explorer"))
     (click (role button :name "Connect to Redis"))

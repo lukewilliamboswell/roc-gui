@@ -1,4 +1,6 @@
 (test "a search that matches nothing is reversible"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")

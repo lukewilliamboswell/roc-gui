@@ -1,4 +1,6 @@
 (test "history remains bounded under sustained real sampling"
+  (grants
+    (system-monitor standard))
   (steps
     (click (role button :name "Resume sampling"))
     (await-ticks 120)

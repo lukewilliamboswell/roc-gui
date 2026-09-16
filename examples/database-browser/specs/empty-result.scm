@@ -1,4 +1,6 @@
 (test "a query that matches no rows is an ordinary empty result"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

@@ -1,4 +1,6 @@
 (test "the first frame offers only the folder choice"
+  (grants
+    (directory "fixture"))
   (steps
     (expect-visible (role button :name "Choose database folder"))
     (expect-not-visible (role button :name "Run query"))

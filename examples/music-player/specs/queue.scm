@@ -1,4 +1,7 @@
 (test "next advances the playback queue"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

@@ -1,4 +1,6 @@
 (test "the instrument panel presents its regions, its signal status, and dense scrollback"
+  (grants
+    (process test-program))
   (steps
     (settle)
     (expect-on-screen (role row :name "Workspace header"))

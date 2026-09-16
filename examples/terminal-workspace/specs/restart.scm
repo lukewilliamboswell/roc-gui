@@ -1,4 +1,6 @@
 (test "a stopped session starts again from its rest state"
+  (grants
+    (process test-program))
   (steps
     (expect-visible (text "No session"))
     (expect-visible (text "gen 0"))

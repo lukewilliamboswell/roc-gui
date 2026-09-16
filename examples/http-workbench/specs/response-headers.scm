@@ -1,4 +1,7 @@
 (test "response headers are presented and replaced by the newest response"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
   (steps
     (expect-value (role textarea :name "Response headers") "")
     (replace-text (role textbox :name "Request URL") "http://127.0.0.1:38191/echo")

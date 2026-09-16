@@ -1,4 +1,6 @@
 (test "arming private capture discards exactly one item each time"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (click (role button :name "Discard next clipboard item"))

@@ -2,6 +2,8 @@
 ; the device accepts instead of climbing through it, and the applied transaction
 ; carries that bounded value.
 (test "sensitivity stops at its ceiling"
+  (grants
+    (device virtual))
   (steps
     (click (role button :name "Discover devices"))
     (await-task)

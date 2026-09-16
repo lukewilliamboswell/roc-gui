@@ -1,4 +1,6 @@
 (test "the catalogue and every panel are on screen at the default window size"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (settle)
     (expect-on-screen (role panel :name "Settings catalogue"))

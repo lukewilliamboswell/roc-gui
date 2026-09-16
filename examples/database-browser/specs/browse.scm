@@ -1,4 +1,6 @@
 (test "open schema and query typed rows"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose database folder"))
     (await-task)

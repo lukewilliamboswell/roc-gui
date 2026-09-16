@@ -1,4 +1,5 @@
 (test "clipboard authority is explicit"
+  (grants)
   (steps
     (expect-subscriptions 0)
     (click (role button :name "Start clipboard capture"))

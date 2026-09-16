@@ -1,4 +1,6 @@
 (test "sampling resumes after a pause"
+  (grants
+    (system-monitor standard))
   (steps
     (click (role button :name "Resume sampling"))
     (await-ticks 2)

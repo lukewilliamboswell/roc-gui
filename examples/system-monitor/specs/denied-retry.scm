@@ -1,4 +1,5 @@
 (test "a second resume after denial acquires nothing"
+  (grants)
   (steps
     (click (role button :name "Resume sampling"))
     (expect-visible (text "System observation access denied"))

@@ -1,6 +1,7 @@
 ; The denial path: no directory grant, so the chooser refuses. The explanation
 ; belongs in the content area, with a way forward beside Retry.
 (test "Folder browser explains a refused directory grant"
+  (grants)
   (steps
     (settle)
     ; The empty state belongs in the middle of the content area, not in its

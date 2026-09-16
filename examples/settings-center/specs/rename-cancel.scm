@@ -1,4 +1,6 @@
 (test "cancelling the rename dialog leaves the workspace name alone"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (expect-visible (text "Workspace: My workspace"))
     (click (role button :name "Open rename dialog"))

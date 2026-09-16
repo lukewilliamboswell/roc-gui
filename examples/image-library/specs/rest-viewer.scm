@@ -3,6 +3,8 @@
 ; scanning again puts the viewer back to its invitation instead of leaving the
 ; previous folder's picture hanging there.
 (test "the viewer rests empty before and after a scan"
+  (grants
+    (directory "fixture"))
   (steps
     (expect-visible (text "No folder open"))
     (expect-visible (text "Choose an image from the gallery"))

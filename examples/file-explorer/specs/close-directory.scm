@@ -1,4 +1,6 @@
 (test "confirm closing a granted directory"
+  (grants
+    (directory "fixture"))
   (steps
     (focus (role button :name "Open project"))
     (press-key Enter)

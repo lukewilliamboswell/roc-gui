@@ -2,6 +2,8 @@
 ; window size; this case asks for two more, so holding together in a narrow and
 ; in a wide window is a claim rather than an assumption.
 (test "the catalogue and the panels hold together at three window sizes"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (settle)
     (screenshot "as-launched")

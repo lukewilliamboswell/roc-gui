@@ -2,6 +2,8 @@
 ; Back and no ancestor chip exist. Two levels down, one press on the first chip
 ; has to drop the whole tail rather than one level of it.
 (test "Breadcrumbs collapse a deep trail and the root offers no way back"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Choose directory"))
     (await-task)

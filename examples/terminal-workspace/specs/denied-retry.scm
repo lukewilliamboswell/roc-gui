@@ -1,4 +1,5 @@
 (test "a denied terminal can be asked for again and starts no session"
+  (grants)
   (steps
     (expect-visible (text "gen 0"))
     (click (role button :name "New terminal"))

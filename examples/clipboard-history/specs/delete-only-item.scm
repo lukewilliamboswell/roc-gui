@@ -1,4 +1,6 @@
 (test "deleting the only item leaves an empty history that still captures"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")

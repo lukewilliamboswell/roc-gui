@@ -29,8 +29,7 @@ mod window_runner;
 use bridge::{
     Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
     ImageFormat as BridgeImageFormat, Justify, Length, MountedGraph, Node, NodeKind, Overflow,
-    Patch,
-    ScrollAxis, Style, decode_commit, validate_tree,
+    Patch, ScrollAxis, Style, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -353,7 +352,6 @@ macro_rules! decode_layout_style {
         }
     };
 }
-
 
 /// Stage one styled, semantically named row.
 #[unsafe(no_mangle)]
@@ -1743,7 +1741,8 @@ impl Runtime {
             }
         })
         .detach();
-        let (chooser_requests, chooser_pending) = std::sync::mpsc::channel::<files::ChooserRequest>();
+        let (chooser_requests, chooser_pending) =
+            std::sync::mpsc::channel::<files::ChooserRequest>();
         files::install_chooser(chooser_requests);
         let chooser_executor = cx.background_executor().clone();
         cx.spawn(async move |_, cx| {
@@ -2417,7 +2416,7 @@ struct HostArgs {
     window_shot_dir: Option<PathBuf>,
     window_timeout_ms: u32,
     window_require_shots: bool,
-    classify_specs: Vec<PathBuf>,
+    describe_specs: Vec<PathBuf>,
     stats_record: bool,
     stats_output: Option<PathBuf>,
     stats_detail: observatory::Detail,
@@ -2429,7 +2428,7 @@ struct HostArgs {
     cap_app_data: Option<PathBuf>,
     cap_assets: Option<PathBuf>,
     cap_clipboard_system: bool,
-    cap_clipboard_fixture: Option<PathBuf>,
+    cap_clipboard_fixture: bool,
     cap_tcp: Option<std::net::SocketAddr>,
     cap_process: Option<process::GrantedProfile>,
     cap_audio: audio::Grant,
@@ -2456,7 +2455,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         window_shot_dir: None,
         window_timeout_ms: 15_000,
         window_require_shots: true,
-        classify_specs: Vec::new(),
+        describe_specs: Vec::new(),
         stats_record: false,
         stats_output: None,
         stats_detail: observatory::Detail::Summary,
@@ -2468,7 +2467,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_app_data: None,
         cap_assets: None,
         cap_clipboard_system: false,
-        cap_clipboard_fixture: None,
+        cap_clipboard_fixture: false,
         cap_tcp: None,
         cap_process: None,
         cap_audio: audio::Grant::System,
@@ -2531,17 +2530,17 @@ fn parse_host_args() -> Result<HostArgs, String> {
                 .parse()
                 .ok()
                 .filter(|value| (1_000..=600_000).contains(value))
-                .ok_or_else(|| {
-                    "--host-window-timeout-ms requires 1000..=600000".to_string()
-                })?;
+                .ok_or_else(|| "--host-window-timeout-ms requires 1000..=600000".to_string())?;
         } else if argument == "--host-window-allow-missing-shots" {
             parsed.window_require_shots = false;
-        } else if argument == "--host-classify-specs" {
-            // Consumes the rest: classification is pure parsing, so one process
-            // can answer for the whole suite.
-            parsed.classify_specs.extend(pending.by_ref().map(PathBuf::from));
-            if parsed.classify_specs.is_empty() {
-                return Err("--host-classify-specs requires at least one .scm path".into());
+        } else if argument == "--host-describe-specs" {
+            // Consumes the rest: describing a specification is pure parsing,
+            // so one process can answer for the whole suite.
+            parsed
+                .describe_specs
+                .extend(pending.by_ref().map(PathBuf::from));
+            if parsed.describe_specs.is_empty() {
+                return Err("--host-describe-specs requires at least one .scm path".into());
             }
         } else if argument == "--host-cap-dir" {
             parsed.cap_dir = Some(
@@ -2582,8 +2581,8 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_clipboard_system = true;
         } else if argument == "--host-cap-audio-null" {
             parsed.cap_audio = audio::Grant::Null;
-        } else if let Some(path) = argument.strip_prefix("--host-cap-clipboard-fixture=") {
-            parsed.cap_clipboard_fixture = Some(path.into());
+        } else if argument == "--host-cap-clipboard-fixture" {
+            parsed.cap_clipboard_fixture = true;
         } else if argument == "--host-cap-tcp" {
             let endpoint = pending
                 .next()
@@ -2648,12 +2647,12 @@ fn parse_host_args() -> Result<HostArgs, String> {
         + usize::from(parsed.host_gpui_smoke)
         + usize::from(parsed.spec_path.is_some())
         + usize::from(parsed.window_spec_path.is_some())
-        + usize::from(!parsed.classify_specs.is_empty())
+        + usize::from(!parsed.describe_specs.is_empty())
         > 1
     {
         return Err(
             "host smoke modes, --host-run-spec, --host-run-window-spec, and \
-             --host-classify-specs are mutually exclusive"
+             --host-describe-specs are mutually exclusive"
                 .into(),
         );
     }
@@ -2729,6 +2728,157 @@ fn parse_system_monitor_fixture(value: &str) -> Result<system_monitor::Grant, St
     Err("system monitor fixture must be standard, unavailable, or processes:N".into())
 }
 
+/// Describe one specification as JSON: the runner it needs and the capabilities
+/// it declares.
+///
+/// The host owns the `.scm` vocabulary, so it is the only parser. A spec runner
+/// asks this mode what a case needs and turns the answer into the very flags an
+/// interactive grant would use; nothing infers a capability from a file name.
+fn describe_spec(path: &std::path::Path) -> Result<String, String> {
+    let text = std::fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let case = spec::parse(&text).map_err(|error| error.to_string())?;
+    let runner = if spec::check_runner(&case, spec::Runner::Semantic).is_ok() {
+        "semantic"
+    } else {
+        "window"
+    };
+    // Specifications live in `specs/` beside the application they exercise.
+    let application = path
+        .parent()
+        .and_then(std::path::Path::parent)
+        .ok_or_else(|| "specification has no application directory".to_string())?;
+
+    let mut flags: Vec<String> = Vec::new();
+    let mut app_data_seed: Option<String> = None;
+    let mut servers: Vec<(String, u32)> = Vec::new();
+    for grant in &case.grants {
+        let resolved = match grant.path() {
+            Some(relative) => Some(resolve_grant_path(application, relative)?),
+            None => None,
+        };
+        match grant {
+            spec::Grant::Directory(_) => {
+                let path = resolved.expect("directory grant names a path");
+                if !path.is_dir() {
+                    return Err(format!("directory grant does not exist: {}", path.display()));
+                }
+                flags.push("--host-cap-dir".into());
+                flags.push(path.display().to_string());
+            }
+            spec::Grant::AppData(_) => {
+                let path = resolved.expect("app-data grant names a path");
+                if !path.is_dir() {
+                    return Err(format!("app-data grant does not exist: {}", path.display()));
+                }
+                app_data_seed = Some(path.display().to_string());
+            }
+            spec::Grant::Clipboard { system } => flags.push(
+                if *system {
+                    "--host-cap-clipboard"
+                } else {
+                    "--host-cap-clipboard-fixture"
+                }
+                .into(),
+            ),
+            spec::Grant::AudioNull => flags.push("--host-cap-audio-null".into()),
+            spec::Grant::HttpOrigin(origin) => {
+                flags.push("--host-cap-http-origin".into());
+                flags.push(origin.clone());
+            }
+            spec::Grant::Tcp(endpoint) => {
+                flags.push("--host-cap-tcp".into());
+                flags.push(endpoint.clone());
+            }
+            spec::Grant::Process(profile) => {
+                flags.push("--host-cap-process".into());
+                flags.push(profile.clone());
+            }
+            spec::Grant::Device(identifier) => {
+                flags.push("--host-cap-device".into());
+                flags.push(identifier.clone());
+            }
+            spec::Grant::SystemMonitor(kind) => {
+                flags.push("--host-cap-system-monitor-fixture".into());
+                flags.push(kind.clone());
+            }
+            spec::Grant::Server { port, .. } => {
+                let path = resolved.expect("server grant names a path");
+                if !path.is_file() {
+                    return Err(format!("server grant does not exist: {}", path.display()));
+                }
+                servers.push((path.display().to_string(), *port));
+            }
+        }
+    }
+
+    let mut json = String::from("{\"path\":");
+    json.push_str(&json_string(&path.display().to_string()));
+    json.push_str(",\"runner\":");
+    json.push_str(&json_string(runner));
+    json.push_str(",\"flags\":[");
+    for (index, flag) in flags.iter().enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        json.push_str(&json_string(flag));
+    }
+    json.push_str("],\"app_data_seed\":");
+    match &app_data_seed {
+        Some(seed) => json.push_str(&json_string(seed)),
+        None => json.push_str("null"),
+    }
+    json.push_str(",\"servers\":[");
+    for (index, (script, port)) in servers.iter().enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        json.push_str("{\"script\":");
+        json.push_str(&json_string(script));
+        json.push_str(&format!(",\"port\":{port}}}"));
+    }
+    json.push_str("]}");
+    Ok(json)
+}
+
+/// Resolve one specification-supplied path against the application directory.
+///
+/// A path that leaves the application directory is refused here, before it can
+/// reach a capability. Both sides are canonicalized, so a symbolic link cannot
+/// step outside what the textual path promised.
+fn resolve_grant_path(application: &std::path::Path, relative: &str) -> Result<PathBuf, String> {
+    let root = application
+        .canonicalize()
+        .map_err(|error| format!("cannot resolve application directory: {error}"))?;
+    let candidate = root.join(relative);
+    let resolved = candidate
+        .canonicalize()
+        .map_err(|error| format!("cannot resolve grant path {relative}: {error}"))?;
+    if !resolved.starts_with(&root) {
+        return Err(format!(
+            "grant path {relative} leaves the application directory"
+        ));
+    }
+    Ok(resolved)
+}
+
+fn json_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for character in value.chars() {
+        match character {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            value if (value as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", value as u32)),
+            value => out.push(value),
+        }
+    }
+    out.push('"');
+    out
+}
+
 fn print_host_help(app_name: &str) {
     println!(
         "Usage: {app_name} [HOST OPTIONS]\n\
@@ -2740,6 +2890,7 @@ fn print_host_help(app_name: &str) {
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-assets PATH              Provision the application content directory\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
+           --host-cap-clipboard-fixture        Grant a specification-driven clipboard source\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
@@ -2750,7 +2901,7 @@ fn print_host_help(app_name: &str) {
            --host-window-shot-dir=PATH         Write window screenshots into this directory\n\
            --host-window-timeout-ms=N          Per-step window deadline (1000..600000)\n\
            --host-window-allow-missing-shots   Report unavailable screenshots instead of failing\n\
-           --host-classify-specs PATH...       Print which runner each .scm needs\n\
+           --host-describe-specs PATH...       Print each .scm's runner and grants as JSON\n\
            --host-smoke                        Run the built-in headless smoke check\n\
           --host-gpui-smoke                   Open, render, and close a real GPUI window\n\
            --host-stats-record                 Record an observatory capture\n\
@@ -2853,20 +3004,11 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 0;
     }
-    if !args.classify_specs.is_empty() {
+    if !args.describe_specs.is_empty() {
         let mut status = 0;
-        for path in &args.classify_specs {
-            match std::fs::read_to_string(path).map_err(|error| error.to_string()).and_then(
-                |text| spec::parse(&text).map_err(|error| error.to_string()),
-            ) {
-                Ok(case) => {
-                    let runner = if spec::check_runner(&case, spec::Runner::Semantic).is_ok() {
-                        "semantic"
-                    } else {
-                        "window"
-                    };
-                    println!("{runner}\t{}", path.display());
-                }
+        for path in &args.describe_specs {
+            match describe_spec(path) {
+                Ok(line) => println!("{line}"),
                 Err(message) => {
                     eprintln!("{}: {message}", path.display());
                     status = 2;
@@ -2933,7 +3075,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     assets::configure(args.cap_assets.as_deref());
     if let Err(message) = clipboard::configure(
         args.cap_clipboard_system,
-        args.cap_clipboard_fixture.as_deref(),
+        args.cap_clipboard_fixture,
     ) {
         eprintln!("roc-gui clipboard capability error: {message}");
         set_roc_host(core::ptr::null_mut());
@@ -3058,7 +3200,9 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         probe::enable();
         // Generous relative to the per-step deadline: this only catches a host
         // that never reaches its own reporting, not a slow specification.
-        watchdog::arm(Duration::from_millis(u64::from(args.window_timeout_ms)) + Duration::from_secs(30));
+        watchdog::arm(
+            Duration::from_millis(u64::from(args.window_timeout_ms)) + Duration::from_secs(30),
+        );
     }
 
     Application::new().run(move |cx| {

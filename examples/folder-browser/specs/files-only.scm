@@ -2,6 +2,8 @@
 ; The empty result has to name itself, and ticking the box back has to restore
 ; the rows rather than leaving the notice behind.
 (test "A folder of only files names its empty result and gives the rows back"
+  (grants
+    (directory "files-only-fixture"))
   (steps
     (click (role button :name "Choose directory"))
     (await-task)

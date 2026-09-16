@@ -1,4 +1,6 @@
 (test "the scrollback filter narrows to nothing and is reversible"
+  (grants
+    (process test-program))
   (steps
     (expect-visible (text "0/0 lines"))
     (expect-visible (text "filter off"))

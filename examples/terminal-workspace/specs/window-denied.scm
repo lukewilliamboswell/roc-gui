@@ -1,4 +1,5 @@
 (test "a denied session keeps the panel intact and states the refusal in the signal colour"
+  (grants)
   (steps
     (settle)
     (click (role button :name "New terminal"))

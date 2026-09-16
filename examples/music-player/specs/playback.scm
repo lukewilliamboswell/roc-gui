@@ -1,4 +1,7 @@
 (test "scan and play through the production decoder and mixer"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

@@ -1,4 +1,6 @@
 (test "recopying an item keeps one entry and moves it to the front"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")

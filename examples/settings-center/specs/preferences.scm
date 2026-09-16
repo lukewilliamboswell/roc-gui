@@ -1,4 +1,6 @@
 (test "load and atomically save the granted profile preference"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (click (role button :name "Load saved profile"))
     (expect-visible (text "Loading your preferences…"))

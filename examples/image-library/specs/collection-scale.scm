@@ -1,4 +1,6 @@
 (test "browse a high-resolution collection through the ordinary gallery"
+  (grants
+    (directory "fixture"))
   (benchmark :warmups 1 :samples 3 :iterations 4 :scale 24 :initial-size 27 :change-size 24)
   (steps
     (click (role button :name "Open image folder"))

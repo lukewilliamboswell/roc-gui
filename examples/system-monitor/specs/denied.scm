@@ -1,4 +1,5 @@
 (test "system observation requires explicit host permission"
+  (grants)
   (steps
     (click (role button :name "Resume sampling"))
     (expect-visible (text "System observation access denied"))

@@ -1,4 +1,7 @@
 (test "dismissing at rest changes nothing and retry still sends"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
   (steps
     (click (role button :name "Dismiss pending response"))
     (expect-not-visible (text "Pending response dismissed"))

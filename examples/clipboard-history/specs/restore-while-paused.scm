@@ -1,4 +1,6 @@
 (test "restore is unavailable while capture is paused"
+  (grants
+    (clipboard fixture))
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")

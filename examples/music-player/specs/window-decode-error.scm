@@ -1,6 +1,9 @@
 ; Photographs the failure state: the status surface carries the message, and the
 ; row the person clicked stays marked so the failure has somewhere to belong.
 (test "A decode failure is legible against the night ground"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (settle)
     (click (role button :name "Choose music folder"))

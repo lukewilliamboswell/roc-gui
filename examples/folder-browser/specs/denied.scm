@@ -2,6 +2,7 @@
 ; A refusal is a state you can act from, so Retry, Choose another directory,
 ; and the files checkbox all have to behave while the explanation stands.
 (test "A refused directory grant survives the presses that follow it"
+  (grants)
   (steps
     (expect-visible (text "No folder open"))
     (expect-not-visible (role panel :name "Directory error"))

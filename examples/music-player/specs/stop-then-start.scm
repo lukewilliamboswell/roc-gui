@@ -2,6 +2,9 @@
 ; Previous starts from the end of the queue and Play starts from the top, and a
 ; second Stop on an already stopped transport changes nothing.
 (test "the transport restarts from rest after a stop"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)

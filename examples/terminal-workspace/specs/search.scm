@@ -1,4 +1,6 @@
 (test "scrollback search filters terminal output"
+  (grants
+    (process test-program))
   (steps
     (click (role button :name "New terminal"))
     (await-task)

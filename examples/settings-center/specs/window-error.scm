@@ -1,4 +1,6 @@
 (test "a preferences failure is coloured, explained, and offers a retry"
+  (grants
+    (app-data "app-data-fixture/window-error"))
   (steps
     (settle)
     (click (role button :name "Load saved profile"))

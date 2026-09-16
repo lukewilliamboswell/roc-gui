@@ -1,4 +1,6 @@
 (test "natural large process set uses the ordinary process table"
+  (grants
+    (system-monitor processes 500))
   (benchmark :warmups 1 :samples 3 :iterations 1 :scale 500 :initial-size 0 :change-size 500)
   (steps
     (mark-metrics)

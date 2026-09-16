@@ -1,4 +1,6 @@
 (test "discover connect and apply a device profile"
+  (grants
+    (device virtual))
   (steps
     (expect-visible (role column :name "Device Configurator"))
     (expect-device-connections 0)

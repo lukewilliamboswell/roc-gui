@@ -2,6 +2,9 @@
 ; ground, a full queue, the sounding row carrying the accent, and the paused
 ; transport reading "Resume".
 (test "Music player wears its night identity"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (settle)
     (expect-on-screen (role button :name "Choose music folder"))

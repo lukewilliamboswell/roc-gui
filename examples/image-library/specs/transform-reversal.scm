@@ -2,6 +2,8 @@
 ; a second press of the same one is not a toggle, and grayscale goes back off
 ; again without disturbing the fit.
 (test "viewer transforms reverse and repeat"
+  (grants
+    (directory "fixture"))
   (steps
     (click (role button :name "Open image folder"))
     (await-task)

@@ -1,4 +1,6 @@
 (test "a cancelled session cannot pause the session that replaced it"
+  (grants
+    (system-monitor standard))
   (steps
     (click (role button :name "Resume sampling"))
     (await-ticks 1)

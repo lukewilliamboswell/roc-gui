@@ -1,4 +1,6 @@
 (test "the status slot keeps the profile panel still while an operation runs"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (settle)
     (expect-on-screen (text "Settings are saved"))

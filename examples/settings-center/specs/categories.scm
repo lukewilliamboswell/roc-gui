@@ -1,4 +1,6 @@
 (test "category chips filter the catalogue and All reverses them"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (expect-visible (text "Showing all 12 settings"))
     (click (role button :name "Category Notifications"))

@@ -1,4 +1,6 @@
 (test "process ordering and filtering are reversible"
+  (grants
+    (system-monitor standard))
   (steps
     (click (role button :name "Resume sampling"))
     (await-ticks 1)

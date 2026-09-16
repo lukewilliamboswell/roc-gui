@@ -1,4 +1,6 @@
 (test "real PTY accepts input and returns output"
+  (grants
+    (process test-program))
   (steps
     (expect-processes 0)
     (click (role button :name "New terminal"))

@@ -1,4 +1,6 @@
 (test "a search that matches nothing says so and can be cleared"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (expect-visible (text "Showing all 12 settings"))
     (expect-visible (role virtual-list :name "Matching settings"))

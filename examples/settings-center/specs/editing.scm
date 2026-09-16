@@ -1,4 +1,6 @@
 (test "edit, validate, apply, and revert a profile setting"
+  (grants
+    (app-data "app-data-fixture/default"))
   (steps
     (expect-visible (role column :name "Settings Center"))
     (expect-visible (role textbox :name "Profile name"))

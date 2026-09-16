@@ -1,4 +1,7 @@
 (test "capability rejects a different origin before network access"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
   (steps
     (replace-text (role textbox :name "Request URL") "http://localhost:38191/echo")
     (click (role button :name "Send request"))

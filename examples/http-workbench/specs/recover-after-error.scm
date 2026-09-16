@@ -1,4 +1,7 @@
 (test "a rejected request is followed by a working one and back again"
+  (grants
+    (http-origin "http://127.0.0.1:38191")
+    (server "fixture_server.py" 38191))
   (steps
     (replace-text (role textbox :name "Request URL") "file:///etc/passwd")
     (click (role button :name "Send request"))

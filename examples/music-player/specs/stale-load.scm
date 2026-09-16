@@ -1,4 +1,7 @@
 (test "an older load cannot replace a newer track"
+  (grants
+    (directory "fixture")
+    (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)
