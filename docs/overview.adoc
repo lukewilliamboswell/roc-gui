@@ -66,7 +66,7 @@ performance evidence to a SQLite `.rgstats` capture.
 * images decoded from in-memory bytes;
 * horizontal rows, vertical columns, panels, and modal dialogs;
 * scrolling regions, virtual lists, and a retained canvas;
-* keyed components, explicit render ownership, and opt-in subtree memoization;
+* keyed components, explicit render ownership, and equality-based subtree memoization by default;
 * `.scm` specifications stored beside each application;
 * opt-in SQLite captures for correctness and performance evidence.
 

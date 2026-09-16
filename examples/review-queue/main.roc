@@ -63,28 +63,25 @@ render = |board, shared_board, state| Elem.col(
 	],
 )
 
-same_board : Board, Board -> Bool
-same_board = |a, b| a.item.value == b.item.value and a.item.step == b.item.step and a.item.archived == b.item.archived and a.accepted == b.accepted and a.present == b.present
-
 setup! : () => { state : State, render : State -> Elem(State) }
 setup! = || {
 	item : Component(Board)
-	item = Component.memo!({
+	item = Component.define!({
 		get: item_get,
 		set: item_set,
 		render: item_render,
-		same: |a, b| a.value == b.value and a.step == b.step and a.archived == b.archived,
 		on_delegate: |candidate, _| if candidate.item.archived Action.task({ pending: { ..candidate, present: False }, run: || 100.I64, resolve: |latest, result| Action.update({ ..latest, accepted: result }) }) else if candidate.item.value <= 2 Action.update({ ..candidate, accepted: candidate.item.value }) else Action.none,
 	})
 	board : Component(State)
-	board = Component.memo!({
+	board = Component.define!({
 		get: board_get,
 		set: board_set,
 		render: |state| board_render(item, state),
-		same: same_board,
 	})
 	shared_board : Component(State)
-	shared_board = Component.memo!({ get: board_get, set: board_set, render: |state| board_render(item, state), same: same_board, update_scope: Parent })
+	# This variant exercises the explicit comparator override. Its equivalence
+	# includes the complete board, including the step captured by item handlers.
+	shared_board = Component.memo!({ get: board_get, set: board_set, render: |state| board_render(item, state), same: |previous, next| previous == next, update_scope: Parent })
 	{ state: initial, render: |state| render(board, shared_board, state) }
 }
 

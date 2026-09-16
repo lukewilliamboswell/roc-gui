@@ -11,7 +11,9 @@ Workspace := [].{
 	setup! : () => { state : State, render : State -> Elem.Elem(State) }
 	setup! = || {
 		terminal : Component(State)
-		terminal = Component.define!({ get: terminal_get, set: terminal_set, render: terminal_render })
+		# Terminal state owns process resources; do not compare resource handles
+		# or retain a memo snapshot of the scrollback on every received batch.
+		terminal = Component.unmemoized!({ get: terminal_get, set: terminal_set, render: terminal_render })
 		{ state: Workspace.init, render: |state| render(terminal, state) }
 	}
 }

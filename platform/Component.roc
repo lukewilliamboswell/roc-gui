@@ -21,11 +21,19 @@ Component(parent) := { bind : Elem.Key -> Elem(parent) }.{
 		on_delegate : parent, Elem.Key -> Action(parent) ?? |parent, _| Action.update(parent),
 	}
 
-	define! : Config(parent, child) => Component(parent)
-	define! = |Config.(config)| build!(config.get, config.set, config.render, None, config.update_scope, config.on_delegate)
+	## Equal child inputs retain the mounted subtree and its captured handlers.
+	## Equality must preserve both rendering and handler behavior.
+	define! : Config(parent, child) => Component(parent) where [child.is_eq : child, child -> Bool]
+	define! = |Config.(config)| build!(config.get, config.set, config.render, Some(|previous, next| previous == next), config.update_scope, config.on_delegate)
+
+	## Always render when this boundary is reached. Use for inputs without a
+	## suitable equality or when comparison and snapshot retention cost more.
+	unmemoized! : Config(parent, child) => Component(parent)
+	unmemoized! = |Config.(config)| build!(config.get, config.set, config.render, None, config.update_scope, config.on_delegate)
 
 	## True must preserve both rendering and captured-handler behavior. Retaining
-	## a snapshot can inhibit in-place state updates; comparison is opt-in.
+	## a snapshot can inhibit in-place state updates. Use this constructor only
+	## when the input's ordinary equality is not the desired memo equivalence.
 	memo! : MemoConfig(parent, child) => Component(parent)
 	memo! = |MemoConfig.(config)| build!(config.get, config.set, config.render, Some(config.same), config.update_scope, config.on_delegate)
 

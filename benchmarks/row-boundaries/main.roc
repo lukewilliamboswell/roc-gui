@@ -165,11 +165,10 @@ row_set = |parent, key, child| match Elem.Key.inspect(key) {
 setup! : () => { state : State, render : State -> Elem(State) }
 setup! = || {
 	row_component : Component(State)
-	row_component = Component.memo!({
+	row_component = Component.define!({
 		get: row_get,
 		set: row_set,
 		render: render_row,
-		same: |left, right| left.id == right.id and left.value == right.value,
 	})
 	{ state: create_rows(0), render: |state| render(row_component, state) }
 }

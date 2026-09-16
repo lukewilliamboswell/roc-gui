@@ -39,7 +39,7 @@ receives the state associated with its render boundary and an `Event.Press`.
 It returns an action:
 
 `Action.update(next_state)`:: Propose the next state and update the required
-render scope, subject to explicit memoization.
+render scope, subject to the component's memoization policy.
 `Action.none`:: Keep the existing state and element tree unchanged.
 `Action.delegate(next_state)`:: Propose a child change to the nearest component's
 parent policy. That policy returns the action to accept, revise, veto, or
@@ -269,8 +269,8 @@ application that says nothing keeps it.
 == Keyed components and local state
 
 A component definition fixes how to read and replace child state, render it,
-and handle delegation. `Component.define!` creates an ordinary definition during
-setup. `Elem.component(definition, key)` mounts an instance while rendering:
+and handle delegation. `Component.define!` creates an equality-memoized definition
+during setup. `Elem.component(definition, key)` mounts an instance while rendering:
 
 [source,roc]
 ----
@@ -390,9 +390,14 @@ nor transfers task ownership. A reusable child can delegate an intent while
 its parent decides whether that intent should mutate a collection, close a
 view, or begin work that must survive the child's removal.
 
-=== Opt-in memoization
+=== Memoization by default
 
-Use `Component.memo!` when comparing input is worthwhile. It accepts the same
+`Component.define!` compares the complete child input using its `is_eq` method.
+Its signature requires `where [child.is_eq : child, child -> Bool]`; ordinary
+record inputs need no handwritten comparator. Equal input retains the mounted
+subtree and its captured handlers.
+
+Use `Component.memo!` to override that comparison. It accepts the same
 fields as `Component.define!` plus `same : child, child -> Bool`:
 
 [source,roc]
@@ -415,15 +420,26 @@ or layout property. Immutable definition identity avoids comparing functions.
 Equality is not automatically this contract. A custom equality may omit fields;
 floating-point equality may equate positive and negative zero even if rendering
 distinguishes them. An unnecessary miss costs work, but an incorrect hit keeps
-stale behavior. An ordinary definition has no comparison requirement and is
-appropriate for opaque resources and inputs without a useful equivalence.
+stale behavior. Determinism does not make every equality representation-sensitive.
+Use an exact input wrapper or a custom comparator if signed zero matters.
+The type constraint proves that comparison exists, not that it obeys this law.
+
+`Component.unmemoized!` accepts the same configuration as `Component.define!`
+without an equality constraint. It does not retain a comparison snapshot and
+always renders when the boundary is reached. Use it for opaque resources,
+inputs without a suitable equivalence, or when measurement shows comparison
+and snapshot retention cost more than the work they save. It preserves keyed
+identity, update scope, delegation, and task ownership; nested memoized
+components can still be retained.
 
 A hit during ancestor rendering retains the complete child graph, event routes,
 nested instances, and native views. A miss rerenders the component and can
 still retain matching memoized descendants. Local descendant updates invalidate
 ancestor snapshots so a later ancestor render cannot mistake an old snapshot
 for the mounted output. Saved inputs consume memory and may inhibit Roc's
-in-place updates; memoization is a deliberate cost tradeoff, not a default.
+in-place updates. Default memoization is a cost tradeoff, not a guarantee that
+comparison is free or that every application benefits; measure with the
+production scaling cases and opt out where appropriate.
 
 === Tasks follow the action owner
 
@@ -444,7 +460,7 @@ For a complete reusable component, see `examples/counter/Counter.roc` and its
 composition in `examples/counter/main.roc`. `examples/review-queue` composes
 nested components and specifies parent summaries, captured-handler inputs,
 delegation, removal, and local versus parent-owned task completion. The terminal
-workspace mounts resource-bearing terminal state with an ordinary definition.
+workspace mounts resource-bearing terminal state with `Component.unmemoized!`.
 
 == Directory capabilities and tasks
 

@@ -65,7 +65,8 @@ Resource access and trusted grants chapter describes that boundary.
 `Program.run` supplies an effectful `setup` function and initial resizable-window
 metadata. Setup runs once, before the first render, and returns the initial
 state and a pure renderer. It also creates immutable component definitions with
-`Component.define!` or `Component.memo!`; rendering cannot register definitions.
+`Component.define!`, `Component.memo!`, or `Component.unmemoized!`; rendering
+cannot register definitions.
 Calling the renderer produces an immutable `Elem(State)` description. Composition stays in Roc:
 styled and semantically named `Elem.row`, `Elem.col`, `Elem.panel`,
 `Elem.text`, `Elem.action_button`, and named `Elem.scroll` regions build the tree.
@@ -271,9 +272,12 @@ summary without silently acquiring the parent's lifetime.
 
 === Memoization is an explicit behavioral contract
 
-`Component.define!` requires no equality and works with resource-bearing state.
-`Component.memo!` adds a `same(previous, next)` comparison over the full typed
-child input. The input must include all variable render and captured-handler
+`Component.define!` memoizes by default using the child input's `is_eq` method,
+required by its type constraint. `Component.memo!` supplies an explicit
+`same(previous, next)` comparison instead. `Component.unmemoized!` installs no
+comparison, requires no equality, and renders whenever the boundary is reached;
+it is suitable for resource-bearing state or expensive snapshots/comparisons.
+The input must include all variable render and captured-handler
 dependencies, including labels, layout choices, and external properties
 selected from parent state. Definition functions and their setup captures are
 immutable; no function or pointer equality establishes renderer identity.
@@ -283,8 +287,11 @@ observationally equivalent to rebuilding with the new input. Ordinary equality
 is suitable only when it satisfies that promise. Custom equality can omit a
 relevant field, and floating-point equality can equate positive and negative
 zero even when a renderer distinguishes them. A false negative costs work; a
-false positive violates the application contract. No equality or hash is
-installed implicitly.
+false positive violates the application contract. The equality constraint
+establishes method availability, not this behavioral law. Deterministic
+floating-point calculations do not imply representation-sensitive equality:
+inputs whose signed zero matters need an exact wrapper or a custom comparator.
+No hashing or comparison of renderer functions is used.
 
 The saved snapshot belongs to the mounted output. A local descendant update
 invalidates every strict ancestor's memo snapshot, even when those ancestors

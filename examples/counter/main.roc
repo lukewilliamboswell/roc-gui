@@ -16,23 +16,25 @@ CounterInput : { name : Str, counter : Counter.State }
 
 counter_get : State, Elem.Key -> Try(CounterInput, [Removed])
 counter_get = |parent, key| match Elem.Key.inspect(key) {
-	Name("Left") => Ok({ name: "Left", counter: parent.left }),
-	Name("Right") => Ok({ name: "Right", counter: parent.right }),
-	_ => Err(Removed),
+	Name("Left") => Ok({ name: "Left", counter: parent.left })
+	Name("Right") => Ok({ name: "Right", counter: parent.right })
+	_ => Err(Removed)
 }
 
 counter_set : State, Elem.Key, CounterInput -> Try(State, [Removed])
 counter_set = |parent, key, child| match Elem.Key.inspect(key) {
-	Name("Left") => Ok({ ..parent, left: child.counter }),
-	Name("Right") => Ok({ ..parent, right: child.counter }),
-	_ => Err(Removed),
+	Name("Left") => Ok({ ..parent, left: child.counter })
+	Name("Right") => Ok({ ..parent, right: child.counter })
+	_ => Err(Removed)
 }
 
 counter_render : CounterInput -> Elem(CounterInput)
 counter_render = |child| Elem.lift(Counter.render(child.name, child.counter), |input| input.counter, |input, next| { ..input, counter: next })
 
 paper = Gui.rgb(0xF2EFE6)
+
 ink = Gui.rgb(0x1F1C17)
+
 muted_ink = Gui.rgb(0x8C8474)
 
 render : Component(State), State -> Elem(State)
@@ -67,15 +69,14 @@ render = |counter, state| Elem.col(
 
 ## Compiler workaround (09-12): defining the component in an inline
 ## Program.run setup closure crashes roc check. Keep this named helper until
-## the inline-setup reproducer in wip/optimization-notes.md passes, then revisit.
+## the equivalent inline closure checks and builds with the supported compiler.
 setup! : () => { state : State, render : State -> Elem(State) }
 setup! = || {
 	counter : Component(State)
-	counter = Component.memo!({
+	counter = Component.define!({
 		get: counter_get,
 		set: counter_set,
 		render: counter_render,
-		same: |left, right| left.name == right.name and left.counter.count == right.counter.count,
 	})
 	{ state: { left: Counter.init(-1), right: Counter.init(3), title: "Counter" }, render: |state| render(counter, state) }
 }
