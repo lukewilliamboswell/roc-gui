@@ -313,10 +313,9 @@ them silently:
 
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount. Also every step the
-window runner does not implement: `drag`, `replace-text`,
-`submit`, `expect-canvas-primitives`, `expect-image-bytes`, the
-value and ordering assertions, the live-resource and owner counter assertions,
-and the repository fixture steps the Contributing chapter describes.
+window runner does not implement: `drag`, `replace-text`, `submit`, the
+live-resource and owner counter assertions, and the repository fixture steps the
+Contributing chapter describes.
 
 `window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
 `expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
@@ -324,12 +323,16 @@ mean anything without a presented frame: without layout there is no fold for
 content to be below, and no size a window could be resized from.
 
 `both`:: `click`, `focus`, `press-key`, `await-task`, `clipboard-text`,
-`await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`, and
-`expect-count`. The fixture clipboard is one process-wide store, so changing the
-granted source and waiting for the application's own timer to observe it mean
-the same thing under either runner; without them a windowed case could not put a
-single item into a clipboard-driven application, and so could not photograph
-one.
+`await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
+`expect-count`, and the value and ordering assertions — `expect-value`,
+`expect-value-bytes`, `expect-image-bytes`, `expect-before`, and
+`expect-canvas-primitives`. The fixture clipboard is one process-wide store, so
+changing the granted source and waiting for the application's own timer to
+observe it mean the same thing under either runner; without them a windowed
+case could not put a single item into a clipboard-driven application, and so
+could not photograph one. The value and ordering assertions read the mounted
+graph, which both runners hold, and both call the same code to answer them, so
+one window case can assert a semantic truth and photograph it in the same run.
 
 A step is classified by what a runner actually does, so a specification is
 refused before the window opens rather than part-way through a run.

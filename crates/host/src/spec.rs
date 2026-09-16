@@ -419,7 +419,15 @@ impl Command {
             | Self::ExpectVisible(_)
             | Self::ExpectFocused(_)
             | Self::ExpectNotVisible(_)
-            | Self::ExpectCount(_, _) => Capability::Both,
+            | Self::ExpectCount(_, _)
+            // Answered from the mounted graph alone, which both runners hold,
+            // and by one shared implementation rather than two. A window case
+            // can therefore assert a semantic truth and photograph it.
+            | Self::ExpectCanvasPrimitives(_, _)
+            | Self::ExpectValue(_, _)
+            | Self::ExpectValueBytes(_, _)
+            | Self::ExpectImageBytes(_, _)
+            | Self::ExpectBefore(_, _) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
             // They are honest claims, made by one runner rather than two; the
             // alternative of accepting a specification and then refusing a step
@@ -429,11 +437,6 @@ impl Command {
             | Self::ReplaceText(_, _)
             | Self::Submit(_)
             | Self::RevokeFileGrants
-            | Self::ExpectCanvasPrimitives(_, _)
-            | Self::ExpectValue(_, _)
-            | Self::ExpectValueBytes(_, _)
-            | Self::ExpectImageBytes(_, _)
-            | Self::ExpectBefore(_, _)
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
             | Self::ExpectProcesses(_)

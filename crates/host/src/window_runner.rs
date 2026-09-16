@@ -714,6 +714,20 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
+        // The five claims answered from the mounted graph alone, made by the
+        // same code the semantic runner calls, so the word means one thing.
+        Command::ExpectCanvasPrimitives(_, _)
+        | Command::ExpectValue(_, _)
+        | Command::ExpectValueBytes(_, _)
+        | Command::ExpectImageBytes(_, _)
+        | Command::ExpectBefore(_, _) => window
+            .update(cx, |runtime, _, _| {
+                runner::graph_claim(&runtime.graph, &step.command)
+                    .expect("graph claim is missing an arm")
+                    .0
+                    .map_err(StepError::Geometry)
+            })
+            .map_err(|_| StepError::WindowClosed)?,
         Command::AwaitTask => await_completion(window, options.timeout, cx).await,
         // An application that polls — a clipboard watcher rearms its read on
         // every tick — never reaches the quiescence `settle` waits for, because

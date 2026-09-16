@@ -15,6 +15,11 @@
     (expect-visible (text "not yet exercised"))
     (expect-visible (text "no origin in the URL field"))
     (expect-visible (text "No response"))
+    ; The readout's own value, not a string that happens to be drawn near it:
+    ; "No response" is a placeholder the column paints, while the response
+    ; documents are genuinely empty until something has been sent.
+    (expect-value (role textarea :name "Response body") "")
+    (expect-value-bytes (role textarea :name "Response headers") 0)
     (screenshot "first-frame")
     (screenshot "authority-unexercised" :region (role row :name "Authority bar") :pad 4)
     (focus (role textbox :name "Request URL"))

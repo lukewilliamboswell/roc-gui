@@ -225,11 +225,23 @@ names the evidence so a fix can be verified against the same case.
   compositor lane below rather than a desktop session.
 
 - [ ] **Shared steps the window runner does not implement.** `drag`,
-  `replace-text`, `submit`, `revoke-file-grants`, the value and ordering
-  assertions, and the owner counter assertions are classified semantic-only
-  because the window runner refuses them, not because they would be dishonest
-  there. Implementing them would let one specification assert semantic truth and
-  photograph it.
+  `replace-text`, `submit`, `revoke-file-grants`, and the owner counter
+  assertions are still classified semantic-only because the window runner
+  refuses them, not because they would be dishonest there.
+
+  The value and ordering assertions have since landed and are no longer on this
+  list. They cost almost nothing, because each is answered from the mounted
+  graph alone: `runner::graph_claim` now holds the only implementation and both
+  runners call it, so the five words cannot come to mean two things. The four
+  that remain are each a different problem rather than four of the same one.
+  `drag` and `submit` want a pointer and a submit route the window runner
+  reaches only by simulation, which is the entry above; `replace-text` sets a
+  value directly, which in a window would bypass the editing path `type`
+  exists to exercise, so it needs a decision about whether that is worth
+  offering at all. `revoke-file-grants` and the owner counters read
+  process-global state that is already reachable from the window runner — they
+  are held back only by the per-counter plumbing, and are the cheapest next
+  step.
 
   `clipboard-text` and `await-ticks` have since landed in the window runner and
   are no longer on this list. They are worth reading before the next one is
