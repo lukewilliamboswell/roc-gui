@@ -66,7 +66,7 @@ Theme := [].{
 
 	## One result row, and the gutter that carries its ordinal.
 	row_height = 24.U32
-	gutter = 96.U32
+	gutter = 132.U32
 
 	## The two fixed side columns: the files in the granted folder, and the
 	## tables in the opened database.

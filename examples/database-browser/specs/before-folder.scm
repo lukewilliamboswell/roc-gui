@@ -10,6 +10,6 @@
     (expect-visible (text "no folder granted"))
     (expect-visible (text "choose a folder to read"))
     (expect-visible (text "no database open"))
-    (expect-visible (text "Nothing is readable until a folder is granted."))
+    (expect-visible (text "No folder granted yet."))
     (expect-count (text-prefix "Table: ") 0)
     (expect-sqlite-counters 0 0 0)))

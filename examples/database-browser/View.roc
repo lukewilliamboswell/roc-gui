@@ -121,7 +121,7 @@ error_band = |state| match state.status {
 
 files_column = |state| {
 	body = match state.folder {
-		None => [note("Nothing is readable until a folder is granted.")]
+		None => [note("No folder granted yet.")]
 		Some(folder) => {
 			files = folder.entries.keep_if(|entry| entry.kind == File)
 			if files.is_empty() {
@@ -184,7 +184,7 @@ schema_column = |state| {
 ## One cell of the result table. Every column takes an equal share of the width
 ## and clips rather than wraps, so a row is always one line tall and the columns
 ## stay on the same vertical rules from the header down.
-cell = |text, ink, size| Elem.row(
+cell = |text, ink, size, justify| Elem.row(
 	Elem.RowProps.{
 		width: Fill,
 		grow: True,
@@ -196,9 +196,25 @@ cell = |text, ink, size| Elem.row(
 		font_face: Theme.face,
 		text_overflow: Ellipsis,
 		align: Center,
+		justify,
 	},
 	[Elem.text(text)],
 )
+
+## A ledger aligns its numbers on the right so the decimal points stack and a
+## column reads down. Text stays on the left. A column's alignment is taken from
+## the first row's value types and applied to the heading too, so the heading
+## sits over its own column rather than beside it.
+justify_for = |value| match value {
+	Integer(_) => End
+	Real(_) => End
+	_ => Start
+}
+
+alignments = |result| match result.rows.first() {
+	Ok(row) => row.map(justify_for)
+	Err(_) => result.columns.map(|_| Start)
+}
 
 gutter = |text| Elem.row(
 	Elem.RowProps.{ width: Px(Theme.gutter), padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face, text_overflow: Ellipsis, align: Center },
@@ -206,6 +222,7 @@ gutter = |text| Elem.row(
 )
 
 result_table = |result| {
+	columns_justify = alignments(result)
 	header = Elem.row(
 		Elem.RowProps.{
 			label: "Result columns",
@@ -219,7 +236,7 @@ result_table = |result| {
 			border_width: 0,
 			border_bottom: Px(1),
 		},
-		[gutter("ROW")].concat(result.columns.map(|name| cell(name, Theme.dim, Theme.meta))),
+		[gutter("ROW")].concat(result.columns.map_with_index(|name, index| cell(name, Theme.dim, Theme.meta, columns_justify.get(index) ?? Start))),
 	)
 	rows = result.rows.map_with_index(
 		|row, index| Elem.VirtualListItem.{
@@ -235,7 +252,7 @@ result_table = |result| {
 					border_width: 0,
 					border_bottom: Px(1),
 				},
-				[gutter("Result row ${index.to_str()}")].concat(row.map(|value| cell(Query.value_text(value), Theme.ink, Theme.body))),
+				[gutter("Result row ${index.to_str()}")].concat(row.map_with_index(|value, column| cell(Query.value_text(value), Theme.ink, Theme.body, columns_justify.get(column) ?? Start))),
 			),
 		},
 	)
