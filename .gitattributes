@@ -4,6 +4,9 @@ examples/*/fixture/** -text
 # Image-library specs count the encoded source bytes. Keep its text fixtures
 # byte-identical on Windows instead of allowing core.autocrlf to add CR bytes.
 examples/image-library/fixture/** text eol=lf
+# The unreadable-image glyph is embedded as bytes and contributes to the same
+# deterministic staged-byte counter as the fixture images.
+examples/image-library/icons/unreadable.svg text eol=lf
 
 # Dependency recipes and the notices they admit are identified by the hash of
 # their exact bytes. A Windows checkout that rewrote their line endings would
