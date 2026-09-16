@@ -467,6 +467,7 @@ pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
         NodeKind::Scroll {
             name: owned_name,
             axis,
+            style: decode_layout_style!(args),
         },
         vec![args.child],
     )
@@ -485,6 +486,8 @@ pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -
         NodeKind::VirtualList {
             name,
             row_height: args.row_height,
+            row_gap: args.row_gap,
+            style: decode_layout_style!(args),
         },
         finish_children(args.builder),
     )
@@ -1511,11 +1514,8 @@ impl Render for NodeView {
             NodeKind::Row { style, .. } => {
                 element = apply_style(element.flex().flex_row().items_center(), style);
             }
-            NodeKind::Scroll { axis, .. } => {
-                element = element
-                    .flex()
-                    .flex_col()
-                    .flex_grow()
+            NodeKind::Scroll { axis, style, .. } => {
+                element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .scrollbar_width(px(8.0));
                 element = match axis {
                     ScrollAxis::Vertical => element.min_h_0().max_h_full().overflow_y_scroll(),
@@ -1529,22 +1529,25 @@ impl Render for NodeView {
                 };
             }
             NodeKind::VirtualItem { .. } => {}
-            NodeKind::VirtualList { row_height, .. } => {
+            NodeKind::VirtualList {
+                row_height,
+                row_gap,
+                style,
+                ..
+            } => {
                 let list_id = self.node.id;
                 let count = self.node.children.len();
                 let runtime = self.runtime.clone();
                 let height = *row_height;
-                element = element
-                    .flex()
-                    .flex_col()
-                    .flex_grow()
+                let gap = *row_gap;
+                element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .min_h_0()
                     .max_h_full()
                     .child(
                         uniform_list("virtual-list", count, move |range, _, cx| {
                             runtime
                                 .update(cx, |runtime, cx| {
-                                    runtime.virtual_range(list_id, range, height, cx)
+                                    runtime.virtual_range(list_id, range, height, gap, cx)
                                 })
                                 .unwrap_or_default()
                         })
@@ -2586,6 +2589,7 @@ impl Runtime {
         list_id: u64,
         range: std::ops::Range<usize>,
         row_height: u32,
+        row_gap: u32,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let item_ids = self
@@ -2639,9 +2643,13 @@ impl Runtime {
                     Some(NodeKind::VirtualItem { key }) => *key,
                     _ => panic!("virtual list child is not an item"),
                 };
+                // The gap is held clear inside the row's own height, which is
+                // what keeps a list's scroll arithmetic exactly row_height per
+                // row while its rows still read as separate surfaces.
                 div()
                     .id(("virtual-row", key))
                     .h(px(row_height as f32))
+                    .pb(px(row_gap.min(row_height.saturating_sub(1)) as f32))
                     .child(view)
                     .into_any_element()
             })
@@ -3831,6 +3839,8 @@ mod tests {
                     kind: NodeKind::VirtualList {
                         name: "Tracks".into(),
                         row_height: 40,
+                        row_gap: 0,
+                        style: Style::default(),
                     },
                     children: vec![base + 2],
                 },

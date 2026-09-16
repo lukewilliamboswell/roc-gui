@@ -115,14 +115,23 @@ Display a string in its own colour, size, weight, and face. Plain `Elem.text`
 inherits all four from its container, so every typographic step otherwise costs a
 one-child row or column that exists for no other reason; a wordmark, an eyebrow
 label, and a status line are each a string, not a layout.
-`Elem.scroll(Elem.ScrollProps.{ label, content, axis })`:: Constrain content to
-available space and scroll it vertically, horizontally, or in both directions.
-The axis defaults to `Vertical`; `label` is the stable semantic identity.
+`Elem.scroll(Elem.ScrollProps.{ label, content, axis, ... })`:: Constrain content
+to available space and scroll it vertically, horizontally, or in both directions.
+The axis defaults to `Vertical`; `label` is the stable semantic identity. A
+scroll region shares the native `Gui.Style` fields, so it carries its own size,
+ground, inset, and corner rather than needing a column or panel wrapped around
+it to supply them.
 `Elem.virtual_list(Elem.VirtualListProps.{ label, row_height, items })`:: Present
 stable-keyed rows at one fixed logical height. Each item is an
 `Elem.VirtualListItem.{ key, content }`; keys must be unique within the list.
 The complete item graph remains available to semantic inspection and event
 routing, while GPUI materialises only the current viewport range.
+A virtual list shares the native `Gui.Style` fields as well, and `row_gap` holds
+that many logical pixels clear at the bottom of each row inside `row_height`, so
+rows read as separate surfaces while the list's scrolling arithmetic stays
+exactly one `row_height` per row. Without them a list has no ground, inset,
+corner, or spacing of its own, and each row has to repaint the surface the list
+is sitting on.
 `Elem.row(Elem.RowProps.{ ... }, children)`:: Lay out children horizontally.
 `Elem.col(Elem.ColProps.{ ... }, children)`:: Lay out children vertically.
 `Elem.panel(Elem.PanelProps.{ ... }, children)`:: Group children vertically in
@@ -139,7 +148,8 @@ focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and
 closing the dialog restores its opener by stable semantic identity. Render at
 most one dialog at a time.
 
-Row, column, panel, dialog, and action-button props share the native
+Row, column, panel, dialog, scroll, virtual-list, and action-button props share
+the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
 radius, shadow, font size, font weight, per-axis overflow, and the two axis
 placements.

@@ -71,13 +71,6 @@ the change lands; do not soften the docs to match the gap.
 
 ## Element appearance
 
-- [ ] **Lists carry no style of their own.** `Elem.virtual_list` and
-  `Elem.scroll` take only a name, a row height, and their content, so a list has
-  no ground, padding, radius, or row spacing. Found while giving `music-player`
-  a dark queue: the list had to be wrapped in a padded panel for its surface,
-  every row repaints that surface itself, and row spacing exists only because
-  each row button is deliberately shorter than `row_height`. Close by giving
-  both list elements the shared `Gui.Style` fields, with a separate row gap.
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
   label from ordinary body text once family is unavailable. `counter`'s per-card

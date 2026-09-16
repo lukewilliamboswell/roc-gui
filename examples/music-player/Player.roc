@@ -336,7 +336,7 @@ track_row = |library, index, track, marker| {
 		label: "Play ${track.title}",
 		on_press: |current, _| play_index(current, library, index),
 		width: Fill,
-		height: Px(38),
+		height: Fill,
 		## A queue reads down its left edge. Centred rows make a person's eye
 		## hunt for the start of every title.
 		justify: Start,
@@ -440,9 +440,23 @@ render = |state| {
 			Elem.text("No folder chosen yet."),
 			Elem.text("Grant a music folder to build the queue."),
 		])
-		Loaded(library) => Elem.panel(Elem.PanelProps.{ label: "Music library", grow: True, width: Fill, padding: 10, gap: 0, bg: surface, border_color: hairline, radius: 16, overflow_y: Clip }, [
-			Elem.virtual_list(Elem.VirtualListProps.{ label: "Tracks", row_height: 44, items: track_items(state, library) }),
-		])
+		## The queue is its own surface. It carries the dark ground, the inset,
+		## the corner, and the space between rows itself, so there is no padded
+		## panel wrapped around it whose only job was to be the thing the list
+		## is sitting on.
+		Loaded(library) => Elem.virtual_list(Elem.VirtualListProps.{
+			label: "Tracks",
+			row_height: 44,
+			row_gap: 6,
+			items: track_items(state, library),
+			grow: True,
+			width: Fill,
+			padding: 10,
+			bg: surface,
+			border_color: hairline,
+			border_width: 1,
+			radius: 16,
+		})
 	}
 	Elem.col(Elem.ColProps.{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 }, [
 		Elem.row(Elem.RowProps.{ label: "Header", width: Fill, gap: 16 }, [

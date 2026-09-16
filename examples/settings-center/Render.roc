@@ -495,19 +495,21 @@ Render := [].{
 					## it and the row overflowing by the difference.
 					[
 						Elem.col(Elem.ColProps.{ label: "Catalogue column", width: Px(0), height: Fill, grow: True }, [catalogue]),
-						Elem.col(
-							Elem.ColProps.{ label: "Detail column", width: Px(0), height: Fill, grow: True },
-							[
-								Elem.scroll(
-									Elem.ScrollProps.{
-										label: "Settings pages",
-										content: Elem.col(
-											Elem.ColProps.{ label: "Settings pages content", width: Fill, gap: 16 },
-											[profile, managed],
-										),
-									},
+						## The scrolling region is the detail side. It sizes itself
+						## now that a scroll carries the shared style fields, so
+						## there is no column wrapped around it whose only job
+						## was to be the box it scrolled inside.
+						Elem.scroll(
+							Elem.ScrollProps.{
+								label: "Settings pages",
+								width: Px(0),
+								height: Fill,
+								grow: True,
+								content: Elem.col(
+									Elem.ColProps.{ label: "Settings pages content", width: Fill, gap: 16 },
+									[profile, managed],
 								),
-							],
+							},
 						),
 					],
 				),

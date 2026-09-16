@@ -97,6 +97,7 @@ pub enum NodeKind {
     Scroll {
         name: String,
         axis: ScrollAxis,
+        style: Style,
     },
     VirtualItem {
         key: u64,
@@ -104,6 +105,9 @@ pub enum NodeKind {
     VirtualList {
         name: String,
         row_height: u32,
+        /// Space held clear at the bottom of each row inside `row_height`.
+        row_gap: u32,
+        style: Style,
     },
     TextInput {
         label: String,
@@ -1630,6 +1634,7 @@ mod tests {
             kind: NodeKind::Scroll {
                 name: "contents".into(),
                 axis: ScrollAxis::Vertical,
+                style: Style::default(),
             },
             children: vec![],
         }];
@@ -1660,6 +1665,8 @@ mod tests {
                 kind: NodeKind::VirtualList {
                     name: "rows".into(),
                     row_height: 24,
+                    row_gap: 0,
+                    style: Style::default(),
                 },
                 children: vec![2, 4],
             },
@@ -1686,6 +1693,8 @@ mod tests {
                 kind: NodeKind::VirtualList {
                     name: "rows".into(),
                     row_height: 24,
+                    row_gap: 0,
+                    style: Style::default(),
                 },
                 children: vec![2],
             },
