@@ -248,8 +248,15 @@ names the evidence so a fix can be verified against the same case.
   laid out from actually visible, but large row cases place targets outside the
   window and the platform still has no scrolling feature to bring them into
   view.
-- [ ] **Layout, paint, and presentation spans** owned by the GPUI side of the
-  host. Presentation may need a Wayland frame callback.
+- [ ] **Layout solve and presentation spans** owned by the GPUI side of the
+  host. The host's own root element now records its layout request, prepaint,
+  and paint for the whole application subtree, one `gpui_frames` row per drawn
+  frame (`crates/host/src/frame_spans.rs`). Two stages remain outside it: taffy
+  solves layout once for the window from GPUI's root element, between the host
+  element's layout request and its prepaint, so no host-owned element is on the
+  stack for it; and `Window::present` and `PlatformWindow::completed_frame` are
+  private to `gpui` 0.2.2. Presentation needs a compositor frame callback, which
+  is a Wayland seam and is not reachable on macOS. Both report `unavailable`.
 - [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
   headless compositor such as sway or cage. For Sway this requires a headless
   wlroots output, software rendering on workers without a GPU, and pointer

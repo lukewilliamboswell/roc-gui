@@ -9,6 +9,7 @@ mod bridge;
 mod clipboard;
 mod device;
 mod files;
+mod frame_spans;
 mod http;
 mod image_data;
 mod input;
@@ -2728,18 +2729,23 @@ impl Render for Runtime {
                     .and_then(|node| node.kind.focus_identity())
                     .map(|identity| (id, identity))
             });
-        div()
-            .id("roc-gui-root")
-            .on_action(|_: &FocusNext, window, _| window.focus_next())
-            .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
-            .size_full()
-            .flex()
-            .items_center()
-            .justify_center()
-            .bg(rgb(window_ground().unwrap_or(0x16252c)))
-            .text_color(rgb(window_ink().unwrap_or(0xeeeeea)))
-            .text_lg()
-            .children(self.root.iter().cloned().map(AnyView::from))
+        // The application's tree hangs below one `FrameSpans`, the element that
+        // performs and therefore measures the host's layout-request, prepaint,
+        // and paint work for the whole subtree.
+        frame_spans::FrameSpans::new(
+            div()
+                .id("roc-gui-root")
+                .on_action(|_: &FocusNext, window, _| window.focus_next())
+                .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(rgb(window_ground().unwrap_or(0x16252c)))
+                .text_color(rgb(window_ink().unwrap_or(0xeeeeea)))
+                .text_lg()
+                .children(self.root.iter().cloned().map(AnyView::from)),
+        )
     }
 }
 
@@ -3598,6 +3604,22 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
             .expect("failed to open GPUI window");
         watchdog::milestone(watchdog::Milestone::WindowOpened);
         cx.activate(true);
+        // `Platform::quit` on macOS terminates the process from inside
+        // `Application::run`, which never returns, so the tail of this function
+        // cannot be where a windowed capture is finalized. GPUI runs quit
+        // observers synchronously before terminating; finalizing here is what
+        // makes a window capture readable at all. `finish` is idempotent, so
+        // the tail below remains correct on platforms whose run does return.
+        if observatory::active() {
+            cx.on_app_quit(|_| {
+                observatory::run_end(1, "pass", observatory::now_ns(), None);
+                if let Err(message) = observatory::finish("success") {
+                    eprintln!("roc-gui stats error: {message}");
+                }
+                async {}
+            })
+            .detach();
+        }
         if let Some(case) = window_spec {
             window_runner::spawn(
                 case,

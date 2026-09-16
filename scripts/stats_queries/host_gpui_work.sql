@@ -1,4 +1,4 @@
--- Host graph and GPUI materialization work. Later GPUI stages remain unavailable.
+-- Host graph and GPUI materialization work. Frame stages are in gpui_frame_spans.
 WITH evidence AS (
     SELECT status,reason FROM measurement_status WHERE name='host_cycles'
 ), gpui AS (
@@ -23,5 +23,5 @@ SELECT evidence.status AS evidence_status,evidence.reason AS evidence_reason,
        CASE WHEN evidence.status='complete' THEN measured.removed_nodes END AS removed_nodes,
        CASE WHEN evidence.status='complete' THEN measured.peak_live_nodes END AS peak_live_nodes,
        CASE WHEN evidence.status='complete' THEN measured.parent_nodes_scanned END AS parent_nodes_scanned,
-       'unavailable: layout, paint, presentation, and GPU timing are not instrumented' AS later_gpui_stages
+       'see the gpui_frame_spans view; layout solve, presentation, and GPU timing remain unavailable' AS later_gpui_stages
 FROM evidence CROSS JOIN gpui CROSS JOIN measured;
