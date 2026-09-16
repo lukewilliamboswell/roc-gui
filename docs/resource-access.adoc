@@ -33,6 +33,10 @@ identified as development authority, and never represents user consent.
 |Isolated by stable application identity with an independent quota
 |Persistent until uninstall or explicit data removal
 
+|Shipped application assets
+|The application's own read-only content, provisioned automatically with no prompt: one directory handle rooted beside the executable, beneath the working directory, or at a host-provisioned content directory, never an absolute path the application names
+|Application session
+
 |Open document or project
 |Trusted selection states read, edit, import-copy, or project scope; selecting a file never grants its parent
 |Session by default; “Remember this project” is explicit
@@ -57,6 +61,14 @@ identified as development authority, and never represents user consent.
 |Trusted device and function selection, preferring purpose-specific services
 |Until disconnect unless explicitly remembered
 |===
+
+Three file-shaped services are deliberately distinct and are never substituted
+for one another. Opening a document or project is user data reached through
+trusted selection. Private application storage is durable read-write state
+isolated by application identity. Shipped application assets are the
+application's own read-only content: they hold no user data, so they are
+provisioned without a prompt, and they carry no authority beyond the one
+directory handle they are, so they never stand in for either of the others.
 
 == Grant semantics
 

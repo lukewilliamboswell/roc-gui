@@ -474,3 +474,35 @@ names the evidence so a fix can be verified against the same case.
   exactly those states, so neither string can ever be shown. Either the
   controls should stay enabled and explain themselves, or the branches should
   go.
+
+- [ ] **Asset stores have no behaviour specification.** `.scm` files live in a
+  `specs/` directory beside the `main.roc` they exercise, so a specification for
+  `Assets.open!` and `Assets.read!` needs an application that loads a shipped
+  asset after startup. No example does yet, and this change deliberately did not
+  add one. The vocabulary is in place -- `expect-asset-counters` compares the
+  six owner counters, and a loaded asset is observed through the existing
+  `(role image :name ...)` locator and `expect-image-bytes` -- so the
+  specification is writing, not designing, once an example adopts the API. Until
+  then the host behaviour is covered only by `assets.rs` unit tests and the
+  route from Roc through the ABI is unexercised end to end.
+
+- [ ] **`Program` has no effectful startup, so a store is opened on a task.**
+  `Program.init` is a pure value, so an application that wants its banner
+  present in the first frame cannot open a store and read it before the first
+  render; it must render a loading state and fill it in from `Action.task`. That
+  is a sound route and the documented one, but it means every asset-backed
+  application writes the same three-state field. An effectful `init!` that
+  blocks startup, as roc-ray's does, would remove it. That is a change to the
+  program model rather than to the asset surface, and it was not made here.
+
+- [ ] **A content directory is not an application identity.** A
+  `ContentDirectory` store resolves to whatever `--host-cap-assets` names, which
+  is development and packaging provisioning, not a stable per-application
+  installed location. Until packaging identity exists, two applications run from
+  the same host configuration share one content root, and an installed layout
+  has nothing to resolve against.
+
+- [ ] **Asset stores have no scaling case.** The manifest check is constant-time
+  in the number of assets by construction, and one read is bounded at 64 MiB,
+  but nothing measures an application reading many assets across many tasks.
+  A scaling case belongs with the example that adopts the API.

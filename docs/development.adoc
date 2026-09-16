@@ -121,6 +121,9 @@ the value is neither copied into capture evidence nor emitted as a diagnostic.
 `expect-image-owner-counters`:: The production image-data owner's staged-node,
 staged-byte, inspection, and failure totals. Image names, paths, encoded
 values, and dimensions are not capture evidence.
+`expect-asset-counters`:: The production asset owner's six totals, in order:
+opens, refused opens, manifest checks, reads, refused reads, and bytes read.
+Asset paths, file names, and asset content are not capture evidence.
 `revoke-file-grants`:: Invokes the trusted-host revocation seam. It is not an
 application event or a Roc capability API.
 

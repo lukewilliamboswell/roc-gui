@@ -3,6 +3,7 @@
 #![cfg_attr(test, allow(dead_code, unused_imports))]
 
 mod app_data;
+mod assets;
 mod audio;
 mod bridge;
 mod clipboard;
@@ -196,6 +197,7 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
     files::route_dealloc(pointer);
+    assets::route_dealloc(pointer);
     audio::route_dealloc(pointer);
     sqlite::route_dealloc(pointer);
     app_data::route_dealloc(pointer);
@@ -2425,6 +2427,7 @@ struct HostArgs {
     cap_dir: Option<PathBuf>,
     cap_http_origin: Option<String>,
     cap_app_data: Option<PathBuf>,
+    cap_assets: Option<PathBuf>,
     cap_clipboard_system: bool,
     cap_clipboard_fixture: Option<PathBuf>,
     cap_tcp: Option<std::net::SocketAddr>,
@@ -2463,6 +2466,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_dir: None,
         cap_http_origin: None,
         cap_app_data: None,
+        cap_assets: None,
         cap_clipboard_system: false,
         cap_clipboard_fixture: None,
         cap_tcp: None,
@@ -2565,6 +2569,15 @@ fn parse_host_args() -> Result<HostArgs, String> {
             );
         } else if let Some(path) = argument.strip_prefix("--host-cap-app-data=") {
             parsed.cap_app_data = Some(path.into());
+        } else if argument == "--host-cap-assets" {
+            parsed.cap_assets = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-cap-assets requires a directory path".to_string())?
+                    .into(),
+            );
+        } else if let Some(path) = argument.strip_prefix("--host-cap-assets=") {
+            parsed.cap_assets = Some(path.into());
         } else if argument == "--host-cap-clipboard" {
             parsed.cap_clipboard_system = true;
         } else if argument == "--host-cap-audio-null" {
@@ -2725,6 +2738,7 @@ fn print_host_help(app_name: &str) {
            --host-cap-dir PATH                 Grant read access to one directory\n\
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
+           --host-cap-assets PATH              Provision the application content directory\n\
            --host-cap-clipboard                Grant system text clipboard access\n\
            --host-cap-tcp IP:PORT              Grant access to one TCP endpoint\n\
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
@@ -2916,6 +2930,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 2;
     }
+    assets::configure(args.cap_assets.as_deref());
     if let Err(message) = clipboard::configure(
         args.cap_clipboard_system,
         args.cap_clipboard_fixture.as_deref(),

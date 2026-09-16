@@ -310,6 +310,109 @@ inspections, and inspection failures. Semantic specifications compare those
 numeric counters with `expect-image-owner-counters`; captures never store
 encoded content, image names, paths, dimensions, or application text.
 
+== Shipped application assets
+
+An application's own artwork is not user data and not durable state. It is the
+application's own read-only content, so it is provisioned automatically and
+prompts nobody, and it belongs to a surface of its own.
+
+Small artwork needs no surface at all. A compile-time file import places the
+bytes in the executable and `Elem.image` renders them:
+
+[source,roc]
+----
+import "icons/folder.png" as folder : List(U8)
+
+icon = Elem.image(Elem.ImageProps.{ label: "Folder", bytes: folder, format: Png })
+----
+
+`Assets` is for the larger asset -- a background banner, a photograph -- that
+should not be paid for in executable size. An application opens a store once
+and reads a file when it wants it; the bytes flow into that same `Elem.image`.
+
+A store is anchored to a named root, not to an ambient path. Three roots exist
+because moving an executable, changing the working directory, and installing
+content apart from the program are three separate events, and none may silently
+change what another means:
+
+`Assets.beside_executable(path)`:: A directory beneath the executable's own
+directory. The artwork travels with the program, so the store resolves the same
+way however the program was launched.
+`Assets.working_directory(path)`:: A directory beneath the process working
+directory. The root follows the shell, which is what running from a project
+checkout wants.
+`Assets.content_directory`:: The content directory the host provisioned for
+this application. The application names no path here, so an asset store is
+never a route to a directory the host did not hand it.
+
+`Assets.open!` returns an opaque `Assets.Store`; `Assets.read!(store, path)`
+returns the bytes of one asset beneath it. Both touch the disk, so both belong
+inside `Action.task`, which runs them on the bounded worker pool and resolves on
+the UI thread:
+
+[source,roc]
+----
+Action.task({
+    pending: { ..state, banner: Loading },
+    run: || {
+        store = Assets.open!(Assets.beside_executable("assets"))?
+        Assets.read!(store, "banners/hero.png")
+    },
+    resolve: |latest, result| match result {
+        Ok(bytes) => Action.update({ ..latest, banner: Loaded(bytes) })
+        Err(_) => Action.update({ ..latest, banner: Failed })
+    },
+})
+----
+
+`Assets.stub` is the resource-free store value. An application that keeps a
+store in its state needs one to write that state down in a pure `expect`; reads
+through it fail, and it proves nothing about asset resolution.
+
+=== Validating an asset set at startup
+
+An asset set may declare a `roc-assets.manifest` file at its root: an
+`asset_set` name, a `schema` version, a `content_version`, and an optional
+`sha256` digest, one `key = value` per line with `#` comments.
+
+....
+# The gallery's shipped artwork
+asset_set = gallery
+schema = 1
+content_version = 7
+sha256 = 3b1f...c90a
+....
+
+`Assets.with_manifest(config, expectation)` makes the open check that file, so
+a half-updated or mismatched asset set is reported at startup rather than
+surfacing much later as one image that will not draw. The four comparisons are
+reported separately: `AssetSetMismatch`, `SchemaMismatch`,
+`ContentVersionMismatch`, and `ContentHashMismatch`. A manifest that is absent,
+unreadable, or not a manifest is `ManifestMissing`, `ManifestUnreadable`, or
+`ManifestMalformed`; an expectation the host cannot use, such as a digest that
+is not 64 hexadecimal characters, is `InvalidExpectation` and is answered before
+any file is touched.
+
+The comparison is against the manifest's own declarations. Nothing walks or
+hashes the files beneath the root, so an open costs the same for one asset as
+for ten thousand.
+
+=== What a store refuses
+
+A store root is a directory handle, never an ambient filesystem capability. The
+host resolves every root and every asset path through the one resolver that
+serves granted directories. An absolute path, an empty path, a path holding a
+NUL, and any `.` or `..` component are refused rather than rewritten, and each
+step of a walk refuses to follow a symbolic link, so nothing inside a store can
+name anything outside it. A final entry that is a symbolic link or is not a
+regular file is `Unsupported`. One asset reads into one value up to 64 MiB;
+beyond that the read is `ResourceLimit`. The host never calls `chdir`.
+
+The native asset owner counts opens, refused opens, manifest checks, reads,
+refused reads, and bytes read. Semantic specifications compare those six numbers
+with `expect-asset-counters`. No path, file name, or asset content ever becomes
+evidence.
+
 == Process and pseudo-terminal capabilities
 
 `Process.acquire!` returns an opaque process grant only when the application is

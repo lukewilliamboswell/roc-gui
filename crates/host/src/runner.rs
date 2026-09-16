@@ -917,6 +917,18 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 crate::files::revoke_all_roots();
                 Ok(())
             }
+            Command::ExpectAssetCounters(expected) => {
+                let observed = crate::assets::counters();
+                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "line {}: expected asset counters {:?}, observed {:?}",
+                        step.line, expected, observed
+                    ))
+                }
+            }
             Command::ExpectImageOwnerCounters(expected) => {
                 let observed = crate::image_data::counters();
                 count_evidence = Some((expected.iter().sum(), observed.iter().sum()));

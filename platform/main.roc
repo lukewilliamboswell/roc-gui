@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio, Device, SystemMonitor, ImageData]
+	exposes [Program, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio, Device, SystemMonitor, ImageData, Assets]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -61,6 +61,8 @@ platform ""
 		"roc_system_sample": Host.system_sample!,
 		"roc_system_close": Host.system_close!,
 		"roc_image_inspect": Host.image_inspect!,
+		"roc_assets_open": Host.assets_open!,
+		"roc_assets_read": Host.assets_read!,
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_set_task_dispatch": Host.set_task_dispatch!,
@@ -101,6 +103,7 @@ import Audio
 import Device
 import SystemMonitor
 import ImageData
+import Assets
 import Host
 
 gui_init! : () => {}

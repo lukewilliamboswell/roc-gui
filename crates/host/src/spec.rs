@@ -106,6 +106,10 @@ pub enum Command {
     ExpectFileAccess([u64; 3]),
     RevokeFileGrants,
     ExpectImageOwnerCounters([u64; 4]),
+    /// Asset-store owner counters: opens, refused opens, manifest checks, reads,
+    /// refused reads, and bytes read. All six are numeric; no path, file name,
+    /// or asset content ever becomes evidence.
+    ExpectAssetCounters([u64; 6]),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -243,6 +247,7 @@ impl Command {
             Self::ExpectFileAccess(_) => "expect-file-access",
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
+            Self::ExpectAssetCounters(_) => "expect-asset-counters",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -329,7 +334,8 @@ impl Command {
             | Self::ExpectFileSelectionCounters(_)
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
-            | Self::ExpectImageOwnerCounters(_) => Capability::Semantic,
+            | Self::ExpectImageOwnerCounters(_)
+            | Self::ExpectAssetCounters(_) => Capability::Semantic,
         }
     }
 
@@ -1051,6 +1057,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectImageOwnerCounters(expected)
         }
+        "expect-asset-counters" if values.len() == 7 => {
+            let mut expected = [0u64; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-asset-counters")? as u64;
+            }
+            Command::ExpectAssetCounters(expected)
+        }
         "expect-file-selection-counters" if values.len() == 8 => {
             let mut expected = [0u64; 7];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1206,6 +1219,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-access"
         | "revoke-file-grants"
         | "expect-image-owner-counters"
+        | "expect-asset-counters"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
@@ -1763,6 +1777,17 @@ mod tests {
             spec.steps[0].command,
             Command::ExpectVisible(Locator::VirtualListName("Rows".into()))
         );
+    }
+
+    #[test]
+    fn parses_asset_owner_counters_as_six_numbers() {
+        let case = parse(r#"(test "assets" (steps (expect-asset-counters 1 0 1 2 0 4096)))"#)
+            .expect("asset counters parse");
+        assert_eq!(
+            case.steps[0].command,
+            Command::ExpectAssetCounters([1, 0, 1, 2, 0, 4096])
+        );
+        assert!(parse(r#"(test "assets" (steps (expect-asset-counters 1 2 3)))"#).is_err());
     }
 
     #[test]

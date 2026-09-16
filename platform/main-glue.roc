@@ -68,6 +68,8 @@ platform ""
 		"roc_system_sample": HostGlue.system_sample!,
 		"roc_system_close": HostGlue.system_close!,
 		"roc_image_inspect": HostGlue.image_inspect!,
+		"roc_assets_open": HostGlue.assets_open!,
+		"roc_assets_read": HostGlue.assets_read!,
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
 		"roc_gui_set_task_dispatch": HostGlue.set_task_dispatch!,

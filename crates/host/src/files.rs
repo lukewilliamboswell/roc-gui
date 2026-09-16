@@ -301,9 +301,98 @@ fn read_file_err(reason: FileReason) -> FileErr {
     }
 }
 
+/// Split one relative, non-escaping path into its ordinary components.
+///
+/// This is the single place the host decides what a path inside an opened
+/// directory may say. An absolute path, an empty path, a path holding a NUL,
+/// and any `.` or `..` component are refused here rather than rewritten, so a
+/// caller cannot name anything outside the directory it was given. Every
+/// directory-relative operation in the host resolves its path through this
+/// function; asset stores add no second resolver of their own.
+pub(crate) fn relative_components(path: &str) -> Option<Vec<&str>> {
+    if path.is_empty() || path.contains('\0') {
+        return None;
+    }
+    let mut parts = Vec::new();
+    for component in Path::new(path).components() {
+        match component {
+            Component::Normal(value) => parts.push(value.to_str()?),
+            _ => return None,
+        }
+    }
+    if parts.is_empty() { None } else { Some(parts) }
+}
+
 pub(crate) fn valid_name(name: &str) -> bool {
-    let mut parts = Path::new(name).components();
-    matches!(parts.next(), Some(Component::Normal(_))) && parts.next().is_none()
+    relative_components(name).is_some_and(|parts| parts.len() == 1)
+}
+
+/// Walk into a subdirectory one component at a time, refusing to follow a
+/// symbolic link at any step, so no link planted inside a tree can redirect the
+/// walk out of it. An empty component list returns the directory itself.
+pub(crate) fn open_subdir_nofollow(dir: &Dir, parts: &[&str]) -> std::io::Result<Dir> {
+    let mut current = dir.try_clone()?;
+    for part in parts {
+        current = current.open_dir_nofollow(part)?;
+    }
+    Ok(current)
+}
+
+/// Why a bounded child read was refused. The categories are distinct because
+/// every caller reports them as distinct application failures.
+pub(crate) enum ChildReadError {
+    InvalidName,
+    NotFound,
+    NotDirectory,
+    AccessDenied,
+    Unsupported,
+    ResourceLimit,
+    Io,
+}
+
+/// Read one direct ordinary child file of `dir`, never following a symbolic
+/// link and never exceeding `max_bytes`. The size is checked against the
+/// metadata first and again against what was actually read, so a file that
+/// grows between the two answers `ResourceLimit` rather than an unbounded
+/// value.
+pub(crate) fn read_child_bounded(
+    dir: &Dir,
+    name: &str,
+    max_bytes: u64,
+) -> Result<Vec<u8>, ChildReadError> {
+    if !valid_name(name) {
+        return Err(ChildReadError::InvalidName);
+    }
+    let metadata = dir.symlink_metadata(name).map_err(|io| match io.kind() {
+        std::io::ErrorKind::NotFound => ChildReadError::NotFound,
+        std::io::ErrorKind::PermissionDenied => ChildReadError::AccessDenied,
+        std::io::ErrorKind::NotADirectory => ChildReadError::NotDirectory,
+        _ => ChildReadError::Io,
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(ChildReadError::Unsupported);
+    }
+    if metadata.len() > max_bytes {
+        return Err(ChildReadError::ResourceLimit);
+    }
+    let mut options = OpenOptions::new();
+    options.read(true).follow(FollowSymlinks::No);
+    let file = dir
+        .open_with(name, &options)
+        .map_err(|io| match io.kind() {
+            std::io::ErrorKind::NotFound => ChildReadError::NotFound,
+            std::io::ErrorKind::PermissionDenied => ChildReadError::AccessDenied,
+            _ => ChildReadError::Io,
+        })?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(max_bytes + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| ChildReadError::Io)?;
+    if bytes.len() as u64 > max_bytes {
+        Err(ChildReadError::ResourceLimit)
+    } else {
+        Ok(bytes)
+    }
 }
 
 pub(crate) enum BoundedReadError {
@@ -318,19 +407,11 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
         return Err(BoundedReadError::InvalidName);
     }
     let dir = lookup(handle).ok_or(BoundedReadError::InvalidCapability)?;
-    let mut options = OpenOptions::new();
-    options.read(true);
-    let mut file = dir
-        .open_with(name, &options.follow(FollowSymlinks::No))
-        .map_err(|_| BoundedReadError::Io)?;
-    let length = file.metadata().map_err(|_| BoundedReadError::Io)?.len();
-    if length > MAX_FILE_BYTES {
-        return Err(BoundedReadError::ResourceLimit);
-    }
-    let mut bytes = Vec::with_capacity(length as usize);
-    file.read_to_end(&mut bytes)
-        .map_err(|_| BoundedReadError::Io)?;
-    Ok(bytes)
+    read_child_bounded(&dir, name, MAX_FILE_BYTES).map_err(|error| match error {
+        ChildReadError::InvalidName => BoundedReadError::InvalidName,
+        ChildReadError::ResourceLimit => BoundedReadError::ResourceLimit,
+        _ => BoundedReadError::Io,
+    })
 }
 
 fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryResult {
@@ -696,26 +777,16 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| -> Result<Vec<u8>, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> {
         let dir = dir.map_err(|error| match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })?;
-        if !valid_name(&owned_name) {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidName);
-        }
-        let metadata = dir.symlink_metadata(&owned_name).map_err(|io| reason(&io))?;
-        if metadata.file_type().is_symlink() || !metadata.is_file() {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Unsupported);
-        }
-        if metadata.len() > MAX_FILE_BYTES {
-            return Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::ResourceLimit);
-        }
-        let mut options = OpenOptions::new();
-        options.read(true).follow(FollowSymlinks::No);
-        let file = dir.open_with(&owned_name, &options).map_err(|io| reason(&io))?;
-        let mut bytes = Vec::with_capacity(metadata.len() as usize);
-        file.take(MAX_FILE_BYTES + 1).read_to_end(&mut bytes).map_err(|io| reason(&io))?;
-        if bytes.len() as u64 > MAX_FILE_BYTES {
-            Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::ResourceLimit)
-        } else {
-            Ok(bytes)
-        }
+        use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
+        read_child_bounded(&dir, &owned_name, MAX_FILE_BYTES).map_err(|error| match error {
+            ChildReadError::InvalidName => R::InvalidName,
+            ChildReadError::NotFound => R::NotFound,
+            ChildReadError::NotDirectory => R::NotDirectory,
+            ChildReadError::AccessDenied => R::AccessDenied,
+            ChildReadError::Unsupported => R::Unsupported,
+            ChildReadError::ResourceLimit => R::ResourceLimit,
+            ChildReadError::Io => R::Io,
+        })
     })();
     match result {
         Ok(bytes) => FilesDirReadResult {

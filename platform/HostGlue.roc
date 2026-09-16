@@ -359,6 +359,8 @@ HostGlue := [].{
 	system_sample! : Resource.SystemSampler => Try({ cpu_available : Bool, cpu_tenths : U16, disk_available : Bool, disk_read_bytes : U64, disk_written_bytes : U64, memory_available : Bool, memory_total_bytes : U64, memory_used_bytes : U64, network_available : Bool, network_received_bytes : U64, network_transmitted_bytes : U64, processes : List({ cpu_tenths : U16, memory_bytes : U64, name : Str, pid : U64 }), processes_available : Bool, sequence : U64 }, U8)
 	system_close! : Resource.SystemSampler => Try({}, U8)
 	image_inspect! : List(U8), U8 => Try({ height : U32, width : U32 }, U8)
+	assets_open! : { root_kind : U8, root : Str, manifest_required : Bool, asset_set : Str, schema : U32, content_version : U32, content_mode : U8, content_hash : Str } => Try(Resource.AssetStore, U8)
+	assets_read! : Resource.AssetStore, Str => Try(List(U8), U8)
 	apply! : Patch => {}
 	set_dispatch! : Box((U64 => {})) => {}
 	set_task_dispatch! : Box((U64 => {})) => {}
