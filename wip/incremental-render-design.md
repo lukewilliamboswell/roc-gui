@@ -102,7 +102,7 @@ The critical structural facts, established by reading:
 
 ## 3. What the compiler actually gives us
 
-Established against the pin, `roc nightly-2026-09-15-fe09c42`, not by reading
+Established against the pin, `roc nightly-2026-09-12-220fd47`, not by reading
 the newer source. Probes are reproducible; the shapes below are quoted from the
 compiler's own error output.
 
