@@ -485,10 +485,11 @@ Elem(a) :: [
 	text : Str -> Elem(a)
 	text = |value| Text(value)
 
-	## Display a named text button and handle presses. `name` is its stable
-	## semantic locator; `label` is its visible caption.
-	button : { label : Str, name : Str, on_press : a, Event.Press => Action(a) } -> Elem(a)
-	button = |props| ActionButton(ActionButtonProps.{ caption: props.label, label: props.name, on_press: props.on_press })
+	## Display a named text button and handle presses. `caption` is its visible
+	## text and `label` is its stable semantic locator, the same two names the
+	## styled `action_button` and every other control use.
+	button : { caption : Str, label : Str, on_press : a, Event.Press => Action(a) } -> Elem(a)
+	button = |props| ActionButton(ActionButtonProps.{ caption: props.caption, label: props.label, on_press: props.on_press })
 
 	## Display a controlled, styled action button.
 	action_button : ActionButtonProps(a) -> Elem(a)

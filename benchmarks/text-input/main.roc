@@ -32,9 +32,9 @@ render = |state| {
 			Elem.row(
 				{},
 				[
-					Elem.button({ label: "Load 100 settings", name: "Load 100 settings", on_press: |current, _| Action.update({ ..current, count: 100 }) }),
-					Elem.button({ label: "Load 1,000 settings", name: "Load 1000 settings", on_press: |current, _| Action.update({ ..current, count: 1000 }) }),
-					Elem.button({ label: "Load 10,000 settings", name: "Load 10000 settings", on_press: |current, _| Action.update({ ..current, count: 10000 }) }),
+					Elem.button({ caption: "Load 100 settings", label: "Load 100 settings", on_press: |current, _| Action.update({ ..current, count: 100 }) }),
+					Elem.button({ caption: "Load 1,000 settings", label: "Load 1000 settings", on_press: |current, _| Action.update({ ..current, count: 1000 }) }),
+					Elem.button({ caption: "Load 10,000 settings", label: "Load 10000 settings", on_press: |current, _| Action.update({ ..current, count: 10000 }) }),
 				],
 			),
 			Elem.text_input(Elem.TextInputProps.{ label: "Search settings", value: state.search, on_change: |current, event| Action.update({ ..current, search: event.value }), on_submit: |_, _| Action.none }),

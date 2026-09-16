@@ -20,8 +20,8 @@ render : State -> Elem(State)
 render = |state| Elem.col({}, [
     Elem.text("Count: ${state.count.to_str()}"),
     Elem.button({
-        label: "Add one",
-        name: "Increment count",
+        caption: "Add one",
+        label: "Increment count",
         on_press: |previous, _event|
             Action.update({ count: previous.count + 1.I64 }),
     }),
@@ -75,9 +75,10 @@ tab order and activate with Enter or Space. Disabled buttons remain visible
 with a subdued appearance and accept neither pointer nor keyboard activation.
 Props include padding, sizing, growth, foreground and interaction colours,
 border, radius, font size, font weight, and overflow.
-`Elem.button({ label, name, on_press })`:: Concise text-button constructor over
-the same native action-button node. `label` is the visible text and `name` is
-the stable semantic name; use `Elem.action_button` for styling.
+`Elem.button({ caption, label, on_press })`:: Concise text-button constructor
+over the same native action-button node. `caption` is the visible text and
+`label` is the stable semantic name, as in every other control; use
+`Elem.action_button` for styling.
 `Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and
 handle `Event.Check`. `box_bg`, `box_checked_bg`, `box_border`, and
 `mark_color` colour the indicator itself, which `fg` does not reach; each

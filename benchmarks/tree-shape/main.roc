@@ -39,12 +39,12 @@ render = |state| Elem.col(
 		Elem.row(
 			{},
 			[
-				Elem.button({ label: "Deep 10", name: "Build deep tree of 10", on_press: |_, _| Action.update({ shape: Deep(10) }) }),
-				Elem.button({ label: "Deep 100", name: "Build deep tree of 100", on_press: |_, _| Action.update({ shape: Deep(100) }) }),
-				Elem.button({ label: "Deep 1,000", name: "Build deep tree of 1,000", on_press: |_, _| Action.update({ shape: Deep(1000) }) }),
-				Elem.button({ label: "Balanced 127", name: "Build balanced tree of 127", on_press: |_, _| Action.update({ shape: Balanced(7) }) }),
-				Elem.button({ label: "Balanced 1,023", name: "Build balanced tree of 1,023", on_press: |_, _| Action.update({ shape: Balanced(10) }) }),
-				Elem.button({ label: "Balanced 8,191", name: "Build balanced tree of 8,191", on_press: |_, _| Action.update({ shape: Balanced(13) }) }),
+				Elem.button({ caption: "Deep 10", label: "Build deep tree of 10", on_press: |_, _| Action.update({ shape: Deep(10) }) }),
+				Elem.button({ caption: "Deep 100", label: "Build deep tree of 100", on_press: |_, _| Action.update({ shape: Deep(100) }) }),
+				Elem.button({ caption: "Deep 1,000", label: "Build deep tree of 1,000", on_press: |_, _| Action.update({ shape: Deep(1000) }) }),
+				Elem.button({ caption: "Balanced 127", label: "Build balanced tree of 127", on_press: |_, _| Action.update({ shape: Balanced(7) }) }),
+				Elem.button({ caption: "Balanced 1,023", label: "Build balanced tree of 1,023", on_press: |_, _| Action.update({ shape: Balanced(10) }) }),
+				Elem.button({ caption: "Balanced 8,191", label: "Build balanced tree of 8,191", on_press: |_, _| Action.update({ shape: Balanced(13) }) }),
 			],
 		),
 		match state.shape {
