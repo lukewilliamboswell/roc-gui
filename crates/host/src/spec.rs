@@ -225,6 +225,25 @@ pub enum Command {
         width: u32,
         height: u32,
     },
+    /// Move a scroll region or virtual list, so that content below the fold can
+    /// be asserted, clicked, and photographed.
+    Scroll {
+        region: Locator,
+        motion: ScrollMotion,
+    },
+}
+
+/// How far a `scroll` step moves its region.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScrollMotion {
+    /// By a signed number of logical pixels. Positive moves towards the end of
+    /// the content, the direction a wheel-down gesture moves it.
+    By(i32),
+    /// Until the located element is inside the region's viewport. The target
+    /// must be inside the region; for a virtual list it need not be
+    /// materialized, because the list is positioned by the target's index among
+    /// the region's children.
+    To(Locator),
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
@@ -358,6 +377,7 @@ impl Command {
             Self::Type(_) => "type",
             Self::Key(_) => "key",
             Self::Resize { .. } => "resize",
+            Self::Scroll { .. } => "scroll",
         }
     }
 
@@ -379,7 +399,11 @@ impl Command {
             | Self::Screenshot(_)
             | Self::Type(_)
             | Self::Key(_)
-            | Self::Resize { .. } => Capability::Window,
+            | Self::Resize { .. }
+            // Scrolling is a fact about a viewport and a content size, neither
+            // of which the semantic runner has: without layout there is no
+            // fold for content to be below.
+            | Self::Scroll { .. } => Capability::Window,
             // Shared with the semantic runner, and implemented by both.
             Self::Click(_)
             | Self::Focus(_)
@@ -447,6 +471,7 @@ impl Command {
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
                 | Self::RevokeFileGrants
+                | Self::Scroll { .. }
         )
     }
 }
@@ -1108,6 +1133,30 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 height: dimension(2, "height")?,
             }
         }
+        "scroll" if values.len() >= 2 => {
+            let region = parse_locator(&values[1])?;
+            let keywords = parse_keywords(head, &values[2..], &[":by", ":to"])?;
+            let motion = match (keywords.expr(":by"), keywords.expr(":to")) {
+                (Some(by), None) => {
+                    let amount = by
+                        .atom()
+                        .and_then(|text| text.parse::<i32>().ok())
+                        .filter(|value| value.unsigned_abs() >= 1 && value.unsigned_abs() <= 100_000)
+                        .ok_or_else(|| {
+                            error(by, "scroll :by is a non-zero number of logical pixels, up to 100000")
+                        })?;
+                    ScrollMotion::By(amount)
+                }
+                (None, Some(to)) => ScrollMotion::To(parse_locator(to)?),
+                _ => {
+                    return Err(error(
+                        node,
+                        "scroll requires exactly one of :by and :to",
+                    ));
+                }
+            };
+            Command::Scroll { region, motion }
+        }
         "settle" => {
             let keywords = parse_keywords(head, &values[1..], &[":frames", ":timeout-ms"])?;
             Command::Settle {
@@ -1483,7 +1532,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-bounds"
         | "screenshot"
         | "type"
-        | "key" => {
+        | "key"
+        | "scroll" => {
             return Err(error(node, format!("invalid arguments for {head}")));
         }
         _ => return Err(error(node, format!("unsupported step {head}"))),
@@ -2004,6 +2054,60 @@ mod tests {
             spec.steps[2].command,
             Command::ExpectVisible(Locator::RowName("Toolbar".into()))
         );
+    }
+
+    #[test]
+    fn scroll_takes_a_distance_or_a_target_but_not_both() {
+        let spec = parse(
+            r#"(test "scroll"
+                (steps
+                  (scroll (role scroll :name "Directory contents") :by 240)
+                  (scroll (role scroll :name "Directory contents")
+                          :to (role row :name "Entry item-26.txt"))))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::Scroll {
+                region: Locator::ScrollName("Directory contents".into()),
+                motion: ScrollMotion::By(240),
+            }
+        );
+        assert_eq!(
+            spec.steps[1].command,
+            Command::Scroll {
+                region: Locator::ScrollName("Directory contents".into()),
+                motion: ScrollMotion::To(Locator::RowName("Entry item-26.txt".into())),
+            }
+        );
+        // A negative distance scrolls back towards the start.
+        assert!(matches!(
+            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by -80)))"#)
+                .unwrap()
+                .steps[0]
+                .command,
+            Command::Scroll {
+                motion: ScrollMotion::By(-80),
+                ..
+            }
+        ));
+        for bad in [
+            r#"(test "s" (steps (scroll (role scroll :name "c"))))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :by 0)))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :by 10 :to (text "x"))))"#,
+            r#"(test "s" (steps (scroll (role scroll :name "c") :toward 10)))"#,
+        ] {
+            assert!(parse(bad).is_err(), "accepted {bad}");
+        }
+    }
+
+    #[test]
+    fn scrolling_is_window_only() {
+        let spec =
+            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by 40)))"#).unwrap();
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        let refusal = check_runner(&spec, Runner::Semantic).unwrap_err();
+        assert!(refusal.contains("window-only"), "{refusal}");
     }
 
     #[test]

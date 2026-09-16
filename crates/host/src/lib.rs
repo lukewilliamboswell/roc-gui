@@ -1108,6 +1108,72 @@ struct NodeView {
     focus_handle: Option<FocusHandle>,
     input: Option<Entity<input::TextInput>>,
     canvas_bounds: Arc<Mutex<Option<Bounds<Pixels>>>>,
+    /// The scroll position of a scroll region or virtual list, owned by the
+    /// view rather than by GPUI's per-element state. Held here so that a node
+    /// which keeps its identity across a patch keeps its scroll position too,
+    /// and so that a window specification can reach the same offset cell the
+    /// production wheel handler writes.
+    scroll: Option<ScrollTracker>,
+}
+
+/// The retained scroll position of one scrolling node.
+///
+/// Two shapes because GPUI has two: a scroll region is a `div` with overflow,
+/// and a virtual list is a `uniform_list` whose rows below the fold do not
+/// exist as elements at all and must be reached by index.
+#[derive(Clone)]
+pub(crate) enum ScrollTracker {
+    Region(ScrollHandle),
+    List(UniformListScrollHandle),
+}
+
+impl ScrollTracker {
+    fn for_kind(kind: &NodeKind) -> Option<Self> {
+        match kind {
+            NodeKind::Scroll { .. } => Some(Self::Region(ScrollHandle::new())),
+            NodeKind::VirtualList { .. } => Some(Self::List(UniformListScrollHandle::new())),
+            _ => None,
+        }
+    }
+
+    /// The scroll region's own rectangle, in window coordinates.
+    ///
+    /// Not the probe's: the probe marker is a child of the scrolling element
+    /// and therefore travels with the content, so after a scroll it no longer
+    /// describes the viewport the content is clipped to. GPUI records the
+    /// container's bounds on the handle at every prepaint, which does not move.
+    pub(crate) fn viewport(&self) -> Bounds<Pixels> {
+        match self {
+            Self::Region(handle) => handle.bounds(),
+            Self::List(handle) => handle.0.borrow().base_handle.bounds(),
+        }
+    }
+
+    /// Move the content by `delta` logical pixels along the scroll axes.
+    ///
+    /// Positive `y` scrolls towards the end of the content, which is the
+    /// direction a wheel-down gesture moves it. GPUI clamps the offset against
+    /// the content size on the next prepaint, so an overlarge request settles
+    /// at the end rather than past it.
+    pub(crate) fn scroll_by(&self, delta: Point<Pixels>) {
+        let base = match self {
+            Self::Region(handle) => handle.clone(),
+            Self::List(handle) => handle.0.borrow().base_handle.clone(),
+        };
+        let offset = base.offset();
+        base.set_offset(point(offset.x - delta.x, offset.y - delta.y));
+    }
+
+    /// Bring child `index` of a virtual list into view.
+    pub(crate) fn scroll_to_row(&self, index: usize) -> bool {
+        match self {
+            Self::List(handle) => {
+                handle.scroll_to_item(index, ScrollStrategy::Center);
+                true
+            }
+            Self::Region(_) => false,
+        }
+    }
 }
 
 /// Place the container's children across and along its layout axis. `Native`
@@ -1517,6 +1583,14 @@ impl Render for NodeView {
             NodeKind::Scroll { axis, style, .. } => {
                 element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .scrollbar_width(px(8.0));
+                // Tracking hands GPUI the view's own offset cell in place of
+                // the one it would keep in per-element state. The wheel handler
+                // writes through the same cell either way, so this changes
+                // nothing about interactive scrolling; what it adds is a
+                // durable position and a handle a specification can reach.
+                if let Some(ScrollTracker::Region(handle)) = &self.scroll {
+                    element = element.track_scroll(handle);
+                }
                 element = match axis {
                     ScrollAxis::Vertical => element.min_h_0().max_h_full().overflow_y_scroll(),
                     ScrollAxis::Horizontal => element.min_w_0().max_w_full().overflow_x_scroll(),
@@ -1544,14 +1618,22 @@ impl Render for NodeView {
                     .min_h_0()
                     .max_h_full()
                     .child(
-                        uniform_list("virtual-list", count, move |range, _, cx| {
-                            runtime
-                                .update(cx, |runtime, cx| {
-                                    runtime.virtual_range(list_id, range, height, gap, cx)
-                                })
-                                .unwrap_or_default()
-                        })
-                        .size_full(),
+                        {
+                            let list = uniform_list("virtual-list", count, move |range, _, cx| {
+                                runtime
+                                    .update(cx, |runtime, cx| {
+                                        runtime.virtual_range(list_id, range, height, gap, cx)
+                                    })
+                                    .unwrap_or_default()
+                            })
+                            .size_full();
+                            match &self.scroll {
+                                Some(ScrollTracker::List(handle)) => {
+                                    list.track_scroll(handle.clone())
+                                }
+                                _ => list,
+                            }
+                        },
                     );
             }
             NodeKind::Text(value) => {
@@ -1903,6 +1985,10 @@ struct Runtime {
     recyclable: HashMap<ElementIdentity, Entity<NodeView>>,
     virtual_views: HashMap<(u64, u64), VirtualCached>,
     focus_handles: HashMap<u64, FocusHandle>,
+    /// The live scroll position of every mounted scrolling node, by id. The
+    /// same tracker the node's view holds, so writing through it moves the
+    /// production element rather than a copy of its state.
+    scroll_trackers: HashMap<u64, ScrollTracker>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
     active_dialog: Option<u64>,
@@ -1936,6 +2022,7 @@ impl Runtime {
             recyclable: HashMap::new(),
             virtual_views: HashMap::new(),
             focus_handles: HashMap::new(),
+            scroll_trackers: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
             active_dialog: None,
@@ -2363,6 +2450,7 @@ impl Runtime {
         for id in &applied.removed_ids {
             self.views.remove(id);
             self.focus_handles.remove(id);
+            self.scroll_trackers.remove(id);
         }
         let live_labels: std::collections::HashSet<String> = self
             .graph
@@ -2398,6 +2486,13 @@ impl Runtime {
             .then(|| self.recyclable.remove(&identity))
             .flatten()
             .filter(|view| view.read(cx).node.kind.tag() == node.kind.tag());
+        // Reusing the tracker is what keeps a list where the person left it
+        // when the application rerenders under them; a fresh one would jump the
+        // content back to the top on every patch.
+        let scroll = claimed
+            .as_ref()
+            .and_then(|view| view.read(cx).scroll.clone())
+            .or_else(|| ScrollTracker::for_kind(&node.kind));
         let editor = self.editor_for_node(&node, input_enabled, cx);
         let focus_handle = if let Some(editor) = &editor {
             Some(editor.read(cx).focus_handle())
@@ -2421,6 +2516,7 @@ impl Runtime {
                     existing.input_enabled = input_enabled;
                     existing.focus_handle = focus_handle;
                     existing.input = editor;
+                    existing.scroll = scroll;
                     cx.notify();
                 });
                 view
@@ -2437,6 +2533,7 @@ impl Runtime {
                     focus_handle,
                     input: editor,
                     canvas_bounds: Arc::new(Mutex::new(None)),
+                    scroll,
                 })
             }
         }
@@ -2478,6 +2575,9 @@ impl Runtime {
             let view = self.claim_view(node, input_enabled, cx);
             if let Some(handle) = view.read(cx).focus_handle.clone() {
                 self.focus_handles.insert(*id, handle);
+            }
+            if let Some(tracker) = view.read(cx).scroll.clone() {
+                self.scroll_trackers.insert(*id, tracker);
             }
             self.views.insert(*id, view);
         }
@@ -2589,6 +2689,9 @@ impl Runtime {
         view.update(cx, |view, _| view.children = children);
         if let Some(handle) = view.read(cx).focus_handle.clone() {
             self.focus_handles.insert(id, handle);
+        }
+        if let Some(tracker) = view.read(cx).scroll.clone() {
+            self.scroll_trackers.insert(id, tracker);
         }
         (view, descendants + 1)
     }

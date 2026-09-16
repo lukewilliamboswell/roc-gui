@@ -318,9 +318,10 @@ window runner does not implement: `drag`, `replace-text`,
 value and ordering assertions, the live-resource and owner counter assertions,
 and the repository fixture steps the Contributing chapter describes.
 
-`window-only`:: `settle`, `screenshot`, `type`, `key`, `expect-on-screen`,
-`expect-rendered-count`, and `expect-bounds`. None of these mean anything
-without a presented frame.
+`window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
+`expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
+mean anything without a presented frame: without layout there is no fold for
+content to be below, and no size a window could be resized from.
 
 `both`:: `click`, `focus`, `press-key`, `await-task`, `clipboard-text`,
 `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`, and
@@ -351,6 +352,24 @@ sets a value directly and exercises none of the editing path.
 `main.roc` asks for one size, so this is how a specification claims a narrow or
 a wide window rather than assuming one. Follow it with `(settle)` before
 asserting, as with any other input step.
+`(scroll REGION :by N)`:: Move a scroll region or a virtual list by `N` logical
+pixels. Positive moves towards the end of the content, which is the direction a
+wheel-down gesture moves it; negative moves back. The request is clamped against
+the real content size, so an overlarge `N` settles at the end rather than past
+it, which is how a specification returns a list to its start without knowing how
+tall it is.
+`(scroll REGION :to LOCATOR)`:: Move `REGION` only as far as it must to bring
+`LOCATOR` inside it. A target already in view does not move the region at all.
+The target must be inside the region, and a target taller than the region is
+aligned to its leading edge, since no offset shows all of it.
++
+For a scroll region the distance is real geometry: every child is laid out,
+below the fold included, so the travel is measured rather than estimated. A
+virtual list has no such rectangle — a row below the fold has no element at all
+— so the list is positioned by that row's index among the entries the
+application mounted, and the row materialises as a result. This is what brings
+an off-screen target on screen, and it is the only handle an unrendered row
+offers.
 `(settle)` / `(settle :frames N :timeout-ms N)`:: Wait for `N` consecutive
 presented frames during which no host task started or finished. Defaults are
 `:frames 2 :timeout-ms 2000`. A timeout fails the step; it never proceeds
@@ -403,6 +422,11 @@ assertion stopped at is usually the most useful evidence in the run.
 === What input is real
 
 Keyboard steps send real keystrokes through the window's production keymap.
+`scroll` writes the offset cell of the scroll handle the production element
+tracks — the same cell GPUI's own wheel handler writes, and the same one that
+keeps a list where the person left it across a rerender. What it does not
+synthesise is a wheel event, so hit testing, momentum, and rubber-banding are
+not exercised; those belong to the pointer seam this host does not have.
 Pointer steps are simulated at the production handler, but are refused unless
 the control was laid out, is unclipped, is enabled, and is not behind a modal
 dialog, so a `click` a real user could not have performed fails rather than

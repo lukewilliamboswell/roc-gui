@@ -224,12 +224,6 @@ names the evidence so a fix can be verified against the same case.
   an unlocked session. This is why continuous integration needs the headless
   compositor lane below rather than a desktop session.
 
-- [ ] **A scroll step for window specifications.** Found by driving
-  `folder-browser`: a list application's rows below the fold cannot be reached,
-  clicked, or photographed at all. A `(scroll LOCATOR ...)` step would close
-  this. `(resize W H)` has landed and `settings-center`'s
-  `specs/window-narrow.scm` proves a layout at two sizes `main.roc` never asks
-  for.
 - [ ] **Shared steps the window runner does not implement.** `drag`,
   `replace-text`, `submit`, `revoke-file-grants`, the value and ordering
   assertions, and the owner counter assertions are classified semantic-only
