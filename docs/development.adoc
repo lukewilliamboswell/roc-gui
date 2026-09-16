@@ -13,6 +13,13 @@ roc check examples/counter/main.roc
 python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 ----
 
+`roc check` answers whether a program type-checks, which is not the same
+question as whether it compiles. A change to the shape of a platform type can
+leave every example checking cleanly while code generation for one of them fails
+to terminate, so a change to `platform/` is validated by building an application
+and not only by checking one. The specification runner builds every application
+it runs, which is why it is the gate that matters for a platform change.
+
 The specification runner verifies and stages the independently released native
 host when its recorded source fingerprint matches the checkout. A host-source
 change automatically builds and exercises the changed production host instead.

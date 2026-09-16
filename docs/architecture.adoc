@@ -109,6 +109,22 @@ viewport callback creates entities only for intersecting fixed-height rows and
 recycles entities that leave the range. The host connects the new native
 subtree to retained entities around its boundary and releases replaced views.
 
+A node ID identifies a node, not a control. Because it is never reused, a patch
+that rebuilds a subtree gives the same control a new ID, and keying the GPUI
+element by it would hand that control a new element on every patch and discard
+the element state GPUI holds — the pending mouse-down that pairs a press with a
+release, the scroll offset, the focus. The host therefore keys each element by
+the node's *element identity*: the path of sibling keys from the mounted root,
+each key the node's own semantic name where it has one and its position among
+its siblings where it has not, with repeated sibling names separated by
+occurrence. A staged node claims back the view of a retired node with the same
+identity and the same kind, so a control a person is pressing survives any
+number of rerenders under the finger, however fast. Nothing of the retired
+node's content survives with it: handlers are rebuilt from the staged node, so a
+click still routes to the live node ID, and a control whose name changed or that
+left the tree has a different identity, gets a different element, and drops the
+press rather than having it misrouted to whatever took its place.
+
 While a dialog is mounted, controls outside its graph subtree do not install
 pointer listeners or tab stops. The runtime focuses the first enabled dialog
 control, routes Escape to the dialog node, and restores the opener by its stable
