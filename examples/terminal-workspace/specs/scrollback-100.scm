@@ -11,7 +11,7 @@
     (await-task)
     (mark-metrics)
     (await-task)
-    (expect-count (text-prefix "Terminal line: line-") 100)
+    (expect-count (text-prefix "line-") 100)
     (click (role button :name "Stop terminal"))
     (await-task)
     (await-task)
