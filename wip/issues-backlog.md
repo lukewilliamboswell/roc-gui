@@ -117,10 +117,6 @@ the change lands; do not soften the docs to match the gap.
   assert `expect-visible` for the selected image where `expect-on-screen` is the
   claim that matters. Close by making the declared box authoritative and `fit`
   the rule that maps pixels into it.
-- [ ] **A checkbox's box and mark are host constants.** `fg` reaches the caption
-  only; the indicator paints fixed dark values. On `image-library`'s near-white
-  wall the grayscale toggle is the one dark chip in the window and the identity
-  cannot reach it. Close with indicator colour fields on `Elem.CheckboxProps`.
 - [ ] **No font family.** Terminal output is columnar: `terminal-workspace`'s
   scrollback, its line counts, and its `pty 100x30` readout all want a monospace
   face, and nothing in `Gui.Style` selects one. Digits in the footer shift width

@@ -297,6 +297,13 @@ Elem(a) :: [
 		checked : Bool,
 		enabled : Bool ?? True,
 		on_change : (a, Event.Check => Action(a)),
+		## The indicator's own colours. `fg` reaches the caption; these reach the
+		## box and its mark, which otherwise keep host values chosen for a dark
+		## ground. Each defaults to the host's own.
+		box_bg : Gui.Color ?? Default,
+		box_checked_bg : Gui.Color ?? Default,
+		box_border : Gui.Color ?? Default,
+		mark_color : Gui.Color ?? Default,
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
 		padding_top : Gui.Inset ?? Same,
@@ -614,6 +621,10 @@ Elem(a) :: [
 					label: checkbox_value.label,
 					checked: checkbox_value.checked,
 					enabled: checkbox_value.enabled,
+					box_bg: checkbox_value.box_bg,
+					box_checked_bg: checkbox_value.box_checked_bg,
+					box_border: checkbox_value.box_border,
+					mark_color: checkbox_value.mark_color,
 					on_change: parent_handler!,
 					gap: checkbox_value.gap,
 					padding: checkbox_value.padding,

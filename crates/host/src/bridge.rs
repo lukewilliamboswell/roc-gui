@@ -58,6 +58,8 @@ pub enum NodeKind {
         label: String,
         checked: bool,
         enabled: bool,
+        /// The indicator's own colours, each None for the host's default.
+        indicator: CheckboxIndicator,
         style: Style,
     },
     Textarea {
@@ -285,6 +287,16 @@ pub enum Justify {
     End,
     Between,
     Around,
+}
+
+/// The checkbox indicator's colours. `fg` reaches the caption; these reach the
+/// box and its mark, which otherwise keep host values chosen for a dark ground.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CheckboxIndicator {
+    pub box_bg: Option<u32>,
+    pub box_checked_bg: Option<u32>,
+    pub box_border: Option<u32>,
+    pub mark_color: Option<u32>,
 }
 
 /// How a string behaves when it is wider than the space it was given.
@@ -1102,6 +1114,7 @@ mod tests {
             label: "Show files".into(),
             checked: false,
             enabled: true,
+            indicator: CheckboxIndicator::default(),
             style: Style::default(),
         };
         let disabled = match &enabled {
@@ -1114,6 +1127,7 @@ mod tests {
                 label: label.clone(),
                 checked: *checked,
                 enabled: false,
+                indicator: CheckboxIndicator::default(),
                 style: *style,
             },
             _ => unreachable!(),

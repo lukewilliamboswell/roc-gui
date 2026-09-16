@@ -79,7 +79,9 @@ border, radius, font size, font weight, and overflow.
 the same native action-button node. `label` is the visible text and `name` is
 the stable semantic name; use `Elem.action_button` for styling.
 `Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and
-handle `Event.Check`. Props include enabled state, gap, padding, sizing, growth,
+handle `Event.Check`. `box_bg`, `box_checked_bg`, `box_border`, and
+`mark_color` colour the indicator itself, which `fg` does not reach; each
+defaults to the host's own value. Props include enabled state, gap, padding, sizing, growth,
 foreground and interaction colours, border, radius, font size, font weight,
 and overflow.
 Enabled checkboxes participate in keyboard tab order and toggle with Space;

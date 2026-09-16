@@ -79,7 +79,7 @@ viewer_controls = |state| Elem.row(
 		quiet_button("Fit", "Fit image", |current, _| Action.update({ ..current, transform: { ..current.transform, fit: Contain } })),
 		quiet_button("Fill", "Fill image bounds", |current, _| Action.update({ ..current, transform: { ..current.transform, fit: Cover } })),
 		quiet_button("Actual", "Show actual image size", |current, _| Action.update({ ..current, transform: { ..current.transform, fit: None } })),
-		Elem.checkbox(Elem.CheckboxProps.{ label: "Grayscale preview", checked: state.transform.grayscale, padding: 12, gap: 10, font_size: Theme.body, fg: Theme.ink, on_change: |current, event| Action.update({ ..current, transform: { ..current.transform, grayscale: event.checked } }) }),
+		Elem.checkbox(Elem.CheckboxProps.{ label: "Grayscale preview", checked: state.transform.grayscale, padding: 12, gap: 10, font_size: Theme.body, fg: Theme.ink, box_bg: Theme.card, box_checked_bg: Theme.accent, box_border: Theme.quiet_active, mark_color: Theme.on_accent, on_change: |current, event| Action.update({ ..current, transform: { ..current.transform, grayscale: event.checked } }) }),
 	],
 )
 

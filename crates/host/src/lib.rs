@@ -27,7 +27,7 @@ mod watchdog;
 mod window_runner;
 
 use bridge::{
-    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, ImageFit,
+    Align, BridgeState, CanvasPrimitive, CheckboxIndicator, CanvasPrimitiveKind, ControlKey, ImageFit,
     ImageFormat as BridgeImageFormat, Justify, Length, MountedGraph, Node, NodeKind, Overflow,
     Patch, ScrollAxis, Style, TextOverflow, decode_commit, validate_tree,
 };
@@ -551,6 +551,12 @@ pub extern "C" fn roc_gui_node_checkbox(args: HostGlueNodeCheckboxArgs) -> u64 {
             label,
             checked: args.checked,
             enabled: args.enabled,
+            indicator: CheckboxIndicator {
+                box_bg: decode_color(args.box_bg),
+                box_checked_bg: decode_color(args.box_checked_bg),
+                box_border: decode_color(args.box_border),
+                mark_color: decode_color(args.mark_color),
+            },
             style: decode_layout_style!(args),
         },
         vec![],
@@ -1595,6 +1601,7 @@ impl Render for NodeView {
                 label,
                 checked,
                 enabled,
+                indicator,
                 style,
             } => {
                 let node_id = self.node.id;
@@ -1602,14 +1609,15 @@ impl Render for NodeView {
                 let enabled_box = *enabled && self.input_enabled;
                 let mark = if *checked { "✓" } else { "" };
                 let box_bg = if *checked {
-                    CHECKBOX_CHECKED_BG
+                    indicator.box_checked_bg.unwrap_or(CHECKBOX_CHECKED_BG)
                 } else {
-                    CHECKBOX_BG
+                    indicator.box_bg.unwrap_or(CHECKBOX_BG)
                 };
+                let box_border = indicator.box_border.unwrap_or(CHECKBOX_BORDER);
                 let box_fg = if *checked {
-                    CHECKBOX_CHECKED_FG
+                    indicator.mark_color.unwrap_or(CHECKBOX_CHECKED_FG)
                 } else {
-                    CHECKBOX_BORDER
+                    box_border
                 };
                 element = apply_axes(element.flex().flex_row().items_center(), style)
                     .gap(px(style.gap as f32))
@@ -1623,7 +1631,7 @@ impl Render for NodeView {
                             .h(px(18.0))
                             .border_1()
                             .border_color(rgb(if enabled_box {
-                                CHECKBOX_BORDER
+                                box_border
                             } else {
                                 style.disabled_fg.unwrap_or(DISABLED_FG)
                             }))
