@@ -20,7 +20,7 @@
     ; A new edit made instead of the redo discards the redone future.
     (click (role button :name "Add ellipse"))
     (expect-visible (text "LAYERS (3)"))
-    (expect-visible (role canvas-item :name "Ellipse 4"))
+    (expect-visible (role canvas-item :name "Layer 4"))
     (click (role button :name "Redo"))
     (expect-visible (text "LAYERS (3)"))
-    (expect-not-visible (role canvas-item :name "Rectangle 3"))))
+    (expect-not-visible (role canvas-item :name "Layer 3"))))
