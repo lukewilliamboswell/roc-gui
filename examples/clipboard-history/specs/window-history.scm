@@ -21,8 +21,11 @@
     (expect-on-screen (text "Not reading your clipboard"))
     (expect-bounds (role row :name "Application header") :max-height 96)
     (screenshot "first-run")
+    ; Starting acquires the grant and starts the timer on a worker before the
+    ; first tick can fire, so the first wait covers the start and the second the
+    ; tick that proves capture is running.
     (click (role button :name "Start clipboard capture"))
-    (await-ticks 1)
+    (await-ticks 2)
     (expect-on-screen (text "Watching for changes"))
     (expect-on-screen (text "Reading your clipboard · nothing leaves this window"))
     (clipboard-text "https://example.invalid/a-link-that-was-copied")
