@@ -101,9 +101,16 @@ the change lands; do not soften the docs to match the gap.
 
 ## Trust: measurements that can mislead a decision
 
-- [ ] **All benchmark captures come from the headless runner.** No GPUI stage is
-  measured. The capture backend is `semantic-headless`. Closes with the
-  end-to-end runner below.
+- [ ] **All benchmark captures come from the headless runner.** Every capture
+  under `benchmarks/` has backend `semantic-headless` and holds no frame
+  evidence: no layout request, no prepaint, no paint, no `gpui_apply_ns`. Frame
+  spans are now recorded wherever a GPUI window draws, but no benchmark reaches
+  one. The end-to-end runner exists and is not the closing piece by itself: it
+  runs exactly one lifecycle with no per-step remount, so `spec::check_runner`
+  refuses benchmark steps there, and `scripts/run_specs.py` gives a window case
+  no `--host-stats-output` because it produces a report rather than a capture.
+  Closes when the window runner can drive warmups, samples, and iterations and
+  writes a capture of its own.
 
 ## Performance findings from the suite
 
@@ -265,6 +272,10 @@ names the evidence so a fix can be verified against the same case.
   are accepted; merely opening a window is insufficient.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
+  Strictly after the entry above: today every benchmark capture is
+  `semantic-headless`, so refusing that backend first would leave the suite with
+  no numbers at all, which is worse than numbers from a backend whose limits the
+  capture states.
 
 - [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a
