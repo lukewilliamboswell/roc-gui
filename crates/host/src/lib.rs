@@ -1950,14 +1950,11 @@ impl Runtime {
         {
             return;
         }
-        if !matches!(
-            self.graph.node(id).map(|node| &node.kind),
-            Some(
-                NodeKind::Button { enabled: true, .. }
-                    | NodeKind::Checkbox { enabled: true, .. }
-                    | NodeKind::Dialog { .. }
-            )
-        ) {
+        if !self
+            .graph
+            .node(id)
+            .is_some_and(|node| node.kind.dispatches_click())
+        {
             return;
         }
         if !matches!(
