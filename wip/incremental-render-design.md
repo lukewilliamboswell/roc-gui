@@ -1,4 +1,4 @@
-# Incremental render: element identity and content digests
+# Incremental render: element identity and content equality
 
 A design, not a change. Nothing in `platform/` or `crates/host/` is modified by
 this document. The one piece of code it carries is a prototype,
@@ -11,8 +11,18 @@ proportional to what changed. The measurements below say it should not, and say
 why: **at a `translate` boundary the graph layer is already almost free.** The
 cost that remains is Roc-side render and lowering, and the only thing that
 removes that cost is not rendering at all. So the scheme proposed here puts a
-content digest in Roc, in front of the render, and spends it on the `NoChange`
-patch the ABI already has. The host is not changed at all.
+content comparison in Roc, in front of the render, and spends it on the
+`NoChange` patch the ABI already has. The host is not changed at all.
+
+**This document was revised after it was first written.** It originally proposed
+a 256-bit BLAKE3 digest, because the builtin `Hasher` is unusable and reference
+equality does not exist. Neither of those findings has changed. What changed is
+that `is_eq : _` **derives structural equality** for a nominal type — verified
+running on `nightly-2026-09-15-fe09c42` for a record containing a `List(Str)` —
+which is a better predicate than either: exact, so it cannot report "unchanged"
+wrongly, and available today. Section 3.4 now argues that case, and §4 compares
+slices rather than digesting them. The measurements in §5 are unaffected: they
+are about where the cost is, not how the predicate is computed.
 
 ---
 
@@ -31,10 +41,10 @@ They are opposites, and the whole design depends on not conflating them.
 | Failure character | loud — the press is visibly lost | **silent** |
 
 A button whose caption goes from "Pause" to "Play" is the same control. Its
-identity must not move; its digest must. That is the defect fixed in `30b59e3`,
+identity must not move; its equality must. That is the defect fixed in `30b59e3`,
 and it is the reason **identity is never derived from a content hash** — a rule
 this design does not merely respect but makes structurally impossible to break,
-because the digest never reaches the host.
+because the comparison never reaches the host.
 
 ---
 
@@ -170,7 +180,9 @@ This is the exact inverse of §3.1, and it is the central finding:
 `wip/prototypes/BoundaryDigest.roc` writes that encoding for one row type and
 passes 8 tests against the pin, including that a caption change moves the
 digest, that reordering moves it, and that a length prefix defends the
-concatenation boundary (`"ab"` vs `"a"+"b"`).
+concatenation boundary (`"ab"` vs `"a"+"b"`). It is kept as evidence for the
+claims in this section; §3.4 supersedes it as the proposed mechanism, and the
+byte encoding it demonstrates is exactly the work derived `is_eq` removes.
 
 ### 3.3 Reference equality — the better mechanism, and unavailable
 
@@ -193,40 +205,66 @@ Two further caveats, so this is not oversold if it does arrive:
 - `Elem.lift` performs a total structural rewrite of an already-built tree on
   every render, so sharing is destroyed *downstream* of the boundary. Reference
   equality would have to be taken on the state slice before render, which is
-  the same place the digest goes.
+  the same place the comparison goes.
 
 **Recommendation.** Reference equality is the better mechanism and I would take
 it over a digest if it existed. It does not. The honest position is: design the
-boundary decision as a *predicate* with two implementations, ship the digest
-now, and ask upstream for a `Ref.same : a, a -> Bool` that the predicate can
-switch to without any other change. If that builtin lands, the recommendation
-flips, and §4 changes in exactly one function.
+boundary decision as a *predicate* with more than one implementation, and ask
+upstream for a `Ref.same : a, a -> Bool` the predicate can switch to without any
+other change. §3.4 supersedes the rest of this recommendation: derived `is_eq`
+is available today and is exact, so it is what §4 ships, and reference equality
+would be a cost optimisation on top rather than a correctness repair.
 
-### 3.4 Digest width
+### 3.4 Derived equality, and why it beats a digest
 
-**256-bit BLAKE3.** Not a 64-bit `Hasher`, and not only because the `Hasher` is
-unusable.
+`is_eq : _` derives structural equality on a nominal type. Verified running on
+`nightly-2026-09-15-fe09c42`:
 
-A 64-bit hash has a birthday bound near 2³². Grounding that in the measured
-workload rather than waving at it: a per-row boundary scheme over 10,000 rows
-recomputing at 60 Hz issues 6×10⁵ digests per second, which reaches 2³² in about
-two hours of continuous interaction. That is not a comfortable margin, and the
-failure it produces is the worst kind available here — a **silently stale
-frame**, with no assertion, no counter, and no log line, on a codebase whose
-correctness gates are deterministic counters. A collision would not trip any of
-them.
+```roc
+Row := { id : U64, name : Str, tags : List(Str) }.{
+    is_eq : _
+    to_hash : _
+}
+```
 
-At 256 bits the birthday bound is 2¹²⁸ and the risk is not one a reviewer has to
-hold in their head. This is also the assumption the repository already makes
-everywhere else — `dependencies.lock.json`, `host.lock.json`, the observatory's
-`stable_hash`/`spec_hash` receipts, and `roc-assets.manifest`'s `content_sha256`.
-BLAKE3 over SHA256 because it is faster at the sizes involved and both are
-equally available.
+`a == b` and `a != c` both hold, including through the `List(Str)`. Derivation
+composes over records, tag unions and containers exactly as `to_hash` does, and
+refuses function-bearing types for the same reason, so the type system still
+draws the applicability boundary.
 
-The residual risk is not zero and should be stated plainly: **a digest scheme
-can render a stale frame and nothing will say so.** That is a real regression in
-the diagnosability of this platform, and it is the strongest argument for
-reference equality whenever it becomes available.
+This is the predicate the scheme should use, and it is strictly better than a
+digest on the axis this repository cares about most:
+
+| | cost | failure mode |
+|---|---|---|
+| reference equality | O(1) | fails safe; **does not exist** |
+| **derived `is_eq`** | **O(slice)** | **exact — cannot be wrong** |
+| 256-bit digest | O(slice) | collision: silently stale frame |
+| 64-bit `Hasher` | O(slice) | collision at ~2 hours of interaction; **unusable anyway** |
+
+A digest's whole risk is that two different slices can compare equal and render
+a stale frame that trips no counter, no assertion and no log line. Exact
+comparison cannot do that. It costs the same asymptotically — both walk the
+slice — and it removes the encoder tax entirely, because there is no byte
+encoding to write: no `to_ne_bytes`, no hand-rolled length prefixes, no
+`Iter(List(U8))` plumbing, and nothing for an application author to get wrong.
+
+What it trades instead is **memory**: the boundary must retain the previous
+slice to compare against, where a digest retains 32 bytes. That is a real cost
+and it is the honest objection to this approach — a boundary over a large slice
+holds a second copy of it. Two things make it tolerable. Roc values are
+immutable and refcounted, so retaining the previous slice retains a reference to
+structure the new state mostly shares rather than a deep copy. And the scheme is
+opt-in per boundary (§6), so a boundary over a large slice simply does not take
+it — which is the same boundary where a digest would have been paying to hash a
+large slice anyway.
+
+The residual-risk paragraph this section used to carry is withdrawn. There is no
+silent-staleness risk left to state, which also removes the strongest argument
+that was being made for reference equality. Reference equality remains better on
+cost, and §3.3's recommendation to keep the decision behind one swappable
+predicate stands — but it is now an optimisation rather than a correctness
+repair, and the scheme no longer waits on it.
 
 ---
 
@@ -234,18 +272,18 @@ reference equality whenever it becomes available.
 
 ### 4.1 Where it goes
 
-One sentence: **each `translate` boundary remembers a 256-bit BLAKE3 digest of
-the state slice it last rendered; on update it re-digests the slice, and if the
-digest is unchanged it installs the new state and emits the `NoChange` patch
-that already exists instead of rendering, lowering, validating and applying.**
+One sentence: **each `translate` boundary remembers the state slice it last
+rendered; on update it compares the new slice with `==`, and if they are equal
+it installs the new state and emits the `NoChange` patch that already exists
+instead of rendering, lowering, validating and applying.**
 
-What is hashed: the **child state slice**, `get_child(next_state)` — not the
-element tree, not the parent state, not the rendered nodes. Hashing the element
-tree is impossible (closures have no `to_hash` and no byte encoding) and would
-be pointless anyway, since producing the tree is the cost we are trying to avoid.
+What is compared: the **child state slice**, `get_child(next_state)` — not the
+element tree, not the parent state, not the rendered nodes. Comparing the
+element tree is impossible (closures have no `is_eq`) and would be pointless
+anyway, since producing the tree is the cost we are trying to avoid.
 
-Granularity: **one digest per `translate` boundary**, which is the granularity
-the platform already has. No new seam is introduced.
+Granularity: **one retained slice per `translate` boundary**, which is the
+granularity the platform already has. No new seam is introduced.
 
 Where it is stored: in `BoundaryInfo`, Roc-side, beside `render`:
 
@@ -253,18 +291,22 @@ Where it is stored: in `BoundaryInfo`, Roc-side, beside `render`:
 BoundaryInfo(a) : {
     key : U64, parent : [None, Some(U64)], path : List(U64),
     render : (a -> Elem(a)), root : U64,
-    digest : [Unknown, Known(Crypto.BLAKE3.Digest)],   # added
+    rendered : [Unknown, Known(child)],   # added: the slice last rendered
 }
 ```
+
+The boundary's state slice type must derive `is_eq : _`. That is the opt-in:
+a boundary whose slice does not derive it is never skipped, and nothing about
+it changes.
 
 Where it is compared: in `update_boundary!`, before `boundary.render(...)`.
 
 What invalidates it: `Unknown` at first lower; replaced on every rebuild; and
 discarded implicitly by the existing rule that `update_boundary!` drops every
 boundary whose `path` contains the updated key — so an ancestor rebuild already
-retires descendant digests along with descendant `BoundaryInfo`.
+retires descendant slices along with descendant `BoundaryInfo`.
 
-**The digest never crosses the ABI.** The host sees `NoChange` or `Replace`,
+**The retained slice never crosses the ABI.** The host sees `NoChange` or `Replace`,
 exactly as today. This is the property that makes the scheme safe by
 construction with respect to everything the constraints name: the never-reused
 node id rule and its `materialize` assertion, `validate_tree`, the exact patch
@@ -281,11 +323,11 @@ flowchart TD
     INS -->|NoChange| NC["Host.apply!(NoChange)"]
     INS -->|Update / Task| UB["update_boundary!<br/>find BoundaryInfo by key"]
 
-    UB --> SLICE["slice = get_child(next_state)<br/>(lazy; the slice is never stored)"]
-    SLICE --> DG["fresh = BLAKE3.hash_chunks(encode(slice))<br/>256-bit, content-SENSITIVE"]
-    DG --> CMP{"fresh == boundary.digest?"}
+    UB --> SLICE["slice = get_child(next_state)<br/>(retained for the next comparison)"]
+    SLICE --> DG["derived is_eq on the slice type<br/>content-SENSITIVE, exact"]
+    DG --> CMP{"slice == boundary.rendered?"}
 
-    CMP -->|"hit — content unchanged"| SKIP["install!(next_state, SAME routes,<br/>SAME boundaries, SAME digests)"]
+    CMP -->|"hit — content unchanged"| SKIP["install!(next_state, SAME routes,<br/>SAME boundaries, SAME slices)"]
     SKIP --> NCP["Host.apply!(NoChange)"]
     NCP --> DONE["no ids allocated · nothing staged<br/>no validate · no graph apply<br/>subtree and its GPUI entities untouched"]
     DONE --> PAINT
@@ -326,7 +368,7 @@ flowchart TD
 ```
 
 The crux is the two coloured pairs and the box they each sit in. Orange is the
-digest: **in Roc, before render, sensitive to content, and it never leaves the
+comparison: **in Roc, before render, sensitive to content, and it never leaves the
 `ROC` box.** Blue is identity: **in the host, after apply, derived from sibling
 names and blind to content.** They meet nowhere. A caption change moves the
 orange value and leaves the blue one exactly where it was, which is precisely
@@ -335,7 +377,7 @@ the behaviour `30b59e3` fixed.
 ### 4.3 Hit and miss
 
 **On a hit**, the boundary emits `NoChange` and installs the new state with the
-*same* routes, boundaries and digests. This differs from today's `NoChange`
+*same* routes, boundaries and retained slices. This differs from today's `NoChange`
 (from `Action.none`) only in that the installed state is the new one. No node
 ids are allocated, nothing is staged, `validate_tree` does not run, the graph is
 not touched, no node is retired, and therefore no GPUI entity is retired either.
@@ -347,7 +389,7 @@ entity is never retired at all, so there is nothing to reclaim and nothing to
 get wrong. The scheme does not merely avoid undermining the identity fix; on the
 skip path it makes it unnecessary.
 
-**On a miss**, the path is bit-for-bit what happens today, plus one digest
+**On a miss**, the path is bit-for-bit what happens today, plus one comparison
 computation. Every check, counter and assertion runs unchanged.
 
 ### 4.4 Why a skip is sound
@@ -420,7 +462,7 @@ The `NoChange` path exists today and the suite already measures it, because
 
 **30× cheaper, end to end.** This is not a projection; it is the same executable
 on the same tree taking the `NoChange` path. It is the empirical ceiling for a
-digest hit, minus whatever the digest itself costs. No modelling required.
+skip, minus whatever the comparison itself costs. No modelling required.
 
 ### 5.3 Superlinearity, confirmed at the current tip
 
@@ -440,7 +482,7 @@ are two distinct ways to lose it.
 
 **Losing case 1 — a large slice guarding a large rebuild that happens anyway.**
 The root boundary of `rows` at 10,000 rows has the whole row list as its slice.
-A single row change means encoding and digesting 10,000 rows, then rebuilding
+A single row change means comparing 10,000 rows, then rebuilding
 everything regardless. Order-of-magnitude: ~10,000 rows × ~32 bytes ≈ 320 KB;
 BLAKE3 itself is a fraction of a millisecond at that size, but the encoding
 allocates the chunks, and allocation is what this workload is already bad at
@@ -464,7 +506,7 @@ slice small, but boundaries are not free: `row-boundaries` at 10,000 rows costs
 The cause is structural: `Elem.lift` is a **total structural rewrite** of an
 already-built tree, rebuilding every props record and wrapping every handler,
 and nested boundaries stack those wrappers. Ten thousand boundaries means ten
-thousand lift traversals. So "put a boundary on every row so each digest is
+thousand lift traversals. So "put a boundary on every row so each comparison is
 small" rides on a mechanism that already costs 165 ms before a single byte is
 hashed. **Digests do not rescue fine-grained boundaries; they would be a small
 saving on top of a large existing loss.**
@@ -478,7 +520,7 @@ The honest summary of the trade:
 - **Roughly neutral** at coarse boundaries over large slices with a low hit rate:
   ~10% overhead on misses against occasional 30× savings.
 - **Loses** at fine granularity over large collections, because the boundary
-  mechanism itself is the dominant cost there and a digest does not address it.
+  mechanism itself is the dominant cost there and a comparison does not address it.
 
 That third bullet is the important one, and it says the next performance work on
 large collections is **not** this scheme — it is `Elem.lift`.
@@ -506,17 +548,26 @@ enough to revisit §3.4 — I do not think so, for the collision reason, but it 
 untested. (c) Whether `roc test`'s `expect` timings reflect optimised codegen.
 
 **What would have to be true.** Applications' `get_child` functions must be pure
-and total (§4.4). Boundary state slices must be digestible — no closures in the
+and total (§4.4). Boundary state slices must derive `is_eq` — no closures in the
 slice, which the type system enforces. And the hit rate must be high enough at
 the boundaries where it is enabled, which argues strongly that this should be
 **opt-in per boundary** (`Elem.memo` alongside `Elem.translate`) rather than
 automatic, so an application can put it where it pays and the cost is never
 imposed where it does not.
 
-**A regression this introduces.** A digest collision renders a stale frame with
-nothing to indicate it. No counter moves, no assertion fires. Everything else in
-this platform fails loudly. This one would not, and 256 bits is a mitigation of
-the probability, not of the failure mode.
+**The regression this used to introduce, withdrawn.** A digest collision would
+have rendered a stale frame with nothing to indicate it: no counter moving, no
+assertion firing, in a platform where everything else fails loudly. Derived
+`is_eq` is exact, so that failure mode does not exist and the mitigation
+argument about digest width is moot. What remains is an ordinary bug risk — a
+wrong slice compared, or a boundary that skips when its render depends on
+something outside its slice — and both fail the same way any logic error does,
+which is why the `boundary_skips` counter below still comes first.
+
+**The cost this introduces instead.** A skipping boundary retains its previous
+slice. Refcounting means that is a reference to structure the next state mostly
+shares rather than a deep copy, but it is not free, and a boundary over a large
+slice should not opt in.
 
 **What I would build first**, in order:
 
@@ -530,11 +581,12 @@ the probability, not of the failure mode.
    counter incrementing above a static sidebar. That case makes both the 30× win
    and the miss-path tax measurable before the mechanism is designed to a
    conclusion.
-3. **The digest predicate behind one function**, so that §3.3's recommendation
-   can be acted on. `boundary_unchanged : slice, slice_memo -> Bool`, digest
-   today, `Ref.same` the day it exists.
-4. **`Elem.memo`, opt-in**, taking the encoding function from the application
-   until a public `Hasher` makes it derivable.
+3. **The predicate behind one function**, so that §3.3's recommendation can be
+   acted on. `boundary_unchanged : slice, slice -> Bool`, derived `is_eq` today,
+   `Ref.same` the day it exists.
+4. **`Elem.memo`, opt-in**, requiring only that the boundary's slice type derives
+   `is_eq : _`. No encoding function, and nothing for an application author to
+   write by hand.
 
 And one thing I would **not** build: identity in the mounted graph. §5.1 says
 the graph layer at a boundary already costs 8.3 µs. There is nothing there to
