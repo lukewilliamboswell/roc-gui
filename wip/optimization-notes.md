@@ -159,6 +159,31 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Iteration 5: compact radix leaves
+
+Generated reference-count and index-related functions remained prominent after
+the resource gate. Inspection found that every index entry occupied a full
+sixteen-nibble path, even when no other key shared its prefix. Leaves now retain
+the remaining key bits and split only on collisions. Lookup checks those bits;
+removal of a different key leaves the entry intact. Updates remain persistent,
+and the worst-case bound is still sixteen radix branches for U64 keys.
+
+Three module tests pass, including maximum U64 keys, missing-key removal,
+replacement with retained snapshots, and keys colliding through fifteen low
+nibbles. All three serial selection scales and A/A repeats passed:
+
+| Rows | Median ms | A/A ms | New bytes per marked turn | Allocation calls per marked turn |
+|---|---:|---:|---:|---:|
+| 100 | 0.692 | 0.685 | 548,568 | 3,679 |
+| 1,000 | 9.080 | 8.924 | 6,641,336 | 46,671 |
+| 10,000 | 154.082 | 151.225 | 78,195,672 | 561,912 |
+
+At 10k this compares with 436.135 ms, 234,130,840 bytes and 2,149,572
+allocation calls after the resource gate. This is an index representation
+optimization, not evidence of a compiler bug. All 243 semantic specifications
+passed, as did both counter real-window interaction specs. Three screenshots
+were explicitly unavailable because the capture tool was missing.
+
 ### Iteration 4: enable resource routing on first registration
 
 Leaf samples continued to land in resource-store deallocation routes after
