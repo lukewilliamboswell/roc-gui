@@ -250,13 +250,19 @@ names the evidence so a fix can be verified against the same case.
   `specs/window-narrow.scm` proves a layout at two sizes `main.roc` never asks
   for.
 - [ ] **Shared steps the window runner does not implement.** `drag`,
-  `replace-text`, `clipboard-text`, `submit`, `await-ticks`,
-  `revoke-file-grants`, the value and ordering assertions, and the owner
-  counter assertions are all classified semantic-only because the window runner
-  refuses them, not because they would be dishonest there. Implementing them
-  would let one specification assert semantic truth and photograph it.
-  `await-ticks` in particular must drive real timer ticks rather than settling,
-  which is what made it wrong before it was reclassified.
+  `replace-text`, `submit`, `revoke-file-grants`, the value and ordering
+  assertions, and the owner counter assertions are classified semantic-only
+  because the window runner refuses them, not because they would be dishonest
+  there. Implementing them would let one specification assert semantic truth and
+  photograph it.
+
+  `clipboard-text` and `await-ticks` have since landed in the window runner and
+  are no longer on this list. They are worth reading before the next one is
+  attempted, because each needed a different answer than settling: a clipboard
+  watcher rearms its read inside the completion that delivers the last one, so
+  one task is outstanding at every instant and quiescence never arrives, and
+  `await-ticks` therefore counts timer *fires* rather than completions, since a
+  fire can only be one that started after the step did.
 - [ ] **Bring off-screen targets on screen.** `expect-on-screen` distinguishes
   laid out from actually visible, but large row cases place targets outside the
   window and the platform still has no scrolling feature to bring them into
