@@ -12,5 +12,5 @@ main : Program(State)
 main = Program.run({
 	init: Workbench.init,
 	render: View.render,
-	window: { title: "HTTP Workbench", width: 840, height: 680 },
+	window: { title: "HTTP Workbench", width: 980, height: 720 },
 })

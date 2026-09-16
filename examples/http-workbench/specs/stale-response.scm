@@ -11,5 +11,5 @@
     (click (role button :name "Send request"))
     (await-task)
     (await-task)
-    (expect-value (role textarea :name "Response body") "Status 200\nnew")
+    (expect-value (role textarea :name "Response body") "new")
     (expect-http-counters 0 2 2 0)))

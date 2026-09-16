@@ -13,5 +13,5 @@
     (replace-text (role textarea :name "Request body") "retried")
     (click (role button :name "Retry request"))
     (await-task)
-    (expect-value (role textarea :name "Response body") "Status 200\nretried")
+    (expect-value (role textarea :name "Response body") "retried")
     (expect-http-counters 0 2 2 0)))

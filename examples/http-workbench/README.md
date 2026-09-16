@@ -14,6 +14,37 @@ development destination with
 Run its colocated specifications with
 `python3 scripts/run_specs.py 'examples/http-workbench/specs/*.scm'`.
 
+## The bench
+
+The window is one instrument with two sides. A header names it; an **authority
+bar** runs the full width underneath and is the only thing on screen that is
+never about the document: it reports the origin the URL field currently points
+at, and the verdict the last exercised send returned for whichever origin that
+send was about. The left side is the request document, a labelled gutter with
+every editor starting on one vertical line. The right side is a readout, never
+editable, monospaced, with the status line as the single piece of type larger
+than body text.
+
+Its palette, type scale, and spacing live in `Theme.roc`.
+
+## Authority as a designed state
+
+HTTP authority here is scoped to one exact origin and cannot be discovered
+without exercising it, so the bench has three honest states and says which one
+it is in at all times:
+
+- **not yet exercised** — the first frame. Nothing has been sent, so nothing is
+  known. The bar still names the origin the URL field would ask for.
+- **granted for `<origin>`** — a send returned a reply from that origin.
+- **refused for `<origin>`** — the host said no. The refusal band names the
+  exact grant that would answer it, down to the origin:
+  `Restart with --host-cap-http-origin http://127.0.0.1:38191`.
+
+Every failure carries the same two lines: what happened, and the one thing a
+person can do next. Only a refusal changes what the bench claims to hold; a
+timeout or a body-limit failure says nothing about authority and leaves the
+verdict where it was.
+
 ## Core capabilities
 
 - Request documents with method, URL, query, header, and body editors.
