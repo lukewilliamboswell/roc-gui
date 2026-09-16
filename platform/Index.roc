@@ -29,8 +29,14 @@ Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
 	set_child : List(Box(Index(a))), U64, a -> Index(a)
 	set_child = |children, key, value| {
 		slot = key % 16
-		child = Box.unbox(children.get(slot) ?? crash "invalid index slot")
-		Branch(children.set(slot, Box.box(set(child, key / 16, value))) ?? crash "invalid index update")
+		# Relinquish this parent's reference before recursively updating the child.
+		# The 09-12 build is faster with this explicit handoff; revisit when the
+		# direct nested update matches it in the scaling ladder. Shared snapshots
+		# remain protected by List.set's copy-on-write behavior.
+		boxed_child = children.get(slot) ?? crash "invalid index slot"
+		without_child = children.set(slot, Box.box(Empty)) ?? crash "invalid index slot"
+		child = Box.unbox(boxed_child)
+		Branch(without_child.set(slot, Box.box(set(child, key / 16, value))) ?? crash "invalid index update")
 	}
 
 	remove : Index(a), U64 -> Index(a)
@@ -39,8 +45,11 @@ Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
 		Value(stored_key, _) => if stored_key == key Empty else index
 		Branch(children) => {
 			slot = key % 16
-			child = Box.unbox(children.get(slot) ?? crash "invalid index slot")
-			updated = children.set(slot, Box.box(remove(child, key / 16))) ?? crash "invalid index removal"
+			# Same explicit ownership handoff as set_child, before descending.
+			boxed_child = children.get(slot) ?? crash "invalid index slot"
+			without_child = children.set(slot, Box.box(Empty)) ?? crash "invalid index slot"
+			child = Box.unbox(boxed_child)
+			updated = without_child.set(slot, Box.box(remove(child, key / 16))) ?? crash "invalid index removal"
 			if updated.all(
 				|entry| match Box.unbox(entry) {
 					Empty => True

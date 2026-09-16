@@ -159,6 +159,33 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Iteration 6: explicit child handoff
+
+After compact leaves, a fresh 10k lifecycle leaf profile had 578 samples.
+Memory copying led with 55 samples, followed by generated reference-count
+helpers (42 and 38) and allocator work. These are whole-lifecycle diagnostics,
+not marked-turn attribution.
+
+Index insertion now saves the child box and clears its parent slot before
+unboxing and recursively updating the child. Removal uses the same handoff.
+The final child is installed before the index returns; older snapshots still
+use copy-on-write. Insertion-only gave a 10k median of 136.581 ms versus
+154.082 ms for compact leaves. Adding removal gave 131.951 ms (A/A 129.774 ms).
+The adjacent source comment records the pinned-compiler performance workaround
+and its removal condition without calling this an incorrect-code compiler bug.
+
+| Rows | Median ms | A/A ms | New bytes per marked turn | Allocation calls per marked turn |
+|---|---:|---:|---:|---:|
+| 100 | 0.643 | 0.650 | 584,264 | 4,460 |
+| 1,000 | 8.143 | 7.755 | 6,806,248 | 54,382 |
+| 10,000 | 131.951 | 129.774 | 77,802,040 | 637,893 |
+
+This trades additional small allocation calls for lower elapsed work, not a
+blanket reduction in allocation traffic. Module tests and all three selection
+scales/A/A repeats passed, followed by all 243 semantic specs and both counter
+real-window interaction specs. Three requested screenshots were unavailable
+because the capture tool was missing.
+
 ### Iteration 5: compact radix leaves
 
 Generated reference-count and index-related functions remained prominent after
