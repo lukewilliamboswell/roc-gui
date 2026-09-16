@@ -139,9 +139,9 @@ viewer = |state| match state.selected {
 		Elem.ColProps.{ label: "Image viewer", width: Fill, height: Fill, grow: True, gap: Theme.within, padding: 0 },
 		[
 			Elem.row(Elem.RowProps.{ label: "Image title", padding: 0, gap: 0, font_size: Theme.heading, fg: Theme.ink }, [Elem.text(asset.name)]),
+			Viewer.render_image(asset, state.transform),
 			quiet_text("Image metadata", "${asset.width.to_str()} × ${asset.height.to_str()} pixels; ${asset.bytes.len().to_str()} encoded bytes"),
 			viewer_controls(state),
-			Viewer.render_image(asset, state.transform),
 		],
 	)
 }
