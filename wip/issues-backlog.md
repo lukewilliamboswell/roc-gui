@@ -416,16 +416,29 @@ names the evidence so a fix can be verified against the same case.
   scroll-into-view behavior, scaling case, and operating-system accessibility
   mapping all use the production event path.
 
-- [ ] **Redis Explorer serializes nothing on its single stream.** Scan, inspect,
-  and disconnect each borrow the same `pf.Tcp` stream and run on the worker
-  pool, so two overlapping requests interleave their RESP frames on the wire.
-  Pressing Refresh keys twice before the first scan completes ends in
-  "Redis could not scan that key pattern" rather than the newest keyspace: the
-  generation guard suppresses the stale completion correctly, but the newest
-  request has already been corrupted. A superseded request must either be
-  queued behind the stream or cancelled before the next one writes, which is a
-  transport ownership decision rather than an application state fix. Until it
-  is closed there is no specification for superseding a scan or an inspection.
+- [x] **Redis Explorer serializes nothing on its single stream.** Closed. The
+  stream is no longer a field the whole application can reach: `Explorer.Link`
+  holds it inside the in-flight request (`Busy`) and nowhere else, so the render
+  function has no handle to hand a second request and cannot start one. A
+  RESP connection is one ordered conversation, and ownership now says so in the
+  type rather than in a flag someone must remember to check. Controls stay in
+  place and go dead while a request owns the stream, and a completion hands the
+  stream back from the state it was borrowed from, never from the task closure's
+  captured copy. `examples/redis-explorer/specs/stream-ownership.scm` is the
+  superseded-scan specification this entry said could not be written: it presses
+  Refresh three times inside one scan and asserts the newest keyspace arrives
+  with no error and exactly one scan's worth of traffic on the wire.
+
+- [ ] **A resource handle captured by a task closure cannot be stored by its
+  completion.** Writing `Tcp.Stream.Handle` back into application state from
+  inside `resolve`, using the handle the surrounding `Action.task` captured,
+  segfaults the process non-deterministically — the capture is released when the
+  task's closure is, so the completion stores a dangling resource. Recovering the
+  same handle from the state the completion is given is safe and is what Redis
+  Explorer now does, but nothing in the API says which of the two is correct, and
+  the wrong one fails as a crash rather than as a type error. Either the capture
+  must keep the resource alive for the completion, or storing one must be
+  rejected at compile time.
 
 - [ ] **Two concurrent worker completions have no ordered wait.** `await-task`
   applies one accepted completion, but when an application has two identical

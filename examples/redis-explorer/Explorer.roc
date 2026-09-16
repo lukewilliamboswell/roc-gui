@@ -1,5 +1,7 @@
+## The explorer's state, the authority it holds over one TCP endpoint, and the
+## asynchronous transitions between them. The mounted presentation lives in
+## `View.roc`.
 import pf.Action
-import pf.Elem
 import pf.Tcp
 import redis.Bytes
 import redis.Client
@@ -8,16 +10,48 @@ import redis.Execute
 import redis.Transport
 import RedisData exposing [Key, Selection]
 
-Status : [Busy(U64), Failed(Str), Ready]
+## Who holds the one stream.
+##
+## A RESP connection is a single ordered conversation: one request writes its
+## frames and reads the reply before the next may write. Nothing in the
+## transport enforces that, so the *state* does. While a request is running the
+## stream lives inside `Busy` and nowhere else, which means the render function
+## has no handle to give a second request and cannot start one. Ownership is
+## therefore structural rather than a flag someone must remember to check.
+##
+## `Opening` and `Closing` hold no handle at all: during a connect there is not
+## yet a stream, and a close has already surrendered the one there was, so a
+## connect started while a close is still completing cannot be discarded by it.
+Link : [
+	Offline,
+	Opening(U64),
+	Idle(Tcp.Stream.Handle),
+	Busy({ stream : Tcp.Stream.Handle, id : U64, doing : Str }),
+	Closing(U64),
+]
 
-State : { keys : List(Key), next_request : U64, pattern : Str, selection : [None, Some(Selection)], status : Status, stream : [None, Some(Tcp.Stream.Handle)] }
+## What went wrong, what to do about it, and whether it was the host's grant
+## that said no. Only a refusal is a statement about authority.
+Trouble : { message : Str, remedy : Str, denied : Bool }
+
+State : { keys : List(Key), link : Link, next_request : U64, pattern : Str, selection : [None, Some(Selection)], trouble : [None, Some(Trouble)] }
 
 Explorer := [].{
+	Link : Link
 	State : State
+	Trouble : Trouble
 	init : State
-	init = { keys: [], next_request: 0, pattern: "profile:*", selection: None, status: Ready, stream: None }
-	render : State -> Elem(State)
-	render = render
+	init = { keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
+	connect : State -> Action(State)
+	connect = connect
+	disconnect : State, Tcp.Stream.Handle -> Action(State)
+	disconnect = disconnect
+	scan : State, Tcp.Stream.Handle -> Action(State)
+	scan = scan
+	inspect : State, Tcp.Stream.Handle, Key -> Action(State)
+	inspect = inspect
+	set_pattern : State, Str -> State
+	set_pattern = |state, pattern| { ..state, pattern }
 }
 
 connection = |stream| {
@@ -25,42 +59,53 @@ connection = |stream| {
 	Client.{}.attach(transport)
 }
 
+## A completion may only touch the state if it is still the request the state is
+## waiting for. Every transition below routes through this, so a superseded
+## completion is ignored in exactly one place.
+still_current = |link, id| match link {
+	Opening(active) => active == id
+	Closing(active) => active == id
+	_ => False
+}
+
 connect = |state| {
 	id = state.next_request
 	Action.task({
-		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		pending: { ..state, next_request: id + 1, link: Opening(id), trouble: None },
 		run: || {
-			stream = Tcp.connect!() ? |error| ConnectFailed(tcp_error_text(error))
-			pong = connection(stream).request!(Commands.Session.ping()) ? |error| ConnectFailed(redis_error_text(error))
+			stream = Tcp.connect!() ? |error| ConnectFailed(tcp_trouble(error))
+			pong = connection(stream).request!(Commands.Session.ping()) ? |error| ConnectFailed(redis_trouble(error))
 			if pong == Bytes.from_str("PONG") {
 				Ok(stream)
 			} else {
-				Err(ConnectFailed("Redis returned an invalid handshake reply"))
+				Err(ConnectFailed({ message: "Redis returned an invalid handshake reply", remedy: "Whatever answered the granted endpoint is not speaking RESP.", denied: False }))
 			}
 		},
-		resolve: |latest, outcome| match latest.status {
-			Busy(active) if active == id => match outcome {
-				Ok(stream) => Action.update({ ..latest, stream: Some(stream), status: Ready })
-				Err(ConnectFailed(message)) => Action.update({ ..latest, status: Failed(message) })
+		resolve: |latest, outcome| if still_current(latest.link, id) {
+			match outcome {
+				Ok(stream) => Action.update({ ..latest, link: Idle(stream), trouble: None })
+				Err(ConnectFailed(trouble)) => Action.update({ ..latest, link: Offline, trouble: Some(trouble) })
 			}
-			_ => Action.none
+		} else {
+			Action.none
 		},
 	})
 }
 
-## A close owns a request identity like every other task, so a completing
-## disconnect cannot discard the connection that replaced it.
+## Closing surrenders the stream in the pending state, before the task runs, so
+## the explorer never holds a handle it has already asked the host to shut down.
 disconnect = |state, stream| {
 	id = state.next_request
 	Action.task({
-		pending: { ..state, stream: None, keys: [], next_request: id + 1, selection: None, status: Busy(id) },
+		pending: { ..state, keys: [], next_request: id + 1, selection: None, link: Closing(id), trouble: None },
 		run: || Tcp.Stream.close!(stream),
-		resolve: |latest, outcome| match latest.status {
-			Busy(active) if active == id => match outcome {
-				Ok({}) => Action.update({ ..latest, status: Ready })
-				Err(error) => Action.update({ ..latest, status: Failed(tcp_error_text(error)) })
+		resolve: |latest, outcome| if still_current(latest.link, id) {
+			match outcome {
+				Ok({}) => Action.update({ ..latest, link: Offline, trouble: None })
+				Err(error) => Action.update({ ..latest, link: Offline, trouble: Some(tcp_trouble(error)) })
 			}
-			_ => Action.none
+		} else {
+			Action.none
 		},
 	})
 }
@@ -86,12 +131,20 @@ scan = |state, stream| {
 	id = state.next_request
 	pattern = state.pattern
 	Action.task({
-		pending: { ..state, next_request: id + 1, selection: None, status: Busy(id) },
+		pending: { ..state, next_request: id + 1, selection: None, link: Busy({ stream, id, doing: "scanning" }), trouble: None },
 		run: || scan_pages!(connection(stream), Bytes.from_str("0"), pattern, 10_000, []),
-		resolve: |latest, outcome| match latest.status {
-			Busy(active) if active == id => match outcome {
-				Ok(keys) => Action.update({ ..latest, keys, status: Ready })
-				Err(_) => Action.update({ ..latest, keys: [], status: Failed("Redis could not scan that key pattern") })
+		## The stream handed back to `Idle` is the one the state is already
+		## holding inside `Busy`, never the copy this closure captured: the
+		## borrow ends where it began.
+		resolve: |latest, outcome| match latest.link {
+			Busy(busy) if busy.id == id => match outcome {
+				Ok(keys) => Action.update({ ..latest, keys, link: Idle(busy.stream), trouble: None })
+				Err(_) => Action.update({
+					..latest,
+					keys: [],
+					link: Idle(busy.stream),
+					trouble: Some({ message: "Redis could not scan that key pattern", remedy: "SCAN takes a glob, for example profile:* or catalog:item:*.", denied: False }),
+				})
 			}
 			_ => Action.none
 		},
@@ -127,7 +180,7 @@ inspect_value! = |conn, key, kind| match kind {
 inspect = |state, stream, key| {
 	id = state.next_request
 	Action.task({
-		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		pending: { ..state, next_request: id + 1, link: Busy({ stream, id, doing: "reading ${key.name}" }), trouble: None },
 		run: || {
 			conn = connection(stream)
 			bytes = Bytes.from_str(key.name)
@@ -150,69 +203,54 @@ inspect = |state, stream, key| {
 			value = inspect_value!(conn, bytes, kind_text)?
 			Ok({ key, kind, ttl_ms: ttl, value })
 		},
-		resolve: |latest, outcome| match latest.status {
-			Busy(active) if active == id => match outcome {
-				Ok(selection) => Action.update({ ..latest, selection: Some(selection), status: Ready })
-				Err(UnsupportedType) => Action.update({ ..latest, status: Failed("This Redis value type is not supported") })
-				Err(_) => Action.update({ ..latest, status: Failed("Redis could not read the selected key") })
+		resolve: |latest, outcome| match latest.link {
+			Busy(busy) if busy.id == id => match outcome {
+				Ok(selection) => Action.update({ ..latest, selection: Some(selection), link: Idle(busy.stream), trouble: None })
+				Err(UnsupportedType) => Action.update({
+					..latest,
+					link: Idle(busy.stream),
+					trouble: Some({ message: "This Redis value type is not supported", remedy: "The explorer reads strings, lists, sets, hashes, and sorted sets.", denied: False }),
+				})
+				Err(_) => Action.update({
+					..latest,
+					link: Idle(busy.stream),
+					trouble: Some({ message: "Redis could not read the selected key", remedy: "The key may have expired between the scan and this read.", denied: False }),
+				})
 			}
 			_ => Action.none
 		},
 	})
 }
 
-render : State -> Elem(State)
-render = |state| {
-	controls = match state.stream {
-		None => [Elem.button({ label: "Connect", name: "Connect to Redis", on_press: |current, _| connect(current) })]
-		Some(stream) => [Elem.text_input(Elem.TextInputProps.{ label: "Key pattern", value: state.pattern, placeholder: "Redis glob, for example profile:*", on_change: |current, event| Action.update({ ..current, pattern: event.value }), on_submit: |current, _| scan(current, stream) }), Elem.button({ label: "Refresh keys", name: "Refresh Redis keys", on_press: |current, _| scan(current, stream) }), Elem.button({ label: "Disconnect", name: "Disconnect from Redis", on_press: |current, _| disconnect(current, stream) })]
-	}
-	status = match state.status {
-		Ready => []
-		Busy(_) => [Elem.panel(Elem.PanelProps.{ label: "Redis activity", width: Fill }, [Elem.text("Working…")])]
-		Failed(message) => [Elem.panel(Elem.PanelProps.{ label: "Redis error", width: Fill }, [Elem.text(message)])]
-	}
-	key_items = state.keys.map_with_index(
-		|key, index| Elem.VirtualListItem.{
-			key: index,
-			content: match state.stream {
-				None => Elem.text(key.name)
-				Some(stream) => Elem.button({ label: key.name, name: "Inspect Redis key ${key.name}", on_press: |current, _| inspect(current, stream, key) })
-			},
-		},
-	)
-	details = match state.selection {
-		None => Elem.panel(Elem.PanelProps.{ label: "Value inspector", width: Fill, height: Fill, grow: True }, [Elem.text("Select a key to inspect its value")])
-		Some(selected) => Elem.panel(Elem.PanelProps.{ label: "Value inspector", width: Fill, height: Fill, grow: True }, [Elem.text("Key: ${selected.key.name}"), Elem.text("Type: ${RedisData.kind_name(selected.kind)}"), Elem.text(RedisData.ttl_text(selected.ttl_ms))].concat(RedisData.lines(selected.value).map_with_index(|line, index| Elem.text("Value ${index.to_str()}: ${line}"))))
-	}
-	Elem.col(Elem.ColProps.{ label: "Redis Explorer", width: Fill, height: Fill, grow: True, padding: 20 }, [Elem.text("Redis Explorer")].concat(controls).concat(status).concat([Elem.text("Keys: ${state.keys.len().to_str()}"), Elem.row(Elem.RowProps.{ width: Fill, height: Fill, grow: True }, [Elem.virtual_list(Elem.VirtualListProps.{ name: "Redis keys", row_height: 34, items: key_items }), details])]))
+tcp_trouble = |error| match error {
+	ConnectErr(reason) => tcp_reason(reason)
+	ReadErr(reason) => tcp_reason(reason)
+	WriteErr(reason) => tcp_reason(reason)
+	CloseErr(reason) => tcp_reason(reason)
 }
 
-tcp_error_text = |error| match error {
-	ConnectErr(reason) => tcp_reason_text(reason)
-	ReadErr(reason) => tcp_reason_text(reason)
-	WriteErr(reason) => tcp_reason_text(reason)
-	CloseErr(reason) => tcp_reason_text(reason)
+## The one distinction that matters here is between "the host granted no
+## endpoint" and "the granted endpoint did not answer". They read almost alike
+## and call for entirely different next steps, so the refusal names the grant
+## and nothing else does.
+tcp_reason = |reason| match reason {
+	AccessDenied => { message: "Redis connection authority was not granted", remedy: "Start the explorer with --host-cap-tcp <address>:<port> after Roc's -- separator.", denied: True }
+	Closed => { message: "Redis closed the connection", remedy: "Connect again to open a new stream.", denied: False }
+	ConnectionFailed => { message: "The granted Redis endpoint is unavailable", remedy: "The grant stands; nothing is listening there. Start the server and connect again.", denied: False }
+	InvalidCapability => { message: "The Redis connection was no longer valid", remedy: "The stream has been closed underneath the explorer. Connect again.", denied: True }
+	InvalidRequest => { message: "The Redis transport request was invalid", remedy: "A read or write asked for a size outside the transport's bounds.", denied: False }
+	ResourceLimit => { message: "The Redis transport exceeded its resource limit", remedy: "The reply was larger than one bounded read may carry.", denied: False }
+	Timeout => { message: "The Redis endpoint timed out", remedy: "The grant stands; the endpoint accepted the connection and never replied.", denied: False }
 }
 
-tcp_reason_text = |reason| match reason {
-	AccessDenied => "Redis connection authority was not granted"
-	Closed => "Redis closed the connection"
-	ConnectionFailed => "The granted Redis endpoint is unavailable"
-	InvalidCapability => "The Redis connection was no longer valid"
-	InvalidRequest => "The Redis transport request was invalid"
-	ResourceLimit => "The Redis transport exceeded its resource limit"
-	Timeout => "The Redis endpoint timed out"
-}
-
-redis_error_text = |error| match error {
+redis_trouble = |error| match error {
 	ExchangeFailed(details) => match details {
-		ReadFailed(ReadErr(Timeout)) => "The Redis endpoint timed out"
-		WriteFailed(WriteErr(Timeout)) => "The Redis endpoint timed out"
-		ProtocolFailure(_) => "Redis returned an invalid protocol frame"
-		_ => "Redis connection failed during the protocol exchange"
+		ReadFailed(ReadErr(Timeout)) => tcp_reason(Timeout)
+		WriteFailed(WriteErr(Timeout)) => tcp_reason(Timeout)
+		ProtocolFailure(_) => { message: "Redis returned an invalid protocol frame", remedy: "Whatever answered the granted endpoint is not speaking RESP.", denied: False }
+		_ => { message: "Redis connection failed during the protocol exchange", remedy: "The stream broke part-way through a request. Connect again.", denied: False }
 	}
-	ReplyDecodeFailure(_) => "Redis returned an invalid protocol reply"
-	ServerError(_) => "Redis rejected the protocol request"
-	RequestRejected(_) => "The Redis protocol request exceeded its bound"
+	ReplyDecodeFailure(_) => { message: "Redis returned an invalid protocol reply", remedy: "Whatever answered the granted endpoint is not speaking RESP.", denied: False }
+	ServerError(_) => { message: "Redis rejected the protocol request", remedy: "The server answered with an error reply.", denied: False }
+	RequestRejected(_) => { message: "The Redis protocol request exceeded its bound", remedy: "The command did not fit inside one bounded transport write.", denied: False }
 }

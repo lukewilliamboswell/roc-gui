@@ -1,0 +1,3 @@
+tcp=127.0.0.1:36379
+server=fixture_server.py
+server-port=36379
