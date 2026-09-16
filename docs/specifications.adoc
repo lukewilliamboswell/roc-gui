@@ -100,6 +100,12 @@ as physical hardware.
 identifier.
 `(directory "PATH")`:: Read access to one directory, reached through the same
 opaque capability operations as an interactive grant.
+`(directory canceled)`:: A directory chooser the person dismisses without
+choosing. The chooser opens and the acquisition call runs, but no authority is
+produced and `Files.pick_directory!` answers `Ok(Canceled)`. Cancelling is not a
+failure, so this is its own provisioning rather than an absent grant, and it is
+how a case shows that an application returns to rest instead of accusing the
+person of a denial. It cannot be combined with `(directory "PATH")`.
 `(http-origin "ORIGIN")`:: HTTP access to exactly one origin. A request to any
 other origin is denied by the host.
 `(process local-shell)` and `(process test-program)`:: One PTY child profile.

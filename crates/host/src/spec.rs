@@ -20,6 +20,14 @@ pub struct Spec {
 pub enum Grant {
     /// Read access to one directory, relative to the application directory.
     Directory(String),
+    /// A directory chooser the person dismisses without choosing.
+    ///
+    /// `(directory canceled)` provisions the chooser itself rather than a
+    /// grant: the acquisition path runs, no authority is produced, and
+    /// `pick_directory!` answers `Ok(Canceled)`. Cancelling is not a failure,
+    /// and an application that cannot be shown cancelling cannot be shown
+    /// treating it as one.
+    DirectoryCanceled,
     /// Private application-data storage seeded from this directory.
     AppData(String),
     /// The content directory an `Assets.content_directory` store resolves to.
@@ -50,7 +58,7 @@ impl Grant {
     /// The grant's vocabulary name, which is also its uniqueness key.
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Directory(_) => "directory",
+            Self::Directory(_) | Self::DirectoryCanceled => "directory",
             Self::AppData(_) => "app-data",
             Self::Assets(_) => "assets",
             Self::Clipboard { .. } => "clipboard",
@@ -671,6 +679,9 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
         .and_then(SExpr::atom)
         .ok_or_else(|| error(node, "grant requires a name"))?;
     match (name, list.len()) {
+        // `canceled` is an atom and a path is a string, so the two directory
+        // forms cannot be confused for one another.
+        ("directory", 2) if list[1].atom() == Some("canceled") => Ok(Grant::DirectoryCanceled),
         ("directory", 2) => Ok(Grant::Directory(grant_path(&list[1], "directory")?)),
         ("app-data", 2) => Ok(Grant::AppData(grant_path(&list[1], "app-data")?)),
         ("assets", 2) => Ok(Grant::Assets(grant_path(&list[1], "assets")?)),
@@ -2121,6 +2132,31 @@ mod tests {
         let absent = parse(r#"(test "none" (steps (await-ticks 1)))"#).unwrap();
         assert!(declared.grants.is_empty());
         assert_eq!(declared.grants, absent.grants);
+    }
+
+    /// A cancelled chooser is provisioned, not absent: it is the one directory
+    /// outcome that produces no authority and is still not a failure.
+    #[test]
+    fn a_canceled_chooser_is_its_own_directory_provisioning() {
+        let case = parse(r#"(test "c" (grants (directory canceled)) (steps (await-ticks 1)))"#)
+            .expect("canceled chooser parses");
+        assert_eq!(case.grants, vec![Grant::DirectoryCanceled]);
+        assert_eq!(case.grants[0].name(), "directory");
+        assert_eq!(case.grants[0].path(), None);
+        // It occupies the directory slot, so a case cannot ask to be both
+        // cancelled and granted.
+        let duplicate = parse(
+            r#"(test "c" (grants (directory canceled) (directory "fixture")) (steps (await-ticks 1)))"#,
+        )
+        .unwrap_err();
+        assert!(duplicate.message.contains("duplicate directory grant"));
+        // A path stays a path: only the bare atom means cancellation.
+        assert_eq!(
+            parse(r#"(test "c" (grants (directory "canceled")) (steps (await-ticks 1)))"#)
+                .expect("quoted path parses")
+                .grants,
+            vec![Grant::Directory("canceled".into())]
+        );
     }
 
     #[test]

@@ -10,12 +10,16 @@
     (expect-visible (text "fixture"))
     (click (role button :name "Open folder nested"))
     (await-task)
-    (expect-visible (text "fixture / nested"))
+    ; the path is a strip of segments now, not one joined string
+    (expect-visible (text "nested"))
+    (expect-visible (text "›"))
     (click (role button :name "Select File: item.txt"))
     (expect-visible (text "Selected: item.txt"))
     (click (role button :name "Back"))
     (expect-not-visible (role panel :name "Selection details"))
     (expect-visible (text "fixture"))
     (click (role button :name "Forward"))
-    (expect-visible (text "fixture / nested"))
+    ; the path is a strip of segments now, not one joined string
+    (expect-visible (text "nested"))
+    (expect-visible (text "›"))
     (expect-file-opens 1)))

@@ -26,6 +26,10 @@ struct Store {
     operations: [u64; 4],
     selection: [u64; 7],
     portal_enabled: bool,
+    /// Provisioned cancellation: the chooser opens and the person dismisses it.
+    /// Cancelling produces no authority and is not a failure, so it is its own
+    /// provisioning rather than an absent grant.
+    chooser_cancels: bool,
     chooser_in_flight: bool,
     refusal_until: Option<Instant>,
     lifecycle: [u64; 6],
@@ -79,6 +83,7 @@ fn store() -> &'static Mutex<Store> {
             operations: [0; 4],
             selection: [0; 7],
             portal_enabled: false,
+            chooser_cancels: false,
             chooser_in_flight: false,
             refusal_until: None,
             lifecycle: [0; 6],
@@ -86,7 +91,14 @@ fn store() -> &'static Mutex<Store> {
     })
 }
 
-pub fn configure(path: Option<&Path>, portal_enabled: bool) -> Result<(), String> {
+pub fn configure(
+    path: Option<&Path>,
+    portal_enabled: bool,
+    chooser_cancels: bool,
+) -> Result<(), String> {
+    if chooser_cancels && path.is_some() {
+        return Err("a canceled chooser cannot also provision a directory grant".into());
+    }
     let initial = match path {
         None => None,
         Some(path) => {
@@ -104,7 +116,10 @@ pub fn configure(path: Option<&Path>, portal_enabled: bool) -> Result<(), String
     guard.initial = initial;
     guard.operations = [0; 4];
     guard.selection = [0; 7];
-    guard.portal_enabled = portal_enabled;
+    // A provisioned cancellation is a chooser that opens, so the prompt gate
+    // and its counters have to see an available chooser.
+    guard.portal_enabled = portal_enabled || chooser_cancels;
+    guard.chooser_cancels = chooser_cancels;
     guard.chooser_in_flight = false;
     guard.refusal_until = None;
     guard.revoked_roots.clear();
@@ -611,7 +626,15 @@ fn select_portal() -> FilesPickDirectoryResult {
             tag: FilesPickDirectoryResultTag::Err,
         };
     }
-    let result = chooser_directory();
+    let cancels = store()
+        .lock()
+        .expect("capability store poisoned")
+        .chooser_cancels;
+    let result = if cancels {
+        PortalSelection::Canceled
+    } else {
+        chooser_directory()
+    };
     let mut guard = store().lock().expect("capability store poisoned");
     guard.chooser_in_flight = false;
     match &result {
