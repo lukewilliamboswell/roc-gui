@@ -21,7 +21,7 @@ render = |state| Elem.col(
 		Elem.button({ caption: "Load 1,000 rows", label: "Load 1000 rows", on_press: |_, _| Action.update({ rows: make_rows(1000) }) }),
 		Elem.button({ caption: "Load 10,000 rows", label: "Load 10000 rows", on_press: |_, _| Action.update({ rows: make_rows(10000) }) }),
 		Elem.text("Rows: ${state.rows.len().to_str()}"),
-		Elem.scroll(Elem.ScrollProps.{ name: "Rows", content: Elem.col({}, state.rows.map(|row| Elem.text("Row ${row.to_str()}"))) }),
+		Elem.scroll(Elem.ScrollProps.{ label: "Rows", content: Elem.col({}, state.rows.map(|row| Elem.text("Row ${row.to_str()}"))) }),
 	],
 )
 

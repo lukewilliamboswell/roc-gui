@@ -387,7 +387,7 @@ render = |state| {
 					notice("No folders here", "${current.name} holds only files. Tick “Show files as well as folders” to see them.")
 				}
 			} else {
-				Elem.scroll(Elem.ScrollProps.{ name: "Directory contents", content: Elem.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 2 }, shown.map(|entry| entry_row(entry, current))) })
+				Elem.scroll(Elem.ScrollProps.{ label: "Directory contents", content: Elem.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 2 }, shown.map(|entry| entry_row(entry, current))) })
 			}
 			Elem.panel(
 				Elem.PanelProps.{ label: "Directory view", width: Fill, grow: True, gap: 8, bg: surface, border_color: rule, overflow_y: Clip },

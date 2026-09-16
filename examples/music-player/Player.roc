@@ -441,7 +441,7 @@ render = |state| {
 			Elem.text("Grant a music folder to build the queue."),
 		])
 		Loaded(library) => Elem.panel(Elem.PanelProps.{ label: "Music library", grow: True, width: Fill, padding: 10, gap: 0, bg: surface, border_color: hairline, radius: 16, overflow_y: Clip }, [
-			Elem.virtual_list(Elem.VirtualListProps.{ name: "Tracks", row_height: 44, items: track_items(state, library) }),
+			Elem.virtual_list(Elem.VirtualListProps.{ label: "Tracks", row_height: 44, items: track_items(state, library) }),
 		])
 	}
 	Elem.col(Elem.ColProps.{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 }, [

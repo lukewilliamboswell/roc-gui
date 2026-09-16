@@ -602,7 +602,7 @@ render = |state| {
 						toolbar_button("Close project", "Close directory", True, |current, _| Action.update({ ..current, dialog: ConfirmClose(folder.name) })),
 					],
 				),
-				Elem.virtual_list(Elem.VirtualListProps.{ name: "Directory entries", row_height: 34, items: entry_items(state, folder) }),
+				Elem.virtual_list(Elem.VirtualListProps.{ label: "Directory entries", row_height: 34, items: entry_items(state, folder) }),
 			],
 		)
 	}

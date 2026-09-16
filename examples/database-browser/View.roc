@@ -258,7 +258,7 @@ result_table = |result| {
 	)
 	Elem.col(
 		Elem.ColProps.{ label: "Result table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
-		[header, Elem.virtual_list(Elem.VirtualListProps.{ name: "Query rows", row_height: Theme.row_height, items: rows })],
+		[header, Elem.virtual_list(Elem.VirtualListProps.{ label: "Query rows", row_height: Theme.row_height, items: rows })],
 	)
 }
 

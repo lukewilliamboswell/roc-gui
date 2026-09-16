@@ -109,10 +109,10 @@ composition across controlled rerenders. Disabled fields accept neither edits
 nor submission. Text values are bounded to one MiB of UTF-8.
 Text-input labels are non-empty and unique in the mounted graph because they
 also preserve the native editor entity across controlled rerenders.
-`Elem.scroll(Elem.ScrollProps.{ name, content, axis })`:: Constrain content to
+`Elem.scroll(Elem.ScrollProps.{ label, content, axis })`:: Constrain content to
 available space and scroll it vertically, horizontally, or in both directions.
-The axis defaults to `Vertical`; `name` is the stable semantic identity.
-`Elem.virtual_list(Elem.VirtualListProps.{ name, row_height, items })`:: Present
+The axis defaults to `Vertical`; `label` is the stable semantic identity.
+`Elem.virtual_list(Elem.VirtualListProps.{ label, row_height, items })`:: Present
 stable-keyed rows at one fixed logical height. Each item is an
 `Elem.VirtualListItem.{ key, content }`; keys must be unique within the list.
 The complete item graph remains available to semantic inspection and event

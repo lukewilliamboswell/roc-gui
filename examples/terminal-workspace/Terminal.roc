@@ -251,7 +251,7 @@ render = |state| {
 				empty_well(state)
 			} else {
 				Elem.col(Elem.ColProps.{ label: "Scrollback rows", width: Fill, height: Fill, grow: True, padding: 4, gap: 0, font_face: Theme.face, overflow_y: Clip }, [
-					Elem.virtual_list(Elem.VirtualListProps.{ name: "Terminal scrollback", row_height: Theme.row_height, items: shown }),
+					Elem.virtual_list(Elem.VirtualListProps.{ label: "Terminal scrollback", row_height: Theme.row_height, items: shown }),
 				])
 			},
 		]),

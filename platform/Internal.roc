@@ -204,7 +204,7 @@ Internal := [].{
 				Horizontal => 1
 				Both => 2
 			}
-			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.name })
+			id = Host.node_scroll!({ axis, child: child.root, name: scroll_value.label })
 			{ root: id, next_boundary: child.next_boundary, routes: child.routes, boundaries: child.boundaries }
 		}
 		VirtualList(list_value) => {
@@ -220,7 +220,7 @@ Internal := [].{
 				$routes = lowered.routes
 				$boundaries = lowered.boundaries
 			}
-			id = Host.node_virtual_list!({ builder, name: list_value.name, row_height: list_value.row_height })
+			id = Host.node_virtual_list!({ builder, name: list_value.label, row_height: list_value.row_height })
 			{ root: id, next_boundary: $next, routes: $routes, boundaries: $boundaries }
 		}
 		ActionButton(button_value) => {

@@ -30,7 +30,7 @@ render = |state| Elem.col(
 		Elem.text("Selected: ${state.selected.to_str()}"),
 		Elem.virtual_list(
 			Elem.VirtualListProps.{
-				name: "Rows",
+				label: "Rows",
 				row_height: 28,
 				items: state.rows.map(|row| Elem.VirtualListItem.{ key: row, content: Elem.button({ caption: "Virtual row ${row.to_str()}", label: "Select virtual row ${row.to_str()}", on_press: |current, _| Action.update({ ..current, selected: row }) }) }),
 			},

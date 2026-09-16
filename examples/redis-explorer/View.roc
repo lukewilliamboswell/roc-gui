@@ -239,7 +239,7 @@ keyspace = |state| {
 			),
 		]
 	} else {
-		[Elem.virtual_list(Elem.VirtualListProps.{ name: "Redis keys", row_height: Theme.row_height, items })]
+		[Elem.virtual_list(Elem.VirtualListProps.{ label: "Redis keys", row_height: Theme.row_height, items })]
 	}
 	Elem.col(
 		Elem.ColProps.{

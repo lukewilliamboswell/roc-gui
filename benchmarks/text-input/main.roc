@@ -39,7 +39,7 @@ render = |state| {
 			),
 			Elem.text_input(Elem.TextInputProps.{ label: "Search settings", value: state.search, on_change: |current, event| Action.update({ ..current, search: event.value }), on_submit: |_, _| Action.none }),
 			Elem.text("Matches: ${visible.len().to_str()}"),
-			Elem.virtual_list(Elem.VirtualListProps.{ name: "Matching settings", row_height: 34, items: visible.map(|setting| Elem.VirtualListItem.{ key: setting.id, content: Elem.text(setting.name) }) }),
+			Elem.virtual_list(Elem.VirtualListProps.{ label: "Matching settings", row_height: 34, items: visible.map(|setting| Elem.VirtualListItem.{ key: setting.id, content: Elem.text(setting.name) }) }),
 		],
 	)
 }

@@ -284,7 +284,7 @@ Elem(a) :: [
 	## Properties for a vertically scrollable region. `name` is its stable
 	## semantic identity for specifications and accessibility.
 	ScrollAxis : [Both, Horizontal, Vertical]
-	ScrollProps(a) := { axis : ScrollAxis ?? Vertical, content : Elem(a), name : Str }
+	ScrollProps(a) := { axis : ScrollAxis ?? Vertical, content : Elem(a), label : Str }
 
 	## One stable row in a virtual list. `key` identifies the row independently
 	## of its current index, while `content` is an ordinary element tree.
@@ -292,7 +292,7 @@ Elem(a) :: [
 
 	## Properties for a viewport-driven, fixed-height list. Only rows intersecting
 	## the native viewport are materialized as GPUI elements.
-	VirtualListProps(a) := { items : List(VirtualListItem(a)), name : Str, row_height : U32 }
+	VirtualListProps(a) := { items : List(VirtualListItem(a)), label : Str, row_height : U32 }
 
 	## Properties for `checkbox`. `label` is both visible text and the stable
 	## semantic name used by specifications. `on_change` receives the requested
@@ -562,10 +562,10 @@ Elem(a) :: [
 			})
 		}
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
-		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), name: scroll_value.name })
+		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), label: scroll_value.label })
 		VirtualList(list_value) => VirtualList(
 			VirtualListProps.{
-				name: list_value.name,
+				label: list_value.label,
 				row_height: list_value.row_height,
 				items: list_value.items.map(|item| { key: item.key, content: lift(item.content, get_child, set_child) }),
 			},
