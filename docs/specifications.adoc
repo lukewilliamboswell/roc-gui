@@ -98,9 +98,30 @@ assert pixel geometry or operating-system accessibility.
 
 Steps that act on the application, in alphabetical order.
 
+`(await-count LOCATOR N)`:: Apply task completions until the locator matches
+`N` nodes, then continue. Output that arrives over several tasks, such as a
+terminal's, is chunked by the platform rather than by the application, so a
+specification that counted `await-task` steps would be asserting how an
+operating system flushed a pipe. This waits for what the application shows
+instead, and fails if the graph has not said it before the task budget expires.
+Follow it with `expect-count` to assert the same number exactly. On the window
+runner the step ends on a presented frame carrying those nodes, so a following
+`expect-on-screen` asks about something the window has actually drawn.
+It waits for a state, not for a change. A count that already holds when the step
+begins satisfies it immediately, having awaited nothing, so a locator matching
+something left over from an earlier step proves nothing about this one. Wait for
+what the step under test produces, such as the output of the command it sent.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
 completion through the normal latest-state route. A task that resolves to
 another task requires another `await-task` step.
++
+On the window runner this claim is weaker, and knowingly so: frames are what
+apply completions, so the task has usually landed before the step runs, and an
+application holding a subscription open — a terminal reading, a timer playing —
+never reaches a moment with nothing in flight. The step therefore waits for the
+window to go quiet rather than for a completion it can attribute. Where the
+distinction matters, say what the application should show with `await-count`
+instead of counting tasks.
 `(await-ticks N)`:: Apply `N` successive timer wait completions through that
 same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
@@ -254,8 +275,8 @@ and the repository fixture steps the Contributing chapter describes.
 `expect-rendered-count`, and `expect-bounds`. None of these mean anything
 without a presented frame.
 
-`both`:: `click`, `focus`, `press-key`, `await-task`, `expect-visible`,
-`expect-focused`, `expect-not-visible`, and `expect-count`.
+`both`:: `click`, `focus`, `press-key`, `await-task`, `await-count`,
+`expect-visible`, `expect-focused`, `expect-not-visible`, and `expect-count`.
 
 A step is classified by what a runner actually does, so a specification is
 refused before the window opens rather than part-way through a run.
@@ -353,6 +374,16 @@ control whose state did not change is not re-rendered and records nothing that
 frame; treating that as "not laid out" would report a plainly visible control
 as missing. `expect-rendered-count` therefore counts nodes that have been laid
 out while mounted, which is the materialisation evidence a virtual list needs.
+
+Because bounds describe the tree as it stood when a frame drew it, they answer
+nothing about a change no frame has drawn yet. The runtime counts a generation
+for every applied patch and each frame stamps the generation it drew, so a
+painted step waits for the window to catch up before it reads anything, and a
+graph the window has not drawn is reported as exactly that rather than as an
+element that is missing. Waiting is not left to the specification: an input
+step returns once the window has drawn what it did, and `await-count` ends on a
+frame carrying the nodes it waited for. Assertions that read the mounted graph,
+such as `expect-visible` and `expect-count`, need no frame and take none.
 
 == Selecting and repeating cases
 
