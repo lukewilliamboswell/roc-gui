@@ -12,6 +12,7 @@
     (focus (role textbox :name "Terminal command"))
     (type "lines:40")
     (key "enter")
-    (await-count (text-prefix "Terminal line: line-000001") 1)
+    (await-count (text "Command sent") 1)
+    (await-count (text-prefix "line-000001") 1)
     (settle)
     (screenshot "scrollback")))

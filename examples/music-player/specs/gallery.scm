@@ -10,7 +10,7 @@
     (await-task)
     (settle)
     (screenshot "library")
-    (click (role button :name "Play track-003.wav"))
+    (click (role button :name "Play track-003"))
     (await-task)
     (settle)
     (screenshot "playing")))
