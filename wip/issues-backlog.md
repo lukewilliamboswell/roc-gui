@@ -440,6 +440,21 @@ names the evidence so a fix can be verified against the same case.
   must keep the resource alive for the completion, or storing one must be
   rejected at compile time.
 
+- [ ] **A window specification cannot wait for an HTTP request.** In the window
+  runner `await-task` is `settle 2`, and a real `Http.send!` over loopback does
+  not land inside it: the readout is still "in flight" when the next step runs.
+  Asking for more settling makes it worse rather than better — repeated
+  `await-task` steps, or one `settle :frames 45`, leave the windowed host
+  hanging until the 45-second watchdog kills it, and a run that ends with the
+  request still outstanding aborts with `roc-gui host error: RocHost is not
+  initialized`, so a worker completion is reaching a torn-down host. File and
+  TCP worker tasks in the same runner settle normally, so this is specific to
+  the HTTP path. The effect is that no window case can photograph a response, a
+  status line, or a granted-authority readout that only a real reply produces:
+  HTTP Workbench's window cases therefore cover the first frame and the refusal,
+  which is everything reachable before the network, and its granted state is
+  asserted only by the semantic runner.
+
 - [ ] **Two concurrent worker completions have no ordered wait.** `await-task`
   applies one accepted completion, but when an application has two identical
   requests in flight the order they land in is not deterministic. Image
