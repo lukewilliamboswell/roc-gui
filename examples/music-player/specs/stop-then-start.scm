@@ -3,27 +3,31 @@
 ; second Stop on an already stopped transport changes nothing.
 (test "the transport restarts from rest after a stop"
   (grants
-    (directory "fixture")
+    (directory "library")
     (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)
-    (click (role button :name "Play track-002.wav"))
+    (click (role button :name "Play Chopin - Polonaise in E-flat minor, Op. 26 No. 2"))
     (await-task)
     (click (role button :name "Stop playback"))
     (await-task)
     (expect-visible (text "Stopped"))
+    (expect-visible (text "Nothing playing"))
     ; Pressing Stop again from rest is not an error and not a new task.
     (click (role button :name "Stop playback"))
     (expect-visible (text "Stopped"))
-    ; With no chosen row, Previous begins at the last track in the queue.
+    ; With no chosen row, Previous begins at the last row in the queue, which is
+    ; the damaged recording: the row is named and the failure is reported.
     (click (role button :name "Previous track"))
     (await-task)
-    (expect-visible (text "Playing track-200.wav"))
+    (expect-visible (text "Unknown - damaged recording"))
+    (expect-visible (text "Track could not be decoded"))
+    ; And Play from rest begins at the top of the queue, which is music. The
+    ; first press a person ever makes on an untouched library must reach a
+    ; recording, never the one file that cannot be decoded.
     (click (role button :name "Stop playback"))
-    (await-task)
-    ; And Play from rest begins at the top of the queue, which is the corrupt
-    ; file: the failure is reported instead of the transport going quiet.
     (click (role button :name "Toggle playback"))
     (await-task)
-    (expect-visible (text "Track could not be decoded"))))
+    (expect-visible (text "Chopin - Nocturne in B-flat minor, Op. 9 No. 1"))
+    (expect-visible (text "Playing"))))
