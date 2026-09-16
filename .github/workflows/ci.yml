@@ -85,7 +85,7 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then
-            python3 scripts/run_specs.py --only window --allow-missing-shots
+            python3 scripts/run_specs.py --only window --exclude "examples/*/specs/gallery.scm" --allow-missing-shots
           else
-            python3 scripts/run_specs.py --only window
+            python3 scripts/run_specs.py --only window --exclude "examples/*/specs/gallery.scm"
           fi

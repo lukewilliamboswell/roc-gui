@@ -36,6 +36,16 @@ class DiscoveryTests(unittest.TestCase):
                 len(stems), len(set(stems)), f"duplicate spec stem in {app}"
             )
 
+    def test_exclusions_apply_after_inclusions(self) -> None:
+        cases = discover(
+            ["examples/*/specs/gallery.scm"],
+            Path("/tmp/out"),
+            ["examples/image-library/specs/gallery.scm"],
+        )
+        paths = {case.spec.relative_to(ROOT).as_posix() for case in cases}
+        self.assertNotIn("examples/image-library/specs/gallery.scm", paths)
+        self.assertIn("examples/animation-studio/specs/gallery.scm", paths)
+
 
 class ArtifactTests(unittest.TestCase):
     def case(self, output: Path) -> Case:

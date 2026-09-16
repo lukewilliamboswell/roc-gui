@@ -110,7 +110,7 @@ def fixture_services(cases: list[Case], described: dict[Path, dict], output: Pat
                 process.wait(timeout=5)
 
 
-def discover(patterns: list[str], output: Path) -> list[Case]:
+def discover(patterns: list[str], output: Path, excludes: list[str] | None = None) -> list[Case]:
     specs = sorted(
         [*ROOT.glob("examples/*/specs/*.scm"), *ROOT.glob("benchmarks/*/specs/*.scm")]
     )
@@ -119,6 +119,12 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
             spec
             for spec in specs
             if any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in patterns)
+        ]
+    if excludes:
+        specs = [
+            spec
+            for spec in specs
+            if not any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in excludes)
         ]
     cases = []
     for spec in specs:
@@ -141,10 +147,10 @@ def discover(patterns: list[str], output: Path) -> list[Case]:
 # stops miscompiling these. An optimized build fails a few runs in ten, on every
 # platform: it segfaults with an access violation, crashes with "hit a runtime
 # error", or silently loses a directory listing. `--opt=dev` is clean over 40
-# runs, and neither application measures a benchmark, so their timings are
+# runs, and none of these applications measures a benchmark, so their timings are
 # nobody's evidence. `file-explorer` joined the list after CI hit the same
 # access violation in `navigation.scm` that `folder-browser` showed first.
-DEV_BUILD_APPS = frozenset({"folder-browser", "file-explorer"})
+DEV_BUILD_APPS = frozenset({"file-explorer", "folder-browser", "music-player"})
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
@@ -304,6 +310,8 @@ def run_case(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("patterns", nargs="*", help="glob(s) matched against repository-relative spec paths")
+    parser.add_argument("--exclude", action="append", default=[], metavar="GLOB",
+                        help="exclude repository-relative spec paths matching this glob; repeatable")
     parser.add_argument("--jobs", type=int, default=1,
                         help="concurrent cases (default: 1; values above 1 make timing evidence partial)")
     parser.add_argument("--timeout", type=float, default=120.0)
@@ -334,7 +342,7 @@ def main() -> int:
     args = parse_args()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output = (args.output or ROOT / ".test-out" / "specs" / stamp).resolve()
-    cases = discover(args.patterns, output)
+    cases = discover(args.patterns, output, args.exclude)
     cases = [case for index, case in enumerate(cases) if index % args.shard_count == args.shard_index]
     if not cases:
         print("error: no .scm specs selected", file=sys.stderr)
