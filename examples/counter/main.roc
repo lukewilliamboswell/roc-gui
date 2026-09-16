@@ -19,6 +19,7 @@ render : State -> Elem(State)
 render = |state| Elem.col(
 	Elem.ColProps.{
 		label: "Counter page",
+		width: Fill,
 		padding: 40,
 		gap: 28,
 		font_size: 15,
@@ -35,7 +36,7 @@ render = |state| Elem.col(
 			],
 		),
 		Elem.row(
-			Elem.RowProps.{ gap: 24 },
+			Elem.RowProps.{ width: Fill, gap: 24 },
 			[
 				Elem.translate(|child| Counter.render("Left", child), |parent| parent.left, |parent, child| { ..parent, left: child }),
 				Elem.translate(|child| Counter.render("Right", child), |parent| parent.right, |parent, child| { ..parent, right: child }),

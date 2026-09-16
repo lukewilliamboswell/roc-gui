@@ -55,16 +55,21 @@ Counter := [].{
 		},
 	)
 
-	## The numeral itself. It stays on one line and ends in an ellipsis rather
-	## than reflowing, so a long value can never push the controls out of the
-	## card, and a shortened one never looks complete.
+	## The numeral itself. It takes whatever height the card has left rather
+	## than claiming a fixed one, so the caption, the numeral, and the controls
+	## always add up to the card instead of overrunning it by a few pixels, and
+	## the numeral sits on the optical centre of that space whatever size the
+	## value forced it down to. It stays on one line and ends in an ellipsis
+	## rather than reflowing, so a long value can never push the controls out of
+	## the card, and a shortened one never looks complete.
 	numeral = |count| Elem.col(
 		Elem.ColProps.{
 			gap: 0,
 			fg: numeral_ink(count),
 			font_size: numeral_size(count),
 			width: Fill,
-			height: Px(104),
+			grow: True,
+			justify: Center,
 			text_overflow: Ellipsis,
 			overflow_x: Clip,
 			overflow_y: Clip,
@@ -76,7 +81,11 @@ Counter := [].{
 	render = |name, state| Elem.col(
 		Elem.ColProps.{
 			label: "${name} counter",
-			width: Px(232),
+			## The cards divide the page's measure between them rather than
+			## sitting at a fixed width with the remainder left over: a page
+			## that ends in dead space reads as an accident.
+			width: Fill,
+			grow: True,
 			height: Px(244),
 			padding: 28,
 			gap: 18,
