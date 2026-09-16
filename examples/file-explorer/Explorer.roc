@@ -224,6 +224,44 @@ kind_mark = |kind, name| Elem.row(
 	[Elem.image(Elem.ImageProps.{ label: "${kind_name(kind)} marker ${name}", bytes: kind_art(kind), format: Svg, width: Px(15), height: Px(15) })],
 )
 
+## A file's size at a glance, in the largest unit that keeps it short. The
+## exact byte count belongs in the selection panel; a column of them would be
+## a column of noise to scan past.
+compact_size = |bytes| if bytes < 1000.U64 {
+	"${bytes.to_str()} B"
+} else if bytes < 1000000.U64 {
+	"${(bytes / 1000.U64).to_str()} kB"
+} else if bytes < 1000000000.U64 {
+	"${(bytes / 1000000.U64).to_str()} MB"
+} else {
+	"${(bytes / 1000000000.U64).to_str()} GB"
+}
+
+## The size column. It is what fills the distance between a short name and the
+## row's action, and it is the column a person actually scans, so it is set in
+## the fixed-pitch face and aligned on its right edge where the digits line up.
+size_cell = |entry| Elem.row(
+	Elem.RowProps.{
+		width: Px(96),
+		padding: 0,
+		gap: 0,
+		justify: End,
+		fg: dim,
+		font_size: 12,
+		font_face: Monospace,
+		text_overflow: Ellipsis,
+		overflow_x: Clip,
+	},
+	[
+		Elem.text(
+			match entry.bytes {
+				None => "—"
+				Some(bytes) => compact_size(bytes)
+			},
+		),
+	],
+)
+
 ## A trailing control on a row. It is quiet by default and only lifts under the
 ## pointer: a list whose every row shouts has no emphasis left for the row you
 ## are actually on.
@@ -287,10 +325,14 @@ entry_row = |folder, entry, selected| {
 			padding_right: Px(6),
 			align: Center,
 			bg: row_bg,
+			## The whole row lifts under the pointer, not just the name. A
+			## highlight that stops where one child ends reads as a bar drawn
+			## across the row rather than as the row responding.
+			hover_bg: raised,
 			radius: 6,
 			overflow_x: Clip,
 		},
-		[kind_mark(entry.kind, entry.name), name].concat(trailing),
+		[kind_mark(entry.kind, entry.name), name, size_cell(entry)].concat(trailing),
 	)
 }
 
@@ -405,10 +447,21 @@ empty_state = |status| Elem.col(
 			ink,
 			17,
 		),
+		## Two short lines rather than one long one. This block is given the
+		## whole window's width, and a sentence set to that measure is one
+		## nobody reads to the end of.
 		styled_text(
 			match status {
-				Dismissed => "The chooser was closed. Open a project whenever you are ready."
-				_ => "File Explorer can reach one folder: the one you hand it. Opening a project asks the system for that folder, and for nothing above or beside it."
+				Dismissed => "The chooser was closed."
+				_ => "File Explorer can reach one folder: the one you hand it."
+			},
+			muted,
+			13,
+		),
+		styled_text(
+			match status {
+				Dismissed => "Open a project whenever you are ready."
+				_ => "Opening a project asks the system for that folder, and for nothing above or beside it."
 			},
 			muted,
 			13,
@@ -529,7 +582,7 @@ render = |state| {
 	)
 	content = match state.view {
 		Empty => Elem.panel(
-			Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True, padding: 0, gap: 0, bg: surface, border_color: rule, overflow_y: Clip },
+			Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True, padding: 0, gap: 0, bg: surface, border_color: rule, align: Center, overflow_y: Clip },
 			[empty_state(state.status)],
 		)
 		Showing(folder) => Elem.panel(
