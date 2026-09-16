@@ -576,7 +576,10 @@ TLS, and response work runs on the native worker pool and its reducer returns
 through the ordinary UI-thread completion dispatcher.
 
 Requests and config make policy explicit: method, URI, headers, body, timeout,
-`max_response_bytes`, and `max_redirects`. URLs must use `http` or `https`.
+`max_response_bytes`, and `max_redirects`. `Http.Config` carries a default for
+each limit -- a 30 second timeout, a 1 MiB response, and three redirects -- so
+`Http.Config.{ timeout_ms: 2_000 }` states only the limit it moves. URLs must
+use `http` or `https`.
 The platform accepts standard methods, at most 64 headers and 32 KiB of header
 data, a request body up to 1 MiB, a timeout from 1 through 60,000 milliseconds,
 a response limit from 1 byte through 4 MiB, and from zero through ten redirects.
