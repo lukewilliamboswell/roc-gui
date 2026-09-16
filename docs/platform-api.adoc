@@ -137,6 +137,11 @@ default to `Same`, which takes the shorthand. A pill-shaped control wants
 generous horizontal and tight vertical padding, which is the shorthand plus two
 sides rather than a fixed height chosen to cancel the padding out.
 
+`font_face` is `Default` for the host's proportional face or `Monospace` for the
+platform's fixed-pitch one, which is what columnar output and changing digits
+need. The host names the face each operating system ships rather than a generic
+word only one font stack resolves.
+
 `min_width`, `min_height`, `max_width`, and `max_height` are floors and
 ceilings for the two sides, given as `Px(n)`. A fixed length is a basis a
 sibling's overflow can shrink, so a row of uniform thumbnails beside captions of

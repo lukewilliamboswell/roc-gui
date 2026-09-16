@@ -11,6 +11,11 @@ Overflow : [Visible, Clip, Scroll]
 ## One side's inset. `Same` takes the element's `padding` scalar.
 Inset : [Same, Px(U32)]
 
+## The typeface family a string is set in. `Default` is the host's own
+## proportional face; `Monospace` is the platform's fixed-pitch face, which is
+## what columnar output and changing digits need.
+FontFace : [Default, Monospace]
+
 ## How a string behaves when it is wider than the space it was given. `Wrap`
 ## reflows onto further lines, `NoWrap` keeps one line and lets overflow decide
 ## what happens to the rest, and `Ellipsis` keeps one line and ends it with a
@@ -29,6 +34,7 @@ Justify : [Default, Start, Center, End, Between, Around]
 Gui := [].{
 	Align : Align
 	Color : Color
+	FontFace : FontFace
 	Inset : Inset
 	Justify : Justify
 	Length : Length
@@ -68,6 +74,7 @@ Gui := [].{
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		font_face : FontFace ?? Default,
 		text_overflow : TextOverflow ?? Wrap,
 		overflow_x : Overflow ?? Visible,
 		overflow_y : Overflow ?? Visible,

@@ -33,6 +33,10 @@ Theme := [].{
 	key_hover = Gui.rgb(0x202932)
 	key_active = Gui.rgb(0x101519)
 
+	## Scrollback, counts, and readouts are columnar: a fixed pitch keeps digits
+	## from shifting width as they change and lets a column align.
+	face = Monospace
+
 	## Body type. Dense enough to read a full day of output.
 	body = 12.U32
 

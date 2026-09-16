@@ -299,6 +299,14 @@ pub struct CheckboxIndicator {
     pub mark_color: Option<u32>,
 }
 
+/// The typeface family a string is set in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FontFace {
+    #[default]
+    Default,
+    Monospace,
+}
+
 /// How a string behaves when it is wider than the space it was given.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TextOverflow {
@@ -335,6 +343,7 @@ pub struct Style {
     pub radius: u32,
     pub font_size: u32,
     pub font_weight: u32,
+    pub font_face: FontFace,
     pub text_overflow: TextOverflow,
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,

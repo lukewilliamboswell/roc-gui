@@ -162,10 +162,10 @@ render = |state| {
 		]),
 		field_row("Command bar", "cmd", Elem.text_input(Elem.TextInputProps.{ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
 		field_row("Filter bar", "find", Elem.text_input(Elem.TextInputProps.{ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Action.update(set_query(current, event.value)), on_submit: |current, _| Action.update(current), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
-		Elem.col(Elem.ColProps.{ label: "Scrollback well", width: Fill, height: Fill, grow: True, padding: 4, gap: 0, bg: Theme.well, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip }, [
+		Elem.col(Elem.ColProps.{ label: "Scrollback well", width: Fill, height: Fill, grow: True, padding: 4, gap: 0, font_face: Theme.face, bg: Theme.well, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip }, [
 			Elem.virtual_list(Elem.VirtualListProps.{ name: "Terminal scrollback", row_height: Theme.row_height, items: shown }),
 		]),
-		Elem.row(Elem.RowProps.{ label: "Workspace footer", width: Fill, padding: Theme.inset, gap: 8, bg: Theme.region, border_color: Theme.line, border_width: 0, border_top: Px(1), fg: Theme.dim, font_size: Theme.meta }, [
+		Elem.row(Elem.RowProps.{ label: "Workspace footer", width: Fill, padding: Theme.inset, gap: 8, font_face: Theme.face, bg: Theme.region, border_color: Theme.line, border_width: 0, border_top: Px(1), fg: Theme.dim, font_size: Theme.meta }, [
 			Elem.text("${shown.len().to_str()}/${state.lines.len().to_str()} lines"),
 			Elem.text("|"),
 			Elem.text(filtered),

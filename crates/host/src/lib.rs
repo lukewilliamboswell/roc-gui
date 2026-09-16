@@ -29,7 +29,7 @@ mod window_runner;
 use bridge::{
     Align, BridgeState, CanvasPrimitive, CheckboxIndicator, CanvasPrimitiveKind, ControlKey, ImageFit,
     ImageFormat as BridgeImageFormat, Justify, Length, MountedGraph, Node, NodeKind, Overflow,
-    Patch, ScrollAxis, Style, TextOverflow, decode_commit, validate_tree,
+    Patch, FontFace, ScrollAxis, Style, TextOverflow, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -372,6 +372,7 @@ macro_rules! decode_layout_style {
             radius: $args.radius,
             font_size: $args.font_size,
             font_weight: $args.font_weight,
+            font_face: decode_font_face($args.font_face),
             text_overflow: decode_text_overflow($args.text_overflow),
             overflow_x: decode_overflow($args.overflow_x),
             overflow_y: decode_overflow($args.overflow_y),
@@ -517,6 +518,25 @@ fn decode_justify(value: u8) -> Justify {
         4 => Justify::Between,
         5 => Justify::Around,
         _ => panic!("invalid justify {value}"),
+    }
+}
+
+/// The platform's fixed-pitch family. GPUI takes one family name, so the host
+/// names the face each operating system actually ships rather than a generic
+/// word that only one font stack resolves.
+const MONOSPACE_FAMILY: &str = if cfg!(target_os = "macos") {
+    "Menlo"
+} else if cfg!(target_os = "windows") {
+    "Consolas"
+} else {
+    "monospace"
+};
+
+fn decode_font_face(value: u8) -> FontFace {
+    match value {
+        0 => FontFace::Default,
+        1 => FontFace::Monospace,
+        _ => panic!("invalid font face {value}"),
     }
 }
 
@@ -1118,6 +1138,9 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     if style.font_size > 0 {
         element = element.text_size(px(style.font_size as f32));
     }
+    if let FontFace::Monospace = style.font_face {
+        element = element.font_family(MONOSPACE_FAMILY);
+    }
     if style.font_weight > 0 {
         element = element.font_weight(FontWeight(style.font_weight as f32));
     }
@@ -1690,6 +1713,9 @@ impl Render for NodeView {
                 }
                 if style.font_size > 0 {
                     element = element.text_size(px(style.font_size as f32));
+                }
+                if let FontFace::Monospace = style.font_face {
+                    element = element.font_family(MONOSPACE_FAMILY);
                 }
                 if style.font_weight > 0 {
                     element = element.font_weight(FontWeight(style.font_weight as f32));

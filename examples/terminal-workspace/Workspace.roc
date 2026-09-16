@@ -19,7 +19,7 @@ divider = |caption| Elem.row(
 )
 
 meta = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta },
+	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
 	[Elem.text(caption)],
 )
 

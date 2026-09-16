@@ -117,11 +117,6 @@ the change lands; do not soften the docs to match the gap.
   assert `expect-visible` for the selected image where `expect-on-screen` is the
   claim that matters. Close by making the declared box authoritative and `fit`
   the rule that maps pixels into it.
-- [ ] **No font family.** Terminal output is columnar: `terminal-workspace`'s
-  scrollback, its line counts, and its `pty 100x30` readout all want a monospace
-  face, and nothing in `Gui.Style` selects one. Digits in the footer shift width
-  as they change, and the scrollback cannot align a column. Close with a family
-  or a generic-face field on `Gui.Style`.
 
 ## Trust: measurements that can mislead a decision
 
