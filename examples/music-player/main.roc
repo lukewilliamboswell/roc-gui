@@ -2,4 +2,4 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 import pf.Program
 import Player
 State : Player.State
-main = Program.run({ setup: || { state: Player.init, render: Player.render }, window: { title: "Music Player", width: 900, height: 640 } })
+main = Program.run({ init: Player.init, render: Player.render, window: { title: "Music Player", width: 900, height: 640 } })

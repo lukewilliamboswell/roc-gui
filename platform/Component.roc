@@ -1,6 +1,7 @@
 import Action
 import Elem
 import Host
+import Recipe
 
 ## A definition is created once during setup. Rendering supplies only its key;
 ## its renderer, adapters and delegation policy cannot change between renders.
@@ -23,19 +24,19 @@ Component(parent) := { bind : Elem.Key -> Elem(parent) }.{
 
 	## Equal child inputs retain the mounted subtree and its captured handlers.
 	## Equality must preserve both rendering and handler behavior.
-	define! : Config(parent, child) => Component(parent) where [child.is_eq : child, child -> Bool]
-	define! = |Config.(config)| build!(config.get, config.set, config.render, Some(|previous, next| previous == next), config.update_scope, config.on_delegate)
+	define : Config(parent, child) -> Recipe(Component(parent)) where [child.is_eq : child, child -> Bool]
+	define = |Config.(config)| Recipe.{ evaluate!: || build!(config.get, config.set, config.render, Some(|previous, next| previous == next), config.update_scope, config.on_delegate) }
 
 	## Always render when this boundary is reached. Use for inputs without a
 	## suitable equality or when comparison and snapshot retention cost more.
-	unmemoized! : Config(parent, child) => Component(parent)
-	unmemoized! = |Config.(config)| build!(config.get, config.set, config.render, None, config.update_scope, config.on_delegate)
+	unmemoized : Config(parent, child) -> Recipe(Component(parent))
+	unmemoized = |Config.(config)| Recipe.{ evaluate!: || build!(config.get, config.set, config.render, None, config.update_scope, config.on_delegate) }
 
 	## True must preserve both rendering and captured-handler behavior. Retaining
 	## a snapshot can inhibit in-place state updates. Use this constructor only
 	## when the input's ordinary equality is not the desired memo equivalence.
-	memo! : MemoConfig(parent, child) => Component(parent)
-	memo! = |MemoConfig.(config)| build!(config.get, config.set, config.render, Some(config.same), config.update_scope, config.on_delegate)
+	memo : MemoConfig(parent, child) -> Recipe(Component(parent))
+	memo = |MemoConfig.(config)| Recipe.{ evaluate!: || build!(config.get, config.set, config.render, Some(config.same), config.update_scope, config.on_delegate) }
 
 	mount : Component(parent), Elem.Key -> Elem(parent)
 	mount = |Component.(definition), key| (definition.bind)(key)

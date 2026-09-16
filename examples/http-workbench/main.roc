@@ -10,6 +10,6 @@ State : Workbench.State
 
 main : Program(State)
 main = Program.run({
-	setup: || { state: Workbench.init, render: View.render },
+	init: Workbench.init, render: View.render,
 	window: { title: "HTTP Workbench", width: 980, height: 720 },
 })

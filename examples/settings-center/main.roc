@@ -13,6 +13,6 @@ State : Settings.State
 
 main : Program(State)
 main = Program.run({
-	setup: || { state: Settings.initial, render: Render.render },
+	init: Settings.initial, render: Render.render,
 	window: { title: "Settings Center", width: 1040, height: 760 },
 })

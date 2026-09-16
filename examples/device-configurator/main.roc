@@ -3,4 +3,4 @@ import pf.Program
 import Configurator
 import View
 State : Configurator.State
-main = Program.run({ setup: || { state: Configurator.init, render: View.render }, window: { title: "Device Configurator", width: 1000, height: 720 } })
+main = Program.run({ init: Configurator.init, render: View.render, window: { title: "Device Configurator", width: 1000, height: 720 } })

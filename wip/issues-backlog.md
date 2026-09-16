@@ -4,6 +4,19 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Platform API encapsulation
+
+- [ ] **Recipe interpretation is a convention, not an access-control boundary.**
+  The pinned Roc compiler permits clients to access nominal representations and
+  associated interpreter functions. `Recipe` therefore exposes its effectful
+  thunk representation and `evaluate!`, just as `Program` exposes its startup
+  implementation. Application guidance restricts these to the platform, and
+  host registration rejects definitions outside startup, but the type surface
+  does not enforce that restriction. Hide the representation/interpreter when
+  module privacy can support cross-platform-module composition, with compile
+  tests for rejected application access; do not claim arbitrary recipe effects
+  are prevented by the type alone.
+
 ## Resource broker and confinement foundation
 
 - [ ] **The linked process is not an untrusted-application boundary.** Implement
@@ -101,6 +114,15 @@ the change lands; do not soften the docs to match the gap.
 
 ## Trust: measurements that can mislead a decision
 
+- [ ] **Memoization measurements do not isolate every ownership or equality
+  cost.** The textarea append ladder exercises a large edited child under
+  default equality and no memoization, but differing string lengths permit an
+  immediate equality miss. Add realistic same-length end edits and equal,
+  independently allocated inputs to exercise long comparisons. Live snapshot
+  retention and copying attributable specifically to lost uniqueness remain
+  unmeasured: allocator requests are not retained bytes or a copy counter.
+  Measure these through their production owners before making those claims.
+
 - [ ] **General GPUI entity lifecycle counts are not captured.** The virtual
   list reports viewport-owned entity materialisation, retention, and recycling,
   but eager native views do not yet emit general materialised, rebound, and
@@ -125,18 +147,6 @@ the change lands; do not soften the docs to match the gap.
 
 Defects in the platform or host that the benchmark suite has exposed. Each
 names the evidence so a fix can be verified against the same case.
-
-- [ ] **The pinned Roc compiler crashes on inline component setup.** On
-  `nightly-2026-09-12-220fd47`, an inline `Program.run({ setup: || ... })`
-  closure that creates and captures either `Component.define!` or
-  `Component.memo!` segfaults during `roc check`. Moving the same constructor,
-  getter, setter, renderer, and comparator into a named top-level `setup!`
-  succeeds in both checking and a dev build. An explicit setup type is
-  recommended but was not required by the minimal reproduction. Inline setup
-  without component definitions also passes. Keep the named helper in examples;
-  minimize/report the compiler defect and remove this workaround when the pin
-  accepts both forms. This is a compiler-feasibility gap, not a second component
-  API or a reason to make rendering effectful.
 
 - [ ] **The Roc development optimization mode miscompiles the deep tree scaling
   case on x64glibc.** An explicit `roc build --opt=dev` produces an executable

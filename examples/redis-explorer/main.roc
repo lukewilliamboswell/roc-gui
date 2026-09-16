@@ -8,4 +8,4 @@ import Explorer
 import View
 State : Explorer.State
 
-main = Program.run({ setup: || { state: Explorer.init, render: View.render }, window: { title: "Redis Explorer", width: 1080, height: 720 } })
+main = Program.run({ init: Explorer.init, render: View.render, window: { title: "Redis Explorer", width: 1080, height: 720 } })

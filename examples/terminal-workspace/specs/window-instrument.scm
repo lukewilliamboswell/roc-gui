@@ -13,17 +13,17 @@
     (expect-on-screen (text-prefix "Press New terminal to attach"))
     (screenshot "idle")
     (click (role button :name "New terminal"))
-    (await-task)
-    ; A terminal answers on its own schedule, not the window's.
+    ; A live terminal keeps a read pending, so global task quiescence is not
+    ; readiness. Wait for output delivered through the production task route.
+    (await-count (text-prefix "terminal-ready") 1)
     (await-count (text "Session active") 1)
     (expect-visible (text "Session active"))
     (screenshot "session")
     (focus (role textbox :name "Terminal command"))
     (type "lines:40")
     (key "enter")
-    ; The command reaches the shell before its output can come back, so failing
-    ; here names a lost keystroke rather than a terminal that stayed silent.
-    (await-count (text "Command sent") 1)
+    ; Read completion can replace the transient "Command sent" status before
+    ; the next frame. The requested output proves the command reached the PTY.
     (await-count (text-prefix "line-000001") 1)
     ; A scrollback row is exactly what the child wrote. Nothing the application
     ; uses to name the row may appear in the column beside it.

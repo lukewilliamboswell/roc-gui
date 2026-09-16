@@ -1,9 +1,12 @@
 # Terminal Workspace
 
-One terminal pane attached to a real pseudo-terminal. Press New terminal to
+A terminal workspace attached to real pseudo-terminals. Press New terminal to
 spawn a 100×30 child, type a command into the command bar, and watch its output
 arrive in a virtualised scrollback well. A filter bar narrows the rows that are
 already on screen without touching the running child; Stop cancels the session.
+Split workspace mounts a second independent workspace beside the first. Both
+reuse one assembled workspace definition and its nested terminal definition;
+keys and owning instances keep their state and event routes separate.
 
 The example exercises process authority, which is an explicit host grant rather
 than an ambient executable API, and the long-running side of `Action.task`: each
@@ -26,7 +29,7 @@ drive. Launched without it, the well says so and names the flag.
 
 ## Not yet built
 
-- One pane. No tabs, splits, or multiple concurrent sessions.
+- Two side-by-side workspaces; no tabs or nested split layout.
 - No terminal emulation: escape sequences are discarded rather than interpreted,
   so there is no cursor addressing, colour, or full-screen program support.
 - The filter is a plain substring match, with no regular expressions, no

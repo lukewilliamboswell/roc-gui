@@ -4,6 +4,7 @@ import pf.Action
 import pf.Component
 import pf.Elem
 import pf.Program
+import pf.Recipe
 
 RowState : { id : U64, value : U64 }
 
@@ -162,16 +163,11 @@ row_set = |parent, key, child| match Elem.Key.inspect(key) {
 	_ => Err(Removed)
 }
 
-setup! : () => { state : State, render : State -> Elem(State) }
-setup! = || {
-	row_component : Component(State)
-	row_component = Component.define!({
-		get: row_get,
-		set: row_set,
-		render: render_row,
-	})
-	{ state: create_rows(0), render: |state| render(row_component, state) }
-}
-
 main : Program(State)
-main = Program.run({ setup: setup! })
+main = Program.build({
+	init: create_rows(0),
+	render: Recipe.map(
+		Component.define({ get: row_get, set: row_set, render: render_row }),
+		|row_component| |state| render(row_component, state),
+	),
+})

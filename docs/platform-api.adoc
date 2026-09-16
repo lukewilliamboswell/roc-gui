@@ -27,11 +27,8 @@ render = |state| Elem.col({}, [
     }),
 ])
 
-setup! : () => { state : State, render : State -> Elem(State) }
-setup! = || { state: { count: 0 }, render }
-
 main : Program(State)
-main = Program.run({ setup: setup! })
+main = Program.run({ init: { count: 0 }, render })
 ----
 
 `render` is pure: it reads state and returns an `Elem(State)`. A button handler
@@ -48,6 +45,20 @@ delegate further.
 bounded native worker pool, then invoke `resolve` against the latest state on
 the UI thread if the task's owning component instance still exists.
 
+Render-time `state`, dispatch-time handler input, and completion-time resolver
+input are different snapshots. Derive changes from the handler or resolver
+argument, not captured render-time state. A worker captures the smallest request
+input it needs; its resolver combines the result with latest state. Keeping old
+state alive can prevent in-place updates, but capturing a value does not itself
+imply a deep copy. Memoization snapshots and other sharing also affect ownership.
+
+Recipes compose startup values; actions describe runtime state transitions.
+`Action.task` supplies the commit--effect--resolve sequence without exposing
+startup registration through the event API. Task delivery is tied to the owning
+component instance. Removing that instance suppresses its completion, not
+necessarily the external operation. A request that must survive a child closing
+is delegated to a surviving parent, whose policy starts and owns the task.
+
 Use `Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
 returning an unchanged state with `Action.update`.
@@ -59,20 +70,52 @@ so a handler's first argument is always the state that precedes it. This model
 is Richard Feldman's, from his design document _Design Idea: Action-State_; the
 architecture chapter records that origin and the reasoning behind it.
 
-=== Setup runs before the first render
+=== Pure application assembly
 
-`Program.run({ setup, window })` describes the application. `setup` is an
-effectful, zero-argument function returning `{ state, render }`; `window` is
-optional. Setup runs once. Use a named, explicitly typed helper as above, and
-create component definitions there before capturing their handles in the
-returned renderer. Resource acquisition in setup must use the same granted
-capabilities as task work. Window-dependent interactions belong in actions once
-the window exists.
+`Program.run({ init, render, window })` describes an application with ordinary
+initial state and a pure renderer. `window` is optional. Applications with
+component definitions use `Program.build({ init, render, window })`, where
+`render` is a `Recipe(state -> Elem(state))`. Both constructors are pure; only
+the platform interprets the renderer recipe, once before the first render.
+Resource acquisition and window-dependent interactions belong in actions.
+
+`Recipe(a)` describes startup assembly producing a value of type `a`.
+`Recipe.pure(value)` needs no binding, `Recipe.map(recipe, transform)` transforms
+the assembled value, and `Recipe.and_then(recipe, next)` assembles a dependent
+description. Record builders combine independent descriptions through
+`Recipe.map2`:
+
+[source,roc]
+----
+view = Recipe.map(
+    {
+        sidebar: Component.define(sidebar_config),
+        editor: Component.define(editor_config),
+    }.Recipe,
+    |components| |state| render(components, state),
+)
+----
+
+Reuse an assembled component handle to share its definition. Interpreting the
+same recipe twice creates two definitions, even if its configuration is equal.
+`map2` interprets its left input before its right input, once each; recipes do
+not promise reordering, caching, or closure comparison. Recipe interpretation
+and construction from effectful functions are platform implementation details,
+not application extension points.
 
 Define nested components from the leaves upward, passing existing definition
 handles into their parents' immutable renderer closures. The definition graph
 is acyclic; ordinary recursive functions may still build recursive element
 trees. Definitions cannot be created inside render functions or event handlers.
+
+A reusable module exports a renderer recipe rather than an entire application:
+`Workspace.view : Recipe(Workspace.State -> Elem(Workspace.State))`.
+Its consumer uses `Recipe.and_then` to obtain the renderer and declare a parent
+component around it. One assembled handle can then be mounted under two keys.
+The terminal-workspace example does this for its primary and secondary panes;
+the nested terminal definition is shared, while each owning instance has its
+own state, routes, and task lifetime. The module does not import `Program` or
+choose the application's window.
 
 == Timers and subscriptions
 
@@ -256,7 +299,7 @@ layout order is also the default keyboard order. Keep labels concise and
 semantic names stable across state updates.
 
 `Program.run` also accepts a `window` record with an initial logical `width`,
-`height`, and titlebar `title`. Defaults allow a setup-only configuration;
+`height`, and titlebar `title`. Defaults allow an `init`/`render`-only configuration;
 windows remain resizable and layout elements using `Fill` follow the available
 viewport.
 
@@ -269,12 +312,13 @@ application that says nothing keeps it.
 == Keyed components and local state
 
 A component definition fixes how to read and replace child state, render it,
-and handle delegation. `Component.define!` creates an equality-memoized definition
-during setup. `Elem.component(definition, key)` mounts an instance while rendering:
+and handle delegation. `Component.define` describes an equality-memoized definition
+for startup assembly. `Elem.component(definition, key)` mounts an instance while rendering:
 
 [source,roc]
 ----
 import pf.Component
+import pf.Recipe
 
 State : { title : Str, counter : Counter.State }
 
@@ -299,22 +343,21 @@ render = |counter, state| Elem.col({}, [
     Elem.component(counter, Name("Main")),
 ])
 
-setup! : () => { state : State, render : State -> Elem(State) }
-setup! = || {
-    counter : Component(State)
-    counter = Component.define!({
+view : Recipe(State -> Elem(State))
+view = Recipe.map(
+    Component.define({
         get: counter_get,
         set: counter_set,
         render: counter_render,
-    })
-    {
-        state: { title: "Counter", counter: Counter.init(0) },
-        render: |state| render(counter, state),
-    }
-}
+    }),
+    |counter| |state| render(counter, state),
+)
 
 main : Program(State)
-main = Program.run({ setup: setup! })
+main = Program.build({
+    init: { title: "Counter", counter: Counter.init(0) },
+    render: view,
+})
 ----
 
 `Component.Config(parent, child)` contains:
@@ -392,17 +435,17 @@ view, or begin work that must survive the child's removal.
 
 === Memoization by default
 
-`Component.define!` compares the complete child input using its `is_eq` method.
+`Component.define` compares the complete child input using its `is_eq` method.
 Its signature requires `where [child.is_eq : child, child -> Bool]`; ordinary
 record inputs need no handwritten comparator. Equal input retains the mounted
 subtree and its captured handlers.
 
-Use `Component.memo!` to override that comparison. It accepts the same
-fields as `Component.define!` plus `same : child, child -> Bool`:
+Use `Component.memo` to override that comparison. It accepts the same
+fields as `Component.define` plus `same : child, child -> Bool`:
 
 [source,roc]
 ----
-counter = Component.memo!({
+counter = Component.memo({
     get: counter_get,
     set: counter_set,
     render: counter_render,
@@ -424,7 +467,7 @@ stale behavior. Determinism does not make every equality representation-sensitiv
 Use an exact input wrapper or a custom comparator if signed zero matters.
 The type constraint proves that comparison exists, not that it obeys this law.
 
-`Component.unmemoized!` accepts the same configuration as `Component.define!`
+`Component.unmemoized` accepts the same configuration as `Component.define`
 without an equality constraint. It does not retain a comparison snapshot and
 always renders when the boundary is reached. Use it for opaque resources,
 inputs without a suitable equivalence, or when measurement shows comparison
@@ -460,7 +503,7 @@ For a complete reusable component, see `examples/counter/Counter.roc` and its
 composition in `examples/counter/main.roc`. `examples/review-queue` composes
 nested components and specifies parent summaries, captured-handler inputs,
 delegation, removal, and local versus parent-owned task completion. The terminal
-workspace mounts resource-bearing terminal state with `Component.unmemoized!`.
+workspace mounts resource-bearing terminal state with `Component.unmemoized`.
 
 == Directory capabilities and tasks
 

@@ -4,15 +4,16 @@ import pf.Action
 import pf.Component
 import pf.Elem
 import pf.Program
+import pf.Recipe
 
 Item : { value : I64, step : I64, archived : Bool }
 
 Board : { item : Item, accepted : I64, present : Bool }
 
-State : { board : Board, visible : Bool, shared : Bool }
+State : { board : Board, visible : Bool, shared : Bool, alternate : Bool }
 
 initial : State
-initial = { board: { item: { value: 0, step: 1, archived: False }, accepted: 0, present: True }, visible: True, shared: False }
+initial = { board: { item: { value: 0, step: 1, archived: False }, accepted: 0, present: True }, visible: True, shared: False, alternate: False }
 
 button = |name, action| Elem.action_button(Elem.ActionButtonProps.{ caption: name, label: name, on_press: |state, _| action(state) })
 
@@ -49,8 +50,8 @@ board_render = |item, board| Elem.col(
 	],
 )
 
-render : Component(State), Component(State), State -> Elem(State)
-render = |board, shared_board, state| Elem.col(
+render : Component(State), Component(State), Component(State), State -> Elem(State)
+render = |board, alternate_board, shared_board, state| Elem.col(
 	Elem.ColProps.{ label: "Review queue", gap: 12 },
 	[
 		button("Reset draft", |latest| Action.update({ ..latest, board: initial.board })),
@@ -58,32 +59,45 @@ render = |board, shared_board, state| Elem.col(
 		button("Refresh queue", |latest| Action.update(latest)),
 		button("Toggle board", |latest| Action.update({ ..latest, visible: !latest.visible })),
 		button("Share total", |latest| Action.update({ ..latest, shared: True })),
+		button("Reopen board", |latest| Action.update({ ..latest, alternate: !latest.alternate })),
 		if state.shared Elem.text("Shared draft ${state.board.item.value.to_str()}") else Elem.text("Private draft"),
-		if state.visible Elem.component(if state.shared shared_board else board, Name("board")) else Elem.text("No board"),
+		if state.visible Elem.component(if state.shared shared_board else if state.alternate alternate_board else board, Name("board")) else Elem.text("No board"),
 	],
 )
 
-setup! : () => { state : State, render : State -> Elem(State) }
-setup! = || {
-	item : Component(Board)
-	item = Component.define!({
+accept_or_archive : Board, Elem.Key -> Action(Board)
+accept_or_archive = |candidate, _| if candidate.item.archived {
+	Action.task({ pending: { ..candidate, present: False }, run: || 100.I64, resolve: |latest, result| Action.update({ ..latest, accepted: result }) })
+} else if candidate.item.value <= 2 {
+	Action.update({ ..candidate, accepted: candidate.item.value })
+} else {
+	Action.none
+}
+
+view : Recipe(State -> Elem(State))
+view = Recipe.and_then(
+	Component.define({
 		get: item_get,
 		set: item_set,
 		render: item_render,
-		on_delegate: |candidate, _| if candidate.item.archived Action.task({ pending: { ..candidate, present: False }, run: || 100.I64, resolve: |latest, result| Action.update({ ..latest, accepted: result }) }) else if candidate.item.value <= 2 Action.update({ ..candidate, accepted: candidate.item.value }) else Action.none,
-	})
-	board : Component(State)
-	board = Component.define!({
-		get: board_get,
-		set: board_set,
-		render: |state| board_render(item, state),
-	})
-	shared_board : Component(State)
-	# This variant exercises the explicit comparator override. Its equivalence
-	# includes the complete board, including the step captured by item handlers.
-	shared_board = Component.memo!({ get: board_get, set: board_set, render: |state| board_render(item, state), same: |previous, next| previous == next, update_scope: Parent })
-	{ state: initial, render: |state| render(board, shared_board, state) }
-}
+		on_delegate: accept_or_archive,
+	}),
+	|item| {
+		private_board = Component.define({ get: board_get, set: board_set, render: |state| board_render(item, state) })
+		Recipe.map(
+			{
+				private: private_board,
+				alternate: private_board,
+				shared: Component.memo({ get: board_get, set: board_set, render: |state| board_render(item, state), same: |previous, next| previous == next, update_scope: Parent }),
+			}.Recipe,
+			|boards| |state| render(boards.private, boards.alternate, boards.shared, state),
+		)
+	},
+)
 
 main : Program(State)
-main = Program.run({ setup: setup!, window: { title: "Review queue", width: 500, height: 500 } })
+main = Program.build({
+	init: initial,
+	render: view,
+	window: { title: "Review queue", width: 500, height: 500 },
+})

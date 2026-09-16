@@ -121,6 +121,16 @@ direct sibling identity without per-row wrapper scopes. Component, patch, and
 validation counts establish this work independently of row position, while
 captured timings and allocation spans expose state-copying and native costs.
 Text rows:: Vary short, long, and metadata-rich text across row counts.
+Textarea editing:: Edit the production multiline text control at 1,000, 10,000,
+and 100,000 initial bytes through an ordinary append action. The same application
+selects equality-memoized or unmemoized editor definitions; exact value lengths,
+component counts, and patch counts establish semantic equivalence. Root refresh
+also distinguishes retained input from unconditional rendering. Append derives
+its value from dispatch-time state, not a render capture. Its changed length
+permits an early equality mismatch, so this ladder measures edited-value and
+snapshot-retention costs rather than a late equality scan. Allocation spans
+report work observed by their owners; they do not alone identify copy-on-write
+as its cause.
 Checkboxes:: Lower and replace 10,000 real styled controls through their
 ordinary check event route.
 Tree shape:: Compare deep narrow trees and balanced trees so total node count

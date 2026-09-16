@@ -26,7 +26,8 @@ them to perform its rendering-system work and deliver input.
 [mermaid]
 ....
 flowchart TB
-    S["setup: initial state and immutable definitions"] --> D["one session dispatcher"]
+    S["pure initial state and renderer recipe"] --> A["platform assembles immutable definitions once"]
+    A --> D["one session dispatcher"]
     E["live control event"] --> D
     T["completion with owning instance"] --> D
     D --> L{"owner live; event route revision current?"}
@@ -62,11 +63,13 @@ Resource access and trusted grants chapter describes that boundary.
 
 === The application renders a value
 
-`Program.run` supplies an effectful `setup` function and initial resizable-window
-metadata. Setup runs once, before the first render, and returns the initial
-state and a pure renderer. It also creates immutable component definitions with
-`Component.define!`, `Component.memo!`, or `Component.unmemoized!`; rendering
-cannot register definitions.
+`Program.run` supplies pure initial state, a pure renderer, and optional
+resizable-window metadata. `Program.build` instead accepts a renderer recipe;
+the platform interprets it once before the first render. `Component.define`,
+`Component.memo`, and `Component.unmemoized` construct pure descriptions of
+immutable component definitions. Recipe composition assembles their handles
+into a renderer; rendering cannot register definitions. Reusing a handle shares
+a definition, while interpreting the same recipe again creates a distinct one.
 Calling the renderer produces an immutable `Elem(State)` description. Composition stays in Roc:
 styled and semantically named `Elem.row`, `Elem.col`, `Elem.panel`,
 `Elem.text`, `Elem.action_button`, and named `Elem.scroll` regions build the tree.
@@ -242,7 +245,7 @@ callback from an old route cannot address a new handler in that same instance.
 
 == Boundaries determine update scope
 
-`Component.define!` relates child state to parent state through typed, fallible keyed
+`Component.define` relates child state to parent state through typed, fallible keyed
 getters and setters. Mounting that definition creates a boundary; the
 application renderer itself is the root boundary. `Elem.lift` only adapts a
 prebuilt element's handlers. It introduces no lifetime, memoization, or
@@ -272,9 +275,9 @@ summary without silently acquiring the parent's lifetime.
 
 === Memoization is an explicit behavioral contract
 
-`Component.define!` memoizes by default using the child input's `is_eq` method,
-required by its type constraint. `Component.memo!` supplies an explicit
-`same(previous, next)` comparison instead. `Component.unmemoized!` installs no
+`Component.define` memoizes by default using the child input's `is_eq` method,
+required by its type constraint. `Component.memo` supplies an explicit
+`same(previous, next)` comparison instead. `Component.unmemoized` installs no
 comparison, requires no equality, and renders whenever the boundary is reached;
 it is suitable for resource-bearing state or expensive snapshots/comparisons.
 The input must include all variable render and captured-handler
@@ -437,11 +440,11 @@ transition. Effects thus stay out of rendering entirely, and concurrency is
 confined to the body of the work rather than spread through the state model.
 
 Several ideas in the early write-up are useful independently of its proposed
-surface syntax. Setup owns effects needed before the first render. Delegation
+surface syntax. Pure descriptions leave execution to the platform. Delegation
 lets the parent decide whether to accept a child's proposal. Fallible state
 projections make removal explicit. Deferred rendering enables memoized
 subtrees. roc-gui gives those ideas one coherent ownership model through
-the `Program` setup function, `Action.delegate`, keyed `Component` definitions, and explicit
+platform-owned recipe assembly, `Action.delegate`, keyed `Component` definitions, and explicit
 memo equivalence.
 
 Periodic work uses `Action.task` around a timer handle in application state,

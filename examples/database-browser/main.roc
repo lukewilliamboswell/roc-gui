@@ -7,6 +7,6 @@ import View
 State : Browser.State
 
 main = Program.run({
-	setup: || { state: Browser.init, render: View.render },
+	init: Browser.init, render: View.render,
 	window: { title: "SQLite Database Browser", width: 1100, height: 760 },
 })

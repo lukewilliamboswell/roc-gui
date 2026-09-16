@@ -1,6 +1,7 @@
 import pf.Action
 import pf.Component
 import pf.Elem
+import pf.Recipe
 import Terminal
 import Theme
 
@@ -8,13 +9,14 @@ Workspace := [].{
 	State : State
 	init : State
 	init = { terminal: Terminal.init }
-	setup! : () => { state : State, render : State -> Elem.Elem(State) }
-	setup! = || {
-		terminal : Component(State)
+	view : Recipe(State -> Elem.Elem(State))
+	view = {
 		# Terminal state owns process resources; do not compare resource handles
 		# or retain a memo snapshot of the scrollback on every received batch.
-		terminal = Component.unmemoized!({ get: terminal_get, set: terminal_set, render: terminal_render })
-		{ state: Workspace.init, render: |state| render(terminal, state) }
+		Recipe.map(
+			Component.unmemoized({ get: terminal_get, set: terminal_set, render: terminal_render }),
+			|terminal| |state| render(terminal, state),
+		)
 	}
 }
 

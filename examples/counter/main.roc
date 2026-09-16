@@ -5,6 +5,7 @@ import pf.Component
 import pf.Elem
 import pf.Gui
 import pf.Program
+import pf.Recipe
 
 State : {
 	left : Counter.State,
@@ -67,22 +68,15 @@ render = |counter, state| Elem.col(
 	],
 )
 
-## Compiler workaround (09-12): defining the component in an inline
-## Program.run setup closure crashes roc check. Keep this named helper until
-## the equivalent inline closure checks and builds with the supported compiler.
-setup! : () => { state : State, render : State -> Elem(State) }
-setup! = || {
-	counter : Component(State)
-	counter = Component.define!({
-		get: counter_get,
-		set: counter_set,
-		render: counter_render,
-	})
-	{ state: { left: Counter.init(-1), right: Counter.init(3), title: "Counter" }, render: |state| render(counter, state) }
-}
+view : Recipe(State -> Elem(State))
+view = Recipe.map(
+	Component.define({ get: counter_get, set: counter_set, render: counter_render }),
+	|counter| |state| render(counter, state),
+)
 
 main : Program(State)
-main = Program.run({
-	setup: setup!,
+main = Program.build({
+	init: { left: Counter.init(-1), right: Counter.init(3), title: "Counter" },
+	render: view,
 	window: { title: "Counter", width: 640, height: 400, background: paper, foreground: ink },
 })
