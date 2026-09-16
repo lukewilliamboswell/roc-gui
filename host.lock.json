@@ -5,79 +5,79 @@
       "name": "gui-host-sources",
       "target": "x64glibc",
       "repository": "lukewilliamboswell/roc-gui",
-      "release": "deps-gui-host-0.1.0-20260916.1",
+      "release": "deps-gui-host-0.1.0-20260916.2",
       "asset": "gui-host-sources-x64glibc.tar",
-      "sha256": "0407ca5e026d585210f83ced2a4cdb2955915bba3a602535f3494679d13631c3",
+      "sha256": "543a864d25bd3840a6bdec233c49936b15a34089bd78afe90695993281887a25",
       "size": 93501440,
-      "source_sha": "12a0951ea6b2c6bcefc4b13e35933aae222a5c40",
+      "source_sha": "40167d58f541613203d26370bd498275420b4ad1",
       "source_ref": "refs/heads/main",
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/gui-hosts.yml",
-      "input_fingerprint": "cc31d25a171b219a0cebf28b009f34573ad501693c1ac7bfe7c57693e8d814a1"
+      "input_fingerprint": "025bbd23ea9d9f60544e9585d557adabf9f39ff26f8633db45fa5fbbcf310690"
     },
     "gui-host-x64glibc": {
       "name": "gui-host",
       "target": "x64glibc",
       "repository": "lukewilliamboswell/roc-gui",
-      "release": "deps-gui-host-0.1.0-20260916.1",
+      "release": "deps-gui-host-0.1.0-20260916.2",
       "asset": "gui-host-x64glibc.tar",
-      "sha256": "aa99e961596d2bf656594f7823dee0c4014f55ea59c28ca83225680feb7c6f50",
-      "size": 90306560,
-      "source_sha": "12a0951ea6b2c6bcefc4b13e35933aae222a5c40",
+      "sha256": "059b0f8e66bca4c0ee95b7220ced1f49804ff3e01e535a16b6eb5877aba09b80",
+      "size": 90173440,
+      "source_sha": "40167d58f541613203d26370bd498275420b4ad1",
       "source_ref": "refs/heads/main",
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/gui-hosts.yml",
-      "input_fingerprint": "cc31d25a171b219a0cebf28b009f34573ad501693c1ac7bfe7c57693e8d814a1"
+      "input_fingerprint": "025bbd23ea9d9f60544e9585d557adabf9f39ff26f8633db45fa5fbbcf310690"
     },
     "gui-host-sources-arm64mac": {
       "name": "gui-host-sources",
       "target": "arm64mac",
       "repository": "lukewilliamboswell/roc-gui",
-      "release": "deps-gui-host-0.1.0-20260916.1",
+      "release": "deps-gui-host-0.1.0-20260916.2",
       "asset": "gui-host-sources-arm64mac.tar",
-      "sha256": "4e8a350ca742acc8d5eafcd70ae584cf7c7077e8553076056f182ac91b2d6637",
+      "sha256": "1a64ff9e9d6499f71553df1d21904020aa4476412c8715165dc3bc2dd22e3456",
       "size": 82462720,
-      "source_sha": "12a0951ea6b2c6bcefc4b13e35933aae222a5c40",
+      "source_sha": "40167d58f541613203d26370bd498275420b4ad1",
       "source_ref": "refs/heads/main",
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/gui-hosts.yml",
-      "input_fingerprint": "cc31d25a171b219a0cebf28b009f34573ad501693c1ac7bfe7c57693e8d814a1"
+      "input_fingerprint": "025bbd23ea9d9f60544e9585d557adabf9f39ff26f8633db45fa5fbbcf310690"
     },
     "gui-host-arm64mac": {
       "name": "gui-host",
       "target": "arm64mac",
       "repository": "lukewilliamboswell/roc-gui",
-      "release": "deps-gui-host-0.1.0-20260916.1",
+      "release": "deps-gui-host-0.1.0-20260916.2",
       "asset": "gui-host-arm64mac.tar",
-      "sha256": "ce46dd5a7e7e04cc56d60c3b635486c7fd0430cce05ab763cf2baa5d427cd5d9",
-      "size": 38205440,
-      "source_sha": "12a0951ea6b2c6bcefc4b13e35933aae222a5c40",
+      "sha256": "b223eb06c20d1ca662cd322a2c5b66bca3fac0a8aae13ad0420b7b1f389c0c51",
+      "size": 38215680,
+      "source_sha": "40167d58f541613203d26370bd498275420b4ad1",
       "source_ref": "refs/heads/main",
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/gui-hosts.yml",
-      "input_fingerprint": "cc31d25a171b219a0cebf28b009f34573ad501693c1ac7bfe7c57693e8d814a1"
+      "input_fingerprint": "025bbd23ea9d9f60544e9585d557adabf9f39ff26f8633db45fa5fbbcf310690"
     },
     "gui-host-sources-x64mingw": {
       "name": "gui-host-sources",
       "target": "x64mingw",
       "repository": "lukewilliamboswell/roc-gui",
-      "release": "deps-gui-host-0.1.0-20260916.1",
+      "release": "deps-gui-host-0.1.0-20260916.2",
       "asset": "gui-host-sources-x64mingw.tar",
-      "sha256": "a3c9834c126f1a90d341cf15c7edb42f5fa27effacbad77ca9c43208ac9b34c3",
+      "sha256": "9cf35645f77a3d1dcdcc82b3e67cc6271776bf7c67c16e6f2d64628d844d895b",
       "size": 104161280,
-      "source_sha": "12a0951ea6b2c6bcefc4b13e35933aae222a5c40",
+      "source_sha": "40167d58f541613203d26370bd498275420b4ad1",
       "source_ref": "refs/heads/main",
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/gui-hosts.yml",
-      "input_fingerprint": "cc31d25a171b219a0cebf28b009f34573ad501693c1ac7bfe7c57693e8d814a1"
+      "input_fingerprint": "025bbd23ea9d9f60544e9585d557adabf9f39ff26f8633db45fa5fbbcf310690"
     },
     "gui-host-x64mingw": {
       "name": "gui-host",
       "target": "x64mingw",
       "repository": "lukewilliamboswell/roc-gui",
-      "release": "deps-gui-host-0.1.0-20260916.1",
+      "release": "deps-gui-host-0.1.0-20260916.2",
       "asset": "gui-host-x64mingw.tar",
-      "sha256": "cc1eee958ade9cbf572e36574b781897516f1c44bc81bbd245ae5dc629fcd1b6",
-      "size": 80005120,
-      "source_sha": "12a0951ea6b2c6bcefc4b13e35933aae222a5c40",
+      "sha256": "825c49a4e4f791cf9aa272f500c56f6ad566ee8ce285804972d07e998cef9432",
+      "size": 80486400,
+      "source_sha": "40167d58f541613203d26370bd498275420b4ad1",
       "source_ref": "refs/heads/main",
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/gui-hosts.yml",
-      "input_fingerprint": "cc31d25a171b219a0cebf28b009f34573ad501693c1ac7bfe7c57693e8d814a1"
+      "input_fingerprint": "025bbd23ea9d9f60544e9585d557adabf9f39ff26f8633db45fa5fbbcf310690"
     }
   }
 }
