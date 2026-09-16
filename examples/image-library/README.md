@@ -30,3 +30,16 @@ A gallery wall: a warm near-white ground, no borders anywhere, a 40-point
 margin with 36-point gaps between regions, soft grey secondary text, and a
 large radius on media so the pictures carry the only weight in the window.
 `Theme.roc` holds every colour and measure the application uses.
+
+## The unreadable glyph
+
+An entry the decoder refused still occupies a picture's place on the wall, so
+the gallery stays a column of one shape rather than collapsing into a line of
+text wherever a file could not be read. `icons/unreadable.svg` fills that place;
+it is a compile-time file import, which needs no capability and no store:
+
+```roc
+import "icons/unreadable.svg" as unreadable_glyph : List(U8)
+```
+
+`icons/NOTICE.md` records its source and licence.

@@ -1,0 +1,11 @@
+# Nocturne's shipped cover art. The application requires this file to agree
+# with the expectation in Player.roc, so an asset set that was half-updated or
+# swapped for another one is reported when the store opens rather than much
+# later as a picture that will not draw.
+#
+# No sha256 is declared. The host compares a manifest's own declarations and
+# never walks or hashes the files beneath it, so a digest here would be an
+# assertion nothing checks. Raise content_version when the artwork changes.
+asset_set = nocturne-art
+schema = 1
+content_version = 1

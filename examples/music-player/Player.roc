@@ -1,4 +1,5 @@
 import pf.Action
+import pf.Assets
 import pf.Audio
 import pf.Elem
 import pf.Files
@@ -7,7 +8,7 @@ import pf.Gui
 Player := [].{
 	State : State
 	init : State
-	init = { chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
+	init = { art: NoArt, chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
 	render : State -> Elem(State)
 	render = render
 }
@@ -16,11 +17,41 @@ Track : { name : Str }
 Library : [Empty, Loaded({ directory : Files.Dir.Read, output : Audio.Output, tracks : List(Track) })]
 Playback : [Idle, Active({ index : U64, paused : Bool, track : Audio.Track }), Stopped]
 
+## The cover the sleeve shows. A photograph is too large to pay for in
+## executable size, so it is not a compile-time file import: it lives in the
+## asset set shipped beside the program and is read through a store.
+Art : [NoArt, Cover(List(U8)), NoCover]
+
 ## The row a person last asked for. It is not the sounding row: a track is
 ## chosen the moment it is clicked and only starts once it has loaded, and a
 ## track that fails to decode stays chosen so the failure has a place to sit.
 Chosen : [Nothing, At(U64)]
-State : { chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
+State : { art : Art, chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
+
+## The asset set this application ships with. The expectation is compared with
+## the `roc-assets.manifest` beside the artwork when the store opens, so a
+## half-updated or swapped asset set is a failure at open rather than a picture
+## that silently will not draw.
+art_manifest = { asset_set: "nocturne-art", schema: 1.U32, content_version: 1.U32, content: AnyContent }
+
+## Read the cover the application ships with. Opening a store and reading an
+## asset both block on the disk, so both belong in a task's `run` rather than in
+## a renderer or an event handler. This is called from the scan's own `run`: the
+## sleeve is dressed on the same worker trip that opens the library, so reading
+## the artwork costs no second round trip and changes nobody else's sequencing.
+##
+## Every failure is one answer, `NoCover`, because there is nothing a person can
+## do differently about a manifest that disagrees and about a content directory
+## that was never provisioned. The reason is not lost: the asset owner's
+## counters separate a refused open from a refused read.
+read_cover! : {} => Art
+read_cover! = |{}| match Assets.open!(Assets.with_manifest(Assets.content_directory, art_manifest)) {
+	Err(_) => NoCover
+	Ok(store) => match Assets.read!(store, "art/nocturne-cover.jpg") {
+		Err(_) => NoCover
+		Ok(bytes) => Cover(bytes)
+	}
+}
 
 is_audio = |name| Str.ends_with(name, ".wav")
 
@@ -38,25 +69,34 @@ audio_error = |err| match err {
 
 scan = |state| Action.task({
 	pending: { ..state, status: "Scanning…" },
-	run: || match Files.pick_directory!() {
-		Err(PickDirectoryErr(Unavailable)) => ScanFailed("This system offers no folder chooser")
-		Err(_) => ScanFailed("Music folder access was denied")
-		Ok(Canceled) => ScanCanceled
-		Ok(Chosen(selection)) => match Audio.acquire!() {
-			Err(err) => ScanFailed(audio_error(err))
-			Ok(output) => match Files.Dir.list!(selection.directory) {
-				Err(_) => ScanFailed("Music folder could not be read")
-				Ok(entries) => {
-					tracks = List.keep_oks(entries, |entry| if entry.kind == File and is_audio(entry.name) { Ok({ name: entry.name }) } else { Err({}) })
-					Scanned({ directory: selection.directory, output, tracks })
+	run: || {
+		## The cover is read whatever the chooser goes on to answer. A folder a
+		## person declined to pick is not a reason for the sleeve to stay bare.
+		art = read_cover!({})
+		outcome = match Files.pick_directory!() {
+			Err(PickDirectoryErr(Unavailable)) => ScanFailed("This system offers no folder chooser")
+			Err(_) => ScanFailed("Music folder access was denied")
+			Ok(Canceled) => ScanCanceled
+			Ok(Chosen(selection)) => match Audio.acquire!() {
+				Err(err) => ScanFailed(audio_error(err))
+				Ok(output) => match Files.Dir.list!(selection.directory) {
+					Err(_) => ScanFailed("Music folder could not be read")
+					Ok(entries) => {
+						tracks = List.keep_oks(entries, |entry| if entry.kind == File and is_audio(entry.name) { Ok({ name: entry.name }) } else { Err({}) })
+						Scanned({ directory: selection.directory, output, tracks })
+					}
 				}
 			}
 		}
+		{ art, outcome }
 	},
-	resolve: |latest, result| match result {
-		ScanFailed(message) => Action.update({ ..latest, status: message })
-		ScanCanceled => Action.update({ ..latest, status: "Folder choice canceled" })
-		Scanned(library) => Action.update({ ..latest, chosen: Nothing, library: Loaded(library), playback: Idle, status: "${U64.to_str(List.len(library.tracks))} tracks" })
+	resolve: |latest, result| {
+		dressed = { ..latest, art: result.art }
+		match result.outcome {
+			ScanFailed(message) => Action.update({ ..dressed, status: message })
+			ScanCanceled => Action.update({ ..dressed, status: "Folder choice canceled" })
+			Scanned(library) => Action.update({ ..dressed, chosen: Nothing, library: Loaded(library), playback: Idle, status: "${U64.to_str(List.len(library.tracks))} tracks" })
+		}
 	},
 })
 
@@ -273,6 +313,25 @@ primary_transport = |caption| Elem.action_button(Elem.ActionButtonProps.{
 	fg: on_accent,
 })
 
+## The sleeve keeps its square whatever it holds, so the status line does not
+## move when the cover arrives. Empty, it is the same dark tile a track row
+## rests on; it never takes the accent, which belongs to the sounding track and
+## the primary transport alone.
+sleeve_size = 76.U32
+empty_sleeve = Elem.row(Elem.RowProps.{ label: "Sleeve", width: Px(sleeve_size), height: Px(sleeve_size), min_width: Px(sleeve_size), min_height: Px(sleeve_size), padding: 0, gap: 0, bg: row_rest, border_color: hairline, border_width: 1, radius: 12 }, [])
+
+sleeve = |art| match art {
+	Cover(bytes) => Elem.image(Elem.ImageProps.{ label: "Cover art", bytes, format: Jpeg, fit: Cover, width: Px(sleeve_size), height: Px(sleeve_size), min_width: Px(sleeve_size), min_height: Px(sleeve_size), radius: 12 })
+	NoArt | NoCover => empty_sleeve
+}
+
+## A missing cover is said once, quietly, and only after the read was tried.
+## An empty square with no explanation is a defect a person cannot report.
+sleeve_caption = |art| match art {
+	NoCover => [Elem.row(Elem.RowProps.{ label: "Cover art status", padding: 0, gap: 0, fg: muted, font_size: 13, font_weight: 400 }, [Elem.text("Cover art unavailable")])]
+	NoArt | Cover(_) => []
+}
+
 toggle_caption = |state| match state.playback {
 	Active(current) => if current.paused "Resume" else "Pause"
 	_ => "Play"
@@ -308,9 +367,17 @@ render = |state| {
 				border_width: 1,
 			}),
 		]),
-		Elem.panel(Elem.PanelProps.{ label: "Playback status", width: Fill, padding: 18, radius: 16, bg: surface, border_color: hairline, fg: muted, font_size: 13, font_weight: 600 }, [
-			Elem.text("NOW PLAYING"),
-			Elem.row(Elem.RowProps.{ label: "Status line", fg: ink, font_size: 19 }, [Elem.text(state.status)]),
+		Elem.panel(Elem.PanelProps.{ label: "Playback status", width: Fill, padding: 18, gap: 18, radius: 16, bg: surface, border_color: hairline, fg: muted, font_size: 13, font_weight: 600 }, [
+			Elem.row(Elem.RowProps.{ label: "Now playing", width: Fill, gap: 18, padding: 0, align: Center }, [
+				sleeve(state.art),
+				Elem.col(
+					Elem.ColProps.{ label: "Now playing text", grow: True, gap: 6, padding: 0 },
+					[
+						Elem.text("NOW PLAYING"),
+						Elem.row(Elem.RowProps.{ label: "Status line", padding: 0, gap: 0, fg: ink, font_size: 19, font_weight: 400 }, [Elem.text(state.status)]),
+					].concat(sleeve_caption(state.art)),
+				),
+			]),
 		]),
 		library_view,
 		Elem.row(Elem.RowProps.{ label: "Playback controls", width: Fill, gap: 12 }, [

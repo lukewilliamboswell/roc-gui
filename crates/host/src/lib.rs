@@ -2881,6 +2881,14 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
                 }
                 app_data_seed = Some(path.display().to_string());
             }
+            spec::Grant::Assets(_) => {
+                let path = resolved.expect("assets grant names a path");
+                if !path.is_dir() {
+                    return Err(format!("assets grant does not exist: {}", path.display()));
+                }
+                flags.push("--host-cap-assets".into());
+                flags.push(path.display().to_string());
+            }
             spec::Grant::Clipboard { system } => flags.push(
                 if *system {
                     "--host-cap-clipboard"

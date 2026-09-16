@@ -4,6 +4,11 @@ import pf.Timer
 
 Studio := [].{
 	ShapeKind : [Ellipse, Rectangle]
+
+	## What a primitive is called wherever it is named to a person: the
+	## inspector's Kind field and the accessible name of a layer's glyph.
+	kind_name : ShapeKind -> Str
+	kind_name = |kind| match kind { Rectangle => "Rectangle", Ellipse => "Ellipse" }
 	Shape : { id : U64, name : Str, kind : ShapeKind, x : I32, y : I32, width : U32, height : U32, color : U32 }
 	Keyframe : { shape_id : U64, frame : U32, x : I32, y : I32 }
 	Document : { shapes : List(Shape), keyframes : List(Keyframe) }

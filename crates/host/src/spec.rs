@@ -22,6 +22,10 @@ pub enum Grant {
     Directory(String),
     /// Private application-data storage seeded from this directory.
     AppData(String),
+    /// The content directory an `Assets.content_directory` store resolves to.
+    /// The application names no path of its own, so the case names the one the
+    /// host provisions.
+    Assets(String),
     /// Clipboard authority: the real system clipboard, or a fixture source the
     /// `clipboard-text` step drives.
     Clipboard { system: bool },
@@ -48,6 +52,7 @@ impl Grant {
         match self {
             Self::Directory(_) => "directory",
             Self::AppData(_) => "app-data",
+            Self::Assets(_) => "assets",
             Self::Clipboard { .. } => "clipboard",
             Self::AudioNull => "audio",
             Self::HttpOrigin(_) => "http-origin",
@@ -66,9 +71,10 @@ impl Grant {
     /// stays inside.
     pub fn path(&self) -> Option<&str> {
         match self {
-            Self::Directory(path) | Self::AppData(path) | Self::Server { script: path, .. } => {
-                Some(path)
-            }
+            Self::Directory(path)
+            | Self::AppData(path)
+            | Self::Assets(path)
+            | Self::Server { script: path, .. } => Some(path),
             _ => None,
         }
     }
@@ -667,6 +673,7 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
     match (name, list.len()) {
         ("directory", 2) => Ok(Grant::Directory(grant_path(&list[1], "directory")?)),
         ("app-data", 2) => Ok(Grant::AppData(grant_path(&list[1], "app-data")?)),
+        ("assets", 2) => Ok(Grant::Assets(grant_path(&list[1], "assets")?)),
         ("clipboard", 2) => match list[1].atom() {
             Some("system") => Ok(Grant::Clipboard { system: true }),
             Some("fixture") => Ok(Grant::Clipboard { system: false }),
@@ -726,8 +733,8 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
             )),
         },
         (
-            "directory" | "app-data" | "clipboard" | "audio" | "http-origin" | "tcp" | "server"
-            | "process" | "device" | "system-monitor",
+            "directory" | "app-data" | "assets" | "clipboard" | "audio" | "http-origin" | "tcp"
+            | "server" | "process" | "device" | "system-monitor",
             _,
         ) => Err(error(node, format!("malformed {name} grant"))),
         _ => Err(error(

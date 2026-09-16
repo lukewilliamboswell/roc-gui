@@ -444,16 +444,23 @@ names the evidence so a fix can be verified against the same case.
   controls should stay enabled and explain themselves, or the branches should
   go.
 
-- [ ] **Asset stores have no behaviour specification.** `.scm` files live in a
-  `specs/` directory beside the `main.roc` they exercise, so a specification for
-  `Assets.open!` and `Assets.read!` needs an application that loads a shipped
-  asset after startup. No example does yet, and this change deliberately did not
-  add one. The vocabulary is in place -- `expect-asset-counters` compares the
-  six owner counters, and a loaded asset is observed through the existing
-  `(role image :name ...)` locator and `expect-image-bytes` -- so the
-  specification is writing, not designing, once an example adopts the API. Until
-  then the host behaviour is covered only by `assets.rs` unit tests and the
-  route from Roc through the ABI is unexercised end to end.
+- [x] **Asset stores have no behaviour specification.** Closed. `music-player`
+  adopts the API: it ships `assets/` with a `roc-assets.manifest`, reads
+  `art/nocturne-cover.jpg` through `Assets.content_directory` with
+  `with_manifest`, and draws it in the sleeve beside NOW PLAYING. Both paths are
+  specified -- `specs/cover-art.scm` grants a content directory and asserts
+  `(expect-asset-counters 1 0 1 1 0 142534)` alongside
+  `(expect-image-bytes (role image :name "Cover art") 142534)`, and
+  `specs/cover-art-denied.scm` withholds the grant and asserts the refusal,
+  `(expect-asset-counters 0 1 0 0 0 0)`, with the quiet line the sleeve shows
+  instead. The route from Roc through the ABI is now exercised end to end.
+
+  One thing this entry did not anticipate: the grant vocabulary had no way to
+  provision a content directory, so `--host-cap-assets` was reachable from a
+  command line but not from a specification. `(assets "PATH")` was added to
+  `spec::Grant` and to `docs/specifications.adoc`, and `expect-asset-counters`
+  was added to the assertion reference, where it had been documented only in
+  `docs/development.adoc`.
 
 - [ ] **`Program` has no effectful startup, so a store is opened on a task.**
   `Program.init` is a pure value, so an application that wants its banner

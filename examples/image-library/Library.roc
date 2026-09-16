@@ -5,6 +5,10 @@ import Gallery
 import Theme
 import Viewer
 
+## One icon, a few hundred bytes, so it belongs in the executable rather than in
+## an asset store: a compile-time file import needs no capability at all.
+import "icons/unreadable.svg" as unreadable_glyph : List(U8)
+
 Library := [].{
 	State : State
 	init : State
@@ -58,7 +62,19 @@ item_rows = |items| {
 	for item in items {
 		key = $key
 		content = match item {
-			Failed(failure) => quiet_text("Failed entry ${failure.name}", "${failure.name} — ${failure.reason}")
+			## An entry with no picture still occupies a picture's place, so the
+			## column of thumbnails stays a column. The glyph says what the row
+			## lacks; the sentence beside it says why.
+			Failed(failure) => Elem.row(
+				Elem.RowProps.{ label: "Failed entry ${failure.name}", gap: Theme.within, padding: 0, align: Center },
+				[
+					Elem.row(
+						Elem.RowProps.{ label: "Unreadable ${failure.name}", width: Px(88), height: Px(88), min_width: Px(88), min_height: Px(88), padding: 0, gap: 0, bg: Theme.quiet_hover, radius: Theme.media_radius, align: Center, justify: Center },
+						[Elem.image(Elem.ImageProps.{ label: "Unreadable image", bytes: unreadable_glyph, format: Svg, width: Px(28), height: Px(28), min_width: Px(28), min_height: Px(28) })],
+					),
+					quiet_text("Failed entry text ${failure.name}", "${failure.name} — ${failure.reason}"),
+				],
+			)
 			Ready(asset) => Elem.row(
 				Elem.RowProps.{ label: "Image ${asset.name}", gap: Theme.within, padding: 0 },
 				[
