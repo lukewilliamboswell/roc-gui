@@ -1,0 +1,18 @@
+(test "record the Redis explorer gallery journey"
+  (steps
+    (settle)
+    (screenshot "disconnected")
+    (click (role button :name "Connect to Redis"))
+    (await-task)
+    (focus (role textbox :name "Key pattern"))
+    (key "ctrl-a")
+    (type "profile:ada")
+    (click (role button :name "Refresh Redis keys"))
+    (await-task)
+    (settle)
+    (screenshot "keys")
+    (focus (role textbox :name "Key pattern"))
+    (key "ctrl-a")
+    (type "profile:grace")
+    (settle)
+    (screenshot "filtered")))
