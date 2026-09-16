@@ -19,7 +19,9 @@ import Theme
 Chart := [].{
 	## The plot's exact size. Canvas primitives are placed in integer logical
 	## pixels and are not scaled to the element, so the surface is fixed and the
-	## layout is built to hold it rather than the other way round.
+	## layout is built to hold it rather than the other way round. The width is
+	## the history bound times the horizontal pitch, so a full history is exactly
+	## a full plot: no bar is ever drawn off the left edge.
 	width : U32
 	width = plot_width
 	height : U32
@@ -48,10 +50,10 @@ loads = |history| history.map(
 	},
 )
 
-plot_width = 720.U32
+plot_width = 600.U32
 plot_height = 112.U32
-pitch = 6.U32
-bar_width = 5.U32
+pitch = 5.U32
+bar_width = 4.U32
 stub_height = 3.U32
 
 ## Four gridlines and a baseline. The baseline is a shade stronger, because zero
