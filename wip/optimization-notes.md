@@ -159,6 +159,22 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Follow-up: native child-buffer handoff rejected
+
+The fresh profile included MountedGraph.insert_nodes (14 of 480 lifecycle
+samples). Replaced its per-node child-vector clone with mem::take, restoring
+the same buffer before sibling-identity refresh. All 187 host unit tests and
+the three-scale selection ladder/A/A passed. Candidate medians at 100/1k/10k
+were 0.582/6.601/118.221 ms, versus 0.591/6.613/119.133 ms before. The 10k A/A
+median was 117.681 ms, with sample spreads of 3.930 and 4.523 ms.
+
+This does not demonstrate a significant elapsed-work improvement. Reverted
+the temporary child-buffer ownership transfer rather than retain extra
+installation-state complexity for a sub-percent timing difference. Captures
+are under the ignored opt-native-child-buffer output directory. Host tests
+finished before timed samples started. Roc allocation counters do not measure
+these Rust vector allocations; no native allocation reduction was measured.
+
 ### Follow-up: flat route membership remains a rejected simplification
 
 A fresh post-iteration-7 leaf profile collected 480 whole-lifecycle samples:
