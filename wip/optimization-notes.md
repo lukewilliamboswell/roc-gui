@@ -159,6 +159,30 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Iteration 7: use the element-update primitive
+
+Compared two simpler ownership handoffs against iteration 6. `List.replace`
+returned the displaced child with a 10k median of 122.048 ms, versus
+131.951 ms for get/clear. `List.update` performed the recursive child update
+without an explicit empty placeholder and reached 119.133 ms (A/A 119.523 ms).
+It also reduced marked allocation calls and bytes, so it is the selected
+candidate rather than the intermediate `List.replace` form.
+
+| Rows | Median ms | A/A ms | New bytes per marked turn | Allocation calls per marked turn |
+|---|---:|---:|---:|---:|
+| 100 | 0.591 | 0.582 | 453,240 | 3,017 |
+| 1,000 | 6.613 | 6.999 | 5,005,208 | 35,309 |
+| 10,000 | 119.133 | 119.523 | 54,784,296 | 399,333 |
+
+Module tests and the complete selection ladder/A/A repeats passed for both
+forms. The selected `List.update` form supersedes the explicit handoff workaround
+and its comment; this is use of the supported collection primitive, not a
+compiler-bug claim. All 243 semantic regression specs and both counter
+real-window interaction specs passed. Three requested screenshots were
+unavailable because the capture tool was missing; appearance was not verified.
+Accepted the simpler implementation with lower measured latency and allocation
+traffic.
+
 ### Iteration 6: explicit child handoff
 
 After compact leaves, a fresh 10k lifecycle leaf profile had 578 samples.
