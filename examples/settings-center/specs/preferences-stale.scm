@@ -5,5 +5,5 @@
     (click (role button :name "Load saved profile"))
     (replace-text (role textbox :name "Profile name") "Newer draft")
     (await-task)
-    (expect-visible (text "Unsaved changes"))
+    (expect-visible (text "Unsaved changes — apply them or revert"))
     (expect-visible (text "Saved profile: Default profile"))))

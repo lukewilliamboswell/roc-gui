@@ -22,8 +22,18 @@ virtualized scrollback, and stale-completion protection.
 
 An instrument panel: a charcoal ground, regions divided by hairline borders and
 a one-point seam, 12-point body type over 18-point scrollback rows, a two-point
-radius, and one amber signal colour reserved for session status. `Theme.roc`
-holds every colour and measure the application uses.
+radius, and two status colours — amber for a session that is attached, red for
+one that was refused or failed. `Theme.roc` holds every colour and measure the
+application uses.
+
+The command bar and the filter are not peers. The command bar sends text to a
+child; the filter only narrows what is already on screen, so it sits as the
+header of the well it filters.
+
+An empty well is never a black rectangle. It carries a placard naming what the
+state is and what would change it: nothing attached, attaching, waiting for
+output, a session that ended, a filter that matches nothing, or a refusal that
+names the exact `--host-cap-process` grant the workspace was launched without.
 
 ## Error paths
 

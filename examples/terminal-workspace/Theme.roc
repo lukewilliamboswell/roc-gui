@@ -25,8 +25,13 @@ Theme := [].{
 	## Secondary labels, units, and counts.
 	dim = Gui.rgb(0x68727a)
 
-	## The one signal colour. Reserved for session status.
+	## The one signal colour. Reserved for a session that is live or starting:
+	## amber means the panel is attached to a running child.
 	signal = Gui.rgb(0xd2912f)
+
+	## A refusal or a failure. Distinct from `signal` because "the session is
+	## running" and "the session was refused" must not read the same at a glance.
+	alarm = Gui.rgb(0xc9605a)
 
 	## Key caps at rest, under the pointer, and while pressed.
 	key = Gui.rgb(0x171e24)

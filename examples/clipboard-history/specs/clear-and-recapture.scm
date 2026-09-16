@@ -9,7 +9,7 @@
     (await-ticks 1)
     (expect-visible (text "2 matching items"))
     (click (role button :name "Clear unpinned history"))
-    (expect-visible (text "Unpinned history cleared"))
+    (expect-visible (text "2 unpinned items cleared, 0 pinned kept"))
     (expect-visible (text "0 matching items"))
     (expect-not-visible (text "alpha note"))
     (expect-not-visible (text "beta task"))

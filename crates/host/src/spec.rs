@@ -385,6 +385,13 @@ impl Command {
             | Self::Focus(_)
             | Self::PressKey(_)
             | Self::AwaitTask
+            // The fixture clipboard is one process-wide store, so changing the
+            // granted source and waiting for the application's own timer to
+            // observe it mean the same thing under either runner. Without these
+            // two a windowed case could not put a single item into a
+            // clipboard-driven application, and so could not photograph one.
+            | Self::ClipboardText(_)
+            | Self::AwaitTicks(_)
             | Self::ExpectVisible(_)
             | Self::ExpectFocused(_)
             | Self::ExpectNotVisible(_)
@@ -396,8 +403,6 @@ impl Command {
             // than about the application.
             Self::Drag(..)
             | Self::ReplaceText(_, _)
-            | Self::ClipboardText(_)
-            | Self::AwaitTicks(_)
             | Self::Submit(_)
             | Self::RevokeFileGrants
             | Self::ExpectCanvasPrimitives(_, _)
@@ -2460,6 +2465,22 @@ mod tests {
             "{message}"
         );
         assert!(check_runner(&measured, Runner::Semantic).is_ok());
+    }
+
+    /// Driving the fixture clipboard is the only way to put an item into a
+    /// clipboard-driven application, so a windowed case that cannot do it
+    /// cannot photograph one. Both runners reach the same process-wide store.
+    #[test]
+    fn the_fixture_clipboard_can_be_driven_by_either_runner() {
+        let spec = parse(
+            r#"(test "s" (steps (clipboard-text "copied") (await-ticks 1) (expect-visible (text "copied"))))"#,
+        )
+        .unwrap();
+        for step in &spec.steps {
+            assert_eq!(step.command.capability(), Capability::Both);
+        }
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
     }
 
     #[test]

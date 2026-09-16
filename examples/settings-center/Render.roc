@@ -8,9 +8,32 @@ import "icons/circle-check.svg" as check_icon : List(U8)
 import "icons/lock.svg" as lock_icon : List(U8)
 
 Render := [].{
+	## One palette, one type scale. A settings application is read by scanning,
+	## so the scale has to separate a heading from a setting name from the line
+	## explaining it; when everything is within two points of everything else the
+	## eye has nothing to catch on.
 	muted = Gui.rgb(0x9db4bf)
+	faint = Gui.rgb(0x6f8794)
 	danger = Gui.rgb(0xe08b8b)
 	accent = Gui.rgb(0x4d8fb5)
+	chip = Gui.rgb(0x1b2f39)
+	chip_hover = Gui.rgb(0x25404e)
+	chip_edge = Gui.rgb(0x48666b)
+	on_accent = Gui.rgb(0x10202a)
+	chip_text = Gui.rgb(0xd7e4ea)
+	divider = Gui.rgb(0x22343d)
+
+	## Title of the window.
+	title_size = 24.U32
+
+	## Title of a panel.
+	panel_size = 16.U32
+
+	## A setting's own name, and the value in a form field.
+	body_size = 15.U32
+
+	## Field captions, summaries, counts, and hints.
+	meta_size = 12.U32
 
 	## A status mark: the one piece of a status line that is read before its
 	## sentence is. Sized to the status type it sits beside.
@@ -29,18 +52,18 @@ Render := [].{
 
 	## A section heading rendered inside a panel, above its controls.
 	heading : Str -> Elem(a)
-	heading = |title| Elem.col(Elem.ColProps.{ width: Fill, font_size: 17 }, [Elem.text(title)])
+	heading = |title| Elem.col(Elem.ColProps.{ width: Fill, font_size: panel_size }, [Elem.text(title)])
 
 	## Small explanatory text under a control.
 	hint : Str -> Elem(a)
-	hint = |text| Elem.col(Elem.ColProps.{ width: Fill, font_size: 13, fg: muted }, [Elem.text(text)])
+	hint = |text| Elem.col(Elem.ColProps.{ width: Fill, font_size: meta_size, fg: muted }, [Elem.text(text)])
 
 	## A labelled form field: a caption above the control it names.
 	field : Str, Elem(a) -> Elem(a)
 	field = |caption, control| Elem.col(
 		Elem.ColProps.{ width: Fill, gap: 4 },
 		[
-			Elem.col(Elem.ColProps.{ width: Fill, font_size: 13, fg: muted }, [Elem.text(caption)]),
+			Elem.col(Elem.ColProps.{ width: Fill, font_size: meta_size, fg: muted }, [Elem.text(caption)]),
 			control,
 		],
 	)
@@ -48,12 +71,66 @@ Render := [].{
 	## One fixed-height slot so the page never moves when the status changes.
 	status_slot : Elem(a) -> Elem(a)
 	status_slot = |content| Elem.col(
-		Elem.ColProps.{ label: "Status", width: Fill, height: Px(58), overflow_y: Clip },
+		Elem.ColProps.{ label: "Status", width: Fill, height: Px(58), justify: Center, overflow_y: Clip },
 		[content],
 	)
 
-	status_panel = |label, children| Elem.panel(
-		Elem.PanelProps.{ label, width: Fill, height: Fill, grow: True, padding: 10, gap: 8 },
+	## A status at rest is a sentence, not a surface. Framing it in a bordered,
+	## rounded panel gave it exactly the shape of the text fields above it, so a
+	## settled "Settings are saved" read as one more thing to type in. Only a
+	## state that demands an action — a failure with a Retry, a validation
+	## message the Apply button is waiting on — earns a frame.
+	quiet_status : Str, Elem(a) -> Elem(a)
+	quiet_status = |label, content| Elem.row(
+		Elem.RowProps.{ label, width: Fill, gap: 8, padding: 2, fg: muted, font_size: meta_size },
+		[content],
+	)
+
+	## A search that finds nothing is a dead end unless it says which of the two
+	## controls narrowed it away and offers the way back. "No setting matches
+	## that search" was neither, when the reason was often a category chip the
+	## person had stopped looking at.
+	empty_catalogue : Settings.State -> Elem(Settings.State)
+	empty_catalogue = |state| {
+		detail = if state.category.is_empty() {
+			"Nothing in the catalogue matches “${state.search}”."
+		} else if state.search.is_empty() {
+			"Nothing is listed under ${state.category}."
+		} else {
+			"Nothing under ${state.category} matches “${state.search}”. It may be in another category."
+		}
+		Elem.col(
+			Elem.ColProps.{ label: "Empty catalogue", width: Fill, height: Fill, grow: True, gap: 10, padding_top: Px(12) },
+			[
+				Elem.col(Elem.ColProps.{ width: Fill, font_size: body_size }, [Elem.text("No matching settings")]),
+				Elem.col(
+					Elem.ColProps.{ width: Fill, font_size: meta_size, fg: muted },
+					[Elem.text(detail)],
+				),
+				Elem.row(
+					Elem.RowProps.{ label: "Empty catalogue actions", gap: 8 },
+					[
+						Elem.action_button(
+							Elem.ActionButtonProps.{
+								caption: "Show all settings",
+								label: "Clear catalogue filters",
+								padding: 6,
+								font_size: meta_size,
+								bg: chip,
+								hover_bg: chip_hover,
+								border_width: 1,
+								border_color: chip_edge,
+								on_press: |current, _| Action.update({ ..current, category: "", search: "" }),
+							},
+						),
+					],
+				),
+			],
+		)
+	}
+
+	framed_status = |label, border, children| Elem.panel(
+		Elem.PanelProps.{ label, width: Fill, padding: 10, gap: 8, border_color: border, font_size: meta_size },
 		children,
 	)
 
@@ -66,34 +143,38 @@ Render := [].{
 			Saving(_) => True
 			_ => False
 		}
-		all_settings = Settings.settings
-		visible_settings = if state.search.is_empty() {
-			all_settings
-		} else {
-			all_settings.keep_if(|setting| setting.name.contains(state.search))
-		}
+		visible_settings = Settings.visible(state.category, state.search)
 		match_count = visible_settings.len()
-		match_summary = if state.search.is_empty() {
-			"Showing all ${match_count.to_str()} settings"
-		} else if match_count == 1 {
-			"1 setting matches “${state.search}”"
+		scope = if state.category.is_empty() {
+			"settings"
 		} else {
-			"${match_count.to_str()} settings match “${state.search}”"
+			"${state.category} settings"
 		}
-		error_surface = |message| status_panel(
+		match_summary = if state.search.is_empty() and state.category.is_empty() {
+			"All ${match_count.to_str()} settings"
+		} else if state.search.is_empty() {
+			"${match_count.to_str()} ${scope}"
+		} else if match_count == 1 {
+			"1 of the ${scope} matches “${state.search}”"
+		} else {
+			"${match_count.to_str()} of the ${scope} match “${state.search}”"
+		}
+		error_surface = |message| framed_status(
 			"Preferences error",
+			danger,
 			[
 				Elem.row(
-					Elem.RowProps.{ label: "Preferences error detail", width: Fill, gap: 10 },
+					Elem.RowProps.{ label: "Preferences error detail", width: Fill, gap: 10, align: Center },
 					[
 						mark(alert_icon, "Error mark", 18),
-						Elem.col(Elem.ColProps.{ width: Fill, grow: True, fg: danger }, [Elem.text(message)]),
+						Elem.col(Elem.ColProps.{ width: Fill, grow: True, fg: danger, font_size: meta_size }, [Elem.text(message)]),
 						Elem.action_button(
 							Elem.ActionButtonProps.{
 								caption: "Retry",
 								label: "Retry preferences",
 								enabled: !busy,
 								padding: 6,
+								font_size: meta_size,
 								on_press: |current, _| Settings.load(current),
 							},
 						),
@@ -102,95 +183,128 @@ Render := [].{
 			],
 		)
 		status = match state.status {
-			Loading(_) => status_panel("Loading preferences", [Elem.text("Loading your preferences…")])
-			Saving(_) => status_panel("Saving preferences", [Elem.text("Saving your changes…")])
+			Loading(_) => quiet_status("Loading preferences", Elem.text("Loading your preferences…"))
+			Saving(_) => quiet_status("Saving preferences", Elem.text("Saving your changes…"))
 			Failed(message) => error_surface(message)
 			_ if invalid =>
-				Elem.panel(
-					Elem.PanelProps.{ label: "Validation error", width: Fill, height: Fill, grow: True, padding: 10, border_color: danger },
-					[Elem.col(Elem.ColProps.{ fg: danger }, [Elem.text("Profile name is required")])],
+				framed_status(
+					"Validation error",
+					danger,
+					[
+						Elem.row(
+							Elem.RowProps.{ width: Fill, gap: 8, align: Center },
+							[
+								mark(alert_icon, "Invalid mark", 16),
+								Elem.col(Elem.ColProps.{ fg: danger, font_size: meta_size }, [Elem.text("Profile name is required")]),
+							],
+						),
+					],
 				)
-			_ if dirty => status_panel("Unsaved changes", [Elem.text("Unsaved changes")])
-			Applied => status_panel("Saved status", [saved_line("Your changes have been saved")])
-			Loaded => status_panel("Saved status", [saved_line("Loaded your saved profile")])
-			_ => status_panel("Saved status", [Elem.text("Settings are saved")])
+			_ if dirty => quiet_status("Unsaved changes", Elem.text("Unsaved changes — apply them or revert"))
+			Applied => quiet_status("Saved status", saved_line("Your changes have been saved"))
+			Loaded => quiet_status("Saved status", saved_line("Loaded your saved profile"))
+			_ => quiet_status("Saved status", saved_line("Settings are saved"))
 			}
 
-		categories = ["All", "Appearance", "Editor", "Privacy", "Notifications"].map(
-			|category| {
-				selected = if category == "All" {
-					state.search.is_empty()
-				} else {
-					state.search == category
-				}
-				query = if category == "All" {
-					""
-				} else {
-					category
-				}
-				Elem.action_button(
-					Elem.ActionButtonProps.{
-						caption: category,
-						label: "Category ${category}",
-						padding: 7,
-						bg: if selected {
-							accent
-						} else {
-							Gui.rgb(0x1b2f39)
-						},
-						hover_bg: if selected {
-							accent
-						} else {
-							Gui.rgb(0x25404e)
-						},
-						fg: if selected {
-							Gui.rgb(0x10202a)
-						} else {
-							Gui.rgb(0xd7e4ea)
-						},
-						border_width: 1,
-						border_color: if selected {
-							accent
-						} else {
-							Gui.rgb(0x48666b)
-						},
-						on_press: |current, _| Action.update({ ..current, search: query }),
+		chip_for = |caption, value| {
+			selected = state.category == value
+			Elem.action_button(
+				Elem.ActionButtonProps.{
+					caption,
+					label: "Category ${caption}",
+					padding: 6,
+					font_size: meta_size,
+					radius: 14,
+					bg: if selected {
+						accent
+					} else {
+						chip
 					},
-				)
+					hover_bg: if selected {
+						accent
+					} else {
+						chip_hover
+					},
+					fg: if selected {
+						on_accent
+					} else {
+						chip_text
+					},
+					border_width: 1,
+					border_color: if selected {
+						accent
+					} else {
+						chip_edge
+					},
+					on_press: |current, _| Action.update({ ..current, category: value }),
+				},
+			)
+		}
+		category_chips = [chip_for("All", "")].concat(
+			Settings.categories.map(|category| chip_for(category, category)),
+		)
+
+		## A catalogue row is two lines, not one: the setting's own name at body
+		## size and what it does underneath in the meta size. Every row used to
+		## be one line of body text with the category repeated on the front, so
+		## twelve rows read as four words repeated and nothing to scan for.
+		catalogue_row = |setting| Elem.col(
+			Elem.ColProps.{
+				label: "Setting ${setting.name}",
+				width: Fill,
+				gap: 1,
+				padding_bottom: Px(10),
+				## A hairline under each row. At two lines per row the pairs need
+				## something to keep a name from reading as the continuation of
+				## the summary above it.
+				border_color: divider,
+				border_width: 0,
+				border_bottom: Px(1),
 			},
+			[
+				Elem.col(Elem.ColProps.{ width: Fill, font_size: body_size }, [Elem.text(setting.name)]),
+				Elem.col(
+					Elem.ColProps.{ width: Fill, font_size: meta_size, fg: faint, text_overflow: Ellipsis },
+					[Elem.text(setting.summary)],
+				),
+			],
 		)
 
 		catalogue = Elem.panel(
-			Elem.PanelProps.{ label: "Settings catalogue", width: Fill, height: Fill, grow: True, gap: 10, padding: 16 },
+			Elem.PanelProps.{ label: "Settings catalogue", width: Fill, height: Fill, grow: True, gap: 12, padding: 16 },
 			[
 				heading("Browse settings"),
-				Elem.row(Elem.RowProps.{ label: "Categories", width: Fill, gap: 8 }, categories),
-				field(
-					"Search",
-					Elem.text_input(
-						Elem.TextInputProps.{
-							label: "Search settings",
-							value: state.search,
-							width: Fill,
-							placeholder: "Search every setting by name",
-							on_change: |current, event| Action.update({ ..current, search: event.value }),
-							on_submit: |_, _| Action.none,
-						},
-					),
+				## Search comes before the chips: typing is how a settings
+				## application is used once a person knows what they want, and
+				## the chips narrow whatever the search left.
+				Elem.text_input(
+					Elem.TextInputProps.{
+						label: "Search settings",
+						value: state.search,
+						width: Fill,
+						font_size: body_size,
+						placeholder: "Search every setting",
+						on_change: |current, event| Action.update({ ..current, search: event.value }),
+						on_submit: |_, _| Action.none,
+					},
 				),
-				hint(match_summary),
+				Elem.row(Elem.RowProps.{ label: "Categories", width: Fill, gap: 6 }, category_chips),
+				Elem.row(
+					Elem.RowProps.{ label: "Catalogue summary", width: Fill, gap: 8, align: Center, fg: muted, font_size: meta_size },
+					[Elem.text(match_summary)],
+				),
 				Elem.col(
 					Elem.ColProps.{ label: "Catalogue results", width: Fill, height: Fill, grow: True },
 					[
 						if match_count == 0 {
-							hint("No setting matches that search.")
+							empty_catalogue(state)
 						} else {
 							Elem.virtual_list(
 								Elem.VirtualListProps.{
 									name: "Matching settings",
-									row_height: 30,
+									row_height: 56,
 									items: visible_settings.map(
-										|setting| Elem.VirtualListItem.{ key: setting.id, content: Elem.text(setting.name) },
+										|setting| Elem.VirtualListItem.{ key: setting.id, content: catalogue_row(setting) },
 									),
 								},
 							)
@@ -211,6 +325,12 @@ Render := [].{
 							label: "Profile name",
 							value: state.draft_name,
 							width: Fill,
+							font_size: body_size,
+							border_color: if invalid {
+								danger
+							} else {
+								Gui.rgb(0x48666b)
+							},
 							placeholder: "Enter a profile name",
 							on_change: |current, event| Action.update(Settings.edit_name(current, event.value)),
 							on_submit: |current, _| Settings.apply_name(current),
@@ -224,6 +344,7 @@ Render := [].{
 							label: "Profile notes",
 							value: state.draft_notes,
 							width: Fill,
+							font_size: body_size,
 							placeholder: "Notes shared by everyone using this profile",
 							height: Px(76),
 							on_input: |current, event| Action.update(Settings.edit_notes(current, event.value)),
@@ -232,13 +353,18 @@ Render := [].{
 				),
 				hint("Saved profile: ${state.saved_name}"),
 				status_slot(status),
+				## Apply and Revert are a pair acting on the draft in front of the
+				## person. Reload discards the draft and re-reads the store — a
+				## different kind of act, so it sits apart at the far edge rather
+				## than third in a row of three identical-looking buttons.
 				Elem.row(
-					Elem.RowProps.{ label: "Profile actions", gap: 8 },
+					Elem.RowProps.{ label: "Profile actions", width: Fill, gap: 8, align: Center },
 					[
 						Elem.action_button(
 							Elem.ActionButtonProps.{
 								caption: "Apply changes",
 								label: "Apply profile",
+								font_size: meta_size,
 								enabled: if dirty {
 									!invalid and !busy
 								} else {
@@ -251,25 +377,32 @@ Render := [].{
 							Elem.ActionButtonProps.{
 								caption: "Revert",
 								label: "Revert profile",
+								font_size: meta_size,
 								enabled: dirty and !busy,
-								bg: Gui.rgb(0x1b2f39),
-								hover_bg: Gui.rgb(0x25404e),
+								bg: chip,
+								hover_bg: chip_hover,
 								border_width: 1,
-								border_color: Gui.rgb(0x48666b),
+								border_color: chip_edge,
 								on_press: |current, _| Action.update(Settings.revert_name(current)),
 							},
 						),
-						Elem.action_button(
-							Elem.ActionButtonProps.{
-								caption: "Reload saved",
-								label: "Load saved profile",
-								enabled: !busy,
-								bg: Gui.rgb(0x1b2f39),
-								hover_bg: Gui.rgb(0x25404e),
-								border_width: 1,
-								border_color: Gui.rgb(0x48666b),
-								on_press: |current, _| Settings.load(current),
-							},
+						Elem.row(
+							Elem.RowProps.{ label: "Store actions", grow: True, justify: End, gap: 0 },
+							[
+								Elem.action_button(
+									Elem.ActionButtonProps.{
+										caption: "Reload saved",
+										label: "Load saved profile",
+										font_size: meta_size,
+										enabled: !busy,
+										bg: chip,
+										hover_bg: chip_hover,
+										border_width: 1,
+										border_color: chip_edge,
+										on_press: |current, _| Settings.load(current),
+									},
+								),
+							],
 						),
 					],
 				),
@@ -280,7 +413,7 @@ Render := [].{
 			Elem.PanelProps.{ label: "Managed setting", width: Fill, gap: 12, padding: 16 },
 			[
 				Elem.row(
-					Elem.RowProps.{ label: "Managed heading", width: Fill, gap: 8 },
+					Elem.RowProps.{ label: "Managed heading", width: Fill, gap: 8, align: Center },
 					[mark(lock_icon, "Managed mark", 16), heading("Managed by your organization")],
 				),
 				field(
@@ -290,6 +423,7 @@ Render := [].{
 							label: "Disabled example",
 							value: state.disabled_value,
 							width: Fill,
+							font_size: body_size,
 							enabled: False,
 							on_change: |current, event| Action.update({ ..current, disabled_value: event.value }),
 							on_submit: |_, _| Action.none,
@@ -306,27 +440,42 @@ Render := [].{
 			],
 		)
 
-		header = Elem.col(
-			Elem.ColProps.{ label: "Application header", width: Fill, padding: 16, gap: 8 },
+		## Title and workspace read as one block on the left, with the only
+		## action in the bar held against the right edge. The workspace name is
+		## the larger of the two lines under the title because it is what the
+		## Rename button beside it acts on.
+		header = Elem.row(
+			Elem.RowProps.{
+				label: "Application header",
+				width: Fill,
+				padding: 16,
+				padding_bottom: Px(12),
+				gap: 12,
+				align: Center,
+			},
 			[
-				Elem.col(Elem.ColProps.{ width: Fill, font_size: 22 }, [Elem.text("Settings Center")]),
-				Elem.row(
-					Elem.RowProps.{ label: "Workspace", gap: 12 },
+				Elem.col(
+					Elem.ColProps.{ label: "Application identity", grow: True, gap: 2 },
 					[
-						hint("Workspace: ${state.modal_value}"),
-						Elem.action_button(
-							Elem.ActionButtonProps.{
-								caption: "Rename…",
-								label: "Open rename dialog",
-								padding: 6,
-								bg: Gui.rgb(0x1b2f39),
-								hover_bg: Gui.rgb(0x25404e),
-								border_width: 1,
-								border_color: Gui.rgb(0x48666b),
-								on_press: |current, _| Action.update({ ..current, dialog_open: True, modal_draft: current.modal_value }),
-							},
+						Elem.col(Elem.ColProps.{ font_size: title_size }, [Elem.text("Settings Center")]),
+						Elem.col(
+							Elem.ColProps.{ font_size: meta_size, fg: muted },
+							[Elem.text("Workspace: ${state.modal_value}")],
 						),
 					],
+				),
+				Elem.action_button(
+					Elem.ActionButtonProps.{
+						caption: "Rename…",
+						label: "Open rename dialog",
+						padding: 6,
+						font_size: meta_size,
+						bg: chip,
+						hover_bg: chip_hover,
+						border_width: 1,
+						border_color: chip_edge,
+						on_press: |current, _| Action.update({ ..current, dialog_open: True, modal_draft: current.modal_value }),
+					},
 				),
 			],
 		)
@@ -337,10 +486,17 @@ Render := [].{
 				header,
 				Elem.row(
 					Elem.RowProps.{ label: "Settings body", width: Fill, height: Fill, grow: True, padding: 16, gap: 16 },
+					## Both columns were `width: Fill, grow: True` with nothing
+					## holding them back, so the pair laid out wider than the
+					## window and the detail column's right-hand side — the
+					## Reload button, the managed panel's border — fell off the
+					## screen at 760 points. `width: Px(0)` with `grow` makes the
+					## two share what there is instead of each asking for all of
+					## it and the row overflowing by the difference.
 					[
-						Elem.col(Elem.ColProps.{ label: "Catalogue column", width: Fill, height: Fill, grow: True }, [catalogue]),
+						Elem.col(Elem.ColProps.{ label: "Catalogue column", width: Px(0), height: Fill, grow: True }, [catalogue]),
 						Elem.col(
-							Elem.ColProps.{ label: "Detail column", width: Fill, height: Fill, grow: True },
+							Elem.ColProps.{ label: "Detail column", width: Px(0), height: Fill, grow: True },
 							[
 								Elem.scroll(
 									Elem.ScrollProps.{
@@ -365,7 +521,7 @@ Render := [].{
 					Elem.dialog(
 						Elem.DialogProps.{ label: "Rename workspace", on_dismiss: |current, _| Action.update({ ..current, dialog_open: False }), gap: 14 },
 						[
-							Elem.col(Elem.ColProps.{ width: Fill, font_size: 18 }, [Elem.text("Rename this workspace")]),
+							Elem.col(Elem.ColProps.{ width: Fill, font_size: panel_size + 2 }, [Elem.text("Rename this workspace")]),
 							field(
 								"Workspace name",
 								Elem.text_input(
@@ -373,6 +529,7 @@ Render := [].{
 										label: "Workspace name",
 										value: state.modal_draft,
 										width: Fill,
+										font_size: body_size,
 										placeholder: "Workspace name",
 										on_change: |current, event| Action.update({ ..current, modal_draft: event.value }),
 										on_submit: |current, _| if current.modal_draft.is_empty() {
@@ -384,17 +541,20 @@ Render := [].{
 								),
 							),
 							hint("The workspace name appears in the title of this window."),
+							## The confirm sits at the trailing edge with the way out
+							## beside it, which is where a modal's commit belongs.
 							Elem.row(
-								Elem.RowProps.{ label: "Rename actions", gap: 8 },
+								Elem.RowProps.{ label: "Rename actions", width: Fill, gap: 8, justify: End },
 								[
 									Elem.action_button(
 										Elem.ActionButtonProps.{
 											caption: "Cancel",
 											label: "Cancel rename",
-											bg: Gui.rgb(0x1b2f39),
-											hover_bg: Gui.rgb(0x25404e),
+											font_size: meta_size,
+											bg: chip,
+											hover_bg: chip_hover,
 											border_width: 1,
-											border_color: Gui.rgb(0x48666b),
+											border_color: chip_edge,
 											on_press: |current, _| Action.update({ ..current, dialog_open: False }),
 										},
 									),
@@ -402,6 +562,7 @@ Render := [].{
 										Elem.ActionButtonProps.{
 											caption: "Rename",
 											label: "Confirm rename",
+											font_size: meta_size,
 											enabled: !state.modal_draft.is_empty(),
 											on_press: |current, _| Action.update({ ..current, dialog_open: False, modal_value: current.modal_draft }),
 										},
