@@ -27,6 +27,14 @@ through reviewed locks that record their exact identities, hashes, and sizes.
   960-pixel-wide rendition Wikimedia Commons serves of the original.
   `examples/music-player/assets/NOTICE.md` records the file page, the licence
   fields the Commons API reports for it, and the digest of the vendored copy.
+- Four recordings of public-domain piano music by Chopin and Schubert, used as
+  the demonstration library in `examples/music-player/library/`. Each is
+  published on Wikimedia Commons under CC0 1.0 Universal, and each was
+  identified by the SHA-1 of its download so the licence quoted is the one on
+  that exact file page. They are redistributed as ten-second mono excerpts,
+  transcoded to PCM WAV because the host builds Rodio with the `wav` feature
+  only; `examples/music-player/library/NOTICE.md` records every file page, the
+  licence fields the Commons API reports, and the exact transcoding command.
 
 Dependency producer archives carry the notices applicable to their payload and
 the corresponding sources required by their redistribution terms. Host releases
