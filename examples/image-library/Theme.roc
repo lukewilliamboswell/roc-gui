@@ -22,6 +22,12 @@ Theme := [].{
 	quiet_hover = Gui.rgb(0xefece4)
 	quiet_active = Gui.rgb(0xe4e0d5)
 
+	## The row whose picture is in the viewer. A gallery that does not say which
+	## of its rows you are looking at makes a person compare two file names to
+	## find out. It is a held tint rather than the accent: the picture is the
+	## subject, and the row is only pointing at it.
+	chosen = Gui.rgb(0xeae6dc)
+
 	## The single emphasised control, used once for opening a folder.
 	accent = Gui.rgb(0x1f1f23)
 	accent_hover = Gui.rgb(0x33333a)
@@ -47,6 +53,8 @@ Theme := [].{
 	media_radius = 16.U32
 	control_radius = 10.U32
 
-	## One gallery row, sized around a 112x80 thumbnail with air around it.
+	## The side of a square thumbnail, and the gallery row it sits in with air
+	## above and below it.
+	thumbnail = 88.U32
 	row_height = 104.U32
 }

@@ -8,6 +8,42 @@ import Studio
 import "icons/shape-rectangle.svg" as rectangle_glyph : List(U8)
 import "icons/shape-ellipse.svg" as ellipse_glyph : List(U8)
 
+## The studio's palette and type scale. Every colour and every size the window
+## uses is named here, so a panel cannot quietly drift from its neighbour and
+## nothing falls back to a host default that belongs to some other application.
+##
+## The ground is a cold slate, the stage is warm paper, and exactly two accents
+## carry meaning: amber marks the timeline — the frame counter, the keyframes a
+## person recorded — and coral is the playhead alone, the one thing that moves.
+ground = Rgb(0x172126)
+sunken = Rgb(0x111c21)
+raised = Rgb(0x1d2c33)
+edge = Rgb(0x2c4149)
+stage_edge = Rgb(0x48666b)
+paper = Rgb(0xf7f3e8)
+ink = Rgb(0xf4f1de)
+ink_soft = Rgb(0xcfe0e5)
+ink_quiet = Rgb(0x9fb4bd)
+amber = Rgb(0xf2cc8f)
+coral = Rgb(0xe07a5f)
+control = Rgb(0x24404a)
+control_hover = Rgb(0x2f5462)
+control_press = Rgb(0x1b3039)
+control_off = Rgb(0x1a272d)
+control_off_ink = Rgb(0x5d747d)
+row_selected = Rgb(0x2b4a57)
+row_hover = Rgb(0x35596a)
+
+## Type. Nothing is left at the host default size, because a window in which
+## every caption and every value is whatever size the platform happened to pick
+## has no voice of its own.
+title_size = 20.U32
+name_size = 17.U32
+read_size = 15.U32
+body_size = 14.U32
+label_size = 13.U32
+caps_size = 12.U32
+
 Render := [].{
 	render = |state| {
 		selected_shape = match state.selected {
@@ -18,7 +54,7 @@ Render := [].{
 			Paused => transport("Play", "Play", |current, _| Studio.play!(current))
 			Playing(handle) => transport("Pause", "Pause", |current, _| Studio.pause!(current, handle))
 		}
-		Elem.col(Elem.ColProps.{ label: "Animation studio", gap: 12, padding: 16, width: Fill, height: Fill, grow: True, bg: Rgb(0x172126), fg: Rgb(0xf4f1de), overflow_y: Clip }, [
+		Elem.col(Elem.ColProps.{ label: "Animation studio", gap: 12, padding: 16, width: Fill, height: Fill, grow: True, bg: ground, fg: ink, font_size: body_size, overflow_y: Clip }, [
 			toolbar(state),
 			Elem.row(Elem.RowProps.{ label: "Workspace", gap: 12, grow: True, width: Fill, height: Fill, overflow_y: Clip }, [
 				layers_panel(state),
@@ -26,7 +62,7 @@ Render := [].{
 					label: "Stage",
 					primitives: state.document.shapes.map(|shape| primitive(shape, state.selected)),
 					on_pointer: Studio.pointer,
-					grow: True, width: Fill, height: Fill, bg: Rgb(0xf7f3e8), border_color: Rgb(0x48666b), border_width: 1, radius: 6,
+					grow: True, width: Fill, height: Fill, bg: paper, border_color: stage_edge, border_width: 1, radius: 6,
 				}),
 				inspector_panel(selected_shape, state),
 			]),
@@ -37,19 +73,19 @@ Render := [].{
 
 	## The application title is set apart from the controls it sits beside, and
 	## every button caption names the action it performs.
-	toolbar = |state| Elem.row(Elem.RowProps.{ label: "Toolbar", gap: 10, width: Fill }, [
-		Elem.row(Elem.RowProps.{ width: Px(220), padding: 0, font_size: 20, fg: Rgb(0xf2cc8f) }, [Elem.text("Animation Studio")]),
-		Elem.button({ label: "Add rectangle", name: "Add rectangle", on_press: |current, _| Action.update(Studio.add_rectangle(current)) }),
-		Elem.button({ label: "Add ellipse", name: "Add ellipse", on_press: |current, _| Action.update(Studio.add_ellipse(current)) }),
+	toolbar = |state| Elem.row(Elem.RowProps.{ label: "Toolbar", gap: 10, width: Fill, align: Center }, [
+		Elem.row(Elem.RowProps.{ width: Px(220), padding: 0, font_size: title_size, font_weight: 600, fg: amber, align: Center }, [Elem.text("Animation Studio")]),
+		command("Add rectangle", "Add rectangle", True, Auto, |current, _| Action.update(Studio.add_rectangle(current))),
+		command("Add ellipse", "Add ellipse", True, Auto, |current, _| Action.update(Studio.add_ellipse(current))),
 		Elem.row(Elem.RowProps.{ width: Px(16) }, []),
-		Elem.action_button(Elem.ActionButtonProps.{ caption: "Undo", label: "Undo", enabled: state.undo.len() > 0, on_press: |current, _| Action.update(Studio.undo(current)) }),
-		Elem.action_button(Elem.ActionButtonProps.{ caption: "Redo", label: "Redo", enabled: state.redo.len() > 0, on_press: |current, _| Action.update(Studio.redo(current)) }),
+		command("Undo", "Undo", state.undo.len() > 0, Px(72), |current, _| Action.update(Studio.undo(current))),
+		command("Redo", "Redo", state.redo.len() > 0, Px(72), |current, _| Action.update(Studio.redo(current))),
 	])
 
 	## Layer rows are selectable controls in a scroll region, so a long document
 	## never pushes the timeline or the status bar out of the window.
-	layers_panel = |state| Elem.panel(Elem.PanelProps.{ label: "Layers", width: Px(230), height: Fill, gap: 10, overflow_y: Clip }, [
-		Elem.row(Elem.RowProps.{ width: Fill, font_size: 12, fg: Rgb(0x9fb4bd) }, [Elem.text("LAYERS (${state.document.shapes.len().to_str()})")]),
+	layers_panel = |state| Elem.panel(Elem.PanelProps.{ label: "Layers", width: Px(230), height: Fill, gap: 10, bg: sunken, border_color: edge, overflow_y: Clip }, [
+		Elem.row(Elem.RowProps.{ width: Fill, font_size: caps_size, font_weight: 600, fg: ink_quiet }, [Elem.text("LAYERS (${state.document.shapes.len().to_str()})")]),
 		Elem.scroll(Elem.ScrollProps.{
 			name: "Layer list",
 			content: Elem.col(Elem.ColProps.{ label: "Layer rows", width: Fill, gap: 4 }, state.document.shapes.map(|shape| layer_row(shape, state.selected))),
@@ -80,27 +116,37 @@ Render := [].{
 
 	layer_row = |shape, selected| {
 		is_selected = selected == Some(shape.id)
-		Elem.row(Elem.RowProps.{ gap: 0, width: Fill, radius: 6, bg: if is_selected Rgb(0x2b4a57) else Default }, [
+		Elem.row(Elem.RowProps.{ gap: 0, width: Fill, radius: 6, align: Center, bg: if is_selected row_selected else Default }, [
 			kind_glyph(shape),
 			Elem.action_button(Elem.ActionButtonProps.{
 				caption: shape.name,
 				label: "Select ${shape.name}",
 				on_press: |current, _| Action.update(Studio.select_shape(current, shape.id)),
-				padding: 6, radius: 6,
-				bg: if is_selected Rgb(0x2b4a57) else Rgb(0x172126),
-				hover_bg: Rgb(0x35596a),
-				fg: Rgb(0xf4f1de),
+				width: Fill,
+				justify: Start,
+				padding: 8, radius: 6,
+				font_size: body_size,
+				## At rest a layer row is its panel, not a slab of a different
+				## colour sitting beside its own glyph: the row and the control
+				## inside it have to read as one thing.
+				bg: if is_selected row_selected else Default,
+				hover_bg: row_hover,
+				active_bg: control_press,
+				fg: ink,
 			}),
 		])
 	}
 
 	inspector_panel = |selected_shape, state| {
 		rows = match selected_shape {
-			Err(_) => [Elem.text("No layer selected"), Elem.text("Select a layer or press a shape on the stage.")]
+			Err(_) => [
+				Elem.row(Elem.RowProps.{ width: Fill, font_size: name_size, fg: ink }, [Elem.text("No layer selected")]),
+				Elem.row(Elem.RowProps.{ width: Fill, font_size: label_size, fg: ink_quiet }, [Elem.text("Select a layer or press a shape on the stage.")]),
+			]
 			Ok(shape) => {
 				keys = state.document.keyframes.keep_if(|key| key.shape_id == shape.id).len()
 				[
-					Elem.row(Elem.RowProps.{ width: Fill, font_size: 17 }, [Elem.text(shape.name)]),
+					Elem.row(Elem.RowProps.{ width: Fill, font_size: name_size, fg: ink }, [Elem.text(shape.name)]),
 					field("Kind", Studio.kind_name(shape.kind)),
 					field("Position", "${shape.x.to_str()}, ${shape.y.to_str()}"),
 					field("Size", "${shape.width.to_str()} × ${shape.height.to_str()}"),
@@ -108,38 +154,66 @@ Render := [].{
 				]
 			}
 		}
-		Elem.panel(Elem.PanelProps.{ label: "Inspector", width: Px(230), height: Fill, gap: 10, overflow_y: Clip }, [
-			Elem.row(Elem.RowProps.{ width: Fill, font_size: 12, fg: Rgb(0x9fb4bd) }, [Elem.text("INSPECTOR")]),
+		Elem.panel(Elem.PanelProps.{ label: "Inspector", width: Px(230), height: Fill, gap: 10, bg: sunken, border_color: edge, overflow_y: Clip }, [
+			Elem.row(Elem.RowProps.{ width: Fill, font_size: caps_size, font_weight: 600, fg: ink_quiet }, [Elem.text("INSPECTOR")]),
 		].concat(rows).append(
-			Elem.row(Elem.RowProps.{ width: Fill, font_size: 12, fg: Rgb(0x9fb4bd) }, [Elem.text("Keyframes in document: ${state.document.keyframes.len().to_str()}")]),
+			Elem.row(Elem.RowProps.{ width: Fill, font_size: caps_size, fg: ink_quiet }, [Elem.text("Keyframes in document: ${state.document.keyframes.len().to_str()}")]),
 		))
 	}
 
-	field = |name, value| Elem.row(Elem.RowProps.{ width: Fill, gap: 8 }, [
-		Elem.row(Elem.RowProps.{ width: Px(76), fg: Rgb(0x9fb4bd), font_size: 13 }, [Elem.text(name)]),
-		Elem.text(value),
+	## A field's value is set in a monospaced face because most of them are
+	## numbers that change while a person is dragging, and proportional digits
+	## make a position readout jitter as it counts.
+	field = |name, value| Elem.row(Elem.RowProps.{ width: Fill, gap: 8, align: Center }, [
+		Elem.row(Elem.RowProps.{ width: Px(76), fg: ink_quiet, font_size: label_size }, [Elem.text(name)]),
+		Elem.row(Elem.RowProps.{ grow: True, fg: ink, font_size: label_size, font_face: Monospace }, [Elem.text(value)]),
 	])
 
-	transport = |caption, name, on_press| Elem.action_button(Elem.ActionButtonProps.{ caption, label: name, on_press, width: Px(96) })
+	## Every button in the window is this button. A disabled control is drawn
+	## deliberately: the host's default would leave Undo at rest looking like a
+	## control that simply has not been pressed yet.
+	command = |caption, name, enabled, width, on_press| Elem.action_button(Elem.ActionButtonProps.{
+		caption,
+		label: name,
+		enabled,
+		on_press,
+		width,
+		padding: 10,
+		padding_top: Px(7),
+		padding_bottom: Px(7),
+		radius: 6,
+		font_size: body_size,
+		bg: control,
+		hover_bg: control_hover,
+		active_bg: control_press,
+		disabled_bg: control_off,
+		disabled_fg: control_off_ink,
+		fg: ink,
+	})
+
+	transport = |caption, name, on_press| command(caption, name, True, Px(96), on_press)
 
 	## The timeline draws a real track: ticks, a marker for every keyframe, and a
 	## playhead at the current frame. Pressing the track scrubs to that frame.
-	timeline_panel = |state, play_control| Elem.panel(Elem.PanelProps.{ label: "Timeline", width: Fill, gap: 10 }, [
-		Elem.row(Elem.RowProps.{ width: Fill, gap: 8 }, [
+	timeline_panel = |state, play_control| Elem.panel(Elem.PanelProps.{ label: "Timeline", width: Fill, gap: 10, bg: sunken, border_color: edge }, [
+		Elem.row(Elem.RowProps.{ width: Fill, gap: 8, align: Center }, [
 			transport("−10", "Scrub backward", |current, _| Action.update(Studio.scrub_back(current))),
 			play_control,
 			transport("+10", "Scrub forward", |current, _| Action.update(Studio.scrub_forward(current))),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Add keyframe", label: "Add keyframe", on_press: |current, _| Action.update(Studio.add_keyframe(current)) }),
+			command("Add keyframe", "Add keyframe", True, Auto, |current, _| Action.update(Studio.add_keyframe(current))),
 			Elem.row(Elem.RowProps.{ width: Fill, grow: True }, []),
-			Elem.row(Elem.RowProps.{ font_size: 15, fg: Rgb(0xf2cc8f) }, [Elem.text("Frame ${state.frame.to_str()} of ${Studio.last_frame.to_str()}")]),
+			## The frame counter is the one number in the window that changes
+			## every fiftieth of a second while playback runs, so it is set in a
+			## fixed-width face; proportional digits make it twitch.
+			Elem.row(Elem.RowProps.{ font_size: read_size, fg: amber, font_face: Monospace }, [Elem.text(Studio.frame_status(state.frame))]),
 		]),
 		Elem.canvas(Elem.CanvasProps.{
 			label: "Timeline track",
 			primitives: track_primitives(state),
 			on_pointer: Studio.timeline_pointer,
-			width: Px(1160), height: Px(78), bg: Rgb(0x111c21), border_color: Rgb(0x2c4149), border_width: 1, radius: 6,
+			width: Px(1160), height: Px(78), bg: ground, border_color: edge, border_width: 1, radius: 6,
 		}),
-		Elem.row(Elem.RowProps.{ label: "Timeline ticks", gap: 0, width: Px(1160), font_size: 12, fg: Rgb(0x9fb4bd) },
+		Elem.row(Elem.RowProps.{ label: "Timeline ticks", gap: 0, width: Px(1160), font_size: caps_size, font_face: Monospace, fg: ink_quiet },
 			major_ticks.map(|frame| Elem.row(Elem.RowProps.{ width: Px(191) }, [Elem.text(frame.to_str())])).append(Elem.text(Studio.last_frame.to_str()))),
 	])
 
@@ -152,26 +226,26 @@ Render := [].{
 	track_primitives = |state| {
 		head_x = Studio.frame_to_x(state.frame)
 		track = [
-			Rectangle(Elem.CanvasRectangle.{ key: 1, label: "Track", x: Studio.track_x0, y: 20, width: 1144, height: 18, fill: Rgb(0x1d2c33), radius: 9 }),
-			Rectangle(Elem.CanvasRectangle.{ key: 2, label: "Elapsed", x: Studio.track_x0, y: 20, width: I32.to_u32_wrap(head_x - Studio.track_x0), height: 18, fill: Rgb(0x35596a), radius: 9 }),
+			Rectangle(Elem.CanvasRectangle.{ key: 1, label: "Track", x: Studio.track_x0, y: 20, width: 1144, height: 18, fill: raised, radius: 9 }),
+			Rectangle(Elem.CanvasRectangle.{ key: 2, label: "Elapsed", x: Studio.track_x0, y: 20, width: I32.to_u32_wrap(head_x - Studio.track_x0), height: 18, fill: row_hover, radius: 9 }),
 		]
 		ticks = all_ticks.map(|frame| {
 			x = Studio.frame_to_x(frame)
 			major = frame % 20 == 0
-			Line(Elem.CanvasLine.{ key: 1000 + frame.to_u64(), label: "Tick ${frame.to_str()}", x1: x, y1: 44, x2: x, y2: if major 58 else 52, stroke: if major Rgb(0x6f8b95) else Rgb(0x3c5058), stroke_width: 1 })
+			Line(Elem.CanvasLine.{ key: 1000 + frame.to_u64(), label: "Tick ${frame.to_str()}", x1: x, y1: 44, x2: x, y2: if major 58 else 52, stroke: if major ink_quiet else Rgb(0x3c5058), stroke_width: 1 })
 		})
 		markers = state.document.keyframes.map(|key| {
 			x = Studio.frame_to_x(key.frame)
-			Rectangle(Elem.CanvasRectangle.{ key: 100000 + key.shape_id * 200 + key.frame.to_u64(), label: "Keyframe ${key.frame.to_str()}", x: x - 5, y: 60, width: 11, height: 11, fill: Rgb(0xf2cc8f), radius: 2 })
+			Rectangle(Elem.CanvasRectangle.{ key: 100000 + key.shape_id * 200 + key.frame.to_u64(), label: "Keyframe ${key.frame.to_str()}", x: x - 5, y: 60, width: 11, height: 11, fill: amber, radius: 2 })
 		})
 		playhead = [
-			Rectangle(Elem.CanvasRectangle.{ key: 3, label: "Playhead head", x: head_x - 6, y: 2, width: 13, height: 10, fill: Rgb(0xe07a5f), radius: 2 }),
-			Line(Elem.CanvasLine.{ key: 4, label: "Playhead", x1: head_x, y1: 2, x2: head_x, y2: 74, stroke: Rgb(0xe07a5f), stroke_width: 2 }),
+			Rectangle(Elem.CanvasRectangle.{ key: 3, label: "Playhead head", x: head_x - 6, y: 2, width: 13, height: 10, fill: coral, radius: 2 }),
+			Line(Elem.CanvasLine.{ key: 4, label: "Playhead", x1: head_x, y1: 2, x2: head_x, y2: 74, stroke: coral, stroke_width: 2 }),
 		]
 		track.concat(ticks).concat(markers).concat(playhead)
 	}
 
-	status_bar = |state| Elem.row(Elem.RowProps.{ label: "Status bar", width: Fill, padding: 10, gap: 8, bg: Rgb(0x111c21), border_color: Rgb(0x2c4149), border_width: 1, radius: 6, fg: Rgb(0xcfe0e5), font_size: 13 }, [
+	status_bar = |state| Elem.row(Elem.RowProps.{ label: "Status bar", width: Fill, padding: 10, gap: 8, bg: sunken, border_color: edge, border_width: 1, radius: 6, fg: ink_soft, font_size: label_size }, [
 		Elem.text(state.status),
 	])
 }

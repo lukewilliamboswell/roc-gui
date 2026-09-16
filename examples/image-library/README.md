@@ -14,13 +14,34 @@ roc examples/image-library/main.roc -- --host-cap-dir examples/image-library/fix
 Choose **Open folder** to scan the granted directory. The gallery reads bounded
 child bytes, validates raster headers or SVG structure, reports corrupt and
 unsupported entries alongside usable images, and presents fixed-height
-virtualized thumbnail rows. Selection shows dimensions and encoded byte count.
+virtualized thumbnail rows. The row whose picture is in the viewer is held in a
+tint, so the gallery says which of its rows you are looking at instead of making
+you compare two file names. Selection shows dimensions and encoded byte count.
 Fit, fill, actual-size and grayscale controls update the production
 `Elem.ImageProps` renderer; the host never resolves an image path or URL.
 
+The three fit controls are one exclusive set, and the one in force says so in
+its own fill and in its own accessible name. There is no separate line spelling
+out the current view: three buttons named Fit, Fill and Actual cannot be
+clarified by a fourth thing that repeats one of their captions. The accessible
+name carries it too because the platform's action button has no pressed state to
+expose, and a person reading the screen aloud is owed the same fact as a person
+looking at the colour.
+
+## When no folder is granted
+
+A refusal is a state the application is designed for, not an error string it
+dumps. `specs/denied.scm` runs with no grant at all: the picker refuses, and the
+wall carries a band saying what happened, that nothing already open has changed,
+and which control answers it — the one that is already in the header, so the
+refusal points at it rather than growing a second one. Nothing is invented in
+place of the folder: no directory is listed, nothing is read, and the gallery
+keeps its invitation. `specs/window-denied.scm` photographs it.
+
 The specifications cover browsing, metadata, corrupt and unsupported entries,
-filtering, transforms, stale request identity, image-owner counters, and a
-24-image 8000×6000 collection reached through the ordinary folder workflow.
+filtering, transforms, refusal and retry, stale request identity, image-owner
+counters, and a 24-image 8000×6000 collection reached through the ordinary
+folder workflow.
 The fixtures are deterministic automation provisioning, not evidence of
 trusted chooser consent.
 

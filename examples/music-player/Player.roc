@@ -8,12 +8,15 @@ import pf.Gui
 Player := [].{
 	State : State
 	init : State
-	init = { art: NoArt, chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
+	init = { alarm: False, art: NoArt, chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
 	render : State -> Elem(State)
 	render = render
 }
 
-Track : { name : Str }
+## A queue row. `name` is the file the decoder is asked for; `title` is what a
+## person reads. They differ because a file extension is a fact about storage,
+## not about music, and a queue that shows one reads like a directory listing.
+Track : { name : Str, title : Str }
 Library : [Empty, Loaded({ directory : Files.Dir.Read, output : Audio.Output, tracks : List(Track) })]
 Playback : [Idle, Active({ index : U64, paused : Bool, track : Audio.Track }), Stopped]
 
@@ -26,7 +29,16 @@ Art : [NoArt, Cover(List(U8)), NoCover]
 ## chosen the moment it is clicked and only starts once it has loaded, and a
 ## track that fails to decode stays chosen so the failure has a place to sit.
 Chosen : [Nothing, At(U64)]
-State : { art : Art, chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
+## `alarm` is the kind of the message in `status`, not a second message: a
+## report or a failure. Carrying the kind beside the text is what lets a failure
+## look like one. A decode error rendered in the same quiet grey as "Paused" is
+## a designed state only by accident.
+State : { alarm : Bool, art : Art, chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
+
+## The two ways of saying something. Every transition goes through one of them,
+## so no path can leave a stale alarm colouring the next ordinary message.
+report = |state, message| { ..state, alarm: False, status: message }
+alarmed = |state, message| { ..state, alarm: True, status: message }
 
 ## The asset set this application ships with. The expectation is compared with
 ## the `roc-assets.manifest` beside the artwork when the store opens, so a
@@ -55,6 +67,22 @@ read_cover! = |{}| match Assets.open!(Assets.with_manifest(Assets.content_direct
 
 is_audio = |name| Str.ends_with(name, ".wav")
 
+## The title a row shows: the file name without the extension the host needs.
+## A name that is nothing but an extension keeps its name, so a row can never
+## come out blank and unclickable.
+track_title = |name| {
+	bytes = Str.to_utf8(name)
+	length = List.len(bytes)
+	if length > 4 {
+		match Str.from_utf8(bytes.take_first(length - 4)) {
+			Ok(title) => title
+			Err(_) => name
+		}
+	} else {
+		name
+	}
+}
+
 audio_error = |err| match err {
 	AcquireAudioErr(_) => "Audio output acquisition failed"
 	LoadAudioErr(Unsupported) => "Track format is unsupported"
@@ -68,7 +96,7 @@ audio_error = |err| match err {
 }
 
 scan = |state| Action.task({
-	pending: { ..state, status: "Scanning…" },
+	pending: report(state, "Scanning…"),
 	run: || {
 		## The cover is read whatever the chooser goes on to answer. A folder a
 		## person declined to pick is not a reason for the sleeve to stay bare.
@@ -82,7 +110,7 @@ scan = |state| Action.task({
 				Ok(output) => match Files.Dir.list!(selection.directory) {
 					Err(_) => ScanFailed("Music folder could not be read")
 					Ok(entries) => {
-						tracks = List.keep_oks(entries, |entry| if entry.kind == File and is_audio(entry.name) { Ok({ name: entry.name }) } else { Err({}) })
+						tracks = List.keep_oks(entries, |entry| if entry.kind == File and is_audio(entry.name) { Ok({ name: entry.name, title: track_title(entry.name) }) } else { Err({}) })
 						Scanned({ directory: selection.directory, output, tracks })
 					}
 				}
@@ -93,9 +121,9 @@ scan = |state| Action.task({
 	resolve: |latest, result| {
 		dressed = { ..latest, art: result.art }
 		match result.outcome {
-			ScanFailed(message) => Action.update({ ..dressed, status: message })
-			ScanCanceled => Action.update({ ..dressed, status: "Folder choice canceled" })
-			Scanned(library) => Action.update({ ..dressed, chosen: Nothing, library: Loaded(library), playback: Idle, status: "${U64.to_str(List.len(library.tracks))} tracks" })
+			ScanFailed(message) => Action.update(alarmed(dressed, message))
+			ScanCanceled => Action.update(report(dressed, "Folder choice canceled"))
+			Scanned(library) => Action.update(report({ ..dressed, chosen: Nothing, library: Loaded(library), playback: Idle }, "${U64.to_str(List.len(library.tracks))} tracks"))
 		}
 	},
 })
@@ -105,7 +133,7 @@ play_index = |state, library, index| match library.tracks.get(index) {
 	Ok(item) => {
 		generation = state.generation + 1
 		Action.task({
-		pending: { ..state, chosen: At(index), generation, status: "Loading ${item.name}…" },
+		pending: report({ ..state, chosen: At(index), generation }, "Loading…"),
 		run: || match Audio.load!(library.output, library.directory, item.name) {
 			Err(err) => PlayFailed(generation, audio_error(err))
 			Ok(loaded) => match Audio.play!(loaded.track) {
@@ -114,28 +142,62 @@ play_index = |state, library, index| match library.tracks.get(index) {
 			}
 		},
 		resolve: |latest, result| match result {
-			PlayFailed(request, message) => if request == latest.generation { Action.update({ ..latest, status: message }) } else { Action.update(latest) }
-			PlayStarted(request, started_index, track) => if request == latest.generation { Action.update({ ..latest, playback: Active({ index: started_index, paused: False, track }), status: "Playing ${item.name}" }) } else { Action.task({ pending: latest, run: || Audio.stop!(track), resolve: |current, _| Action.update(current) }) }
+			PlayFailed(request, message) => if request == latest.generation { Action.update(alarmed(latest, message)) } else { Action.update(latest) }
+			PlayStarted(request, started_index, track) => if request == latest.generation { Action.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing")) } else { Action.task({ pending: latest, run: || Audio.stop!(track), resolve: |current, _| Action.update(current) }) }
 		},
 	}) }
 }
 
 stop = |state| match state.playback {
-	Active(current) => Action.task({ pending: { ..state, generation: state.generation + 1, status: "Stopping…" }, run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, chosen: Nothing, playback: Stopped, status: "Stopped" })
-		Err(_) => Action.update({ ..latest, status: "Stop failed" }) } })
+	Active(current) => Action.task({ pending: report({ ..state, generation: state.generation + 1 }, "Stopping…"), run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
+		Err(_) => Action.update(alarmed(latest, "Stop failed")) } })
 	_ => Action.update(state)
 }
 
-seek_forward = |state| match state.playback {
-	Active(current) => Action.task({ pending: { ..state, status: "Seeking…" }, run: || Audio.seek!(current.track, 100), resolve: |latest, result| match result { Ok(_) => Action.update({ ..latest, status: "Position 100 ms" })
-		Err(err) => Action.update({ ..latest, status: audio_error(err) }) } })
+## How far a skip moves. Five seconds is a musical distance rather than a
+## machine one: it is long enough to hear that the track moved.
+skip_ahead_ms = 5000
+
+## Skipping forward is a genuinely relative move: the position is read, and the
+## seek goes to where the track actually is plus the skip. A control captioned
+## with an offset that quietly seeks to a fixed millisecond is a lie the first
+## press hides and the second press exposes.
+skip_forward = |state| match state.playback {
+	Active(current) => Action.task({
+		pending: report(state, "Skipping…"),
+		run: || match Audio.status!(current.track) {
+			Err(err) => SkipFailed(audio_error(err))
+			Ok(status) => {
+				target = status.position_ms + skip_ahead_ms
+				match Audio.seek!(current.track, target) {
+					Err(err) => SkipFailed(audio_error(err))
+					Ok(_) => Skipped(target)
+				}
+			}
+		},
+		resolve: |latest, result| match result {
+			SkipFailed(message) => Action.update(alarmed(latest, message))
+			Skipped(position) => Action.update(report(latest, "Position ${U64.to_str(position)} ms"))
+		},
+	})
 	_ => Action.update(state)
 }
 
-refresh_status = |state| match state.playback {
-	Active(current) => Action.task({ pending: state, run: || Audio.status!(current.track), resolve: |latest, result| match result { Ok(status) => Action.update({ ..latest, status: "Position ${U64.to_str(status.position_ms)} ms" })
-		Err(err) => Action.update({ ..latest, status: audio_error(err) }) } })
+show_position = |state| match state.playback {
+	Active(current) => Action.task({ pending: state, run: || Audio.status!(current.track), resolve: |latest, result| match result { Ok(status) => Action.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
+		Err(err) => Action.update(alarmed(latest, audio_error(err))) } })
 	_ => Action.update(state)
+}
+
+## The title of a row, for the messages that name it. A transport whose Resume
+## says only "Playing" sends a person back to the queue to find out what they
+## just resumed.
+row_title = |state, index| match state.library {
+	Loaded(library) => match library.tracks.get(index) {
+		Ok(track) => track.title
+		Err(_) => "this track"
+	}
+	Empty => "this track"
 }
 
 toggle = |state| match state.playback {
@@ -144,14 +206,14 @@ toggle = |state| match state.playback {
 		Loaded(library) => play_index(state, library, 0)
 	}
 	Active(current) => if current.paused {
-		Action.task({ pending: { ..state, status: "Resuming…" }, run: || Audio.play!(current.track), resolve: |latest, result| match result {
-			Ok(_) => Action.update({ ..latest, playback: Active({ ..current, paused: False }), status: "Playing" })
-			Err(_) => Action.update({ ..latest, status: "Resume failed" })
+		Action.task({ pending: report(state, "Resuming…"), run: || Audio.play!(current.track), resolve: |latest, result| match result {
+			Ok(_) => Action.update(report({ ..latest, playback: Active({ ..current, paused: False }) }, "Playing"))
+			Err(_) => Action.update(alarmed(latest, "Resume failed"))
 		} })
 	} else {
-		Action.task({ pending: { ..state, status: "Pausing…" }, run: || Audio.pause!(current.track), resolve: |latest, result| match result {
-			Ok(_) => Action.update({ ..latest, playback: Active({ ..current, paused: True }), status: "Paused" })
-			Err(_) => Action.update({ ..latest, status: "Pause failed" })
+		Action.task({ pending: report(state, "Pausing…"), run: || Audio.pause!(current.track), resolve: |latest, result| match result {
+			Ok(_) => Action.update(report({ ..latest, playback: Active({ ..current, paused: True }) }, "Paused"))
+			Err(_) => Action.update(alarmed(latest, "Pause failed"))
 		} })
 	}
 }
@@ -190,10 +252,10 @@ step = |state, delta| match state.library {
 }
 
 stop_then_play = |state, track, next| Action.task({
-	pending: { ..state, generation: state.generation + 1, status: "Changing track…" },
+	pending: report({ ..state, generation: state.generation + 1 }, "Changing track…"),
 	run: || Audio.stop!(track),
 	resolve: |latest, result| match result {
-		Err(err) => Action.update({ ..latest, status: audio_error(err) })
+		Err(err) => Action.update(alarmed(latest, audio_error(err)))
 		## The old track really has stopped, so the transport stops believing it
 		## is sounding. Otherwise a load that then fails leaves a phantom Active
 		## row, and the next step walks away from that instead of from the row
@@ -223,6 +285,13 @@ accent_deep = Gui.rgb(0xc2360b)
 accent_tint = Gui.rgb(0x2b1109)
 accent_tint_hot = Gui.rgb(0x3a1710)
 accent_tint_press = Gui.rgb(0x4a1d13)
+## Failure is not the accent in a darker shade: the ember means "this is the
+## music", so a message that borrowed it would say the opposite of what it
+## means. A cooler red sits far enough from the orange to be told apart at a
+## glance on a near-black ground.
+alarm = Gui.rgb(0xff8ba0)
+alarm_deep = Gui.rgb(0x8d2d40)
+alarm_tint = Gui.rgb(0x2a1118)
 on_accent = Gui.rgb(0x0a0a0c)
 
 ## A chosen row that is not yet the sounding one is Waiting, which is what makes
@@ -233,8 +302,11 @@ active_index = |state| {
 		_ => { index: Nothing, paused: False }
 	}
 	mark = |index| if live.paused Held(index) else Sounding(index)
+	## A chosen row that never started is either still loading or has failed,
+	## and those are not the same state to stand in front of.
+	chosen_mark = |index| if state.alarm Failed(index) else Waiting(index)
 	match state.chosen {
-		At(index) => if live.index == At(index) mark(index) else Waiting(index)
+		At(index) => if live.index == At(index) mark(index) else chosen_mark(index)
 		Nothing => match live.index {
 			At(index) => mark(index)
 			Nothing => Silent
@@ -246,16 +318,24 @@ track_row = |library, index, track, marker| {
 	tone = match marker {
 		Sounding(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: accent, border_color: accent, border_width: 1 }
 		Held(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: accent_hot, border_color: accent_deep, border_width: 1 }
+		## The row a person pressed whose track refused to load. It keeps its
+		## place in the queue and wears the failure, so the message in the
+		## status panel has something on screen to be about.
+		Failed(active) if active == index => { bg: alarm_tint, hover_bg: alarm_tint, active_bg: alarm_tint, fg: alarm, border_color: alarm_deep, border_width: 1 }
 		Waiting(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: muted, border_color: hairline, border_width: 1 }
 		_ => { bg: row_rest, hover_bg: row_hover, active_bg: row_press, fg: ink, border_color: hairline, border_width: 0 }
 	}
 	Elem.action_button(Elem.ActionButtonProps.{
-		caption: track.name,
-		label: "Play ${track.name}",
+		caption: track.title,
+		label: "Play ${track.title}",
 		on_press: |current, _| play_index(current, library, index),
 		width: Fill,
 		height: Px(38),
-		padding: 12,
+		## A queue reads down its left edge. Centred rows make a person's eye
+		## hunt for the start of every title.
+		justify: Start,
+		align: Center,
+		padding: 16,
 		radius: 10,
 		font_size: 14,
 		bg: tone.bg,
@@ -337,6 +417,16 @@ toggle_caption = |state| match state.playback {
 	_ => "Play"
 }
 
+## The line the sleeve is a sleeve for. It is derived from the row the transport
+## is standing on rather than stored, so it cannot drift from the queue, and it
+## survives every message that follows: pausing, skipping and reading the
+## position all replace the status line underneath and leave the title alone.
+## Without it, pressing Pause erases the only place the track was named.
+now_playing_title = |state| match active_index(state) {
+	Sounding(index) | Held(index) | Waiting(index) | Failed(index) => row_title(state, index)
+	Silent => "Nothing playing"
+}
+
 render : State -> Elem(State)
 render = |state| {
 	library_view = match state.library {
@@ -374,7 +464,8 @@ render = |state| {
 					Elem.ColProps.{ label: "Now playing text", grow: True, gap: 6, padding: 0 },
 					[
 						Elem.text("NOW PLAYING"),
-						Elem.row(Elem.RowProps.{ label: "Status line", padding: 0, gap: 0, fg: ink, font_size: 19, font_weight: 400 }, [Elem.text(state.status)]),
+						Elem.row(Elem.RowProps.{ label: "Track title", padding: 0, gap: 0, fg: ink, font_size: 19, font_weight: 400 }, [Elem.text(now_playing_title(state))]),
+						Elem.row(Elem.RowProps.{ label: "Status line", padding: 0, gap: 0, fg: if state.alarm alarm else muted, font_size: 13, font_weight: 400 }, [Elem.text(state.status)]),
 					].concat(sleeve_caption(state.art)),
 				),
 			]),
@@ -385,8 +476,8 @@ render = |state| {
 			primary_transport(toggle_caption(state)),
 			transport("Next", "Next track", |current, _| step(current, 1)),
 			transport("Stop", "Stop playback", |current, _| stop(current)),
-			transport("+100 ms", "Seek forward", |current, _| seek_forward(current)),
-			transport("Refresh", "Refresh playback status", |current, _| refresh_status(current)),
+			transport("Skip 5 s", "Skip forward five seconds", |current, _| skip_forward(current)),
+			transport("Position", "Show playback position", |current, _| show_position(current)),
 		]),
 	])
 }

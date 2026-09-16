@@ -6,12 +6,12 @@
 ; library still opens: artwork that is missing is not a reason to lose the queue.
 (test "a music player with no provisioned content directory says the cover is missing"
   (grants
-    (directory "fixture")
+    (directory "library")
     (audio null))
   (steps
     (click (role button :name "Choose music folder"))
     (await-task)
-    (expect-visible (text "201 tracks"))
+    (expect-visible (text "5 tracks"))
     (expect-visible (text "Cover art unavailable"))
     (expect-not-visible (role image :name "Cover art"))
     (expect-asset-counters 0 1 0 0 0 0)))
