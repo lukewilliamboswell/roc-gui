@@ -72,16 +72,6 @@ unsafe extern "C" {
     fn roc_gui_run_task(task: RocErasedCallable) -> RocErasedCallable;
 }
 
-// Unit tests link without a Roc application. ELF linkers drop the unreferenced
-// worker loop, but MSVC's link resolves every symbol the test binary retains.
-#[cfg(all(test, windows))]
-mod test_application {
-    #[unsafe(no_mangle)]
-    extern "C" fn roc_gui_run_task(_task: crate::RocErasedCallable) -> crate::RocErasedCallable {
-        unreachable!("unit tests never run Roc tasks")
-    }
-}
-
 struct TaskRuntime {
     jobs: async_channel::Sender<usize>,
     completions: async_channel::Receiver<usize>,
