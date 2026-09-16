@@ -100,7 +100,7 @@ start! = |state| {
 	generation = state.generation + 1
 	match SystemMonitor.acquire!() {
 		Err(err) => Action.update({ ..state, status: acquire_status(err) })
-		Ok(sampler) => match Timer.start!({ interval_ms: 1 }) {
+		Ok(sampler) => match Timer.start!({ interval_ms: 100 }) {
 			Err(_) => {
 				_ = sampler.close!()
 				Action.update({ ..state, status: Failed("The sampling timer was rejected by the host") })
