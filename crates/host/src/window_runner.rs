@@ -262,6 +262,40 @@ async fn settle(
     })
 }
 
+/// Await exactly one further worker completion, rather than quiescence.
+///
+/// An application whose timer restarts the moment a sample lands is never
+/// task-quiet, so settling for it can only ever time out. What the step
+/// actually claims is that one more accepted task has completed and its
+/// patch has been applied, which is a fact the counters carry directly.
+async fn await_completion(
+    window: WindowHandle<Runtime>,
+    timeout: Duration,
+    cx: &mut AsyncApp,
+) -> Result<(), StepError> {
+    let started = std::time::Instant::now();
+    let (accepted, completed) = task_counts();
+    // Nothing is in flight, so the task this step waits for has already landed
+    // and its patch is applied. Waiting for another would wait forever.
+    if accepted == completed {
+        prune_bounds(window, cx)?;
+        return Ok(());
+    }
+    while started.elapsed() < timeout {
+        next_frame(window, cx).await?;
+        let (_, now) = task_counts();
+        if now > completed {
+            prune_bounds(window, cx)?;
+            return Ok(());
+        }
+    }
+    let (accepted, completed) = task_counts();
+    Err(StepError::Timeout {
+        waited: started.elapsed(),
+        outstanding: accepted.saturating_sub(completed),
+    })
+}
+
 /// Drop recorded bounds for nodes that have left the mounted graph.
 fn prune_bounds(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<(), StepError> {
     window
@@ -590,7 +624,7 @@ async fn run_step(
             })
             .map_err(|_| StepError::WindowClosed)?,
         Command::AwaitTask | Command::AwaitTicks(_) => {
-            settle(window, 2, options.timeout, cx).await
+            await_completion(window, options.timeout, cx).await
         }
         // Unreachable: `spec::check_runner` refuses a specification whose
         // steps this runner does not implement, so the refusal happens before

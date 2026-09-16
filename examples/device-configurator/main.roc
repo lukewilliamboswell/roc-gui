@@ -1,5 +1,6 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 import pf.Program
 import Configurator
+import View
 State : Configurator.State
-main = Program.run({ init: Configurator.init, render: Configurator.render, window: { title: "Device Configurator", width: 900, height: 700 } })
+main = Program.run({ init: Configurator.init, render: View.render, window: { title: "Device Configurator", width: 1000, height: 720 } })

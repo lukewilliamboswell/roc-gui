@@ -13,7 +13,9 @@ through reviewed locks that record their exact identities, hashes, and sizes.
 - Space Grotesk and Plus Jakarta Sans, used to set the documentation: see
   `docs/theme/fonts/`. Both are licensed under the SIL Open Font License,
   version 1.1, and are redistributed here in their unmodified released form.
-- Lucide icons, used as the artwork of several examples: see the `NOTICE.md`
+- Lucide icons, used as the artwork of several examples -- including the
+  attention mark in `examples/system-monitor/icons/` and the attention and USB
+  marks in `examples/device-configurator/icons/`: see the `NOTICE.md`
   beside each `examples/*/icons/` directory, which records every file's source
   URL and licence. Lucide is licensed under the ISC License, whose text is at
   `third_party/licenses/lucide/LICENSE`; the files derived from Feather carry

@@ -1,0 +1,53 @@
+; The four states of the connection, photographed. A person reasons about a
+; peripheral in this order -- is there one, is it open, what is it set to, does
+; it know about my edit -- so the claims here are that each of those questions
+; has a visible answer at the size main.roc asks for.
+(test "every state of the connection has a surface of its own"
+  (grants
+    (device virtual))
+  (steps
+    (settle)
+    (expect-on-screen (role panel :name "Devices"))
+    (expect-on-screen (role panel :name "Configuration"))
+    (expect-on-screen (role row :name "Link state"))
+    (expect-on-screen (text "No device"))
+    (expect-on-screen (text "Ready to discover devices"))
+    (expect-on-screen (text "No device discovered yet."))
+    (expect-on-screen (text "Connect to inspect configuration"))
+    (expect-bounds (role row :name "Status") :min-height 58 :max-height 78)
+    (screenshot "nothing-found")
+    (click (role button :name "Discover devices"))
+    (await-task)
+    (settle)
+    (expect-on-screen (text "Found"))
+    (expect-on-screen (text "Device 0: Roc Labs Aurora Control Pad"))
+    (expect-on-screen (role button :name "Connect device"))
+    (screenshot "discovered" :region (role panel :name "Devices") :pad 6)
+    (click (role button :name "Connect device"))
+    (await-task)
+    (settle)
+    (expect-on-screen (text "Connected"))
+    (expect-on-screen (text "Connected and synchronized"))
+    (expect-on-screen (text "800"))
+    (expect-on-screen (text "PROFILE 1 OF 5"))
+    (expect-on-screen (role canvas :name "Sensitivity range"))
+    (expect-on-screen (text "The device has everything shown here"))
+    (expect-on-screen (role button :name "Disconnect device"))
+    (expect-bounds (role row :name "Status") :min-height 58 :max-height 78)
+    (screenshot "connected")
+    (screenshot "configuration" :region (role panel :name "Configuration") :pad 6)
+    ; An edit that the device has not been told about is amber everywhere it
+    ; appears, and the footer says where it is being held.
+    (click (role button :name "Increase sensitivity"))
+    (click (role button :name "Select profile 3"))
+    (settle)
+    (expect-on-screen (text "Unsaved changes"))
+    (expect-on-screen (text "Held here, not on the device"))
+    (expect-on-screen (text "PROFILE 3 OF 5"))
+    (screenshot "unsaved" :region (role row :name "Apply") :pad 8)
+    (click (role button :name "Apply configuration"))
+    (await-task)
+    (settle)
+    (expect-on-screen (text "Configuration applied"))
+    (expect-on-screen (text "The device has everything shown here"))
+    (screenshot "applied")))

@@ -14,7 +14,7 @@
     (click (role button :name "Decrease sensitivity"))
     (click (role button :name "Decrease sensitivity"))
     (click (role button :name "Decrease sensitivity"))
-    (expect-visible (text "Sensitivity: 100 DPI"))
+    (expect-visible (text "100"))
     (click (role button :name "Apply configuration"))
     (await-task)
     (expect-visible (text "Configuration applied"))))

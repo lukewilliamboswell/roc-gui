@@ -437,12 +437,27 @@ names the evidence so a fix can be verified against the same case.
   Suppression there is therefore covered only by the final state and the file
   counters, which are identical with and without the guard. An ordered or
   request-selective wait step would close it.
-- [ ] **Device Configurator has two unreachable status messages.** `disconnect`
-  answers "No device is connected" and `apply` answers "Connect a device
-  first", but the controls that would produce those presses are disabled in
-  exactly those states, so neither string can ever be shown. Either the
-  controls should stay enabled and explain themselves, or the branches should
-  go.
+- [x] **Device Configurator has two unreachable status messages.** Closed. Both
+  branches are gone, and they are gone in the stronger of the two available
+  ways: `apply` and `disconnect` now take the connection -- and `apply` the
+  configuration -- that they operate on, so there is no state in which either
+  can be called without one. An unreachable message is not a safety net; it is
+  a claim the type system should have been making, and now does.
+
+  The half of the entry that asked for controls that explain themselves is
+  honoured where a person is actually looking. Connect and Disconnect live on
+  the device card and are never both offered, so before discovery neither
+  exists rather than existing uselessly; Apply is the one control that is ever
+  disabled, and the footer beside it says "The device has everything shown
+  here" when it is. `connect-before-discovery.scm` and `reconnect.scm` now
+  assert the absence of the control rather than the inertness of pressing it,
+  which is the stronger claim.
+
+  One thing this entry did not anticipate: the same reasoning found a real
+  defect next door. Discovery empties the device list, and the open connection
+  was reachable only from a card in that list, so discovering again while
+  connected stranded the handle. Discovery is now withheld while a connection
+  is open and says why, asserted by `discover-while-connected.scm`.
 
 - [x] **Asset stores have no behaviour specification.** Closed. `music-player`
   adopts the API: it ships `assets/` with a `roc-assets.manifest`, reads
