@@ -1,4 +1,8 @@
 (test "record the music player gallery journey"
+  (grants
+    (directory "fixture")
+    (audio null)
+    (assets "assets"))
   (steps
     (settle)
     (screenshot "empty")

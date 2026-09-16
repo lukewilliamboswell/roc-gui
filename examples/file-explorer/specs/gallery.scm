@@ -1,4 +1,6 @@
 (test "record the file explorer gallery journey"
+  (grants
+    (directory "fixture"))
   (steps
     (settle)
     (screenshot "empty")

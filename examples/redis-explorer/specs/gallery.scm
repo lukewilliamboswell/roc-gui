@@ -1,4 +1,7 @@
 (test "record the Redis explorer gallery journey"
+  (grants
+    (tcp "127.0.0.1:36379")
+    (server "fixture_server.py" 36379))
   (steps
     (settle)
     (screenshot "disconnected")

@@ -1,4 +1,6 @@
 (test "record the system monitor gallery journey"
+  (grants
+    (system-monitor standard))
   (steps
     (settle)
     (screenshot "paused")

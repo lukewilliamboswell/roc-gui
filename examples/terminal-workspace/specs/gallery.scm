@@ -1,4 +1,6 @@
 (test "record the terminal workspace gallery journey"
+  (grants
+    (process test-program))
   (steps
     (settle)
     (screenshot "idle")
