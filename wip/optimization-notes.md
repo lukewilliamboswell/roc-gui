@@ -159,6 +159,28 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Follow-up: flat route membership remains a rejected simplification
+
+A fresh post-iteration-7 leaf profile collected 480 whole-lifecycle samples:
+61 in memmove, 28 in a generated decref helper, 25 in MountedGraph.apply_inner,
+22 in allocator internals, and 18 in nodes_preorder. These are diagnostic
+samples, not attribution to marked turns; raw perf data was streamed, not saved.
+
+Retested flat route membership behind the same RouteIds API, using a single
+Flat(List(U64)) tag. Both module tests and the 10k selection spec/A/A passed.
+The median was 124.672 ms (A/A 123.929), versus 119.133 ms with chunks.
+Marked new allocation requests rose from 54,784,296 to 1,649,791,200 bytes
+per turn, despite similar allocation calls (399,333 versus 399,020).
+The index improvements have not eliminated growing route-list copying.
+Rejected the flat representation and restored chunks; no wider regression
+run is needed for this rejected candidate.
+
+An initial direct nominal-list spelling, RouteIds :: List(U64), with
+RouteIds(ids) argument patterns crashed the pinned compiler during both test
+and application build (exit 139). The tagged spelling checked and ran.
+This records a compiler diagnostic failure, not proof that the direct spelling
+is valid or that a production workaround is required.
+
 ### Iteration 7: use the element-update primitive
 
 Compared two simpler ownership handoffs against iteration 6. `List.replace`
