@@ -198,14 +198,22 @@ names the evidence so a fix can be verified against the same case.
 
 - [ ] **Persistent-index maintenance retains a high allocation constant.**
   Bounded route-ID chunks removed the superlinear ownership-list allocation
-  term. A 10k memoized ancestor selection still makes about 2.15 million
-  measured allocation requests, and the existing 100k full-root sparse update
-  makes about 14.77 million. Investigate indexed maintenance and reference-count
+  term. Compact leaves and element updates further reduced the constant: a
+  10k memoized ancestor selection makes 399,333 measured allocation calls,
+  and the existing 100k full-root sparse update makes 3,008,082.
+  Investigate indexed maintenance and reference-count
   overhead without weakening revision checks or atomic graph/session acceptance.
-  See `wip/optimization-notes.md` for the verified chunking improvement and its
-  small-scale latency tradeoff. Timing alone must not gate correctness.
+  See `wip/optimization-notes.md` for accepted changes and rejected follow-ups.
+  Timing alone must not gate correctness.
 
-- [ ] **Reestablish full-root scaling after keyed component retention.** The
+- [ ] **Investigate remaining full-root scaling after keyed component retention.**
+  Fresh serial schema-11 captures with the pinned compiler pass all four
+  sparse-update scales and A/A repeats. The 10k to 100k median grows from
+  60.863 ms to 902.451 ms; callback, validation, and graph-apply means grow
+  14.1x, 16.6x, and 14.3x, respectively. Marked Roc allocation bytes grow
+  10.8x. These owner measurements do not establish the cause of time growth.
+  Investigate without weakening tree integrity or exact patch counters.
+  The
   pre-component production 100,000-row sparse-update case showed superlinear
   work after dense
   validation, host-owned child streaming, and consolidation of mounted node
@@ -216,8 +224,8 @@ names the evidence so a fix can be verified against the same case.
   checks and exact patch counters. The full-root rebuild itself is intentional
   application semantics, with row boundaries providing the local-update
   alternative. These numbers are a historical baseline, not evidence for the
-  component implementation. Repeat serial same-executable captures with the
-  pinned compiler and schema-11 owner counters. Separate application keyed
+  component implementation. Continue using serial same-executable captures with
+  the pinned compiler and schema-11 owner counters. Separate application keyed
   lookup, Roc comparison and rendering, fresh/frontier validation, and native
   materialisation before assigning the remaining growth to an owner.
 - [ ] **Text and tree-shape families currently measure node count only.** Long

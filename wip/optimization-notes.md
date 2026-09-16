@@ -159,6 +159,37 @@ the destructuring change was removed.
 
 ## Next candidates, not conclusions
 
+### Final full-root scaling remeasurement
+
+The accepted implementation passed all four existing full-root sparse-update
+scales and unchanged-executable repeats, run serially after rebuilding the
+restored host. Captures are under opt-final-full-root-scaling.
+
+| Rows | Median ms | A/A ms | New bytes per marked turn | Allocation calls per marked turn |
+|---|---:|---:|---:|---:|
+| 100 | 0.412 | 0.412 | 366,624 | 2,336 |
+| 1,000 | 3.470 | 3.463 | 3,374,880 | 21,524 |
+| 10,000 | 60.863 | 62.999 | 36,496,016 | 256,957 |
+| 100,000 | 902.451 | 896.836 | 395,067,456 | 3,008,082 |
+
+The 100k spec uses one warmup and three samples; the smaller scales use two
+warmups and seven samples. Semantic gates verify the full replacement and
+resulting rows, including 400,015 staged/removed nodes at 100k. The analyzer
+confirmed cross-scale compatibility. For 10k to 100k, mean callback,
+validation, and graph-apply work grow 14.109x, 16.557x, and 14.314x;
+marked Roc allocation bytes grow 10.825x. This is not linear elapsed scaling,
+but does not identify a new quadratic allocation term or its time-growth cause.
+Native layout, paint, and presentation are not measured in this headless run.
+
+A separate 100k lifecycle leaf profile collected 1,229 samples: memmove 149,
+MountedGraph.apply_inner 88, generated Roc procedures 82 and 77,
+nodes_preorder 66, a generated decref helper 56, malloc_consolidate 55,
+insert_nodes 48, and sibling_name 33. This repeats the copying, allocation,
+and graph-maintenance pattern rather than establishing a new isolated hotspot.
+Raw sampling data was streamed, not saved. Sampling covers setup and semantic
+assertions as well as measured turns; nodes_preorder cannot be charged to the
+marked operation from this evidence.
+
 ### Follow-up: borrowed sibling names show no significant improvement
 
 Changed sibling_name to return Cow<str>, borrowing application labels for
