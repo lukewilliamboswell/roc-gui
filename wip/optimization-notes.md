@@ -5,6 +5,39 @@ component identity, ownership, memoization, or atomic graph/session acceptance.
 Keep each accepted optimization in its own commit. Do not classify a surprising
 cost as a compiler bug without a reproducer or generated-code evidence.
 
+## Completion audit and stopping rationale
+
+This sampling-guided pass stops after three follow-ups failed to produce a
+significant improvement: flat route membership regressed allocation traffic,
+native child-buffer handoff stayed within timing spread, and borrowed sibling
+names stayed within timing spread. All three were reverted. The fresh 100k
+profile repeats the same broad copying/allocation/graph-maintenance pattern;
+it does not establish another isolated inexpensive fix. This is evidence of
+diminishing returns for this pass, not proof that no optimization remains.
+
+Accepted production code is unchanged after 25bf3cf. The final audit reran all
+187 host unit tests and the three Index/two RouteIds module tests successfully,
+validated all 243 final semantic captures as clean and successful, and inspected
+both real-window reports: interaction steps pass, three screenshots are
+unavailable. The final four-scale full-root ladder and A/A repeats pass through
+100k. Sampling remains diagnostic and timings report-only. No raw perf data,
+captures, archives, or build outputs are tracked. Changes are unsigned commits
+on the requested worktree; no push or history rewrite was performed.
+
+The verified inline-setup compiler crash retains its named-helper workaround
+and removal condition beside the code. Deep recursive lowering retains its
+boxed-metadata stack workaround and normal-stack recheck condition. Neither
+reference-count costs nor rejected source rewrites are mislabeled as proven
+incorrect-code compiler bugs.
+
+10k ancestor selection improved from 881.066 to 119.133 ms (about 7.4x), with
+marked new allocation requests reduced from 2.343 GB to 54.784 MB. Remaining
+work is recorded in the backlog: full-root elapsed scaling is still worse
+than linear, persistent maintenance still allocates, local application state
+copies its list, and headless results do not measure native frame latency.
+These need further owner-specific evidence or broader design work, rather
+than another unsubstantiated source-level uniqueness workaround.
+
 ## Baseline
 
 - `0e8d561`: coherent Action-State implementation, based on `54a539f`.
@@ -107,9 +140,9 @@ record to key/revision/path/route IDs/child IDs still failed at the normal limit
 Boxing that slim record restored all three deep-tree specs at the normal limit.
 A nearby source comment preserves this stack-size workaround and its removal
 condition. This establishes stack pressure with the pinned compiler, not an
-incorrect-code compiler bug. The boxed variant needs fresh scaling and full
-regression evidence before acceptance; the table below describes the rejected
-unboxed variant only.
+incorrect-code compiler bug. The boxed variant's acceptance evidence follows
+in the next subsection; the table below describes the rejected unboxed variant
+only.
 
 | Rows | Median ms | A/A ms | New bytes per marked turn | Allocation calls per marked turn |
 |---|---:|---:|---:|---:|
@@ -203,8 +236,8 @@ completed before measured runs. No native allocation-byte claim is made.
 
 Together with the rejected child-buffer change, these results suggest
 diminishing returns for the sampled native micro-optimizations on ancestor
-selection. The final full-root scaling ladder still needs fresh evidence
-before concluding the pass; earlier 100k results predate compact index leaves.
+selection. The final full-root scaling remeasurement above supplies the fresh
+evidence needed because earlier 100k results predate compact index leaves.
 
 ### Follow-up: native child-buffer handoff rejected
 
