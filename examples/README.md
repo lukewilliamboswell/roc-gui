@@ -5,26 +5,27 @@ and to drive platform development. An example is intended to become a useful,
 realistic application rather than a component demo, test fixture, or synthetic
 benchmark.
 
-Each application README records its product boundary, principal user journeys,
-failure behaviour, and the platform capabilities it is expected to exercise.
-Implementations and SCM behaviour specifications belong in the same directory.
+Each application README says what the application is, what platform capability it
+exercises, how to run it including any grant it needs, and what it does not do
+yet. Implementations and SCM behaviour specifications belong in the same
+directory.
 
 | Example | Product shape | Primary platform pressure |
 | --- | --- | --- |
-| [HTTP Workbench](http-workbench/) | HTTP client | asynchronous work and large structured text |
-| [Database Browser](database-browser/) | relational database client | data grids and transactional work |
-| [File Explorer](file-explorer/) | desktop file manager | filesystem integration and navigation |
-| [Folder browser](folder-browser/) | single-folder reader | the trusted directory grant on its own |
+| [HTTP Workbench](http-workbench/) | single-document HTTP client | one-origin authority and asynchronous work |
+| [Database Browser](database-browser/) | read-only SQLite browser | data grids and worker-task queries |
+| [File Explorer](file-explorer/) | read-only file manager | filesystem authority and navigation |
+| [Folder browser](folder-browser/) | single-folder reader | the directory grant on its own |
 | [Counter](counter/) | two independent tallies | state boundaries and component embedding |
-| [Terminal Workspace](terminal-workspace/) | terminal emulator | high-rate text and keyboard input |
-| [Image Library](image-library/) | image browser and viewer | media loading and direct manipulation |
-| [Music Player](music-player/) | local music library | background playback and persistent media state |
-| [Clipboard History](clipboard-history/) | clipboard manager | explicit text authority, bounded capture, search, pin, restore, and privacy exclusion |
-| [System Monitor](system-monitor/) | resource dashboard | continuously changing data and charts |
-| [Settings Center](settings-center/) | system control surface | forms, validation, and apply/revert workflows |
+| [Terminal Workspace](terminal-workspace/) | one terminal pane | process authority and high-rate text |
+| [Image Library](image-library/) | image browser and viewer | media loading and image rendering |
+| [Music Player](music-player/) | local music library | audio output over long-running tasks |
+| [Clipboard History](clipboard-history/) | clipboard manager | explicit text authority and bounded capture |
+| [System Monitor](system-monitor/) | resource dashboard | continuous sampling and charts |
+| [Settings Center](settings-center/) | preferences window | controlled inputs and durable storage |
 | [Device Configurator](device-configurator/) | peripheral configuration tool | device lifecycle and transactional changes |
 | [Animation Studio](animation-studio/) | timeline-based graphics editor | canvas interaction, timelines, and undo |
-| [Redis Explorer](redis-explorer/) | Redis client | heterogeneous data and live server state |
+| [Redis Explorer](redis-explorer/) | read-only Redis client | a capability-owned TCP stream |
 
 Every completed example has deterministic first-run data, semantic locators,
 SCM specifications for its meaningful behaviour, and a scaling case reached

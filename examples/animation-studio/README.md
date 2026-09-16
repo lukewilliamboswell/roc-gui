@@ -1,83 +1,55 @@
 # Animation Studio
 
-A state-owned editor for arranging vector shapes on a native retained canvas
-and animating positions on a timeline.
+A small editor for arranging rectangles and ellipses on a retained canvas and
+animating their positions along a 120-frame timeline. Shapes are created from
+the toolbar, selected and dragged directly on the stage, and described in an
+inspector beside a scrolling layer list.
 
-## Core capabilities
+It exercises the platform's canvas primitives and pointer route, cancellable
+timers, and compile-time file imports. Everything else — the document, the undo
+and redo stacks, the keyframes, and the playback state — is ordinary Roc state
+held by the application.
 
-- Keyed rectangle and ellipse rendering with semantic identity.
-- Shape creation, hit-tested selection, captured pointer movement, and exact undo/redo snapshots.
-- Position keyframes, deterministic scrubbing, and cancellable timer playback.
-- A layer list, property summary, timeline, and status derived from ordinary Roc state.
+## Running
 
-## Happy paths
+```sh
+python3 build.py
+roc build --output=animation-studio examples/animation-studio/main.roc
+./animation-studio
+```
 
-- Create shapes, move them directly on the stage, and use undo/redo.
-- Add position keyframes, scrub in ten-frame steps, and play or pause the animation.
-
-## Error paths
-
-- A gesture whose key no longer exists is ignored without corrupting history.
-- Playback start failure leaves the editable document intact and reports the failure.
+The application reads and writes nothing outside its own process, so it needs
+no capability grant.
 
 ## What an edit is
 
-A press is not an edit. Pressing a shape selects it and begins a gesture; the
-gesture becomes an edit at its first movement, which is where the undo snapshot
-is taken and where the status starts saying "Moving". Before that fix, clicking
-a layer to look at it lit up Undo with nothing to undo, and releasing anywhere —
-including on bare canvas, where nothing had been touched — reported "Move
-committed". `specs/editing.scm` asserts both: that a press-and-release on the
-empty stage commits nothing, and that undo puts a dragged shape back where the
-gesture found it rather than somewhere in the middle of it.
+Pressing a shape selects it and begins a gesture; the gesture becomes an edit at
+its first movement, which is where the undo snapshot is taken. A press and
+release that never moved commits nothing. Undo and redo restore a document and
+then settle around it: the current frame is re-applied, and a selection pointing
+at a layer the restored document no longer contains is dropped. Keyframes are
+kept in frame order, because applying a frame takes the last key at or before
+it.
 
-Undo and redo restore a document, and then settle around it: the frame a person
-is standing on is re-applied, so the stage cannot show positions the timeline
-disagrees with, and a selection pointing at a layer the restored document no
-longer contains is dropped rather than left dangling. A dangling selection used
-to empty the inspector while leaving Add keyframe as a control that did nothing
-and said nothing. `specs/undo-reconciles.scm` covers it.
+## Not yet built
 
-Keyframes are kept in frame order. They used to be appended in the order they
-were recorded while the frame was applied by taking the last key at or before
-it, so recording frame 40 and then going back to fix frame 10 made the frame-10
-pose win everywhere past frame 40. `specs/keyframe-order.scm` records them out
-of order on purpose.
+- Shapes cannot be resized, recoloured, renamed, or deleted.
+- Only position is animated. There are no rotation, scale, or opacity tracks,
+  and no interpolation between keys — a frame takes the last key at or before
+  it.
+- There is no way to remove a keyframe except by undoing it.
+- Nothing is saved or loaded; closing the window discards the document.
 
-## High-level goals
+## Assets
 
-- Exercise the same retained canvas and direct-manipulation route used by native GPUI.
-- Keep editing, history, keyframes, and playback as application-owned state and actions.
-- SCM specifications cover creation, movement, keyframes, playback, and undo/redo.
+`icons/` holds two SVGs, imported at compile time into the executable. Their
+source and licence are recorded in `icons/NOTICE.md` and in
+`THIRD_PARTY_LICENSES.md`.
 
-## Appearance
+## Specifications
 
-`Render.roc` opens with the whole palette and type scale, so nothing in the
-window falls back to a host default that belongs to some other application. The
-ground is a cold slate, the stage is warm paper, and exactly two accents carry
-meaning: amber for the timeline — the frame counter and the keyframes a person
-recorded — and coral for the playhead alone, which is the one thing that moves.
-Every button is the same button, including its disabled state, because the
-platform's default disabled button looks like a control that simply has not been
-pressed yet. The frame counter and the inspector's values are set in a
-monospaced face: they are numbers that change while a person is dragging, and
-proportional digits make a readout jitter as it counts.
-
-## Layer glyphs
-
-A layer's name says what it is for, never what shape it is: "Title card" and
-"Accent" read the same in a list, and only the glyph beside them tells a
-rectangle from an ellipse. A new layer is therefore called "Layer 3", not
-"Rectangle 3" — a row that names the shape beside a glyph that draws the shape
-has one of the two doing no work, and the name is the half that should carry
-identity rather than kind. `icons/` holds those two SVGs, brought in with
-compile-time file imports:
-
-```roc
-import "icons/shape-rectangle.svg" as rectangle_glyph : List(U8)
-```
-
-A few hundred bytes each, so they belong in the executable rather than in an
-asset store, and a compile-time import needs no capability at all. Selection is
-already carried by the row's ground, so no second marker is drawn beside them.
-`icons/NOTICE.md` records the source and licence of each file.
+Eight semantic specifications in `specs/` cover creation, selection, dragging,
+the ends of the history, keyframe ordering and replacement, scrubbing, and
+timer-driven playback with its pause and resume. Three window specifications
+drive the real window to check the layout, a long layer list, and the timeline.
+None of them needs a grant.
