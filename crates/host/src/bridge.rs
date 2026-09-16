@@ -97,6 +97,7 @@ pub enum NodeKind {
     Scroll {
         name: String,
         axis: ScrollAxis,
+        style: Style,
     },
     VirtualItem {
         key: u64,
@@ -104,6 +105,9 @@ pub enum NodeKind {
     VirtualList {
         name: String,
         row_height: u32,
+        /// Space held clear at the bottom of each row inside `row_height`.
+        row_gap: u32,
+        style: Style,
     },
     TextInput {
         label: String,
@@ -111,6 +115,15 @@ pub enum NodeKind {
         placeholder: String,
         enabled: bool,
         style: Style,
+    },
+    /// Text that carries its own type: colour, size, weight, and face, with no
+    /// container element to hold them.
+    StyledText {
+        value: String,
+        fg: Option<u32>,
+        font_size: u32,
+        font_weight: u32,
+        font_face: FontFace,
     },
     Text(String),
 }
@@ -219,6 +232,7 @@ impl NodeKind {
             Self::VirtualList { .. } => 11,
             Self::TextInput { .. } => 12,
             Self::Text(_) => 13,
+            Self::StyledText { .. } => 14,
         }
     }
 
@@ -243,7 +257,7 @@ impl NodeKind {
             | Self::TextInput { label, .. } => label.clone(),
             Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.clone(),
             Self::VirtualItem { key } => key.to_string(),
-            Self::Text(_) => String::new(),
+            Self::Text(_) | Self::StyledText { .. } => String::new(),
         };
         (!name.is_empty()).then_some(name)
     }
@@ -409,6 +423,12 @@ pub struct Style {
     pub radius: u32,
     pub font_size: u32,
     pub font_weight: u32,
+    /// A soft drop shadow: blur radius, downward offset, colour, and the
+    /// percentage of that colour it is painted at. A zero blur paints none.
+    pub shadow: u32,
+    pub shadow_y: u32,
+    pub shadow_color: Option<u32>,
+    pub shadow_alpha: u32,
     pub font_face: FontFace,
     pub text_overflow: TextOverflow,
     pub overflow_x: Overflow,
@@ -1124,6 +1144,7 @@ pub fn validate_tree(root: u64, nodes: &[Node]) -> Result<(), String> {
     for node in nodes {
         match node.kind {
             NodeKind::Text(_)
+            | NodeKind::StyledText { .. }
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
@@ -1213,6 +1234,7 @@ fn validate_contiguous_tree(root: u64, first_id: u64, nodes: &[Node]) -> Result<
     for node in nodes {
         match node.kind {
             NodeKind::Text(_)
+            | NodeKind::StyledText { .. }
             | NodeKind::Checkbox { .. }
             | NodeKind::Button { .. }
             | NodeKind::Textarea { .. }
@@ -1612,6 +1634,7 @@ mod tests {
             kind: NodeKind::Scroll {
                 name: "contents".into(),
                 axis: ScrollAxis::Vertical,
+                style: Style::default(),
             },
             children: vec![],
         }];
@@ -1642,6 +1665,8 @@ mod tests {
                 kind: NodeKind::VirtualList {
                     name: "rows".into(),
                     row_height: 24,
+                    row_gap: 0,
+                    style: Style::default(),
                 },
                 children: vec![2, 4],
             },
@@ -1668,6 +1693,8 @@ mod tests {
                 kind: NodeKind::VirtualList {
                     name: "rows".into(),
                     row_height: 24,
+                    row_gap: 0,
+                    style: Style::default(),
                 },
                 children: vec![2],
             },

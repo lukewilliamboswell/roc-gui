@@ -38,7 +38,7 @@ use roc_platform_abi::{
     HostGlueHttpSendArgs, HostGlueHttpSendResult, HostGlueNodeActionButtonArgs,
     HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
     HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
     HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
     MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
     make_roc_host, roc_gui_dispatch, roc_gui_init,
@@ -305,6 +305,23 @@ pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
     stage_node(NodeKind::Text(text), vec![])
 }
 
+/// Stage one text node that carries its own type rather than inheriting it.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> u64 {
+    let value = args.value.as_str().to_owned();
+    unsafe { args.value.decref(roc_host()) };
+    stage_node(
+        NodeKind::StyledText {
+            value,
+            fg: decode_color(args.fg),
+            font_size: args.font_size,
+            font_weight: args.font_weight,
+            font_face: decode_font_face(args.font_face),
+        },
+        vec![],
+    )
+}
+
 /// Begin a host-owned child sequence. Builders may be nested while recursively lowering.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_children_begin() -> u64 {
@@ -373,6 +390,10 @@ macro_rules! decode_layout_style {
             radius: $args.radius,
             font_size: $args.font_size,
             font_weight: $args.font_weight,
+            shadow: $args.shadow,
+            shadow_y: $args.shadow_y,
+            shadow_color: decode_color($args.shadow_color),
+            shadow_alpha: $args.shadow_alpha,
             font_face: decode_font_face($args.font_face),
             text_overflow: decode_text_overflow($args.text_overflow),
             overflow_x: decode_overflow($args.overflow_x),
@@ -446,6 +467,7 @@ pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
         NodeKind::Scroll {
             name: owned_name,
             axis,
+            style: decode_layout_style!(args),
         },
         vec![args.child],
     )
@@ -464,6 +486,8 @@ pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -
         NodeKind::VirtualList {
             name,
             row_height: args.row_height,
+            row_gap: args.row_gap,
+            style: decode_layout_style!(args),
         },
         finish_children(args.builder),
     )
@@ -1004,7 +1028,9 @@ fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
 fn contains_text(nodes: &[Node], expected: &str) -> bool {
     nodes
         .iter()
-        .any(|node| matches!(&node.kind, NodeKind::Text(value) if value == expected))
+        .any(|node| {
+            matches!(&node.kind, NodeKind::Text(value) | NodeKind::StyledText { value, .. } if value == expected)
+        })
 }
 
 fn headless_smoke() {
@@ -1174,6 +1200,25 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     }
     if style.font_weight > 0 {
         element = element.font_weight(FontWeight(style.font_weight as f32));
+    }
+    // A raised surface separates from its ground by shadow where a hairline
+    // border has too little contrast to read. The blur is the element's own,
+    // so a paper-light palette can choose both the colour and how much of it.
+    if style.shadow > 0 {
+        let rgba = style.shadow_color.unwrap_or(0x000000);
+        let alpha = (style.shadow_alpha.min(100) as f32) / 100.0;
+        element = element.shadow(vec![BoxShadow {
+            color: gpui::Rgba {
+                r: ((rgba >> 16) & 0xff) as f32 / 255.0,
+                g: ((rgba >> 8) & 0xff) as f32 / 255.0,
+                b: (rgba & 0xff) as f32 / 255.0,
+                a: alpha,
+            }
+            .into(),
+            offset: gpui::point(px(0.0), px(style.shadow_y as f32)),
+            blur_radius: px(style.shadow as f32),
+            spread_radius: px(0.0),
+        }]);
     }
     element = match style.text_overflow {
         TextOverflow::Wrap => element,
@@ -1469,11 +1514,8 @@ impl Render for NodeView {
             NodeKind::Row { style, .. } => {
                 element = apply_style(element.flex().flex_row().items_center(), style);
             }
-            NodeKind::Scroll { axis, .. } => {
-                element = element
-                    .flex()
-                    .flex_col()
-                    .flex_grow()
+            NodeKind::Scroll { axis, style, .. } => {
+                element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .scrollbar_width(px(8.0));
                 element = match axis {
                     ScrollAxis::Vertical => element.min_h_0().max_h_full().overflow_y_scroll(),
@@ -1487,22 +1529,25 @@ impl Render for NodeView {
                 };
             }
             NodeKind::VirtualItem { .. } => {}
-            NodeKind::VirtualList { row_height, .. } => {
+            NodeKind::VirtualList {
+                row_height,
+                row_gap,
+                style,
+                ..
+            } => {
                 let list_id = self.node.id;
                 let count = self.node.children.len();
                 let runtime = self.runtime.clone();
                 let height = *row_height;
-                element = element
-                    .flex()
-                    .flex_col()
-                    .flex_grow()
+                let gap = *row_gap;
+                element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .min_h_0()
                     .max_h_full()
                     .child(
                         uniform_list("virtual-list", count, move |range, _, cx| {
                             runtime
                                 .update(cx, |runtime, cx| {
-                                    runtime.virtual_range(list_id, range, height, cx)
+                                    runtime.virtual_range(list_id, range, height, gap, cx)
                                 })
                                 .unwrap_or_default()
                         })
@@ -1511,6 +1556,30 @@ impl Render for NodeView {
             }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
+            }
+            // A typographic step is about the string alone, so it costs no
+            // container: the colour, size, weight, and face are the text
+            // element's own and nothing else about the layout changes.
+            NodeKind::StyledText {
+                value,
+                fg,
+                font_size,
+                font_weight,
+                font_face,
+            } => {
+                element = element.child(value.clone());
+                if let Some(color) = fg {
+                    element = element.text_color(rgb(*color));
+                }
+                if *font_size > 0 {
+                    element = element.text_size(px(*font_size as f32));
+                }
+                if *font_weight > 0 {
+                    element = element.font_weight(FontWeight(*font_weight as f32));
+                }
+                if let FontFace::Monospace = font_face {
+                    element = element.font_family(MONOSPACE_FAMILY);
+                }
             }
             NodeKind::Textarea {
                 label,
@@ -1599,10 +1668,19 @@ impl Render for NodeView {
                 if style.radius > 0 {
                     picture = picture.rounded(px(style.radius as f32));
                 }
-                element = apply_style(element, style)
-                    .min_w_0()
-                    .min_h_0()
-                    .child(picture);
+                // Releasing the container's flex minimum is what stops an
+                // intrinsically larger picture laying out past the box it was
+                // given. It must not overrule a floor the application declared,
+                // though: min_w_0 on a box with min_width: Px(88) is how a
+                // square thumbnail ended up 61.5 points wide beside a caption.
+                element = apply_style(element, style);
+                if matches!(style.min_width, Length::Auto) {
+                    element = element.min_w_0();
+                }
+                if matches!(style.min_height, Length::Auto) {
+                    element = element.min_h_0();
+                }
+                element = element.child(picture);
             }
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
@@ -2520,6 +2598,7 @@ impl Runtime {
         list_id: u64,
         range: std::ops::Range<usize>,
         row_height: u32,
+        row_gap: u32,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let item_ids = self
@@ -2573,9 +2652,13 @@ impl Runtime {
                     Some(NodeKind::VirtualItem { key }) => *key,
                     _ => panic!("virtual list child is not an item"),
                 };
+                // The gap is held clear inside the row's own height, which is
+                // what keeps a list's scroll arithmetic exactly row_height per
+                // row while its rows still read as separate surfaces.
                 div()
                     .id(("virtual-row", key))
                     .h(px(row_height as f32))
+                    .pb(px(row_gap.min(row_height.saturating_sub(1)) as f32))
                     .child(view)
                     .into_any_element()
             })
@@ -3765,6 +3848,8 @@ mod tests {
                     kind: NodeKind::VirtualList {
                         name: "Tracks".into(),
                         row_height: 40,
+                        row_gap: 0,
+                        style: Style::default(),
                     },
                     children: vec![base + 2],
                 },

@@ -336,7 +336,7 @@ track_row = |library, index, track, marker| {
 		label: "Play ${track.title}",
 		on_press: |current, _| play_index(current, library, index),
 		width: Fill,
-		height: Px(38),
+		height: Fill,
 		## A queue reads down its left edge. Centred rows make a person's eye
 		## hunt for the start of every title.
 		justify: Start,
@@ -414,7 +414,7 @@ sleeve = |art| match art {
 ## A missing cover is said once, quietly, and only after the read was tried.
 ## An empty square with no explanation is a defect a person cannot report.
 sleeve_caption = |art| match art {
-	NoCover => [Elem.row(Elem.RowProps.{ label: "Cover art status", padding: 0, gap: 0, fg: muted, font_size: 13, font_weight: 400 }, [Elem.text("Cover art unavailable")])]
+	NoCover => [Elem.styled_text(Elem.TextProps.{ value: "Cover art unavailable", fg: muted, font_size: 13, font_weight: 400 })]
 	NoArt | Cover(_) => []
 }
 
@@ -440,13 +440,27 @@ render = |state| {
 			Elem.text("No folder chosen yet."),
 			Elem.text("Grant a music folder to build the queue."),
 		])
-		Loaded(library) => Elem.panel(Elem.PanelProps.{ label: "Music library", grow: True, width: Fill, padding: 10, gap: 0, bg: surface, border_color: hairline, radius: 16, overflow_y: Clip }, [
-			Elem.virtual_list(Elem.VirtualListProps.{ label: "Tracks", row_height: 44, items: track_items(state, library) }),
-		])
+		## The queue is its own surface. It carries the dark ground, the inset,
+		## the corner, and the space between rows itself, so there is no padded
+		## panel wrapped around it whose only job was to be the thing the list
+		## is sitting on.
+		Loaded(library) => Elem.virtual_list(Elem.VirtualListProps.{
+			label: "Tracks",
+			row_height: 44,
+			row_gap: 6,
+			items: track_items(state, library),
+			grow: True,
+			width: Fill,
+			padding: 10,
+			bg: surface,
+			border_color: hairline,
+			border_width: 1,
+			radius: 16,
+		})
 	}
 	Elem.col(Elem.ColProps.{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 }, [
 		Elem.row(Elem.RowProps.{ label: "Header", width: Fill, gap: 16 }, [
-			Elem.row(Elem.RowProps.{ label: "Wordmark", grow: True, fg: accent, font_size: 28, font_weight: 700 }, [Elem.text("NOCTURNE")]),
+			Elem.styled_text(Elem.TextProps.{ value: "NOCTURNE", fg: accent, font_size: 28, font_weight: 700 }),
 			Elem.action_button(Elem.ActionButtonProps.{
 				caption: "Choose folder",
 				label: "Choose music folder",
@@ -470,8 +484,8 @@ render = |state| {
 					Elem.ColProps.{ label: "Now playing text", grow: True, gap: 6, padding: 0 },
 					[
 						Elem.text("NOW PLAYING"),
-						Elem.row(Elem.RowProps.{ label: "Track title", padding: 0, gap: 0, fg: ink, font_size: 19, font_weight: 400 }, [Elem.text(now_playing_title(state))]),
-						Elem.row(Elem.RowProps.{ label: "Status line", padding: 0, gap: 0, fg: if state.alarm alarm else muted, font_size: 13, font_weight: 400 }, [Elem.text(state.status)]),
+						Elem.styled_text(Elem.TextProps.{ value: now_playing_title(state), fg: ink, font_size: 19, font_weight: 400 }),
+						Elem.styled_text(Elem.TextProps.{ value: state.status, fg: if state.alarm alarm else muted, font_size: 13, font_weight: 400 }),
 					].concat(sleeve_caption(state.art)),
 				),
 			]),

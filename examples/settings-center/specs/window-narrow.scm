@@ -19,7 +19,7 @@
     ; less the padding and the gap, is the claim that actually fails when they
     ; overflow again.
     (expect-bounds (role column :name "Catalogue column") :max-width 364)
-    (expect-bounds (role column :name "Detail column") :max-width 364)
+    (expect-bounds (role scroll :name "Settings pages") :max-width 364)
     (expect-on-screen (role button :name "Load saved profile"))
     (expect-on-screen (role panel :name "Managed setting"))
     (screenshot "narrow")

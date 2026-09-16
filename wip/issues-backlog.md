@@ -71,30 +71,6 @@ the change lands; do not soften the docs to match the gap.
 
 ## Element appearance
 
-- [ ] **Panel labels are never painted.** `Elem.panel`'s `label` is a semantic
-  locator name, and several applications use it for a status phrase rather than
-  a heading, so painting it as a header would both duplicate body text and move
-  every existing layout. Close with an explicit heading on the panel element,
-  distinct from the locator name, rendered with its own weight and size.
-
-- [ ] **Lists carry no style of their own.** `Elem.virtual_list` and
-  `Elem.scroll` take only a name, a row height, and their content, so a list has
-  no ground, padding, radius, or row spacing. Found while giving `music-player`
-  a dark queue: the list had to be wrapped in a padded panel for its surface,
-  every row repaints that surface itself, and row spacing exists only because
-  each row button is deliberately shorter than `row_height`. Close by giving
-  both list elements the shared `Gui.Style` fields, with a separate row gap.
-- [ ] **`Elem.text` has no style.** Colour and size reach a string only by
-  inheritance from an enclosing row or column, so every typographic step costs a
-  wrapper element that exists for no other reason. `music-player`'s wordmark and
-  status line are each a one-child `row` whose only job is `fg` and `font_size`.
-  Close with a styled text element carrying the same colour and size fields.
-- [ ] **No shadow or elevation.** Surfaces separate from their ground only by
-  `bg`, `border_color`, and `radius`. A raised card on a near-white ground wants
-  a soft shadow, which on paper-light palettes is the only separation with
-  enough contrast to read; `counter`'s cards fall back on a 1px rule that all
-  but disappears against the ground it was chosen to sit quietly against. Close
-  with a shadow field on `Gui.Style`.
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
   label from ordinary body text once family is unavailable. `counter`'s per-card
@@ -108,15 +84,20 @@ the change lands; do not soften the docs to match the gap.
   with a 1-point seam. Per-side colour is not expressible: GPUI 0.2.2's `Style`
   carries `border_widths` as `Edges` but a single `border_color`, so a side
   cannot have a colour of its own without an upstream change.
-- [ ] **An image's `width`, `height`, and `fit` do not size the picture.** A
-  gallery wants one uniform thumbnail shape and one viewer image that fits the
-  space left for it. With `fit: Cover` and `width: Px(88), height: Px(88)` the
-  painted SVG keeps a size of its own inside the box, and with `height: Fill,
-  grow: True` the viewer image is laid out past the bottom of the window instead
-  of fitting it, so `examples/image-library/specs/window-gallery.scm` can only
-  assert `expect-visible` for the selected image where `expect-on-screen` is the
-  claim that matters. Close by making the declared box authoritative and `fit`
-  the rule that maps pixels into it.
+- [ ] **A large SVG is rasterized at its own size and then never painted.**
+  `gpui` 0.2.2 decodes an SVG through
+  `SvgRenderer::render_pixmap(&bytes, SvgSize::ScaleFactor(1.0))`
+  (`src/platform.rs`, `ImageFormat::Svg`), so the raster is the file's intrinsic
+  size and the element's box is never an input: `SvgSize::Size(_)` exists but the
+  image-asset path never uses it. `image-library`'s 8000x6000 fixtures therefore
+  produce a 48-megapixel frame that nothing paints, while the 24x24 glyph in
+  `icons/unreadable.svg` paints correctly — proved by
+  `examples/image-library/specs/window-unreadable.scm` against a gallery whose
+  thumbnails are blank. The element geometry is right: the same window run
+  measures each thumbnail at exactly 88x88 and the viewer image on screen. This
+  needs `SvgSize::Size` at the laid-out box upstream, or a host-side SVG
+  rasterizer, and should not be worked around by shrinking the fixtures, which
+  are deliberately larger than any box they are put in.
 
 ## Trust: measurements that can mislead a decision
 

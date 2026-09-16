@@ -17,6 +17,7 @@ platform ""
 	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch! }
 	hosted {
 		"roc_gui_node_text": HostGlue.node_text!,
+		"roc_gui_node_styled_text": HostGlue.node_styled_text!,
 		"roc_gui_children_begin": HostGlue.children_begin!,
 		"roc_gui_children_push": HostGlue.children_push!,
 		"roc_gui_node_row": HostGlue.node_row!,

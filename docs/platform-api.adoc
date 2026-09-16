@@ -67,7 +67,8 @@ whether a `Fired` result schedules another wait.
 
 == Elements and layout
 
-`Elem.text(value)`:: Display a string.
+`Elem.text(value)`:: Display a string, inheriting colour and size from its
+container.
 `Elem.action_button(Elem.ActionButtonProps.{ ... })`:: Display a controlled,
 styled action button. `caption` is visible text, `label` is its stable semantic
 name, and `enabled` defaults to `True`. Enabled buttons participate in keyboard
@@ -98,8 +99,11 @@ and default to a 160-logical-pixel editing viewport.
 capability-safe in-memory image bytes through GPUI. The explicit format is one
 of `Png`, `Jpeg`, `Webp`, `Gif`, `Svg`, `Bmp`, or `Tiff`; fit defaults to
 `Contain` and also supports `Cover`, `Fill`, `ScaleDown`, and `None`.
-`grayscale` applies a native rendering effect. Image sources are values, never
-ambient filesystem paths or URLs, and `label` is the stable semantic name.
+`grayscale` applies a native rendering effect. The declared box is
+authoritative: `width`, `height`, and the minimum and maximum fields size the
+element, and `fit` is the rule that maps the decoded pixels into that box. Image
+sources are values, never ambient filesystem paths or URLs, and `label` is the
+stable semantic name.
 `Elem.text_input(Elem.TextInputProps.{ ... })`:: Display a controlled,
 single-line native editor. `label` is its stable semantic name, `value` is the
 authoritative application value, and `placeholder` is shown only while empty.
@@ -109,27 +113,49 @@ composition across controlled rerenders. Disabled fields accept neither edits
 nor submission. Text values are bounded to one MiB of UTF-8.
 Text-input labels are non-empty and unique in the mounted graph because they
 also preserve the native editor entity across controlled rerenders.
-`Elem.scroll(Elem.ScrollProps.{ label, content, axis })`:: Constrain content to
-available space and scroll it vertically, horizontally, or in both directions.
-The axis defaults to `Vertical`; `label` is the stable semantic identity.
+`Elem.styled_text(Elem.TextProps.{ value, fg, font_size, font_weight, font_face })`::
+Display a string in its own colour, size, weight, and face. Plain `Elem.text`
+inherits all four from its container, so every typographic step otherwise costs a
+one-child row or column that exists for no other reason; a wordmark, an eyebrow
+label, and a status line are each a string, not a layout.
+`Elem.scroll(Elem.ScrollProps.{ label, content, axis, ... })`:: Constrain content
+to available space and scroll it vertically, horizontally, or in both directions.
+The axis defaults to `Vertical`; `label` is the stable semantic identity. A
+scroll region shares the native `Gui.Style` fields, so it carries its own size,
+ground, inset, and corner rather than needing a column or panel wrapped around
+it to supply them.
 `Elem.virtual_list(Elem.VirtualListProps.{ label, row_height, items })`:: Present
 stable-keyed rows at one fixed logical height. Each item is an
 `Elem.VirtualListItem.{ key, content }`; keys must be unique within the list.
 The complete item graph remains available to semantic inspection and event
 routing, while GPUI materialises only the current viewport range.
+A virtual list shares the native `Gui.Style` fields as well, and `row_gap` holds
+that many logical pixels clear at the bottom of each row inside `row_height`, so
+rows read as separate surfaces while the list's scrolling arithmetic stays
+exactly one `row_height` per row. Without them a list has no ground, inset,
+corner, or spacing of its own, and each row has to repaint the surface the list
+is sitting on.
 `Elem.row(Elem.RowProps.{ ... }, children)`:: Lay out children horizontally.
 `Elem.col(Elem.ColProps.{ ... }, children)`:: Lay out children vertically.
 `Elem.panel(Elem.PanelProps.{ ... }, children)`:: Group children vertically in
-a labelled surface that is padded, bordered, and rounded by default.
+a labelled surface that is padded, bordered, and rounded by default. `heading`
+is the panel's own visible heading, painted above its children in
+`heading_size`, `heading_weight`, and `heading_color`; each zero or `Default`
+keeps the panel's own type. It is distinct from `label`, which remains the
+semantic locator and is never painted, so a panel named for what a
+specification calls it can still say something else to a reader. An empty
+heading, the default, paints none.
 `Elem.dialog(Elem.DialogProps.{ label, on_dismiss, ... }, children)`:: Present
 one modal surface above an input-blocking scrim. The first enabled control gains
 focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and
 closing the dialog restores its opener by stable semantic identity. Render at
 most one dialog at a time.
 
-Row, column, panel, dialog, and action-button props share the native
+Row, column, panel, dialog, scroll, virtual-list, and action-button props share
+the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
-radius, font size, font weight, per-axis overflow, and the two axis placements.
+radius, shadow, font size, font weight, per-axis overflow, and the two axis
+placements.
 `font_weight` is zero for the native default, or 100 through 900; 700 is bold.
 
 `padding` is the shorthand for all four sides. `padding_top`, `padding_right`,
@@ -165,6 +191,13 @@ already the colour it wants to be.
 divides its regions with a rule on the one edge that faces the next region,
 rather than giving every region a complete box whose outer edges are also
 drawn.
+
+`shadow` is the blur radius of a soft drop shadow under the element, offset down
+by `shadow_y` and painted in `shadow_color` at `shadow_alpha` percent of that
+colour. `shadow: 0`, the default, paints none. A raised card on a near-white
+ground separates from its paper by shadow where a hairline border has too little
+contrast to read, and the colour is the application's own rather than a host
+grey, so the shadow can be cast in the page's ink.
 
 `justify` distributes children along the container's own layout axis and `align`
 places them across it. `justify` is `Start`, `Center`, `End`, `Between`, or

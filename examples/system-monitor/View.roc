@@ -276,13 +276,11 @@ axis = Elem.col(
 
 plot = |state| Theme.panel(
 	"CPU history",
+	"CPU LOAD OVER THE LAST ${Monitor.capacity.to_str()} SAMPLES",
 	[
 		Elem.row(
-			Elem.RowProps.{ width: Fill, padding: 0, gap: 12, align: Center },
-			[
-				Elem.col(Elem.ColProps.{ grow: True, padding: 0, gap: 0 }, [Theme.caption("CPU LOAD OVER THE LAST ${Monitor.capacity.to_str()} SAMPLES")]),
-				Theme.figure("newest at right", 11, Theme.absent),
-			],
+			Elem.RowProps.{ width: Fill, padding: 0, gap: 12, align: Center, justify: End },
+			[Theme.figure("newest at right", 11, Theme.absent)],
 		),
 		Elem.row(
 			Elem.RowProps.{ label: "Plot", width: Fill, padding: 0, gap: 8, align: Start },
@@ -313,8 +311,8 @@ log_items = |history| {
 
 log = |state| Theme.panel(
 	"Observation log",
+	"OBSERVATION LOG",
 	[
-		Theme.caption("OBSERVATION LOG"),
 		if state.history.is_empty() {
 			Theme.note("No samples yet.")
 		} else {
@@ -458,6 +456,10 @@ process_table = |state, processes| {
 process_panel = |state| Elem.panel(
 	Elem.PanelProps.{
 		label: "Processes",
+		heading: "PROCESSES",
+		heading_size: 11,
+		heading_weight: 700,
+		heading_color: Theme.muted,
 		width: Px(sidebar_width),
 		min_width: Px(sidebar_width),
 		height: Fill,
@@ -472,9 +474,9 @@ process_panel = |state| Elem.panel(
 		font_size: 14,
 	},
 	match state.latest {
-		None => [Theme.caption("PROCESSES"), Theme.note("The table appears with the first sample.")]
+		None => [Theme.note("The table appears with the first sample.")]
 		Some(snapshot) => match snapshot.processes {
-			Unavailable(_) => [Theme.caption("PROCESSES"), Theme.note("Processes are not reported"), Theme.figure("This system did not return a process list.", 11, Theme.absent)]
+			Unavailable(_) => [Theme.note("Processes are not reported"), Theme.figure("This system did not return a process list.", 11, Theme.absent)]
 			Value(processes) => process_table(state, processes)
 		}
 	},

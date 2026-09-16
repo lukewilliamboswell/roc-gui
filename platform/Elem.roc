@@ -19,6 +19,7 @@ Elem(a) :: [
 	Scroll(ScrollProps(a)),
 	VirtualList(VirtualListProps(a)),
 	TextInput(TextInputProps(a)),
+	StyledText(TextProps),
 	Text(Str),
 ].{
 
@@ -55,6 +56,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -96,6 +101,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -138,6 +147,10 @@ Elem(a) :: [
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -150,6 +163,14 @@ Elem(a) :: [
 	## surfaces by default, and carry a stable semantic `label`.
 	PanelProps := {
 		label : Str,
+		## The panel's own visible heading, distinct from `label`, which stays a
+		## semantic locator. An empty heading paints none. `heading_size`,
+		## `heading_weight`, and `heading_color` set it apart from the panel's
+		## body text; each zero or `Default` keeps the panel's own.
+		heading : Str ?? "",
+		heading_size : U32 ?? 0,
+		heading_weight : U32 ?? 0,
+		heading_color : Gui.Color ?? Default,
 		gap : U32 ?? 8,
 		padding : U32 ?? 16,
 		padding_top : Gui.Inset ?? Same,
@@ -179,6 +200,10 @@ Elem(a) :: [
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -225,6 +250,10 @@ Elem(a) :: [
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -273,6 +302,10 @@ Elem(a) :: [
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Clip,
@@ -284,7 +317,50 @@ Elem(a) :: [
 	## Properties for a vertically scrollable region. `name` is its stable
 	## semantic identity for specifications and accessibility.
 	ScrollAxis : [Both, Horizontal, Vertical]
-	ScrollProps(a) := { axis : ScrollAxis ?? Vertical, content : Elem(a), label : Str }
+	ScrollProps(a) := {
+		axis : ScrollAxis ?? Vertical,
+		content : Elem(a),
+		label : Str,
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		padding_top : Gui.Inset ?? Same,
+		padding_right : Gui.Inset ?? Same,
+		padding_bottom : Gui.Inset ?? Same,
+		padding_left : Gui.Inset ?? Same,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Default,
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		disabled_bg : Gui.Color ?? Default,
+		disabled_fg : Gui.Color ?? Default,
+		focus_color : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Default,
+		border_width : U32 ?? 0,
+		border_top : Gui.Inset ?? Same,
+		border_right : Gui.Inset ?? Same,
+		border_bottom : Gui.Inset ?? Same,
+		border_left : Gui.Inset ?? Same,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
+		font_face : Gui.FontFace ?? Default,
+		text_overflow : Gui.TextOverflow ?? Wrap,
+		overflow_x : Gui.Overflow ?? Visible,
+		overflow_y : Gui.Overflow ?? Visible,
+		align : Gui.Align ?? Default,
+		justify : Gui.Justify ?? Default,
+	}
 
 	## One stable row in a virtual list. `key` identifies the row independently
 	## of its current index, while `content` is an ordinary element tree.
@@ -292,7 +368,53 @@ Elem(a) :: [
 
 	## Properties for a viewport-driven, fixed-height list. Only rows intersecting
 	## the native viewport are materialized as GPUI elements.
-	VirtualListProps(a) := { items : List(VirtualListItem(a)), label : Str, row_height : U32 }
+	VirtualListProps(a) := {
+		items : List(VirtualListItem(a)),
+		label : Str,
+		row_height : U32,
+		## The space held clear at the bottom of each row inside `row_height`,
+		## so rows read as separate surfaces rather than one continuous block.
+		row_gap : U32 ?? 0,
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		padding_top : Gui.Inset ?? Same,
+		padding_right : Gui.Inset ?? Same,
+		padding_bottom : Gui.Inset ?? Same,
+		padding_left : Gui.Inset ?? Same,
+		width : Gui.Length ?? Auto,
+		height : Gui.Length ?? Auto,
+		min_width : Gui.Length ?? Auto,
+		min_height : Gui.Length ?? Auto,
+		max_width : Gui.Length ?? Auto,
+		max_height : Gui.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Gui.Color ?? Default,
+		hover_bg : Gui.Color ?? Default,
+		active_bg : Gui.Color ?? Default,
+		disabled_bg : Gui.Color ?? Default,
+		disabled_fg : Gui.Color ?? Default,
+		focus_color : Gui.Color ?? Default,
+		fg : Gui.Color ?? Default,
+		border_color : Gui.Color ?? Default,
+		border_width : U32 ?? 0,
+		border_top : Gui.Inset ?? Same,
+		border_right : Gui.Inset ?? Same,
+		border_bottom : Gui.Inset ?? Same,
+		border_left : Gui.Inset ?? Same,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
+		font_face : Gui.FontFace ?? Default,
+		text_overflow : Gui.TextOverflow ?? Wrap,
+		overflow_x : Gui.Overflow ?? Visible,
+		overflow_y : Gui.Overflow ?? Visible,
+		align : Gui.Align ?? Default,
+		justify : Gui.Justify ?? Default,
+	}
 
 	## Properties for `checkbox`. `label` is both visible text and the stable
 	## semantic name used by specifications. `on_change` receives the requested
@@ -339,6 +461,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -387,6 +513,10 @@ Elem(a) :: [
 		radius : U32 ?? 6,
 		font_size : U32 ?? 15,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Scroll,
@@ -439,6 +569,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Clip,
@@ -481,9 +615,25 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 	}
 
-	## Display literal text.
+	## Properties for `styled_text`. A string is the only thing a typographic
+	## step is about, so these are the type fields alone: a typographic step
+	## costs no container, and none of a container's layout is implied.
+	TextProps := {
+		value : Str,
+		fg : Gui.Color ?? Default,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		font_face : Gui.FontFace ?? Default,
+	}
+
+	## Display literal text. It inherits colour and size from its container.
 	text : Str -> Elem(a)
 	text = |value| Text(value)
+
+	## Display text in its own colour, size, weight, and face, without a
+	## container element that exists only to carry them.
+	styled_text : TextProps -> Elem(a)
+	styled_text = |props| StyledText(props)
 
 	## Display a named text button and handle presses. `caption` is its visible
 	## text and `label` is its stable semantic locator, the same two names the
@@ -551,6 +701,7 @@ Elem(a) :: [
 	lift : Elem(child), (parent -> child), (parent, child -> parent) -> Elem(parent)
 	lift = |elem, get_child, set_child| match elem {
 		Text(value) => Text(value)
+		StyledText(text_value) => StyledText(text_value)
 		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
 		Dialog(value) => {
@@ -558,16 +709,17 @@ Elem(a) :: [
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			Dialog({
 				children: value.children.map(|child| lift(child, get_child, set_child)),
-				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, font_face: value.props.font_face, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
+				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, shadow: value.props.shadow, shadow_y: value.props.shadow_y, shadow_color: value.props.shadow_color, shadow_alpha: value.props.shadow_alpha, font_face: value.props.font_face, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
 			})
 		}
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
-		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), label: scroll_value.label })
+		Scroll(scroll_value) => Scroll(ScrollProps.{ axis: scroll_value.axis, content: lift(scroll_value.content, get_child, set_child), label: scroll_value.label, gap: scroll_value.gap, padding: scroll_value.padding, padding_top: scroll_value.padding_top, padding_right: scroll_value.padding_right, padding_bottom: scroll_value.padding_bottom, padding_left: scroll_value.padding_left, width: scroll_value.width, height: scroll_value.height, min_width: scroll_value.min_width, min_height: scroll_value.min_height, max_width: scroll_value.max_width, max_height: scroll_value.max_height, grow: scroll_value.grow, bg: scroll_value.bg, hover_bg: scroll_value.hover_bg, active_bg: scroll_value.active_bg, disabled_bg: scroll_value.disabled_bg, disabled_fg: scroll_value.disabled_fg, focus_color: scroll_value.focus_color, fg: scroll_value.fg, border_color: scroll_value.border_color, border_width: scroll_value.border_width, border_top: scroll_value.border_top, border_right: scroll_value.border_right, border_bottom: scroll_value.border_bottom, border_left: scroll_value.border_left, radius: scroll_value.radius, font_size: scroll_value.font_size, font_weight: scroll_value.font_weight, shadow: scroll_value.shadow, shadow_y: scroll_value.shadow_y, shadow_color: scroll_value.shadow_color, shadow_alpha: scroll_value.shadow_alpha, font_face: scroll_value.font_face, text_overflow: scroll_value.text_overflow, overflow_x: scroll_value.overflow_x, overflow_y: scroll_value.overflow_y, align: scroll_value.align, justify: scroll_value.justify, })
 		VirtualList(list_value) => VirtualList(
 			VirtualListProps.{
 				label: list_value.label,
 				row_height: list_value.row_height,
 				items: list_value.items.map(|item| { key: item.key, content: lift(item.content, get_child, set_child) }),
+				row_gap: list_value.row_gap, gap: list_value.gap, padding: list_value.padding, padding_top: list_value.padding_top, padding_right: list_value.padding_right, padding_bottom: list_value.padding_bottom, padding_left: list_value.padding_left, width: list_value.width, height: list_value.height, min_width: list_value.min_width, min_height: list_value.min_height, max_width: list_value.max_width, max_height: list_value.max_height, grow: list_value.grow, bg: list_value.bg, hover_bg: list_value.hover_bg, active_bg: list_value.active_bg, disabled_bg: list_value.disabled_bg, disabled_fg: list_value.disabled_fg, focus_color: list_value.focus_color, fg: list_value.fg, border_color: list_value.border_color, border_width: list_value.border_width, border_top: list_value.border_top, border_right: list_value.border_right, border_bottom: list_value.border_bottom, border_left: list_value.border_left, radius: list_value.radius, font_size: list_value.font_size, font_weight: list_value.font_weight, shadow: list_value.shadow, shadow_y: list_value.shadow_y, shadow_color: list_value.shadow_color, shadow_alpha: list_value.shadow_alpha, font_face: list_value.font_face, text_overflow: list_value.text_overflow, overflow_x: list_value.overflow_x, overflow_y: list_value.overflow_y, align: list_value.align, justify: list_value.justify,
 			},
 		)
 		TextInput(input_value) => {
@@ -575,7 +727,7 @@ Elem(a) :: [
 			child_submit = input_value.on_submit
 			parent_change! = |parent, event| Action.lift(child_change(get_child(parent), event), parent, get_child, set_child)
 			parent_submit! = |parent, event| Action.lift(child_submit(get_child(parent), event), parent, get_child, set_child)
-			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, font_face: input_value.font_face, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
+			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, shadow: input_value.shadow, shadow_y: input_value.shadow_y, shadow_color: input_value.shadow_color, shadow_alpha: input_value.shadow_alpha, font_face: input_value.font_face, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
 		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
@@ -614,7 +766,7 @@ Elem(a) :: [
 					border_left: button_value.border_left,
 					radius: button_value.radius,
 					font_size: button_value.font_size,
-					font_weight: button_value.font_weight,
+					font_weight: button_value.font_weight, shadow: button_value.shadow, shadow_y: button_value.shadow_y, shadow_color: button_value.shadow_color, shadow_alpha: button_value.shadow_alpha,
 					font_face: button_value.font_face,
 					text_overflow: button_value.text_overflow,
 					overflow_x: button_value.overflow_x,
@@ -665,7 +817,7 @@ Elem(a) :: [
 					border_left: checkbox_value.border_left,
 					radius: checkbox_value.radius,
 					font_size: checkbox_value.font_size,
-					font_weight: checkbox_value.font_weight,
+					font_weight: checkbox_value.font_weight, shadow: checkbox_value.shadow, shadow_y: checkbox_value.shadow_y, shadow_color: checkbox_value.shadow_color, shadow_alpha: checkbox_value.shadow_alpha,
 					font_face: checkbox_value.font_face,
 					text_overflow: checkbox_value.text_overflow,
 					overflow_x: checkbox_value.overflow_x,
@@ -678,7 +830,7 @@ Elem(a) :: [
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
-			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, font_face: textarea_value.font_face, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
+			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, shadow: textarea_value.shadow, shadow_y: textarea_value.shadow_y, shadow_color: textarea_value.shadow_color, shadow_alpha: textarea_value.shadow_alpha, font_face: textarea_value.font_face, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
 		}
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => {
@@ -716,6 +868,7 @@ Elem(a) :: [
 		Scroll(ScrollProps(a)),
 		VirtualList(VirtualListProps(a)),
 		TextInput(TextInputProps(a)),
+		StyledText(TextProps),
 		Text(Str),
 	]
 	inspect = |value| match value {
@@ -732,6 +885,7 @@ Elem(a) :: [
 		Scroll(scroll_value) => Scroll(scroll_value)
 		VirtualList(list_value) => VirtualList(list_value)
 		TextInput(input_value) => TextInput(input_value)
+		StyledText(styled_value) => StyledText(styled_value)
 		Text(text_value) => Text(text_value)
 	}
 }

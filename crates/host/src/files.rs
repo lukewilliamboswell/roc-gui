@@ -429,7 +429,7 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
     })
 }
 
-fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryResult {
+fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> InternalFilesPickDirectoryResult {
     let directory = capability(
         dir,
         GrantMetadata {
@@ -439,12 +439,12 @@ fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryR
             root: 0,
         },
     );
-    let value = FilesPickDirectoryOkChosen {
+    let value = InternalFilesPickDirectoryOkChosen {
         directory,
         name: RocStr::from_str(name, roc_host()),
     };
-    FilesPickDirectoryResult {
-        payload: FilesPickDirectoryResultPayload {
+    InternalFilesPickDirectoryResult {
+        payload: InternalFilesPickDirectoryResultPayload {
             ok: ManuallyDrop::new(CanceledOrChosen {
                 payload: CanceledOrChosenPayload {
                     chosen: ManuallyDrop::new(value),
@@ -452,19 +452,19 @@ fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> FilesPickDirectoryR
                 tag: CanceledOrChosenTag::Chosen,
             }),
         },
-        tag: FilesPickDirectoryResultTag::Ok,
+        tag: InternalFilesPickDirectoryResultTag::Ok,
     }
 }
 
-fn canceled() -> FilesPickDirectoryResult {
-    FilesPickDirectoryResult {
-        payload: FilesPickDirectoryResultPayload {
+fn canceled() -> InternalFilesPickDirectoryResult {
+    InternalFilesPickDirectoryResult {
+        payload: InternalFilesPickDirectoryResultPayload {
             ok: ManuallyDrop::new(CanceledOrChosen {
                 payload: CanceledOrChosenPayload { canceled: [] },
                 tag: CanceledOrChosenTag::Canceled,
             }),
         },
-        tag: FilesPickDirectoryResultTag::Ok,
+        tag: InternalFilesPickDirectoryResultTag::Ok,
     }
 }
 
@@ -585,7 +585,7 @@ fn portal_directory() -> PortalSelection {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
+pub extern "C" fn roc_files_pick_directory() -> InternalFilesPickDirectoryResult {
     record_operation(0);
     let initial = store()
         .lock()
@@ -598,7 +598,7 @@ pub extern "C" fn roc_files_pick_directory() -> FilesPickDirectoryResult {
     }
 }
 
-fn select_portal() -> FilesPickDirectoryResult {
+fn select_portal() -> InternalFilesPickDirectoryResult {
     use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
     let allowed = {
         let mut guard = store().lock().expect("capability store poisoned");
@@ -619,11 +619,11 @@ fn select_portal() -> FilesPickDirectoryResult {
         }
     };
     if !allowed {
-        return FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload {
+        return InternalFilesPickDirectoryResult {
+            payload: InternalFilesPickDirectoryResultPayload {
                 err: ManuallyDrop::new(pick_directory_err(R::AccessDenied)),
             },
-            tag: FilesPickDirectoryResultTag::Err,
+            tag: InternalFilesPickDirectoryResultTag::Err,
         };
     }
     let cancels = store()
@@ -653,29 +653,29 @@ fn select_portal() -> FilesPickDirectoryResult {
     match result {
         PortalSelection::Chosen(dir, name) => chosen(dir, &name, GrantSource::Portal),
         PortalSelection::Canceled => canceled(),
-        PortalSelection::Denied => FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload {
+        PortalSelection::Denied => InternalFilesPickDirectoryResult {
+            payload: InternalFilesPickDirectoryResultPayload {
                 err: ManuallyDrop::new(pick_directory_err(R::AccessDenied)),
             },
-            tag: FilesPickDirectoryResultTag::Err,
+            tag: InternalFilesPickDirectoryResultTag::Err,
         },
-        PortalSelection::Unavailable => FilesPickDirectoryResult {
-            payload: FilesPickDirectoryResultPayload {
+        PortalSelection::Unavailable => InternalFilesPickDirectoryResult {
+            payload: InternalFilesPickDirectoryResultPayload {
                 err: ManuallyDrop::new(pick_directory_err(R::Unavailable)),
             },
-            tag: FilesPickDirectoryResultTag::Err,
+            tag: InternalFilesPickDirectoryResultTag::Err,
         },
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
+pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> InternalFilesDirListResult {
     record_operation(1);
     let dir = lookup_state(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let dir = match dir {
         Ok(dir) => dir,
-        Err(error) => return FilesDirListResult { payload: FilesDirListResultPayload { err: ManuallyDrop::new(list_directory_err(match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })) }, tag: FilesDirListResultTag::Err },
+        Err(error) => return InternalFilesDirListResult { payload: InternalFilesDirListResultPayload { err: ManuallyDrop::new(list_directory_err(match error { LookupError::Invalid => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability, LookupError::Revoked => AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked })) }, tag: InternalFilesDirListResultTag::Err },
     };
     let result = (|| -> std::io::Result<Vec<AnonStruct770b9d9b3d3d255>> {
         let mut values = Vec::new();
@@ -725,14 +725,14 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
         Ok(values)
     })();
     match result {
-        Ok(values) => FilesDirListResult {
-            payload: FilesDirListResultPayload {
+        Ok(values) => InternalFilesDirListResult {
+            payload: InternalFilesDirListResultPayload {
                 ok: ManuallyDrop::new(unsafe { RocList::from_slice(&values, roc_host()) }),
             },
-            tag: FilesDirListResultTag::Ok,
+            tag: InternalFilesDirListResultTag::Ok,
         },
-        Err(io) => FilesDirListResult {
-            payload: FilesDirListResultPayload {
+        Err(io) => InternalFilesDirListResult {
+            payload: InternalFilesDirListResultPayload {
                 err: ManuallyDrop::new(list_directory_err(
                     if io.kind() == std::io::ErrorKind::InvalidData {
                         AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidUtf8
@@ -743,7 +743,7 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
                     },
                 )),
             },
-            tag: FilesDirListResultTag::Err,
+            tag: InternalFilesDirListResultTag::Err,
         },
     }
 }
@@ -752,7 +752,7 @@ pub extern "C" fn roc_files_dir_list(cap: *mut u64) -> FilesDirListResult {
 pub extern "C" fn roc_files_dir_open_read(
     cap: *mut u64,
     name: RocStr,
-) -> FilesDirOpenReadDirResult {
+) -> InternalFilesDirOpenReadResult {
     record_operation(2);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
@@ -766,8 +766,8 @@ pub extern "C" fn roc_files_dir_open_read(
         Ok(dir) => dir.open_dir_nofollow(&owned_name).map(Arc::new).map_err(|io| reason(&io)),
     };
     match result {
-        Ok(dir) => FilesDirOpenReadDirResult {
-            payload: FilesDirOpenReadDirResultPayload {
+        Ok(dir) => InternalFilesDirOpenReadResult {
+            payload: InternalFilesDirOpenReadResultPayload {
                 ok: ManuallyDrop::new(capability(
                     dir,
                     inherited
@@ -780,19 +780,19 @@ pub extern "C" fn roc_files_dir_open_read(
                         }),
                 )),
             },
-            tag: FilesDirOpenReadDirResultTag::Ok,
+            tag: InternalFilesDirOpenReadResultTag::Ok,
         },
-        Err(value) => FilesDirOpenReadDirResult {
-            payload: FilesDirOpenReadDirResultPayload {
+        Err(value) => InternalFilesDirOpenReadResult {
+            payload: InternalFilesDirOpenReadResultPayload {
                 err: ManuallyDrop::new(open_read_directory_err(value)),
             },
-            tag: FilesDirOpenReadDirResultTag::Err,
+            tag: InternalFilesDirOpenReadResultTag::Err,
         },
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirReadResult {
+pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> InternalFilesDirReadResult {
     record_operation(3);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
@@ -812,19 +812,19 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> FilesDirRea
         })
     })();
     match result {
-        Ok(bytes) => FilesDirReadResult {
-            payload: FilesDirReadResultPayload {
+        Ok(bytes) => InternalFilesDirReadResult {
+            payload: InternalFilesDirReadResultPayload {
                 ok: ManuallyDrop::new(unsafe {
                     RocListWith::<u8, false>::from_slice(&bytes, roc_host())
                 }),
             },
-            tag: FilesDirReadResultTag::Ok,
+            tag: InternalFilesDirReadResultTag::Ok,
         },
-        Err(value) => FilesDirReadResult {
-            payload: FilesDirReadResultPayload {
+        Err(value) => InternalFilesDirReadResult {
+            payload: InternalFilesDirReadResultPayload {
                 err: ManuallyDrop::new(read_file_err(value)),
             },
-            tag: FilesDirReadResultTag::Err,
+            tag: InternalFilesDirReadResultTag::Err,
         },
     }
 }

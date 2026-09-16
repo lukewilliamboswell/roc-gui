@@ -93,6 +93,14 @@ Counter := [].{
 			border_color: rule,
 			border_width: 1,
 			radius: 16,
+			## The card is raised off the paper rather than outlined onto it: a
+			## hairline rule in this palette all but disappears against the
+			## ground it was chosen to sit quietly against, so the separation is
+			## a soft shadow in the page's own ink instead.
+			shadow: 18,
+			shadow_y: 6,
+			shadow_color: ink,
+			shadow_alpha: 10,
 		},
 		[
 			Elem.col(
