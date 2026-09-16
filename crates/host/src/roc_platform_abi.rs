@@ -1186,6 +1186,10 @@ pub struct AnonStruct7095fb483e542555 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -1234,6 +1238,10 @@ pub struct AnonStruct7095fb483e542555 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -1251,11 +1259,11 @@ pub struct AnonStruct7095fb483e542555 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct7095fb483e542555>() == 152, "AnonStruct7095fb483e542555 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct7095fb483e542555>() == 168, "AnonStruct7095fb483e542555 size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<AnonStruct7095fb483e542555>() == 8, "AnonStruct7095fb483e542555 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct7095fb483e542555>() == 144, "AnonStruct7095fb483e542555 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct7095fb483e542555>() == 160, "AnonStruct7095fb483e542555 size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct7095fb483e542555>() == 8, "AnonStruct7095fb483e542555 alignment mismatch");
 
@@ -1320,6 +1328,10 @@ pub struct AnonStruct71d6e98c9427ac2 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -1369,6 +1381,10 @@ pub struct AnonStruct71d6e98c9427ac2 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -1387,11 +1403,11 @@ pub struct AnonStruct71d6e98c9427ac2 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct71d6e98c9427ac2>() == 168, "AnonStruct71d6e98c9427ac2 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct71d6e98c9427ac2>() == 184, "AnonStruct71d6e98c9427ac2 size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<AnonStruct71d6e98c9427ac2>() == 8, "AnonStruct71d6e98c9427ac2 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct71d6e98c9427ac2>() == 144, "AnonStruct71d6e98c9427ac2 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct71d6e98c9427ac2>() == 160, "AnonStruct71d6e98c9427ac2 size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct71d6e98c9427ac2>() == 4, "AnonStruct71d6e98c9427ac2 alignment mismatch");
 
@@ -1459,6 +1475,10 @@ pub struct AnonStruct6d94fc41e63d7d75 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub checked: bool,
@@ -1512,6 +1532,10 @@ pub struct AnonStruct6d94fc41e63d7d75 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub checked: bool,
@@ -1531,11 +1555,11 @@ pub struct AnonStruct6d94fc41e63d7d75 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct6d94fc41e63d7d75>() == 160, "AnonStruct6d94fc41e63d7d75 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct6d94fc41e63d7d75>() == 176, "AnonStruct6d94fc41e63d7d75 size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<AnonStruct6d94fc41e63d7d75>() == 8, "AnonStruct6d94fc41e63d7d75 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct6d94fc41e63d7d75>() == 148, "AnonStruct6d94fc41e63d7d75 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct6d94fc41e63d7d75>() == 164, "AnonStruct6d94fc41e63d7d75 size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct6d94fc41e63d7d75>() == 4, "AnonStruct6d94fc41e63d7d75 alignment mismatch");
 
@@ -1572,6 +1596,10 @@ pub struct AnonStruct181a2c03962707b5 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -1623,6 +1651,10 @@ pub struct AnonStruct181a2c03962707b5 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -1642,11 +1674,11 @@ pub struct AnonStruct181a2c03962707b5 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct181a2c03962707b5>() == 192, "AnonStruct181a2c03962707b5 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct181a2c03962707b5>() == 208, "AnonStruct181a2c03962707b5 size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<AnonStruct181a2c03962707b5>() == 8, "AnonStruct181a2c03962707b5 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct181a2c03962707b5>() == 156, "AnonStruct181a2c03962707b5 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct181a2c03962707b5>() == 172, "AnonStruct181a2c03962707b5 size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct181a2c03962707b5>() == 4, "AnonStruct181a2c03962707b5 alignment mismatch");
 
@@ -1682,6 +1714,10 @@ pub struct AnonStruct748396103296c444 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub fit: u8,
@@ -1733,6 +1769,10 @@ pub struct AnonStruct748396103296c444 {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub fit: u8,
@@ -1753,11 +1793,11 @@ pub struct AnonStruct748396103296c444 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct748396103296c444>() == 168, "AnonStruct748396103296c444 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct748396103296c444>() == 184, "AnonStruct748396103296c444 size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<AnonStruct748396103296c444>() == 8, "AnonStruct748396103296c444 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct748396103296c444>() == 144, "AnonStruct748396103296c444 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct748396103296c444>() == 160, "AnonStruct748396103296c444 size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct748396103296c444>() == 4, "AnonStruct748396103296c444 alignment mismatch");
 
@@ -1948,6 +1988,10 @@ pub struct AnonStruct895873bb7c036b7c {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -1998,6 +2042,10 @@ pub struct AnonStruct895873bb7c036b7c {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -2016,11 +2064,11 @@ pub struct AnonStruct895873bb7c036b7c {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct895873bb7c036b7c>() == 192, "AnonStruct895873bb7c036b7c size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct895873bb7c036b7c>() == 208, "AnonStruct895873bb7c036b7c size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<AnonStruct895873bb7c036b7c>() == 8, "AnonStruct895873bb7c036b7c alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct895873bb7c036b7c>() == 156, "AnonStruct895873bb7c036b7c size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct895873bb7c036b7c>() == 172, "AnonStruct895873bb7c036b7c size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct895873bb7c036b7c>() == 4, "AnonStruct895873bb7c036b7c alignment mismatch");
 
@@ -8265,7 +8313,7 @@ pub struct HostGlueChildrenPushArgs {
 }
 
 /// Arguments for HostGlue.node_row!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8298,6 +8346,10 @@ pub struct HostGlueNodeRowArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8315,7 +8367,7 @@ pub struct HostGlueNodeRowArgs {
 }
 
 /// Arguments for HostGlue.node_row!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8348,6 +8400,10 @@ pub struct HostGlueNodeRowArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8365,11 +8421,11 @@ pub struct HostGlueNodeRowArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 152, "HostGlueNodeRowArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 168, "HostGlueNodeRowArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeRowArgs>() == 8, "HostGlueNodeRowArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 144, "HostGlueNodeRowArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 160, "HostGlueNodeRowArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeRowArgs>() == 8, "HostGlueNodeRowArgs alignment mismatch");
 
@@ -8403,7 +8459,7 @@ unsafe impl RocRelease<HostGlueNodeRowArgs> for HostGlueNodeRowArgsRelease {
 }
 
 /// Arguments for HostGlue.node_column!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8436,6 +8492,10 @@ pub struct HostGlueNodeColumnArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8453,7 +8513,7 @@ pub struct HostGlueNodeColumnArgs {
 }
 
 /// Arguments for HostGlue.node_column!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8486,6 +8546,10 @@ pub struct HostGlueNodeColumnArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8503,11 +8567,11 @@ pub struct HostGlueNodeColumnArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 152, "HostGlueNodeColumnArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 168, "HostGlueNodeColumnArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeColumnArgs>() == 8, "HostGlueNodeColumnArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 144, "HostGlueNodeColumnArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 160, "HostGlueNodeColumnArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeColumnArgs>() == 8, "HostGlueNodeColumnArgs alignment mismatch");
 
@@ -8541,7 +8605,7 @@ unsafe impl RocRelease<HostGlueNodeColumnArgs> for HostGlueNodeColumnArgsRelease
 }
 
 /// Arguments for HostGlue.node_dialog!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8574,6 +8638,10 @@ pub struct HostGlueNodeDialogArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8591,7 +8659,7 @@ pub struct HostGlueNodeDialogArgs {
 }
 
 /// Arguments for HostGlue.node_dialog!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8624,6 +8692,10 @@ pub struct HostGlueNodeDialogArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8641,11 +8713,11 @@ pub struct HostGlueNodeDialogArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 152, "HostGlueNodeDialogArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 168, "HostGlueNodeDialogArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeDialogArgs>() == 8, "HostGlueNodeDialogArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 144, "HostGlueNodeDialogArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 160, "HostGlueNodeDialogArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeDialogArgs>() == 8, "HostGlueNodeDialogArgs alignment mismatch");
 
@@ -8679,7 +8751,7 @@ unsafe impl RocRelease<HostGlueNodeDialogArgs> for HostGlueNodeDialogArgsRelease
 }
 
 /// Arguments for HostGlue.node_panel!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8712,6 +8784,10 @@ pub struct HostGlueNodePanelArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8729,7 +8805,7 @@ pub struct HostGlueNodePanelArgs {
 }
 
 /// Arguments for HostGlue.node_panel!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8762,6 +8838,10 @@ pub struct HostGlueNodePanelArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub font_face: u8,
@@ -8779,11 +8859,11 @@ pub struct HostGlueNodePanelArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 152, "HostGlueNodePanelArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 168, "HostGlueNodePanelArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodePanelArgs>() == 8, "HostGlueNodePanelArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 144, "HostGlueNodePanelArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 160, "HostGlueNodePanelArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodePanelArgs>() == 8, "HostGlueNodePanelArgs alignment mismatch");
 
@@ -8879,7 +8959,7 @@ unsafe impl RocRelease<HostGlueNodeScrollArgs> for HostGlueNodeScrollArgsRelease
 }
 
 /// Arguments for HostGlue.node_action_button!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8912,6 +8992,10 @@ pub struct HostGlueNodeActionButtonArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -8930,7 +9014,7 @@ pub struct HostGlueNodeActionButtonArgs {
 }
 
 /// Arguments for HostGlue.node_action_button!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -8963,6 +9047,10 @@ pub struct HostGlueNodeActionButtonArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -8981,11 +9069,11 @@ pub struct HostGlueNodeActionButtonArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 168, "HostGlueNodeActionButtonArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 184, "HostGlueNodeActionButtonArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeActionButtonArgs>() == 8, "HostGlueNodeActionButtonArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 144, "HostGlueNodeActionButtonArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 160, "HostGlueNodeActionButtonArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeActionButtonArgs>() == 4, "HostGlueNodeActionButtonArgs alignment mismatch");
 
@@ -9093,7 +9181,7 @@ unsafe impl RocRelease<HostGlueNodeVirtualListArgs> for HostGlueNodeVirtualListA
 }
 
 /// Arguments for HostGlue.node_checkbox!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, box_bg : U32, box_border : U32, box_checked_bg : U32, checked : Bool, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, mark_color : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, box_bg : U32, box_border : U32, box_checked_bg : U32, checked : Bool, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, mark_color : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -9129,6 +9217,10 @@ pub struct HostGlueNodeCheckboxArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub checked: bool,
@@ -9148,7 +9240,7 @@ pub struct HostGlueNodeCheckboxArgs {
 }
 
 /// Arguments for HostGlue.node_checkbox!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, box_bg : U32, box_border : U32, box_checked_bg : U32, checked : Bool, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, mark_color : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, box_bg : U32, box_border : U32, box_checked_bg : U32, checked : Bool, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, mark_color : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -9184,6 +9276,10 @@ pub struct HostGlueNodeCheckboxArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub checked: bool,
@@ -9203,11 +9299,11 @@ pub struct HostGlueNodeCheckboxArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 160, "HostGlueNodeCheckboxArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 176, "HostGlueNodeCheckboxArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCheckboxArgs>() == 8, "HostGlueNodeCheckboxArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 148, "HostGlueNodeCheckboxArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 164, "HostGlueNodeCheckboxArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCheckboxArgs>() == 4, "HostGlueNodeCheckboxArgs alignment mismatch");
 
@@ -9241,7 +9337,7 @@ unsafe impl RocRelease<HostGlueNodeCheckboxArgs> for HostGlueNodeCheckboxArgsRel
 }
 
 /// Arguments for HostGlue.node_textarea!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, read_only : Bool, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -9275,6 +9371,10 @@ pub struct HostGlueNodeTextareaArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -9294,7 +9394,7 @@ pub struct HostGlueNodeTextareaArgs {
 }
 
 /// Arguments for HostGlue.node_textarea!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, read_only : Bool, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -9328,6 +9428,10 @@ pub struct HostGlueNodeTextareaArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -9347,11 +9451,11 @@ pub struct HostGlueNodeTextareaArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 192, "HostGlueNodeTextareaArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 208, "HostGlueNodeTextareaArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextareaArgs>() == 8, "HostGlueNodeTextareaArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 156, "HostGlueNodeTextareaArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 172, "HostGlueNodeTextareaArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextareaArgs>() == 4, "HostGlueNodeTextareaArgs alignment mismatch");
 
@@ -9389,7 +9493,7 @@ unsafe impl RocRelease<HostGlueNodeTextareaArgs> for HostGlueNodeTextareaArgsRel
 }
 
 /// Arguments for HostGlue.node_image!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U32, disabled_fg : U32, fg : U32, fit : U8, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U32, disabled_fg : U32, fg : U32, fit : U8, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -9422,6 +9526,10 @@ pub struct HostGlueNodeImageArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub fit: u8,
@@ -9442,7 +9550,7 @@ pub struct HostGlueNodeImageArgs {
 }
 
 /// Arguments for HostGlue.node_image!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U32, disabled_fg : U32, fg : U32, fit : U8, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U32, disabled_fg : U32, fg : U32, fit : U8, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -9475,6 +9583,10 @@ pub struct HostGlueNodeImageArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub fit: u8,
@@ -9495,11 +9607,11 @@ pub struct HostGlueNodeImageArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 168, "HostGlueNodeImageArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 184, "HostGlueNodeImageArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeImageArgs>() == 8, "HostGlueNodeImageArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 144, "HostGlueNodeImageArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 160, "HostGlueNodeImageArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeImageArgs>() == 4, "HostGlueNodeImageArgs alignment mismatch");
 
@@ -9615,7 +9727,7 @@ unsafe impl RocRelease<HostGlueNodeCanvasArgs> for HostGlueNodeCanvasArgsRelease
 }
 
 /// Arguments for HostGlue.node_text_input!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -9649,6 +9761,10 @@ pub struct HostGlueNodeTextInputArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -9667,7 +9783,7 @@ pub struct HostGlueNodeTextInputArgs {
 }
 
 /// Arguments for HostGlue.node_text_input!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -9701,6 +9817,10 @@ pub struct HostGlueNodeTextInputArgs {
     pub padding_right: u32,
     pub padding_top: u32,
     pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_color: u32,
+    pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
     pub enabled: bool,
@@ -9719,11 +9839,11 @@ pub struct HostGlueNodeTextInputArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 192, "HostGlueNodeTextInputArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 208, "HostGlueNodeTextInputArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextInputArgs>() == 8, "HostGlueNodeTextInputArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 156, "HostGlueNodeTextInputArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 172, "HostGlueNodeTextInputArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextInputArgs>() == 4, "HostGlueNodeTextInputArgs alignment mismatch");
 

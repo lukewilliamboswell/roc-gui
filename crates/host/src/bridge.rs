@@ -409,6 +409,12 @@ pub struct Style {
     pub radius: u32,
     pub font_size: u32,
     pub font_weight: u32,
+    /// A soft drop shadow: blur radius, downward offset, colour, and the
+    /// percentage of that colour it is painted at. A zero blur paints none.
+    pub shadow: u32,
+    pub shadow_y: u32,
+    pub shadow_color: Option<u32>,
+    pub shadow_alpha: u32,
     pub font_face: FontFace,
     pub text_overflow: TextOverflow,
     pub overflow_x: Overflow,

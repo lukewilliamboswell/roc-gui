@@ -129,7 +129,8 @@ most one dialog at a time.
 
 Row, column, panel, dialog, and action-button props share the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
-radius, font size, font weight, per-axis overflow, and the two axis placements.
+radius, shadow, font size, font weight, per-axis overflow, and the two axis
+placements.
 `font_weight` is zero for the native default, or 100 through 900; 700 is bold.
 
 `padding` is the shorthand for all four sides. `padding_top`, `padding_right`,
@@ -165,6 +166,13 @@ already the colour it wants to be.
 divides its regions with a rule on the one edge that faces the next region,
 rather than giving every region a complete box whose outer edges are also
 drawn.
+
+`shadow` is the blur radius of a soft drop shadow under the element, offset down
+by `shadow_y` and painted in `shadow_color` at `shadow_alpha` percent of that
+colour. `shadow: 0`, the default, paints none. A raised card on a near-white
+ground separates from its paper by shadow where a hairline border has too little
+contrast to read, and the colour is the application's own rather than a host
+grey, so the shadow can be cast in the page's ink.
 
 `justify` distributes children along the container's own layout axis and `align`
 places them across it. `justify` is `Start`, `Center`, `End`, `Between`, or

@@ -373,6 +373,10 @@ macro_rules! decode_layout_style {
             radius: $args.radius,
             font_size: $args.font_size,
             font_weight: $args.font_weight,
+            shadow: $args.shadow,
+            shadow_y: $args.shadow_y,
+            shadow_color: decode_color($args.shadow_color),
+            shadow_alpha: $args.shadow_alpha,
             font_face: decode_font_face($args.font_face),
             text_overflow: decode_text_overflow($args.text_overflow),
             overflow_x: decode_overflow($args.overflow_x),
@@ -1174,6 +1178,25 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     }
     if style.font_weight > 0 {
         element = element.font_weight(FontWeight(style.font_weight as f32));
+    }
+    // A raised surface separates from its ground by shadow where a hairline
+    // border has too little contrast to read. The blur is the element's own,
+    // so a paper-light palette can choose both the colour and how much of it.
+    if style.shadow > 0 {
+        let rgba = style.shadow_color.unwrap_or(0x000000);
+        let alpha = (style.shadow_alpha.min(100) as f32) / 100.0;
+        element = element.shadow(vec![BoxShadow {
+            color: gpui::Rgba {
+                r: ((rgba >> 16) & 0xff) as f32 / 255.0,
+                g: ((rgba >> 8) & 0xff) as f32 / 255.0,
+                b: (rgba & 0xff) as f32 / 255.0,
+                a: alpha,
+            }
+            .into(),
+            offset: gpui::point(px(0.0), px(style.shadow_y as f32)),
+            blur_radius: px(style.shadow as f32),
+            spread_radius: px(0.0),
+        }]);
     }
     element = match style.text_overflow {
         TextOverflow::Wrap => element,

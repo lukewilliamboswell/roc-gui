@@ -89,12 +89,6 @@ the change lands; do not soften the docs to match the gap.
   wrapper element that exists for no other reason. `music-player`'s wordmark and
   status line are each a one-child `row` whose only job is `fg` and `font_size`.
   Close with a styled text element carrying the same colour and size fields.
-- [ ] **No shadow or elevation.** Surfaces separate from their ground only by
-  `bg`, `border_color`, and `radius`. A raised card on a near-white ground wants
-  a soft shadow, which on paper-light palettes is the only separation with
-  enough contrast to read; `counter`'s cards fall back on a 1px rule that all
-  but disappears against the ground it was chosen to sit quietly against. Close
-  with a shadow field on `Gui.Style`.
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
   label from ordinary body text once family is unavailable. `counter`'s per-card

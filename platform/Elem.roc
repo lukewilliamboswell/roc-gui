@@ -55,6 +55,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -96,6 +100,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -138,6 +146,10 @@ Elem(a) :: [
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -179,6 +191,10 @@ Elem(a) :: [
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -225,6 +241,10 @@ Elem(a) :: [
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -273,6 +293,10 @@ Elem(a) :: [
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Clip,
@@ -339,6 +363,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Visible,
@@ -387,6 +415,10 @@ Elem(a) :: [
 		radius : U32 ?? 6,
 		font_size : U32 ?? 15,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Scroll,
@@ -439,6 +471,10 @@ Elem(a) :: [
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Gui.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : Gui.FontFace ?? Default,
 		text_overflow : Gui.TextOverflow ?? Wrap,
 		overflow_x : Gui.Overflow ?? Clip,
@@ -558,7 +594,7 @@ Elem(a) :: [
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
 			Dialog({
 				children: value.children.map(|child| lift(child, get_child, set_child)),
-				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, font_face: value.props.font_face, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
+				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, shadow: value.props.shadow, shadow_y: value.props.shadow_y, shadow_color: value.props.shadow_color, shadow_alpha: value.props.shadow_alpha, font_face: value.props.font_face, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
 			})
 		}
 		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift(child, get_child, set_child)) })
@@ -575,7 +611,7 @@ Elem(a) :: [
 			child_submit = input_value.on_submit
 			parent_change! = |parent, event| Action.lift(child_change(get_child(parent), event), parent, get_child, set_child)
 			parent_submit! = |parent, event| Action.lift(child_submit(get_child(parent), event), parent, get_child, set_child)
-			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, font_face: input_value.font_face, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
+			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, shadow: input_value.shadow, shadow_y: input_value.shadow_y, shadow_color: input_value.shadow_color, shadow_alpha: input_value.shadow_alpha, font_face: input_value.font_face, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
 		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
@@ -614,7 +650,7 @@ Elem(a) :: [
 					border_left: button_value.border_left,
 					radius: button_value.radius,
 					font_size: button_value.font_size,
-					font_weight: button_value.font_weight,
+					font_weight: button_value.font_weight, shadow: button_value.shadow, shadow_y: button_value.shadow_y, shadow_color: button_value.shadow_color, shadow_alpha: button_value.shadow_alpha,
 					font_face: button_value.font_face,
 					text_overflow: button_value.text_overflow,
 					overflow_x: button_value.overflow_x,
@@ -665,7 +701,7 @@ Elem(a) :: [
 					border_left: checkbox_value.border_left,
 					radius: checkbox_value.radius,
 					font_size: checkbox_value.font_size,
-					font_weight: checkbox_value.font_weight,
+					font_weight: checkbox_value.font_weight, shadow: checkbox_value.shadow, shadow_y: checkbox_value.shadow_y, shadow_color: checkbox_value.shadow_color, shadow_alpha: checkbox_value.shadow_alpha,
 					font_face: checkbox_value.font_face,
 					text_overflow: checkbox_value.text_overflow,
 					overflow_x: checkbox_value.overflow_x,
@@ -678,7 +714,7 @@ Elem(a) :: [
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
 			parent_handler! = |parent, event| Action.lift(child_handler(get_child(parent), event), parent, get_child, set_child)
-			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, font_face: textarea_value.font_face, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
+			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, shadow: textarea_value.shadow, shadow_y: textarea_value.shadow_y, shadow_color: textarea_value.shadow_color, shadow_alpha: textarea_value.shadow_alpha, font_face: textarea_value.font_face, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
 		}
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => {

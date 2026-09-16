@@ -43,7 +43,10 @@ Gui := [].{
 
 	## Common visual properties. A zero value for `font_size` or `font_weight`
 	## selects the native default, and a non-zero `font_weight` is 100 through
-	## 900; `hover_bg` and `active_bg` apply during pointer interaction.
+	## 900; `hover_bg` and `active_bg` apply during pointer interaction. A
+	## non-zero `shadow` is the blur radius of a soft drop shadow, offset down
+	## the surface by `shadow_y` and painted in `shadow_color` at
+	## `shadow_alpha` percent; `shadow: 0` paints none.
 	Style := {
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
@@ -74,6 +77,10 @@ Gui := [].{
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Color ?? Default,
+		shadow_alpha : U32 ?? 100,
 		font_face : FontFace ?? Default,
 		text_overflow : TextOverflow ?? Wrap,
 		overflow_x : Overflow ?? Visible,
