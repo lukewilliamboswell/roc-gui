@@ -1,20 +1,20 @@
 ## A private, fixed-result trampoline. Typed values live in continuation captures;
 ## neither the executor nor the host interprets application state.
-Work :: [Done, Next(Box(() => Work)), Get(Box(() => Work)), Set(Box(() => Work)), Flush(Box(() => Work))].{
+Work :: [Done, Next((() => Work)), Get((() => Work)), Set((() => Work)), Flush((() => Work))].{
 	done : Work
 	done = Done
 
 	next : (() => Work) -> Work
-	next = |resume| Next(Box.box(resume))
+	next = |resume| Next(resume)
 
 	get : (() => Work) -> Work
-	get = |resume| Get(Box.box(resume))
+	get = |resume| Get(resume)
 
 	set : (() => Work) -> Work
-	set = |resume| Set(Box.box(resume))
+	set = |resume| Set(resume)
 
 	flush : (() => Work) -> Work
-	flush = |resume| Flush(Box.box(resume))
+	flush = |resume| Flush(resume)
 
 	run! : Work, (U64, U64 => {}) => {}
 	run! = |initial, record!| {
@@ -30,30 +30,26 @@ Work :: [Done, Next(Box(() => Work)), Get(Box(() => Work)), Set(Box(() => Work))
 					}
 					$running = False
 				}
-				Next(box) => {
-					resume! = Box.unbox(box)
+				Next(resume!) => {
 					$work = Done
 					$work = resume!()
 				}
-				Get(box) => {
+				Get(resume!) => {
 					$gets = $gets + 1
-					resume! = Box.unbox(box)
 					$work = Done
 					$work = resume!()
 				}
-				Set(box) => {
+				Set(resume!) => {
 					$sets = $sets + 1
-					resume! = Box.unbox(box)
 					$work = Done
 					$work = resume!()
 				}
-				Flush(box) => {
+				Flush(resume!) => {
 					if $gets > 0 or $sets > 0 {
 						record!($gets, $sets)
 					}
 					$gets = 0
 					$sets = 0
-					resume! = Box.unbox(box)
 					$work = Done
 					$work = resume!()
 				}
