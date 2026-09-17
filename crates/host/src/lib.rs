@@ -2878,6 +2878,9 @@ struct Runtime {
     /// The focused control's position in the focus order when it was last
     /// rendered. It is the only thing that survives the control itself.
     focused_position: Option<usize>,
+    /// The graph's focus order, computed once per generation instead of once
+    /// per rendered frame; `focus_order` walks the whole graph.
+    focus_order_cache: Option<(u64, Vec<u64>)>,
     focus_after_render: Option<u64>,
     editors: HashMap<ElementIdentity, Entity<input::TextInput>>,
     editor_nodes: HashMap<ElementIdentity, u64>,
@@ -2936,6 +2939,7 @@ impl Runtime {
             last_trigger_focus: None,
             focused_identity: None,
             focused_position: None,
+            focus_order_cache: None,
             focus_after_render: None,
             editors: HashMap::new(),
             editor_nodes: HashMap::new(),
@@ -3777,6 +3781,23 @@ impl Runtime {
         work
     }
 
+    /// The graph's focus order for the current generation, computed at most
+    /// once per applied patch rather than on every rendered frame.
+    fn focus_order_cached(&mut self) -> &[u64] {
+        if self
+            .focus_order_cache
+            .as_ref()
+            .is_none_or(|(generation, _)| *generation != self.generation)
+        {
+            self.focus_order_cache = Some((self.generation, self.graph.focus_order()));
+        }
+        &self
+            .focus_order_cache
+            .as_ref()
+            .expect("focus order cache was just populated")
+            .1
+    }
+
     fn find_native_identity(&self, identity: &ElementIdentity) -> Option<u64> {
         self.identities.iter().find_map(|(id, candidate)| {
             (candidate == identity && self.graph.node(*id).is_some()).then_some(*id)
@@ -4396,10 +4417,9 @@ impl Render for Runtime {
             .find(|(_, handle)| handle.is_focused(window))
             .map(|(id, _)| *id);
         self.focused_position = focused_now.and_then(|id| {
-            self.graph
-                .focus_order()
-                .into_iter()
-                .position(|other| other == id)
+            self.focus_order_cached()
+                .iter()
+                .position(|other| *other == id)
         });
         self.focused_identity = focused_now.and_then(|id| {
             self.graph
