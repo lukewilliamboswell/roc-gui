@@ -2,6 +2,7 @@ use crate::roc_platform_abi::{
     MountOrNoChangeOrReplace, MountOrNoChangeOrReplaceTag, RocErasedCallable,
 };
 use std::collections::{HashMap, HashSet, hash_map::Entry};
+use std::sync::Arc;
 use std::hash::{BuildHasherDefault, Hasher};
 use std::iter::FusedIterator;
 use std::time::Instant;
@@ -1185,10 +1186,12 @@ pub enum IdentitySegment {
     /// An explicit component lifetime cannot inherit a removed component's state.
     Boundary { instance: u64 },
     /// The node names itself. `occurrence` separates siblings that share a
-    /// name, and is 0 for the overwhelmingly common unique case.
+    /// name, and is 0 for the overwhelmingly common unique case. The name is
+    /// shared, so cloning an identity path bumps refcounts instead of copying
+    /// one string per ancestor segment.
     Named {
         tag: u8,
-        name: String,
+        name: Arc<str>,
         occurrence: u32,
     },
     /// The node has no name of its own, so its place among its siblings is
@@ -1204,7 +1207,7 @@ impl IdentitySegment {
         match node.kind.sibling_name() {
             Some(name) => Self::Named {
                 tag: node.kind.tag(),
-                name,
+                name: name.into(),
                 occurrence,
             },
             None => Self::Positional {
@@ -2600,7 +2603,7 @@ enum ScopeKind {
 
 struct ComponentScope {
     identity: ElementIdentity,
-    occurrences: HashMap<(u8, String), u32>,
+    occurrences: HashMap<(u8, Arc<str>), u32>,
     kind: ScopeKind,
 }
 
@@ -2670,13 +2673,14 @@ impl ComponentRegistry {
                 index: position,
             }
         } else {
+            let name: Arc<str> = Arc::from(label);
             let occurrence = parent
                 .occurrences
-                .entry((tag, label.to_owned()))
+                .entry((tag, name.clone()))
                 .or_default();
             let segment = IdentitySegment::Named {
                 tag,
-                name: label.to_owned(),
+                name,
                 occurrence: *occurrence,
             };
             *occurrence = occurrence
