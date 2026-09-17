@@ -387,6 +387,18 @@ names the evidence so a fix can be verified against the same case.
   ordinary full-root reconstruction remains 3–4x slower and still allocates
   traversal/continuation state per node. Attribute and remove that residual
   cost without trading away stack safety or the bounded local path.
+
+  Disassembly of the controlled 10,000-row development-backend executable
+  shows each specialized lowering procedure still reserves about 752 KiB of
+  stack and several specializations contain about 1.46 MiB of generated text.
+  Moving the visited element into a boxed one-field record did not materially
+  change either generated size and made a 1,000-row capture slower. Boxing all
+  container-close payloads reduced measured lowering allocation bytes at 10k
+  from about 82.20 MB to 58.35 MB per cycle, but added 10,003 allocation calls
+  and repeatably slowed lowering from 118.77–118.98 ms to 122.67–122.79 ms.
+  Both representation experiments were rejected. Continue by attributing the
+  generated frame rather than adding indirection based on aggregate bytes.
+
   These semantic captures contain no GPUI frame work, and `origin/main` has no
   keyed-collection analogue, so they neither compare native rendering nor
   establish an A/B result for keyed insert, move, or removal.
