@@ -7,6 +7,9 @@
 ## at most sixteen radix branches, irrespective of unrelated live entries.
 ## Leaves retain the remaining key bits and split only when keys collide;
 ## distinct entries do not each need a sixteen-level chain of unary branches.
+## Keep branch children boxed so list elements remain pointer-sized. Storing the
+## recursive union inline makes persistent branch updates copy substantially
+## more data; nested-hover-grid/specs/reset-1000.scm guards this scaling path.
 Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
 
 	## An index containing no entries.
