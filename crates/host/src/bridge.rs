@@ -1,8 +1,9 @@
 use crate::roc_platform_abi::{
     MountOrNoChangeOrReplace, MountOrNoChangeOrReplaceTag, RocErasedCallable,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 use std::hash::{BuildHasherDefault, Hasher};
+use std::iter::FusedIterator;
 use std::time::Instant;
 
 // A realistic row can lower to several host nodes. Keep a finite corruption /
@@ -62,6 +63,267 @@ enum KeyedOrderError {
     Duplicate(KeyedChildKey),
     Missing(KeyedChildKey),
     StaleRevision { actual: u64, expected: u64 },
+    StaleNewRevision { current: u64, proposed: u64 },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyedOrderOperation {
+    Insert {
+        key: KeyedChildKey,
+        root: u64,
+        instance: u64,
+        before: Option<KeyedChildKey>,
+    },
+    Remove {
+        key: KeyedChildKey,
+    },
+    Move {
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+    },
+    Replace {
+        key: KeyedChildKey,
+        root: u64,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct KeyedOrderAtomicEdit {
+    revision: u64,
+    original_reads: u64,
+    first_touches: u64,
+}
+
+struct KeyedChildIter<'a> {
+    order: &'a KeyedChildOrder,
+    front: Option<KeyedChildKey>,
+    back: Option<KeyedChildKey>,
+    remaining: usize,
+}
+
+impl<'a> Iterator for KeyedChildIter<'a> {
+    type Item = (KeyedChildKey, &'a KeyedChild);
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let key = self.front.expect("non-empty keyed order has a head");
+        let child = self.order.children.get(&key).expect("linked child");
+        self.front = child.next;
+        self.remaining -= 1;
+        Some((key, child))
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+impl DoubleEndedIterator for KeyedChildIter<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let key = self.back.expect("non-empty keyed order has a tail");
+        let child = self.order.children.get(&key).expect("linked child");
+        self.back = child.previous;
+        self.remaining -= 1;
+        Some((key, child))
+    }
+}
+
+impl ExactSizeIterator for KeyedChildIter<'_> {}
+impl FusedIterator for KeyedChildIter<'_> {}
+
+struct KeyedOrderJournal<'a> {
+    order: &'a mut KeyedChildOrder,
+    original_head: Option<KeyedChildKey>,
+    original_tail: Option<KeyedChildKey>,
+    original_revision: u64,
+    originals: HashMap<KeyedChildKey, Option<KeyedChild>>,
+    original_reads: u64,
+    first_touches: u64,
+}
+
+impl<'a> KeyedOrderJournal<'a> {
+    fn new(order: &'a mut KeyedChildOrder) -> Self {
+        Self {
+            original_head: order.head,
+            original_tail: order.tail,
+            original_revision: order.revision,
+            order,
+            originals: HashMap::new(),
+            original_reads: 0,
+            first_touches: 0,
+        }
+    }
+    fn touch(&mut self, key: KeyedChildKey) {
+        if let Entry::Vacant(entry) = self.originals.entry(key) {
+            entry.insert(self.order.children.get(&key).copied());
+            self.original_reads += 1;
+            self.first_touches += 1;
+        }
+    }
+    fn child(&self, key: KeyedChildKey) -> Result<KeyedChild, KeyedOrderError> {
+        self.order
+            .children
+            .get(&key)
+            .copied()
+            .ok_or(KeyedOrderError::Missing(key))
+    }
+    fn insert(
+        &mut self,
+        key: KeyedChildKey,
+        root: u64,
+        instance: u64,
+        before: Option<KeyedChildKey>,
+    ) -> Result<(), KeyedOrderError> {
+        if self.order.children.contains_key(&key) {
+            return Err(KeyedOrderError::Duplicate(key));
+        }
+        let next = before.map(|anchor| self.child(anchor)).transpose()?;
+        let previous = next.map_or(self.order.tail, |child| child.previous);
+        self.touch(key);
+        self.order.children.insert(
+            key,
+            KeyedChild {
+                root,
+                instance,
+                previous,
+                next: before,
+            },
+        );
+        if let Some(previous) = previous {
+            self.touch(previous);
+            self.order
+                .children
+                .get_mut(&previous)
+                .expect("predecessor")
+                .next = Some(key);
+        } else {
+            self.order.head = Some(key);
+        }
+        if let Some(anchor) = before {
+            self.touch(anchor);
+            self.order
+                .children
+                .get_mut(&anchor)
+                .expect("anchor")
+                .previous = Some(key);
+        } else {
+            self.order.tail = Some(key);
+        }
+        Ok(())
+    }
+    fn remove(&mut self, key: KeyedChildKey) -> Result<(), KeyedOrderError> {
+        let child = self.child(key)?;
+        if let Some(previous) = child.previous {
+            self.touch(previous);
+            self.order
+                .children
+                .get_mut(&previous)
+                .expect("predecessor")
+                .next = child.next;
+        } else {
+            self.order.head = child.next;
+        }
+        if let Some(next) = child.next {
+            self.touch(next);
+            self.order
+                .children
+                .get_mut(&next)
+                .expect("successor")
+                .previous = child.previous;
+        } else {
+            self.order.tail = child.previous;
+        }
+        self.touch(key);
+        self.order.children.remove(&key);
+        Ok(())
+    }
+    fn move_before(
+        &mut self,
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+    ) -> Result<(), KeyedOrderError> {
+        let child = self.child(key)?;
+        if before == Some(key) || child.next == before {
+            return Ok(());
+        }
+        if let Some(anchor) = before {
+            self.child(anchor)?;
+        }
+        if let Some(previous) = child.previous {
+            self.touch(previous);
+            self.order
+                .children
+                .get_mut(&previous)
+                .expect("predecessor")
+                .next = child.next;
+        } else {
+            self.order.head = child.next;
+        }
+        if let Some(next) = child.next {
+            self.touch(next);
+            self.order
+                .children
+                .get_mut(&next)
+                .expect("successor")
+                .previous = child.previous;
+        } else {
+            self.order.tail = child.previous;
+        }
+        let previous = before
+            .and_then(|anchor| {
+                self.order
+                    .children
+                    .get(&anchor)
+                    .and_then(|entry| entry.previous)
+            })
+            .or_else(|| before.is_none().then_some(self.order.tail).flatten());
+        if let Some(previous) = previous {
+            self.touch(previous);
+            self.order
+                .children
+                .get_mut(&previous)
+                .expect("move predecessor")
+                .next = Some(key);
+        } else {
+            self.order.head = Some(key);
+        }
+        if let Some(anchor) = before {
+            self.touch(anchor);
+            self.order
+                .children
+                .get_mut(&anchor)
+                .expect("anchor")
+                .previous = Some(key);
+        } else {
+            self.order.tail = Some(key);
+        }
+        self.touch(key);
+        let moved = self.order.children.get_mut(&key).expect("move key");
+        moved.previous = previous;
+        moved.next = before;
+        Ok(())
+    }
+    fn replace(&mut self, key: KeyedChildKey, root: u64) -> Result<(), KeyedOrderError> {
+        self.child(key)?;
+        self.touch(key);
+        self.order.children.get_mut(&key).expect("replace key").root = root;
+        Ok(())
+    }
+    fn rollback(self) {
+        self.order.head = self.original_head;
+        self.order.tail = self.original_tail;
+        self.order.revision = self.original_revision;
+        for (key, original) in self.originals {
+            if let Some(child) = original {
+                self.order.children.insert(key, child);
+            } else {
+                self.order.children.remove(&key);
+            }
+        }
+    }
 }
 
 /// Stable linked order for one future keyed container. Hash lookup plus a
@@ -76,6 +338,54 @@ struct KeyedChildOrder {
 }
 
 impl KeyedChildOrder {
+    fn iter(&self) -> KeyedChildIter<'_> {
+        KeyedChildIter {
+            order: self,
+            front: self.head,
+            back: self.tail,
+            remaining: self.children.len(),
+        }
+    }
+
+    fn apply_atomic(
+        &mut self,
+        base_revision: u64,
+        new_revision: u64,
+        operations: &[KeyedOrderOperation],
+    ) -> Result<KeyedOrderAtomicEdit, KeyedOrderError> {
+        self.check_revision(base_revision)?;
+        if new_revision <= base_revision {
+            return Err(KeyedOrderError::StaleNewRevision {
+                current: base_revision,
+                proposed: new_revision,
+            });
+        }
+        let mut journal = KeyedOrderJournal::new(self);
+        for operation in operations {
+            let result = match *operation {
+                KeyedOrderOperation::Insert {
+                    key,
+                    root,
+                    instance,
+                    before,
+                } => journal.insert(key, root, instance, before),
+                KeyedOrderOperation::Remove { key } => journal.remove(key),
+                KeyedOrderOperation::Move { key, before } => journal.move_before(key, before),
+                KeyedOrderOperation::Replace { key, root } => journal.replace(key, root),
+            };
+            if let Err(error) = result {
+                journal.rollback();
+                return Err(error);
+            }
+        }
+        journal.order.revision = new_revision;
+        Ok(KeyedOrderAtomicEdit {
+            revision: new_revision,
+            original_reads: journal.original_reads,
+            first_touches: journal.first_touches,
+        })
+    }
+
     fn check_revision(&self, expected: u64) -> Result<(), KeyedOrderError> {
         if expected == self.revision {
             Ok(())
@@ -285,13 +595,7 @@ impl KeyedChildOrder {
 
     #[cfg(test)]
     fn keys(&self) -> Vec<KeyedChildKey> {
-        let mut keys = Vec::with_capacity(self.children.len());
-        let mut next = self.head;
-        while let Some(key) = next {
-            keys.push(key);
-            next = self.children[&key].next;
-        }
-        keys
+        self.iter().map(|(key, _)| key).collect()
     }
 }
 
@@ -2452,6 +2756,184 @@ mod tests {
         let moved = order.move_before(10_000, first, None).unwrap();
         assert!(moved.touches <= 5);
         assert_eq!(order.keys().last(), Some(&first));
+    }
+
+    fn keyed_snapshot(order: &KeyedChildOrder) -> (u64, Vec<(KeyedChildKey, KeyedChild)>) {
+        (
+            order.revision,
+            order.iter().map(|(key, child)| (key, *child)).collect(),
+        )
+    }
+
+    #[test]
+    fn keyed_child_iterator_is_exact_and_double_ended() {
+        let mut order = KeyedChildOrder::default();
+        let keys: Vec<_> = (1..=4).map(keyed_test_key).collect();
+        for (index, key) in keys.iter().copied().enumerate() {
+            order
+                .insert_before(index as u64, key, index as u64, index as u64, None)
+                .unwrap();
+        }
+        let mut iter = order.iter();
+        assert_eq!(iter.len(), 4);
+        assert_eq!(iter.next().map(|(key, _)| key), Some(keys[0]));
+        assert_eq!(iter.next_back().map(|(key, _)| key), Some(keys[3]));
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.next_back().map(|(key, _)| key), Some(keys[2]));
+        assert_eq!(iter.next().map(|(key, _)| key), Some(keys[1]));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
+    fn keyed_atomic_mixed_edits_commit_one_supplied_revision() {
+        let (a, b, c, d) = (
+            keyed_test_key(1),
+            keyed_test_key(2),
+            keyed_test_key(3),
+            keyed_test_key(4),
+        );
+        let mut order = KeyedChildOrder::default();
+        order.insert_before(0, a, 10, 100, None).unwrap();
+        order.insert_before(1, b, 20, 200, None).unwrap();
+        order.insert_before(2, c, 30, 300, None).unwrap();
+        let edit = order
+            .apply_atomic(
+                3,
+                40,
+                &[
+                    KeyedOrderOperation::Insert {
+                        key: d,
+                        root: 40,
+                        instance: 400,
+                        before: Some(b),
+                    },
+                    KeyedOrderOperation::Move {
+                        key: c,
+                        before: Some(a),
+                    },
+                    KeyedOrderOperation::Replace { key: d, root: 41 },
+                    KeyedOrderOperation::Remove { key: b },
+                ],
+            )
+            .unwrap();
+        assert_eq!(order.keys(), vec![c, a, d]);
+        assert_eq!(order.get(d), Some((41, 400)));
+        assert_eq!(order.revision, 40);
+        assert_eq!(edit.revision, 40);
+        assert_eq!(edit.original_reads, edit.first_touches);
+        assert_eq!(edit.first_touches, 4, "each affected key is saved once");
+    }
+
+    #[test]
+    fn keyed_atomic_every_operation_failure_restores_exact_state() {
+        let (a, b, fresh, missing) = (
+            keyed_test_key(1),
+            keyed_test_key(2),
+            keyed_test_key(3),
+            keyed_test_key(9),
+        );
+        let failures = [
+            KeyedOrderOperation::Insert {
+                key: a,
+                root: 99,
+                instance: 99,
+                before: None,
+            },
+            KeyedOrderOperation::Insert {
+                key: keyed_test_key(4),
+                root: 99,
+                instance: 99,
+                before: Some(missing),
+            },
+            KeyedOrderOperation::Remove { key: missing },
+            KeyedOrderOperation::Move {
+                key: missing,
+                before: None,
+            },
+            KeyedOrderOperation::Move {
+                key: a,
+                before: Some(missing),
+            },
+            KeyedOrderOperation::Replace {
+                key: missing,
+                root: 99,
+            },
+        ];
+        for failure in failures {
+            let mut order = KeyedChildOrder::default();
+            order.insert_before(0, a, 10, 100, None).unwrap();
+            order.insert_before(1, b, 20, 200, None).unwrap();
+            let before = keyed_snapshot(&order);
+            let result = order.apply_atomic(
+                2,
+                3,
+                &[
+                    KeyedOrderOperation::Insert {
+                        key: fresh,
+                        root: 30,
+                        instance: 300,
+                        before: Some(b),
+                    },
+                    KeyedOrderOperation::Replace { key: a, root: 11 },
+                    failure,
+                ],
+            );
+            assert!(result.is_err());
+            assert_eq!(keyed_snapshot(&order), before);
+            assert!(!order.children.contains_key(&fresh));
+        }
+    }
+
+    #[test]
+    fn keyed_atomic_rejects_stale_base_and_new_revisions_without_touching_state() {
+        let a = keyed_test_key(1);
+        let mut order = KeyedChildOrder::default();
+        order.insert_before(0, a, 10, 100, None).unwrap();
+        let before = keyed_snapshot(&order);
+        let operation = [KeyedOrderOperation::Replace { key: a, root: 11 }];
+        assert_eq!(
+            order.apply_atomic(0, 2, &operation),
+            Err(KeyedOrderError::StaleRevision {
+                actual: 1,
+                expected: 0
+            })
+        );
+        assert_eq!(
+            order.apply_atomic(1, 1, &operation),
+            Err(KeyedOrderError::StaleNewRevision {
+                current: 1,
+                proposed: 1
+            })
+        );
+        assert_eq!(keyed_snapshot(&order), before);
+    }
+
+    #[test]
+    fn keyed_atomic_journal_work_is_independent_of_ten_thousand_siblings() {
+        let mut order = KeyedChildOrder::default();
+        for value in 0..10_000_u64 {
+            let mut key = [0; 32];
+            key[..8].copy_from_slice(&value.to_le_bytes());
+            order
+                .insert_before(value, key, value, value + 10_000, None)
+                .unwrap();
+        }
+        let mut first = [0; 32];
+        first[..8].copy_from_slice(&0_u64.to_le_bytes());
+        let edit = order
+            .apply_atomic(
+                10_000,
+                20_000,
+                &[KeyedOrderOperation::Move {
+                    key: first,
+                    before: None,
+                }],
+            )
+            .unwrap();
+        assert!(edit.original_reads <= 3);
+        assert_eq!(edit.original_reads, edit.first_touches);
+        assert_eq!(order.iter().next_back().map(|(key, _)| key), Some(first));
     }
 
     fn button(label: &str, enabled: bool) -> NodeKind {
