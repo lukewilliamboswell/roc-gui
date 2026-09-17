@@ -1075,12 +1075,35 @@ Internal := [].{
 		$steps
 	}
 
+	# The first eight digest bytes address a bucket; full keys settle collisions.
+	key_bucket : Key -> U64
+	key_bucket = |key| {
+		bytes = Key.to_bytes(key)
+		var $value = 0.U64
+		var $offset = 0.U64
+		while $offset < 8 {
+			byte = bytes.get($offset) ?? crash "key digest was not 32 bytes"
+			$value = $value * 256 + byte.to_u64()
+			$offset = $offset + 1
+		}
+		$value
+	}
+
 	keyed_fallback_steps : KeyedSeq(U64), List(Key), List(Elem(a)) -> List(KeyedStep(a))
 	keyed_fallback_steps = |old_items, keys, children| {
+		# Index the surviving keys once; scanning the key list per resident
+		# item made the snapshot fallback quadratic in collection size.
+		var $survivors = Index.empty
+		for key in keys {
+			bucket = key_bucket(key)
+			entries = Index.get($survivors, bucket) ?? []
+			$survivors = Index.set($survivors, bucket, entries.append(key))
+		}
 		var $steps = []
 		for old in KeyedSeq.to_list(old_items) {
 			var $present = False
-			for key in keys { if key == old.key { $present = True } }
+			entries = Index.get($survivors, key_bucket(old.key)) ?? []
+			for key in entries { if key == old.key { $present = True } }
 			if !$present { $steps = $steps.append(KeyedRemove(old.key)) }
 		}
 		if keys.len() != children.len() { crash "keyed fallback key count differs from children" }
