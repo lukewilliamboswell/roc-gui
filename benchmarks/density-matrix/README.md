@@ -17,3 +17,11 @@ layout payload at fixed listener count. Comparing the low/high interaction pair
 isolates listener and hitbox density while holding the telemetry payload fixed.
 Buttons necessarily contribute their own visual primitives, so the interaction
 axis measures complete usable controls rather than invisible hit regions.
+
+The window specification visits the same four corners, waits for each
+configuration to be presented, and clicks the first visible action through
+GPUI. It bounds production-native button and component-boundary work for every
+completed click frame. The rendered boundary stays local, while the production
+counter records 25 boundary elements handed to GPUI at low interaction density
+and 2,500 at high interaction density. That distinction makes the existing
+global element handoff visible without inferring it from timing.
