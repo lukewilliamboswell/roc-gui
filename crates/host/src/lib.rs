@@ -3366,15 +3366,7 @@ impl Runtime {
                 view.baseline_layout = baseline_layout;
                 cx.notify();
             });
-            pending.extend(
-                self.graph
-                    .node(id)
-                    .expect("retained layout node")
-                    .children
-                    .iter()
-                    .rev()
-                    .copied(),
-            );
+            pending.extend(self.graph.children_of(id).rev());
         }
     }
 
@@ -3519,13 +3511,13 @@ impl Runtime {
         }
         for id in &eager {
             let node = self.graph.node(*id).expect("applied node is missing");
-            let children = node
-                .children
-                .iter()
-                .filter(|id| !self.graph.is_virtual_descendant(**id))
+            let children = self
+                .graph
+                .children_of(node.id)
+                .filter(|id| !self.graph.is_virtual_descendant(*id))
                 .map(|id| {
                     self.views
-                        .get(id)
+                        .get(&id)
                         .expect("validated child is missing")
                         .clone()
                 })
@@ -3632,7 +3624,7 @@ impl Runtime {
                     let children = if matches!(node.kind, NodeKind::VirtualList { .. }) {
                         vec![]
                     } else {
-                        node.children.clone()
+                        self.graph.children_of(id).collect()
                     };
                     pending.push(Work::Finish(id));
                     pending.extend(children.into_iter().rev().map(Work::Enter));
@@ -3646,10 +3638,10 @@ impl Runtime {
                     let mut children = Vec::new();
                     let mut descendants = 0;
                     if !matches!(node.kind, NodeKind::VirtualList { .. }) {
-                        for child in &node.children {
+                        for child in self.graph.children_of(id) {
                             let cached = self
                                 .virtual_entities
-                                .get(child)
+                                .get(&child)
                                 .expect("built virtual child");
                             children.push(cached.view.clone());
                             descendants += cached.entities;

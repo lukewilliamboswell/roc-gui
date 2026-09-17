@@ -834,7 +834,44 @@ struct MountedNode {
     segment: IdentitySegment,
 }
 
+/// Allocation-free semantic child order for mounted graph traversal. The
+/// representation is ordinary today; keyed storage can add another iterator
+/// variant without changing graph consumers.
+pub(crate) struct MountedChildren<'a> {
+    ordinary: std::iter::Copied<std::slice::Iter<'a, u64>>,
+}
+
+impl Iterator for MountedChildren<'_> {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.ordinary.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.ordinary.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for MountedChildren<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.ordinary.next_back()
+    }
+}
+
+impl ExactSizeIterator for MountedChildren<'_> {}
+
 impl MountedGraph {
+    pub(crate) fn children_of(&self, id: u64) -> MountedChildren<'_> {
+        let children = self
+            .nodes
+            .get(&id)
+            .map_or(&[][..], |entry| entry.node.children.as_slice());
+        MountedChildren {
+            ordinary: children.iter().copied(),
+        }
+    }
+
     pub fn node(&self, id: u64) -> Option<&Node> {
         self.nodes.get(&id).map(|entry| &entry.node)
     }
@@ -906,7 +943,7 @@ impl MountedGraph {
         while let Some(id) = pending.pop() {
             let node = &self.nodes.get(&id).expect("mounted child is missing").node;
             ordered.push(node);
-            pending.extend(node.children.iter().rev().copied());
+            pending.extend(self.children_of(id).rev());
         }
         ordered
     }
@@ -941,13 +978,13 @@ impl MountedGraph {
     ///
     /// Repeated names are separated here, where the siblings are all in view.
     pub fn child_segments(&self, parent: u64) -> Vec<(u64, IdentitySegment)> {
-        let Some(node) = self.node(parent) else {
+        let Some(_node) = self.node(parent) else {
             return Vec::new();
         };
         let mut seen: HashMap<(u8, String), u32> = HashMap::new();
-        let mut segments = Vec::with_capacity(node.children.len());
-        for (index, child) in node.children.iter().enumerate() {
-            let Some(child_node) = self.node(*child) else {
+        let mut segments = Vec::with_capacity(self.children_of(parent).len());
+        for (index, child) in self.children_of(parent).enumerate() {
+            let Some(child_node) = self.node(child) else {
                 continue;
             };
             let occurrence = match child_node.kind.sibling_name() {
@@ -959,7 +996,7 @@ impl MountedGraph {
                 }
                 None => 0,
             };
-            segments.push((*child, IdentitySegment::of(child_node, index, occurrence)));
+            segments.push((child, IdentitySegment::of(child_node, index, occurrence)));
         }
         segments
     }
@@ -1092,13 +1129,9 @@ impl MountedGraph {
                 .and_then(|entry| entry.parent)?
                 .parent();
             if parent == ancestor {
-                return self.nodes.get(&ancestor).and_then(|entry| {
-                    entry
-                        .node
-                        .children
-                        .iter()
-                        .position(|child| *child == current)
-                });
+                return self
+                    .children_of(ancestor)
+                    .position(|child| child == current);
             }
             current = parent;
         }
@@ -1147,12 +1180,10 @@ impl MountedGraph {
         let mut result = HashSet::new();
         for entry in self.nodes.values() {
             if matches!(entry.node.kind, NodeKind::VirtualList { .. }) {
-                let mut pending = entry.node.children.clone();
+                let mut pending = self.children_of(entry.node.id).collect::<Vec<_>>();
                 while let Some(id) = pending.pop() {
-                    if result.insert(id)
-                        && let Some(child) = self.nodes.get(&id)
-                    {
-                        pending.extend(child.node.children.iter().copied());
+                    if result.insert(id) && self.nodes.contains_key(&id) {
+                        pending.extend(self.children_of(id));
                     }
                 }
             }
@@ -1259,10 +1290,9 @@ impl MountedGraph {
                 found_frontier.insert(id);
                 continue;
             }
-            let entry = &self.nodes[&id];
             validation_visits += 1;
             removed_ids.push(id);
-            pending.extend(entry.node.children.iter().rev().copied());
+            pending.extend(self.children_of(id).rev());
         }
         if found_frontier != frontier {
             return Err("retained roots overlap or are outside the replacement target".into());
@@ -1311,8 +1341,8 @@ impl MountedGraph {
                 .kind
                 .sibling_name()
                 .map(|name| {
-                    self.nodes[&parent_id].node.children[..position]
-                        .iter()
+                    self.children_of(parent_id)
+                        .take(position)
                         .filter(|id| {
                             let other = &self.nodes[id].node;
                             other.kind.tag() == node.kind.tag()
@@ -3328,6 +3358,33 @@ mod tests {
             })
             .unwrap();
         graph
+    }
+
+    #[test]
+    fn mounted_child_abstraction_preserves_ordinary_semantics() {
+        let graph = two_components();
+        assert_eq!(graph.children_of(5).collect::<Vec<_>>(), vec![2, 4]);
+        assert_eq!(
+            graph
+                .nodes_preorder()
+                .into_iter()
+                .map(|node| node.id)
+                .collect::<Vec<_>>(),
+            vec![5, 2, 1, 4, 3]
+        );
+        assert_eq!(graph.child_index_containing(5, 1), Some(0));
+        assert!(graph.is_descendant_of(3, 5));
+        assert!(!graph.is_descendant_of(1, 4));
+        let identities = graph.element_identities();
+        assert_eq!(
+            identities[&2],
+            vec![IdentitySegment::Boundary { instance: 1 }]
+        );
+        assert_eq!(
+            identities[&4],
+            vec![IdentitySegment::Boundary { instance: 2 }]
+        );
+        assert!(graph.focus_order().is_empty());
     }
 
     #[test]
