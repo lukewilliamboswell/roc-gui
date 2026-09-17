@@ -3043,10 +3043,16 @@ impl BridgeState {
         revision: u64,
         keys: Vec<KeyedChildKey>,
     ) -> Result<(), String> {
-        let position = self
+        // One indexing pass keeps a large seeded column linear; probing the
+        // staged vector per key made the initial mount quadratic in its size.
+        let staged_index: HashMap<u64, usize> = self
             .staged
             .iter()
-            .position(|node| node.id == container)
+            .enumerate()
+            .map(|(index, node)| (node.id, index))
+            .collect();
+        let position = *staged_index
+            .get(&container)
             .ok_or_else(|| format!("keyed seed container {container} was not staged"))?;
         let node = &self.staged[position];
         if keys.len() != node.children.len() {
@@ -3061,10 +3067,9 @@ impl BridgeState {
             if !seen.insert(*key) {
                 return Err("keyed seed contains a duplicate key".into());
             }
-            let child_node = self
-                .staged
-                .iter()
-                .find(|candidate| candidate.id == *child)
+            let child_node = staged_index
+                .get(child)
+                .map(|index| &self.staged[*index])
                 .ok_or_else(|| format!("keyed seed child {child} was not staged"))?;
             if !matches!(child_node.kind, NodeKind::Boundary { .. }) {
                 return Err("keyed seed child is not a component boundary".into());
