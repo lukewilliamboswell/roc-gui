@@ -293,7 +293,7 @@ class GpuiFrameWorkReportTests(unittest.TestCase):
                     CREATE TABLE gpui_frames(id INTEGER PRIMARY KEY);
                     CREATE TABLE gpui_frame_work(frame_id INTEGER, metric INTEGER, count INTEGER,
                                                  PRIMARY KEY(frame_id,metric));
-                    INSERT INTO metadata VALUES ('schema_version','16');
+                    INSERT INTO metadata VALUES ('schema_version','17');
                     INSERT INTO measurement_status VALUES
                         ('gpui_frame_work','complete','GPUI owner observation');
                     INSERT INTO gpui_frames VALUES (1),(2);
