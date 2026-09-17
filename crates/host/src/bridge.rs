@@ -41,6 +41,260 @@ impl Hasher for NodeIdHasher {
 type NodeMap<V> = HashMap<u64, V, BuildHasherDefault<NodeIdHasher>>;
 type NodeSet = HashSet<u64, BuildHasherDefault<NodeIdHasher>>;
 
+type KeyedChildKey = [u8; 32];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct KeyedChild {
+    root: u64,
+    instance: u64,
+    previous: Option<KeyedChildKey>,
+    next: Option<KeyedChildKey>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct KeyedOrderEdit {
+    revision: u64,
+    touches: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyedOrderError {
+    Duplicate(KeyedChildKey),
+    Missing(KeyedChildKey),
+    StaleRevision { actual: u64, expected: u64 },
+}
+
+/// Stable linked order for one future keyed container. Hash lookup plus a
+/// bounded number of neighbour rewrites keeps structural work proportional to
+/// semantic edits rather than sibling count.
+#[derive(Default)]
+struct KeyedChildOrder {
+    revision: u64,
+    head: Option<KeyedChildKey>,
+    tail: Option<KeyedChildKey>,
+    children: HashMap<KeyedChildKey, KeyedChild>,
+}
+
+impl KeyedChildOrder {
+    fn check_revision(&self, expected: u64) -> Result<(), KeyedOrderError> {
+        if expected == self.revision {
+            Ok(())
+        } else {
+            Err(KeyedOrderError::StaleRevision {
+                actual: self.revision,
+                expected,
+            })
+        }
+    }
+
+    fn get(&self, key: KeyedChildKey) -> Option<(u64, u64)> {
+        self.children
+            .get(&key)
+            .map(|child| (child.root, child.instance))
+    }
+
+    fn insert_before(
+        &mut self,
+        expected_revision: u64,
+        key: KeyedChildKey,
+        root: u64,
+        instance: u64,
+        before: Option<KeyedChildKey>,
+    ) -> Result<KeyedOrderEdit, KeyedOrderError> {
+        self.check_revision(expected_revision)?;
+        if self.children.contains_key(&key) {
+            return Err(KeyedOrderError::Duplicate(key));
+        }
+        let next = match before {
+            Some(anchor) => Some(
+                *self
+                    .children
+                    .get(&anchor)
+                    .ok_or(KeyedOrderError::Missing(anchor))?,
+            ),
+            None => None,
+        };
+        let previous = next.map_or(self.tail, |child| child.previous);
+        let mut touches = 1;
+        self.children.insert(
+            key,
+            KeyedChild {
+                root,
+                instance,
+                previous,
+                next: before,
+            },
+        );
+        if let Some(previous) = previous {
+            self.children
+                .get_mut(&previous)
+                .expect("linked predecessor")
+                .next = Some(key);
+            touches += 1;
+        } else {
+            self.head = Some(key);
+        }
+        if let Some(anchor) = before {
+            self.children
+                .get_mut(&anchor)
+                .expect("validated anchor")
+                .previous = Some(key);
+            touches += 1;
+        } else {
+            self.tail = Some(key);
+        }
+        self.revision += 1;
+        Ok(KeyedOrderEdit {
+            revision: self.revision,
+            touches,
+        })
+    }
+
+    fn remove(
+        &mut self,
+        expected_revision: u64,
+        key: KeyedChildKey,
+    ) -> Result<(KeyedChild, KeyedOrderEdit), KeyedOrderError> {
+        self.check_revision(expected_revision)?;
+        let child = *self
+            .children
+            .get(&key)
+            .ok_or(KeyedOrderError::Missing(key))?;
+        let mut touches = 1;
+        if let Some(previous) = child.previous {
+            self.children
+                .get_mut(&previous)
+                .expect("linked predecessor")
+                .next = child.next;
+            touches += 1;
+        } else {
+            self.head = child.next;
+        }
+        if let Some(next) = child.next {
+            self.children
+                .get_mut(&next)
+                .expect("linked successor")
+                .previous = child.previous;
+            touches += 1;
+        } else {
+            self.tail = child.previous;
+        }
+        self.children.remove(&key);
+        self.revision += 1;
+        Ok((
+            child,
+            KeyedOrderEdit {
+                revision: self.revision,
+                touches,
+            },
+        ))
+    }
+
+    fn move_before(
+        &mut self,
+        expected_revision: u64,
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+    ) -> Result<KeyedOrderEdit, KeyedOrderError> {
+        self.check_revision(expected_revision)?;
+        let child = *self
+            .children
+            .get(&key)
+            .ok_or(KeyedOrderError::Missing(key))?;
+        if before == Some(key) || child.next == before {
+            self.revision += 1;
+            return Ok(KeyedOrderEdit {
+                revision: self.revision,
+                touches: 0,
+            });
+        }
+        if let Some(anchor) = before
+            && !self.children.contains_key(&anchor)
+        {
+            return Err(KeyedOrderError::Missing(anchor));
+        }
+
+        let mut touches = 1;
+        if let Some(previous) = child.previous {
+            self.children
+                .get_mut(&previous)
+                .expect("linked predecessor")
+                .next = child.next;
+            touches += 1;
+        } else {
+            self.head = child.next;
+        }
+        if let Some(next) = child.next {
+            self.children
+                .get_mut(&next)
+                .expect("linked successor")
+                .previous = child.previous;
+            touches += 1;
+        } else {
+            self.tail = child.previous;
+        }
+
+        let previous = before
+            .and_then(|anchor| self.children.get(&anchor).and_then(|entry| entry.previous))
+            .or_else(|| before.is_none().then_some(self.tail).flatten());
+        if let Some(previous) = previous {
+            self.children
+                .get_mut(&previous)
+                .expect("move predecessor")
+                .next = Some(key);
+            touches += 1;
+        } else {
+            self.head = Some(key);
+        }
+        if let Some(anchor) = before {
+            self.children
+                .get_mut(&anchor)
+                .expect("validated anchor")
+                .previous = Some(key);
+            touches += 1;
+        } else {
+            self.tail = Some(key);
+        }
+        let moved = self.children.get_mut(&key).expect("validated move key");
+        moved.previous = previous;
+        moved.next = before;
+        self.revision += 1;
+        Ok(KeyedOrderEdit {
+            revision: self.revision,
+            touches,
+        })
+    }
+
+    fn replace(
+        &mut self,
+        expected_revision: u64,
+        key: KeyedChildKey,
+        root: u64,
+    ) -> Result<KeyedOrderEdit, KeyedOrderError> {
+        self.check_revision(expected_revision)?;
+        self.children
+            .get_mut(&key)
+            .ok_or(KeyedOrderError::Missing(key))?
+            .root = root;
+        self.revision += 1;
+        Ok(KeyedOrderEdit {
+            revision: self.revision,
+            touches: 1,
+        })
+    }
+
+    #[cfg(test)]
+    fn keys(&self) -> Vec<KeyedChildKey> {
+        let mut keys = Vec::with_capacity(self.children.len());
+        let mut next = self.head;
+        while let Some(key) = next {
+            keys.push(key);
+            next = self.children[&key].next;
+        }
+        keys
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
     /// A mounted component's lifetime. This node adds no layout surface.
@@ -441,6 +695,31 @@ pub struct Node {
     pub children: Vec<u64>,
 }
 
+/// Stable ownership of a mounted node. Ordinary children retain their vector
+/// position; keyed children will retain collection identity independently of
+/// display position when keyed graph transactions are connected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParentLocation {
+    OrdinaryIndex {
+        parent: u64,
+        index: usize,
+    },
+    Keyed {
+        container: u64,
+        key: [u8; 32],
+        instance: u64,
+    },
+}
+
+impl ParentLocation {
+    fn parent(self) -> u64 {
+        match self {
+            Self::OrdinaryIndex { parent, .. } => parent,
+            Self::Keyed { container, .. } => container,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Patch {
     Mount {
@@ -550,7 +829,7 @@ pub struct MountedGraph {
 
 struct MountedNode {
     node: Node,
-    parent: Option<(u64, usize)>,
+    parent: Option<ParentLocation>,
     subtree_size: u64,
     segment: IdentitySegment,
 }
@@ -561,6 +840,13 @@ impl MountedGraph {
     }
 
     pub fn parent(&self, id: u64) -> Option<(u64, usize)> {
+        match self.nodes.get(&id)?.parent? {
+            ParentLocation::OrdinaryIndex { parent, index } => Some((parent, index)),
+            ParentLocation::Keyed { .. } => None,
+        }
+    }
+
+    pub fn parent_location(&self, id: u64) -> Option<ParentLocation> {
         self.nodes.get(&id).and_then(|entry| entry.parent)
     }
 
@@ -583,7 +869,7 @@ impl MountedGraph {
             if let NodeKind::Boundary { instance } = entry.node.kind {
                 return Some(instance);
             }
-            id = entry.parent?.0;
+            id = entry.parent?.parent();
         }
     }
 
@@ -607,7 +893,7 @@ impl MountedGraph {
         while let Some(id) = current {
             let entry = &self.nodes[&id];
             identity.push(entry.segment.clone());
-            current = entry.parent.map(|(parent, _)| parent);
+            current = entry.parent.map(ParentLocation::parent);
         }
         identity.reverse();
         identity
@@ -761,7 +1047,7 @@ impl MountedGraph {
             match self
                 .nodes
                 .get(&id)
-                .and_then(|entry| entry.parent.map(|value| value.0))
+                .and_then(|entry| entry.parent.map(ParentLocation::parent))
             {
                 Some(parent) => id = parent,
                 None => return false,
@@ -777,14 +1063,15 @@ impl MountedGraph {
         let mut found = Vec::new();
         let mut current = self.nodes.get(&id).and_then(|entry| entry.parent);
         while let Some(parent) = current {
-            let Some(entry) = self.nodes.get(&parent.0) else {
+            let parent_id = parent.parent();
+            let Some(entry) = self.nodes.get(&parent_id) else {
                 break;
             };
             if matches!(
                 entry.node.kind,
                 NodeKind::Scroll { .. } | NodeKind::VirtualList { .. }
             ) {
-                found.push(parent.0);
+                found.push(parent_id);
             }
             current = entry.parent;
         }
@@ -799,7 +1086,11 @@ impl MountedGraph {
     pub fn child_index_containing(&self, ancestor: u64, id: u64) -> Option<usize> {
         let mut current = id;
         loop {
-            let parent = self.nodes.get(&current).and_then(|entry| entry.parent)?.0;
+            let parent = self
+                .nodes
+                .get(&current)
+                .and_then(|entry| entry.parent)?
+                .parent();
             if parent == ancestor {
                 return self.nodes.get(&ancestor).and_then(|entry| {
                     entry
@@ -1133,7 +1424,8 @@ impl MountedGraph {
             }
         }
         self.insert_nodes(nodes, &validated);
-        self.nodes.get_mut(&root).expect("validated root").parent = parent;
+        self.nodes.get_mut(&root).expect("validated root").parent =
+            parent.map(|(parent, index)| ParentLocation::OrdinaryIndex { parent, index });
         self.nodes.get_mut(&root).expect("validated root").segment = root_segment;
         let new_size = self.nodes[&root].subtree_size;
         if let Some((parent_id, position)) = parent {
@@ -1152,7 +1444,7 @@ impl MountedGraph {
             while let Some(id) = ancestor {
                 let entry = self.nodes.get_mut(&id).expect("mounted ancestor");
                 entry.subtree_size = entry.subtree_size - old_size + new_size;
-                ancestor = entry.parent.map(|(id, _)| id);
+                ancestor = entry.parent.map(ParentLocation::parent);
             }
         } else {
             self.root = Some(root);
@@ -1252,7 +1544,11 @@ impl MountedGraph {
                 .sum::<u64>();
             self.nodes.get_mut(id).expect("inserted node").subtree_size = size;
             for (position, child) in children.into_iter().enumerate() {
-                self.nodes.get_mut(&child).expect("validated child").parent = Some((*id, position));
+                self.nodes.get_mut(&child).expect("validated child").parent =
+                    Some(ParentLocation::OrdinaryIndex {
+                        parent: *id,
+                        index: position,
+                    });
             }
             self.refresh_child_segments(*id);
         }
@@ -1985,6 +2281,148 @@ mod tests {
         assert_eq!(graph.focus_destination(0), None);
     }
     use super::*;
+
+    fn keyed_test_key(value: u8) -> KeyedChildKey {
+        let mut key = [0; 32];
+        key[0] = value;
+        key
+    }
+
+    #[test]
+    fn keyed_child_order_edits_links_and_preserves_identity() {
+        let a = keyed_test_key(1);
+        let b = keyed_test_key(2);
+        let c = keyed_test_key(3);
+        let mut order = KeyedChildOrder::default();
+
+        assert_eq!(
+            order.insert_before(0, a, 10, 100, None),
+            Ok(KeyedOrderEdit {
+                revision: 1,
+                touches: 1
+            })
+        );
+        assert_eq!(
+            order.insert_before(1, b, 20, 200, None),
+            Ok(KeyedOrderEdit {
+                revision: 2,
+                touches: 2
+            })
+        );
+        assert_eq!(
+            order.insert_before(2, c, 30, 300, Some(b)),
+            Ok(KeyedOrderEdit {
+                revision: 3,
+                touches: 3
+            })
+        );
+        assert_eq!(order.keys(), vec![a, c, b]);
+        assert_eq!(order.get(c), Some((30, 300)));
+
+        assert_eq!(
+            order.move_before(3, b, Some(a)),
+            Ok(KeyedOrderEdit {
+                revision: 4,
+                touches: 3
+            })
+        );
+        assert_eq!(order.keys(), vec![b, a, c]);
+        assert_eq!(
+            order.get(b),
+            Some((20, 200)),
+            "a move preserves root and instance identity"
+        );
+
+        assert_eq!(
+            order.replace(4, c, 31),
+            Ok(KeyedOrderEdit {
+                revision: 5,
+                touches: 1
+            })
+        );
+        assert_eq!(
+            order.get(c),
+            Some((31, 300)),
+            "replacement preserves the keyed instance"
+        );
+        let (removed, edit) = order.remove(5, a).expect("remove existing key");
+        assert_eq!((removed.root, removed.instance), (10, 100));
+        assert_eq!(
+            edit,
+            KeyedOrderEdit {
+                revision: 6,
+                touches: 3
+            }
+        );
+        assert_eq!(order.keys(), vec![b, c]);
+
+        assert_eq!(
+            order.move_before(6, b, Some(c)),
+            Ok(KeyedOrderEdit {
+                revision: 7,
+                touches: 0
+            })
+        );
+        assert_eq!(order.keys(), vec![b, c]);
+    }
+
+    #[test]
+    fn keyed_child_order_rejections_are_atomic() {
+        let a = keyed_test_key(1);
+        let missing = keyed_test_key(9);
+        let mut order = KeyedChildOrder::default();
+        order.insert_before(0, a, 10, 100, None).unwrap();
+        let snapshot = order.keys();
+
+        assert_eq!(
+            order.insert_before(1, a, 11, 101, None),
+            Err(KeyedOrderError::Duplicate(a))
+        );
+        assert_eq!(
+            order.insert_before(1, keyed_test_key(2), 20, 200, Some(missing)),
+            Err(KeyedOrderError::Missing(missing))
+        );
+        assert_eq!(
+            order.remove(1, missing),
+            Err(KeyedOrderError::Missing(missing))
+        );
+        assert_eq!(
+            order.move_before(1, a, Some(missing)),
+            Err(KeyedOrderError::Missing(missing))
+        );
+        assert_eq!(
+            order.replace(1, missing, 99),
+            Err(KeyedOrderError::Missing(missing))
+        );
+        assert_eq!(
+            order.remove(0, a),
+            Err(KeyedOrderError::StaleRevision {
+                actual: 1,
+                expected: 0
+            })
+        );
+        assert_eq!(order.revision, 1);
+        assert_eq!(order.keys(), snapshot);
+        assert_eq!(order.get(a), Some((10, 100)));
+    }
+
+    #[test]
+    fn keyed_child_order_touch_count_is_independent_of_sibling_count() {
+        let mut order = KeyedChildOrder::default();
+        for value in 0..10_000_u64 {
+            let mut key = [0; 32];
+            key[..8].copy_from_slice(&value.to_le_bytes());
+            let edit = order
+                .insert_before(value, key, value + 1, value + 10_001, None)
+                .unwrap();
+            assert!(edit.touches <= 2);
+        }
+        let mut first = [0; 32];
+        first[..8].copy_from_slice(&0_u64.to_le_bytes());
+        let moved = order.move_before(10_000, first, None).unwrap();
+        assert!(moved.touches <= 5);
+        assert_eq!(order.keys().last(), Some(&first));
+    }
 
     fn button(label: &str, enabled: bool) -> NodeKind {
         NodeKind::Button {
