@@ -1245,19 +1245,24 @@ Internal := [].{
 				None => cleared.keyed
 			},
 		}
-		var $live = Index.empty
-		for child in current.children {
-			$live = Index.set($live, child, True)
-		}
 		var $settled_routes = lowered.routes
 		var $settled_boundaries = lowered.boundaries.stored
-		for previous in owner.children {
-			match Index.get($live, previous) {
-				Ok(_) => {}
-				Err(_) => {
-					retired = retire!(previous, $settled_routes, $settled_boundaries)
-					$settled_routes = retired.routes
-					$settled_boundaries = retired.boundaries
+		# Retirement needs the live-child set only when a previous child can
+		# actually be missing; an initial mount or an unchanged child list —
+		# the common full-root case — retires nothing and builds no index.
+		if !owner.children.is_empty() and owner.children != current.children {
+			var $live = Index.empty
+			for child in current.children {
+				$live = Index.set($live, child, True)
+			}
+			for previous in owner.children {
+				match Index.get($live, previous) {
+					Ok(_) => {}
+					Err(_) => {
+						retired = retire!(previous, $settled_routes, $settled_boundaries)
+						$settled_routes = retired.routes
+						$settled_boundaries = retired.boundaries
+					}
 				}
 			}
 		}
