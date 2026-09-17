@@ -144,6 +144,23 @@ which hypotheses matter.
   `node_action_button`), recorded by the host, which owns them. If host
   builder time is ≥30% of span 3, R2/R3 move the headline number without
   touching Roc.
+**M4 findings (this branch, macOS arm64, pinned dev backend, row-boundaries
+select-10k):** the binary contains 1,136 `roc__proc` symbols; twelve are
+~3.0 MiB of text each (36 MiB of a 60 MiB binary) and every one of the twelve
+reserves a ~794 KiB frame (`0xc6a50`) probed page-by-page (~198
+`sub sp / str xzr` pairs). A 5-second `sample` profile during the measured
+callback puts ~60% of on-CPU time inside three of those twelve procs. The
+source-line attribution shows the time is *not* in the probe prologues (zero
+samples in the first 0x640 bytes); it is spread through the bodies, with the
+hottest leaves being the persistent `Index` set/get/remove paths
+(`Index.roc:38,46,57` — the routes/boundaries radix traffic P3 removes), the
+`Work` trampoline dispatch, the component prepare/close arms of
+`lower_work!`, and ActionButton route registration (`Internal.roc` leaf
+lowering). Conclusion: P3 (route storage) and P1 (descriptor size feeding the
+giant specializations) are the right next levers, and the upstream compiler
+issue to file is stack-slot reuse in huge generated procedures rather than
+probe cost.
+
 - **M4 — Generated-frame attribution.** Continue the recorded direction:
   disassemble the 10k dev-backend binary, map the 752 KiB frames and 1.46 MiB
   specializations to their Roc source functions (`lower_work!` arms,
