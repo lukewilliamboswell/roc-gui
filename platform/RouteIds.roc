@@ -1,6 +1,9 @@
 ## Private append-only route ownership metadata. A shared append copies at
 ## most one fixed-size chunk, never the entire owner's accumulated route list.
-RouteIds :: [Empty, Chunk(List(U64), RouteIds)].{
+## Box the recursive tail so each chunk link has explicit pointer-sized
+## indirection across targets. The retained-routes scaling specification
+## exercises extension and retirement beyond a single chunk.
+RouteIds :: [Empty, Chunk(List(U64), Box(RouteIds))].{
 
 	## No routes registered to this owner.
 	empty : RouteIds
@@ -9,11 +12,11 @@ RouteIds :: [Empty, Chunk(List(U64), RouteIds)].{
 	## Record a route for retirement when its owner is removed.
 	append : RouteIds, U64 -> RouteIds
 	append = |ids, id| match ids {
-		Empty => Chunk([id], Empty)
+		Empty => Chunk([id], Box.box(Empty))
 		Chunk(head, tail) => if head.len() < 64 {
 			Chunk(head.append(id), tail)
 		} else {
-			Chunk([id], ids)
+			Chunk([id], Box.box(ids))
 		}
 	}
 
@@ -27,7 +30,7 @@ RouteIds :: [Empty, Chunk(List(U64), RouteIds)].{
 			for id in head {
 				$result = visit($result, id)
 			}
-			fold(tail, $result, visit)
+			fold(Box.unbox(tail), $result, visit)
 		}
 	}
 }
