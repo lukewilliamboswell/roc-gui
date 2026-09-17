@@ -2282,6 +2282,10 @@ impl MountedGraph {
         // structural scope. Native GPUI element identity includes that path.
         let mut identity = outer_identity;
         let mut pending = vec![(root, root_segment.clone(), false)];
+        // Scratch reused across nodes; allocating either per visited node
+        // dominated this walk's allocator traffic on large fragments.
+        let mut occurrences = HashMap::new();
+        let mut children = Vec::new();
         while let Some((id, segment, exiting)) = pending.pop() {
             if exiting {
                 identity.pop();
@@ -2306,8 +2310,8 @@ impl MountedGraph {
                 }
             }
             pending.push((id, root_segment.clone(), true));
-            let mut occurrences = HashMap::new();
-            let mut children = Vec::with_capacity(node.children.len());
+            occurrences.clear();
+            children.clear();
             for (position, child) in node.children.iter().enumerate() {
                 let child_node = validated
                     .lookup(*child, &nodes, |id| self.node(id))
@@ -2329,7 +2333,7 @@ impl MountedGraph {
                     false,
                 ));
             }
-            pending.extend(children.into_iter().rev());
+            pending.extend(children.drain(..).rev());
         }
         let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
         let apply_started = MEASURE.then(Instant::now);
