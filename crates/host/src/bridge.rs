@@ -842,8 +842,8 @@ impl NodeKind {
     /// what makes it the application's own statement of what the thing is.
     /// `Text` has no name — a paragraph is identified by where it sits — and a
     /// virtual item is named by the key its application chose for the row.
-    pub fn sibling_name(&self) -> Option<String> {
-        let name = match self {
+    pub fn sibling_name(&self) -> Option<std::borrow::Cow<'_, str>> {
+        let name: std::borrow::Cow<'_, str> = match self {
             Self::Canvas { label, .. }
             | Self::Button { label, .. }
             | Self::Checkbox { label, .. }
@@ -854,10 +854,10 @@ impl NodeKind {
             | Self::Dialog { label, .. }
             | Self::Panel { label, .. }
             | Self::Row { label, .. }
-            | Self::TextInput { label, .. } => label.clone(),
-            Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.clone(),
-            Self::VirtualItem { key } => key.to_string(),
-            Self::Text(_) | Self::StyledText { .. } | Self::Boundary { .. } => String::new(),
+            | Self::TextInput { label, .. } => label.as_str().into(),
+            Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.as_str().into(),
+            Self::VirtualItem { key } => key.to_string().into(),
+            Self::Text(_) | Self::StyledText { .. } | Self::Boundary { .. } => "".into(),
         };
         (!name.is_empty()).then_some(name)
     }
@@ -1207,7 +1207,7 @@ impl IdentitySegment {
         match node.kind.sibling_name() {
             Some(name) => Self::Named {
                 tag: node.kind.tag(),
-                name: name.into(),
+                name: Arc::from(&*name),
                 occurrence,
             },
             None => Self::Positional {
@@ -1430,7 +1430,7 @@ impl MountedGraph {
             };
             let occurrence = match child_node.kind.sibling_name() {
                 Some(name) => {
-                    let slot = seen.entry((child_node.kind.tag(), name)).or_default();
+                    let slot = seen.entry((child_node.kind.tag(), name.into_owned())).or_default();
                     let occurrence = *slot;
                     *slot += 1;
                     occurrence
@@ -2319,7 +2319,7 @@ impl MountedGraph {
                 let occurrence = match child_node.kind.sibling_name() {
                     Some(name) => {
                         let count = occurrences
-                            .entry((child_node.kind.tag(), name))
+                            .entry((child_node.kind.tag(), name.into_owned()))
                             .or_insert(0);
                         let previous = *count;
                         *count += 1;
