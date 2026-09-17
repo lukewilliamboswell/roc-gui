@@ -26,10 +26,17 @@ Local changes:
 - `src/elements/div.rs` and `src/window.rs`: the existing hover listener
   consumes native window-exit events as well as pointer motion. Leaving the
   window emits one exit and clears retained hover state for reentry, including
-  platforms that report the last inside position. An internal raw-event
-  registration helper keeps this as one listener per hovered element.
+  platforms that report the last inside position. Frame listener routes retain
+  registration order while separating event-typed global handlers from
+  hitbox-owned hover, focus, hover-style, click, and drag handlers. Pointer
+  dispatch merges only the current, previous, and pressed hit paths with
+  explicitly global handlers; user capture listeners keep their frame-global
+  outside-event semantics. The pressed path survives movement until release so
+  drag thresholds and release-outside cleanup remain available.
   The host regression `hover_exits_the_window_and_reenters_the_same_cached_button`
-  exercises the production GPUI event path and duplicate-exit suppression.
+  exercises the production GPUI event path and duplicate-exit suppression;
+  the host press, replacement, rerender, and virtual-list regressions cover the
+  routed click lifetime.
 
 - `src/view.rs`: adds opt-in `AnyView::cached_with_independent_children`.
   A dirty parent with unchanged bounds, content mask, text style, and cache

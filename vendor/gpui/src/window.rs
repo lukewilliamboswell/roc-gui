@@ -459,8 +459,11 @@ pub struct DismissEvent;
 
 type FrameCallback = Box<dyn FnOnce(&mut Window, &mut App)>;
 
-pub(crate) type AnyMouseListener =
-    Box<dyn FnMut(&dyn Any, DispatchPhase, &mut Window, &mut App) + 'static>;
+pub(crate) struct AnyMouseListener {
+    hitbox_id: Option<HitboxId>,
+    event_type: Option<TypeId>,
+    handler: Box<dyn FnMut(&dyn Any, DispatchPhase, &mut Window, &mut App) + 'static>,
+}
 
 #[derive(Clone)]
 pub(crate) struct CursorStyleRequest {
@@ -468,7 +471,7 @@ pub(crate) struct CursorStyleRequest {
     pub(crate) style: CursorStyle,
 }
 
-#[derive(Default, Eq, PartialEq)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct HitTest {
     pub(crate) ids: SmallVec<[HitboxId; 8]>,
     pub(crate) hover_hitbox_count: usize,
@@ -671,6 +674,9 @@ pub(crate) struct Frame {
     accessed_element_states: Vec<(GlobalElementId, TypeId)>,
     cached_view_replays: Vec<CachedViewReplay>,
     pub(crate) mouse_listeners: Vec<Option<AnyMouseListener>>,
+    global_mouse_listeners: Vec<usize>,
+    typed_mouse_listeners: FxHashMap<TypeId, Vec<usize>>,
+    hitbox_mouse_listeners: FxHashMap<HitboxId, SmallVec<[usize; 1]>>,
     pub(crate) dispatch_tree: DispatchTree,
     pub(crate) scene: Scene,
     pub(crate) hitboxes: Vec<Hitbox>,
@@ -778,6 +784,9 @@ impl Frame {
             accessed_element_states: Vec::new(),
             cached_view_replays: Vec::new(),
             mouse_listeners: Vec::new(),
+            global_mouse_listeners: Vec::new(),
+            typed_mouse_listeners: FxHashMap::default(),
+            hitbox_mouse_listeners: FxHashMap::default(),
             dispatch_tree,
             scene: Scene::default(),
             hitboxes: Vec::new(),
@@ -804,6 +813,9 @@ impl Frame {
         self.accessed_element_states.clear();
         self.cached_view_replays.clear();
         self.mouse_listeners.clear();
+        self.global_mouse_listeners.clear();
+        self.typed_mouse_listeners.clear();
+        self.hitbox_mouse_listeners.clear();
         self.dispatch_tree.clear();
         self.scene.clear();
         self.input_handlers.clear();
@@ -857,6 +869,26 @@ impl Frame {
             hit_test.hover_hitbox_count = hit_test.ids.len();
         }
         hit_test
+    }
+
+    fn push_mouse_listener(&mut self, listener: Option<AnyMouseListener>) {
+        let index = self.mouse_listeners.len();
+        if let Some(listener) = listener.as_ref() {
+            if let Some(hitbox_id) = listener.hitbox_id {
+                self.hitbox_mouse_listeners
+                    .entry(hitbox_id)
+                    .or_default()
+                    .push(index);
+            } else if let Some(event_type) = listener.event_type {
+                self.typed_mouse_listeners
+                    .entry(event_type)
+                    .or_default()
+                    .push(index);
+            } else {
+                self.global_mouse_listeners.push(index);
+            }
+        }
+        self.mouse_listeners.push(listener);
     }
 
     pub(crate) fn focus_path(&self) -> SmallVec<[FocusId; 8]> {
@@ -965,6 +997,7 @@ pub struct Window {
     default_prevented: bool,
     mouse_position: Point<Pixels>,
     mouse_hit_test: HitTest,
+    mouse_down_hit_test: Option<HitTest>,
     modifiers: Modifiers,
     capslock: Capslock,
     scale_factor: f32,
@@ -1348,6 +1381,7 @@ impl Window {
             default_prevented: true,
             mouse_position,
             mouse_hit_test: HitTest::default(),
+            mouse_down_hit_test: None,
             modifiers,
             capslock,
             scale_factor,
@@ -2430,12 +2464,12 @@ impl Window {
                 .iter_mut()
                 .map(|handler| handler.take()),
         );
-        self.next_frame.mouse_listeners.extend(
-            self.rendered_frame.mouse_listeners
-                [range.start.mouse_listeners_index..range.end.mouse_listeners_index]
-                .iter_mut()
-                .map(|listener| listener.take()),
-        );
+        for listener in self.rendered_frame.mouse_listeners
+            [range.start.mouse_listeners_index..range.end.mouse_listeners_index]
+            .iter_mut()
+        {
+            self.next_frame.push_mouse_listener(listener.take());
+        }
         self.next_frame.accessed_element_states.extend(
             self.rendered_frame.accessed_element_states[range.start.accessed_element_states_index
                 ..range.end.accessed_element_states_index]
@@ -3561,23 +3595,51 @@ impl Window {
         &mut self,
         mut handler: impl FnMut(&Event, DispatchPhase, &mut Window, &mut App) + 'static,
     ) {
-        self.on_mouse_event_raw(move |event, phase, window, cx| {
-            if let Some(event) = event.downcast_ref() {
-                handler(event, phase, window, cx)
-            }
-        });
+        self.invalidator.debug_assert_paint();
+        self.next_frame.push_mouse_listener(Some(AnyMouseListener {
+            hitbox_id: None,
+            event_type: Some(TypeId::of::<Event>()),
+            handler: Box::new(move |event, phase, window, cx| {
+                handler(
+                    event
+                        .downcast_ref()
+                        .expect("mouse listener routed to a different event type"),
+                    phase,
+                    window,
+                    cx,
+                )
+            }),
+        }));
     }
 
-    // A single interaction can consume multiple platform event types without
-    // registering another listener that every pointer event must visit.
-    pub(crate) fn on_mouse_event_raw(
+    pub(crate) fn on_mouse_event_for_hitbox_raw(
         &mut self,
+        hitbox_id: HitboxId,
         handler: impl FnMut(&dyn Any, DispatchPhase, &mut Window, &mut App) + 'static,
     ) {
         self.invalidator.debug_assert_paint();
-        self.next_frame
-            .mouse_listeners
-            .push(Some(Box::new(handler)));
+        self.next_frame.push_mouse_listener(Some(AnyMouseListener {
+            hitbox_id: Some(hitbox_id),
+            event_type: None,
+            handler: Box::new(handler),
+        }));
+    }
+
+    pub(crate) fn on_mouse_event_for_hitbox<Event: MouseEvent>(
+        &mut self,
+        hitbox_id: HitboxId,
+        mut handler: impl FnMut(&Event, DispatchPhase, &mut Window, &mut App) + 'static,
+    ) {
+        self.invalidator.debug_assert_paint();
+        self.next_frame.push_mouse_listener(Some(AnyMouseListener {
+            hitbox_id: Some(hitbox_id),
+            event_type: Some(TypeId::of::<Event>()),
+            handler: Box::new(move |event, phase, window, cx| {
+                if let Some(event) = event.downcast_ref() {
+                    handler(event, phase, window, cx);
+                }
+            }),
+        }));
     }
 
     /// Register a key event listener on the window for the next frame. The type of event
@@ -3822,10 +3884,14 @@ impl Window {
     }
 
     fn dispatch_mouse_event(&mut self, event: &dyn Any, cx: &mut App) {
+        let previous_hit_test = self.mouse_hit_test.clone();
         let hit_test = self.rendered_frame.hit_test(self.mouse_position());
         if hit_test != self.mouse_hit_test {
             self.mouse_hit_test = hit_test;
             self.reset_cursor_style(cx);
+        }
+        if event.is::<crate::MouseDownEvent>() {
+            self.mouse_down_hit_test = Some(self.mouse_hit_test.clone());
         }
 
         #[cfg(any(feature = "inspector", debug_assertions))]
@@ -3836,12 +3902,56 @@ impl Window {
         }
 
         let mut mouse_listeners = mem::take(&mut self.rendered_frame.mouse_listeners);
+        let mut routes: SmallVec<[&[usize]; 12]> = SmallVec::new();
+        routes.push(&self.rendered_frame.global_mouse_listeners);
+        if let Some(indices) = self
+            .rendered_frame
+            .typed_mouse_listeners
+            .get(&event.type_id())
+        {
+            routes.push(indices);
+        }
+        let routed_hitboxes = previous_hit_test
+            .ids
+            .iter()
+            .chain(&self.mouse_hit_test.ids)
+            .chain(
+                self.mouse_down_hit_test
+                    .iter()
+                    .flat_map(|hit_test| &hit_test.ids),
+            );
+        for hitbox_id in routed_hitboxes {
+            if let Some(indices) = self.rendered_frame.hitbox_mouse_listeners.get(hitbox_id) {
+                routes.push(indices);
+            }
+        }
+        let mut route_positions: SmallVec<[usize; 12]> = smallvec::smallvec![0; routes.len()];
+        let mut listener_indices = Vec::new();
+        loop {
+            let next = routes
+                .iter()
+                .zip(&route_positions)
+                .filter_map(|(route, &position)| route.get(position))
+                .copied()
+                .min();
+            let Some(next) = next else { break };
+            if listener_indices.last() != Some(&next) {
+                listener_indices.push(next);
+            }
+            for (route, position) in routes.iter().zip(&mut route_positions) {
+                if route.get(*position) == Some(&next) {
+                    *position += 1;
+                }
+            }
+        }
+        drop(routes);
+        drop(route_positions);
 
         // Capture phase, events bubble from back to front. Handlers for this phase are used for
         // special purposes, such as detecting events outside of a given Bounds.
-        for listener in &mut mouse_listeners {
-            let listener = listener.as_mut().unwrap();
-            listener(event, DispatchPhase::Capture, self, cx);
+        for &index in &listener_indices {
+            let listener = mouse_listeners[index].as_mut().unwrap();
+            (listener.handler)(event, DispatchPhase::Capture, self, cx);
             if !cx.propagate_event {
                 break;
             }
@@ -3849,9 +3959,9 @@ impl Window {
 
         // Bubble phase, where most normal handlers do their work.
         if cx.propagate_event {
-            for listener in mouse_listeners.iter_mut().rev() {
-                let listener = listener.as_mut().unwrap();
-                listener(event, DispatchPhase::Bubble, self, cx);
+            for &index in listener_indices.iter().rev() {
+                let listener = mouse_listeners[index].as_mut().unwrap();
+                (listener.handler)(event, DispatchPhase::Bubble, self, cx);
                 if !cx.propagate_event {
                     break;
                 }
@@ -3871,6 +3981,9 @@ impl Window {
                 cx.active_drag = None;
                 self.refresh();
             }
+        }
+        if event.is::<MouseUpEvent>() {
+            self.mouse_down_hit_test = None;
         }
     }
 

@@ -2024,17 +2024,20 @@ impl Interactivity {
         // This behavior can be suppressed by using `cx.prevent_default()`.
         if let Some(focus_handle) = self.tracked_focus_handle.clone() {
             let hitbox = hitbox.clone();
-            window.on_mouse_event(move |_: &MouseDownEvent, phase, window, _| {
-                if phase == DispatchPhase::Bubble
-                    && hitbox.is_hovered(window)
-                    && !window.default_prevented()
-                {
-                    window.focus(&focus_handle);
-                    // If there is a parent that is also focusable, prevent it
-                    // from transferring focus because we already did so.
-                    window.prevent_default();
-                }
-            });
+            window.on_mouse_event_for_hitbox(
+                hitbox.id,
+                move |_: &MouseDownEvent, phase, window, _| {
+                    if phase == DispatchPhase::Bubble
+                        && hitbox.is_hovered(window)
+                        && !window.default_prevented()
+                    {
+                        window.focus(&focus_handle);
+                        // If there is a parent that is also focusable, prevent it
+                        // from transferring focus because we already did so.
+                        window.prevent_default();
+                    }
+                },
+            );
         }
 
         for listener in self.mouse_down_listeners.drain(..) {
@@ -2072,12 +2075,15 @@ impl Interactivity {
             let hitbox = hitbox.clone();
             let was_hovered = hitbox.is_hovered(window);
             let current_view = window.current_view();
-            window.on_mouse_event(move |_: &MouseMoveEvent, phase, window, cx| {
-                let hovered = hitbox.is_hovered(window);
-                if phase == DispatchPhase::Capture && hovered != was_hovered {
-                    cx.notify(current_view);
-                }
-            });
+            window.on_mouse_event_for_hitbox(
+                hitbox.id,
+                move |_: &MouseMoveEvent, phase, window, cx| {
+                    let hovered = hitbox.is_hovered(window);
+                    if phase == DispatchPhase::Capture && hovered != was_hovered {
+                        cx.notify(current_view);
+                    }
+                },
+            );
         }
         let drag_cursor_style = self.base_style.as_ref().mouse_cursor;
 
@@ -2131,7 +2137,7 @@ impl Interactivity {
                     .get_or_insert_with(Default::default)
                     .clone();
 
-                window.on_mouse_event({
+                window.on_mouse_event_for_hitbox(hitbox.id, {
                     let pending_mouse_down = pending_mouse_down.clone();
                     let hitbox = hitbox.clone();
                     move |event: &MouseDownEvent, phase, window, _cx| {
@@ -2145,7 +2151,7 @@ impl Interactivity {
                     }
                 });
 
-                window.on_mouse_event({
+                window.on_mouse_event_for_hitbox(hitbox.id, {
                     let pending_mouse_down = pending_mouse_down.clone();
                     let hitbox = hitbox.clone();
                     move |event: &MouseMoveEvent, phase, window, cx| {
@@ -2209,7 +2215,7 @@ impl Interactivity {
                     });
                 }
 
-                window.on_mouse_event({
+                window.on_mouse_event_for_hitbox(hitbox.id, {
                     let mut captured_mouse_down = None;
                     let hitbox = hitbox.clone();
                     move |event: &MouseUpEvent, phase, window, cx| match phase {
@@ -2258,7 +2264,7 @@ impl Interactivity {
                     .get_or_insert_with(Default::default)
                     .clone();
 
-                window.on_mouse_event_raw(move |event, phase, window, cx| {
+                window.on_mouse_event_for_hitbox_raw(hitbox.id, move |event, phase, window, cx| {
                     if phase != DispatchPhase::Bubble {
                         return;
                     }

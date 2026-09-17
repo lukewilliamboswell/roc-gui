@@ -246,6 +246,17 @@ names the evidence so a fix can be verified against the same case.
   unavailable until instrumented. Apply the controlled-dimension scaling and
   lifecycle acceptance cases in the scene-retention entry above.
 
+  Ordered listener routing now partitions handlers by event type and routes
+  GPUI-owned hover, focus, hover-style, click, and drag handlers through the
+  current, previous, and pressed hit paths. Explicitly global user capture
+  handlers retain the original capture and bubble contract. In a 10,000-cell
+  mixed hover/click profile, `dispatch_event` and mouse-listener closures fell
+  below the 0.1% report threshold after previously accounting for 17.38% and
+  15.40% respectively. The 31,139-sample follow-up lost no samples, but remains
+  exploratory CPU sampling rather than latency evidence. Frame hit testing was
+  still 2.08%, and deterministic owner counts remain unavailable, so this item
+  stays open for spatial indexing and production measurement.
+
 - [ ] **Timer waits occupy the generic task workers and extend hover trails under load.**
   The hover-grid application schedules a 200 ms Timer wait per exiting cell.
   Those waits start inside the existing 4–16 blocking workers; additional jobs
