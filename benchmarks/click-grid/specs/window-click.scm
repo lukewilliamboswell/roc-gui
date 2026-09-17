@@ -24,4 +24,7 @@
     (mark-native-work)
     (click (role button :name "Cell 5000"))
     (expect-background (role button :name "Cell 5000") 0xF59E0B)
-    (expect-native-work :button-renders-max 4 :boundary-renders-max 1 :boundary-elements-max 100)))
+    (expect-native-work :button-renders-max 4 :boundary-renders-max 1 :boundary-elements-max 100
+      :cached-prepaint-subtrees-min 1 :cached-paint-subtrees-min 1
+      :replayed-scene-operations-min 1 :fresh-hitboxes-max 16
+      :fresh-mouse-listeners-max 32 :element-states-moved-min 1)))

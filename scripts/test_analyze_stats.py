@@ -26,7 +26,7 @@ class ScalingAaBoundTests(unittest.TestCase):
                 INSERT INTO recorder_health VALUES (1, 0, 0, 0);
                 """
             )
-            metadata = {"schema_version": "15", "clean_shutdown": "1", "final_state": "complete",
+            metadata = {"schema_version": "16", "clean_shutdown": "1", "final_state": "complete",
                         "spec_name": "case", "benchmark_scale": "100",
                         "benchmark_initial_size": "0", "benchmark_change_size": "100",
                         "app_name": "app", "executable_hash": "same-executable",
@@ -61,7 +61,7 @@ class ScalingAaBoundTests(unittest.TestCase):
         return path
 
     def test_legacy_callback_and_native_work_schemas_are_rejected(self):
-        for legacy_version in ("11", "12", "13", "14"):
+        for legacy_version in ("11", "12", "13", "14", "15"):
             with self.subTest(schema=legacy_version), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
                 current = self.comparison_capture(directory, "current.db", (1_000_000,))
@@ -211,7 +211,7 @@ class NativeWorkReportTests(unittest.TestCase):
                     kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 15),
                     count INTEGER NOT NULL CHECK(count>0),
                     PRIMARY KEY(frame_id,metric,kind));
-                INSERT INTO metadata VALUES ('schema_version','15');
+                INSERT INTO metadata VALUES ('schema_version','16');
             """)
             database.execute("INSERT INTO measurement_status VALUES ('gpui_native_work',?,?)",
                              (status, "native owner observation"))
@@ -280,6 +280,36 @@ class NativeWorkReportTests(unittest.TestCase):
             rows = self.rows(path)
             self.assertTrue(all(row["evidence_status"] == "unavailable" for row in rows))
             self.assertTrue(all(row["total_count"] == "NULL" for row in rows))
+
+
+class GpuiFrameWorkReportTests(unittest.TestCase):
+    def test_replayed_and_fresh_work_are_separate_owner_counts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "gpui-frame-work.rgstats"
+            with sqlite3.connect(path) as database:
+                database.executescript("""
+                    CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT);
+                    CREATE TABLE measurement_status(name TEXT PRIMARY KEY, status TEXT, reason TEXT);
+                    CREATE TABLE gpui_frames(id INTEGER PRIMARY KEY);
+                    CREATE TABLE gpui_frame_work(frame_id INTEGER, metric INTEGER, count INTEGER,
+                                                 PRIMARY KEY(frame_id,metric));
+                    INSERT INTO metadata VALUES ('schema_version','16');
+                    INSERT INTO measurement_status VALUES
+                        ('gpui_frame_work','complete','GPUI owner observation');
+                    INSERT INTO gpui_frames VALUES (1),(2);
+                    INSERT INTO gpui_frame_work VALUES (1,6,10000),(2,6,9999);
+                    INSERT INTO gpui_frame_work VALUES (1,12,4),(2,12,3);
+                """)
+            output = analyze_stats.perspective(path, "gpui_frame_work").splitlines()
+            rows = {
+                row["metric"]: row
+                for row in (
+                    dict(zip(output[1].split("\t"), line.split("\t")))
+                    for line in output[2:]
+                )
+            }
+            self.assertEqual(rows["replayed_scene_operations"]["total_count"], "19999")
+            self.assertEqual(rows["fresh_hitboxes"]["max_per_frame"], "4")
 
 
 if __name__ == "__main__":

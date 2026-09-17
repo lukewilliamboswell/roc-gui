@@ -31,6 +31,7 @@ python3 scripts/analyze_stats.py CAPTURE.rgstats --view component_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view host_gpui_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_spans
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view native_work
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view virtual_list_materialization
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view process_resources
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view capture_health
@@ -86,7 +87,7 @@ TCP assertions retain live streams and connect, read, write, and close attempts
 in `tcp_counter_assertions`. Endpoint, Redis key, and Redis value text are not
 capture fields.
 
-Schema 15 records component work in `component_work_counts`, keyed by cycle
+Schema 16 records component work in `component_work_counts`, keyed by cycle
 and numeric kind. Kinds are `0 rendered`, `1 compared`, `2 skipped`, `3 mounted`,
 `4 retired`, `5 registry_visits`, `6 ancestor_invalidations`,
 `7 projection_gets`, and `8 projection_sets`. The Roc runtime
@@ -149,7 +150,7 @@ phase and task completion has its own cycle, including steps that await several 
 Waiting for workers and applying graph patches are outside the callback span.
 The enclosing cycle duration includes the wait.
 
-Schema 15 records task completions delivered by the interactive window loop
+Schema 16 records task completions delivered by the interactive window loop
 as well as those driven by specifications. Each delivered completion records
 its own callback, application spans, allocation activity, and graph work.
 
@@ -180,7 +181,7 @@ to GPUI; a compositor frame callback would be the seam that owns them.
 
 == Count native rendering work
 
-Schema 15 stores native work in `gpui_native_work`, keyed by
+Schema 16 stores native work in `gpui_native_work`, keyed by
 `frame_id`, numeric `metric`, and numeric `kind`. Each `frame_id` references
 `gpui_frames.id`. Metric `0`, `node_view_renders`, counts actual calls to the
 production `NodeView::render` implementation. Metric `1`,
@@ -194,6 +195,13 @@ of `Runtime::render` and, when recording is enabled, publishes their deltas when
 the root element finishes painting that frame.
 The `native_work` report gives totals, maxima, and means per completed frame
 for each metric and node kind. Its observation family is `gpui_native_work`.
+
+The `gpui_frame_work` report separates fresh frame construction from cached
+subtree replay. GPUI records counts at the operations that own them: prepaint
+and paint cache replay, hitbox and listener insertion, scene insertion and
+replay, element-state access and finish-time movement, and cached view-range
+rebasing. Counts describe operations, not bytes or elapsed time. A missing
+completed frame is unavailable rather than zero.
 
 [cols="1,2",options="header"]
 |===

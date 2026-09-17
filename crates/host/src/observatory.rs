@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 15;
+pub const SCHEMA_VERSION: u32 = 16;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -63,6 +63,13 @@ struct NativeWorkOwner {
 
 thread_local! {
     static NATIVE_WORK: std::cell::RefCell<NativeWorkOwner> = Default::default();
+    static GPUI_WORK_MARK: std::cell::RefCell<Option<GpuiFrameWorkObservation>> = const { std::cell::RefCell::new(None) };
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GpuiFrameWorkObservation {
+    pub frames: u64,
+    pub max_counts: [u64; 19],
 }
 
 pub fn note_native_render(kind: u8) {
@@ -91,6 +98,11 @@ pub fn native_work_totals() -> NativeWork {
 /// Begin a bounded observation of complete frames, not partial in-flight work.
 pub fn mark_native_work() {
     NATIVE_WORK.with(|owner| owner.borrow_mut().marked = Some(NativeFrameWork::default()));
+    GPUI_WORK_MARK.with(|mark| *mark.borrow_mut() = Some(GpuiFrameWorkObservation::default()));
+}
+
+pub fn gpui_frame_work_since_mark() -> Option<GpuiFrameWorkObservation> {
+    GPUI_WORK_MARK.with(|mark| mark.borrow().filter(|work| work.frames > 0))
 }
 
 /// Missing marks or completed frames are unavailable, never an observed zero.
@@ -481,6 +493,10 @@ enum Event {
         prepaint_ns: u64,
         paint_ns: u64,
         native_work: NativeWork,
+    },
+    GpuiFrameWork {
+        ordinal: u64,
+        counts: [u64; 19],
     },
     VirtualListFrame {
         list_id: u64,
@@ -920,6 +936,28 @@ pub fn gpui_frame(
     );
 }
 
+/// Record the completed GPUI-owned work snapshot. GPUI invokes this observer
+/// after `Frame::finish`, so no unfinished frame is published.
+pub fn gpui_frame_work(work: gpui::FrameWork) {
+    let counts = work.counts();
+    GPUI_WORK_MARK.with(|mark| {
+        if let Some(observation) = mark.borrow_mut().as_mut() {
+            observation.frames += 1;
+            for (maximum, count) in observation.max_counts.iter_mut().zip(counts) {
+                *maximum = (*maximum).max(count);
+            }
+        }
+    });
+    if !active() {
+        return;
+    }
+    let ordinal = GPUI_FRAME_ORDINAL
+        .load(Ordering::Relaxed)
+        .checked_sub(1)
+        .expect("GPUI frame work arrived before its host frame");
+    submit(Event::GpuiFrameWork { ordinal, counts }, false);
+}
+
 pub fn virtual_list_frame(
     list_id: u64,
     visible_items: u64,
@@ -1268,6 +1306,20 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             },
         ),
         (
+            "gpui_frame_work",
+            "summary",
+            if config.backend.starts_with("gpui-") {
+                "unfinalized"
+            } else {
+                "not_recorded"
+            },
+            if config.backend.starts_with("gpui-") {
+                "capture has not finalized"
+            } else {
+                "semantic headless execution draws no GPUI frame"
+            },
+        ),
+        (
             "gpui_layout_solve",
             "summary",
             "unavailable",
@@ -1468,6 +1520,19 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             }
             Ok(1)
         },
+        Event::GpuiFrameWork { ordinal, counts } => {
+            let frame_id: i64 = connection.query_row(
+                "SELECT id FROM gpui_frames WHERE run_id=1 AND ordinal=?1",
+                [as_i64(ordinal)], |row| row.get(0),
+            ).map_err(|error| format!("cannot find GPUI frame for owner work: {error}"))?;
+            for (metric, count) in counts.iter().enumerate() {
+                connection.execute(
+                    "INSERT INTO gpui_frame_work(frame_id,metric,count) VALUES(?1,?2,?3)",
+                    params![frame_id, metric as u8, as_i64(*count)],
+                ).map_err(|error| format!("cannot write GPUI frame work: {error}"))?;
+            }
+            Ok(1)
+        },
         Event::VirtualListFrame { list_id, visible_items, materialized_entities, recycled_entities, live_entities } => connection.execute(
             "INSERT INTO virtual_list_frames(run_id,list_id,visible_items,materialized_entities,recycled_entities,live_entities) VALUES(1,?1,?2,?3,?4,?5)",
             params![as_i64(list_id), as_i64(visible_items), as_i64(materialized_entities), as_i64(recycled_entities), as_i64(live_entities)],
@@ -1526,7 +1591,7 @@ fn finalize(
         .map_err(|error| format!("cannot finalize drain metadata: {error}"))?;
     let partial = omitted > 0 || output_limited;
     connection.execute(
-        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'unavailable' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'no GPUI frame was drawn' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'gpui_frame_spans' THEN (SELECT count(*) FROM gpui_frames) WHEN 'gpui_native_work' THEN (SELECT count(*) FROM gpui_native_work) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
+            "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'unavailable' WHEN name='gpui_frame_work' AND NOT EXISTS(SELECT 1 FROM gpui_frame_work) THEN 'unavailable' WHEN name='gpui_frame_work' AND (SELECT count(*) FROM gpui_frame_work) != 19*(SELECT count(*) FROM gpui_frames) THEN 'partial' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'no GPUI frame was drawn' WHEN name='gpui_frame_work' AND NOT EXISTS(SELECT 1 FROM gpui_frame_work) THEN 'no completed GPUI-owned frame work was recorded' WHEN name='gpui_frame_work' AND (SELECT count(*) FROM gpui_frame_work) != 19*(SELECT count(*) FROM gpui_frames) THEN 'one or more completed frames lack GPUI-owned work' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'gpui_frame_spans' THEN (SELECT count(*) FROM gpui_frames) WHEN 'gpui_native_work' THEN (SELECT count(*) FROM gpui_native_work) WHEN 'gpui_frame_work' THEN (SELECT count(*) FROM gpui_frame_work) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize measurement status: {error}"))?;
     connection.execute(
@@ -1597,7 +1662,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=15;
+PRAGMA user_version=16;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1748,6 +1813,12 @@ CREATE TABLE gpui_native_work(
     kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 15),
     count INTEGER NOT NULL CHECK(count > 0),
     PRIMARY KEY(frame_id,metric,kind)
+);
+CREATE TABLE gpui_frame_work(
+    frame_id INTEGER NOT NULL REFERENCES gpui_frames(id),
+    metric INTEGER NOT NULL CHECK(metric BETWEEN 0 AND 18),
+    count INTEGER NOT NULL CHECK(count >= 0),
+    PRIMARY KEY(frame_id,metric)
 );
 CREATE TABLE virtual_list_frames(
     id INTEGER PRIMARY KEY,

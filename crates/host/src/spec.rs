@@ -165,6 +165,12 @@ pub enum Command {
         button_renders_max: Option<u64>,
         boundary_renders_max: Option<u64>,
         boundary_elements_max: Option<u64>,
+        cached_prepaint_subtrees_min: Option<u64>,
+        cached_paint_subtrees_min: Option<u64>,
+        replayed_scene_operations_min: Option<u64>,
+        fresh_hitboxes_max: Option<u64>,
+        fresh_mouse_listeners_max: Option<u64>,
+        element_states_moved_min: Option<u64>,
     },
     Drag(Locator, i32, i32, i32, i32),
     ReplaceText(Locator, String),
@@ -1621,6 +1627,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     ":button-renders-max",
                     ":boundary-renders-max",
                     ":boundary-elements-max",
+                    ":cached-prepaint-subtrees-min",
+                    ":cached-paint-subtrees-min",
+                    ":replayed-scene-operations-min",
+                    ":fresh-hitboxes-max",
+                    ":fresh-mouse-listeners-max",
+                    ":element-states-moved-min",
                 ],
             )?;
             let count = |key| -> Result<Option<u64>, ParseError> {
@@ -1638,9 +1650,21 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             let button_renders_max = count(":button-renders-max")?;
             let boundary_renders_max = count(":boundary-renders-max")?;
             let boundary_elements_max = count(":boundary-elements-max")?;
+            let cached_prepaint_subtrees_min = count(":cached-prepaint-subtrees-min")?;
+            let cached_paint_subtrees_min = count(":cached-paint-subtrees-min")?;
+            let replayed_scene_operations_min = count(":replayed-scene-operations-min")?;
+            let fresh_hitboxes_max = count(":fresh-hitboxes-max")?;
+            let fresh_mouse_listeners_max = count(":fresh-mouse-listeners-max")?;
+            let element_states_moved_min = count(":element-states-moved-min")?;
             if button_renders_max.is_none()
                 && boundary_renders_max.is_none()
                 && boundary_elements_max.is_none()
+                && cached_prepaint_subtrees_min.is_none()
+                && cached_paint_subtrees_min.is_none()
+                && replayed_scene_operations_min.is_none()
+                && fresh_hitboxes_max.is_none()
+                && fresh_mouse_listeners_max.is_none()
+                && element_states_moved_min.is_none()
             {
                 return Err(error(
                     node,
@@ -1651,6 +1675,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 button_renders_max,
                 boundary_renders_max,
                 boundary_elements_max,
+                cached_prepaint_subtrees_min,
+                cached_paint_subtrees_min,
+                replayed_scene_operations_min,
+                fresh_hitboxes_max,
+                fresh_mouse_listeners_max,
+                element_states_moved_min,
             }
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
@@ -2136,7 +2166,10 @@ mod tests {
             (expect-native-work :button-renders-max 0 :boundary-renders-max 1)
             (expect-native-work :button-renders-max 18446744073709551615)
             (expect-native-work :boundary-renders-max 2)
-            (expect-native-work :boundary-elements-max 100)))"#,
+            (expect-native-work :boundary-elements-max 100)
+            (expect-native-work :cached-prepaint-subtrees-min 1 :cached-paint-subtrees-min 2
+              :replayed-scene-operations-min 3 :fresh-hitboxes-max 4
+              :fresh-mouse-listeners-max 5 :element-states-moved-min 6)))"#,
         )
         .unwrap();
         for step in &parsed.steps {
@@ -2148,6 +2181,26 @@ mod tests {
                 button_renders_max: Some(0),
                 boundary_renders_max: Some(1),
                 boundary_elements_max: None,
+                cached_prepaint_subtrees_min: None,
+                cached_paint_subtrees_min: None,
+                replayed_scene_operations_min: None,
+                fresh_hitboxes_max: None,
+                fresh_mouse_listeners_max: None,
+                element_states_moved_min: None,
+            }
+        );
+        assert_eq!(
+            parsed.steps[5].command,
+            Command::ExpectNativeWork {
+                button_renders_max: None,
+                boundary_renders_max: None,
+                boundary_elements_max: None,
+                cached_prepaint_subtrees_min: Some(1),
+                cached_paint_subtrees_min: Some(2),
+                replayed_scene_operations_min: Some(3),
+                fresh_hitboxes_max: Some(4),
+                fresh_mouse_listeners_max: Some(5),
+                element_states_moved_min: Some(6),
             }
         );
         for command in [

@@ -226,10 +226,13 @@ background in the mounted graph. Native hover refinements are separate. Missing
 backgrounds fail as unavailable; colors are not recorded as count evidence.
 `(mark-native-work)`:: Start observing completed native frames in a window run.
 The underlying production counters remain active independently of recording.
-`(expect-native-work :button-renders-max N :boundary-renders-max N :boundary-elements-max N)`:: Bound
+`(expect-native-work :button-renders-max N :boundary-renders-max N :boundary-elements-max N :cached-prepaint-subtrees-min N :cached-paint-subtrees-min N :replayed-scene-operations-min N :fresh-hitboxes-max N :fresh-mouse-listeners-max N :element-states-moved-min N)`:: Bound
 actual button and boundary view renders and boundary view elements created in
 every completed frame since the mark. Each limit is optional, but at least one
-is required. Element creation measures the host handing a view to GPUI even
+is required. GPUI-owned limits distinguish cached subtree replay from fresh
+hitbox and listener insertion and finish-time element-state movement. Minimums
+prove that reuse work actually occurred; maxima bound fresh reconstruction.
+Element creation measures the host handing a view to GPUI even
 when that view subsequently reuses its rendered subtree. A missing
 mark or no completed frame fails as unavailable. Choose limits from the
 changed patch frontier and the application's ordinary native controls; these

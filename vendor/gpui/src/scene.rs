@@ -32,6 +32,9 @@ pub(crate) struct Scene {
     pub(crate) monochrome_sprites: Vec<MonochromeSprite>,
     pub(crate) polychrome_sprites: Vec<PolychromeSprite>,
     pub(crate) surfaces: Vec<PaintSurface>,
+    fresh_operations: u64,
+    replayed_operations: u64,
+    replaying: bool,
 }
 
 impl Scene {
@@ -46,6 +49,9 @@ impl Scene {
         self.monochrome_sprites.clear();
         self.polychrome_sprites.clear();
         self.surfaces.clear();
+        self.fresh_operations = 0;
+        self.replayed_operations = 0;
+        self.replaying = false;
     }
 
     pub fn len(&self) -> usize {
@@ -57,11 +63,13 @@ impl Scene {
         self.layer_stack.push(order);
         self.paint_operations
             .push(PaintOperation::StartLayer(bounds));
+        self.note_operation();
     }
 
     pub fn pop_layer(&mut self) {
         self.layer_stack.pop();
         self.paint_operations.push(PaintOperation::EndLayer);
+        self.note_operation();
     }
 
     pub fn insert_primitive(&mut self, primitive: impl Into<Primitive>) {
@@ -112,9 +120,23 @@ impl Scene {
         }
         self.paint_operations
             .push(PaintOperation::Primitive(primitive));
+        self.note_operation();
+    }
+
+    fn note_operation(&mut self) {
+        if self.replaying {
+            self.replayed_operations += 1;
+        } else {
+            self.fresh_operations += 1;
+        }
+    }
+
+    pub(crate) fn operation_work(&self) -> (u64, u64) {
+        (self.fresh_operations, self.replayed_operations)
     }
 
     pub fn replay(&mut self, range: Range<usize>, prev_scene: &Scene) {
+        self.replaying = true;
         for operation in &prev_scene.paint_operations[range] {
             match operation {
                 PaintOperation::Primitive(primitive) => self.insert_primitive(primitive.clone()),
@@ -122,6 +144,7 @@ impl Scene {
                 PaintOperation::EndLayer => self.pop_layer(),
             }
         }
+        self.replaying = false;
     }
 
     pub fn finish(&mut self) {

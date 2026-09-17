@@ -621,11 +621,18 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
     std::fs::write(path, json)
 }
 
-fn check_native_work(
+fn check_native_work_full(
     work: Option<crate::observatory::NativeFrameWork>,
+    gpui_work: Option<crate::observatory::GpuiFrameWorkObservation>,
     button_max: Option<u64>,
     boundary_max: Option<u64>,
     boundary_elements_max: Option<u64>,
+    cached_prepaint_min: Option<u64>,
+    cached_paint_min: Option<u64>,
+    replayed_scene_min: Option<u64>,
+    fresh_hitboxes_max: Option<u64>,
+    fresh_mouse_listeners_max: Option<u64>,
+    element_states_moved_min: Option<u64>,
 ) -> Result<(), StepError> {
     let work = work.ok_or_else(|| StepError::Geometry(
         "native work unavailable: mark-native-work and at least one completed frame are required".into()
@@ -648,7 +655,96 @@ fn check_native_work(
             )));
         }
     }
+    if [
+        cached_prepaint_min,
+        cached_paint_min,
+        replayed_scene_min,
+        fresh_hitboxes_max,
+        fresh_mouse_listeners_max,
+        element_states_moved_min,
+    ]
+    .iter()
+    .any(Option::is_some)
+    {
+        let gpui_work = gpui_work.ok_or_else(|| StepError::Geometry(
+            "GPUI frame work unavailable: mark-native-work and a completed observed frame are required".into()
+        ))?;
+        for (name, actual, minimum) in [
+            (
+                "cached prepaint subtrees",
+                gpui_work.max_counts[0],
+                cached_prepaint_min,
+            ),
+            (
+                "cached paint subtrees",
+                gpui_work.max_counts[5],
+                cached_paint_min,
+            ),
+            (
+                "replayed scene operations",
+                gpui_work.max_counts[6],
+                replayed_scene_min,
+            ),
+            (
+                "element states moved",
+                gpui_work.max_counts[16],
+                element_states_moved_min,
+            ),
+        ] {
+            if let Some(minimum) = minimum
+                && actual < minimum
+            {
+                return Err(StepError::Geometry(format!(
+                    "expected {name} per completed frame >= {minimum}; observed maximum {actual} across {} frame(s)",
+                    gpui_work.frames
+                )));
+            }
+        }
+        for (name, actual, maximum) in [
+            (
+                "fresh hitboxes",
+                gpui_work.max_counts[12],
+                fresh_hitboxes_max,
+            ),
+            (
+                "fresh mouse listeners",
+                gpui_work.max_counts[13],
+                fresh_mouse_listeners_max,
+            ),
+        ] {
+            if let Some(maximum) = maximum
+                && actual > maximum
+            {
+                return Err(StepError::Geometry(format!(
+                    "expected {name} per completed frame <= {maximum}; observed maximum {actual} across {} frame(s)",
+                    gpui_work.frames
+                )));
+            }
+        }
+    }
     Ok(())
+}
+
+#[cfg(test)]
+fn check_native_work(
+    work: Option<crate::observatory::NativeFrameWork>,
+    button_max: Option<u64>,
+    boundary_max: Option<u64>,
+    boundary_elements_max: Option<u64>,
+) -> Result<(), StepError> {
+    check_native_work_full(
+        work,
+        None,
+        button_max,
+        boundary_max,
+        boundary_elements_max,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
 }
 
 /// Run one step against the live window.
@@ -675,13 +771,26 @@ async fn run_step(
             button_renders_max,
             boundary_renders_max,
             boundary_elements_max,
+            cached_prepaint_subtrees_min,
+            cached_paint_subtrees_min,
+            replayed_scene_operations_min,
+            fresh_hitboxes_max,
+            fresh_mouse_listeners_max,
+            element_states_moved_min,
         } => window
             .update(cx, |_, _, _| {
-                check_native_work(
+                check_native_work_full(
                     crate::observatory::native_work_since_mark(),
+                    crate::observatory::gpui_frame_work_since_mark(),
                     *button_renders_max,
                     *boundary_renders_max,
                     *boundary_elements_max,
+                    *cached_prepaint_subtrees_min,
+                    *cached_paint_subtrees_min,
+                    *replayed_scene_operations_min,
+                    *fresh_hitboxes_max,
+                    *fresh_mouse_listeners_max,
+                    *element_states_moved_min,
                 )
             })
             .map_err(|_| StepError::WindowClosed)?,

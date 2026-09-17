@@ -4834,7 +4834,10 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                     }),
                     ..Default::default()
                 },
-                move |_, cx| cx.new(|cx| Runtime::new(initial, cx)),
+                move |window, cx| {
+                    window.observe_frame_work(observatory::gpui_frame_work);
+                    cx.new(|cx| Runtime::new(initial, cx))
+                },
             )
             .expect("failed to open GPUI window");
         watchdog::milestone(watchdog::Milestone::WindowOpened);
