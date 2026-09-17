@@ -1550,7 +1550,7 @@ mod controlled_value_tests {
         let label = "Editor".to_owned();
         let value = value.to_owned();
         let placeholder = String::new();
-        let style = Style::default();
+        let style: Box<Style> = Box::default();
         let (kind, locator) = if textarea {
             (
                 NodeKind::Textarea {
@@ -1604,10 +1604,10 @@ mod controlled_value_tests {
                             enabled: true,
                             hover_enter: true,
                             hover_exit: true,
-                            style: Style {
+                            style: Box::new(Style {
                                 bg: color,
                                 ..Style::default()
-                            },
+                            }),
                         },
                         children: vec![],
                     }],
@@ -1732,7 +1732,7 @@ mod locator_tests {
     }
 
     fn graph() -> MountedGraph {
-        let style = Style::default();
+        let style: Box<Style> = Box::default();
         let node = |id, kind, children| Node { id, kind, children };
         let panel = |label: &str| NodeKind::Panel {
             label: label.into(),

@@ -818,7 +818,7 @@ fn finish_children(builder: u64) -> Vec<u64> {
 /// macro keeps them in step as the style vocabulary grows.
 macro_rules! decode_layout_style {
     ($args:expr) => {
-        Style {
+        Box::new(Style {
             gap: $args.gap,
             padding: [
                 $args.padding_top,
@@ -860,7 +860,7 @@ macro_rules! decode_layout_style {
             overflow_y: decode_overflow($args.overflow_y),
             align: decode_align($args.align),
             justify: decode_justify($args.justify),
-        }
+        })
     };
 }
 
@@ -1184,7 +1184,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         primitives.iter().all(|item| keys.insert(item.key)),
         "canvas primitive keys must be unique"
     );
-    let style = Style {
+    let style = Box::new(Style {
         width: decode_length(args.width_kind, args.width),
         height: decode_length(args.height_kind, args.height),
         grow: args.grow,
@@ -1195,7 +1195,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         overflow_x: Overflow::Clip,
         overflow_y: Overflow::Clip,
         ..Style::default()
-    };
+    });
     unsafe { args.decref(roc_host()) };
     stage_node(
         NodeKind::Canvas {
@@ -5443,8 +5443,8 @@ mod tests {
             .count() as u64
     }
 
-    fn fixed_style(width: u32, height: u32) -> Style {
-        Style {
+    fn fixed_style(width: u32, height: u32) -> Box<Style> {
+        Box::new(Style {
             width: Length::Px(width),
             min_width: Length::Px(width),
             max_width: Length::Px(width),
@@ -5452,7 +5452,7 @@ mod tests {
             min_height: Length::Px(height),
             max_height: Length::Px(height),
             ..Style::default()
-        }
+        })
     }
 
     fn fixed_hover_buttons(base: u64) -> Vec<Node> {
@@ -5790,7 +5790,7 @@ mod tests {
             id: 900,
             kind: NodeKind::Column {
                 label: "Outer".into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![901],
         });
@@ -5922,7 +5922,7 @@ mod tests {
                     id: 1,
                     kind: NodeKind::Column {
                         label: "Grid".into(),
-                        style: Style::default(),
+                        style: Box::default(),
                     },
                     children: vec![2],
                 },
@@ -5966,7 +5966,7 @@ mod tests {
                             enabled: true,
                             hover_enter: true,
                             hover_exit: true,
-                            style: Style {
+                            style: Box::new(Style {
                                 width: Length::Px(5),
                                 height: Length::Px(5),
                                 min_width: Length::Px(5),
@@ -5975,7 +5975,7 @@ mod tests {
                                 max_height: Length::Px(5),
                                 bg: Some(0x123456),
                                 ..Style::default()
-                            },
+                            }),
                         },
                         children: Vec::new(),
                     });
@@ -6354,11 +6354,11 @@ mod tests {
     /// Every node id is fresh, exactly as a whole-root `Action.update` rebuild
     /// produces, so consecutive trees share nothing but their semantic names.
     fn transport_tree(base: u64, caption: &str, label: &str) -> (u64, Vec<Node>) {
-        let fill = Style {
+        let fill = Box::new(Style {
             width: Length::Fill,
             height: Length::Fill,
             ..Style::default()
-        };
+        });
         let column = base;
         let button = base + 1;
         (
@@ -6368,7 +6368,7 @@ mod tests {
                     id: column,
                     kind: NodeKind::Column {
                         label: "Transport".into(),
-                        style: fill,
+                        style: fill.clone(),
                     },
                     children: vec![button],
                 },
@@ -6399,7 +6399,7 @@ mod tests {
             id,
             kind: NodeKind::Row {
                 label: label.into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             children,
         };
@@ -6433,11 +6433,11 @@ mod tests {
     /// A one-row virtual list, so a press can be aimed at a control the list
     /// materialises rather than one the eager tree holds.
     fn queue_tree(base: u64) -> (u64, Vec<Node>) {
-        let fill = Style {
+        let fill = Box::new(Style {
             width: Length::Fill,
             height: Length::Fill,
             ..Style::default()
-        };
+        });
         (
             base,
             vec![
@@ -6445,7 +6445,7 @@ mod tests {
                     id: base,
                     kind: NodeKind::Column {
                         label: "Queue".into(),
-                        style: fill,
+                        style: fill.clone(),
                     },
                     children: vec![base + 1],
                 },
@@ -6455,7 +6455,7 @@ mod tests {
                         name: "Tracks".into(),
                         row_height: 40,
                         row_gap: 0,
-                        style: Style::default(),
+                        style: Box::default(),
                     },
                     children: vec![base + 2],
                 },
@@ -6499,7 +6499,7 @@ mod tests {
             id,
             kind: NodeKind::Column {
                 label: "keyed-column".into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         }
@@ -6520,7 +6520,7 @@ mod tests {
                     enabled: true,
                     hover_enter: true,
                     hover_exit: true,
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![],
             },
@@ -6831,7 +6831,7 @@ mod tests {
                 enabled: true,
                 hover_enter: true,
                 hover_exit: true,
-                style: Style {
+                style: Box::new(Style {
                     width: Length::Px(100),
                     height: Length::Px(100),
                     min_width: Length::Px(100),
@@ -6839,7 +6839,7 @@ mod tests {
                     max_width: Length::Px(100),
                     max_height: Length::Px(100),
                     ..Style::default()
-                },
+                }),
             },
             children: vec![],
         };
@@ -6848,13 +6848,13 @@ mod tests {
                 id: base,
                 kind: NodeKind::Row {
                     label: "Two controls".into(),
-                    style: Style {
+                    style: Box::new(Style {
                         gap: 0,
                         align: super::Align::Start,
                         width: Length::Fill,
                         height: Length::Fill,
                         ..Style::default()
-                    },
+                    }),
                 },
                 children: vec![base + 1, base + 2],
             },
@@ -6972,7 +6972,7 @@ mod tests {
             id: 1005,
             kind: NodeKind::Column {
                 label: "modal-slot".into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         });
@@ -6993,7 +6993,7 @@ mod tests {
                         id: 2000,
                         kind: NodeKind::Dialog {
                             label: "Modal".into(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![],
                     }],
@@ -7017,7 +7017,7 @@ mod tests {
                         id: 3000,
                         kind: NodeKind::Column {
                             label: "modal-slot".into(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![],
                     }],
@@ -7181,17 +7181,17 @@ mod tests {
         let leaf = nodes.pop().unwrap();
         nodes[0].kind = NodeKind::Column {
             label: "Deep virtual owner".into(),
-            style: Style {
+            style: Box::new(Style {
                 align: super::Align::Baseline,
                 ..Style::default()
-            },
+            }),
         };
         for offset in 0..depth {
             nodes.push(Node {
                 id: 1003 + offset,
                 kind: NodeKind::Column {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![1004 + offset],
             });
@@ -7305,7 +7305,7 @@ mod tests {
                     name: "Nested".into(),
                     row_height: 20,
                     row_gap: 0,
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![1005],
             },
@@ -7359,7 +7359,7 @@ mod tests {
                 value: String::new(),
                 placeholder: String::new(),
                 enabled: true,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         };
@@ -7368,7 +7368,7 @@ mod tests {
                 id: 1,
                 kind: NodeKind::Column {
                     label: "Form".into(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![2, 4],
             },
@@ -7419,7 +7419,7 @@ mod tests {
                 value: "saved".into(),
                 placeholder: String::new(),
                 enabled: true,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         };

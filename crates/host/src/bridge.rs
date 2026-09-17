@@ -636,7 +636,7 @@ pub enum NodeKind {
     Canvas {
         label: String,
         primitives: Vec<CanvasPrimitive>,
-        style: Style,
+        style: Box<Style>,
     },
     Button {
         caption: String,
@@ -644,7 +644,7 @@ pub enum NodeKind {
         enabled: bool,
         hover_enter: bool,
         hover_exit: bool,
-        style: Style,
+        style: Box<Style>,
     },
     Checkbox {
         label: String,
@@ -652,7 +652,7 @@ pub enum NodeKind {
         enabled: bool,
         /// The indicator's own colours, each None for the host's default.
         indicator: CheckboxIndicator,
-        style: Style,
+        style: Box<Style>,
     },
     Textarea {
         label: String,
@@ -660,7 +660,7 @@ pub enum NodeKind {
         placeholder: String,
         enabled: bool,
         read_only: bool,
-        style: Style,
+        style: Box<Style>,
     },
     Image {
         label: String,
@@ -668,34 +668,34 @@ pub enum NodeKind {
         format: ImageFormat,
         fit: ImageFit,
         grayscale: bool,
-        style: Style,
+        style: Box<Style>,
     },
     Column {
         label: String,
-        style: Style,
+        style: Box<Style>,
     },
     KeyedColumn {
         label: String,
-        style: Style,
+        style: Box<Style>,
         revision: u64,
         keys: Vec<KeyedChildKey>,
     },
     Dialog {
         label: String,
-        style: Style,
+        style: Box<Style>,
     },
     Panel {
         label: String,
-        style: Style,
+        style: Box<Style>,
     },
     Row {
         label: String,
-        style: Style,
+        style: Box<Style>,
     },
     Scroll {
         name: String,
         axis: ScrollAxis,
-        style: Style,
+        style: Box<Style>,
     },
     VirtualItem {
         key: u64,
@@ -705,14 +705,14 @@ pub enum NodeKind {
         row_height: u32,
         /// Space held clear at the bottom of each row inside `row_height`.
         row_gap: u32,
-        style: Style,
+        style: Box<Style>,
     },
     TextInput {
         label: String,
         value: String,
         placeholder: String,
         enabled: bool,
-        style: Style,
+        style: Box<Style>,
     },
     /// Text that carries its own type: colour, size, weight, and face, with no
     /// container element to hold them.
@@ -3416,7 +3416,7 @@ mod tests {
                 enabled: true,
                 hover_enter: false,
                 hover_exit: false,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         };
@@ -3424,7 +3424,7 @@ mod tests {
             id,
             kind: NodeKind::Row {
                 label: String::new(),
-                style: Style::default(),
+                style: Box::default(),
             },
             children,
         };
@@ -3794,7 +3794,7 @@ mod tests {
                     id: 1,
                     kind: NodeKind::Column {
                         label: "keyed".into(),
-                        style: Style::default(),
+                        style: Box::default(),
                     },
                     children: vec![],
                 }],
@@ -3818,7 +3818,7 @@ mod tests {
                     enabled: true,
                     hover_enter: true,
                     hover_exit: true,
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![],
             },
@@ -3968,7 +3968,7 @@ mod tests {
                             id: 3,
                             kind: NodeKind::Column {
                                 label: "item".into(),
-                                style: Style::default(),
+                                style: Box::default(),
                             },
                             children: vec![4, 5],
                         },
@@ -3979,7 +3979,7 @@ mod tests {
                                 value: String::new(),
                                 placeholder: String::new(),
                                 enabled: true,
-                                style: Style::default(),
+                                style: Box::default(),
                             },
                             children: vec![],
                         },
@@ -3987,7 +3987,7 @@ mod tests {
                             id: 5,
                             kind: NodeKind::Dialog {
                                 label: "modal".into(),
-                                style: Style::default(),
+                                style: Box::default(),
                             },
                             children: vec![],
                         },
@@ -4060,7 +4060,7 @@ mod tests {
                         id: 1,
                         kind: NodeKind::Row {
                             label: "outer".into(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![2],
                     },
@@ -4068,7 +4068,7 @@ mod tests {
                         id: 2,
                         kind: NodeKind::Column {
                             label: "keyed".into(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![],
                     },
@@ -4217,7 +4217,7 @@ mod tests {
             .stage_node(
                 NodeKind::Column {
                     label: "keyed".into(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 vec![],
             )
@@ -4292,7 +4292,7 @@ mod tests {
             .stage_node(
                 NodeKind::Column {
                     label: "seeded".into(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 vec![boundary],
             )
@@ -4326,7 +4326,7 @@ mod tests {
             .stage_node(
                 NodeKind::Column {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 vec![leaf],
             )
@@ -4345,7 +4345,7 @@ mod tests {
             .stage_node(
                 NodeKind::Column {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 vec![first, second],
             )
@@ -4364,7 +4364,7 @@ mod tests {
             enabled,
             hover_enter: false,
             hover_exit: false,
-            style: Style::default(),
+            style: Box::default(),
         }
     }
 
@@ -4382,14 +4382,14 @@ mod tests {
                 checked: false,
                 enabled: true,
                 indicator: CheckboxIndicator::default(),
-                style: Style::default(),
+                style: Box::default(),
             },
             NodeKind::TextInput {
                 label: "Name".into(),
                 value: String::new(),
                 placeholder: String::new(),
                 enabled: true,
-                style: Style::default(),
+                style: Box::default(),
             },
             NodeKind::Textarea {
                 label: "Notes".into(),
@@ -4397,16 +4397,16 @@ mod tests {
                 placeholder: String::new(),
                 enabled: true,
                 read_only: false,
-                style: Style::default(),
+                style: Box::default(),
             },
             NodeKind::Canvas {
                 label: "Timeline track".into(),
                 primitives: vec![],
-                style: Style::default(),
+                style: Box::default(),
             },
             NodeKind::Dialog {
                 label: "Confirm".into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             NodeKind::Text("Frame 0".into()),
         ];
@@ -4431,7 +4431,7 @@ mod tests {
             checked: false,
             enabled: true,
             indicator: CheckboxIndicator::default(),
-            style: Style::default(),
+            style: Box::default(),
         };
         let disabled = match &enabled {
             NodeKind::Checkbox {
@@ -4444,7 +4444,7 @@ mod tests {
                 checked: *checked,
                 enabled: false,
                 indicator: CheckboxIndicator::default(),
-                style: *style,
+                style: style.clone(),
             },
             _ => unreachable!(),
         };
@@ -4454,7 +4454,7 @@ mod tests {
 
         let dialog = NodeKind::Dialog {
             label: "Confirm".into(),
-            style: Style::default(),
+            style: Box::default(),
         };
         assert!(dialog.accepts_key(ControlKey::Escape));
         assert!(!dialog.accepts_key(ControlKey::Enter));
@@ -4479,7 +4479,7 @@ mod tests {
                     id: base,
                     kind: NodeKind::Column {
                         label: "Transport".into(),
-                        style: Style::default(),
+                        style: Box::default(),
                     },
                     children: vec![base + 1, base + 2, base + 3],
                 },
@@ -4531,7 +4531,7 @@ mod tests {
                         id: 1,
                         kind: NodeKind::Row {
                             label: String::new(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![2, 3, 4, 5],
                     },
@@ -4570,7 +4570,7 @@ mod tests {
                             id: 1,
                             kind: NodeKind::Row {
                                 label: "Transport".into(),
-                                style: Style::default(),
+                                style: Box::default(),
                             },
                             children: vec![2],
                         },
@@ -4595,7 +4595,7 @@ mod tests {
                 id: 1,
                 kind: NodeKind::Column {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![2],
             },
@@ -4609,7 +4609,7 @@ mod tests {
             id,
             kind: NodeKind::Dialog {
                 label: format!("dialog-{id}"),
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         };
@@ -4620,7 +4620,7 @@ mod tests {
                 id: 1,
                 kind: NodeKind::Column {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![2, 3],
             },
@@ -4641,7 +4641,7 @@ mod tests {
                 value: String::new(),
                 placeholder: String::new(),
                 enabled: true,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         };
@@ -4652,7 +4652,7 @@ mod tests {
                 id: 3,
                 kind: NodeKind::Column {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![1, 2],
             },
@@ -4698,7 +4698,7 @@ mod tests {
             kind: NodeKind::Scroll {
                 name: "contents".into(),
                 axis: ScrollAxis::Vertical,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         }];
@@ -4730,7 +4730,7 @@ mod tests {
                     name: "rows".into(),
                     row_height: 24,
                     row_gap: 0,
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![2, 4],
             },
@@ -4758,7 +4758,7 @@ mod tests {
                     name: "rows".into(),
                     row_height: 24,
                     row_gap: 0,
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![2],
             },
@@ -4779,7 +4779,7 @@ mod tests {
                 name: "rows".into(),
                 row_height: 24,
                 row_gap: 0,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![2, 4, 6],
         }];
@@ -4810,7 +4810,7 @@ mod tests {
                         id: 1,
                         kind: NodeKind::Column {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![2],
                     },
@@ -4819,7 +4819,7 @@ mod tests {
                         id: 3,
                         kind: NodeKind::Row {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![2],
                     },
@@ -4834,7 +4834,7 @@ mod tests {
                     id: 1,
                     kind: NodeKind::Column {
                         label: String::new(),
-                        style: Style::default()
+                        style: Box::default()
                     },
                     children: vec![99],
                 }],
@@ -4849,7 +4849,7 @@ mod tests {
                         id: 1,
                         kind: NodeKind::Column {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![2],
                     },
@@ -4857,7 +4857,7 @@ mod tests {
                         id: 2,
                         kind: NodeKind::Row {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![1],
                     },
@@ -4910,7 +4910,7 @@ mod tests {
                 id: 43,
                 kind: NodeKind::Row {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 children: vec![41, 42],
             },
@@ -4929,7 +4929,7 @@ mod tests {
                         id: 2,
                         kind: NodeKind::Row {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![1],
                     },
@@ -4937,7 +4937,7 @@ mod tests {
                         id: 3,
                         kind: NodeKind::Column {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![1],
                     },
@@ -4954,7 +4954,7 @@ mod tests {
                         id: 2,
                         kind: NodeKind::Column {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![99],
                     },
@@ -4971,7 +4971,7 @@ mod tests {
                 id: 1,
                 kind: NodeKind::Column {
                     label: String::new(),
-                    style: Style::default()
+                    style: Box::default()
                 },
                 children: vec![],
             };
@@ -4991,7 +4991,7 @@ mod tests {
             .stage_node(
                 NodeKind::Column {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 vec![button],
             )
@@ -5012,7 +5012,7 @@ mod tests {
                         id: root,
                         kind: NodeKind::Column {
                             label: String::new(),
-                            style: Style::default()
+                            style: Box::default()
                         },
                         children: vec![button],
                     },
@@ -5035,7 +5035,7 @@ mod tests {
             .stage_node(
                 NodeKind::Row {
                     label: String::new(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 inner_children,
             )
@@ -5119,7 +5119,7 @@ mod tests {
                         id: 2,
                         kind: NodeKind::Row {
                             label: String::new(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![1],
                     },
@@ -5127,7 +5127,7 @@ mod tests {
                         id: 3,
                         kind: NodeKind::Column {
                             label: String::new(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![2],
                     },
@@ -5148,7 +5148,7 @@ mod tests {
                         id: 5,
                         kind: NodeKind::Row {
                             label: String::new(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![4],
                     },
@@ -5190,7 +5190,7 @@ mod tests {
                         id: 2,
                         kind: NodeKind::Column {
                             label: String::new(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![1],
                     },
@@ -5208,7 +5208,7 @@ mod tests {
                         id: 4,
                         kind: NodeKind::Row {
                             label: String::new(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![3],
                     },
@@ -5240,7 +5240,7 @@ mod tests {
             id,
             kind: NodeKind::Column {
                 label: "root".into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             children,
         }
@@ -5457,7 +5457,7 @@ mod tests {
                     id: 6,
                     kind: NodeKind::Row {
                         label: "root".into(),
-                        style: Style::default(),
+                        style: Box::default(),
                     },
                     children: vec![2, 4],
                 }],
@@ -5476,7 +5476,7 @@ mod tests {
                         id: 8,
                         kind: NodeKind::Row {
                             label: "root".into(),
-                            style: Style::default(),
+                            style: Box::default(),
                         },
                         children: vec![7],
                     },
@@ -5649,14 +5649,14 @@ mod tests {
         let kinds = [
             NodeKind::Dialog {
                 label: "modal".into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             NodeKind::TextInput {
                 label: "field".into(),
                 value: String::new(),
                 placeholder: String::new(),
                 enabled: true,
-                style: Style::default(),
+                style: Box::default(),
             },
         ];
         for kind in kinds {
@@ -5711,7 +5711,7 @@ mod tests {
                 value: String::new(),
                 placeholder: String::new(),
                 enabled: true,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         };
@@ -5793,7 +5793,7 @@ mod tests {
             .stage_node(
                 NodeKind::Column {
                     label: "root".into(),
-                    style: Style::default(),
+                    style: Box::default(),
                 },
                 vec![boundary],
             )
@@ -5812,7 +5812,7 @@ mod tests {
                 .stage_node(
                     NodeKind::Column {
                         label: "other".into(),
-                        style: Style::default()
+                        style: Box::default()
                     },
                     vec![boundary]
                 )
@@ -6064,7 +6064,7 @@ mod tests {
                 enabled,
                 hover_enter: enter,
                 hover_exit: exit,
-                style: Style::default(),
+                style: Box::default(),
             },
             children: vec![],
         }
@@ -6130,7 +6130,7 @@ mod tests {
                             id: 20,
                             kind: NodeKind::Dialog {
                                 label: "Modal".into(),
-                                style: Style::default(),
+                                style: Box::default(),
                             },
                             children: vec![21],
                         },
