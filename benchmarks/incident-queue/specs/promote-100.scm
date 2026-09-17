@@ -6,4 +6,4 @@
     (expect-patch :kind keyed :staged 11 :removed 11)
     (expect-before (text "Incident 100 · open") (text "Incident 1 · open"))
     (expect-count (text-prefix "Incident ") 100)
-    (expect-component-work :rendered 2 :compared 0 :skipped 0 :mounted 0 :retired 0 :registry-visits 2)))
+    (expect-component-work :rendered 2 :compared 0 :skipped 0 :mounted 0 :retired 0 :registry-visits 2 :keyed-order-visits 8 :keyed-snapshot-items 0)))

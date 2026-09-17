@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 17;
+pub const SCHEMA_VERSION: u32 = 18;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -133,7 +133,7 @@ pub fn complete_native_frame(before: NativeWork) -> NativeWork {
 
 /// Numeric work reported by the Roc component runtime at the owning operation.
 /// The order is the `component_work!` ABI; changing it requires a schema change.
-pub const COMPONENT_WORK_NAMES: [&str; 9] = [
+pub const COMPONENT_WORK_NAMES: [&str; 11] = [
     "rendered",
     "compared",
     "skipped",
@@ -143,6 +143,8 @@ pub const COMPONENT_WORK_NAMES: [&str; 9] = [
     "ancestor_invalidations",
     "projection_gets",
     "projection_sets",
+    "keyed_order_visits",
+    "keyed_snapshot_items",
 ];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1670,7 +1672,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=17;
+PRAGMA user_version=18;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1802,13 +1804,13 @@ CREATE TABLE cycles(
 );
 CREATE TABLE component_work_counts(
     cycle_id INTEGER NOT NULL REFERENCES cycles(id),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 8),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 10),
     count INTEGER NOT NULL CHECK(count > 0),
     PRIMARY KEY(cycle_id,kind)
 );
 CREATE TABLE component_work_assertions(
     step_id INTEGER NOT NULL REFERENCES steps(id),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 8),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 10),
     expected_count INTEGER NOT NULL CHECK(expected_count >= 0),
     observed_count INTEGER CHECK(observed_count >= 0),
     PRIMARY KEY(step_id,kind)
@@ -1895,7 +1897,7 @@ mod tests {
         note_component_work(8, 2);
         assert_eq!(last_component_work(), None);
         commit_component_work();
-        let first = ComponentWork([2, 3, 0, 0, 0, 0, 0, 5, 2]);
+        let first = ComponentWork([2, 3, 0, 0, 0, 0, 0, 5, 2, 0, 0]);
         assert_eq!(last_component_work(), Some(first));
         begin_component_work();
         note_component_work(0, 1);
@@ -1904,7 +1906,7 @@ mod tests {
         assert_eq!(last_component_work(), Some(first));
         assert_eq!(
             total_component_work(),
-            ComponentWork([3, 3, 0, 0, 0, 0, 0, 6, 2])
+            ComponentWork([3, 3, 0, 0, 0, 0, 0, 6, 2, 0, 0])
         );
         begin_component_work();
         commit_component_work();
@@ -1969,11 +1971,11 @@ mod tests {
         }
         assert_eq!(
             last_component_work(),
-            Some(ComponentWork([3, 0, 0, 0, 0, 0, 0, 0, 0]))
+            Some(ComponentWork([3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
         );
         assert_eq!(
             component_cycle_work(),
-            Some(ComponentWork([5, 0, 0, 0, 0, 0, 0, 0, 0]))
+            Some(ComponentWork([5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
         );
         reset_component_cycle();
         assert_eq!(component_cycle_work(), None);
@@ -2398,8 +2400,10 @@ mod tests {
                     None,
                     None,
                     None,
+                    None,
+                    None,
                 ],
-                Some(ComponentWork([2, 1, 0, 0, 0, 0, 0, 5, 3])),
+                Some(ComponentWork([2, 1, 0, 0, 0, 0, 0, 5, 3, 0, 0])),
             )),
             expected_patch_kind: Some("replace".into()),
             observed_patch_kind: Some("replace"),
@@ -2410,7 +2414,7 @@ mod tests {
             diagnostic: None,
         });
         let mut update = test_cycle("measured", 0, "replace");
-        update.component_work = Some(ComponentWork([2, 1, 0, 0, 0, 0, 0, 5, 3]));
+        update.component_work = Some(ComponentWork([2, 1, 0, 0, 0, 0, 0, 5, 3, 0, 0]));
         update.retained_nodes = 7;
         update.validation_visits = 9;
         update.keyed_graph_visits = 4;

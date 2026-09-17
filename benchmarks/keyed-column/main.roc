@@ -7,7 +7,7 @@ import pf.Key
 import pf.KeyedSeq
 import pf.Program
 
-Item : { id : U64, value : U64, command : [Idle, MoveFirst, RemoveSelf] }
+Item : { id : U64, value : U64, command : [Idle, MoveFirst, RemoveSelf, StaleSet] }
 
 State : { items : KeyedSeq(Item) }
 
@@ -19,6 +19,7 @@ render_item = |item| Elem.row(
 		Elem.button({ caption: "Increment ${item.id.to_str()}", label: "Increment ${item.id.to_str()}", on_press: |prev, _| Action.update({ ..prev, value: prev.value + 1 }) }),
 		Elem.button({ caption: "Move ${item.id.to_str()} first", label: "Move ${item.id.to_str()} first", on_press: |prev, _| Action.delegate({ ..prev, command: MoveFirst }) }),
 		Elem.button({ caption: "Task ${item.id.to_str()}", label: "Task ${item.id.to_str()}", on_press: |prev, _| Action.task({ pending: prev, run: || 10, resolve: |latest, amount| Action.update({ ..latest, value: latest.value + amount }) }) }),
+		Elem.button({ caption: "Skip revision ${item.id.to_str()}", label: "Skip revision ${item.id.to_str()}", on_press: |prev, _| Action.delegate({ ..prev, command: StaleSet }) }),
 		Elem.button({ caption: "Remove ${item.id.to_str()}", label: "Remove ${item.id.to_str()}", on_press: |prev, _| Action.delegate({ ..prev, command: RemoveSelf }) }),
 	],
 )
@@ -36,6 +37,11 @@ accept_command = |proposed| {
 				$next = KeyedSeq.move_before($next, entry.key, Before(first.key)) ?? crash "move keyed item"
 			}
 			RemoveSelf => { $next = KeyedSeq.remove($next, entry.key) ?? crash "remove keyed item" }
+			StaleSet => {
+				intermediate = { ..entry.value, value: entry.value.value + 1, command: Idle }
+				$next = KeyedSeq.set($next, entry.key, intermediate) ?? crash "first stale keyed set"
+				$next = KeyedSeq.set($next, entry.key, { ..intermediate, value: intermediate.value + 1 }) ?? crash "second stale keyed set"
+			}
 		}
 	}
 	Action.update({ items: $next })

@@ -1,6 +1,7 @@
 import Action
 import Event
 import Gui
+import Host
 import Key
 import KeyedSeq
 import Work
@@ -16,7 +17,7 @@ Elem(a) :: [
 	Image(ImageProps),
 	Canvas(CanvasProps(a)),
 	Column({ children : List(Elem(a)), props : ColProps }),
-	KeyedColumn({ base_revision : U64, children : List(Elem(a)), full_children : List(Elem(a)), full_keys : List(Key), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
+	KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
 	Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 	Panel({ children : List(Elem(a)), props : PanelProps }),
 	Row({ children : List(Elem(a)), props : RowProps }),
@@ -865,8 +866,12 @@ Elem(a) :: [
 					}
 				}
 			}
-			full = KeyedSeq.to_list(sequence)
-			Work.next(|| done!(KeyedColumn({ base_revision: transition.base_revision, children: $children, full_children: full.map(|entry| item_elem(entry.key)), full_keys: full.map(|entry| entry.key), keys: $keys, operations: $operations, props, revision: transition.revision })))
+			full = Box.box(|{}| {
+				entries = KeyedSeq.to_list(sequence)
+				Host.component_work!(10, entries.len())
+				{ children: entries.map(|entry| item_elem(entry.key)), keys: entries.map(|entry| entry.key) }
+			})
+			Work.next(|| done!(KeyedColumn({ base_revision: transition.base_revision, children: $children, full, keys: $keys, operations: $operations, props, revision: transition.revision })))
 		},
 		exists: |_parent, done!| Work.next(|| done!(True)),
 		remember: None,
@@ -1315,7 +1320,7 @@ Elem(a) :: [
 		Image(ImageProps),
 		Canvas(CanvasProps(a)),
 		Column({ children : List(Elem(a)), props : ColProps }),
-		KeyedColumn({ base_revision : U64, children : List(Elem(a)), full_children : List(Elem(a)), full_keys : List(Key), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
+		KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
 		Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 		Panel({ children : List(Elem(a)), props : PanelProps }),
 		Row({ children : List(Elem(a)), props : RowProps }),

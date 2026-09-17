@@ -26,7 +26,7 @@ class ScalingAaBoundTests(unittest.TestCase):
                 INSERT INTO recorder_health VALUES (1, 0, 0, 0);
                 """
             )
-            metadata = {"schema_version": "17", "clean_shutdown": "1", "final_state": "complete",
+            metadata = {"schema_version": "18", "clean_shutdown": "1", "final_state": "complete",
                         "spec_name": "case", "benchmark_scale": "100",
                         "benchmark_initial_size": "0", "benchmark_change_size": "100",
                         "app_name": "app", "executable_hash": "same-executable",
@@ -211,7 +211,7 @@ class NativeWorkReportTests(unittest.TestCase):
                     kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 16),
                     count INTEGER NOT NULL CHECK(count>0),
                     PRIMARY KEY(frame_id,metric,kind));
-                INSERT INTO metadata VALUES ('schema_version','17');
+                INSERT INTO metadata VALUES ('schema_version','18');
             """)
             database.execute("INSERT INTO measurement_status VALUES ('gpui_native_work',?,?)",
                              (status, "native owner observation"))

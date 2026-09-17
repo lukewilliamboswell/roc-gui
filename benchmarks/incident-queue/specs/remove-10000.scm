@@ -8,4 +8,4 @@
     (expect-count (text-prefix "Incident ") 9999)
     (expect-not-visible (role row :name "Queue entry 5100"))
     (expect-visible (text "Dismissed or replaced: 1"))
-    (expect-component-work :rendered 2 :compared 0 :skipped 0 :mounted 0 :retired 1 :registry-visits 2)))
+    (expect-component-work :rendered 2 :compared 0 :skipped 0 :mounted 0 :retired 1 :registry-visits 2 :keyed-order-visits 8 :keyed-snapshot-items 0)))

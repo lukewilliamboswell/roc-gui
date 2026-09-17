@@ -44,8 +44,9 @@ python3 scripts/analyze_stats.py CAPTURE.rgstats --view spec_results
 update, application render, component comparison, and platform lowering, and
 how much Roc allocation activity occurred inside each owned span?
 `component_work`:: How many renders, comparisons, skips, component mounts and
-retirements, registry visits, and ancestor invalidations did the component
-runtime perform in marked sample turns?
+retirements, registry visits, ancestor invalidations, keyed order-tree visits,
+and keyed fallback snapshot items did the component runtime perform in marked
+sample turns?
 `host_gpui_work`:: How much time did graph validation, graph application, and
 available GPUI materialisation consume, and how many native nodes were retained
 or visited during structural validation?
@@ -87,10 +88,11 @@ TCP assertions retain live streams and connect, read, write, and close attempts
 in `tcp_counter_assertions`. Endpoint, Redis key, and Redis value text are not
 capture fields.
 
-Schema 16 records component work in `component_work_counts`, keyed by cycle
+Schema 18 records component work in `component_work_counts`, keyed by cycle
 and numeric kind. Kinds are `0 rendered`, `1 compared`, `2 skipped`, `3 mounted`,
 `4 retired`, `5 registry_visits`, `6 ancestor_invalidations`,
-`7 projection_gets`, and `8 projection_sets`. The Roc runtime
+`7 projection_gets`, `8 projection_sets`, `9 keyed_order_visits`, and
+`10 keyed_snapshot_items`. The Roc runtime
 reports each count at the operation that owns it. A turn publishes its
 observation when the mounted graph accepts its transaction. Rejected turns do
 not replace the last committed observation.
@@ -106,6 +108,10 @@ already unknown. `projection_gets` and `projection_sets` count actual calls to
 configured state adapters during the UI callback, including reads for existence
 and memo checks. They count invocation even when a fallible adapter returns
 `Removed`. They exclude arbitrary application reads and background worker work.
+`keyed_order_visits` counts persistent order-tree nodes visited while updating
+mounted keyed-owner metadata. `keyed_snapshot_items` counts items materialised
+only for initial mount or stale-revision recovery; an exact journal update
+records zero.
 The iterative executor accumulates these counts and publishes them before the
 same turn commits. They are not inferred from component depth, rendered nodes,
 or elapsed time. These are owner-defined events, not estimates of total work.

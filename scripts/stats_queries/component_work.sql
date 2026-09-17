@@ -3,7 +3,8 @@
 WITH kinds(kind,name) AS (
     VALUES (0,'rendered'),(1,'compared'),(2,'skipped'),(3,'mounted'),
            (4,'retired'),(5,'registry_visits'),(6,'ancestor_invalidations'),
-           (7,'projection_gets'),(8,'projection_sets')
+           (7,'projection_gets'),(8,'projection_sets'),
+           (9,'keyed_order_visits'),(10,'keyed_snapshot_items')
 ), evidence AS (
     SELECT status,reason FROM measurement_status WHERE name='component_work'
 ), measured AS (

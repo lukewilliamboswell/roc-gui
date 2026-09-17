@@ -2266,7 +2266,9 @@ mod tests {
                 Some(5),
                 None,
                 Some(7),
-                Some(3)
+                Some(3),
+                None,
+                None
             ])
         );
         assert!(check_runner(&spec, Runner::Semantic).is_ok());

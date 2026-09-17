@@ -7,4 +7,4 @@
     (expect-patch :kind keyed :staged 10 :removed 21)
     (expect-count (text-prefix "Incident ") 999)
     (expect-not-visible (role row :name "Queue entry 600"))
-    (expect-component-work :rendered 2 :compared 0 :skipped 0 :mounted 0 :retired 1 :registry-visits 2)))
+    (expect-component-work :rendered 2 :compared 0 :skipped 0 :mounted 0 :retired 1 :registry-visits 2 :keyed-order-visits 6 :keyed-snapshot-items 0)))

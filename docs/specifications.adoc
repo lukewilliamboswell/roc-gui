@@ -271,7 +271,7 @@ exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.
 `(expect-clipboard-counters LIVE ACQUIRE READ WRITE)`:: Require the
 owner-recorded live handle count and attempted clipboard operations.
-`(expect-component-work :rendered N :compared N :skipped N :mounted N :retired N :registry-visits N :ancestor-invalidations N :projection-gets N :projection-sets N)`::
+`(expect-component-work :rendered N :compared N :skipped N :mounted N :retired N :registry-visits N :ancestor-invalidations N :projection-gets N :projection-sets N :keyed-order-visits N :keyed-snapshot-items N)`::
 Require exact component-runtime work in the most recently committed action
 turn, including its nested rendering and lowering. Supply one or more named
 counts in any order; omitted counts are unconstrained. Both runners read the

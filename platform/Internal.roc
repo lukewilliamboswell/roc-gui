@@ -26,7 +26,7 @@ Internal := [].{
 		children : List(U64),
 		keyed_container : U64,
 		keyed_revision : U64,
-		keyed_items : List({ key : Key, instance : U64 }),
+		keyed_items : KeyedSeq(U64),
 		keyed : [None, Some(Elem.ColProps)],
 	}
 
@@ -411,7 +411,8 @@ Internal := [].{
 						$boundaries = { stored: $boundaries.stored, active: Box.box({ ..active, keyed: Some(value.props) }) }
 						Host.scope_enter!(2, value.props.label, child_position)
 						builder = Host.children_begin!()
-						$work = queue_children($work.push(CloseKeyedColumn(builder, value.props, value.full_keys, value.revision)), value.full_children, builder)
+						full = (Box.unbox(value.full))({})
+						$work = queue_children($work.push(CloseKeyedColumn(builder, value.props, full.keys, value.revision)), full.children, builder)
 					}
 					Dialog(value) => {
 						Host.scope_enter!(4, value.props.label, child_position)
@@ -848,7 +849,7 @@ Internal := [].{
 			}
 			Err(_) => {
 				Host.component_work!(3, 1)
-				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: [], keyed: None }
+				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty, keyed: None }
 			}
 		}
 		with_parent = Box.box({ ..parent_info, children: parent_info.children.append(resolved.instance) })
@@ -895,6 +896,9 @@ Internal := [].{
 				Visit(current) => {
 					owner = Index.get($boundaries, current) ?? crash "missing retired component"
 					$work = $work.append(Remove(current))
+					for keyed_item in KeyedSeq.to_list(owner.keyed_items) {
+						$work = $work.append(Visit(keyed_item.value))
+					}
 					var $index = owner.children.len()
 					while $index > 0 {
 						$index = $index - 1
@@ -913,41 +917,25 @@ Internal := [].{
 	}
 
 	keyed_instance = |items, wanted| {
-		var $found = None
-		for item in items {
-			if item.key == wanted {
-				$found = Some(item.instance)
-			}
-		}
-		$found
+		match KeyedSeq.get(items, wanted) { Ok(instance) => Some(instance) Err(_) => None }
 	}
 
-	keyed_without = |items, unwanted| {
-		var $kept = []
-		for item in items {
-			if item.key != unwanted {
-				$kept = $kept.append(item)
-			}
-		}
-		$kept
+	keyed_without! = |items, unwanted| {
+		changed = KeyedSeq.remove(items, unwanted) ?? crash "keyed removal target missing"
+		Host.component_work!(9, KeyedSeq.last_visits(changed))
+		changed
 	}
 
-	keyed_place = |items, item, placement| match placement {
-		End => items.append(item)
+	keyed_place! = |items, item, placement| match placement {
+		End => {
+			changed = KeyedSeq.insert_before(items, item.key, item.instance, End) ?? crash "keyed insertion failed"
+			Host.component_work!(9, KeyedSeq.last_visits(changed))
+			changed
+		}
 		Before(anchor) => {
-			var $placed = []
-			var $inserted = False
-			for current in items {
-				if !($inserted) and current.key == anchor {
-					$placed = $placed.append(item)
-					$inserted = True
-				}
-				$placed = $placed.append(current)
-			}
-			if !$inserted {
-				crash "keyed placement anchor missing"
-			}
-			$placed
+			changed = KeyedSeq.insert_before(items, item.key, item.instance, Before(anchor)) ?? crash "keyed insertion failed"
+			Host.component_work!(9, KeyedSeq.last_visits(changed))
+			changed
 		}
 	}
 
@@ -981,11 +969,8 @@ Internal := [].{
 		match step {
 			KeyedMove(key, placement) => {
 				keyed_move_before!(key, placement)
-				instance = match keyed_instance(items, key) {
-					Some(found) => found
-					None => crash "keyed move target missing"
-				}
-				next_items = keyed_place(keyed_without(items, key), { key, instance }, placement)
+				next_items = KeyedSeq.move_before(items, key, placement) ?? crash "keyed move target missing"
+				Host.component_work!(9, KeyedSeq.last_visits(next_items))
 				Work.next(|| keyed_steps!(rest, owner, state, routes, boundaries, next_items, native, done!))
 			}
 			KeyedRemove(key) => {
@@ -995,7 +980,7 @@ Internal := [].{
 					None => crash "keyed remove target missing"
 				}
 				retired = retire!(instance, routes, boundaries)
-				Work.next(|| keyed_steps!(rest, owner, state, retired.routes, retired.boundaries, keyed_without(items, key), native, done!))
+				Work.next(|| keyed_steps!(rest, owner, state, retired.routes, retired.boundaries, keyed_without!(items, key), native, done!))
 			}
 			KeyedInsert(key, elem, placement) => keyed_lower!(
 				Box.unbox(elem),
@@ -1005,7 +990,7 @@ Internal := [].{
 				boundaries,
 				|built| {
 					keyed_insert_before!(key, placement, built.root)
-					next_items = keyed_place(items, { key, instance: built.instance }, placement)
+					next_items = keyed_place!(items, { key, instance: built.instance }, placement)
 					Work.next(|| keyed_steps!(rest, owner, state, built.routes, built.boundaries, next_items, native, done!))
 				},
 			)
@@ -1069,10 +1054,10 @@ Internal := [].{
 		$steps
 	}
 
-	keyed_fallback_steps : List({ key : Key, instance : U64 }), List(Key), List(Elem(a)) -> List(KeyedStep(a))
+	keyed_fallback_steps : KeyedSeq(U64), List(Key), List(Elem(a)) -> List(KeyedStep(a))
 	keyed_fallback_steps = |old_items, keys, children| {
 		var $steps = []
-		for old in old_items {
+		for old in KeyedSeq.to_list(old_items) {
 			var $present = False
 			for key in keys { if key == old.key { $present = True } }
 			if !$present { $steps = $steps.append(KeyedRemove(old.key)) }
@@ -1111,7 +1096,8 @@ Internal := [].{
 		planned = if descriptor.base_revision == owner.keyed_revision {
 			{ base: descriptor.base_revision, revision: descriptor.revision, steps: keyed_descriptor_steps(descriptor.operations, descriptor.keys, descriptor.children) }
 		} else {
-			{ base: owner.keyed_revision, revision: descriptor.revision, steps: keyed_fallback_steps(owner.keyed_items, descriptor.full_keys, descriptor.full_children) }
+			full = (Box.unbox(descriptor.full))({})
+			{ base: owner.keyed_revision, revision: descriptor.revision, steps: keyed_fallback_steps(owner.keyed_items, full.keys, full.children) }
 		}
 		Host.begin_render!(owner.key)
 		keyed_edit_begin!(owner.keyed_container, planned.base, planned.revision)
@@ -1132,7 +1118,7 @@ Internal := [].{
 					Host.work_start!(0)
 					Host.scope_exit!()
 					keyed_edit_commit!()
-					updated = { ..owner, children: built.items.map(|item| item.instance), keyed_revision: planned.revision, keyed_items: built.items, memo: Unknown }
+					updated = { ..owner, children: [], keyed_revision: planned.revision, keyed_items: built.items, memo: Unknown }
 					match task {
 						None => {}
 						Some(worker) => enqueue_work!(task_owner, worker)
@@ -1188,11 +1174,11 @@ Internal := [].{
 
 	finish_rebuild! = |owner, cleared, state, lowered, done!| {
 		completed = Box.unbox(lowered.boundaries.active)
-		var $keyed_items = []
+		var $keyed_items = KeyedSeq.empty
 		var $keyed_index = 0.U64
 		for key in completed.keyed_keys {
 			instance = completed.children.get($keyed_index) ?? crash "keyed item boundary missing"
-			$keyed_items = $keyed_items.append({ key, instance })
+			$keyed_items = KeyedSeq.insert_before($keyed_items, key, instance, End) ?? crash "duplicate keyed item boundary"
 			$keyed_index = $keyed_index + 1
 		}
 		keyed_meta = if completed.keyed_container == 0 {
@@ -1206,7 +1192,7 @@ Internal := [].{
 		current = {
 			..cleared,
 			route_ids: completed.route_ids,
-			children: completed.children,
+			children: if completed.keyed_container == 0 completed.children else [],
 			keyed_container: keyed_meta.container,
 			keyed_revision: keyed_meta.revision,
 			keyed_items: keyed_meta.items,
@@ -1459,7 +1445,7 @@ Internal := [].{
 	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Gui.Color, foreground : Gui.Color } => {}
 	start! = |initial, render, window| {
 		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
-		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: [], keyed: None }
+		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty, keyed: None }
 		Host.begin_render!(0)
 		run_work!(
 			rebuild!(
