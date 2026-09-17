@@ -4,19 +4,6 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
-## Platform API encapsulation
-
-- [ ] **Recipe interpretation is a convention, not an access-control boundary.**
-  The pinned Roc compiler permits clients to access nominal representations and
-  associated interpreter functions. `Recipe` therefore exposes its effectful
-  thunk representation and `evaluate!`, just as `Program` exposes its startup
-  implementation. Application guidance restricts these to the platform, and
-  host registration rejects definitions outside startup, but the type surface
-  does not enforce that restriction. Hide the representation/interpreter when
-  module privacy can support cross-platform-module composition, with compile
-  tests for rejected application access; do not claim arbitrary recipe effects
-  are prevented by the type alone.
-
 ## Resource broker and confinement foundation
 
 - [ ] **The linked process is not an untrusted-application boundary.** Implement
@@ -115,12 +102,11 @@ the change lands; do not soften the docs to match the gap.
 ## Trust: measurements that can mislead a decision
 
 - [ ] **Memoization measurements do not isolate every ownership or equality
-  cost.** The textarea append ladder exercises a large edited child under
-  default equality and no memoization, but differing string lengths permit an
-  immediate equality miss. Add realistic same-length end edits and equal,
-  independently allocated inputs to exercise long comparisons. Live snapshot
-  retention and copying attributable specifically to lost uniqueness remain
-  unmeasured: allocator requests are not retained bytes or a copy counter.
+  cost.** The textarea append and same-length late-edit ladders exercise large
+  edited children with explicit equality and without memoization. Equal,
+  independently allocated inputs remain a separate comparison case. Live
+  snapshot retention and copying attributable specifically to lost uniqueness
+  remain unmeasured: allocator requests are not retained bytes or a copy counter.
   Measure these through their production owners before making those claims.
 
 - [ ] **General GPUI entity lifecycle counts are not captured.** The virtual
@@ -132,27 +118,154 @@ the change lands; do not soften the docs to match the gap.
   queries, and production-window assertions together, without inferring them
   from graph retention or a timer.
 
-- [ ] **All benchmark captures come from the headless runner.** Every capture
-  under `benchmarks/` has backend `semantic-headless` and holds no frame
-  evidence: no layout request, no prepaint, no paint, no `gpui_apply_ns`. Frame
-  spans are now recorded wherever a GPUI window draws, but no benchmark reaches
-  one. The end-to-end runner exists and is not the closing piece by itself: it
-  runs exactly one lifecycle with no per-step remount, so `spec::check_runner`
-  refuses benchmark steps there, and `scripts/run_specs.py` gives a window case
-  no `--host-stats-output` because it produces a report rather than a capture.
-  Closes when the window runner can drive warmups, samples, and iterations and
-  writes a capture of its own.
+- [ ] **Window benchmark warmup and sample orchestration.** Real-window
+  hover-grid runs can record schema-14 captures containing native frames and
+  live task completions. The specification runner still runs a single window
+  lifecycle: `spec::check_runner` refuses benchmark steps there. Add production
+  window orchestration for warmups, samples, iterations, and per-sample reset,
+  then route those captures through the existing scaling and A/A reports.
 
 ## Performance findings from the suite
 
 Defects in the platform or host that the benchmark suite has exposed. Each
 names the evidence so a fix can be verified against the same case.
 
-- [ ] **The Roc development optimization mode miscompiles the deep tree scaling
-  case on x64glibc.** An explicit `roc build --opt=dev` produces an executable
-  that segfaults in `benchmarks/tree-shape/specs/deep-1k.scm`; the normal build
-  mode and a build differing only by omission of `--opt=dev` pass. Minimize and
-  report this compiler regression, then update the pinned compiler when fixed.
+- [ ] **Explain development-backend local callback timing growth.** Final
+  schema-15 same-executable A/A row-boundary runs preserve one boundary render,
+  one registry lookup, one ancestor invalidation, and three getter/one setter
+  calls for unmemoized local edits at 100, 1,000, and 10,000 rows. The first
+  run's callback medians nevertheless rise from 62.35 to 107.50 to 282.14 us;
+  its repeat records 65.93, 108.65, and 281.35 us. Routing, application update,
+  application render, and platform lowering owner spans all increase. Render
+  allocation requests remain 9,880 bytes; update requests are 5,440, 5,656,
+  and 5,872 bytes. Profile the remaining work before attributing the increase
+  to traversal, allocation, cache behavior, or any other unmeasured mechanism.
+  Bounded render/projection counts do not establish constant callback time.
+  Preserve the explicit development-backend qualification and compare only
+  compatible builds. Evidence: `target/adapter-cps-production/report.md`.
+
+- [ ] **Audit native layout and arbitrary application recursion separately.**
+  Host entity lifecycle walks are iterative. GPUI's element layout/paint
+  calls, application render functions, and arbitrary callback closures have
+  separate stack behavior. Measure and constrain those owners before claiming
+  unrestricted native or application depth. A headless structural-depth result
+  does not prove native layout stack safety.
+
+- [ ] **Reuse intrinsic and flexible native container subtrees.** Fixed-size
+  non-root rows, columns, and panels can cache their native subtree because
+  their exact outer dimensions do not require measuring children. Intrinsic
+  and flexible containers still build their contents for layout. Extend reuse
+  with a layout contract that preserves content sizing, flex distribution,
+  inherited styles, clipping, input, and descendant invalidation. Verify the
+  production native render and element-construction counters independently;
+  do not force application geometry merely to make a cache eligible.
+
+- [ ] **Exact native render contracts need native invalidation attribution.**
+  Roc patches supply the changed and retained frontier, and production native
+  counters can check patch-derived expectations in controlled GPUI tests.
+  Arbitrary interactive frames also include focus, pointer styling, geometry,
+  inherited styles, and GPUI refreshes. GPUI 0.2.2 keeps its dirty-view set and
+  refreshing flag private, so the host cannot classify every native render
+  cause. Expose those causes before treating every render outside a Roc patch
+  as a production invariant violation. Keep actual counters always available;
+  neither silently exempt unexplained work nor claim an unconditional contract
+  from the controlled tests.
+
+- [ ] **Reduce GPUI scene reuse and reconstruction work as the scene grows.**
+  The schema-14 native hover baseline recorded 210 completed frames and exactly
+  100 enter, 100 exit, and 100 task-completion cycles. Host-owned mean frame
+  spans were 8.041 ms layout request, 21.876 ms prepaint, and 49.403 ms paint;
+  steady frames constructed 10,000 boundary wrappers. Fixed-container subtree
+  reuse addresses wrapper construction, but scene replay and reconstruction
+  can still traverse retained scene data. Profile the changed production path
+  and compare owner spans and native counts before attributing remaining cost.
+  These timings are report-only; they do not measure retained memory or bytes
+  copied, and the baseline does not establish post-change work.
+
+  Close this gap by retaining native subtree records across frames, not merely
+  suppressing `NodeView::render`. The production owners are
+  `vendor/gpui/src/view.rs` (cached subtree lifetime), `window.rs` (frame records,
+  replay ranges, transactional prepaint, hitboxes and listener ownership),
+  `scene.rs` (primitive insertion, overlap order and batching),
+  `key_dispatch.rs`, `tab_stop.rs`, `text_system/line_layout.rs`, and the Blade,
+  Metal and DirectX renderers. `crates/host/src/lib.rs` supplies the mounted
+  change frontier and descendant notifications; it must not build a second
+  scene or event implementation.
+
+  A candidate design uses persistent subtree segments with stable handles and
+  ordered child references. Retain scene commands, interaction records, focus
+  paths, element state and text resources under the same segment lifetime;
+  replace only changed segments and their ancestor links. Preserve stacking and
+  overlap order, clipping, inherited text, focus/tab order, moved children,
+  handler revisions, modal input policy and removal. Mutable callback ownership
+  and resource retirement must remain valid while prior frames still reference
+  a segment. Aborted prepaint transactions must publish nothing. Flattening
+  segments into the existing full-frame vectors at presentation would only move
+  the global work, so renderer submission and retained buffers or damage-based
+  presentation belong to the design, with each platform's buffer-age rules
+  verified separately.
+
+  Add production-owner deterministic counts before judging this change:
+  scene operations replayed, primitive insertions, hitbox slots copied, listener
+  slots transferred, dispatch nodes reconstructed, tab operations replayed and
+  element-state entries visited. Range lengths permit one increment per replay
+  batch; distinguish slots visited from callbacks invoked and operations replayed
+  from primitives actually emitted. These counts are unmeasured and unavailable
+  until their owners populate them; do not add empty schema columns or derive
+  them from render counts. Include a schema increment and reporting tests when
+  measurement lands.
+
+  Acceptance uses the actual hover-grid application and mounted patches at
+  100, 1,000 and 10,000 cells, with viewport, tree depth and affected-cell count
+  controlled. Once initial construction is excluded, one local hover update or
+  delayed completion must not visit, copy, rebuild or submit unrelated retained
+  records in proportion to total cell count. Vary depth separately and account
+  for the changed ancestor path. Include same-color updates, idle frames,
+  reorder/removal, clipping/resize, overlapping surfaces, focus, window exit,
+  stale callbacks and transaction retries. Gate deterministic owner work and
+  semantic results; report timing and A/A noise separately. A reduced wrapper
+  count alone does not close this entry.
+
+- [ ] **Dense native hover still traverses GPUI input structures globally.**
+  A user-driven 10,000-button hover-grid profile, excluding its first two seconds,
+  recorded 4,456 user-CPU samples: about 19% in GPUI mouse-listener wrappers,
+  4.5% in frame hit testing, and 5% in bounds-tree insertion. This exploratory
+  run overlapped other work and had incomplete Rust stack unwinding; these are
+  exclusive sample shares, not latency measurements or caller attribution.
+  GPUI 0.2.2 dispatch traverses the frame listener list in capture and bubble
+  order, and hit testing scans hitboxes. A spatial hit-test index alone would
+  leave listener traversal. Profile native input separately from frame work,
+  preserving hover exit, capture, stacking, clipping, drag, and removal semantics
+  before changing dispatch further. Use retained ordered interaction segments
+  and a spatial candidate index together; separately retain capture/outside
+  listeners and the previously hovered path so exit delivery survives moving
+  away or leaving the window. A native mouse event must visit only relevant
+  candidates, ancestor routes and explicitly global handlers rather than every
+  unrelated control. Owner counts of hitboxes examined and listeners actually
+  invoked must follow real early exits and propagation stops; they remain
+  unavailable until instrumented. Apply the controlled-dimension scaling and
+  lifecycle acceptance cases in the scene-retention entry above.
+
+- [ ] **Timer waits occupy the generic task workers and extend hover trails under load.**
+  The hover-grid application schedules a 200 ms Timer wait per exiting cell.
+  Those waits start inside the existing 4–16 blocking workers; additional jobs
+  wait in an unbounded queue. Reset latency includes queue delay as well as the
+  requested interval, and queued closures retain resources. The 32-cell burst
+  case exposes this through production tasks. Add deadline-aware nonblocking
+  timer delivery or equivalent bounded scheduling without global redraws,
+  preserve boundary ownership and stale-completion suppression, and measure
+  queue depth and delay at their production owner before making latency claims.
+
+- [ ] **Resolve the default LLVM backend's CPS runtime corruption.** The
+  selected compiler successfully builds the counter and review-queue with the
+  default LLVM backend, but those executables expose incorrect initial state
+  and callback reference-count failures. Identical production source built
+  with `--opt=dev` passes all 17 core semantic specifications and all 27 flat
+  and nested hover specifications. The failure also reproduces with an
+  exact-commit Debug compiler and local compiler revision `ee6e57c7`. The
+  successful development-backend evidence does not establish default-backend
+  acceptance. Minimize the compiler-dependent ownership or layout failure,
+  then rebuild and verify both modes before removing this blocker.
 
 - [ ] **A guarded match over a local tag value segfaults the built
   application.** Reaching for a chosen-row marker in `examples/music-player`,
@@ -217,16 +330,15 @@ names the evidence so a fix can be verified against the same case.
   Timing alone must not gate correctness.
 
 - [ ] **Investigate remaining full-root scaling after keyed component retention.**
-  Fresh serial schema-11 captures with the pinned compiler pass all four
-  sparse-update scales and A/A repeats. The 10k to 100k median grows from
-  60.863 ms to 902.451 ms; callback, validation, and graph-apply means grow
-  14.1x, 16.6x, and 14.3x, respectively. Marked Roc allocation bytes grow
+  Historical serial schema-11 captures passed all four sparse-update scales
+  and A/A repeats with the compiler/backend used for that checkpoint. The
+  10k to 100k median grew from 60.863 ms to 902.451 ms; callback, validation,
+  and graph-apply means grew
+  14.1x, 16.6x, and 14.3x, respectively. Marked Roc allocation bytes grew
   10.8x. These owner measurements do not establish the cause of time growth.
   Investigate without weakening tree integrity or exact patch counters.
-  The
-  pre-component production 100,000-row sparse-update case showed superlinear
-  work after dense
-  validation, host-owned child streaming, and consolidation of mounted node
+  The pre-component production 100,000-row sparse-update case showed superlinear
+  work after dense validation, host-owned child streaming, and consolidation of mounted node
   and parent storage. In a serial same-executable run, 10,000 to 100,000 rows
   grew from 9.47 ms to 139 ms overall. Roc callback work grew 11.4x, validation
   19.0x, and graph apply 20.2x; both lifecycle and measured-span allocated
@@ -234,14 +346,25 @@ names the evidence so a fix can be verified against the same case.
   checks and exact patch counters. The full-root rebuild itself is intentional
   application semantics, with row boundaries providing the local-update
   alternative. These numbers are a historical baseline, not evidence for the
-  component implementation. Continue using serial same-executable captures with
-  the pinned compiler and schema-11 owner counters. Separate application keyed
-  lookup, Roc comparison and rendering, fresh/frontier validation, and native
+  final schema-15 implementation. Continue using serial same-executable captures
+  with the pinned compiler, explicit backend, and schema-15 owner counters.
+  Do not compare timings across the historical LLVM and development-backend
+  checkpoints. Separate application keyed lookup, Roc comparison and rendering, fresh/frontier validation, and native
   materialisation before assigning the remaining growth to an owner.
-- [ ] **Text and tree-shape families currently measure node count only.** Long
-  and short messages at 10,000 rows differ by under 15%, and depth has no
-  measurable effect, because the headless path has no layout or paint. These
-  families become informative only with the GPUI runner.
+
+- [ ] **Measure native text shaping and deep layout separately from headless work.**
+  Text and tree-shape semantic cases measure construction, callback work,
+  allocations, patch sizes, and lifecycle behavior. Schema-15 projection
+  counters and reduced-stack tree cases additionally verify composed state
+  adaptation, deep ownership, task resolution, veto, and teardown. These are
+  useful headless measurements; they do not measure GPUI text shaping,
+  wrapping, layout, or paint. Historical headless captures showed under 15%
+  timing difference between long and short messages at 10,000 rows and no
+  observed depth effect in that workload. Those observations do not establish
+  native text or depth costs. Add controlled production-window scale ladders
+  for text length, width, wrapping, and tree depth, and report owner frame spans
+  and native-work counts. Isolate text shaping with a production-owner
+  measurement before attributing a whole layout or paint span to shaping.
 
 ## Runner: test what we fly
 
@@ -254,14 +377,6 @@ names the evidence so a fix can be verified against the same case.
   and update it from accepted graph deltas, while preserving dialog focus and
   native interaction behavior through production window specifications.
 
-- [x] **End-to-end GPUI spec runner.** Delivered as window specifications:
-  `crates/host/src/window_runner.rs` drives the production window from inside
-  `Application::run`, `crates/host/src/probe.rs` records laid-out bounds from
-  the production render path, and `crates/host/src/screenshot.rs` photographs
-  the window or a located region. See `docs/specifications.adoc`. Real input
-  Keyboard input is real, through `Window::dispatch_keystroke`; pointer input is
-  simulated at the production handler, gated on real laid-out geometry, because
-  GPUI exposes no usable pointer seam. See `docs/specifications.adoc`.
 - [ ] **A control that reorders under the finger can hand its press to its
   neighbour.** Element identity is a path of sibling keys, and a node with no
   name of its own — `Elem.text`, and any container an application left unnamed
@@ -275,17 +390,14 @@ names the evidence so a fix can be verified against the same case.
   proves the required behavior. Do not treat named component reorder coverage
   as proof that every unnamed layout path is safe.
 
-- [ ] **A real pointer seam.** Pointer input is currently simulated at the
-  production click handler. GPUI 0.2.2 offers no alternative:
-  `Window::dispatch_event` is `pub fn` but returns the crate-private
-  `DispatchEventResult`, so it cannot be called from outside GPUI even
-  discarding the result, and the simulated-mouse helpers are on
-  `TestAppContext` behind `test-support`. Real pointer input therefore needs
-  one of: making `DispatchEventResult` public upstream, OS-level event posting
-  (macOS `CGEvent`, which needs Accessibility permission and moves the physical
-  cursor), or a compositor seam on Wayland. Until then `click` cannot exercise
-  GPUI's dispatch tree, occlusion by unrelated elements, or hover styling, and
-  there is deliberately no `hover` step.
+- [ ] **Complete native pointer routing in window specifications.** The local
+  GPUI patch exposes `DispatchEventResult`, enabling `hover-enter` and
+  `hover-exit` to inject mouse-move events into the real GPUI window. Click
+  still uses the production handler after geometry validation, and scroll
+  writes the production scroll handle. Migrate those commands to native
+  button and wheel events to exercise dispatch order, unrelated occlusion,
+  press/release continuity, and wheel routing. This seam does not test
+  operating-system pointer delivery or compositor sampling.
 - [ ] **A window specification cannot run while the screen is locked.** A
   locked macOS session presents no frame, so every window case reaches
   `driver-started` and waits for one that never arrives until the watchdog
@@ -329,10 +441,10 @@ names the evidence so a fix can be verified against the same case.
   are accepted; merely opening a window is insufficient.
 - [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
   and make the scaling and compare views refuse `semantic-headless` captures.
-  Strictly after the entry above: today every benchmark capture is
-  `semantic-headless`, so refusing that backend first would leave the suite with
-  no numbers at all, which is worse than numbers from a backend whose limits the
-  capture states.
+  Strictly after window sample orchestration and compositor verification:
+  the automated benchmark matrix uses `semantic-headless`, while individual
+  window captures already measure native work. Preserve the explicit backend
+  distinction until the sampled native matrix replaces it.
 
 - [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a

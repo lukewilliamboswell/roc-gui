@@ -52,12 +52,11 @@ input it needs; its resolver combines the result with latest state. Keeping old
 state alive can prevent in-place updates, but capturing a value does not itself
 imply a deep copy. Memoization snapshots and other sharing also affect ownership.
 
-Recipes compose startup values; actions describe runtime state transitions.
-`Action.task` supplies the commit--effect--resolve sequence without exposing
-startup registration through the event API. Task delivery is tied to the owning
-component instance. Removing that instance suppresses its completion, not
-necessarily the external operation. A request that must survive a child closing
-is delegated to a surviving parent, whose policy starts and owns the task.
+`Action.task` supplies the commit--effect--resolve sequence. Task delivery is
+tied to the owning boundary instance. Removing that instance suppresses its
+completion, not necessarily the external operation. A request that must survive
+a child closing is delegated to a surviving parent, whose policy starts and
+owns the task.
 
 Use `Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
@@ -73,49 +72,14 @@ architecture chapter records that origin and the reasoning behind it.
 === Pure application assembly
 
 `Program.run({ init, render, window })` describes an application with ordinary
-initial state and a pure renderer. `window` is optional. Applications with
-component definitions use `Program.build({ init, render, window })`, where
-`render` is a `Recipe(state -> Elem(state))`. Both constructors are pure; only
-the platform interprets the renderer recipe, once before the first render.
-Resource acquisition and window-dependent interactions belong in actions.
+initial state and a pure renderer. `window` is optional. Resource acquisition
+and window-dependent interactions belong in actions.
 
-`Recipe(a)` describes startup assembly producing a value of type `a`.
-`Recipe.pure(value)` needs no binding, `Recipe.map(recipe, transform)` transforms
-the assembled value, and `Recipe.and_then(recipe, next)` assembles a dependent
-description. Record builders combine independent descriptions through
-`Recipe.map2`:
-
-[source,roc]
-----
-view = Recipe.map(
-    {
-        sidebar: Component.define(sidebar_config),
-        editor: Component.define(editor_config),
-    }.Recipe,
-    |components| |state| render(components, state),
-)
-----
-
-Reuse an assembled component handle to share its definition. Interpreting the
-same recipe twice creates two definitions, even if its configuration is equal.
-`map2` interprets its left input before its right input, once each; recipes do
-not promise reordering, caching, or closure comparison. Recipe interpretation
-and construction from effectful functions are platform implementation details,
-not application extension points.
-
-Define nested components from the leaves upward, passing existing definition
-handles into their parents' immutable renderer closures. The definition graph
-is acyclic; ordinary recursive functions may still build recursive element
-trees. Definitions cannot be created inside render functions or event handlers.
-
-A reusable module exports a renderer recipe rather than an entire application:
-`Workspace.view : Recipe(Workspace.State -> Elem(Workspace.State))`.
-Its consumer uses `Recipe.and_then` to obtain the renderer and declare a parent
-component around it. One assembled handle can then be mounted under two keys.
-The terminal-workspace example does this for its primary and secondary panes;
-the nested terminal definition is shared, while each owning instance has its
-own state, routes, and task lifetime. The module does not import `Program` or
-choose the application's window.
+Reusable modules export ordinary render functions such as
+`Workspace.render : Workspace.State -> Elem(Workspace.State)`. A parent
+composes them through `Elem.translate` or `Elem.translate_with`; no setup-time
+registration is needed. The host assigns each mounted boundary its lifetime.
+The module does not import `Program` or choose the application's window.
 
 == Timers and subscriptions
 
@@ -145,6 +109,31 @@ border, radius, font size, font weight, and overflow.
 over the same native action-button node. `caption` is the visible text and
 `label` is the stable semantic name, as in every other control; use
 `Elem.action_button` for styling.
+Both button constructors accept `on_hover_enter` and `on_hover_exit` as optional
+`Some(|latest, event| Action.update(...))` callbacks. Their defaults are `None`:
+unconfigured buttons allocate no hover routes. `Event.Hover` carries no fields.
+Hover callbacks receive current state and return ordinary actions, including
+cell-owned tasks. Native hover transitions follow GPUI pointer movement with no
+mouse button held; repeated movement inside a button emits no additional enter.
+Disabled buttons emit neither hover callback. Removal does not synthesize exit.
+
+Keep button labels and keyed projections stable. Rebuilding a hovered cell to
+change its color preserves its native identity and inside state; it does not
+produce another enter. `hover_bg` remains a native visual refinement independent
+of these callbacks. Set it to `Default` when application actions own the hover
+color, as in `benchmarks/hover-grid`.
+
+[source,roc]
+----
+Elem.button({
+    caption: "Preview",
+    label: "Preview item",
+    on_press: |_, _| Action.none,
+    on_hover_enter: Some(|latest, _| Action.update({ ..latest, preview: True })),
+    on_hover_exit: Some(|latest, _| Action.update({ ..latest, preview: False })),
+})
+----
+
 `Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and
 handle `Event.Check`. `box_bg`, `box_checked_bg`, `box_border`, and
 `mark_color` colour the indicator itself, which `fg` does not reach; each
@@ -309,201 +298,166 @@ including its rounded corners and the edge above the root element, which a
 grown root element cannot cover. Both default to the host's own ground, so an
 application that says nothing keeps it.
 
-== Keyed components and local state
+== Translations and local state
 
-A component definition fixes how to read and replace child state, render it,
-and handle delegation. `Component.define` describes an equality-memoized definition
-for startup assembly. `Elem.component(definition, key)` mounts an instance while rendering:
+`Elem.translate(render, get, set)` introduces a local rendering, delegation,
+and task-ownership boundary. Its adapters operate directly on state:
 
 [source,roc]
 ----
-import pf.Component
-import pf.Recipe
-
-State : { title : Str, counter : Counter.State }
-
-counter_get : State, Elem.Key -> Try(Counter.State, [Removed])
-counter_get = |parent, key| match Elem.Key.inspect(key) {
-    Name("Main") => Ok(parent.counter)
-    _ => Err(Removed)
-}
-
-counter_set : State, Elem.Key, Counter.State -> Try(State, [Removed])
-counter_set = |parent, key, child| match Elem.Key.inspect(key) {
-    Name("Main") => Ok({ ..parent, counter: child })
-    _ => Err(Removed)
-}
-
-counter_render : Counter.State -> Elem(Counter.State)
-counter_render = |child| Counter.render("Main", child)
-
-render : Component(State), State -> Elem(State)
-render = |counter, state| Elem.col({}, [
+render = |state| Elem.col({}, [
     Elem.text(state.title),
-    Elem.component(counter, Name("Main")),
+    Elem.translate(
+        |counter| Counter.render("Left", counter),
+        |parent| parent.left,
+        |parent, counter| { ..parent, left: counter },
+    ),
 ])
 
-view : Recipe(State -> Elem(State))
-view = Recipe.map(
-    Component.define({
-        get: counter_get,
-        set: counter_set,
-        render: counter_render,
-    }),
-    |counter| |state| render(counter, state),
-)
-
-main : Program(State)
-main = Program.build({
-    init: { title: "Counter", counter: Counter.init(0) },
-    render: view,
-})
+main = Program.run({ init, render })
 ----
 
-`Component.Config(parent, child)` contains:
+An unkeyed translation has a fresh lifetime whenever its parent reconstructs
+it. Its own local updates preserve its lifetime and parent-owned application
+data survives reconstruction unless an action changes it.
 
-`get : parent, Elem.Key -> Try(child, [Removed])`:: Select current child input
-by stable key. Return `Err(Removed)` when that instance's state is absent.
-`set : parent, Elem.Key, child -> Try(parent, [Removed])`:: Replace that child in
-the latest parent. Return `Err(Removed)` instead of inserting a missing child.
-`render : child -> Elem(child)`:: Render the complete child input, with handlers
-typed to that input.
-`update_scope : [Local, Parent]`:: Declare the minimum render scope. Defaults to
-`Local`.
-`on_delegate : parent, Elem.Key -> Action(parent)`:: Decide what to do with a
-candidate parent after `Action.delegate`. Defaults to accepting it with
-`Action.update`.
+Use `Elem.translate_with(render, config)` to preserve a logical boundary across
+parent rebuilds and keyed reordering:
 
-The definition's renderer, adapters, and policies are immutable. All changing
-inputs must come through `get`, including properties borrowed from parent state
-that rendering or captured handlers use. For a collection, resolve the stable
-key against the latest collection; do not capture a render-time row index.
-The getter and setter succeed for a live projection. A successful setter
-preserves that instance's key and presence, changes only its writable child
-state, and preserves unrelated parent fields; it cannot resurrect an absent
-row. Removing or moving ownership belongs to the parent action, not to a child
-setter that silently changes its own identity. Rendering a component for which
-`get` returns `Removed` is a contract
-error: omit that instance from the element tree instead.
+[source,roc]
+----
+Elem.translate_with(
+    |counter| Counter.render("Left", counter),
+    {
+        key: "left",
+        get: |parent| parent.left,
+        set: |parent, counter| { ..parent, left: counter },
+    },
+)
+----
+
+The required configuration fields are `key`, `get`, and `set`.
+`on_delegate : parent -> Action(parent)` defaults to `Action.update`.
+`memo` defaults to `None`; `Some(|previous, next| previous == next)` opts into
+comparison of child inputs.
+
+`Elem.try_translate(render, config)` has the same configuration but its getter
+returns `Try(child, [Removed])` and its setter returns `Try(parent, [Removed])`.
+Use it for removable collection entries. Resolve a stable application identity
+against the latest state; do not capture a render-time row index. Adapters do
+not decode keys. A successful setter preserves the logical identity and
+presence of its projection and unrelated parent data. A missing projection
+cannot recreate deleted state. If a setter returns `Err(Removed)`, the whole
+candidate is discarded before invoking delegation handlers or launching tasks.
+Emitting a boundary whose getter returns
+`Err(Removed)` is an application error; omit it from the element tree instead.
 
 === Keys identify instances within a scope
 
-`Elem.Key` is `Name(Str)` or `Id(U64)`: `Name("7")` and `Id(7)` are distinct.
-Keys are unique among components in the same structural parent scope, even
-when the definitions differ. Reordering keyed siblings within that scope keeps
-their instance lifetimes. A different definition at the same key, changing the
-structural ancestor path, or removing and later recreating a key mounts a new
-instance.
+`Key` is a nominal value backed by the full `Crypto.SHA256.Digest`. It supports
+equality and hashing. A string literal constructs a key through `from_quote`
+at compilation; `Key.from_str` constructs a computed string key at runtime.
+`Key.id(U64)` constructs a numeric application key.
 
-A key is not a global native-widget identity. Keep surrounding container kinds
-and semantic names stable when interaction state should survive. Components
-add no padding or layout surface, and directly nested components have separate
-lifetime markers even when their visible content has one native root.
+String keys hash byte `0` followed by their UTF-8 bytes. Numeric keys hash byte
+`1` followed by eight little-endian bytes. Thus the string `"7"` and numeric
+`Key.id(7)` are separate identities. All 256 digest bits are retained, with no
+short-name limit, truncation, or implicit interpolation. Compute dynamic
+collection keys when creating model entries and reuse them during rendering.
 
-=== Render ownership is explicit
+The host validates and copies each 32-byte digest, then resolves the surviving
+owner, native-container scope, and key to a separate `U64` mounted-instance ID.
+Duplicate keys within one scope are rejected. Reordering within that scope
+preserves the lifetime; changing key or scope, removing and remounting, or
+remounting the owner creates a new lifetime. Instance IDs are never recycled
+within a session. Neither original names nor digests enter captures.
 
-In the example, the title does not depend on the count, so a local counter
-update can leave the parent and its siblings untouched. If the parent also
-renders a total derived from that child, set `update_scope: Parent` on the
-definition. Rendering then reaches the parent boundary, and enclosing `Parent`
-policies propagate through further ancestors. The selected scope must contain
-every UI consumer of the changed state. A getter and setter do not establish
-exclusive ownership, and the platform does not infer dependencies from reads.
+A key promises the same logical component and stable state projection for its
+lifetime. Rebinding either requires a different key. The platform does not
+compare functions to infer identity. Keep container kinds and semantic names
+stable when native interaction state should survive. A translation adds no
+padding or layout surface.
 
-`Elem.lift(element, get, set)` adapts a prebuilt element to parent state without
-creating a component. It does not add a render scope, lifetime, or memoization,
-and does not intercept delegation. Its non-fallible getter and setter must
-remain valid throughout the existing owner's lifetime. Use a fallible
-component boundary for a projection that can be removed.
+=== Persistent application collections
 
-=== Delegation lets the parent decide
+`Index(value)` is a persistent map keyed by application `U64` identifiers.
+`Index.empty`, `Index.get(index, id)`, `Index.set(index, id, value)`, and
+`Index.remove(index, id)` provide lookup, insertion/replacement, and removal.
+Lookup returns `Try(value, [Missing])`. Updating an index preserves older
+snapshots and copies at most sixteen radix branches, rather than an entire
+collection. Numeric storage identifiers are separate from mounted-instance IDs
+and from the full-digest `Key` used by translations.
 
-`Action.delegate(next_child)` crosses the nearest actual component boundary.
-The platform writes the proposed child into a candidate parent, then calls the
-definition's `on_delegate(candidate, key)`. The callback may:
+Store dynamic keys alongside their model entries. A removable collection can
+keep its display order separately, project entries through `Index.get`, and
+translate `Missing` into `Removed`. This lets a local action replace one entry
+without copying an unrelated flat list. The row-boundaries application uses
+the same persistent index as the platform's production route registry.
+
+=== Local updates and delegation
+
+`Action.update(next_child)` commits through the adapters and renders only its
+originating boundary. Parent and sibling renderers and comparators are not
+visited. A parent summary responds through explicit delegation or composition
+inside the same render boundary; reading child state does not establish a
+tracked dependency.
+
+`Elem.lift(element, get, set)` adapts a prebuilt element without adding a render
+boundary, lifetime, or memoization. It does not consume delegation. Its
+non-fallible adapters must remain valid for the existing owner's lifetime.
+
+`Action.delegate(next_child)` constructs a candidate parent through the nearest
+translation, then calls `on_delegate(candidate)`. That handler may:
 
 * return `Action.update(candidate)` to accept;
 * return an update with revised parent data;
-* return `Action.none` to veto the whole proposal without committing child data;
-* return `Action.task` to start work owned by the parent; or
+* return `Action.none` to veto the entire candidate;
+* return `Action.task` to start parent-owned work; or
 * return `Action.delegate` to continue to the next parent policy.
 
-Render promotion through `update_scope: Parent` neither calls this callback
-nor transfers task ownership. A reusable child can delegate an intent while
-its parent decides whether that intent should mutate a collection, close a
-view, or begin work that must survive the child's removal.
+Delegation reaching the root becomes a root update. Handlers receive current
+state. Veto commits none of the candidate, including its child changes.
 
-=== Memoization by default
+=== Memoization is opt-in
 
-`Component.define` compares the complete child input using its `is_eq` method.
-Its signature requires `where [child.is_eq : child, child -> Bool]`; ordinary
-record inputs need no handwritten comparator. Equal input retains the mounted
-subtree and its captured handlers.
+Ordinary translations require no equality and retain no comparison snapshot.
+A keyed translation enables memoization with `memo: Some(compare)`. Comparison
+runs only for boundaries reached by rendering and with a valid saved snapshot.
+A hit retains the subtree and captured handlers; it does not suppress accepted
+state transitions or task launches. Local updates never scan siblings.
 
-Use `Component.memo` to override that comparison. It accepts the same
-fields as `Component.define` plus `same : child, child -> Bool`:
+The compared input must cover all variable rendering and captured-handler
+dependencies, including labels, increment amounts, and layout properties.
+Renderer captures and comparators must remain semantically stable for a keyed
+lifetime. Returning `True` promises that keeping the old subtree and handlers
+is equivalent to rebuilding them. Equality is suitable only when it satisfies
+that promise: custom equality can omit fields, and floating-point equality can
+equate signed zero even if rendering distinguishes it.
 
-[source,roc]
-----
-counter = Component.memo({
-    get: counter_get,
-    set: counter_set,
-    render: counter_render,
-    same: |previous, next| previous.count == next.count,
-})
-----
+Descendant updates invalidate strict-ancestor snapshots without rendering those
+ancestors. This prevents stale `A -> B -> A` reuse. Enabling or disabling memo
+preserves instance identity and task ownership but rebuilds the boundary and
+resets its cache. Saved inputs can inhibit Roc's in-place updates; measure the
+production scaling cases before choosing a comparison policy.
 
-The comparison runs only when a mounted snapshot is valid. Returning `True`
-promises that retaining the old subtree, including its captured handlers, is
-equivalent to rebuilding it with `next`. Include every changing render and
-handler dependency in the child input and comparison. Comparing a visible count
-alone is wrong if a button also captures a changing increment amount, label,
-or layout property. Immutable definition identity avoids comparing functions.
+=== Tasks follow the accepting boundary
 
-Equality is not automatically this contract. A custom equality may omit fields;
-floating-point equality may equate positive and negative zero even if rendering
-distinguishes them. An unnecessary miss costs work, but an incorrect hit keeps
-stale behavior. Determinism does not make every equality representation-sensitive.
-Use an exact input wrapper or a custom comparator if signed zero matters.
-The type constraint proves that comparison exists, not that it obeys this law.
+Tasks launch only after their pending-state graph transaction is accepted.
+Resolvers receive the latest state. Matching keyed rebuilds and reordering
+preserve task ownership. Parent-owned tasks survive removal of their source
+child. If the owner or its projected state has disappeared, completion delivery
+is discarded. Reusing a removed key cannot revive old tasks.
 
-`Component.unmemoized` accepts the same configuration as `Component.define`
-without an equality constraint. It does not retain a comparison snapshot and
-always renders when the boundary is reached. Use it for opaque resources,
-inputs without a suitable equivalence, or when measurement shows comparison
-and snapshot retention cost more than the work they save. It preserves keyed
-identity, update scope, delegation, and task ownership; nested memoized
-components can still be retained.
+Discarding a completion releases its result and captures through ordinary
+reference counting; it does not promise cancellation of the underlying
+operation. Use capability-specific cancellation for blocked work and application
+request IDs to reject superseded results within a surviving instance.
+Route revisions likewise prevent stale events from reaching replacement
+handlers.
 
-A hit during ancestor rendering retains the complete child graph, event routes,
-nested instances, and native views. A miss rerenders the component and can
-still retain matching memoized descendants. Local descendant updates invalidate
-ancestor snapshots so a later ancestor render cannot mistake an old snapshot
-for the mounted output. Saved inputs consume memory and may inhibit Roc's
-in-place updates. Default memoization is a cost tradeoff, not a guarantee that
-comparison is free or that every application benefits; measure with the
-production scaling cases and opt out where appropriate.
-
-=== Tasks follow the action owner
-
-Tasks are submitted only after their pending-state graph transaction is
-accepted. A completion resolves against the latest state of its original
-component instance, not against a render-time snapshot. Matching rerenders and
-keyed reorders preserve that lifetime. Removal revokes completion delivery
-before any captured getter or resolver runs; reusing the key later does not
-revive old work. A delegated task returned by the parent's policy belongs to
-that parent instead.
-
-Revocation releases the completed result and captures through ordinary
-reference counting. It does not cancel an arbitrary running operation. Use
-capability-specific cancellation for blocked work, and application request IDs
-to reject superseded results within an instance that remains alive.
-
-For a complete reusable component, see `examples/counter/Counter.roc` and its
-composition in `examples/counter/main.roc`. `examples/review-queue` composes
-nested components and specifies parent summaries, captured-handler inputs,
-delegation, removal, and local versus parent-owned task completion. The terminal
-workspace mounts resource-bearing terminal state with `Component.unmemoized`.
+See `examples/counter` for plain translations, `examples/review-queue` for
+explicit parent policy and removable state, and `examples/terminal-workspace`
+for keyed resource-bearing panes.
 
 == Directory capabilities and tasks
 

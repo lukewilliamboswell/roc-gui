@@ -258,7 +258,9 @@ fn grant_metadata(handle: *mut u64) -> Option<(u64, GrantMetadata)> {
 
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("capability store poisoned");
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize) {
+    if let Some(id) =
+        crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize)
+    {
         guard.dirs.remove(&id);
         guard.metadata.remove(&id);
         guard.lifecycle[2] = guard.lifecycle[2].saturating_sub(1);
@@ -854,7 +856,10 @@ mod tests {
             if let Ok(request) = pending.try_recv() {
                 break request;
             }
-            assert!(Instant::now() < deadline, "the waiting task never asked for a chooser");
+            assert!(
+                Instant::now() < deadline,
+                "the waiting task never asked for a chooser"
+            );
             std::thread::sleep(Duration::from_millis(5));
         };
         request.reply.send(None).expect("nobody was waiting");

@@ -19,7 +19,7 @@ grown into a file manager. This one stays small so the authority stays visible.
 
 ```sh
 python3 build.py
-roc build --output=folder-browser examples/folder-browser/main.roc
+roc build --opt=dev --output=folder-browser examples/folder-browser/main.roc
 ./folder-browser -- --host-cap-dir examples/folder-browser/fixture
 ```
 

@@ -115,10 +115,12 @@ fn blocked_by_locked_screen() -> &'static str {
             .and_then(|out| String::from_utf8(out.stdout).ok())
             .is_some_and(|text| {
                 // ...<key>CGSSessionScreenIsLocked</key>\n\t<true/>...
-                text.split("CGSSessionScreenIsLocked").nth(1).is_some_and(|rest| {
-                    let value = rest.split("<key>").next().unwrap_or_default();
-                    value.contains("<true/>")
-                })
+                text.split("CGSSessionScreenIsLocked")
+                    .nth(1)
+                    .is_some_and(|rest| {
+                        let value = rest.split("<key>").next().unwrap_or_default();
+                        value.contains("<true/>")
+                    })
             });
         if locked {
             return "\n       The screen is locked, so no frame is ever presented. \

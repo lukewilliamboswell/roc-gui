@@ -1,15 +1,16 @@
 # Review queue
 
-A small nested-component application for editing and accepting a draft.
-The board can keep edits local or share a total with the page; acceptance can
-be vetoed, and archiving transfers asynchronous work to the board that survives
-the draft's removal.
-Reopen board replaces its mounted definition while preserving the persisted
-draft. It interprets one declaration recipe twice; ordinary refresh instead
-reuses the selected handle and retains an unchanged subtree.
+A nested translation example for editing and accepting a draft. Edits stay local;
+sharing explicitly delegates through the board to update the page summary.
+Acceptance can revise or veto a candidate. Archiving transfers asynchronous
+work to the board, so it survives removal of the source draft.
 
-The adjacent specifications exercise the production event and task route,
-including default equality, explicit comparator overrides, memoized ancestor
-invalidation, captured handler inputs, definition
-changes, removal/remount, latest-state completion, and delegated task lifetime.
-See [the platform API](../../docs/platform-api.adoc) for component contracts.
+Reopen board changes its key while retaining application data. Memoization is
+opt-in; changing its policy retains ownership. The unkeyed mode demonstrates a
+fresh lifetime whenever the parent reconstructs the board. Locking the draft
+keeps its projection readable while rejecting writes; rejected candidates do
+not reach delegation handlers or launch tasks.
+
+Adjacent specifications cover delegation, handler inputs, memo invalidation,
+keyed and unkeyed lifetimes, latest-state completion, parent-owned tasks, and rejecting fallible setters.
+See [the platform API](../../docs/platform-api.adoc) for translation contracts.

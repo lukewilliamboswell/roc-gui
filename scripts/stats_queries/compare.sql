@@ -1,8 +1,8 @@
 -- Compare attributed cycle distributions. Run the same executable twice for A/A noise.
 WITH checks AS (
  SELECT
-  (SELECT value FROM main.metadata WHERE key='schema_version')='11' AND
-  (SELECT value FROM after.metadata WHERE key='schema_version')='11' AS schema_ok,
+  (SELECT value FROM main.metadata WHERE key='schema_version')='15' AND
+  (SELECT value FROM after.metadata WHERE key='schema_version')='15' AS schema_ok,
   (SELECT value FROM main.metadata WHERE key='clean_shutdown')='1' AND
   (SELECT value FROM after.metadata WHERE key='clean_shutdown')='1' AND
   (SELECT value FROM main.metadata WHERE key='final_state')='complete' AND

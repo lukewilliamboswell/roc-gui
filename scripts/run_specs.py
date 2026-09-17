@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 11
+SUPPORTED_SCHEMA = 15
 
 
 @dataclass(frozen=True)
@@ -143,21 +143,12 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
     return cases
 
 
-# TODO: build every application the same way once the Roc optimizing backend
-# stops miscompiling these. An optimized build fails a few runs in ten, on every
-# platform: it segfaults with an access violation, crashes with "hit a runtime
-# error", or silently loses a directory listing. `--opt=dev` is clean over 40
-# runs, and none of these applications measures a benchmark, so their timings are
-# nobody's evidence. `file-explorer` joined the list after CI hit the same
-# access violation in `navigation.scm` that `folder-browser` showed first.
-# `system-monitor` likewise hangs or exits with 0xC0000005 on Windows, but its
-# live timer's deterministic sample count needs the optimized build elsewhere.
-DEV_BUILD_APPS = frozenset({"file-explorer", "folder-browser", "music-player"}) | (
-    frozenset({"system-monitor"}) if sys.platform == "win32" else frozenset()
-)
-
-
-def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
+# Use one explicit application backend across examples and benchmarks. The
+# selected compiler's LLVM callback/state corruption is tracked in the backlog;
+# --roc-opt allows intentional compiler diagnostics without an automatic retry
+# or fallback. The Rust host's build profile is independent of this option.
+def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
+    print(f"Roc application build mode: {roc_opt}", flush=True)
     subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
     if not skip_host_build:
         sys.path.insert(0, str(ROOT / "scripts"))
@@ -167,9 +158,8 @@ def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
-        workaround = ["--opt=dev"] if app.parent.name in DEV_BUILD_APPS else []
         subprocess.run(
-            [roc, "build", *workaround, f"--output={executable}", str(app)],
+            [roc, "build", f"--opt={roc_opt}", f"--output={executable}", str(app)],
             cwd=ROOT,
             check=True,
         )
@@ -336,6 +326,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-retries", type=int, default=0,
                         help="retry a failed window case this many times with fresh artifacts")
     parser.add_argument("--roc", default=os.environ.get("ROC", "roc"))
+    parser.add_argument("--roc-opt", choices=("dev", "speed", "size"), default="dev",
+                        help="Roc application backend (default: dev); speed and size are LLVM diagnostic builds")
     args = parser.parse_args()
     if args.jobs < 1 or args.timeout <= 0 or args.window_retries < 0:
         parser.error("jobs and timeout must be positive; window retries cannot be negative")
@@ -354,7 +346,7 @@ def main() -> int:
         print("error: no .scm specs selected", file=sys.stderr)
         return 2
     try:
-        build(cases, args.roc, args.skip_host_build)
+        build(cases, args.roc, args.skip_host_build, args.roc_opt)
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1

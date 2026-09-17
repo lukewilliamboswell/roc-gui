@@ -15,7 +15,7 @@ newer one, and Dismiss retires a reply that is still in flight.
 
 ```sh
 python3 build.py
-roc build --output=http-workbench examples/http-workbench/main.roc
+roc build --opt=dev --output=http-workbench examples/http-workbench/main.roc
 ./http-workbench -- --host-cap-http-origin http://127.0.0.1:38191
 ```
 

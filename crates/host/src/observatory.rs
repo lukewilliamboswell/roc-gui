@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 11;
+pub const SCHEMA_VERSION: u32 = 15;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -27,9 +27,100 @@ static ROC_REALLOC_REQUESTED_BYTES: AtomicU64 = AtomicU64::new(0);
 static GPUI_FRAME_ORDINAL: AtomicU64 = AtomicU64::new(0);
 pub const ROC_WORK_KINDS: usize = 5;
 
+/// Counts reported by the production native operations, indexed by NodeKind::tag.
+/// These are renders and view-element construction, not inferred cache outcomes.
+pub const NATIVE_NODE_KINDS: usize = 16;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NativeWork {
+    pub rendered: [u64; NATIVE_NODE_KINDS],
+    pub view_elements_created: [u64; NATIVE_NODE_KINDS],
+}
+
+impl NativeWork {
+    pub fn since(self, before: Self) -> Self {
+        Self {
+            rendered: std::array::from_fn(|kind| self.rendered[kind] - before.rendered[kind]),
+            view_elements_created: std::array::from_fn(|kind| {
+                self.view_elements_created[kind] - before.view_elements_created[kind]
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NativeFrameWork {
+    pub frames: u64,
+    pub max_rendered: [u64; NATIVE_NODE_KINDS],
+    pub max_view_elements_created: [u64; NATIVE_NODE_KINDS],
+}
+
+#[derive(Default)]
+struct NativeWorkOwner {
+    totals: NativeWork,
+    marked: Option<NativeFrameWork>,
+}
+
+thread_local! {
+    static NATIVE_WORK: std::cell::RefCell<NativeWorkOwner> = Default::default();
+}
+
+pub fn note_native_render(kind: u8) {
+    NATIVE_WORK.with(|owner| {
+        let mut owner = owner.borrow_mut();
+        let count = &mut owner.totals.rendered[usize::from(kind)];
+        *count = count.checked_add(1).expect("native render count overflow");
+    });
+}
+
+pub fn note_native_view_element(kind: u8) {
+    NATIVE_WORK.with(|owner| {
+        let mut owner = owner.borrow_mut();
+        let count = &mut owner.totals.view_elements_created[usize::from(kind)];
+        *count = count
+            .checked_add(1)
+            .expect("native view element count overflow");
+    });
+}
+
+/// Available without a recorder: tests observe the same counters as captures.
+pub fn native_work_totals() -> NativeWork {
+    NATIVE_WORK.with(|owner| owner.borrow().totals)
+}
+
+/// Begin a bounded observation of complete frames, not partial in-flight work.
+pub fn mark_native_work() {
+    NATIVE_WORK.with(|owner| owner.borrow_mut().marked = Some(NativeFrameWork::default()));
+}
+
+/// Missing marks or completed frames are unavailable, never an observed zero.
+pub fn native_work_since_mark() -> Option<NativeFrameWork> {
+    NATIVE_WORK.with(|owner| owner.borrow().marked.filter(|work| work.frames > 0))
+}
+
+/// Called only after FrameSpans has painted the complete application subtree.
+pub fn complete_native_frame(before: NativeWork) -> NativeWork {
+    NATIVE_WORK.with(|owner| {
+        let mut owner = owner.borrow_mut();
+        let work = owner.totals.since(before);
+        if let Some(marked) = &mut owner.marked {
+            marked.frames = marked
+                .frames
+                .checked_add(1)
+                .expect("native frame count overflow");
+            for kind in 0..NATIVE_NODE_KINDS {
+                marked.max_rendered[kind] = marked.max_rendered[kind].max(work.rendered[kind]);
+                marked.max_view_elements_created[kind] =
+                    marked.max_view_elements_created[kind].max(work.view_elements_created[kind]);
+            }
+        }
+        work
+    })
+}
+
 /// Numeric work reported by the Roc component runtime at the owning operation.
 /// The order is the `component_work!` ABI; changing it requires a schema change.
-pub const COMPONENT_WORK_NAMES: [&str; 7] = [
+pub const COMPONENT_WORK_NAMES: [&str; 9] = [
     "rendered",
     "compared",
     "skipped",
@@ -37,6 +128,8 @@ pub const COMPONENT_WORK_NAMES: [&str; 7] = [
     "retired",
     "registry_visits",
     "ancestor_invalidations",
+    "projection_gets",
+    "projection_sets",
 ];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -387,6 +480,7 @@ enum Event {
         layout_request_ns: u64,
         prepaint_ns: u64,
         paint_ns: u64,
+        native_work: NativeWork,
     },
     VirtualListFrame {
         list_id: u64,
@@ -410,6 +504,8 @@ struct Recorder {
 }
 
 static RECORDER: Mutex<Option<Recorder>> = Mutex::new(None);
+#[cfg(test)]
+pub(crate) static RECORDER_TEST: Mutex<()> = Mutex::new(());
 
 #[derive(Clone, Copy, Debug, Default)]
 struct ResourceSnapshot {
@@ -802,7 +898,12 @@ pub fn cycle(cycle: Cycle) {
 /// `prepaint`, or `paint` call spent on the application subtree. Taffy's layout
 /// solve and window presentation are performed by GPUI outside any host-owned
 /// element and are reported as unavailable rather than derived from these.
-pub fn gpui_frame(layout_request_ns: u64, prepaint_ns: u64, paint_ns: u64) {
+pub fn gpui_frame(
+    layout_request_ns: u64,
+    prepaint_ns: u64,
+    paint_ns: u64,
+    native_work: NativeWork,
+) {
     if !active() {
         return;
     }
@@ -813,6 +914,7 @@ pub fn gpui_frame(layout_request_ns: u64, prepaint_ns: u64, paint_ns: u64) {
             layout_request_ns,
             prepaint_ns,
             paint_ns,
+            native_work,
         },
         false,
     );
@@ -1152,6 +1254,20 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             },
         ),
         (
+            "gpui_native_work",
+            "summary",
+            if config.backend.starts_with("gpui-") {
+                "unfinalized"
+            } else {
+                "not_recorded"
+            },
+            if config.backend.starts_with("gpui-") {
+                "capture has not finalized"
+            } else {
+                "semantic headless execution draws no GPUI frame"
+            },
+        ),
+        (
             "gpui_layout_solve",
             "summary",
             "unavailable",
@@ -1334,10 +1450,24 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             }
             Ok(1)
         },
-        Event::GpuiFrame { ordinal, layout_request_ns, prepaint_ns, paint_ns } => connection.execute(
-            "INSERT INTO gpui_frames(run_id,ordinal,layout_request_ns,prepaint_ns,paint_ns) VALUES(1,?1,?2,?3,?4)",
-            params![as_i64(ordinal), as_i64(layout_request_ns), as_i64(prepaint_ns), as_i64(paint_ns)],
-        ),
+        Event::GpuiFrame { ordinal, layout_request_ns, prepaint_ns, paint_ns, native_work } => {
+            connection.execute(
+                "INSERT INTO gpui_frames(run_id,ordinal,layout_request_ns,prepaint_ns,paint_ns) VALUES(1,?1,?2,?3,?4)",
+                params![as_i64(ordinal), as_i64(layout_request_ns), as_i64(prepaint_ns), as_i64(paint_ns)],
+            ).map_err(|error| format!("cannot write GPUI frame: {error}"))?;
+            let frame_id = connection.last_insert_rowid();
+            for (metric, counts) in [native_work.rendered, native_work.view_elements_created].iter().enumerate() {
+                for (kind, count) in counts.iter().enumerate() {
+                    if *count > 0 {
+                        connection.execute(
+                            "INSERT INTO gpui_native_work(frame_id,metric,kind,count) VALUES(?1,?2,?3,?4)",
+                            params![frame_id, metric as u8, kind as u8, as_i64(*count)],
+                        ).map_err(|error| format!("cannot write native work count: {error}"))?;
+                    }
+                }
+            }
+            Ok(1)
+        },
         Event::VirtualListFrame { list_id, visible_items, materialized_entities, recycled_entities, live_entities } => connection.execute(
             "INSERT INTO virtual_list_frames(run_id,list_id,visible_items,materialized_entities,recycled_entities,live_entities) VALUES(1,?1,?2,?3,?4,?5)",
             params![as_i64(list_id), as_i64(visible_items), as_i64(materialized_entities), as_i64(recycled_entities), as_i64(live_entities)],
@@ -1396,7 +1526,7 @@ fn finalize(
         .map_err(|error| format!("cannot finalize drain metadata: {error}"))?;
     let partial = omitted > 0 || output_limited;
     connection.execute(
-        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN name='gpui_frame_spans' AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'unavailable' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN name='gpui_frame_spans' AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'no GPUI frame was drawn' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'gpui_frame_spans' THEN (SELECT count(*) FROM gpui_frames) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
+        "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'unavailable' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'no GPUI frame was drawn' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'gpui_frame_spans' THEN (SELECT count(*) FROM gpui_frames) WHEN 'gpui_native_work' THEN (SELECT count(*) FROM gpui_native_work) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize measurement status: {error}"))?;
     connection.execute(
@@ -1467,7 +1597,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=11;
+PRAGMA user_version=15;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1592,13 +1722,13 @@ CREATE TABLE cycles(
 );
 CREATE TABLE component_work_counts(
     cycle_id INTEGER NOT NULL REFERENCES cycles(id),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 6),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 8),
     count INTEGER NOT NULL CHECK(count > 0),
     PRIMARY KEY(cycle_id,kind)
 );
 CREATE TABLE component_work_assertions(
     step_id INTEGER NOT NULL REFERENCES steps(id),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 6),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 8),
     expected_count INTEGER NOT NULL CHECK(expected_count >= 0),
     observed_count INTEGER CHECK(observed_count >= 0),
     PRIMARY KEY(step_id,kind)
@@ -1611,6 +1741,13 @@ CREATE TABLE gpui_frames(
     prepaint_ns INTEGER NOT NULL,
     paint_ns INTEGER NOT NULL,
     UNIQUE(run_id,ordinal)
+);
+CREATE TABLE gpui_native_work(
+    frame_id INTEGER NOT NULL REFERENCES gpui_frames(id),
+    metric INTEGER NOT NULL CHECK(metric BETWEEN 0 AND 1),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 15),
+    count INTEGER NOT NULL CHECK(count > 0),
+    PRIMARY KEY(frame_id,metric,kind)
 );
 CREATE TABLE virtual_list_frames(
     id INTEGER PRIMARY KEY,
@@ -1661,8 +1798,6 @@ CREATE INDEX gpui_frames_by_run_ordinal ON gpui_frames(run_id,ordinal);
 mod tests {
     use super::*;
 
-    static RECORDER_TEST: Mutex<()> = Mutex::new(());
-
     #[test]
     fn component_work_is_owned_by_committed_turns_without_a_recorder() {
         clear_component_work();
@@ -1670,20 +1805,70 @@ mod tests {
         begin_component_work();
         note_component_work(0, 2);
         note_component_work(1, 3);
+        note_component_work(7, 5);
+        note_component_work(8, 2);
         assert_eq!(last_component_work(), None);
         commit_component_work();
-        let first = ComponentWork([2, 3, 0, 0, 0, 0, 0]);
+        let first = ComponentWork([2, 3, 0, 0, 0, 0, 0, 5, 2]);
         assert_eq!(last_component_work(), Some(first));
         begin_component_work();
         note_component_work(0, 1);
+        note_component_work(7, 1);
         reject_component_work();
         assert_eq!(last_component_work(), Some(first));
-        assert_eq!(total_component_work(), ComponentWork([3, 3, 0, 0, 0, 0, 0]));
+        assert_eq!(
+            total_component_work(),
+            ComponentWork([3, 3, 0, 0, 0, 0, 0, 6, 2])
+        );
         begin_component_work();
         commit_component_work();
         assert_eq!(last_component_work(), Some(ComponentWork::default()));
         clear_component_work();
         assert_eq!(last_component_work(), None);
+    }
+
+    #[test]
+    fn native_work_frames_publish_only_their_completed_delta() {
+        mark_native_work();
+        assert_eq!(native_work_since_mark(), None);
+        let first = native_work_totals();
+        note_native_view_element(1);
+        note_native_view_element(1);
+        note_native_render(1);
+        assert_eq!(
+            native_work_since_mark(),
+            None,
+            "incomplete frames supply no observation"
+        );
+        let work = complete_native_frame(first);
+        assert_eq!(work.rendered[1], 1);
+        assert_eq!(work.view_elements_created[1], 2);
+        let second = native_work_totals();
+        note_native_view_element(1);
+        note_native_view_element(1);
+        note_native_view_element(1);
+        let work = complete_native_frame(second);
+        assert_eq!(
+            work.rendered[1], 0,
+            "offered elements do not imply renders or cache outcomes"
+        );
+        assert_eq!(work.view_elements_created[1], 3);
+        let measured = native_work_since_mark().unwrap();
+        assert_eq!(measured.frames, 2);
+        assert_eq!(measured.max_rendered[1], 1);
+        assert_eq!(measured.max_view_elements_created[1], 3);
+        mark_native_work();
+        assert_eq!(
+            native_work_since_mark(),
+            None,
+            "a new observation cannot reuse the last frame"
+        );
+        let empty = native_work_totals();
+        complete_native_frame(empty);
+        assert_eq!(
+            native_work_since_mark().unwrap().max_rendered,
+            [0; NATIVE_NODE_KINDS]
+        );
     }
 
     #[test]
@@ -1698,11 +1883,11 @@ mod tests {
         }
         assert_eq!(
             last_component_work(),
-            Some(ComponentWork([3, 0, 0, 0, 0, 0, 0]))
+            Some(ComponentWork([3, 0, 0, 0, 0, 0, 0, 0, 0]))
         );
         assert_eq!(
             component_cycle_work(),
-            Some(ComponentWork([5, 0, 0, 0, 0, 0, 0]))
+            Some(ComponentWork([5, 0, 0, 0, 0, 0, 0, 0, 0]))
         );
         reset_component_cycle();
         assert_eq!(component_cycle_work(), None);
@@ -1922,8 +2107,14 @@ mod tests {
         })
         .unwrap();
         run_start(1, "interactive", None, 0, 1);
-        gpui_frame(400, 900, 1_600);
-        gpui_frame(410, 910, 1_610);
+        let mut first = NativeWork::default();
+        first.rendered[1] = 1;
+        first.rendered[15] = 100;
+        first.view_elements_created[1] = 100;
+        gpui_frame(400, 900, 1_600, first);
+        let mut second = NativeWork::default();
+        second.view_elements_created[1] = 100;
+        gpui_frame(410, 910, 1_610, second);
         run_end(1, "pass", 2, None);
         finish("success").unwrap();
         let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
@@ -1942,6 +2133,28 @@ mod tests {
             )
             .unwrap();
         assert_eq!(values, (0, 400, 900, 1_600));
+        let native_rows = db.prepare(
+            "SELECT f.ordinal,w.metric,w.kind,w.count FROM gpui_native_work w JOIN gpui_frames f ON f.id=w.frame_id ORDER BY f.ordinal,w.metric,w.kind"
+        ).unwrap().query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, u8>(1)?, row.get::<_, u8>(2)?, row.get::<_, i64>(3)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(
+            native_rows,
+            vec![
+                (0, 0, 1, 1),
+                (0, 0, 15, 100),
+                (0, 1, 1, 100),
+                (1, 1, 1, 100)
+            ]
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT status,rows_recorded FROM measurement_status WHERE name='gpui_native_work'",
+                [],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+            )
+            .unwrap(),
+            ("complete".to_string(), 4)
+        );
         assert_eq!(
             db.query_row(
                 "SELECT status,rows_recorded FROM measurement_status WHERE name='gpui_frame_spans'",
@@ -2082,8 +2295,18 @@ mod tests {
             http_counters: None,
             tcp_counters: None,
             component_work: Some((
-                [Some(2), Some(1), Some(0), None, None, None, None],
-                Some(ComponentWork([2, 1, 0, 0, 0, 0, 0])),
+                [
+                    Some(2),
+                    Some(1),
+                    Some(0),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
+                Some(ComponentWork([2, 1, 0, 0, 0, 0, 0, 5, 3])),
             )),
             expected_patch_kind: Some("replace".into()),
             observed_patch_kind: Some("replace"),
@@ -2094,7 +2317,7 @@ mod tests {
             diagnostic: None,
         });
         let mut update = test_cycle("measured", 0, "replace");
-        update.component_work = Some(ComponentWork([2, 1, 0, 0, 0, 0, 0]));
+        update.component_work = Some(ComponentWork([2, 1, 0, 0, 0, 0, 0, 5, 3]));
         update.retained_nodes = 7;
         update.validation_visits = 9;
         update.roc_work = attributed;
@@ -2124,6 +2347,20 @@ mod tests {
             .unwrap(),
             "1"
         );
+        assert_eq!(
+            db.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+                .unwrap(),
+            SCHEMA_VERSION
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT value FROM metadata WHERE key='schema_version'",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+            SCHEMA_VERSION.to_string()
+        );
         for key in ["requested_detail", "effective_detail"] {
             assert_eq!(
                 db.query_row("SELECT value FROM metadata WHERE key=?1", [key], |row| {
@@ -2144,7 +2381,7 @@ mod tests {
                 0
             ))
             .unwrap(),
-            2
+            4
         );
         assert_eq!(
             db.query_row(
@@ -2175,6 +2412,14 @@ mod tests {
         assert_eq!(counts.len(), COMPONENT_WORK_NAMES.len());
         assert_eq!(counts[0], ("complete".into(), "rendered".into(), Some(2)));
         assert_eq!(counts[2], ("complete".into(), "skipped".into(), Some(0)));
+        assert_eq!(
+            counts[7],
+            ("complete".into(), "projection_gets".into(), Some(5))
+        );
+        assert_eq!(
+            counts[8],
+            ("complete".into(), "projection_sets".into(), Some(3))
+        );
         drop(component_report);
         assert_eq!(
             db.query_row(

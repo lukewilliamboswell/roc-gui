@@ -13,7 +13,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use gpui::{App, AppContext, AsyncApp, Keystroke, WindowHandle, point, px, size};
+use gpui::{App, AppContext, AsyncApp, Keystroke, MouseMoveEvent, WindowHandle, point, px, size};
 
 use crate::probe::{self, Rect};
 use crate::screenshot::{self, ShotError};
@@ -451,18 +451,17 @@ fn prune_bounds(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<(), 
         .map_err(|_| StepError::WindowClosed)
 }
 
-/// Await one presented frame.
+/// Await the next frame callback with a normal view invalidation.
 async fn next_frame(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<(), StepError> {
     let (sender, receiver) = async_channel::bounded::<()>(1);
     window
-        .update(cx, |_, window, _| {
+        .update(cx, |_, window, cx| {
             window.on_next_frame(move |_, _| {
                 let _ = sender.try_send(());
             });
-            // Not `request_animation_frame`: despite its documentation it calls
-            // `current_view`, which panics outside a render pass. `refresh`
-            // marks the window dirty from anywhere.
-            window.refresh();
+            // A forced Window::refresh bypasses all view caches. Request the
+            // same ordinary invalidation as an application update instead.
+            cx.notify();
         })
         .map_err(|_| StepError::WindowClosed)?;
     receiver
@@ -592,6 +591,36 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
     std::fs::write(path, json)
 }
 
+fn check_native_work(
+    work: Option<crate::observatory::NativeFrameWork>,
+    button_max: Option<u64>,
+    boundary_max: Option<u64>,
+    boundary_elements_max: Option<u64>,
+) -> Result<(), StepError> {
+    let work = work.ok_or_else(|| StepError::Geometry(
+        "native work unavailable: mark-native-work and at least one completed frame are required".into()
+    ))?;
+    for (name, actual, maximum) in [
+        ("button renders", work.max_rendered[1], button_max),
+        ("boundary renders", work.max_rendered[15], boundary_max),
+        (
+            "boundary elements created",
+            work.max_view_elements_created[15],
+            boundary_elements_max,
+        ),
+    ] {
+        if let Some(maximum) = maximum
+            && actual > maximum
+        {
+            return Err(StepError::Geometry(format!(
+                "expected {name} per completed frame <= {maximum}; observed maximum {actual} across {} frame(s)",
+                work.frames
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Run one step against the live window.
 async fn run_step(
     step: &Step,
@@ -606,6 +635,26 @@ async fn run_step(
             await_painted(window, options.timeout, cx).await?;
             return take_screenshot(request, ordinal, window, options, cx);
         }
+        Command::MarkNativeWork => window
+            .update(cx, |_, _, _| {
+                crate::observatory::mark_native_work();
+                Ok(())
+            })
+            .map_err(|_| StepError::WindowClosed)?,
+        Command::ExpectNativeWork {
+            button_renders_max,
+            boundary_renders_max,
+            boundary_elements_max,
+        } => window
+            .update(cx, |_, _, _| {
+                check_native_work(
+                    crate::observatory::native_work_since_mark(),
+                    *button_renders_max,
+                    *boundary_renders_max,
+                    *boundary_elements_max,
+                )
+            })
+            .map_err(|_| StepError::WindowClosed)?,
         Command::Settle { frames, timeout_ms } => {
             settle(
                 window,
@@ -614,6 +663,44 @@ async fn run_step(
                 cx,
             )
             .await
+        }
+        Command::HoverEnter(locator) | Command::HoverExit(locator) => {
+            let entered = matches!(step.command, Command::HoverEnter(_));
+            let viewport = viewport_rect(window, cx)?;
+            let position = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    if !matches!(
+                        runtime.graph.node(id).map(|node| &node.kind),
+                        Some(crate::bridge::NodeKind::Button { .. })
+                    ) {
+                        return Err(StepError::NotClickable(describe(locator)));
+                    }
+                    let position = if entered {
+                        let bounds = visible_rect(runtime, locator, viewport)?;
+                        point(
+                            px((bounds.left + bounds.right) / 2.0),
+                            px((bounds.top + bounds.bottom) / 2.0),
+                        )
+                    } else {
+                        point(px(-1.0), px(-1.0))
+                    };
+                    Ok::<_, StepError>(position)
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            // Release the Runtime borrow before GPUI delivers callbacks into it.
+            cx.update_window(window.into(), |_, window, cx| {
+                window.dispatch_event(
+                    gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                        position,
+                        pressed_button: None,
+                        modifiers: Default::default(),
+                    }),
+                    cx,
+                );
+            })
+            .map_err(|_| StepError::WindowClosed)?;
+            await_painted(window, options.timeout, cx).await
         }
         Command::Click(locator) => {
             let viewport = viewport_rect(window, cx)?;
@@ -808,13 +895,14 @@ async fn run_step(
                     .map_err(StepError::Geometry)
             })
             .map_err(|_| StepError::WindowClosed)?,
-        // The five claims answered from the mounted graph alone, made by the
+        // The claims answered from the mounted graph alone, made by the
         // same code the semantic runner calls, so the word means one thing.
         Command::ExpectCanvasPrimitives(_, _)
         | Command::ExpectValue(_, _)
         | Command::ExpectValueBytes(_, _)
         | Command::ExpectImageBytes(_, _)
-        | Command::ExpectBefore(_, _) => window
+        | Command::ExpectBefore(_, _)
+        | Command::ExpectBackground(_, _) => window
             .update(cx, |runtime, _, _| {
                 runner::graph_claim(&runtime.graph, &step.command)
                     .expect("graph claim is missing an arm")
@@ -883,8 +971,8 @@ async fn run_step(
 
 /// Resolve a locator to a control a real click could actually have activated.
 ///
-/// GPUI 0.2.2 exposes no usable pointer entry point, so the click itself is
-/// simulated at the production handler. What is *not* simulated is whether the
+/// Click and hover steps activate the production handler route directly.
+/// What is *not* simulated here is whether the
 /// click could have landed: the control must have been painted this frame, must
 /// survive clipping by the viewport and its scrolling ancestors, must accept
 /// pointer activation, and must satisfy the same modality rule the semantic
@@ -1377,6 +1465,35 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_work_assertion_uses_owner_completed_frame_maxima() {
+        use crate::observatory as owner;
+        assert!(check_native_work(None, Some(0), None, None).is_err());
+        owner::mark_native_work();
+        assert!(check_native_work(owner::native_work_since_mark(), Some(0), None, None).is_err());
+        let before = owner::native_work_totals();
+        owner::note_native_render(1);
+        owner::note_native_render(15);
+        owner::note_native_view_element(15);
+        owner::note_native_view_element(15);
+        owner::complete_native_frame(before);
+        let before = owner::native_work_totals();
+        owner::note_native_render(1);
+        owner::note_native_render(1);
+        owner::complete_native_frame(before);
+        let work = owner::native_work_since_mark();
+        assert!(check_native_work(work, Some(2), Some(1), Some(2)).is_ok());
+        assert!(check_native_work(work, None, None, Some(1)).is_err());
+        assert!(check_native_work(work, None, Some(1), None).is_ok());
+        let error = check_native_work(work, Some(1), None, None).unwrap_err();
+        assert!(format!("{error:?}").contains("observed maximum 2"));
+        assert!(check_native_work(work, None, Some(0), None).is_err());
+        owner::mark_native_work();
+        assert!(check_native_work(owner::native_work_since_mark(), Some(0), None, None).is_err());
+        owner::complete_native_frame(owner::native_work_totals());
+        assert!(check_native_work(owner::native_work_since_mark(), Some(0), Some(0), None).is_ok());
+    }
 
     #[test]
     fn quiescence_needs_consecutive_unchanged_frames() {

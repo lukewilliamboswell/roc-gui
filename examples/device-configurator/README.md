@@ -15,7 +15,7 @@ rather than looking one up, so an apply cannot be expressed without a device.
 
 ```sh
 python3 build.py
-roc build --output=device-configurator examples/device-configurator/main.roc
+roc build --opt=dev --output=device-configurator examples/device-configurator/main.roc
 ./device-configurator -- --host-cap-device virtual
 ```
 

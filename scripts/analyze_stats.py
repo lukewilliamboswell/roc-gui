@@ -17,6 +17,7 @@ VIEWS = (
     "component_work",
     "host_gpui_work",
     "gpui_frame_spans",
+    "native_work",
     "virtual_list_materialization",
     "process_resources",
     "capture_health",
@@ -34,7 +35,7 @@ def open_readonly(path: Path) -> sqlite3.Connection:
 
 def validate(database: sqlite3.Connection) -> dict[str, str]:
     metadata = dict(database.execute("SELECT key,value FROM metadata"))
-    if metadata.get("schema_version") != "11":
+    if metadata.get("schema_version") != "15":
         raise RuntimeError("unsupported schema version")
     if metadata.get("clean_shutdown") != "1" or metadata.get("final_state") != "complete":
         raise RuntimeError("capture did not finalize cleanly")
@@ -92,12 +93,26 @@ def compare(before: Path, after: Path) -> str:
          after_samples, after_min, after_median, after_spread, delta, ratio) = row
         if status != "complete":
             return f"evidence_status={status} evidence_reason={reason}"
+        if not before_samples or not after_samples:
+            status = "unavailable"
+            missing = " and ".join(
+                name for name, samples in (("before", before_samples), ("after", after_samples))
+                if not samples
+            )
+            reason = f"no measured samples in {missing} capture"
+
+        def milliseconds(value: float | None, signed: bool = False) -> str:
+            if value is None:
+                return "unavailable"
+            return f"{value / 1e6:+.3f}ms" if signed else f"{value / 1e6:.3f}ms"
+
+        ratio_text = "unavailable" if ratio is None else f"{ratio:.3f}"
         return "\n".join(
             [
                 f"evidence_status={status} evidence_reason={reason}",
-                f"before samples={before_samples} min={before_min / 1e6:.3f}ms median={before_median / 1e6:.3f}ms spread={before_spread / 1e6:.3f}ms",
-                f"after samples={after_samples} min={after_min / 1e6:.3f}ms median={after_median / 1e6:.3f}ms spread={after_spread / 1e6:.3f}ms",
-                f"median_delta={delta / 1e6:+.3f}ms median_ratio={ratio:.3f}",
+                f"before samples={before_samples} min={milliseconds(before_min)} median={milliseconds(before_median)} spread={milliseconds(before_spread)}",
+                f"after samples={after_samples} min={milliseconds(after_min)} median={milliseconds(after_median)} spread={milliseconds(after_spread)}",
+                f"median_delta={milliseconds(delta, signed=True)} median_ratio={ratio_text}",
                 "Timing is report-only; semantic and evidence failures are the gates.",
             ]
         )
@@ -118,7 +133,7 @@ def perspective(path: Path, view: str, aa_bound: Path | None = None) -> str:
         # Validate the capture before a view can label its evidence complete.
         # Views then retain their own per-family status and unavailable reasons.
         metadata = dict(database.execute("SELECT key,value FROM metadata"))
-        if metadata.get("schema_version") != "11":
+        if metadata.get("schema_version") != "15":
             raise RuntimeError("unsupported schema version")
         aa_sql = "SELECT NULL AS trigger, NULL AS spread_ns WHERE 0"
         if aa_bound is not None:

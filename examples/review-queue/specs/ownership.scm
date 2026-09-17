@@ -1,4 +1,4 @@
-(test "Default equality preserves draft ownership, captured handlers and ancestor invalidation"
+(test "Opt-in equality preserves draft ownership, captured handlers and ancestor invalidation"
   (steps
     (expect-visible (text "Draft 0"))
     (click (role button :name "Refresh queue"))

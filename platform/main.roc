@@ -2,7 +2,7 @@ platform ""
 	requires {
 		[State : state] for main : Program(state)
 	}
-	exposes [Program, Recipe, Component, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio, Device, SystemMonitor, ImageData, Assets]
+	exposes [Program, Key, Index, Elem, Action, Event, Gui, Files, Timer, Http, Sqlite, Clipboard, Tcp, Process, Audio, Device, SystemMonitor, ImageData, Assets]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -13,8 +13,6 @@ platform ""
 		"roc_gui_node_styled_text": Host.node_styled_text!,
 		"roc_gui_children_begin": Host.children_begin!,
 		"roc_gui_children_push": Host.children_push!,
-		"roc_gui_component_setup": Host.component_setup!,
-		"roc_gui_component_define": Host.component_define!,
 		"roc_gui_component_work": Host.component_work!,
 		"roc_gui_node_boundary": Host.node_boundary!,
 		"roc_gui_retain_subtree": Host.retain_subtree!,
@@ -78,6 +76,7 @@ platform ""
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_enqueue_task": Host.enqueue_task!,
+		"roc_gui_task_complete": Host.task_complete!,
 		"roc_gui_timer_start": Host.timer_start!,
 		"roc_gui_timer_next": Host.timer_next!,
 		"roc_gui_timer_cancel": Host.timer_cancel!,
@@ -100,8 +99,8 @@ platform ""
 
 import Program
 import Elem
-import Component
-import Recipe
+import Key
+import Index
 import Action
 import Session
 import Event
@@ -120,6 +119,7 @@ import SystemMonitor
 import ImageData
 import Assets
 import Host
+import Work
 
 gui_init! : () => {}
 gui_init! = || Program.start!(main)
@@ -127,8 +127,8 @@ gui_init! = || Program.start!(main)
 gui_dispatch! : Box((Session(state) => {})), U64 => {}
 gui_dispatch! = |dispatch_box, event_id| Box.unbox(dispatch_box)(Session.event(event_id))
 
-gui_complete! : Box((Session(state) => {})), Box((Box(state) -> Box(Action.Action(state)))), U64 => {}
+gui_complete! : Box((Session(state) => {})), Box(Action.Completion(state)), U64 => {}
 gui_complete! = |dispatch_box, completion_box, owner| Box.unbox(dispatch_box)(Session.completion(owner, completion_box))
 
-gui_run_task! : Box((() => Box((Box(state) -> Box(Action.Action(state)))))) => Box((Box(state) -> Box(Action.Action(state))))
-gui_run_task! = |task_box| Box.unbox(task_box)()
+gui_run_task! : Box((() => Work)) => {}
+gui_run_task! = |task_box| Work.run!(Box.unbox(task_box)(), |_, _| {})

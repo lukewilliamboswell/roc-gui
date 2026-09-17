@@ -10,6 +10,8 @@ through reviewed locks that record their exact identities, hashes, and sizes.
 - LLVM libunwind and its Zig distribution: see `third_party/licenses/unwind/`.
 - xkbcommon: see `third_party/licenses/xkbcommon/`.
 - GPUI-derived host code: see `third_party/licenses/LICENSE-GPUI`.
+- GPUI 0.2.2: vendored under `vendor/gpui/`; see its `LICENSE-APACHE`
+  and `ROC-GUI-PATCHES.md` for upstream provenance and local changes.
 - Space Grotesk and Plus Jakarta Sans, used to set the documentation: see
   `docs/theme/fonts/`. Both are licensed under the SIL Open Font License,
   version 1.1, and are redistributed here in their unmodified released form.

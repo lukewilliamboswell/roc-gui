@@ -1,10 +1,12 @@
 import Action
 import Event
 import Gui
+import Key
+import Work
 
 ## A declarative UI tree whose event handlers transition application state `a`.
 ## Use `text`, `action_button`, `checkbox`, `row`, `col`, and `panel` to build a tree, and
-## `component` or `lift` to embed UI over smaller component state.
+## `translate` or `lift` to embed UI over smaller component state.
 Elem(a) :: [
 	Component(BoundComponent(a)),
 	ActionButton(ActionButtonProps(a)),
@@ -22,28 +24,91 @@ Elem(a) :: [
 	StyledText(TextProps),
 	Text(Str),
 ].{
-	Key := [Name(Str), Id(U64)].{
-		is_eq : _
-		inspect : Key -> [Name(Str), Id(U64)]
-		inspect = |Key.(key)| key
-	}
-
 	BoundComponent(a) := {
-		definition : U64,
-		key : Key,
-		render : a -> Elem(a),
-		exists : a -> Bool,
-		remember : [None, Some(a -> Box(a -> Bool))],
-		update_scope : [Local, Parent],
+		key : [None, Some(Key)],
+		render : (a, (Elem(a) -> Work) -> Work),
+		exists : (a, (Bool -> Work) -> Work),
+		remember : [None, Some((a, (Box((a, (Bool -> Work) -> Work)) -> Work) -> Work))],
 	}
 
-	## Mount a keyed instance of an immutable component definition.
-	component : definition, Key -> Elem(a) where [definition.mount : definition, Key -> Elem(a)]
-	component = |definition, key| definition.mount(key)
+	TranslateConfig(parent, child) := {
+		key : Key,
+		get : parent -> child,
+		set : parent, child -> parent,
+		on_delegate : parent -> Action(parent) ?? Action.update,
+		memo : [None, Some((child, child -> Bool))] ?? None,
+	}
 
-	## Platform descriptor constructor used by Component.
-	bound_component : BoundComponent(a) -> Elem(a)
-	bound_component = |bound| Component(bound)
+	TryTranslateConfig(parent, child) := {
+		key : Key,
+		get : parent -> Try(child, [Removed]),
+		set : parent, child -> Try(parent, [Removed]),
+		on_delegate : parent -> Action(parent) ?? Action.update,
+		memo : [None, Some((child, child -> Bool))] ?? None,
+	}
+
+	## A local rendering, delegation and task-ownership boundary. Reconstructing
+	## this unkeyed descriptor from its parent starts a fresh mounted lifetime.
+	translate : (child -> Elem(child)), (parent -> child), (parent, child -> parent) -> Elem(parent)
+	translate = |render, get, set| boundary(render, None, |parent, done| Work.get(|| done(Ok(get(parent)))), |parent, child| Ok(set(parent, child)), Action.update, None)
+
+	## Keys preserve the lifetime within the surviving owner and native scope.
+	## Memoization is opt-in; its input must cover rendering and handler captures.
+	translate_with : (child -> Elem(child)), TranslateConfig(parent, child) -> Elem(parent)
+	translate_with = |render, TranslateConfig.(config)| boundary(render, Some(config.key), |parent, done| Work.get(|| done(Ok((config.get)(parent)))), |parent, child| Ok((config.set)(parent, child)), config.on_delegate, config.memo)
+
+	## Missing projections discard task completions and cannot recreate state.
+	try_translate : (child -> Elem(child)), TryTranslateConfig(parent, child) -> Elem(parent)
+	try_translate = |render, TryTranslateConfig.(config)| {
+		project = |parent, done| Work.get(|| done((config.get)(parent)))
+		boundary(render, Some(config.key), project, config.set, config.on_delegate, config.memo)
+	}
+
+	Project(parent, child) : (parent, (Try(child, [Removed]) -> Work) -> Work)
+
+	boundary : (child -> Elem(child)), [None, Some(Key)], Project(parent, child), (parent, child -> Try(parent, [Removed])), (parent -> Action(parent)), [None, Some((child, child -> Bool))] -> Elem(parent)
+	boundary = |render, key, project, set, delegated, memo| {
+		adapt = |action, latest, done| Action.adapt_work!(action, latest, project, set, Some(delegated), done)
+		remember = match memo {
+			None => None
+			Some(compare) => Some(
+				|parent, captured| Work.next(
+					|| project(
+						parent,
+						|result| match result {
+							Err(Removed) => crash "cannot remember a removed boundary"
+							Ok(previous) => {
+								Work.next(|| captured(Box.box(|next, compared| snapshot_test(project, compare, previous, next, compared))))
+							}
+						},
+					),
+				),
+			)
+		}
+		render_boundary = |parent, done| Work.next(
+			|| project(
+				parent,
+				|result| match result {
+					Err(Removed) => crash "render emitted a removed component"
+					Ok(child) => Work.next(|| done(lift_with(render(child), project, set, adapt)))
+				},
+			),
+		)
+		exists = |parent, done| Work.next(
+			|| project(
+				parent,
+				|result| Work.next(
+					|| done(
+						match result {
+							Ok(_) => True
+							Err(Removed) => False
+						},
+					),
+				),
+			),
+		)
+		Component(BoundComponent.{ key, render: render_boundary, exists: exists, remember })
+	}
 
 	## Properties for `col`. `label` is an optional stable semantic locator.
 	## The remaining fields control the column's native layout and presentation.
@@ -244,6 +309,10 @@ Elem(a) :: [
 		label : Str,
 		enabled : Bool ?? True,
 		on_press : (a, Event.Press => Action(a)),
+
+		## Optional pointer transitions; absent handlers allocate no event routes.
+		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))] ?? None,
+		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))] ?? None,
 		gap : U32 ?? 8,
 		padding : U32 ?? 8,
 		padding_top : Gui.Inset ?? Same,
@@ -663,8 +732,16 @@ Elem(a) :: [
 	## Display a named text button and handle presses. `caption` is its visible
 	## text and `label` is its stable semantic locator, the same two names the
 	## styled `action_button` and every other control use.
-	button : { caption : Str, label : Str, on_press : a, Event.Press => Action(a) } -> Elem(a)
-	button = |props| ActionButton(ActionButtonProps.{ caption: props.caption, label: props.label, on_press: props.on_press })
+	ButtonProps(a) := {
+		caption : Str,
+		label : Str,
+		on_press : a, Event.Press => Action(a),
+		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))] ?? None,
+		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))] ?? None,
+	}
+
+	button : ButtonProps(a) -> Elem(a)
+	button = |props| ActionButton(ActionButtonProps.{ caption: props.caption, label: props.label, on_press: props.on_press, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit })
 
 	## Display a controlled, styled action button.
 	action_button : ActionButtonProps(a) -> Elem(a)
@@ -724,27 +801,107 @@ Elem(a) :: [
 
 	## Adapt an already-built child tree to parent state.
 	lift : Elem(child), (parent -> child), (parent, child -> parent) -> Elem(parent)
-	lift = |elem, get_child, set_child| lift_with(elem, get_child, set_child, |action, parent| Action.lift(action, parent, get_child, set_child))
+	lift = |elem, get_child, set_child| {
+		project = |parent, done| Work.get(|| done(Ok(get_child(parent))))
+		set = |parent, child| Ok(set_child(parent, child))
+		lift_with(elem, project, set, |action, parent, done| Action.adapt_work!(action, parent, project, set, None, done))
+	}
 
-	lift_with : Elem(child), (parent -> child), (parent, child -> parent), (Action(child), parent -> Action(parent)) -> Elem(parent)
-	lift_with = |elem, get_child, set_child, adapt_action| match elem {
+	lift_with : Elem(child), Project(parent, child), (parent, child -> Try(parent, [Removed])), (Action(child), parent, (Action(parent) -> Work) -> Work) -> Elem(parent)
+	lift_with = |elem, project, set_child, adapt_action| {
+		var $pending = [Visit(elem)]
+		var $completed = []
+		while !$pending.is_empty() {
+			work = $pending.last() ?? crash "missing lift work"
+			$pending = $pending.drop_last(1)
+			match work {
+				Visit(current) => {
+					split = lift_split(current)
+					shell = lift_shell(split.shell, project, set_child, adapt_action)
+					$pending = $pending.append(Finish(shell, split.children.len()))
+					for child in lift_reverse(split.children) {
+						$pending = $pending.append(Visit(child))
+					}
+				}
+				Finish(shell, count) => {
+					var $children = []
+					for _ in List.repeat({}, count) {
+						child = $completed.last() ?? crash "missing lifted child"
+						$completed = $completed.drop_last(1)
+						$children = $children.append(child)
+					}
+					$completed = $completed.append(lift_attach(shell, lift_reverse($children)))
+				}
+			}
+		}
+		$completed.last() ?? crash "missing lifted result"
+	}
+
+	lift_reverse : List(a) -> List(a)
+	lift_reverse = |values| {
+		var $result = []
+		var $remaining = values.len()
+		while $remaining > 0 {
+			$remaining = $remaining - 1
+			$result = $result.append(values.get($remaining) ?? crash "invalid lift list")
+		}
+		$result
+	}
+
+	# A suspended parent holds only its shallow shell, never the original
+	# recursive descriptor. Its children are owned by explicit work items.
+	lift_split : Elem(a) -> { shell : Elem(a), children : List(Elem(a)) }
+	lift_split = |elem| match elem {
+		Row(value) => { shell: Row({ ..value, children: [] }), children: value.children }
+		Column(value) => { shell: Column({ ..value, children: [] }), children: value.children }
+		Dialog(value) => { shell: Dialog({ ..value, children: [] }), children: value.children }
+		Panel(value) => { shell: Panel({ ..value, children: [] }), children: value.children }
+		Scroll(value) => { shell: Scroll({ ..value, content: Text("") }), children: [value.content] }
+		VirtualList(value) => {
+			shell: VirtualList({ ..value, items: value.items.map(|item| { key: item.key, content: Text("") }) }),
+			children: value.items.map(|item| item.content),
+		}
+		_ => { shell: elem, children: [] }
+	}
+
+	lift_attach : Elem(a), List(Elem(a)) -> Elem(a)
+	lift_attach = |shell, children| match shell {
+		Row(value) => Row({ ..value, children })
+		Column(value) => Column({ ..value, children })
+		Dialog(value) => Dialog({ ..value, children })
+		Panel(value) => Panel({ ..value, children })
+		Scroll(value) => Scroll({ ..value, content: children.first() ?? crash "missing lifted scroll content" })
+		VirtualList(value) => {
+			var $items = []
+			var $index = 0.U64
+			for item in value.items {
+				$items = $items.append({ key: item.key, content: children.get($index) ?? crash "missing lifted virtual item" })
+				$index = $index + 1
+			}
+			VirtualList({ ..value, items: $items })
+		}
+		_ => shell
+	}
+
+	lift_shell : Elem(child), Project(parent, child), (parent, child -> Try(parent, [Removed])), (Action(child), parent, (Action(parent) -> Work) -> Work) -> Elem(parent)
+	lift_shell = |elem, project, set_child, adapt_action| match elem {
 		Text(value) => Text(value)
 		StyledText(text_value) => StyledText(text_value)
-		Row(value) => Row({ props: value.props, children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)) })
-		Column(value) => Column({ props: value.props, children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)) })
+		Row(value) => Row({ props: value.props, children: [] })
+		Column(value) => Column({ props: value.props, children: [] })
 		Dialog(value) => {
 			child_handler = value.props.on_dismiss
-			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
 			Dialog({
-				children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)),
+				children: [],
 				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, shadow: value.props.shadow, shadow_y: value.props.shadow_y, shadow_color: value.props.shadow_color, shadow_alpha: value.props.shadow_alpha, font_face: value.props.font_face, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
 			})
 		}
-		Panel(value) => Panel({ props: value.props, children: value.children.map(|child| lift_with(child, get_child, set_child, adapt_action)) })
+		Panel(value) => Panel({ props: value.props, children: [] })
 		Scroll(scroll_value) => Scroll(
 			ScrollProps.{
 				axis: scroll_value.axis,
-				content: lift_with(scroll_value.content, get_child, set_child, adapt_action),
+				content: Text(""),
 				label: scroll_value.label,
 				gap: scroll_value.gap,
 				padding: scroll_value.padding,
@@ -791,7 +948,7 @@ Elem(a) :: [
 			VirtualListProps.{
 				label: list_value.label,
 				row_height: list_value.row_height,
-				items: list_value.items.map(|item| { key: item.key, content: lift_with(item.content, get_child, set_child, adapt_action) }),
+				items: list_value.items.map(|item| { key: item.key, content: Text("") }),
 				row_gap: list_value.row_gap,
 				gap: list_value.gap,
 				padding: list_value.padding,
@@ -837,19 +994,29 @@ Elem(a) :: [
 		TextInput(input_value) => {
 			child_change = input_value.on_change
 			child_submit = input_value.on_submit
-			parent_change! = |parent, event| adapt_action(child_change(get_child(parent), event), parent)
-			parent_submit! = |parent, event| adapt_action(child_submit(get_child(parent), event), parent)
+			parent_change! = |parent, event| adapt_event(child_change, parent, event, project, adapt_action)
+			parent_submit! = |parent, event| adapt_event(child_submit, parent, event, project, adapt_action)
 			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, shadow: input_value.shadow, shadow_y: input_value.shadow_y, shadow_color: input_value.shadow_color, shadow_alpha: input_value.shadow_alpha, font_face: input_value.font_face, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
 		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
-			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
+			hover_enter = match button_value.on_hover_enter {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			hover_exit = match button_value.on_hover_exit {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
 			ActionButton(
 				ActionButtonProps.{
 					caption: button_value.caption,
 					label: button_value.label,
 					enabled: button_value.enabled,
 					on_press: parent_handler!,
+					on_hover_enter: hover_enter,
+					on_hover_exit: hover_exit,
 					gap: button_value.gap,
 					padding: button_value.padding,
 					padding_top: button_value.padding_top,
@@ -894,7 +1061,7 @@ Elem(a) :: [
 		}
 		Checkbox(checkbox_value) => {
 			child_handler = checkbox_value.on_change
-			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
 			Checkbox(
 				CheckboxProps.{
 					label: checkbox_value.label,
@@ -949,37 +1116,99 @@ Elem(a) :: [
 		}
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
-			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
 			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, shadow: textarea_value.shadow, shadow_y: textarea_value.shadow_y, shadow_color: textarea_value.shadow_color, shadow_alpha: textarea_value.shadow_alpha, font_face: textarea_value.font_face, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
 		}
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
-			parent_handler! = |parent, event| adapt_action(child_handler(get_child(parent), event), parent)
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
 			Canvas(CanvasProps.{ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, width: canvas_value.width, height: canvas_value.height, min_width: canvas_value.min_width, min_height: canvas_value.min_height, max_width: canvas_value.max_width, max_height: canvas_value.max_height, grow: canvas_value.grow, bg: canvas_value.bg, border_color: canvas_value.border_color, border_width: canvas_value.border_width, border_top: canvas_value.border_top, border_right: canvas_value.border_right, border_bottom: canvas_value.border_bottom, border_left: canvas_value.border_left, radius: canvas_value.radius })
 		}
 		Component(bound) => {
+			child_render = bound.render
+			child_exists = bound.exists
 			remember = match bound.remember {
 				None => None
 				Some(capture) => Some(
-					|parent| {
-						test = Box.unbox(capture(get_child(parent)))
-						Box.box(|next| test(get_child(next)))
-					},
+					|parent, captured| Work.next(
+						|| project(
+							parent,
+							|result| match result {
+								Err(Removed) => crash "cannot remember a removed boundary"
+								Ok(child) => Work.next(
+									|| capture(
+										child,
+										|boxed_test| {
+											Work.next(|| captured(Box.box(|next, compared| projected_test(project, boxed_test, next, compared))))
+										},
+									),
+								)
+							},
+						),
+					),
 				)
 			}
-			Component(
-				BoundComponent.{
-					definition: bound.definition,
-					key: bound.key,
-					render: |parent| lift_with((bound.render)(get_child(parent)), get_child, set_child, adapt_action),
-					exists: |parent| (bound.exists)(get_child(parent)),
-					remember,
-					update_scope: bound.update_scope,
-				},
+			render_parent = |parent, done| Work.next(
+				|| project(
+					parent,
+					|result| match result {
+						Err(Removed) => crash "render emitted a removed component"
+						Ok(child) => Work.next(|| child_render(child, |rendered| Work.next(|| done(lift_with(rendered, project, set_child, adapt_action)))))
+					},
+				),
 			)
+			exists_parent = |parent, done| Work.next(
+				|| project(
+					parent,
+					|result| match result {
+						Err(Removed) => Work.next(|| done(False))
+						Ok(child) => Work.next(|| child_exists(child, done))
+					},
+				),
+			)
+			Component(BoundComponent.{ key: bound.key, render: render_parent, exists: exists_parent, remember })
 		}
 	}
+
+	snapshot_test : Project(parent, child), (child, child -> Bool), child, parent, (Bool -> Work) -> Work
+	snapshot_test = |project, compare, previous, next, compared| Work.next(
+		|| project(
+			next,
+			|result| Work.next(
+				|| compared(
+					match result {
+						Err(Removed) => False
+						Ok(value) => compare(previous, value)
+					},
+				),
+			),
+		),
+	)
+
+	projected_test : Project(parent, child), Box((child, (Bool -> Work) -> Work)), parent, (Bool -> Work) -> Work
+	projected_test = |project, boxed_test, next, compared| Work.next(
+		|| project(
+			next,
+			|result| match result {
+				Err(Removed) => Work.next(|| compared(False))
+				Ok(value) => Work.next(|| (Box.unbox(boxed_test))(value, compared))
+			},
+		),
+	)
+
+	adapt_event : (child, event => Action(child)), parent, event, Project(parent, child), (Action(child), parent, (Action(parent) -> Work) -> Work) -> Action(parent)
+	adapt_event = |handler!, parent, event, project, adapt| Action.deferred(
+		|done| Work.next(
+			|| project(
+				parent,
+				|result| match result {
+					Err(Removed) => Work.next(|| done(Action.none))
+					Ok(child) => Work.next(|| adapt(handler!(child, event), parent, done))
+				},
+			),
+		),
+	)
 
 	## Reveal an element descriptor. This supports platform-side traversal and
 	## libraries that transform element trees.
@@ -1017,4 +1246,40 @@ Elem(a) :: [
 		StyledText(styled_value) => StyledText(styled_value)
 		Text(text_value) => Text(text_value)
 	}
+}
+
+expect {
+	# Literal conversion through an imported nominal type and a config field.
+	boundary = Elem.translate_with(|value| Elem.text(value), { key: "左 boundary with a deliberately long application identity", get: |parent| parent.value, set: |parent, value| { ..parent, value } })
+	match Elem.inspect(boundary) {
+		Component(bound) => match bound.key {
+			Some(key) => key == Key.from_str("左 boundary with a deliberately long application identity")
+			None => False
+		}
+		_ => False
+	}
+}
+
+expect {
+	# Ordinary translations neither require equality nor capture a memo input.
+	boundary = Elem.translate(|callback| Elem.text(callback()), |parent| parent.callback, |parent, callback| { ..parent, callback })
+	match Elem.inspect(boundary) {
+		Component(bound) => match (bound.key, bound.remember) {
+			(None, None) => True
+			_ => False
+		}
+		_ => False
+	}
+}
+
+# Fallible projection execution is effectful and is exercised by the
+# review-queue missing-projection and delayed-completion specifications.
+
+expect {
+	# Imported Key equality and hashing agree across literal and runtime paths.
+	literal : Key
+	literal = "左 🦆 a long application key without a short-string limit"
+	computed = Key.from_str("左 🦆 a long application key without a short-string limit")
+	keys = Dict.single(literal, 42.I64)
+	literal == computed and Dict.get(keys, computed) == Ok(42) and Dict.get(keys, Key.id(42)) == Err(KeyNotFound)
 }

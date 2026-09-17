@@ -1,19 +1,12 @@
 import Elem
 import Gui
 import Internal
-import Host
-import Recipe
 
 ## A GUI application with initial state and a pure renderer for that state.
-Program(state) := { prepare! : () => Config(state) }.{
+Program(state) := Config(state).{
 	Config(state) := {
 		init : state,
 		render : state -> Elem(state),
-		window : WindowProps ?? {},
-	}
-	BuildConfig(state) := {
-		init : state,
-		render : Recipe(state -> Elem(state)),
 		window : WindowProps ?? {},
 	}
 
@@ -34,25 +27,9 @@ Program(state) := { prepare! : () => Config(state) }.{
 
 	## Construct the program value required by the platform's `main` module.
 	run : Config(state) -> Program(state)
-	run = |config| Program.{ prepare!: || config }
+	run = |config| Program.(config)
 
-	## Assemble the declared renderer once; initial state and window properties
-	## remain ordinary pure values, with the same defaults as run.
-	build : BuildConfig(state) -> Program(state)
-	build = |BuildConfig.(config)| Program.{
-		prepare!: || {
-			render = Recipe.evaluate!(config.render)
-			Config.{ init: config.init, render, window: config.window }
-		},
-	}
-
-	## Mount a program in the native host and begin event dispatch. Applications
-	## return `Program.run(...)` or `Program.build(...)` rather than calling this.
+	## Mount a program in the native host and begin event dispatch.
 	start! : Program(state) => {}
-	start! = |Program.(program)| {
-		Host.component_setup!(True)
-		Config.(config) = (program.prepare!)()
-		Host.component_setup!(False)
-		Internal.start!(config.init, config.render, config.window)
-	}
+	start! = |Program.(Config.(config))| Internal.start!(config.init, config.render, config.window)
 }

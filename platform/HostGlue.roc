@@ -11,15 +11,13 @@ HostGlue := [].{
 	node_styled_text! : { value : Str, fg : U32, font_size : U32, font_weight : U32, font_face : U8 } => U64
 	children_begin! : () => U64
 	children_push! : U64, U64 => {}
-	component_setup! : Bool => {}
-	component_define! : () => U64
 	component_work! : U8, U64 => {}
 	node_boundary! : U64, U64 => U64
 	retain_subtree! : U64 => U64
 	begin_render! : U64 => {}
 	scope_enter! : U8, Str, U64 => {}
 	scope_exit! : () => {}
-	component_resolve! : U64, U8, Str, U64 => { instance : U64, root : U64 }
+	component_resolve! : U8, List(U8) => { instance : U64, root : U64 }
 	component_enter! : U64 => {}
 	component_exit! : () => {}
 	node_row! : {
@@ -262,6 +260,8 @@ HostGlue := [].{
 		caption : Str,
 		label : Str,
 		enabled : Bool,
+		hover_enter : Bool,
+		hover_exit : Bool,
 		gap : U32,
 		padding_top : U32,
 		padding_right : U32,
@@ -305,7 +305,7 @@ HostGlue := [].{
 		overflow_y : U8,
 		align : U8,
 		justify : U8,
-	} => U64
+	} => { id : U64, hover_enter : U64, hover_exit : U64 }
 
 	node_virtual_item! : U64, U64 => U64
 	node_virtual_list! : {
@@ -609,6 +609,7 @@ HostGlue := [].{
 	apply! : Patch => {}
 	set_dispatch! : Box((U64 => {})) => {}
 	enqueue_task! : U64, Box((U64 => {})) => {}
+	task_complete! : Box((U64 => {})) => {}
 	timer_start! : U64 => Resource.Timer
 	timer_next! : Resource.Timer => Bool
 	timer_cancel! : Resource.Timer => Bool

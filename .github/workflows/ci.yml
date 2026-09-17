@@ -59,9 +59,14 @@ jobs:
           python3 scripts/install_released_host.py || status=$?
           case "$status" in
             0) echo "Released host matches the committed host inputs; Cargo build skipped." ;;
-            3) python3 scripts/run_cargo.py test --locked --workspace ;;
+            3) python3 scripts/run_cargo.py test --locked --package roc-gui-host ;;
             *) exit "$status" ;;
           esac
+      - name: Test GPUI dependency patches
+        if: runner.os == 'Linux'
+        run: |
+          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope
+          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support dirty_cached_parent
       - name: Full application specification suite
         run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }} --only semantic
       - name: Real GPUI window smoke

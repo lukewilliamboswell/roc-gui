@@ -61,7 +61,9 @@ pub fn counters() -> ([u64; 4], usize) {
 
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("TCP capability store poisoned");
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize) {
+    if let Some(id) =
+        crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize)
+    {
         guard.streams.remove(&id);
     }
 }

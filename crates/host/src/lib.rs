@@ -39,12 +39,13 @@ use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueComponentResolve,
     HostGlueHttpAcquireResult, HostGlueHttpSendArgs, HostGlueHttpSendResult,
-    HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs,
-    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
-    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr,
-    decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeActionButton, HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs,
+    HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs, HostGlueNodeDialogArgs,
+    HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
+    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
+    RocErasedCallable, RocHost, RocList, RocStr, decref_erased_callable, incref_erased_callable,
+    make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -69,7 +70,7 @@ actions!(
 
 unsafe extern "C" {
     fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable, owner: u64);
-    fn roc_gui_run_task(task: RocErasedCallable) -> RocErasedCallable;
+    fn roc_gui_run_task(task: RocErasedCallable);
 }
 
 #[derive(Debug)]
@@ -93,6 +94,67 @@ impl Drop for TaskEnvelope {
     }
 }
 
+thread_local! {
+    // Outer Some means a worker invocation is active; inner Some owns its result.
+    static TASK_COMPLETION_OUTPUT: RefCell<Option<Option<usize>>> = const { RefCell::new(None) };
+}
+
+struct TaskCompletionOutputGuard;
+impl Drop for TaskCompletionOutputGuard {
+    fn drop(&mut self) {
+        let abandoned = TASK_COMPLETION_OUTPUT.with(|slot| slot.borrow_mut().take().flatten());
+        if let Some(callable) = abandoned {
+            unsafe { decref_erased_callable(callable as RocErasedCallable, roc_host()) };
+        }
+    }
+}
+
+fn collect_task_completion(run: impl FnOnce()) -> Result<RocErasedCallable, &'static str> {
+    TASK_COMPLETION_OUTPUT.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        if slot.is_some() {
+            return Err("nested Roc task worker invocation");
+        }
+        *slot = Some(None);
+        Ok(())
+    })?;
+    let guard = TaskCompletionOutputGuard;
+    run();
+    let result = TASK_COMPLETION_OUTPUT
+        .with(|slot| slot.borrow_mut().as_mut().unwrap().take())
+        .map(|callable| callable as RocErasedCallable)
+        .ok_or("Roc worker returned without a completion");
+    drop(guard);
+    result
+}
+
+/// Takes ownership even on rejection; only callable identity crosses this ABI.
+fn publish_task_completion(completion: RocErasedCallable) -> Result<(), &'static str> {
+    if completion.is_null() {
+        return Err("Roc worker published a null completion");
+    }
+    let accepted = TASK_COMPLETION_OUTPUT.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        match slot.as_mut() {
+            Some(result) if result.is_none() => {
+                *result = Some(completion as usize);
+                Ok(())
+            }
+            Some(_) => Err("Roc worker published more than one completion"),
+            None => Err("Roc completion published outside a worker invocation"),
+        }
+    });
+    if accepted.is_err() {
+        unsafe { decref_erased_callable(completion, roc_host()) };
+    }
+    accepted
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_task_complete(completion: RocErasedCallable) {
+    publish_task_completion(completion).expect("invalid Roc worker completion publication");
+}
+
 struct TaskRuntime {
     jobs: async_channel::Sender<TaskEnvelope>,
     pending_jobs: async_channel::Receiver<TaskEnvelope>,
@@ -108,7 +170,6 @@ static TASK_EPOCH: AtomicU64 = AtomicU64::new(1);
 /// Retirement and publication share one short gate. A result cannot land just
 /// after retirement drained the completion queue and lost its last consumer.
 static TASK_PUBLICATION: Mutex<()> = Mutex::new(());
-static NEXT_COMPONENT_DEFINITION: AtomicU64 = AtomicU64::new(1);
 static GPUI_SMOKE: AtomicBool = AtomicBool::new(false);
 static GPUI_SMOKE_RENDERS: AtomicU64 = AtomicU64::new(0);
 
@@ -130,7 +191,10 @@ fn task_runtime() -> &'static TaskRuntime {
                         if task.epoch != TASK_EPOCH.load(Ordering::Acquire) {
                             continue;
                         }
-                        let completion = unsafe { roc_gui_run_task(task.take_callable()) };
+                        let completion = collect_task_completion(|| unsafe {
+                            roc_gui_run_task(task.take_callable())
+                        })
+                        .expect("Roc worker must publish exactly one completion");
                         task.callable = completion as usize;
                         let _publication = TASK_PUBLICATION.lock().expect("task publication gate");
                         if task.epoch == TASK_EPOCH.load(Ordering::Acquire) {
@@ -165,7 +229,6 @@ thread_local! {
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
     static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
     static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
-    static COMPONENT_SETUP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 #[derive(Clone, Copy)]
@@ -462,24 +525,6 @@ fn stage_node(kind: NodeKind, children: Vec<u64>) -> u64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_component_setup(enabled: bool) {
-    COMPONENT_SETUP.with(|setup| setup.set(enabled));
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_component_define() -> u64 {
-    assert!(
-        COMPONENT_SETUP.with(|setup| setup.get()),
-        "components must be defined during setup"
-    );
-    NEXT_COMPONENT_DEFINITION
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
-            value.checked_add(1)
-        })
-        .expect("component definition identity exhausted")
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_boundary(instance: u64, child: u64) -> u64 {
     stage_node(NodeKind::Boundary { instance }, vec![child])
 }
@@ -532,16 +577,19 @@ pub extern "C" fn roc_gui_scope_exit() {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_component_resolve(
-    definition: u64,
     key_kind: u8,
-    key_name: RocStr,
-    key_id: u64,
+    key_digest: RocList<u8>,
 ) -> HostGlueComponentResolve {
-    let key_text = key_name.as_str().to_owned();
-    unsafe { key_name.decref(roc_host()) };
-    let (instance, root) = with_component_registry(|registry| {
-        registry.resolve(definition, key_kind, &key_text, key_id)
+    let resolved = BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .components
+            .get_or_insert_with(Default::default)
+            .resolve(key_kind, key_digest.as_slice())
     });
+    unsafe { key_digest.decref(roc_host()) };
+    let (instance, root) =
+        resolved.unwrap_or_else(|message| panic!("invalid component reconciliation: {message}"));
     HostGlueComponentResolve { instance, root }
 }
 
@@ -755,22 +803,39 @@ pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -
 
 /// Stage one styled action button.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_action_button(args: HostGlueNodeActionButtonArgs) -> u64 {
+pub extern "C" fn roc_gui_node_action_button(
+    args: HostGlueNodeActionButtonArgs,
+) -> HostGlueNodeActionButton {
     let caption = args.caption.as_str().to_owned();
     let label = args.label.as_str().to_owned();
     unsafe {
         args.caption.decref(roc_host());
         args.label.decref(roc_host());
     }
-    stage_node(
+    let id = stage_node(
         NodeKind::Button {
             caption,
             label,
             enabled: args.enabled,
+            hover_enter: args.hover_enter,
+            hover_exit: args.hover_exit,
             style: decode_layout_style!(args),
         },
         vec![],
-    )
+    );
+    HostGlueNodeActionButton {
+        id,
+        hover_enter: if args.hover_enter {
+            id | bridge::HOVER_ENTER_EVENT_BIT
+        } else {
+            0
+        },
+        hover_exit: if args.hover_exit {
+            id | bridge::HOVER_EXIT_EVENT_BIT
+        } else {
+            0
+        },
+    }
 }
 
 fn decode_length(kind: u8, value: u32) -> Length {
@@ -1238,8 +1303,13 @@ fn take_patch() -> Patch {
 // answer the click. This seam lets a test answer it in Rust. It is compiled
 // out of the shipped binary.
 #[cfg(test)]
+type TestDispatcher = Box<dyn Fn(u64) -> Patch>;
+
+#[cfg(test)]
 thread_local! {
-    static TEST_DISPATCHER: RefCell<Option<Box<dyn Fn(u64) -> Patch>>> =
+    static TEST_DISPATCHER: RefCell<Option<TestDispatcher>> =
+        const { RefCell::new(None) };
+    static TEST_COMPLETION_DISPATCHER: RefCell<Option<TestDispatcher>> =
         const { RefCell::new(None) };
 }
 
@@ -1308,6 +1378,14 @@ fn complete(mut completion: TaskEnvelope) -> Patch {
     if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
         return Patch::NoChange;
     }
+    #[cfg(test)]
+    if let Some(patch) = TEST_COMPLETION_DISPATCHER.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .map(|dispatch| dispatch(completion.owner))
+    }) {
+        return patch;
+    }
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
             .borrow()
@@ -1347,7 +1425,6 @@ fn clear_bridge() {
     drop(retired);
     reject_transaction();
     observatory::clear_component_work();
-    COMPONENT_SETUP.with(|setup| setup.set(false));
     BRIDGE.with(|bridge| {
         let mut bridge = bridge.borrow_mut();
         bridge.pending = None;
@@ -1487,6 +1564,9 @@ struct NodeView {
     children: Vec<Entity<NodeView>>,
     runtime: WeakEntity<Runtime>,
     is_root: bool,
+    /// Baseline alignment needs descendants' real layout baselines, which a
+    /// fixed-size cache placeholder cannot provide. Updated with graph patches.
+    baseline_layout: bool,
     input_enabled: bool,
     focus_handle: Option<FocusHandle>,
     input: Option<Entity<input::TextInput>>,
@@ -1789,12 +1869,85 @@ fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     element.focus(move |focused| focused.border_2().border_color(ring))
 }
 
+/// GPUI's view cache needs the outer layout before it renders the view. Only
+/// use it when the application fixes both dimensions independently of content
+/// and flex allocation. Intrinsic and flexible nodes keep ordinary layout.
+fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
+    if is_root {
+        return None;
+    }
+    let style = match &node.kind {
+        NodeKind::Button { style, .. } if node.children.is_empty() => style,
+        NodeKind::Row { style, .. }
+        | NodeKind::Column { style, .. }
+        | NodeKind::Panel { style, .. } => style,
+        _ => return None,
+    };
+    let (Length::Px(width), Length::Px(height)) = (style.width, style.height) else {
+        return None;
+    };
+    (!style.grow
+        && style.min_width == Length::Px(width)
+        && style.max_width == Length::Px(width)
+        && style.min_height == Length::Px(height)
+        && style.max_height == Length::Px(height))
+    .then_some((width, height))
+}
+
+fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
+    let node = view.read(cx);
+    observatory::note_native_view_element(node.node.kind.tag());
+    let independent_children = matches!(
+        node.node.kind,
+        NodeKind::Boundary { .. }
+            | NodeKind::Row { .. }
+            | NodeKind::Column { .. }
+            | NodeKind::Panel { .. }
+    );
+    let mut layout_view = view.clone();
+    let extent = loop {
+        let node = layout_view.read(cx);
+        if node.is_root || node.baseline_layout {
+            break None;
+        }
+        if matches!(node.node.kind, NodeKind::Boundary { .. }) && node.children.len() == 1 {
+            layout_view = node.children[0].clone();
+        } else {
+            break fixed_node_extent(&node.node, false);
+        }
+    };
+    let view = AnyView::from(view);
+    match extent {
+        Some((width, height)) => {
+            let mut layout = div()
+                .w(px(width as f32))
+                .h(px(height as f32))
+                .min_w(px(width as f32))
+                .max_w(px(width as f32))
+                .min_h(px(height as f32))
+                .max_h(px(height as f32));
+            // Mounted children own their data and notifications. Bounds,
+            // clipping and inherited text are tracked by GPUI's cache key;
+            // the host does not expose implicit group-hover style contexts.
+            if independent_children {
+                view.cached_with_independent_children(layout.style().clone())
+            } else {
+                view.cached(layout.style().clone())
+            }
+        }
+        None => view,
+    }
+}
+
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        observatory::note_native_render(self.node.kind.tag());
+        #[cfg(test)]
+        tests::record_native_style(_cx.entity_id(), &self.node);
         // A component boundary owns identity and updates, but contributes no
         // flex item, padding, or other native layout box.
         if matches!(self.node.kind, NodeKind::Boundary { .. }) {
-            return AnyView::from(self.children[0].clone()).into_any_element();
+            return native_node_view(self.children[0].clone(), _cx).into_any_element();
         }
         // The element key is the view's own, not the mounted node id: a node id
         // is never reused, so keying by it gave every control a new GPUI
@@ -1942,7 +2095,12 @@ impl Render for NodeView {
                 let dialog_id = self.node.id;
                 let runtime = self.runtime.clone();
                 let inner = apply_style(div().id("dialog-surface").flex().flex_col(), style)
-                    .children(self.children.iter().cloned().map(AnyView::from));
+                    .children(
+                        self.children
+                            .iter()
+                            .cloned()
+                            .map(|view| native_node_view(view, _cx)),
+                    );
                 element = element
                     .absolute()
                     .top_0()
@@ -2155,6 +2313,8 @@ impl Render for NodeView {
             NodeKind::Button {
                 caption,
                 enabled,
+                hover_enter,
+                hover_exit,
                 style,
                 ..
             } => {
@@ -2170,6 +2330,27 @@ impl Render for NodeView {
                         .child(caption.clone()),
                     style,
                 );
+                // Keep GPUI edge state current while canonical input guards suppress
+                // disabled or modal-blocked callbacks. Removing this listener would
+                // retain a stale inside state across pointer movement behind a modal.
+                if *hover_enter || *hover_exit {
+                    let hover_runtime = self.runtime.clone();
+                    let hover_view = _cx.entity().downgrade();
+                    element = element.on_hover(move |entered, _, cx| {
+                        // One mouse move can leave one control and enter another.
+                        // The first callback may rebuild their shared parent before
+                        // GPUI invokes the second. Follow this exact surviving
+                        // native entity to its refreshed route; removed entities
+                        // retain only a stale ID and cannot reach a replacement.
+                        let Some(view) = hover_view.upgrade() else {
+                            return;
+                        };
+                        let node_id = view.read(cx).node.id;
+                        let _ = hover_runtime.update(cx, |runtime, cx| {
+                            runtime.hover_if_live(node_id, *entered, cx)
+                        });
+                    });
+                }
                 if *enabled && self.input_enabled {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
@@ -2345,7 +2526,12 @@ impl Render for NodeView {
         }
         if append_children {
             element
-                .children(self.children.iter().cloned().map(AnyView::from))
+                .children(
+                    self.children
+                        .iter()
+                        .cloned()
+                        .map(|view| native_node_view(view, _cx)),
+                )
                 .into_any_element()
         } else {
             element.into_any_element()
@@ -2473,8 +2659,7 @@ impl Runtime {
                 task_runtime().completed.fetch_add(1, Ordering::Relaxed);
                 if runtime
                     .update(cx, |runtime, cx| {
-                        let patch = complete(completion);
-                        runtime.apply_unrecorded(patch, cx);
+                        runtime.complete_live_task(completion, cx);
                     })
                     .is_err()
                 {
@@ -2615,6 +2800,16 @@ impl Runtime {
         self.dispatch_live_event(id, "click", cx);
     }
 
+    fn hover_if_live(&mut self, id: u64, entered: bool, cx: &mut Context<Self>) {
+        if let Some(route) = self.graph.hover_transition(id, entered) {
+            self.dispatch_live_event(
+                route,
+                if entered { "hover-enter" } else { "hover-exit" },
+                cx,
+            );
+        }
+    }
+
     fn text_event_if_live(
         &mut self,
         identity: &ElementIdentity,
@@ -2678,6 +2873,30 @@ impl Runtime {
         }
         if let Some((editor, submitted)) = acknowledgement {
             editor.update(cx, |editor, cx| editor.acknowledge(&submitted, cx));
+        }
+    }
+
+    /// Measure only delivery after the worker result has arrived, never queue or wait time.
+    fn complete_live_task(&mut self, completion: TaskEnvelope, cx: &mut Context<Self>) {
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = complete(completion);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "task",
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = complete(completion);
+            self.apply_unrecorded(patch, cx);
         }
     }
 
@@ -2924,6 +3143,9 @@ impl Runtime {
         }
         refresh_identities(&self.graph, applied, &mut self.identities);
         self.materialize(&applied.staged_ids, cx);
+        for retained in &applied.retained_roots {
+            self.refresh_retained_baseline_layout(*retained, cx);
+        }
         if let (Some(root), Some((parent, _))) = (applied.root, virtual_parent) {
             let constructions_before = self.virtual_constructions;
             let (_, new_virtual_entities) = self.build_virtual_node(root, cx);
@@ -3113,6 +3335,49 @@ impl Runtime {
         })
     }
 
+    fn requires_baseline_layout(&self, id: u64) -> bool {
+        let mut current = Some(id);
+        while let Some(id) = current {
+            let node = self.graph.node(id).expect("mounted layout ancestor");
+            if matches!(&node.kind,
+                NodeKind::Row { style, .. } | NodeKind::Column { style, .. }
+                | NodeKind::Panel { style, .. } | NodeKind::Dialog { style, .. }
+                | NodeKind::Scroll { style, .. } | NodeKind::VirtualList { style, .. }
+                if style.align == Align::Baseline)
+            {
+                return true;
+            }
+            current = self.graph.parent(id).map(|(parent, _)| parent);
+        }
+        false
+    }
+
+    fn refresh_retained_baseline_layout(&self, id: u64, cx: &mut Context<Self>) {
+        let mut pending = vec![id];
+        while let Some(id) = pending.pop() {
+            let Some(view) = self.native_view(id) else {
+                continue;
+            };
+            let baseline_layout = self.requires_baseline_layout(id);
+            if view.read(cx).baseline_layout == baseline_layout {
+                continue;
+            }
+            view.update(cx, |view, cx| {
+                view.baseline_layout = baseline_layout;
+                cx.notify();
+            });
+            pending.extend(
+                self.graph
+                    .node(id)
+                    .expect("retained layout node")
+                    .children
+                    .iter()
+                    .rev()
+                    .copied(),
+            );
+        }
+    }
+
     /// Give a staged node its GPUI entity.
     ///
     /// A retired view of the same identity and the same kind is claimed back
@@ -3128,6 +3393,7 @@ impl Runtime {
         input_enabled: bool,
         cx: &mut Context<Self>,
     ) -> Entity<NodeView> {
+        let baseline_layout = self.requires_baseline_layout(node.id);
         let identity = self.identities.get(&node.id).cloned().unwrap_or_default();
         // An empty identity is not an identity: it would make every unplaced
         // node the same control as every other.
@@ -3162,6 +3428,7 @@ impl Runtime {
                     existing.node = node;
                     existing.children = vec![];
                     existing.is_root = false;
+                    existing.baseline_layout = baseline_layout;
                     existing.input_enabled = input_enabled;
                     existing.focus_handle = focus_handle;
                     existing.input = editor;
@@ -3178,6 +3445,7 @@ impl Runtime {
                     children: vec![],
                     runtime,
                     is_root: false,
+                    baseline_layout,
                     input_enabled,
                     focus_handle,
                     input: editor,
@@ -3190,16 +3458,15 @@ impl Runtime {
 
     /// Index a retired view and everything under it by identity.
     fn offer_subtree(&mut self, view: Entity<NodeView>, cx: &mut Context<Self>) {
-        if self.preserved_virtual.contains(&view.read(cx).node.id) {
-            return;
-        }
-        let (identity, children) = {
+        let mut pending = vec![view];
+        while let Some(view) = pending.pop() {
             let node = view.read(cx);
-            (node.identity.clone(), node.children.clone())
-        };
-        self.recyclable.insert(identity, view);
-        for child in children {
-            self.offer_subtree(child, cx);
+            if self.preserved_virtual.contains(&node.node.id) {
+                continue;
+            }
+            let identity = node.identity.clone();
+            pending.extend(node.children.iter().rev().cloned());
+            self.recyclable.insert(identity, view);
         }
     }
 
@@ -3349,52 +3616,73 @@ impl Runtime {
     }
 
     fn build_virtual_node(&mut self, id: u64, cx: &mut Context<Self>) -> (Entity<NodeView>, u64) {
-        if self.preserved_virtual.remove(&id) {
-            if let Some(cached) = self.virtual_entities.get(&id) {
-                return (cached.view.clone(), cached.entities);
+        enum Work {
+            Enter(u64),
+            Finish(u64),
+        }
+        let mut pending = vec![Work::Enter(id)];
+        while let Some(work) = pending.pop() {
+            match work {
+                Work::Enter(id) => {
+                    if self.preserved_virtual.remove(&id) && self.virtual_entities.contains_key(&id)
+                    {
+                        continue;
+                    }
+                    let node = self.graph.node(id).expect("virtual node is missing");
+                    let children = if matches!(node.kind, NodeKind::VirtualList { .. }) {
+                        vec![]
+                    } else {
+                        node.children.clone()
+                    };
+                    pending.push(Work::Finish(id));
+                    pending.extend(children.into_iter().rev().map(Work::Enter));
+                }
+                Work::Finish(id) => {
+                    let node = self
+                        .graph
+                        .node(id)
+                        .expect("virtual node is missing")
+                        .clone();
+                    let mut children = Vec::new();
+                    let mut descendants = 0;
+                    if !matches!(node.kind, NodeKind::VirtualList { .. }) {
+                        for child in &node.children {
+                            let cached = self
+                                .virtual_entities
+                                .get(child)
+                                .expect("built virtual child");
+                            children.push(cached.view.clone());
+                            descendants += cached.entities;
+                        }
+                    }
+                    let input_enabled = self
+                        .active_dialog
+                        .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
+                    let view = self.claim_view(node, input_enabled, cx);
+                    view.update(cx, |view, _| view.children = children);
+                    if let Some(handle) = view.read(cx).focus_handle.clone() {
+                        self.focus_handles.insert(id, handle);
+                    }
+                    if let Some(tracker) = view.read(cx).scroll.clone() {
+                        self.scroll_trackers.insert(id, tracker);
+                    }
+                    if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
+                        self.canvas_surfaces
+                            .insert(id, view.read(cx).canvas_bounds.clone());
+                    }
+                    self.virtual_constructions += 1;
+                    self.virtual_entities.insert(
+                        id,
+                        VirtualCached {
+                            view,
+                            entities: descendants + 1,
+                        },
+                    );
+                }
             }
         }
-        let node = self
-            .graph
-            .node(id)
-            .expect("virtual node is missing")
-            .clone();
-        let (children, descendants) = if matches!(node.kind, NodeKind::VirtualList { .. }) {
-            (vec![], 0)
-        } else {
-            let built = node
-                .children
-                .iter()
-                .map(|child| self.build_virtual_node(*child, cx))
-                .collect::<Vec<_>>();
-            let count = built.iter().map(|(_, count)| *count).sum();
-            (built.into_iter().map(|(view, _)| view).collect(), count)
-        };
-        let input_enabled = self
-            .active_dialog
-            .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
-        let view = self.claim_view(node, input_enabled, cx);
-        view.update(cx, |view, _| view.children = children);
-        if let Some(handle) = view.read(cx).focus_handle.clone() {
-            self.focus_handles.insert(id, handle);
-        }
-        if let Some(tracker) = view.read(cx).scroll.clone() {
-            self.scroll_trackers.insert(id, tracker);
-        }
-        if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
-            self.canvas_surfaces
-                .insert(id, view.read(cx).canvas_bounds.clone());
-        }
-        let entities = descendants + 1;
-        self.virtual_constructions += 1;
-        self.virtual_entities.insert(
-            id,
-            VirtualCached {
-                view: view.clone(),
-                entities,
-            },
-        );
-        (view, entities)
+        let cached = self.virtual_entities.get(&id).expect("built virtual root");
+        (cached.view.clone(), cached.entities)
     }
 
     fn forget_virtual_subtree(&mut self, root: Entity<NodeView>, cx: &App) {
@@ -3626,6 +3914,7 @@ fn elapsed_ns(start: Instant) -> u64 {
 
 impl Render for Runtime {
     fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let native_start = observatory::native_work_totals();
         if GPUI_SMOKE.load(Ordering::Relaxed) {
             GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
         }
@@ -3670,7 +3959,13 @@ impl Render for Runtime {
                 .bg(rgb(window_ground().unwrap_or(0x16252c)))
                 .text_color(rgb(window_ink().unwrap_or(0xeeeeea)))
                 .text_lg()
-                .children(self.root.iter().cloned().map(AnyView::from)),
+                .children(
+                    self.root
+                        .iter()
+                        .cloned()
+                        .map(|view| native_node_view(view, _cx)),
+                ),
+            native_start,
         )
     }
 }
@@ -4636,6 +4931,259 @@ mod tests {
     use std::rc::Rc;
     use std::time::Instant;
 
+    thread_local! {
+        static NATIVE_STYLES: RefCell<std::collections::HashMap<gpui::EntityId, Option<u32>>> = RefCell::new(std::collections::HashMap::new());
+    }
+
+    pub(super) fn record_native_style(id: gpui::EntityId, node: &Node) {
+        NATIVE_STYLES.with(|styles| {
+            let background = match &node.kind {
+                NodeKind::Button { style, .. } => style.bg,
+                _ => None,
+            };
+            styles.borrow_mut().insert(id, background);
+        });
+    }
+
+    fn native_style(id: gpui::EntityId) -> Option<u32> {
+        NATIVE_STYLES.with(|styles| styles.borrow().get(&id).copied().flatten())
+    }
+
+    fn patched_button_count(nodes: &[Node]) -> u64 {
+        nodes
+            .iter()
+            .filter(|node| matches!(node.kind, NodeKind::Button { .. }))
+            .count() as u64
+    }
+
+    fn fixed_style(width: u32, height: u32) -> Style {
+        Style {
+            width: Length::Px(width),
+            min_width: Length::Px(width),
+            max_width: Length::Px(width),
+            height: Length::Px(height),
+            min_height: Length::Px(height),
+            max_height: Length::Px(height),
+            ..Style::default()
+        }
+    }
+
+    fn fixed_hover_buttons(base: u64) -> Vec<Node> {
+        let mut nodes = two_hover_buttons(base);
+        for node in &mut nodes {
+            if let NodeKind::Button { style, .. } = &mut node.kind {
+                style.max_width = Length::Px(100);
+                style.max_height = Length::Px(100);
+                style.bg = Some(0x123456);
+            }
+        }
+        nodes[0].children = vec![base + 3, base + 4];
+        nodes.push(Node {
+            id: base + 3,
+            kind: NodeKind::Boundary { instance: 1 },
+            children: vec![base + 1],
+        });
+        nodes.push(Node {
+            id: base + 4,
+            kind: NodeKind::Boundary { instance: 2 },
+            children: vec![base + 2],
+        });
+        nodes
+    }
+
+    #[test]
+    fn native_cache_requires_content_independent_button_geometry() {
+        let nodes = fixed_hover_buttons(1000);
+        assert_eq!(super::fixed_node_extent(&nodes[1], false), Some((100, 100)));
+        assert_eq!(super::fixed_node_extent(&nodes[1], true), None);
+        assert_eq!(super::fixed_node_extent(&nodes[0], false), None);
+        let mut button = nodes[1].clone();
+        if let NodeKind::Button { style, .. } = &mut button.kind {
+            style.grow = true;
+        }
+        assert_eq!(super::fixed_node_extent(&button, false), None);
+        if let NodeKind::Button { style, .. } = &mut button.kind {
+            style.grow = false;
+            style.max_width = Length::Auto;
+        }
+        assert_eq!(super::fixed_node_extent(&button, false), None);
+    }
+
+    #[gpui::test]
+    fn native_cache_retains_siblings_and_refreshes_changed_buttons(cx: &mut TestAppContext) {
+        let events = recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let (left, right) = runtime.read_with(cx, |runtime, _| {
+            (
+                runtime.views[&1001].entity_id(),
+                runtime.views[&1002].entity_id(),
+            )
+        });
+        let before = observatory::native_work_totals().rendered[1];
+        assert_eq!(native_style(left), Some(0x123456));
+        assert_eq!(native_style(right), Some(0x123456));
+
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        assert_eq!(observatory::native_work_totals().rendered[1] - before, 0);
+
+        let expected = runtime.update(cx, |runtime, cx| {
+            let mut next = runtime.graph.node(1001).unwrap().clone();
+            next.id = 2001;
+            if let NodeKind::Button { style, .. } = &mut next.kind {
+                style.bg = Some(0xabcdef);
+            }
+            let nodes = vec![next];
+            let expected = patched_button_count(&nodes);
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1001,
+                    root: 2001,
+                    nodes,
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&2001].entity_id(), left);
+            expected
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            expected,
+            "only buttons changed by the actual patch render; the unrelated sibling does not"
+        );
+        assert_eq!(native_style(left), Some(0xabcdef));
+        assert_eq!(native_style(right), Some(0x123456));
+
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(150.0), px(50.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow()[0],
+            2001 | crate::bridge::HOVER_ENTER_EVENT_BIT
+        );
+        let mut transitions = events.borrow()[1..].to_vec();
+        transitions.sort_unstable();
+        assert_eq!(
+            transitions,
+            vec![
+                2001 | crate::bridge::HOVER_EXIT_EVENT_BIT,
+                1002 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+            ]
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_invalidates_when_parent_moves_retained_buttons(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals().rendered[1];
+        runtime.update(cx, |runtime, cx| {
+            let mut row = runtime.graph.node(1000).unwrap().clone();
+            row.id = 2000;
+            if let NodeKind::Row { style, .. } = &mut row.kind {
+                style.padding[3] = 15;
+            }
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 2000,
+                    nodes: vec![row],
+                    retained_roots: vec![1003, 1004],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            2,
+            "both moved buttons must refresh cached paint and hitboxes"
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_invalidates_when_parent_clips_retained_buttons(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let mut nodes = fixed_hover_buttons(1000);
+        if let NodeKind::Row { style, .. } = &mut nodes[0].kind {
+            style.width = Length::Px(50);
+            style.height = Length::Px(100);
+        }
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals().rendered[1];
+        runtime.update(cx, |runtime, cx| {
+            let mut row = runtime.graph.node(1000).unwrap().clone();
+            row.id = 2000;
+            if let NodeKind::Row { style, .. } = &mut row.kind {
+                style.overflow_x = super::Overflow::Clip;
+            }
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 2000,
+                    nodes: vec![row],
+                    retained_roots: vec![1003, 1004],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            2,
+            "both clipped buttons must refresh cached paint and hitboxes"
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_allows_a_retained_button_to_become_flexible(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let left = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        runtime.update(cx, |runtime, cx| {
+            let mut button = runtime.graph.node(1001).unwrap().clone();
+            button.id = 2001;
+            if let NodeKind::Button { style, .. } = &mut button.kind {
+                style.max_width = Length::Auto;
+                style.width = Length::Fill;
+            }
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1001,
+                    root: 2001,
+                    nodes: vec![button],
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&2001].entity_id(), left);
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals().rendered[1];
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            1,
+            "the flexible button renders normally while its fixed sibling stays cached"
+        );
+    }
+
     #[test]
     fn host_internal_allocators_use_counted_runtime_routes() {
         let host = make_counted_roc_host(core::ptr::null_mut());
@@ -4652,6 +5200,388 @@ mod tests {
             host.roc_realloc as usize,
             counted_roc_realloc as *const () as usize
         );
+    }
+
+    #[gpui::test]
+    fn native_cache_baseline_alignment_updates_retained_descendants(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        crate::probe::enable();
+        let mut nodes = fixed_hover_buttons(1000);
+        for (index, node) in nodes.iter_mut().enumerate() {
+            if let NodeKind::Button { style, .. } = &mut node.kind {
+                style.font_size = if index == 1 { 10 } else { 30 };
+            }
+        }
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let original = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        for (old_root, root, align, expected_renders) in [
+            (1000, 2000, super::Align::Baseline, 2),
+            (2000, 3000, super::Align::Start, 0),
+        ] {
+            runtime.update(cx, |runtime, cx| {
+                let mut row = runtime.graph.node(old_root).unwrap().clone();
+                row.id = root;
+                if let NodeKind::Row { style, .. } = &mut row.kind {
+                    style.align = align;
+                }
+                runtime.apply_unrecorded(
+                    Patch::ReplaceRetaining {
+                        old_root,
+                        root,
+                        nodes: vec![row],
+                        retained_roots: vec![1003, 1004],
+                    },
+                    cx,
+                );
+                assert_eq!(runtime.views[&1001].entity_id(), original);
+                for id in [1001, 1002, 1003, 1004] {
+                    assert_eq!(
+                        runtime.views[&id].read(cx).baseline_layout,
+                        align == super::Align::Baseline
+                    );
+                }
+            });
+            cx.run_until_parked();
+            let actual_bounds = runtime.read_with(cx, |runtime, _| {
+                let frame = runtime.painted().unwrap();
+                let first = frame.bounds(1001).unwrap();
+                let second = frame.bounds(1002).unwrap();
+                (first, second)
+            });
+            let before = observatory::native_work_totals();
+            runtime.update(cx, |_, cx| cx.notify());
+            cx.run_until_parked();
+            assert_eq!(
+                observatory::native_work_totals().since(before).rendered[1],
+                expected_renders
+            );
+            if align == super::Align::Baseline {
+                let mut reference_nodes = fixed_hover_buttons(4000);
+                if let NodeKind::Row { style, .. } = &mut reference_nodes[0].kind {
+                    style.align = super::Align::Baseline;
+                }
+                for (index, node) in reference_nodes.iter_mut().enumerate() {
+                    if let NodeKind::Button { style, .. } = &mut node.kind {
+                        style.font_size = if index == 1 { 10 } else { 30 };
+                        // Same fixed basis/floor without cache admission, to
+                        // compare against the normal GPUI layout path.
+                        style.max_width = Length::Auto;
+                    }
+                }
+                let (reference, reference_cx) = cx.cx.add_window_view(|_, cx| {
+                    Runtime::new(
+                        initial_mount(Patch::Mount {
+                            root: 4000,
+                            nodes: reference_nodes,
+                        }),
+                        cx,
+                    )
+                });
+                reference_cx.run_until_parked();
+                let reference_bounds = reference.read_with(reference_cx, |runtime, _| {
+                    let frame = runtime.painted().unwrap();
+                    (frame.bounds(4001).unwrap(), frame.bounds(4002).unwrap())
+                });
+                assert_eq!(actual_bounds, reference_bounds);
+            }
+        }
+    }
+
+    #[gpui::test]
+    fn native_cache_fixed_container_style_and_removal_update_retained_children(
+        cx: &mut TestAppContext,
+    ) {
+        let events = recording_dispatcher();
+        let mut nodes = fixed_hover_buttons(1000);
+        if let NodeKind::Row { style, .. } = &mut nodes[0].kind {
+            *style = fixed_style(200, 100);
+        }
+        nodes.push(Node {
+            id: 900,
+            kind: NodeKind::Column {
+                label: "Outer".into(),
+                style: Style::default(),
+            },
+            children: vec![901],
+        });
+        nodes.push(Node {
+            id: 901,
+            kind: NodeKind::Panel {
+                label: "Fixed panel".into(),
+                style: fixed_style(200, 100),
+            },
+            children: vec![902],
+        });
+        nodes.push(Node {
+            id: 902,
+            kind: NodeKind::Boundary { instance: 9 },
+            children: vec![1000],
+        });
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 900, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals();
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        let work = observatory::native_work_totals().since(before);
+        assert_eq!(work.rendered[1], 0);
+        assert_eq!(
+            work.view_elements_created[15], 0,
+            "cached panel must not offer its child boundary"
+        );
+
+        // Inherited text is part of GPUI's cache key, even though the retained
+        // children's own mounted data and dimensions are unchanged.
+        let before = observatory::native_work_totals();
+        runtime.update(cx, |runtime, cx| {
+            let mut panel = runtime.graph.node(901).unwrap().clone();
+            panel.id = 1901;
+            if let NodeKind::Panel { style, .. } = &mut panel.kind {
+                style.fg = Some(0xabcdef);
+                style.font_size = 19;
+            }
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 901,
+                    root: 1901,
+                    nodes: vec![panel],
+                    retained_roots: vec![902],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().since(before).rendered[1],
+            2
+        );
+
+        runtime.update(cx, |runtime, cx| {
+            runtime.focus_after_render = Some(1002);
+            cx.notify();
+        });
+        cx.run_until_parked();
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            let mut button = runtime.graph.node(1002).unwrap().clone();
+            button.id = 2002;
+            if let NodeKind::Button { caption, .. } = &mut button.kind {
+                *caption = "Updated".into();
+            }
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1004,
+                    root: 2004,
+                    nodes: vec![
+                        Node {
+                            id: 2004,
+                            kind: NodeKind::Boundary { instance: 2 },
+                            children: vec![2002],
+                        },
+                        button,
+                    ],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        cx.dispatch_action(ActivateEnter);
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[2002],
+            "focus and keyboard routing must follow the updated cached descendant"
+        );
+        events.borrow_mut().clear();
+
+        // Reusing caches after an ancestor hit must not preserve the removed
+        // control's listeners or the surviving control's previous position.
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            let mut row = runtime.graph.node(1000).unwrap().clone();
+            row.id = 3000;
+            row.children = vec![2004];
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 3000,
+                    nodes: vec![row],
+                    retained_roots: vec![2004],
+                },
+                cx,
+            );
+            assert!(runtime.graph.node(1001).is_none());
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[2002 | crate::bridge::HOVER_ENTER_EVENT_BIT]
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_changed_button_work_is_independent_of_grid_size(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        for count in [100_u64, 1_000, 10_000] {
+            let mut nodes = vec![
+                Node {
+                    id: 1,
+                    kind: NodeKind::Column {
+                        label: "Grid".into(),
+                        style: Style::default(),
+                    },
+                    children: vec![2],
+                },
+                Node {
+                    id: 2,
+                    kind: NodeKind::Column {
+                        label: "Cells".into(),
+                        style: fixed_style(500, (count / 100 * 5) as u32),
+                    },
+                    children: Vec::new(),
+                },
+            ];
+            for row_index in 0..count / 100 {
+                let row_id = row_index + 3;
+                nodes[1].children.push(row_id);
+                let mut row = Node {
+                    id: row_id,
+                    kind: NodeKind::Row {
+                        label: String::new(),
+                        style: fixed_style(500, 5),
+                    },
+                    children: Vec::new(),
+                };
+                for column in 0..100 {
+                    let index = row_index * 100 + column;
+                    let boundary = 1_000 + index * 2;
+                    let button = boundary + 1;
+                    row.children.push(boundary);
+                    nodes.push(Node {
+                        id: boundary,
+                        kind: NodeKind::Boundary {
+                            instance: index + 1,
+                        },
+                        children: vec![button],
+                    });
+                    nodes.push(Node {
+                        id: button,
+                        kind: NodeKind::Button {
+                            caption: String::new(),
+                            label: format!("Cell {index}"),
+                            enabled: true,
+                            hover_enter: true,
+                            hover_exit: true,
+                            style: Style {
+                                width: Length::Px(5),
+                                height: Length::Px(5),
+                                min_width: Length::Px(5),
+                                max_width: Length::Px(5),
+                                min_height: Length::Px(5),
+                                max_height: Length::Px(5),
+                                bg: Some(0x123456),
+                                ..Style::default()
+                            },
+                        },
+                        children: Vec::new(),
+                    });
+                }
+                nodes.push(row);
+            }
+            let (runtime, window_cx) = cx.add_window_view(|_, cx| {
+                Runtime::new(initial_mount(Patch::Mount { root: 1, nodes }), cx)
+            });
+            window_cx.run_until_parked();
+            let before = observatory::native_work_totals();
+            runtime.update(window_cx, |_, cx| cx.notify());
+            window_cx.run_until_parked();
+            assert_eq!(
+                observatory::native_work_totals().since(before).rendered[1],
+                0,
+                "an unchanged {count}-cell grid renders no buttons"
+            );
+            assert_eq!(
+                observatory::native_work_totals().since(before).rendered[15],
+                0,
+                "an unchanged {count}-cell grid renders no transparent boundaries"
+            );
+            let unchanged = observatory::native_work_totals().since(before);
+            assert_eq!(
+                unchanged.view_elements_created[8], 0,
+                "cached grid must not offer row views"
+            );
+            assert_eq!(
+                unchanged.view_elements_created[15], 0,
+                "cached grid must not offer cell boundaries"
+            );
+            assert_eq!(
+                unchanged.view_elements_created[1], 0,
+                "cached grid must not offer button views"
+            );
+
+            let before = observatory::native_work_totals();
+            let expected = runtime.update(window_cx, |runtime, cx| {
+                let previous = runtime.views[&1001].entity_id();
+                let mut button = runtime.graph.node(1001).unwrap().clone();
+                button.id = 1_000_001;
+                if let NodeKind::Button { style, .. } = &mut button.kind {
+                    style.bg = Some(0xabcdef);
+                }
+                let nodes = vec![
+                    Node {
+                        id: 1_000_000,
+                        kind: NodeKind::Boundary { instance: 1 },
+                        children: vec![button.id],
+                    },
+                    button,
+                ];
+                let mut expected = [0_u64; 16];
+                for node in &nodes {
+                    expected[usize::from(node.kind.tag())] += 1;
+                }
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: 1000,
+                        root: 1_000_000,
+                        nodes,
+                    },
+                    cx,
+                );
+                assert_eq!(runtime.views[&1_000_001].entity_id(), previous);
+                (expected, previous)
+            });
+            window_cx.run_until_parked();
+            let work = observatory::native_work_totals().since(before);
+            let rendered = work.rendered;
+            for kind in [1, 15] {
+                assert_eq!(
+                    rendered[kind], expected.0[kind],
+                    "only patch-emitted fixed controls and boundaries render in a {count}-cell grid (kind {kind})"
+                );
+            }
+            assert_eq!(rendered[8], 1, "only the affected row renders");
+            assert_eq!(
+                work.view_elements_created[8],
+                count / 100,
+                "the dirty grid offers its rows"
+            );
+            assert_eq!(
+                work.view_elements_created[15], 100,
+                "only the affected row offers cell boundaries"
+            );
+            assert_eq!(
+                work.view_elements_created[1], 1,
+                "only the changed boundary offers its button"
+            );
+            assert_eq!(native_style(expected.1), Some(0xabcdef));
+        }
     }
 
     /// Use the generated callable allocator and final-drop ABI, without
@@ -4705,6 +5635,110 @@ mod tests {
                 .write(Arc::into_raw(dropped.clone()));
             callable
         }
+    }
+
+    #[test]
+    fn worker_completion_output_requires_exactly_one_owned_callable() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let first_drops = Arc::new(AtomicU64::new(0));
+        let rejected_drops = Arc::new(AtomicU64::new(0));
+        assert!(super::publish_task_completion(counted_callable(&rejected_drops)).is_err());
+        assert_eq!(rejected_drops.load(Ordering::Relaxed), 1);
+        assert!(super::collect_task_completion(|| {}).is_err());
+        let completion = super::collect_task_completion(|| {
+            assert!(super::collect_task_completion(|| panic!("nested worker ran")).is_err());
+            super::roc_gui_task_complete(counted_callable(&first_drops));
+            assert!(super::publish_task_completion(counted_callable(&rejected_drops)).is_err());
+        })
+        .unwrap();
+        assert_eq!(first_drops.load(Ordering::Relaxed), 0);
+        assert_eq!(rejected_drops.load(Ordering::Relaxed), 2);
+        unsafe { super::decref_erased_callable(completion, super::roc_host()) };
+        assert_eq!(first_drops.load(Ordering::Relaxed), 1);
+        assert!(super::collect_task_completion(|| {}).is_err());
+    }
+
+    #[test]
+    fn worker_completion_output_releases_abandoned_result_and_is_thread_local() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let failed = std::panic::catch_unwind(|| {
+            let _ = super::collect_task_completion(|| {
+                super::roc_gui_task_complete(counted_callable(&drops));
+                panic!("test worker failed after publishing");
+            });
+        });
+        assert!(failed.is_err());
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let threads = (0..2)
+            .map(|_| {
+                let barrier = barrier.clone();
+                let drops = drops.clone();
+                std::thread::spawn(move || {
+                    let completion = super::collect_task_completion(|| {
+                        super::roc_gui_task_complete(counted_callable(&drops));
+                        barrier.wait();
+                    })
+                    .unwrap();
+                    unsafe { super::decref_erased_callable(completion, super::roc_host()) };
+                })
+            })
+            .collect::<Vec<_>>();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        assert_eq!(drops.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    fn worker_completion_output_preserves_owner_and_discards_stale_epoch() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let completion = super::collect_task_completion(|| {
+            super::roc_gui_task_complete(counted_callable(&drops));
+        })
+        .unwrap();
+        let envelope = super::TaskEnvelope {
+            callable: completion as usize,
+            owner: 71,
+            epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+        };
+        assert_eq!(envelope.owner, 71);
+        assert!(matches!(super::complete(envelope), Patch::NoChange));
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        observatory::reject_component_work();
+        let observed_owner = Rc::new(RefCell::new(None));
+        let recorded_owner = observed_owner.clone();
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(move |owner| {
+                *recorded_owner.borrow_mut() = Some(owner);
+                Patch::NoChange
+            }));
+        });
+        let current = super::collect_task_completion(|| {
+            super::roc_gui_task_complete(counted_callable(&drops));
+        })
+        .unwrap();
+        let envelope = super::TaskEnvelope {
+            callable: current as usize,
+            owner: 71,
+            epoch: super::TASK_EPOCH.load(Ordering::Acquire),
+        };
+        assert!(matches!(super::complete(envelope), Patch::NoChange));
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(*observed_owner.borrow(), Some(71));
+        assert_eq!(drops.load(Ordering::Relaxed), 2);
+        observatory::reject_component_work();
     }
 
     #[test]
@@ -4857,6 +5891,8 @@ mod tests {
                         caption: caption.into(),
                         label: label.into(),
                         enabled: true,
+                        hover_enter: false,
+                        hover_exit: false,
                         style: fill,
                     },
                     children: vec![],
@@ -4947,6 +5983,8 @@ mod tests {
                         caption: "Track seven".into(),
                         label: "Play track seven".into(),
                         enabled: true,
+                        hover_enter: false,
+                        hover_exit: false,
                         style: fill,
                     },
                     children: vec![],
@@ -4965,6 +6003,92 @@ mod tests {
         }
     }
 
+    #[gpui::test]
+    fn live_task_completion_records_its_own_patch_and_callback(cx: &mut TestAppContext) {
+        let _guard = observatory::RECORDER_TEST.lock().unwrap();
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: two_hover_buttons(1000),
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-live-completion-{}-{}.rgstats",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        observatory::start(observatory::Config {
+            path: path.clone(),
+            detail: observatory::Detail::Full,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-test",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        observatory::run_start(1, "interactive", None, 0, 1);
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(|owner| {
+                observatory::start_roc_work(0);
+                let patch = if owner == 1 {
+                    Patch::Replace {
+                        old_root: 1000,
+                        root: 2000,
+                        nodes: two_hover_buttons(2000),
+                    }
+                } else {
+                    Patch::NoChange
+                };
+                observatory::end_roc_work(0);
+                patch
+            }))
+        });
+        runtime.update(cx, |runtime, cx| {
+            for owner in [1, 2] {
+                runtime.complete_live_task(
+                    super::TaskEnvelope {
+                        callable: 0,
+                        owner,
+                        epoch: super::TASK_EPOCH.load(std::sync::atomic::Ordering::Acquire),
+                    },
+                    cx,
+                );
+            }
+            assert!(runtime.graph.node(2000).is_some());
+            assert!(runtime.graph.node(1000).is_none());
+        });
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        observatory::run_end(1, "pass", 0, None);
+        observatory::finish("success").unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        let rows = db.prepare("SELECT patch_kind, staged_nodes, removed_nodes, gpui_apply_ns IS NOT NULL, roc_work_valid FROM cycles WHERE trigger='task' ORDER BY ordinal").unwrap()
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?, row.get::<_, bool>(3)?, row.get::<_, bool>(4)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                ("replace".into(), 3, 3, true, true),
+                ("no_change".into(), 0, 0, true, true)
+            ]
+        );
+        let timed: i64 = db.query_row("SELECT count(*) FROM cycles WHERE trigger='task' AND roc_callback_ns <= duration_ns", [], |row| row.get(0)).unwrap();
+        assert_eq!(timed, 2);
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
     fn recording_dispatcher() -> Rc<RefCell<Vec<u64>>> {
         let clicks: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
         let recorded = clicks.clone();
@@ -4973,6 +6097,332 @@ mod tests {
             Patch::NoChange
         });
         clicks
+    }
+
+    fn hover_tree(base: u64) -> (u64, Vec<Node>) {
+        let (root, mut nodes) = transport_tree(base, "Cell", "Cell");
+        if let NodeKind::Button {
+            hover_enter,
+            hover_exit,
+            ..
+        } = &mut nodes[1].kind
+        {
+            *hover_enter = true;
+            *hover_exit = true;
+        }
+        (root, nodes)
+    }
+
+    fn two_hover_buttons(base: u64) -> Vec<Node> {
+        let control = |offset, label: &str| Node {
+            id: base + offset,
+            kind: NodeKind::Button {
+                caption: label.into(),
+                label: label.into(),
+                enabled: true,
+                hover_enter: true,
+                hover_exit: true,
+                style: Style {
+                    width: Length::Px(100),
+                    height: Length::Px(100),
+                    min_width: Length::Px(100),
+                    min_height: Length::Px(100),
+                    max_width: Length::Px(100),
+                    max_height: Length::Px(100),
+                    ..Style::default()
+                },
+            },
+            children: vec![],
+        };
+        vec![
+            Node {
+                id: base,
+                kind: NodeKind::Row {
+                    label: "Two controls".into(),
+                    style: Style {
+                        gap: 0,
+                        align: super::Align::Start,
+                        width: Length::Fill,
+                        height: Length::Fill,
+                        ..Style::default()
+                    },
+                },
+                children: vec![base + 1, base + 2],
+            },
+            control(1, "First"),
+            control(2, "Second"),
+        ]
+    }
+
+    #[gpui::test]
+    fn sibling_hover_edges_survive_a_parent_rebuild_in_the_same_mouse_move(
+        cx: &mut TestAppContext,
+    ) {
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let recorded = events.clone();
+        let base = RefCell::new(1000_u64);
+        install_test_dispatcher(move |route| {
+            recorded.borrow_mut().push(route);
+            let old_root = *base.borrow();
+            let root = old_root + 10;
+            *base.borrow_mut() = root;
+            Patch::Replace {
+                old_root,
+                root,
+                nodes: two_hover_buttons(root),
+            }
+        });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: two_hover_buttons(1000),
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(events.borrow().len(), 1);
+        cx.simulate_mouse_move(point(px(150.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            3,
+            "one crossing must deliver both sibling transitions even if the first rebuilds their parent"
+        );
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            5,
+            "reentering the first control must not be suppressed by stale graph hover state"
+        );
+    }
+
+    #[gpui::test]
+    fn hover_edges_do_not_retarget_a_removed_native_control(cx: &mut TestAppContext) {
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let recorded = events.clone();
+        let base = RefCell::new(1000_u64);
+        install_test_dispatcher(move |route| {
+            recorded.borrow_mut().push(route);
+            let old_root = *base.borrow();
+            let root = old_root + 10;
+            *base.borrow_mut() = root;
+            let mut nodes = two_hover_buttons(root);
+            if recorded.borrow().len() >= 2
+                && let NodeKind::Button { label, .. } = &mut nodes[1].kind
+            {
+                *label = "Replacement".into();
+            }
+            Patch::Replace {
+                old_root,
+                root,
+                nodes,
+            }
+        });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: two_hover_buttons(1000),
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(events.borrow().len(), 1);
+        cx.simulate_mouse_move(point(px(150.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            2,
+            "the removed first control's queued exit must not address its replacement"
+        );
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            4,
+            "the replacement receives only its own new enter edge"
+        );
+    }
+
+    #[gpui::test]
+    fn modal_hover_policy_allows_background_reentry(cx: &mut TestAppContext) {
+        let events = recording_dispatcher();
+        let mut nodes = fixed_hover_buttons(1000);
+        nodes[0].children.push(1005);
+        nodes.push(Node {
+            id: 1005,
+            kind: NodeKind::Column {
+                label: "modal-slot".into(),
+                style: Style::default(),
+            },
+            children: vec![],
+        });
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let inside = point(px(50.0), px(50.0));
+        let outside = point(px(-10.0), px(-10.0));
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        assert_eq!(events.borrow().len(), 1);
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1005,
+                    root: 2000,
+                    nodes: vec![Node {
+                        id: 2000,
+                        kind: NodeKind::Dialog {
+                            label: "Modal".into(),
+                            style: Style::default(),
+                        },
+                        children: vec![],
+                    }],
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(outside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().len(),
+            1,
+            "modal must suppress background exits"
+        );
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 2000,
+                    root: 3000,
+                    nodes: vec![Node {
+                        id: 3000,
+                        kind: NodeKind::Column {
+                            label: "modal-slot".into(),
+                            style: Style::default(),
+                        },
+                        children: vec![],
+                    }],
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+            ]
+        );
+        cx.simulate_mouse_move(outside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().last(),
+            Some(&(1001 | crate::bridge::HOVER_EXIT_EVENT_BIT))
+        );
+    }
+
+    #[gpui::test]
+    fn hover_exits_the_window_and_reenters_the_same_cached_button(cx: &mut TestAppContext) {
+        let events = recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let inside = point(px(50.0), px(50.0));
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        // Platforms may report the last position inside the window on exit.
+        cx.simulate_event(gpui::MouseExitEvent {
+            position: inside,
+            pressed_button: None,
+            modifiers: Modifiers::none(),
+        });
+        cx.simulate_event(gpui::MouseExitEvent {
+            position: inside,
+            pressed_button: None,
+            modifiers: Modifiers::none(),
+        });
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+                1001 | crate::bridge::HOVER_EXIT_EVENT_BIT,
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+            ]
+        );
+    }
+
+    #[gpui::test]
+    fn hover_dispatches_once_per_edge_across_replacement_and_discards_stale_routes(
+        cx: &mut TestAppContext,
+    ) {
+        let events = recording_dispatcher();
+        let (root, nodes) = hover_tree(1000);
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(40.0), px(40.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[1001 | crate::bridge::HOVER_ENTER_EVENT_BIT]
+        );
+        let original = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        let (root, nodes) = hover_tree(2000);
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1000,
+                    root,
+                    nodes,
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&2001].entity_id(), original);
+            runtime.hover_if_live(1001, false, cx);
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        assert_eq!(events.borrow().len(), 1);
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(-20.0), px(-20.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+                2001 | crate::bridge::HOVER_EXIT_EVENT_BIT
+            ]
+        );
+        let (root, mut nodes) = hover_tree(3000);
+        if let NodeKind::Button { enabled, .. } = &mut nodes[1].kind {
+            *enabled = false;
+        }
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 2000,
+                    root,
+                    nodes,
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());
+        assert_eq!(events.borrow().len(), 2);
     }
 
     #[gpui::test]
@@ -5009,6 +6459,69 @@ mod tests {
         cx.run_until_parked();
         cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::none());
         assert_eq!(clicks.borrow().as_slice(), &[1001]);
+    }
+
+    #[gpui::test]
+    fn deep_virtual_subtrees_materialize_retain_and_retire_without_recursive_walks(
+        cx: &mut TestAppContext,
+    ) {
+        use gpui::AppContext;
+        recording_dispatcher();
+        let depth = 2048_u64;
+        let (root, mut nodes) = queue_tree(1000);
+        let leaf = nodes.pop().unwrap();
+        nodes[0].kind = NodeKind::Column {
+            label: "Deep virtual owner".into(),
+            style: Style {
+                align: super::Align::Baseline,
+                ..Style::default()
+            },
+        };
+        for offset in 0..depth {
+            nodes.push(Node {
+                id: 1003 + offset,
+                kind: NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default(),
+                },
+                children: vec![1004 + offset],
+            });
+        }
+        nodes.push(Node {
+            id: 1003 + depth,
+            ..leaf
+        });
+        // Exercise the actual entity/materialization lifecycle without asking
+        // GPUI's separate layout engine to lay out a 2,048-deep viewport.
+        let runtime = cx.new(|cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        runtime.update(cx, |runtime, cx| {
+            let (view, count) = runtime.build_virtual_node(1002, cx);
+            assert_eq!(count, depth + 2);
+            let identity = view.entity_id();
+            let constructions = runtime.virtual_constructions;
+            runtime.preserved_virtual.insert(1002);
+            let (retained, retained_count) = runtime.build_virtual_node(1002, cx);
+            assert_eq!(retained.entity_id(), identity);
+            assert_eq!(retained_count, count);
+            assert_eq!(runtime.virtual_constructions, constructions);
+            for cached in runtime.virtual_entities.values() {
+                cached
+                    .view
+                    .update(cx, |view, _| view.baseline_layout = false);
+            }
+            runtime.refresh_retained_baseline_layout(1002, cx);
+            assert!(
+                runtime
+                    .virtual_entities
+                    .values()
+                    .all(|cached| cached.view.read(cx).baseline_layout)
+            );
+            runtime.offer_subtree(view.clone(), cx);
+            assert_eq!(runtime.recyclable.len() as u64, count);
+            runtime.forget_virtual_subtree(view, cx);
+            assert!(runtime.virtual_entities.is_empty());
+            runtime.recyclable.clear();
+        });
     }
 
     #[gpui::test]
@@ -5462,7 +6975,7 @@ mod roc_test_symbols {
     }
 
     #[unsafe(no_mangle)]
-    extern "C" fn roc_gui_run_task(_task: RocErasedCallable) -> RocErasedCallable {
+    extern "C" fn roc_gui_run_task(_task: RocErasedCallable) {
         unreachable!("a host test called into Roc");
     }
 }

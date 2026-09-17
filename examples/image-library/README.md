@@ -16,7 +16,7 @@ its own.
 
 ```sh
 python3 build.py
-roc build --output=image-library examples/image-library/main.roc
+roc build --opt=dev --output=image-library examples/image-library/main.roc
 ./image-library -- --host-cap-dir examples/image-library/fixture
 ```
 

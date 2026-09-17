@@ -1,7 +1,5 @@
 import pf.Action
-import pf.Component
 import pf.Elem
-import pf.Recipe
 import Terminal
 import Theme
 
@@ -9,33 +7,11 @@ Workspace := [].{
 	State : State
 	init : State
 	init = { terminal: Terminal.init }
-	view : Recipe(State -> Elem.Elem(State))
-	view = {
-		# Terminal state owns process resources; do not compare resource handles
-		# or retain a memo snapshot of the scrollback on every received batch.
-		Recipe.map(
-			Component.unmemoized({ get: terminal_get, set: terminal_set, render: terminal_render }),
-			|terminal| |state| render(terminal, state),
-		)
-	}
+	render : State -> Elem.Elem(State)
+	render = render
 }
 
 State : { terminal : Terminal.State }
-
-terminal_get : State, Elem.Key -> Try(Terminal.State, [Removed])
-terminal_get = |state, key| match Elem.Key.inspect(key) {
-	Name("terminal") => Ok(state.terminal)
-	_ => Err(Removed)
-}
-
-terminal_set : State, Elem.Key, Terminal.State -> Try(State, [Removed])
-terminal_set = |state, key, terminal| match Elem.Key.inspect(key) {
-	Name("terminal") => Ok({ ..state, terminal })
-	_ => Err(Removed)
-}
-
-terminal_render : Terminal.State -> Elem.Elem(Terminal.State)
-terminal_render = Terminal.render
 
 divider = |caption| Elem.row(
 	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.line, font_size: Theme.meta },
@@ -77,8 +53,8 @@ header = Elem.row(
 	],
 )
 
-render : Component(State), State -> Elem.Elem(State)
-render = |terminal, _state| Elem.col(
+render : State -> Elem.Elem(State)
+render = |_state| Elem.col(
 	Elem.ColProps.{
 		label: "Terminal workspace",
 		width: Fill,
@@ -92,6 +68,6 @@ render = |terminal, _state| Elem.col(
 	},
 	[
 		header,
-		Elem.component(terminal, Name("terminal")),
+		Elem.translate_with(Terminal.render, { key: "terminal", get: |state| state.terminal, set: |state, terminal| { ..state, terminal } }),
 	],
 )

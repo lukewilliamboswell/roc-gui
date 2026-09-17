@@ -18,7 +18,7 @@ a refused grant from a granted endpoint that nothing is listening on.
 
 ```sh
 python3 build.py
-roc build --output=redis-explorer examples/redis-explorer/main.roc
+roc build --opt=dev --output=redis-explorer examples/redis-explorer/main.roc
 ./redis-explorer -- --host-cap-tcp 127.0.0.1:6379
 ```
 

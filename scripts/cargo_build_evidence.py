@@ -11,7 +11,10 @@ import tempfile
 import tomllib
 
 from host_build_identity import source_fingerprint
+import vendored_gpui
 from prepare_dependencies import cargo_environment
+
+EVIDENCE_SCHEMA = 2
 
 TARGETS = {"x64glibc": "x86_64-unknown-linux-gnu", "arm64mac": "aarch64-apple-darwin",
            "x64mingw": "x86_64-pc-windows-gnullvm"}
@@ -65,7 +68,7 @@ def same_checkout_lock(captured, checkout):
     return captured.replace(b"\r\n", b"\n") == checkout.replace(b"\r\n", b"\n")
 
 
-def derive(metadata_bytes, messages_bytes, lock_bytes, target, host_bytes, host_record=None, *, fingerprint):
+def derive(metadata_bytes, messages_bytes, lock_bytes, target, host_bytes, host_record=None, *, fingerprint, source_root=None):
     """Select all compiled packages, including build tools, from complete output.
 
     The filtered metadata graph bounds package membership; original Cargo.lock
@@ -131,13 +134,17 @@ def derive(metadata_bytes, messages_bytes, lock_bytes, target, host_bytes, host_
         key = (package["name"], package["version"], package["source"])
         if key not in locked or (package["source"] is not None and not locked[key]):
             raise ValueError("compiled package has no Cargo.lock identity")
+        vendored = None
         if package["source"] is None and identity != root:
-            raise ValueError("additional workspace packages require a notice policy")
-        selected.append({"id": identity, "name": package["name"], "version": package["version"],
-                         "source": package["source"], "crate_sha256": locked[key],
-                         "declared_license": package["license"]})
+            vendored, _, _, _ = vendored_gpui.admit(package, source_root)
+        record = {"id": identity, "name": package["name"], "version": package["version"],
+                  "source": package["source"], "crate_sha256": locked[key],
+                  "declared_license": package["license"]}
+        if vendored is not None:
+            record["vendored_source"] = vendored
+        selected.append(record)
         report.append({"package": package})
-    evidence = {"schema_version": 1, "target": target, "rust_target": TARGETS[target],
+    evidence = {"schema_version": EVIDENCE_SCHEMA, "target": target, "rust_target": TARGETS[target],
                 "source_fingerprint": fingerprint,
                 "cargo_lock_sha256": hashlib.sha256(lock_bytes).hexdigest(),
                 "metadata_sha256": hashlib.sha256(metadata_bytes).hexdigest(),
@@ -367,7 +374,7 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
         messages_bytes = sanitized_messages(raw_messages, replacements)
         (stage / "cargo.jsonl").write_bytes(messages_bytes)
         evidence, selection = derive(metadata, messages_bytes, lock, target,
-                                     host.read_bytes(), fingerprint=fingerprint)
+                                     host.read_bytes(), fingerprint=fingerprint, source_root=root)
         if apple_tools is not None:
             if macos_toolchain(environment) != apple_tools:
                 raise ValueError("Mac shader toolchain changed during compilation")

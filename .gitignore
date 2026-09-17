@@ -12,6 +12,8 @@
 /main
 /.test-out
 /*.rgstats
+/*.rgstats-shm
+/*.rgstats-wal
 /.docs-out
 __pycache__
 /generated-docs

@@ -5,8 +5,8 @@ spawn a 100×30 child, type a command into the command bar, and watch its output
 arrive in a virtualised scrollback well. A filter bar narrows the rows that are
 already on screen without touching the running child; Stop cancels the session.
 Split workspace mounts a second independent workspace beside the first. Both
-reuse one assembled workspace definition and its nested terminal definition;
-keys and owning instances keep their state and event routes separate.
+reuse pure workspace and terminal renderers through keyed translations;
+keys and host-owned lifetimes keep their state and event routes separate.
 
 The example exercises process authority, which is an explicit host grant rather
 than an ambient executable API, and the long-running side of `Action.task`: each
@@ -19,7 +19,7 @@ holds only the text the child wrote.
 
 ```sh
 python3 build.py
-roc build --output=terminal-workspace examples/terminal-workspace/main.roc
+roc build --opt=dev --output=terminal-workspace examples/terminal-workspace/main.roc
 ./terminal-workspace -- --host-cap-process local-shell
 ```
 

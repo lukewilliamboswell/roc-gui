@@ -155,6 +155,17 @@ pub struct Step {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Click(Locator),
+    /// Deliver a hover transition through the production graph event route.
+    HoverEnter(Locator),
+    HoverExit(Locator),
+    /// Compare explicit application background, not a native hover refinement.
+    ExpectBackground(Locator, u32),
+    MarkNativeWork,
+    ExpectNativeWork {
+        button_renders_max: Option<u64>,
+        boundary_renders_max: Option<u64>,
+        boundary_elements_max: Option<u64>,
+    },
     Drag(Locator, i32, i32, i32, i32),
     ReplaceText(Locator, String),
     Focus(Locator),
@@ -335,6 +346,11 @@ impl Command {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Click(_) => "click",
+            Self::HoverEnter(_) => "hover-enter",
+            Self::HoverExit(_) => "hover-exit",
+            Self::ExpectBackground(_, _) => "expect-background",
+            Self::MarkNativeWork => "mark-native-work",
+            Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
             Self::ReplaceText(_, _) => "replace-text",
             Self::Focus(_) => "focus",
@@ -402,6 +418,8 @@ impl Command {
             Self::ExpectPatch(_) | Self::MarkMetrics => Capability::Semantic,
             // Settling on presented frames has no meaning without a window.
             Self::Settle { .. }
+            | Self::MarkNativeWork
+            | Self::ExpectNativeWork { .. }
             | Self::ExpectOnScreen(_)
             | Self::ExpectRenderedCount(_, _)
             | Self::ExpectBounds(_, _)
@@ -415,6 +433,8 @@ impl Command {
             | Self::Scroll { .. } => Capability::Window,
             // Shared with the semantic runner, and implemented by both.
             Self::Click(_)
+            | Self::HoverEnter(_)
+            | Self::HoverExit(_)
             | Self::Focus(_)
             | Self::PressKey(_)
             | Self::AwaitTask
@@ -438,7 +458,8 @@ impl Command {
             | Self::ExpectValueBytes(_, _)
             | Self::ExpectImageBytes(_, _)
             | Self::ExpectComponentWork(_)
-            | Self::ExpectBefore(_, _) => Capability::Both,
+            | Self::ExpectBefore(_, _)
+            | Self::ExpectBackground(_, _) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
             // They are honest claims, made by one runner rather than two; the
             // alternative of accepting a specification and then refusing a step
@@ -476,6 +497,8 @@ impl Command {
         matches!(
             self,
             Self::Click(_)
+                | Self::HoverEnter(_)
+                | Self::HoverExit(_)
                 | Self::Drag(..)
                 | Self::ReplaceText(_, _)
                 | Self::Focus(_)
@@ -1044,6 +1067,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         .ok_or_else(|| error(node, "step requires a command name"))?;
     let command = match head {
         "click" if values.len() == 2 => Command::Click(parse_locator(&values[1])?),
+        "hover-enter" if values.len() == 2 => Command::HoverEnter(parse_locator(&values[1])?),
+        "hover-exit" if values.len() == 2 => Command::HoverExit(parse_locator(&values[1])?),
+        "expect-background" if values.len() == 3 => {
+            let color = values[2]
+                .atom()
+                .and_then(|value| value.strip_prefix("0x"))
+                .and_then(|value| u32::from_str_radix(value, 16).ok())
+                .filter(|value| *value <= 0xffffff)
+                .ok_or_else(|| {
+                    error(
+                        &values[2],
+                        "expect-background requires an RGB color as 0xRRGGBB",
+                    )
+                })?;
+            Command::ExpectBackground(parse_locator(&values[1])?, color)
+        }
         "drag" if values.len() == 6 => Command::Drag(
             parse_locator(&values[1])?,
             parse_i32(&values[2], "drag coordinate")?,
@@ -1573,6 +1612,47 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 removed: count(&values[6])?,
             })
         }
+        "mark-native-work" if values.len() == 1 => Command::MarkNativeWork,
+        "expect-native-work" => {
+            let keys = parse_keywords(
+                head,
+                &values[1..],
+                &[
+                    ":button-renders-max",
+                    ":boundary-renders-max",
+                    ":boundary-elements-max",
+                ],
+            )?;
+            let count = |key| -> Result<Option<u64>, ParseError> {
+                keys.expr(key)
+                    .map(|value| {
+                        value
+                            .atom()
+                            .and_then(|value| value.parse::<u64>().ok())
+                            .ok_or_else(|| {
+                                error(value, format!("{key} requires a non-negative integer"))
+                            })
+                    })
+                    .transpose()
+            };
+            let button_renders_max = count(":button-renders-max")?;
+            let boundary_renders_max = count(":boundary-renders-max")?;
+            let boundary_elements_max = count(":boundary-elements-max")?;
+            if button_renders_max.is_none()
+                && boundary_renders_max.is_none()
+                && boundary_elements_max.is_none()
+            {
+                return Err(error(
+                    node,
+                    "expect-native-work requires at least one native work maximum",
+                ));
+            }
+            Command::ExpectNativeWork {
+                button_renders_max,
+                boundary_renders_max,
+                boundary_elements_max,
+            }
+        }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click"
         | "drag"
@@ -1617,6 +1697,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-image-bytes"
         | "submit"
         | "mark-metrics"
+        | "mark-native-work"
         | "expect-on-screen"
         | "expect-rendered-count"
         | "expect-bounds"
@@ -2049,15 +2130,91 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_work_limits_are_window_only_and_strictly_parsed() {
+        let parsed = parse(
+            r#"(test "native" (steps (mark-native-work)
+            (expect-native-work :button-renders-max 0 :boundary-renders-max 1)
+            (expect-native-work :button-renders-max 18446744073709551615)
+            (expect-native-work :boundary-renders-max 2)
+            (expect-native-work :boundary-elements-max 100)))"#,
+        )
+        .unwrap();
+        for step in &parsed.steps {
+            assert_eq!(step.command.capability(), Capability::Window);
+        }
+        assert_eq!(
+            parsed.steps[1].command,
+            Command::ExpectNativeWork {
+                button_renders_max: Some(0),
+                boundary_renders_max: Some(1),
+                boundary_elements_max: None,
+            }
+        );
+        for command in [
+            "mark-native-work 1",
+            "expect-native-work",
+            "expect-native-work :unknown 1",
+            "expect-native-work :boundary-elements-max -1",
+            "expect-native-work :button-renders-max",
+            "expect-native-work :button-renders-max -1",
+            "expect-native-work :button-renders-max 1.5",
+            "expect-native-work :button-renders-max 18446744073709551616",
+            "expect-native-work :button-renders-max 1 :button-renders-max 2",
+        ] {
+            assert!(
+                parse(&format!("(test \"bad\" (steps ({command})))")).is_err(),
+                "{command}"
+            );
+        }
+    }
+
+    #[test]
+    fn hover_transitions_and_background_claims_are_shared_and_validate_colors() {
+        let spec = parse(
+            r#"(test "hover" (steps
+            (hover-enter (role button :name "Cell 1"))
+            (hover-exit (role button :name "Cell 1"))
+            (expect-background (role button :name "Cell 1") 0x66E0FF)))"#,
+        )
+        .unwrap();
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(spec.steps[0].command.is_operation());
+        assert!(!spec.steps[2].command.is_operation());
+        assert!(matches!(
+            spec.steps[2].command,
+            Command::ExpectBackground(_, 0x66E0FF)
+        ));
+        for color in ["0x1000000", "0xnope", "-1"] {
+            assert!(
+                parse(&format!(
+                    r#"(test "bad" (steps (expect-background (role button :name "Cell") {color})))"#
+                ))
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
     fn component_work_assertions_name_optional_last_turn_counts_on_both_runners() {
         let spec = parse(
             r#"(test "component work" (steps
-            (expect-component-work :skipped 2 :rendered 1 :registry-visits 5)))"#,
+            (expect-component-work :skipped 2 :rendered 1 :registry-visits 5 :projection-gets 7 :projection-sets 3)))"#,
         )
         .unwrap();
         assert_eq!(
             spec.steps[0].command,
-            Command::ExpectComponentWork([Some(1), None, Some(2), None, None, Some(5), None,])
+            Command::ExpectComponentWork([
+                Some(1),
+                None,
+                Some(2),
+                None,
+                None,
+                Some(5),
+                None,
+                Some(7),
+                Some(3)
+            ])
         );
         assert!(check_runner(&spec, Runner::Semantic).is_ok());
         assert!(check_runner(&spec, Runner::Window).is_ok());

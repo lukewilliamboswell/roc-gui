@@ -14,7 +14,7 @@ held by the application.
 
 ```sh
 python3 build.py
-roc build --output=animation-studio examples/animation-studio/main.roc
+roc build --opt=dev --output=animation-studio examples/animation-studio/main.roc
 ./animation-studio
 ```
 

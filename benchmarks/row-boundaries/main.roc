@@ -1,46 +1,35 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
 import pf.Action
-import pf.Component
+import pf.Key
+import pf.Index
 import pf.Elem
 import pf.Program
-import pf.Recipe
 
-RowState : { id : U64, value : U64 }
+RowState : { id : U64, key : Key, value : U64 }
 
-## Stable ID-indexed storage makes a keyed component lookup independent of
-## display order. A removed slot has id zero; live rows keep their original ID.
-State : { rows : List(RowState), order : List(U64), selected : U64, compact : Bool }
-
-make_rows : U64 -> List(RowState)
-make_rows = |count| {
-	var $rows = []
-	for _ in List.repeat({}, count) {
-		$rows = $rows.append({ id: $rows.len() + 1, value: 0 })
-	}
-	$rows
-}
+## Persistent ID-indexed storage copies only a bounded radix path on local
+## updates. Display ordering belongs to the parent and is shared by row edits.
+State : { rows : Index(RowState), order : List(U64), selected : U64, compact : Bool, memoized : Bool }
 
 create_rows : U64 -> State
 create_rows = |count| {
-	rows = make_rows(count)
-	{ rows, order: rows.map(|row| row.id), selected: 0, compact: False }
+	var $rows = Index.empty
+	var $order = []
+	for _ in List.repeat({}, count) {
+		id = $order.len() + 1
+		$rows = Index.set($rows, id, { id, key: Key.id(id), value: 0 })
+		$order = $order.append(id)
+	}
+	{ rows: $rows, order: $order, selected: 0, compact: False, memoized: True }
 }
 
-find_row : List(RowState), U64 -> Try(RowState, [Removed])
-find_row = |rows, id| {
-	if id == 0 {
-		return Err(Removed)
-	}
-	match rows.get(id - 1) {
-		Ok(row) => if row.id == id Ok(row) else Err(Removed)
-		Err(_) => Err(Removed)
-	}
-}
+find_row : Index(RowState), U64 -> Try(RowState, [Removed])
+find_row = |rows, id| Index.get(rows, id).map_err(|_| Removed)
 
 replace_row : State, RowState -> State
 replace_row = |state, replacement| {
-	rows = state.rows.set(replacement.id - 1, replacement) ?? crash "row slot is missing"
+	rows = Index.set(state.rows, replacement.id, replacement)
 	{ ..state, rows }
 }
 
@@ -51,7 +40,7 @@ update_every_tenth = |state| {
 	for id in state.order {
 		if $index % 10 == 0 {
 			row = find_row($rows, id) ?? crash "ordered row is missing"
-			$rows = $rows.set(id - 1, { ..row, value: row.value + 1 }) ?? crash "row slot is missing"
+			$rows = Index.set($rows, id, { ..row, value: row.value + 1 })
 		}
 		$index = $index + 1
 	}
@@ -62,7 +51,7 @@ delete_row : State, U64 -> State
 delete_row = |state, id| {
 	{
 		..state,
-		rows: state.rows.set(id - 1, { id: 0, value: 0 }) ?? crash "deleted row slot is missing",
+		rows: Index.remove(state.rows, id),
 		order: state.order.keep_if(|current| current != id),
 		selected: if state.selected == id {
 			0
@@ -94,18 +83,31 @@ render_row = |row| Elem.row(
 	],
 )
 
-render : Component(State), State -> Elem(State)
-render = |row_component, state| {
+render : State -> Elem(State)
+render = |state| {
 	var $rendered = []
 	for id in state.order {
+		row = find_row(state.rows, id) ?? crash "ordered row is missing"
+		boundary = Elem.try_translate(
+			render_row,
+			{
+				key: row.key,
+				get: |parent| find_row(parent.rows, id),
+				set: |parent, child| match find_row(parent.rows, id) {
+					Ok(_) => Ok(replace_row(parent, { ..child, id }))
+					Err(_) => Err(Removed)
+				},
+				memo: if state.memoized Some(|previous, next| previous == next) else None,
+			},
+		)
 		if state.compact {
-			$rendered = $rendered.append(Elem.component(row_component, Id(id)))
+			$rendered = $rendered.append(boundary)
 		} else {
 			$rendered = $rendered.append(
 				Elem.row(
 					{ label: "Row ${id.to_str()}" },
 					[
-						Elem.component(row_component, Id(id)),
+						boundary,
 						Elem.button({
 							caption: "Select",
 							label: "Select row ${id.to_str()}",
@@ -131,9 +133,11 @@ render = |row_component, state| {
 			Elem.row(
 				{},
 				[
-					Elem.button({ caption: "Create 100", label: "Create 100 rows", on_press: |_, _| Action.update(create_rows(100)) }),
-					Elem.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |_, _| Action.update(create_rows(1000)) }),
-					Elem.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |_, _| Action.update(create_rows(10000)) }),
+					Elem.button({ caption: "Create 100", label: "Create 100 rows", on_press: |latest, _| Action.update({ ..create_rows(100), memoized: latest.memoized }) }),
+					Elem.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |latest, _| Action.update({ ..create_rows(1000), memoized: latest.memoized }) }),
+					Elem.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |latest, _| Action.update({ ..create_rows(10000), memoized: latest.memoized }) }),
+					Elem.button({ caption: "Memoized", label: "Use memoized rows", on_press: |latest, _| Action.update({ ..latest, memoized: True }) }),
+					Elem.button({ caption: "Unmemoized", label: "Use unmemoized rows", on_press: |latest, _| Action.update({ ..latest, memoized: False }) }),
 					Elem.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Action.update(update_every_tenth(value)) }),
 					Elem.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Action.update(swap_rows(value, 1, 998)) }),
 					Elem.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Action.update(swap_rows(value, 1, 98)) }),
@@ -148,26 +152,5 @@ render = |row_component, state| {
 	)
 }
 
-row_get : State, Elem.Key -> Try(RowState, [Removed])
-row_get = |parent, key| match Elem.Key.inspect(key) {
-	Id(id) => find_row(parent.rows, id)
-	_ => Err(Removed)
-}
-
-row_set : State, Elem.Key, RowState -> Try(State, [Removed])
-row_set = |parent, key, child| match Elem.Key.inspect(key) {
-	Id(id) => match find_row(parent.rows, id) {
-		Ok(_) => Ok(replace_row(parent, { ..child, id }))
-		Err(_) => Err(Removed)
-	}
-	_ => Err(Removed)
-}
-
 main : Program(State)
-main = Program.build({
-	init: create_rows(0),
-	render: Recipe.map(
-		Component.define({ get: row_get, set: row_set, render: render_row }),
-		|row_component| |state| render(row_component, state),
-	),
-})
+main = Program.run({ init: create_rows(0), render })

@@ -109,7 +109,8 @@ fn id(handle: *mut u64) -> Option<u64> {
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     if let Ok(mut guard) = store().lock()
-        && let Some((id, track)) = crate::remove_resource_allocation(&mut guard.allocations, base as usize)
+        && let Some((id, track)) =
+            crate::remove_resource_allocation(&mut guard.allocations, base as usize)
     {
         if track {
             guard.tracks.remove(&id);

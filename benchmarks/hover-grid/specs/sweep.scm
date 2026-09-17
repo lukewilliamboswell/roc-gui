@@ -1,0 +1,17 @@
+(test "Independent cells keep a delayed trail as pointer ownership moves"
+  (steps
+    (click (role button :name "Create 100 cells"))
+    (hover-enter (role button :name "Cell 1"))
+    (hover-exit (role button :name "Cell 1"))
+    (hover-enter (role button :name "Cell 2"))
+    (hover-exit (role button :name "Cell 2"))
+    (hover-enter (role button :name "Cell 3"))
+    (expect-background (role button :name "Cell 1") 0xD58AFF)
+    (expect-background (role button :name "Cell 2") 0xD58AFF)
+    (expect-background (role button :name "Cell 3") 0x66E0FF)
+    (await-task)
+    (await-task)
+    (expect-background (role button :name "Cell 1") 0x263247)
+    (expect-background (role button :name "Cell 2") 0x263247)
+    (expect-background (role button :name "Cell 3") 0x66E0FF)
+    (expect-subscriptions 0)))

@@ -39,13 +39,12 @@ Element tree:: The nested elements returned by `render`; for example, a column
 whose children are text and a row of buttons.
 Mounted graph:: The host-owned representation of the element tree the
 application displays.
-Component definition:: Immutable renderer, keyed state adapters, and ownership
-policies registered once during application setup.
-Component instance:: A definition mounted with `Elem.component` and a key in
-one structural parent scope. Removal ends that instance's lifetime.
-Render boundary:: A component subtree that declares the scope of an update.
-Local ownership leaves siblings untouched; parent ownership includes dependent
-parent output.
+Translation:: A pure descriptor relating child and parent state through a
+renderer and adapters, with a local rendering and delegation boundary.
+Mounted instance:: The host-owned lifetime of a translation. A key preserves it
+across parent rebuilds within the same owner and native-container scope.
+Render boundary:: The subtree rendered by a local update. Explicit delegation
+lets a parent accept a change and render dependent parent output.
 Memoization:: An explicit comparison contract allowing a component to retain
 its complete mounted subtree and handlers when its input is equivalent.
 Specification:: A `.scm` file that drives user actions and assertions against an
@@ -66,7 +65,7 @@ performance evidence to a SQLite `.rgstats` capture.
 * images decoded from in-memory bytes;
 * horizontal rows, vertical columns, panels, and modal dialogs;
 * scrolling regions, virtual lists, and a retained canvas;
-* keyed components, explicit render ownership, and equality-based subtree memoization by default;
+* local translations, keyed lifetimes, and opt-in subtree memoization;
 * `.scm` specifications stored beside each application;
 * opt-in SQLite captures for correctness and performance evidence.
 

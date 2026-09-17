@@ -26,14 +26,13 @@ them to perform its rendering-system work and deliver input.
 [mermaid]
 ....
 flowchart TB
-    S["pure initial state and renderer recipe"] --> A["platform assembles immutable definitions once"]
-    A --> D["one session dispatcher"]
+    S["pure initial state and renderer"] --> D["one session dispatcher"]
     E["live control event"] --> D
     T["completion with owning instance"] --> D
     D --> L{"owner live; event route revision current?"}
     L -->|no| N["NoChange; release discarded completion"]
     L -->|yes| A["handler or resolver against latest state"]
-    A --> O["Action: resolve delegation; separate task owner and render owner"]
+    A --> O["Action: resolve delegation and accepting owner"]
     O -->|NoChange| N
     O -->|updating action| I["invalidate strict-ancestor memo snapshots"]
     I --> C{"valid memo snapshot and same input?"}
@@ -64,17 +63,14 @@ Resource access and trusted grants chapter describes that boundary.
 === The application renders a value
 
 `Program.run` supplies pure initial state, a pure renderer, and optional
-resizable-window metadata. `Program.build` instead accepts a renderer recipe;
-the platform interprets it once before the first render. `Component.define`,
-`Component.memo`, and `Component.unmemoized` construct pure descriptions of
-immutable component definitions. Recipe composition assembles their handles
-into a renderer; rendering cannot register definitions. Reusing a handle shares
-a definition, while interpreting the same recipe again creates a distinct one.
-Calling the renderer produces an immutable `Elem(State)` description. Composition stays in Roc:
-styled and semantically named `Elem.row`, `Elem.col`, `Elem.panel`,
-`Elem.text`, `Elem.action_button`, and named `Elem.scroll` regions build the tree.
-`Elem.component(definition, key)` mounts a keyed instance and introduces a render
-boundary without adding layout.
+resizable-window metadata. Calling the renderer produces an immutable
+`Elem(State)` description. Composition stays in Roc: styled and semantically
+named `Elem.row`, `Elem.col`, `Elem.panel`, `Elem.text`, `Elem.action_button`, and
+named `Elem.scroll` regions build the tree. `Elem.translate` introduces a local
+boundary with ordinary state adapters; `Elem.translate_with` and
+`Elem.try_translate` add explicit keys and optional policies. They are pure
+descriptors, with no setup-time registration or function-identity comparison.
+A translation adds no layout surface.
 
 An `Elem` is not a long-lived widget object, and rendering one does not draw
 pixels. It is an intermediate value consumed immediately by platform lowering.
@@ -87,6 +83,37 @@ The platform lowers the `Elem` description into native nodes with host-issued
 identities. The result is staged separately from the visible graph so it can be
 validated as a complete change before commit.
 
+Framework-owned element-descriptor traversal, native-node lowering, and boundary
+retirement use explicit work stacks. Enter and finish items preserve child
+order, native scopes, delegation ownership, and measurement boundaries while
+keeping unfinished traversal in managed memory. Finish items hold shallow
+container properties or owner metadata, allowing processed descriptions to be
+released incrementally. Native entity materialization and retirement use the
+same iterative traversal principle.
+
+Traversal and callback execution have distinct depth contracts. Descriptor
+mapping suspends container reconstruction in heap work items; render adapters
+compose typed state projections and result adaptation. Verify these owners
+independently, including both a deeply nested structural tree and a chain of
+translation boundaries. Native layout is a third execution path with its own
+verification requirements.
+
+Typed state adapters use a fixed-result continuation protocol. A renderer,
+projection, memo predicate, or action adapter returns a work item instead of
+calling an arbitrarily deep adapter chain to completion. Both descent into a
+child and ascent through parent setters suspend before invoking the next
+continuation. Adjacent states can have different types; their values remain in
+typed Roc closure captures. The work executor has no application-state payload
+and the host does not decode one.
+
+Protocol builders and continuations are pure. Effects execute in deferred work
+items, including the terminal item that commits the transition or delivers a
+task resolver. One iterative executor drives those items. Configured getters
+and setters have distinct work tags, so their invocation counts measure actual
+projection callbacks rather than the number of adapter wrappers. A missing
+projection short-circuits its remaining chain, and a rejected setter discards
+the candidate before delegation handling or task launch.
+
 During the same walk, the platform builds event routes and records each
 boundary's instance, renderer, native root, parent, and route revision. A route
 connects a native event identity to a Roc handler and its owning boundary.
@@ -94,13 +121,21 @@ Routes and boundaries live in indexed registries; each boundary owns lists of
 its direct routes and child boundaries, so replacing it need not filter all
 routes in the application.
 
-A component definition fixes its renderer, state adapters, comparison policy,
-and delegation policy. Lowering matches its key within the same structural
-parent scope. A matching memoized instance compares its saved input with its
-input in the latest state. A hit retains the complete old marker subtree,
-including routes and nested boundaries, without calling its renderer or
-lowering its contents. A miss builds a fresh marker and contents, while giving
-nested keyed components the same opportunity to survive.
+Lowering resolves a keyed boundary using its surviving owner, native-container
+scope, and full SHA-256 key digest. The host validates the 32-byte digest and
+assigns a separate, monotonically increasing mounted-instance ID. A matching
+key preserves the lifetime across parent rebuilding and reordering within that
+scope. Duplicate keys in one scope are rejected. Unkeyed translations allocate
+fresh lifetimes when reconstructed by their parent; a local update preserves
+its own boundary. Key names and digests never enter observatory captures.
+
+A keyed boundary can opt into memoization. A matching instance with the same
+policy and valid snapshot compares the saved input with its input in latest
+state. A hit retains the complete marker subtree, routes, and nested boundaries
+without rendering or lowering its contents. A miss builds a fresh marker and
+contents, giving nested keyed translations the same opportunity to survive.
+Enabling or disabling memoization rebuilds and resets the cache while retaining
+the instance and its tasks. Unmemoized boundaries keep no input snapshot.
 
 Lowering ends with exactly one `Mount`, `Replace`, or `NoChange` commit. Staging
 alone cannot modify the visible graph.
@@ -152,6 +187,26 @@ keyed item subtrees remain in the canonical graph, but GPUI's
 viewport callback creates entities only for intersecting fixed-height rows and
 recycles entities that leave the range. The host connects the new native
 subtree to retained entities around its boundary and releases replaced views.
+
+The host enables GPUI's native view cache for non-root button leaves, rows,
+columns, and panels whose pixel width and height equal their minimum and
+maximum dimensions and whose `grow` is false. Transparent single-child
+boundary chains share that eligibility. Baseline-aligned subtrees use ordinary
+layout so that descendant content supplies the correct alignment baseline.
+
+An unchanged eligible container reuses its subtree without constructing its
+children's native view elements. A changed descendant invalidates the ancestor
+path; rebuilding an ancestor permits independently unchanged children to reuse
+their caches. Changed geometry, clipping, inherited text style, and explicit
+window refresh invalidate affected cached content. Reused subtree frame ranges
+are relocated when the frame completes, preserving later child updates and
+native event routing.
+
+Intrinsic and flexible dimensions follow ordinary GPUI layout. Changing a
+retained node's dimensions or baseline context reevaluates cache eligibility.
+This cache is independent of Roc boundary memoization. Rebuilding containers
+still visits their immediate children, and GPUI scene replay and native input
+dispatch have their own scaling costs.
 
 A node ID identifies a node, not a control. Because it is never reused, a patch
 that rebuilds a subtree gives the same control a new ID, and keying the GPUI
@@ -245,53 +300,48 @@ callback from an old route cannot address a new handler in that same instance.
 
 == Boundaries determine update scope
 
-`Component.define` relates child state to parent state through typed, fallible keyed
-getters and setters. Mounting that definition creates a boundary; the
-application renderer itself is the root boundary. `Elem.lift` only adapts a
-prebuilt element's handlers. It introduces no lifetime, memoization, or
-delegation boundary. Plain lift adapters must remain valid for the existing
-owner's lifetime; removable projections require fallible component boundaries.
+`Elem.translate(render, get, set)` relates child state to parent state and
+creates a rendering, delegation, and task-ownership boundary. The application
+renderer is the root boundary. `Elem.translate_with` supplies a key and optional
+policies; `Elem.try_translate` uses fallible getters and setters for removable
+state. Adapters operate on state rather than decoding keys. `Elem.lift` only
+adapts a prebuilt element's handlers: it adds no lifetime or boundary and does
+not consume delegation.
 
-The default `update_scope: Local` is an ownership promise: all UI affected by a
-child's local updates is inside that component. A getter and setter alone
-cannot prove this promise. If a parent heading also displays the child's count,
-the definition must declare `update_scope: Parent`. That promotes rendering to
-the nearest parent boundary; enclosing `Parent` policies propagate the required
-scope through the ownership chain. Dependencies are explicit, not inferred by
-tracking state reads. Rendering siblings that depend on shared state requires
-an owner containing all affected consumers.
+`Action.update` commits through the adapters and renders only the originating
+boundary. It neither renders nor compares unrelated siblings. Parent summaries
+respond through explicit delegation or composition within one render boundary.
+The platform does not infer dependencies by tracking state reads.
 
-`Action.delegate(next_child)` is a different operation. The nearest component
-adapter first constructs a candidate parent with the child replaced, then
-passes that candidate and key to the definition's `on_delegate` callback. Its
-returned parent action accepts, revises, vetoes, starts a parent-owned task, or
-delegates further. `Action.none` vetoes the entire candidate. Ordinary lifts do
-not consume delegation, and delegation reaching the root becomes a root
-update. The default callback accepts with `Action.update`.
+`Action.delegate(next_child)` constructs a candidate parent and passes it to the
+nearest translation's `on_delegate` callback. Its parent action accepts,
+revises, vetoes, starts parent-owned work, or delegates further. `Action.none`
+vetoes the entire candidate. Delegation reaching the root becomes a root
+update; the default callback accepts with `Action.update`.
 
-Render promotion does not change action or task ownership, and does not invoke
-`on_delegate`. This distinction lets a locally owned task update a parent
-summary without silently acquiring the parent's lifetime.
+A key promises a stable logical component and state projection for its mounted
+lifetime. Rebinding either requires a different key. Removal, a changed key or
+scope, and owner remount all end a lifetime. Missing projections cannot recreate
+deleted state, and emitting a boundary with a missing projection is an
+application error. Parent-owned data survives reconstruction unless changed by
+an action.
 
 === Memoization is an explicit behavioral contract
 
-`Component.define` memoizes by default using the child input's `is_eq` method,
-required by its type constraint. `Component.memo` supplies an explicit
-`same(previous, next)` comparison instead. `Component.unmemoized` installs no
-comparison, requires no equality, and renders whenever the boundary is reached;
-it is suitable for resource-bearing state or expensive snapshots/comparisons.
-The input must include all variable render and captured-handler
-dependencies, including labels, layout choices, and external properties
-selected from parent state. Definition functions and their setup captures are
-immutable; no function or pointer equality establishes renderer identity.
+Memoization is opt-in through `memo: Some(compare)` on a keyed translation.
+Ordinary translations require no equality and retain no comparison snapshot.
+Comparison is performed only at boundaries reached by rendering. The input
+must include all variable rendering and captured-handler dependencies,
+including labels, layout choices, and parent properties. Renderer captures and
+comparators remain semantically stable for the keyed lifetime; no function or
+pointer equality establishes identity.
 
 Returning `True` promises that keeping the old subtree and its handlers is
 observationally equivalent to rebuilding with the new input. Ordinary equality
 is suitable only when it satisfies that promise. Custom equality can omit a
 relevant field, and floating-point equality can equate positive and negative
 zero even when a renderer distinguishes them. A false negative costs work; a
-false positive violates the application contract. The equality constraint
-establishes method availability, not this behavioral law. Deterministic
+false positive violates the application contract. The availability of equality does not establish this behavioral law. Deterministic
 floating-point calculations do not imply representation-sensitive equality:
 inputs whose signed zero matters need an exact wrapper or a custom comparator.
 No hashing or comparison of renderer functions is used.
@@ -310,12 +360,13 @@ unique ownership of lists, strings, resources, or indexed registry nodes.
 == Asynchronous action turns
 
 An `Action.task` proposes its pending state and a boxed worker. After graph
-acceptance, the host queues the worker on the native pool. A worker returns a
-boxed reducer, not a state snapshot. The UI thread delivers that reducer through
+acceptance, the host queues the worker on the native pool. The worker runs its
+continuations and hands a boxed reducer to the host completion slot. The UI
+thread delivers that reducer through
 the latest session, applies its action with the same ownership and memoization
 rules as an event, and commits one graph decision.
 
-A task belongs to the component instance that produced the task action. A
+A task belongs to the boundary instance that accepts the task action. A
 matching ancestor rerender or keyed reorder preserves that owner. Semantic
 removal retires it permanently. Before invoking a completion or any captured
 child getter, the session verifies that the owner and its ancestor projections
@@ -405,9 +456,9 @@ its parent's state while marking the unit of re-rendering. roc-gui is an
 development of that design. `Action.update`, `Action.none`, the shared `state`
 type variable on `Elem` and `Action`, and adapting child renderers through
 getters and setters follow its central idea: state ownership can identify the
-subtree an action needs to update. The immutable, keyed `Component` definition
-separates that idea from the lifetime and dependency problems of recreating
-renderer closures inside every ancestor render.
+subtree an action needs to update. Pure translations express that boundary;
+explicit keys preserve logical identity through parent rebuilding, while the
+host owns mounted lifetimes.
 
 The motivation is worth restating, because it explains the shape of the API
 more than any implementation detail does. A renderer takes state and returns a
@@ -444,7 +495,7 @@ surface syntax. Pure descriptions leave execution to the platform. Delegation
 lets the parent decide whether to accept a child's proposal. Fallible state
 projections make removal explicit. Deferred rendering enables memoized
 subtrees. roc-gui gives those ideas one coherent ownership model through
-platform-owned recipe assembly, `Action.delegate`, keyed `Component` definitions, and explicit
+pure translations, `Action.delegate`, host-owned keyed lifetimes, and explicit
 memo equivalence.
 
 Periodic work uses `Action.task` around a timer handle in application state,
@@ -527,7 +578,7 @@ The platform and host maintain these invariants across every event turn:
 * one completed action and graph decision per dispatch;
 * unambiguous native identity for every live node;
 * structurally valid changes applied only to mounted targets;
-* immutable definition identity and unique component keys within each scope;
+* stable logical projections and unique full-digest keys within each scope;
 * retained subtrees keep their routes, descendants, and native identities;
 * rebuilt routes advance their owner's revision; retired instances never revive;
 * ancestor memo snapshots invalidated after descendant updates;

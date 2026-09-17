@@ -214,6 +214,26 @@ same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
+`(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Deliver a button hover
+transition through the canonical mounted graph and normal Roc route. Duplicate
+transitions and disabled controls dispatch nothing. Both runners use the same
+transition owner. The window runner requires an entering target to be painted
+and visible, then dispatches a GPUI mouse-move event at its centre. Exit moves
+the simulated pointer outside the window; GPUI performs hit testing and delivers
+the resulting transitions.
+`(expect-background LOCATOR 0xRRGGBB)`:: Compare the explicit application
+background in the mounted graph. Native hover refinements are separate. Missing
+backgrounds fail as unavailable; colors are not recorded as count evidence.
+`(mark-native-work)`:: Start observing completed native frames in a window run.
+The underlying production counters remain active independently of recording.
+`(expect-native-work :button-renders-max N :boundary-renders-max N :boundary-elements-max N)`:: Bound
+actual button and boundary view renders and boundary view elements created in
+every completed frame since the mark. Each limit is optional, but at least one
+is required. Element creation measures the host handing a view to GPUI even
+when that view subsequently reuses its rendered subtree. A missing
+mark or no completed frame fails as unavailable. Choose limits from the
+changed patch frontier and the application's ordinary native controls; these
+assertions belong to controlled interactions without unrelated input or resize.
 `(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
 gesture through a canvas's production event route. Coordinates are integer
 logical pixels in canvas space.
@@ -248,12 +268,15 @@ exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.
 `(expect-clipboard-counters LIVE ACQUIRE READ WRITE)`:: Require the
 owner-recorded live handle count and attempted clipboard operations.
-`(expect-component-work :rendered N :compared N :skipped N :mounted N :retired N :registry-visits N :ancestor-invalidations N)`::
+`(expect-component-work :rendered N :compared N :skipped N :mounted N :retired N :registry-visits N :ancestor-invalidations N :projection-gets N :projection-sets N)`::
 Require exact component-runtime work in the most recently committed action
 turn, including its nested rendering and lowering. Supply one or more named
 counts in any order; omitted counts are unconstrained. Both runners read the
 same production observation, including when capture is disabled. A missing
 observation fails as unavailable. Assertions do not start a new action turn.
+Projection counts record configured getter and setter calls, including calls
+that return `Removed`; they exclude arbitrary application reads and background
+worker execution. They measure adapter work separately from boundary renders.
 `(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
 observed counts.
 `(expect-device-connections N)`:: Require exactly `N` host-owned device
@@ -287,9 +310,9 @@ samples.
 `(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Require the complete
 owner-recorded TCP resource and attempted-operation vector.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
-`(expect-value LOCATOR "value")`:: Require an exact controlled textarea value.
+`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value.
 The value is compared in memory and is not copied into captures or diagnostics.
-`(expect-value-bytes LOCATOR N)`:: Require the textarea value to contain exactly
+`(expect-value-bytes LOCATOR N)`:: Require the text-input or textarea value to contain exactly
 `N` UTF-8 bytes, and record the expected and observed deterministic counts.
 `(expect-visible LOCATOR)`:: Require at least one match.
 
@@ -487,7 +510,10 @@ not exercised; those belong to the pointer seam this host does not have.
 Pointer steps are simulated at the production handler, but are refused unless
 the control was laid out, is unclipped, is enabled, and is not behind a modal
 dialog, so a `click` a real user could not have performed fails rather than
-passing quietly. There is no `hover` step. The Testing your
+passing quietly. `hover-enter` and `hover-exit` dispatch mouse-move events into
+the live GPUI window, exercising hit testing, production views, and the normal
+event route. They do not move the operating-system pointer. GPUI tests also
+verify replacement continuity and disabled or stale routes. The Testing your
 application chapter explains why, and what each guarantee is worth.
 
 === What the probe cannot see

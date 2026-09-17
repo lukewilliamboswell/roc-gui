@@ -1,4 +1,4 @@
-(test "Row boundaries: local edit among 1,000 compact siblings"
+(test "Row boundaries: local edit among 1,000 compact siblings with memoization"
   (benchmark :warmups 2 :samples 7 :iterations 1 :scale 1000 :initial-size 1000 :change-size 1)
   (steps
     (click (role button :name "Create 1,000 rows"))

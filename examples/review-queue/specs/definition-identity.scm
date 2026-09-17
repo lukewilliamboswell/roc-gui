@@ -1,4 +1,4 @@
-(test "Reopening retains draft state but replaces the board definition and its owned item"
+(test "Reopening retains draft state but changes the board key and remounts its owned item"
   (steps
     (click (role button :name "Edit draft"))
     (expect-visible (text "Draft 1"))

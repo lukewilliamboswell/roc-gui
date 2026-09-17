@@ -30,6 +30,7 @@ python3 scripts/analyze_stats.py CAPTURE.rgstats --view roc_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view component_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view host_gpui_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_spans
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view native_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view virtual_list_materialization
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view process_resources
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view capture_health
@@ -50,6 +51,8 @@ or visited during structural validation?
 `gpui_frame_spans`:: For each drawn frame, how long did the host's own root
 element spend requesting layout, prepainting, and painting the application
 subtree, and what is the status of the frame stages the host does not own?
+`native_work`:: How many native `NodeView` render calls and host-created
+`AnyView` elements occurred in completed GPUI frames, grouped by node kind?
 `virtual_list_materialization`:: For interactive GPUI frames, how many logical
 items intersected each viewport and how many native entities were
 materialised, recycled, and retained? Semantic-headless captures report this
@@ -83,9 +86,10 @@ TCP assertions retain live streams and connect, read, write, and close attempts
 in `tcp_counter_assertions`. Endpoint, Redis key, and Redis value text are not
 capture fields.
 
-Schema 11 records component work in `component_work_counts`, keyed by cycle
+Schema 15 records component work in `component_work_counts`, keyed by cycle
 and numeric kind. Kinds are `0 rendered`, `1 compared`, `2 skipped`, `3 mounted`,
-`4 retired`, `5 registry_visits`, and `6 ancestor_invalidations`. The Roc runtime
+`4 retired`, `5 registry_visits`, `6 ancestor_invalidations`,
+`7 projection_gets`, and `8 projection_sets`. The Roc runtime
 reports each count at the operation that owns it. A turn publishes its
 observation when the mounted graph accepts its transaction. Rejected turns do
 not replace the last committed observation.
@@ -97,11 +101,17 @@ counts successful comparisons. `registry_visits` counts logical event-route
 lookups and emitted-component instance lookups, not every internal radix-index
 step, state projection, or ancestor walk. `ancestor_invalidations` counts strict
 ancestor invalidation operations, including ancestors whose snapshot was
-already unknown. These are owner-defined events, not estimates of total work.
+already unknown. `projection_gets` and `projection_sets` count actual calls to
+configured state adapters during the UI callback, including reads for existence
+and memo checks. They count invocation even when a fallible adapter returns
+`Removed`. They exclude arbitrary application reads and background worker work.
+The iterative executor accumulates these counts and publishes them before the
+same turn commits. They are not inferred from component depth, rendered nodes,
+or elapsed time. These are owner-defined events, not estimates of total work.
 
 Capture cycles use the difference between the owner's totals at their start
-and end. A gesture containing several action turns includes all their work;
-the last-turn specification assertion still describes its final committed turn.
+and end. Each action turn in a gesture has its own cycle; the last-turn
+specification assertion describes its final committed turn.
 
 `cycles.component_work_recorded` distinguishes a measured turn with no component
 work from a turn with no observation. Positive counts have rows; an absent kind
@@ -134,10 +144,25 @@ host validation, graph
 application, CPU, RSS, and deterministic graph work, while GPUI layout, paint,
 and presentation are unavailable.
 
+`cycles.roc_callback_ns` measures time inside one Roc dispatch call. Each drag
+phase and task completion has its own cycle, including steps that await several completions.
+Waiting for workers and applying graph patches are outside the callback span.
+The enclosing cycle duration includes the wait.
+
+Schema 15 records task completions delivered by the interactive window loop
+as well as those driven by specifications. Each delivered completion records
+its own callback, application spans, allocation activity, and graph work.
+
 This distinction matters: headless graph application is useful host evidence,
 but it is not a proxy for rendering a frame.
 
 == What a drawn frame measures
+
+Interactive task completions pass through the recorded callback path just as
+input events do. Their delivery cycles begin after the worker result arrives;
+neither callback duration nor delivery-cycle duration includes queue or worker
+waiting. Each accepted completion records its own `task` cycle, including
+completions that produce no graph change.
 
 A capture taken with a GPUI window records one `gpui_frames` row per drawn
 frame. The application's element tree hangs below a single host-owned element,
@@ -152,6 +177,91 @@ therefore reported as unavailable rather than attributed. Taffy solves layout
 once for the window from GPUI's own root element, between the host element's
 layout request and its prepaint. Presentation and frame completion are private
 to GPUI; a compositor frame callback would be the seam that owns them.
+
+== Count native rendering work
+
+Schema 15 stores native work in `gpui_native_work`, keyed by
+`frame_id`, numeric `metric`, and numeric `kind`. Each `frame_id` references
+`gpui_frames.id`. Metric `0`, `node_view_renders`, counts actual calls to the
+production `NodeView::render` implementation. Metric `1`,
+`view_elements_created`, counts the host helper constructing an `AnyView`
+element to hand to GPUI, including elements for retained native entities.
+
+Native counters are always active, including when capture recording is
+disabled. Production-window tests can therefore observe the same operations
+without enabling the recorder. The host snapshots these counters at the start
+of `Runtime::render` and, when recording is enabled, publishes their deltas when
+the root element finishes painting that frame.
+The `native_work` report gives totals, maxima, and means per completed frame
+for each metric and node kind. Its observation family is `gpui_native_work`.
+
+[cols="1,2",options="header"]
+|===
+|Kind |Node
+|0 |Canvas
+|1 |Button
+|2 |Checkbox
+|3 |Textarea
+|4 |Image
+|5 |Column
+|6 |Dialog
+|7 |Panel
+|8 |Row
+|9 |Scroll
+|10 |Virtual item
+|11 |Virtual list
+|12 |Text input
+|13 |Text
+|14 |Styled text
+|15 |Boundary
+|===
+
+Rows contain positive counts. A missing metric/kind row means measured zero
+only within a recorded frame with complete native-work evidence. A capture
+with no completed frames reports unavailable counts. A semantic-headless
+capture reports this family as `not_recorded`; it has no native render path.
+Incomplete observations withhold counts rather than publishing partial totals
+as complete evidence.
+
+Roc component renders, native view renders, and native element construction
+measure distinct operations. A local Roc update can perform one component
+render while a subsequent frame renders many native views. Native counts
+identify this additional work without estimating it from Roc counters or
+elapsed time. They do not identify GPUI cache hits, layout-solver work,
+presentation, retained memory, or GPU work. Counts are frame-scoped; they do not
+assign a frame to an individual action when the event loop combines updates.
+
+Native subtree reuse follows layout ownership. Non-root rows, columns, and
+panels whose width and height are fixed by matching pixel size, minimum, and
+maximum values, with growth disabled, have outer geometry independent of
+child measurement. Baseline-aligned subtrees retain ordinary layout.
+Retained off-path containers reuse their native subtree;
+a changed descendant invalidates its ancestor path. Intrinsic and flexible
+containers preserve their content-driven layout behavior.
+
+The hover grid declares its existing five-pixel cells and one-pixel gaps as
+exact row and grid dimensions. A local cell update reaches its button,
+translation boundary, row, grid column, and outer application column.
+Rebuilding those containers can construct wrappers for their immediate
+children. Compare both native metrics across 100, 1,000, and 10,000 cells:
+a bounded set of rendered views does not imply the same bound on constructed
+wrappers. The row and column fanout is part of the expected work.
+
+The nested hover-grid companion uses the same leaf counts and cell geometry
+as the flat grid. Recursive quadrant translations project persistent child
+indices with at most four entries. Local hover updates render the leaf;
+delegated clicks travel to the depth-one quadrant, which accepts the candidate
+and renders its subtree. Reordering sibling quadrants within their native row
+preserves their keyed lifetimes; removing a quadrant retires its descendants
+and their task deliveries. Compare owner callback spans as well as native
+counts across both layouts. Ancestor-invalidations count the affected ownership
+path; they do not count composed getter calls or establish linear dispatch cost.
+
+A native-work assertion belongs to a controlled interaction and frame window.
+Its expected counts follow the affected patch nodes and ancestor containers in
+that case. Input, focus, and layout invalidation can cause additional native
+work in other interactions; these assertions are specific evidence rather than
+an unconditional limit on rendering for every action.
 
 == Record an interactive application
 
@@ -180,7 +290,7 @@ cycles, making the extra observer work explicit.
 
 The recorder batches writes on a separate thread. When recording is disabled,
 the event hot path skips clocks and event construction behind a predictable
-inactive branch. Deterministic component counts remain available to
+inactive branch. Deterministic component and native-work counts remain available to
 specifications independently of capture recording. When it is enabled,
 recording failure is evidence failure; it
 does not change application behaviour.

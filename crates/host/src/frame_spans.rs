@@ -20,8 +20,9 @@
 //!   from a dependent crate. A Wayland frame callback would be the honest seam
 //!   and is not available on macOS. Presentation stays unavailable.
 //!
-//! When recording is off, this element is still in the tree — there is one
-//! render path — and costs three predictable atomic loads per frame.
+//! Native work counters run independently of capture. Runtime::render supplies
+//! the baseline before constructing the root view element, and completing paint
+//! publishes that frame's observed delta. Abandoned frames are not published.
 
 use std::panic::Location;
 use std::time::Instant;
@@ -38,14 +39,16 @@ pub struct FrameSpans {
     child: AnyElement,
     layout_request_ns: u64,
     prepaint_ns: u64,
+    native_start: observatory::NativeWork,
 }
 
 impl FrameSpans {
-    pub fn new(child: impl IntoElement) -> Self {
+    pub fn new(child: impl IntoElement, native_start: observatory::NativeWork) -> Self {
         Self {
             child: child.into_any_element(),
             layout_request_ns: 0,
             prepaint_ns: 0,
+            native_start,
         }
     }
 }
@@ -120,13 +123,21 @@ impl Element for FrameSpans {
     ) {
         if !observatory::active() {
             self.child.paint(window, cx);
+            observatory::complete_native_frame(self.native_start);
             return;
         }
         let started = Instant::now();
         self.child.paint(window, cx);
+        let paint_ns = elapsed_ns(started);
+        let native_work = observatory::complete_native_frame(self.native_start);
         // The frame row is submitted from the stage that completes it, so a
         // frame abandoned before paint records nothing rather than a partial
         // row whose missing stage would have to be invented.
-        observatory::gpui_frame(self.layout_request_ns, self.prepaint_ns, elapsed_ns(started));
+        observatory::gpui_frame(
+            self.layout_request_ns,
+            self.prepaint_ns,
+            paint_ns,
+            native_work,
+        );
     }
 }

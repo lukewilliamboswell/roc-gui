@@ -56,6 +56,8 @@ pub enum NodeKind {
         caption: String,
         label: String,
         enabled: bool,
+        hover_enter: bool,
+        hover_exit: bool,
         style: Style,
     },
     Checkbox {
@@ -528,6 +530,9 @@ impl IdentitySegment {
 /// A native key path, anchored at the nearest component boundary when present.
 pub type ElementIdentity = Vec<IdentitySegment>;
 
+pub const HOVER_ENTER_EVENT_BIT: u64 = 1 << 62;
+pub const HOVER_EXIT_EVENT_BIT: u64 = 1 << 61;
+
 /// The canonical mounted UI graph. Both semantic specs and the GPUI runtime
 /// apply patches here; GPUI entities are only a materialized view of this state.
 #[derive(Default)]
@@ -540,6 +545,7 @@ pub struct MountedGraph {
     input_labels: HashMap<(Option<u64>, String), u64>,
     input_owners: NodeMap<Option<u64>>,
     dialog: Option<u64>,
+    hovered: NodeSet,
 }
 
 struct MountedNode {
@@ -707,6 +713,46 @@ impl MountedGraph {
         self.dialog
     }
 
+    /// Resolve only installed hover handlers on live enabled controls.
+    pub fn hover_route(&self, id: u64, entered: bool) -> Option<u64> {
+        match &self.node(id)?.kind {
+            NodeKind::Button {
+                enabled: true,
+                hover_enter,
+                hover_exit,
+                ..
+            } if if entered { *hover_enter } else { *hover_exit } => Some(
+                id | if entered {
+                    HOVER_ENTER_EVENT_BIT
+                } else {
+                    HOVER_EXIT_EVENT_BIT
+                },
+            ),
+            _ => None,
+        }
+    }
+
+    /// The production hover transition shared by native input and semantic
+    /// specifications. Track both edges even when only one has a callback.
+    pub fn hover_transition(&mut self, id: u64, entered: bool) -> Option<u64> {
+        if self
+            .dialog
+            .is_some_and(|dialog| !self.is_descendant_of(id, dialog))
+        {
+            return None;
+        }
+        if !matches!(self.node(id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
+        {
+            return None;
+        }
+        let changed = if entered {
+            self.hovered.insert(id)
+        } else {
+            self.hovered.remove(&id)
+        };
+        changed.then(|| self.hover_route(id, entered)).flatten()
+    }
+
     pub fn is_descendant_of(&self, mut id: u64, ancestor: u64) -> bool {
         loop {
             if id == ancestor {
@@ -837,6 +883,7 @@ impl MountedGraph {
     }
 
     fn apply_inner<const MEASURE: bool>(&mut self, patch: Patch) -> Result<GraphApply, String> {
+        let previous_dialog = self.dialog;
         let validate_started = MEASURE.then(Instant::now);
         let (old_root, root, nodes, retained_roots) = match patch {
             Patch::NoChange => {
@@ -1062,6 +1109,12 @@ impl MountedGraph {
             .collect();
         let mut removed_instances = Vec::new();
         let retired_root = old_root == self.root && old_root.is_some() && frontier.is_empty();
+        let mut hovered_identities = HashSet::new();
+        for id in &removed_ids {
+            if self.hovered.remove(id) {
+                hovered_identities.insert(self.identity(*id));
+            }
+        }
         for id in &removed_ids {
             let entry = self.nodes.remove(id).expect("validated retirement");
             match entry.node.kind {
@@ -1103,6 +1156,31 @@ impl MountedGraph {
             }
         } else {
             self.root = Some(root);
+        }
+        if !hovered_identities.is_empty() {
+            for id in &staged_ids {
+                if matches!(self.node(*id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
+                    && hovered_identities.contains(&self.identity(*id))
+                {
+                    self.hovered.insert(*id);
+                }
+            }
+        }
+        if self.dialog != previous_dialog
+            && let Some(dialog) = self.dialog
+        {
+            // Modal input policy suppresses background exit callbacks. Retire
+            // blocked hover state without dispatching callbacks or walking
+            // unrelated mounted nodes.
+            let blocked = self
+                .hovered
+                .iter()
+                .copied()
+                .filter(|id| !self.is_descendant_of(*id, dialog))
+                .collect::<Vec<_>>();
+            for id in blocked {
+                self.hovered.remove(&id);
+            }
         }
         let facts = ApplyFacts {
             kind: if old_root.is_some() {
@@ -1200,8 +1278,8 @@ pub enum Commit {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum ComponentKey {
-    Numeric(u64),
-    Named(String),
+    Unkeyed(u64),
+    Digest([u8; 32]),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -1212,7 +1290,6 @@ struct ComponentLocation {
 
 #[derive(Clone, Copy)]
 struct ComponentMount {
-    definition: u64,
     instance: u64,
     root: u64,
 }
@@ -1232,7 +1309,7 @@ struct ComponentScope {
 
 /// Identity reconciliation for the production Roc lowering walk. Pending
 /// choices never replace committed mount metadata until the graph accepts its
-/// transaction. Names remain private runtime data and are not capture identity.
+/// transaction. Application digests stay private and are never capture identity.
 pub struct ComponentRegistry {
     next_instance: u64,
     live: HashMap<ComponentLocation, ComponentMount>,
@@ -1324,16 +1401,15 @@ impl ComponentRegistry {
         self.exit_scope(ScopeKind::Native)
     }
 
-    pub fn resolve(
-        &mut self,
-        definition: u64,
-        key_kind: u8,
-        key_name: &str,
-        key_id: u64,
-    ) -> Result<(u64, u64), String> {
+    pub fn resolve(&mut self, key_kind: u8, key_digest: &[u8]) -> Result<(u64, u64), String> {
         let key = match key_kind {
-            0 => ComponentKey::Numeric(key_id),
-            1 => ComponentKey::Named(key_name.to_owned()),
+            0 if key_digest.is_empty() => ComponentKey::Unkeyed(self.next_instance),
+            0 => return Err("unkeyed boundary must have an empty digest".into()),
+            1 => ComponentKey::Digest(
+                key_digest
+                    .try_into()
+                    .map_err(|_| "component key digest must contain exactly 32 bytes")?,
+            ),
             _ => return Err("invalid component key kind".into()),
         };
         let scope = self
@@ -1343,23 +1419,17 @@ impl ComponentRegistry {
             .identity
             .clone();
         let location = ComponentLocation { scope, key };
-        // Definition identity deliberately does not participate in duplicate
-        // key detection: replacing a definition under one key is a remount.
         if !self.seen.insert(location.clone()) {
             return Err("duplicate component key in one structural parent scope".into());
         }
         let mount = match self.live.get(&location).copied() {
-            Some(mount) if mount.definition == definition => mount,
-            _ => {
+            Some(mount) => mount,
+            None => {
                 let instance = self.next_instance;
                 self.next_instance = instance
                     .checked_add(1)
                     .ok_or("component instance space exhausted")?;
-                ComponentMount {
-                    definition,
-                    instance,
-                    root: 0,
-                }
+                ComponentMount { instance, root: 0 }
             }
         };
         self.pending_instances.insert(mount.instance);
@@ -1539,6 +1609,7 @@ impl BridgeState {
         let id = self.next_node_id;
         self.next_node_id = id
             .checked_add(1)
+            .filter(|next| *next < HOVER_EXIT_EVENT_BIT)
             .ok_or_else(|| "native node id space exhausted".to_string())?;
         self.staged.push(Node { id, kind, children });
         Ok(id)
@@ -1864,6 +1935,8 @@ mod tests {
                 caption: name.into(),
                 label: name.into(),
                 enabled: true,
+                hover_enter: false,
+                hover_exit: false,
                 style: Style::default(),
             },
             children: vec![],
@@ -1918,6 +1991,8 @@ mod tests {
             caption: label.into(),
             label: label.into(),
             enabled,
+            hover_enter: false,
+            hover_exit: false,
             style: Style::default(),
         }
     }
@@ -3389,11 +3464,17 @@ mod tests {
         assert_eq!(visits, vec![5, 5, 5]);
     }
 
+    fn test_digest(value: u64) -> [u8; 32] {
+        let mut digest = [0; 32];
+        digest[..8].copy_from_slice(&value.to_le_bytes());
+        digest
+    }
+
     fn registered_component() -> (ComponentRegistry, MountedGraph) {
         let mut registry = ComponentRegistry::default();
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
-        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((1, 0)));
+        assert_eq!(registry.resolve(1, &[1; 32]), Ok((1, 0)));
         registry.component_enter(1).unwrap();
         registry.component_exit().unwrap();
         registry.scope_exit().unwrap();
@@ -3424,7 +3505,7 @@ mod tests {
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
         for key in 1..=count {
-            let (instance, old_root) = registry.resolve(100, 0, "", key).unwrap();
+            let (instance, old_root) = registry.resolve(1, &test_digest(key)).unwrap();
             assert_eq!(old_root, 0);
             nodes.push(text(key * 2 - 1, "row"));
             nodes.push(component(key * 2, instance, key * 2 - 1));
@@ -3447,7 +3528,7 @@ mod tests {
         assert_eq!(registry.seen.capacity(), 0);
 
         registry.begin_render(count / 2).unwrap();
-        registry.resolve(100, 0, "", 1).unwrap();
+        registry.resolve(1, &test_digest(1)).unwrap();
         assert!(registry.pending.capacity() < 16);
         assert!(registry.pending_instances.capacity() < 16);
         assert!(registry.seen.capacity() < 16);
@@ -3463,7 +3544,7 @@ mod tests {
         let (mut registry, mut graph) = registered_component();
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
-        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((1, 2)));
+        assert_eq!(registry.resolve(1, &[1; 32]), Ok((1, 2)));
         registry.scope_exit().unwrap();
         registry.finish_render().unwrap();
         let applied = graph
@@ -3487,15 +3568,15 @@ mod tests {
         registry.commit(&graph, &applied);
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
-        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((1, 8)));
+        assert_eq!(registry.resolve(1, &[1; 32]), Ok((1, 8)));
     }
 
     #[test]
-    fn component_registry_definition_changes_and_retirement_allocate_new_lifetimes() {
+    fn component_registry_key_changes_and_retirement_allocate_new_lifetimes() {
         let (mut registry, mut graph) = registered_component();
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
-        assert_eq!(registry.resolve(101, 1, "child", 0), Ok((2, 0)));
+        assert_eq!(registry.resolve(1, &[2; 32]), Ok((2, 0)));
         registry.scope_exit().unwrap();
         registry.finish_render().unwrap();
         let applied = graph
@@ -3503,7 +3584,7 @@ mod tests {
                 old_root: 4,
                 root: 8,
                 nodes: vec![
-                    text(5, "new definition"),
+                    text(5, "new key"),
                     component(6, 2, 5),
                     column(7, vec![6]),
                     component(8, 0, 7),
@@ -3519,7 +3600,7 @@ mod tests {
         );
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
-        assert_eq!(registry.resolve(100, 1, "child", 0), Ok((3, 0)));
+        assert_eq!(registry.resolve(1, &[1; 32]), Ok((3, 0)));
         registry.abort();
         let applied = graph
             .apply(Patch::Replace {
@@ -3531,25 +3612,25 @@ mod tests {
         registry.commit(&graph, &applied);
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
-        assert_eq!(registry.resolve(101, 1, "child", 0), Ok((4, 0)));
+        assert_eq!(registry.resolve(1, &[2; 32]), Ok((4, 0)));
     }
 
     #[test]
-    fn component_registry_rejects_duplicate_keys_across_definitions() {
+    fn component_registry_rejects_duplicate_keys() {
         let mut registry = ComponentRegistry::default();
         registry.begin_render(0).unwrap();
-        assert_eq!(registry.resolve(100, 0, "", 7), Ok((1, 0)));
+        assert_eq!(registry.resolve(1, &test_digest(7)), Ok((1, 0)));
         assert!(
             registry
-                .resolve(101, 0, "", 7)
+                .resolve(1, &test_digest(7))
                 .unwrap_err()
                 .contains("duplicate component key")
         );
-        assert_eq!(registry.resolve(100, 1, "7", 0), Ok((2, 0)));
+        assert_eq!(registry.resolve(1, &[7; 32]), Ok((2, 0)));
         registry.abort();
         registry.begin_render(0).unwrap();
         assert_eq!(
-            registry.resolve(100, 0, "", 7),
+            registry.resolve(1, &test_digest(7)),
             Ok((3, 0)),
             "aborted allocation cannot be reused"
         );
@@ -3561,7 +3642,7 @@ mod tests {
         registry.begin_render(0).unwrap();
         registry.scope_enter(8, "root", 0).unwrap();
         assert_eq!(
-            registry.resolve(100, 1, "child", 0),
+            registry.resolve(1, &[1; 32]),
             Ok((2, 0)),
             "Column became Row"
         );
@@ -3570,16 +3651,319 @@ mod tests {
         registry.scope_enter(5, "wrapper", 0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
         assert_eq!(
-            registry.resolve(100, 1, "child", 0),
+            registry.resolve(1, &[1; 32]),
             Ok((3, 0)),
             "new native wrapper changes scope"
+        );
+    }
+
+    fn hover_button(id: u64, enabled: bool, enter: bool, exit: bool) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Button {
+                caption: "Cell".into(),
+                label: "Cell".into(),
+                enabled,
+                hover_enter: enter,
+                hover_exit: exit,
+                style: Style::default(),
+            },
+            children: vec![],
+        }
+    }
+
+    #[test]
+    fn hover_edges_use_live_routes_and_track_optional_handlers() {
+        for (enter, exit) in [(true, true), (true, false), (false, true), (false, false)] {
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: 1,
+                    nodes: vec![hover_button(1, true, enter, exit)],
+                })
+                .unwrap();
+            assert_eq!(graph.hover_transition(1, false), None);
+            assert_eq!(
+                graph.hover_transition(1, true),
+                enter.then_some(1 | HOVER_ENTER_EVENT_BIT)
+            );
+            assert_eq!(graph.hover_transition(1, true), None);
+            assert_eq!(
+                graph.hover_transition(1, false),
+                exit.then_some(1 | HOVER_EXIT_EVENT_BIT)
+            );
+            assert_eq!(graph.hover_transition(1, false), None);
+            graph
+                .apply(Patch::Replace {
+                    old_root: 1,
+                    root: 2,
+                    nodes: vec![hover_button(2, false, enter, exit)],
+                })
+                .unwrap();
+            assert_eq!(graph.hover_transition(1, true), None);
+            assert_eq!(graph.hover_transition(2, true), None);
+        }
+    }
+
+    #[test]
+    fn modal_input_policy_retires_background_hover_without_callbacks() {
+        for deliver_blocked_exit in [false, true] {
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: 10,
+                    nodes: vec![
+                        hover_button(1, true, true, true),
+                        text(2, "slot"),
+                        column(10, vec![1, 2]),
+                    ],
+                })
+                .unwrap();
+            assert_eq!(
+                graph.hover_transition(1, true),
+                Some(1 | HOVER_ENTER_EVENT_BIT)
+            );
+            graph
+                .apply(Patch::Replace {
+                    old_root: 2,
+                    root: 20,
+                    nodes: vec![
+                        Node {
+                            id: 20,
+                            kind: NodeKind::Dialog {
+                                label: "Modal".into(),
+                                style: Style::default(),
+                            },
+                            children: vec![21],
+                        },
+                        hover_button(21, true, true, true),
+                    ],
+                })
+                .unwrap();
+            assert!(!graph.hovered.contains(&1));
+            assert_eq!(graph.hover_transition(1, true), None);
+            if deliver_blocked_exit {
+                assert_eq!(graph.hover_transition(1, false), None);
+            }
+            assert_eq!(
+                graph.hover_transition(21, true),
+                Some(21 | HOVER_ENTER_EVENT_BIT)
+            );
+            // Rebuilding only modal content must preserve an active modal hover.
+            graph
+                .apply(Patch::Replace {
+                    old_root: 21,
+                    root: 22,
+                    nodes: vec![hover_button(22, true, true, true)],
+                })
+                .unwrap();
+            assert_eq!(graph.hover_transition(22, true), None);
+            assert_eq!(
+                graph.hover_transition(22, false),
+                Some(22 | HOVER_EXIT_EVENT_BIT)
+            );
+            graph
+                .apply(Patch::Replace {
+                    old_root: 20,
+                    root: 23,
+                    nodes: vec![text(23, "slot")],
+                })
+                .unwrap();
+            assert_eq!(
+                graph.hover_transition(1, true),
+                Some(1 | HOVER_ENTER_EVENT_BIT)
+            );
+            assert_eq!(graph.hover_transition(1, true), None);
+            assert_eq!(
+                graph.hover_transition(1, false),
+                Some(1 | HOVER_EXIT_EVENT_BIT)
+            );
+            assert_eq!(graph.hover_transition(21, true), None);
+        }
+    }
+
+    #[test]
+    fn hover_survives_local_replacement_without_visiting_unrelated_siblings() {
+        for count in [100_u64, 1_000, 10_000] {
+            let mut graph = MountedGraph::default();
+            let mut nodes = Vec::new();
+            let mut children = Vec::new();
+            for instance in 1..=count {
+                nodes.push(hover_button(instance * 2 - 1, true, true, true));
+                nodes.push(component(instance * 2, instance, instance * 2 - 1));
+                children.push(instance * 2);
+            }
+            let root = count * 2 + 1;
+            nodes.push(column(root, children));
+            graph.apply(Patch::Mount { root, nodes }).unwrap();
+            assert_eq!(
+                graph.hover_transition(1, true),
+                Some(1 | HOVER_ENTER_EVENT_BIT)
+            );
+            let next = root + 1;
+            let applied = graph
+                .apply(Patch::Replace {
+                    old_root: 2,
+                    root: next + 1,
+                    nodes: vec![
+                        hover_button(next, true, true, true),
+                        component(next + 1, 1, next),
+                    ],
+                })
+                .unwrap();
+            assert_eq!(applied.facts.staged, 2);
+            assert_eq!(applied.facts.removed, 2);
+            assert_eq!(
+                graph.hover_transition(1, false),
+                None,
+                "retired route cannot leave replacement"
+            );
+            assert_eq!(
+                graph.hover_transition(next, true),
+                None,
+                "replacement preserves hovered state"
+            );
+            assert_eq!(
+                graph.hover_transition(next, false),
+                Some(next | HOVER_EXIT_EVENT_BIT)
+            );
+            assert_eq!(
+                graph.hover_transition(next, true),
+                Some(next | HOVER_ENTER_EVENT_BIT)
+            );
+            graph
+                .apply(Patch::Replace {
+                    old_root: next + 1,
+                    root: next + 3,
+                    nodes: vec![
+                        hover_button(next + 2, true, true, true),
+                        component(next + 3, count + 1, next + 2),
+                    ],
+                })
+                .unwrap();
+            assert_eq!(
+                graph.hover_transition(next + 2, true),
+                Some((next + 2) | HOVER_ENTER_EVENT_BIT),
+                "owner remount resets hover lifetime"
+            );
+        }
+    }
+
+    #[test]
+    fn component_registry_validates_digest_without_allocating() {
+        let mut registry = ComponentRegistry::default();
+        registry.begin_render(0).unwrap();
+        for length in [0, 1, 31, 33, 64] {
+            assert!(
+                registry
+                    .resolve(1, &vec![0; length])
+                    .unwrap_err()
+                    .contains("exactly 32 bytes")
+            );
+        }
+        assert!(registry.resolve(0, &[0; 32]).is_err());
+        assert!(registry.resolve(2, &[0; 32]).is_err());
+        assert_eq!(registry.resolve(1, &[0; 32]), Ok((1, 0)));
+        let mut last_bit = [0; 32];
+        last_bit[31] = 128;
+        assert_eq!(
+            registry.resolve(1, &last_bit),
+            Ok((2, 0)),
+            "all 256 digest bits participate in identity"
+        );
+    }
+
+    #[test]
+    fn component_registry_unkeyed_reconstruction_has_a_new_lifetime() {
+        let mut registry = ComponentRegistry::default();
+        registry.begin_render(0).unwrap();
+        assert_eq!(registry.resolve(0, &[]), Ok((1, 0)));
+        assert_eq!(
+            registry.resolve(0, &[]),
+            Ok((2, 0)),
+            "unkeyed siblings never collide"
+        );
+        registry.finish_render().unwrap();
+        let mut graph = MountedGraph::default();
+        let applied = graph
+            .apply(Patch::Mount {
+                root: 5,
+                nodes: vec![
+                    text(1, "first"),
+                    component(2, 1, 1),
+                    text(3, "second"),
+                    component(4, 2, 3),
+                    column(5, vec![2, 4]),
+                ],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        registry.begin_render(1).unwrap();
+        registry.finish_render().unwrap();
+        let applied = graph
+            .apply(Patch::Replace {
+                old_root: 2,
+                root: 7,
+                nodes: vec![text(6, "local"), component(7, 1, 6)],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        assert_eq!(graph.boundary_root(1), Some(7));
+        registry.begin_render(0).unwrap();
+        assert_eq!(registry.resolve(0, &[]), Ok((3, 0)));
+        assert_eq!(registry.resolve(0, &[]), Ok((4, 0)));
+        registry.abort();
+        registry.begin_render(0).unwrap();
+        assert_eq!(
+            registry.resolve(0, &[]),
+            Ok((5, 0)),
+            "aborted lifetimes cannot be reused"
+        );
+    }
+
+    #[test]
+    fn component_registry_keyed_reorder_keeps_identity_but_owner_remount_does_not() {
+        let mut registry = ComponentRegistry::default();
+        registry.begin_render(0).unwrap();
+        assert_eq!(registry.resolve(1, &[1; 32]), Ok((1, 0)));
+        registry.component_enter(1).unwrap();
+        assert_eq!(registry.resolve(1, &[2; 32]), Ok((2, 0)));
+        assert_eq!(registry.resolve(1, &[3; 32]), Ok((3, 0)));
+        registry.component_exit().unwrap();
+        registry.finish_render().unwrap();
+        let mut graph = MountedGraph::default();
+        let applied = graph
+            .apply(Patch::Mount {
+                root: 6,
+                nodes: vec![
+                    text(1, "a"),
+                    component(2, 2, 1),
+                    text(3, "b"),
+                    component(4, 3, 3),
+                    column(5, vec![2, 4]),
+                    component(6, 1, 5),
+                ],
+            })
+            .unwrap();
+        registry.commit(&graph, &applied);
+        registry.begin_render(1).unwrap();
+        assert_eq!(registry.resolve(1, &[3; 32]), Ok((3, 4)));
+        assert_eq!(registry.resolve(1, &[2; 32]), Ok((2, 2)));
+        registry.abort();
+        registry.begin_render(0).unwrap();
+        assert_eq!(registry.resolve(1, &[4; 32]), Ok((4, 0)));
+        registry.component_enter(4).unwrap();
+        assert_eq!(
+            registry.resolve(1, &[2; 32]),
+            Ok((5, 0)),
+            "same child key under a new owner starts a new lifetime"
         );
     }
 
     #[test]
     fn component_registry_scopes_must_balance_before_commit() {
         let mut registry = ComponentRegistry::default();
-        assert!(registry.resolve(100, 0, "", 0).is_err());
+        assert!(registry.resolve(0, &[]).is_err());
         registry.begin_render(0).unwrap();
         registry.scope_enter(5, "root", 0).unwrap();
         assert!(
@@ -3589,7 +3973,7 @@ mod tests {
                 .contains("unfinished scopes")
         );
         assert!(registry.component_exit().is_err());
-        registry.resolve(100, 1, "child", 0).unwrap();
+        registry.resolve(1, &[1; 32]).unwrap();
         registry.component_enter(1).unwrap();
         assert!(registry.scope_exit().is_err());
         registry.component_exit().unwrap();

@@ -4,13 +4,13 @@ import Action
 ## never crosses the ABI. One installed closure owns state and routing.
 Session(a) :: [
 	Event(U64),
-	Completion({ owner : U64, resume : Box((Box(a) -> Box(Action(a)))) }),
+	Completion({ owner : U64, resume : Box(Action.Completion(a)) }),
 ].{
 	event : U64 -> Session(a)
 	event = |id| Event(id)
-	completion : U64, Box((Box(a) -> Box(Action(a)))) -> Session(a)
+	completion : U64, Box(Action.Completion(a)) -> Session(a)
 	completion = |owner, resume| Completion({ owner, resume })
-	inspect : Session(a) -> [Event(U64), Completion({ owner : U64, resume : Box((Box(a) -> Box(Action(a)))) })]
+	inspect : Session(a) -> [Event(U64), Completion({ owner : U64, resume : Box(Action.Completion(a)) })]
 	inspect = |value| match value {
 		Event(id) => Event(id)
 		Completion(completed) => Completion(completed)

@@ -16,3 +16,8 @@ dependencies/** -text
 # The Windows resource is compiled from these and released beside the host, so
 # its bytes must not depend on how a checkout wrote their line endings.
 crates/host/windows/** -text
+
+# The reviewed GPUI source tree and its original notices are byte-exact inputs.
+vendor/gpui/** -text
+# Preserve the published Metal shader's mixed indentation byte for byte.
+vendor/gpui/src/platform/mac/shaders.metal whitespace=-space-before-tab

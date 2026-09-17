@@ -1,4 +1,4 @@
-## Persistent radix index for platform-owned U64 identifiers. A change copies
+## Persistent radix index for U64 application and platform identifiers. A change copies
 ## at most sixteen radix branches, irrespective of unrelated live entries.
 ## Leaves retain the remaining key bits and split only when keys collide;
 ## distinct entries do not each need a sixteen-level chain of unary branches.

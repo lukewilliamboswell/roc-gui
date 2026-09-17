@@ -1,4 +1,4 @@
-(test "Default structural equality includes hidden handler inputs"
+(test "Opt-in structural equality includes hidden handler inputs"
   (steps
     (click (role button :name "Refresh queue"))
     (expect-component-work :rendered 1 :compared 1 :skipped 1)
