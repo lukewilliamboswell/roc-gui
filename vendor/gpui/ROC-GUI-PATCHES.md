@@ -50,6 +50,9 @@ Local changes:
   from this comparison. The same native regression verifies that fast path, grows and
   shrinks preceding siblings, checks real hover delivery and scene primitives,
   and aborts a prepaint replay transaction before successful rendering.
+- `build.rs`: remaps Metal line-table paths from the host source root to the
+  neutral `/workspace` prefix. The production shader archive therefore retains
+  useful line information without recording checkout or user identity.
 
 Run the modified dependency's regression tests with
 `cargo test -p gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope`

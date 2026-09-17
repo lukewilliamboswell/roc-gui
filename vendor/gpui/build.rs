@@ -199,6 +199,10 @@ mod macos {
         let air_output_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("shaders.air");
         let metallib_output_path =
             PathBuf::from(env::var("OUT_DIR").unwrap()).join("shaders.metallib");
+        let source_root = PathBuf::from(env::var("ROC_GUI_HOST_SOURCE_ROOT").unwrap())
+            .canonicalize()
+            .unwrap();
+        let debug_prefix_map = format!("-fdebug-prefix-map={}=/workspace", source_root.display());
         println!("cargo:rerun-if-changed={}", shader_path);
 
         let output = Command::new("xcrun")
@@ -207,6 +211,9 @@ mod macos {
                 "macosx",
                 "metal",
                 "-gline-tables-only",
+            ])
+            .arg(debug_prefix_map)
+            .args([
                 "-mmacosx-version-min=10.15.7",
                 "-MO",
                 "-c",
