@@ -487,6 +487,9 @@ Internal := [].{
 						)
 					}
 					_ => {
+						# Keep the opaque descriptor across this helper boundary. Passing the
+						# already-inspected structural union avoids a second inspection but
+						# copies the large union and is slower with the pinned dev backend.
 						built = lower_leaf!(current, $active_boundary, $routes, $boundaries)
 						$root = built.root
 						$routes = built.routes
