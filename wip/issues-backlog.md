@@ -371,6 +371,22 @@ names the evidence so a fix can be verified against the same case.
   retention as separately owned work, and do not attribute those frame costs
   to keyed graph reconciliation.
 
+  A serial development-backend comparison against `origin/main` at `d0a98ce`,
+  using byte-identical applications and specifications, the same pinned
+  compiler, isolated jobs, and A/A repeats, exposes a material full-root cost in
+  this branch. Repeated 10,000-row replacement increased from 50.49–50.67 ms to
+  773.02–785.22 ms median Roc callback time; 10,000 styled-checkbox selection
+  increased from 15.32–16.04 ms to 190.52–190.82 ms. Loading the unchanged
+  10,000-item virtual list increased from 14.71–14.86 ms to 299.40–475.01 ms,
+  with the wide repeat range itself evidence of noise. In contrast, moving one
+  canvas layer decreased from 421–431 us to 185–198 us, and an idempotent
+  10,000-row reselect decreased from 2.47–2.52 ms to 52–81 us. Diagnose the
+  full-root render, lowering, validation, graph-apply, and allocation owners
+  separately; do not trade away the bounded local path to optimize these cases.
+  These semantic captures contain no GPUI frame work, and `origin/main` has no
+  keyed-collection analogue, so they neither compare native rendering nor
+  establish an A/B result for keyed insert, move, or removal.
+
   Historical serial schema-11 captures passed all four sparse-update scales
   and A/A repeats with the compiler/backend used for that checkpoint. The
   10k to 100k median grew from 60.863 ms to 902.451 ms; callback, validation,
