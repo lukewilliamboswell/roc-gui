@@ -1074,6 +1074,38 @@ pub struct GraphApply {
     pub staged_instances: Vec<u64>,
 }
 
+#[derive(Clone, Debug)]
+enum KeyedGraphOperation {
+    Insert {
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+        root: u64,
+        nodes: Vec<Node>,
+    },
+    Remove {
+        key: KeyedChildKey,
+    },
+    Move {
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+    },
+    Set {
+        key: KeyedChildKey,
+        root: u64,
+        nodes: Vec<Node>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct KeyedGraphApply {
+    revision: u64,
+    staged: u64,
+    removed: u64,
+    graph_visits: u64,
+    original_reads: u64,
+    first_touches: u64,
+}
+
 /// One step of an [`ElementIdentity`]: a node's key among its siblings.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum IdentitySegment {
@@ -1136,30 +1168,43 @@ struct MountedNode {
     parent: Option<ParentLocation>,
     subtree_size: u64,
     segment: IdentitySegment,
+    keyed_children: Option<KeyedChildOrder>,
 }
 
-/// Allocation-free semantic child order for mounted graph traversal. The
-/// representation is ordinary today; keyed storage can add another iterator
-/// variant without changing graph consumers.
+/// Allocation-free semantic child order for mounted graph traversal.
 pub(crate) struct MountedChildren<'a> {
-    ordinary: std::iter::Copied<std::slice::Iter<'a, u64>>,
+    kind: MountedChildrenKind<'a>,
+}
+
+enum MountedChildrenKind<'a> {
+    Ordinary(std::iter::Copied<std::slice::Iter<'a, u64>>),
+    Keyed(KeyedChildIter<'a>),
 }
 
 impl Iterator for MountedChildren<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.ordinary.next()
+        match &mut self.kind {
+            MountedChildrenKind::Ordinary(iter) => iter.next(),
+            MountedChildrenKind::Keyed(iter) => iter.next().map(|(_, child)| child.root),
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.ordinary.size_hint()
+        match &self.kind {
+            MountedChildrenKind::Ordinary(iter) => iter.size_hint(),
+            MountedChildrenKind::Keyed(iter) => iter.size_hint(),
+        }
     }
 }
 
 impl DoubleEndedIterator for MountedChildren<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.ordinary.next_back()
+        match &mut self.kind {
+            MountedChildrenKind::Ordinary(iter) => iter.next_back(),
+            MountedChildrenKind::Keyed(iter) => iter.next_back().map(|(_, child)| child.root),
+        }
     }
 }
 
@@ -1167,12 +1212,19 @@ impl ExactSizeIterator for MountedChildren<'_> {}
 
 impl MountedGraph {
     pub(crate) fn children_of(&self, id: u64) -> MountedChildren<'_> {
-        let children = self
-            .nodes
-            .get(&id)
-            .map_or(&[][..], |entry| entry.node.children.as_slice());
-        MountedChildren {
-            ordinary: children.iter().copied(),
+        let Some(entry) = self.nodes.get(&id) else {
+            return MountedChildren {
+                kind: MountedChildrenKind::Ordinary([].iter().copied()),
+            };
+        };
+        if let Some(order) = &entry.keyed_children {
+            MountedChildren {
+                kind: MountedChildrenKind::Keyed(order.iter()),
+            }
+        } else {
+            MountedChildren {
+                kind: MountedChildrenKind::Ordinary(entry.node.children.iter().copied()),
+            }
         }
     }
 
@@ -1215,15 +1267,16 @@ impl MountedGraph {
     }
 
     pub fn is_virtual_descendant(&self, id: u64) -> bool {
-        let mut parent = self.parent(id);
-        while let Some((id, _)) = parent {
+        let mut parent = self.nodes.get(&id).and_then(|entry| entry.parent);
+        while let Some(location) = parent {
+            let id = location.parent();
             if matches!(
                 self.node(id).map(|node| &node.kind),
                 Some(NodeKind::VirtualList { .. })
             ) {
                 return true;
             }
-            parent = self.parent(id);
+            parent = self.nodes.get(&id).and_then(|entry| entry.parent);
         }
         false
     }
@@ -1506,6 +1559,362 @@ impl MountedGraph {
 
     pub fn apply_measured(&mut self, patch: Patch) -> Result<GraphApply, String> {
         self.apply_inner::<true>(patch)
+    }
+
+    /// Apply one keyed-container transaction. This is deliberately internal
+    /// until the Roc ABI can supply the same complete atomic unit.
+    fn apply_keyed(
+        &mut self,
+        container: u64,
+        base_revision: u64,
+        new_revision: u64,
+        operations: Vec<KeyedGraphOperation>,
+    ) -> Result<KeyedGraphApply, String> {
+        let previous_dialog = self.dialog;
+        let entry = self
+            .nodes
+            .get(&container)
+            .ok_or_else(|| format!("keyed container {container} is missing"))?;
+        if entry.keyed_children.is_none() && !entry.node.children.is_empty() {
+            return Err("an ordinary container cannot become keyed after mounting children".into());
+        }
+        let was_keyed = entry.keyed_children.is_some();
+        let mut order = self
+            .nodes
+            .get_mut(&container)
+            .expect("validated container")
+            .keyed_children
+            .take()
+            .unwrap_or_default();
+        if let Err(error) = order.check_revision(base_revision) {
+            self.nodes
+                .get_mut(&container)
+                .expect("validated container")
+                .keyed_children = was_keyed.then_some(order);
+            return Err(format!("keyed order rejected transaction: {error:?}"));
+        }
+        if new_revision <= base_revision {
+            self.nodes
+                .get_mut(&container)
+                .expect("validated container")
+                .keyed_children = was_keyed.then_some(order);
+            return Err(format!(
+                "keyed order rejected transaction: {:?}",
+                KeyedOrderError::StaleNewRevision {
+                    current: base_revision,
+                    proposed: new_revision
+                }
+            ));
+        }
+
+        struct FragmentPlan {
+            key: KeyedChildKey,
+            root: u64,
+            nodes: Vec<Node>,
+            validated: ValidatedFragment,
+        }
+
+        let owner = self.component_owner(container);
+        let mut journal = KeyedOrderJournal::new(&mut order);
+        let prepared = (|| -> Result<(Vec<FragmentPlan>, Vec<u64>, u64), String> {
+            let mut fragments = Vec::new();
+            let mut staged_ids = NodeSet::default();
+            let mut staged_instances = NodeSet::default();
+            let mut graph_visits = 0;
+
+            for operation in operations {
+                match operation {
+                    KeyedGraphOperation::Insert {
+                        key,
+                        before,
+                        root,
+                        nodes,
+                    } => {
+                        let validated =
+                            validate_fragment(root, &nodes, &NodeSet::default(), owner, |id| {
+                                self.node(id)
+                            })?;
+                        graph_visits += validated.visits;
+                        let instance = match validated
+                            .lookup(root, &nodes, |id| self.node(id))
+                            .map(|node| &node.kind)
+                        {
+                            Some(NodeKind::Boundary { instance }) => *instance,
+                            _ => {
+                                return Err("a keyed item root must be a component boundary".into());
+                            }
+                        };
+                        Self::validate_keyed_staged_fragment(
+                            self,
+                            &nodes,
+                            &mut staged_ids,
+                            &mut staged_instances,
+                            None,
+                        )?;
+                        journal
+                            .insert(key, root, instance, before)
+                            .map_err(|error| {
+                                format!("keyed order rejected transaction: {error:?}")
+                            })?;
+                        fragments.push(FragmentPlan {
+                            key,
+                            root,
+                            nodes,
+                            validated,
+                        });
+                    }
+                    KeyedGraphOperation::Remove { key } => journal
+                        .remove(key)
+                        .map_err(|error| format!("keyed order rejected transaction: {error:?}"))?,
+                    KeyedGraphOperation::Move { key, before } => {
+                        journal.move_before(key, before).map_err(|error| {
+                            format!("keyed order rejected transaction: {error:?}")
+                        })?
+                    }
+                    KeyedGraphOperation::Set { key, root, nodes } => {
+                        let child = journal.child(key).map_err(|error| {
+                            format!("keyed order rejected transaction: {error:?}")
+                        })?;
+                        let validated =
+                            validate_fragment(root, &nodes, &NodeSet::default(), owner, |id| {
+                                self.node(id)
+                            })?;
+                        graph_visits += validated.visits;
+                        match validated
+                            .lookup(root, &nodes, |id| self.node(id))
+                            .map(|node| &node.kind)
+                        {
+                            Some(NodeKind::Boundary { instance })
+                                if *instance == child.instance => {}
+                            Some(NodeKind::Boundary { .. }) => {
+                                return Err(
+                                    "a keyed Set must preserve its component instance".into()
+                                );
+                            }
+                            _ => {
+                                return Err("a keyed item root must be a component boundary".into());
+                            }
+                        }
+                        Self::validate_keyed_staged_fragment(
+                            self,
+                            &nodes,
+                            &mut staged_ids,
+                            &mut staged_instances,
+                            Some(child.instance),
+                        )?;
+                        journal.replace(key, root).map_err(|error| {
+                            format!("keyed order rejected transaction: {error:?}")
+                        })?;
+                        fragments.push(FragmentPlan {
+                            key,
+                            root,
+                            nodes,
+                            validated,
+                        });
+                    }
+                }
+            }
+
+            let mut removed_roots = Vec::new();
+            for (key, original) in &journal.originals {
+                let final_child = journal.order.children.get(key);
+                if let Some(original) = original
+                    && final_child.is_none_or(|child| child.root != original.root)
+                {
+                    removed_roots.push(original.root);
+                }
+            }
+            let mut removed_ids = Vec::new();
+            for root in removed_roots {
+                let mut pending = vec![root];
+                while let Some(id) = pending.pop() {
+                    graph_visits += 1;
+                    removed_ids.push(id);
+                    pending.extend(self.children_of(id));
+                }
+            }
+            let removed = removed_ids.iter().copied().collect::<NodeSet>();
+
+            fragments.retain(|fragment| {
+                journal
+                    .order
+                    .children
+                    .get(&fragment.key)
+                    .is_some_and(|child| child.root == fragment.root)
+            });
+            let mut labels = HashSet::new();
+            let mut staged_dialog = false;
+            for fragment in &fragments {
+                for node in &fragment.nodes {
+                    match &node.kind {
+                        NodeKind::Dialog { .. } => {
+                            if staged_dialog || self.dialog.is_some_and(|id| !removed.contains(&id))
+                            {
+                                return Err(
+                                    "mounted graph would contain more than one modal dialog".into(),
+                                );
+                            }
+                            staged_dialog = true;
+                        }
+                        NodeKind::TextInput { label, .. } => {
+                            let owner = fragment.validated.input_owners[&node.id];
+                            if !labels.insert((owner, label.clone()))
+                                || self
+                                    .input_labels
+                                    .get(&(owner, label.clone()))
+                                    .is_some_and(|id| !removed.contains(id))
+                            {
+                                return Err(format!(
+                                    "mounted graph contains duplicate text input label {label:?}"
+                                ));
+                            }
+                        }
+                        NodeKind::Boundary { instance } => {
+                            if self
+                                .boundary_instances
+                                .get(instance)
+                                .is_some_and(|id| !removed.contains(id))
+                            {
+                                return Err(format!(
+                                    "component instance {instance} is already mounted"
+                                ));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Ok((fragments, removed_ids, graph_visits))
+        })();
+
+        let (fragments, removed_ids, graph_visits) = match prepared {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                journal.rollback();
+                self.nodes
+                    .get_mut(&container)
+                    .expect("validated container")
+                    .keyed_children = was_keyed.then_some(order);
+                return Err(error);
+            }
+        };
+        journal.order.revision = new_revision;
+        let original_reads = journal.original_reads;
+        let first_touches = journal.first_touches;
+        drop(journal);
+
+        let old_size = self.nodes[&container].subtree_size;
+        let mut hovered_identities = HashSet::new();
+        for id in &removed_ids {
+            if self.hovered.remove(id) {
+                hovered_identities.insert(self.identity(*id));
+            }
+        }
+        for id in &removed_ids {
+            let entry = self.nodes.remove(id).expect("prevalidated retirement");
+            match entry.node.kind {
+                NodeKind::Boundary { instance } => {
+                    self.boundary_instances.remove(&instance);
+                }
+                NodeKind::TextInput { label, .. } => {
+                    let owner = self.input_owners.remove(id).flatten();
+                    self.input_labels.remove(&(owner, label));
+                }
+                NodeKind::Dialog { .. } => self.dialog = None,
+                _ => {}
+            }
+        }
+        let mut staged = 0;
+        let mut staged_ids = Vec::new();
+        for fragment in fragments {
+            staged += fragment.nodes.len() as u64;
+            staged_ids.extend(fragment.nodes.iter().map(|node| node.id));
+            self.insert_nodes(fragment.nodes, &fragment.validated);
+            let child = order.children.get(&fragment.key).expect("final keyed root");
+            let root = self.nodes.get_mut(&fragment.root).expect("inserted root");
+            root.parent = Some(ParentLocation::Keyed {
+                container,
+                key: fragment.key,
+                instance: child.instance,
+            });
+            root.segment = IdentitySegment::Boundary {
+                instance: child.instance,
+            };
+        }
+        let keyed_size = old_size - removed_ids.len() as u64 + staged;
+        if keyed_size != old_size {
+            self.nodes
+                .get_mut(&container)
+                .expect("validated container")
+                .subtree_size = keyed_size;
+            let mut ancestor = self.nodes[&container].parent.map(ParentLocation::parent);
+            while let Some(id) = ancestor {
+                let entry = self.nodes.get_mut(&id).expect("mounted ancestor");
+                entry.subtree_size = entry.subtree_size - old_size + keyed_size;
+                ancestor = entry.parent.map(ParentLocation::parent);
+            }
+        }
+        self.nodes
+            .get_mut(&container)
+            .expect("validated container")
+            .keyed_children = Some(order);
+        if !hovered_identities.is_empty() {
+            for id in staged_ids {
+                if matches!(self.node(id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
+                    && hovered_identities.contains(&self.identity(id))
+                {
+                    self.hovered.insert(id);
+                }
+            }
+        }
+        if self.dialog != previous_dialog
+            && let Some(dialog) = self.dialog
+        {
+            let blocked = self
+                .hovered
+                .iter()
+                .copied()
+                .filter(|id| !self.is_descendant_of(*id, dialog))
+                .collect::<Vec<_>>();
+            for id in blocked {
+                self.hovered.remove(&id);
+            }
+        }
+        Ok(KeyedGraphApply {
+            revision: new_revision,
+            staged,
+            removed: removed_ids.len() as u64,
+            graph_visits,
+            original_reads,
+            first_touches,
+        })
+    }
+
+    fn validate_keyed_staged_fragment(
+        &self,
+        nodes: &[Node],
+        staged_ids: &mut NodeSet,
+        staged_instances: &mut NodeSet,
+        replacing_instance: Option<u64>,
+    ) -> Result<(), String> {
+        for node in nodes {
+            if node.id <= self.max_seen_node_id || !staged_ids.insert(node.id) {
+                return Err("keyed transaction reused a previously issued node id".into());
+            }
+            if let NodeKind::Boundary { instance } = node.kind {
+                if !staged_instances.insert(instance) {
+                    return Err(format!(
+                        "component instance {instance} appears twice in keyed transaction"
+                    ));
+                }
+                if Some(instance) != replacing_instance
+                    && self.max_seen_instance.is_some_and(|max| instance <= max)
+                {
+                    return Err(format!("component instance {instance} was retired"));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn apply_inner<const MEASURE: bool>(&mut self, patch: Patch) -> Result<GraphApply, String> {
@@ -1867,6 +2276,7 @@ impl MountedGraph {
                     parent: None,
                     subtree_size: 1,
                     segment,
+                    keyed_children: None,
                 },
             );
         }
@@ -2934,6 +3344,430 @@ mod tests {
         assert!(edit.original_reads <= 3);
         assert_eq!(edit.original_reads, edit.first_touches);
         assert_eq!(order.iter().next_back().map(|(key, _)| key), Some(first));
+    }
+
+    fn keyed_graph() -> MountedGraph {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![Node {
+                    id: 1,
+                    kind: NodeKind::Column {
+                        label: "keyed".into(),
+                        style: Style::default(),
+                    },
+                    children: vec![],
+                }],
+            })
+            .unwrap();
+        graph
+    }
+
+    fn keyed_button_fragment(root: u64, instance: u64, label: &str) -> Vec<Node> {
+        vec![
+            Node {
+                id: root,
+                kind: NodeKind::Boundary { instance },
+                children: vec![root + 1],
+            },
+            Node {
+                id: root + 1,
+                kind: NodeKind::Button {
+                    caption: label.into(),
+                    label: label.into(),
+                    enabled: true,
+                    hover_enter: true,
+                    hover_exit: true,
+                    style: Style::default(),
+                },
+                children: vec![],
+            },
+        ]
+    }
+
+    #[test]
+    fn keyed_graph_move_changes_semantic_order_without_changing_identity() {
+        let (a, b, c) = (keyed_test_key(1), keyed_test_key(2), keyed_test_key(3));
+        let mut graph = keyed_graph();
+        graph
+            .apply_keyed(
+                1,
+                0,
+                1,
+                vec![
+                    KeyedGraphOperation::Insert {
+                        key: a,
+                        before: None,
+                        root: 2,
+                        nodes: keyed_button_fragment(2, 10, "a"),
+                    },
+                    KeyedGraphOperation::Insert {
+                        key: b,
+                        before: None,
+                        root: 4,
+                        nodes: keyed_button_fragment(4, 11, "b"),
+                    },
+                    KeyedGraphOperation::Insert {
+                        key: c,
+                        before: None,
+                        root: 6,
+                        nodes: keyed_button_fragment(6, 12, "c"),
+                    },
+                ],
+            )
+            .unwrap();
+        let identity = graph.identity(5);
+        assert_eq!(graph.children_of(1).collect::<Vec<_>>(), vec![2, 4, 6]);
+        assert_eq!(graph.focus_order(), vec![3, 5, 7]);
+        assert_eq!(graph.subtree_size(1), Some(7));
+        assert_eq!(
+            graph.parent_location(4),
+            Some(ParentLocation::Keyed {
+                container: 1,
+                key: b,
+                instance: 11
+            })
+        );
+
+        let edit = graph
+            .apply_keyed(
+                1,
+                1,
+                2,
+                vec![KeyedGraphOperation::Move {
+                    key: c,
+                    before: Some(a),
+                }],
+            )
+            .unwrap();
+        assert_eq!(edit.graph_visits, 0);
+        assert_eq!(graph.children_of(1).collect::<Vec<_>>(), vec![6, 2, 4]);
+        assert_eq!(graph.focus_order(), vec![7, 3, 5]);
+        assert_eq!(graph.identity(5), identity);
+    }
+
+    #[test]
+    fn keyed_graph_remove_retires_metadata_and_missing_key_is_atomic() {
+        let key = keyed_test_key(1);
+        let missing = keyed_test_key(9);
+        let mut graph = keyed_graph();
+        graph
+            .apply_keyed(
+                1,
+                0,
+                1,
+                vec![KeyedGraphOperation::Insert {
+                    key,
+                    before: None,
+                    root: 2,
+                    nodes: keyed_button_fragment(2, 10, "hover"),
+                }],
+            )
+            .unwrap();
+        assert_eq!(
+            graph.hover_transition(3, true),
+            Some(3 | HOVER_ENTER_EVENT_BIT)
+        );
+        let before = graph
+            .nodes_preorder()
+            .iter()
+            .map(|node| node.id)
+            .collect::<Vec<_>>();
+        assert!(
+            graph
+                .apply_keyed(
+                    1,
+                    1,
+                    2,
+                    vec![
+                        KeyedGraphOperation::Move { key, before: None },
+                        KeyedGraphOperation::Remove { key: missing },
+                    ],
+                )
+                .is_err()
+        );
+        assert_eq!(
+            graph
+                .nodes_preorder()
+                .iter()
+                .map(|node| node.id)
+                .collect::<Vec<_>>(),
+            before
+        );
+        assert_eq!(graph.boundary_root(10), Some(2));
+
+        graph
+            .apply_keyed(1, 1, 3, vec![KeyedGraphOperation::Remove { key }])
+            .unwrap();
+        assert_eq!(graph.boundary_root(10), None);
+        assert_eq!(graph.node(2), None);
+        assert!(!graph.hovered.contains(&3));
+        assert_eq!(graph.subtree_size(1), Some(1));
+    }
+
+    #[test]
+    fn keyed_graph_remove_retires_input_and_dialog_indices() {
+        let key = keyed_test_key(1);
+        let mut graph = keyed_graph();
+        graph
+            .apply_keyed(
+                1,
+                0,
+                1,
+                vec![KeyedGraphOperation::Insert {
+                    key,
+                    before: None,
+                    root: 2,
+                    nodes: vec![
+                        Node {
+                            id: 2,
+                            kind: NodeKind::Boundary { instance: 10 },
+                            children: vec![3],
+                        },
+                        Node {
+                            id: 3,
+                            kind: NodeKind::Column {
+                                label: "item".into(),
+                                style: Style::default(),
+                            },
+                            children: vec![4, 5],
+                        },
+                        Node {
+                            id: 4,
+                            kind: NodeKind::TextInput {
+                                label: "name".into(),
+                                value: String::new(),
+                                placeholder: String::new(),
+                                enabled: true,
+                                style: Style::default(),
+                            },
+                            children: vec![],
+                        },
+                        Node {
+                            id: 5,
+                            kind: NodeKind::Dialog {
+                                label: "modal".into(),
+                                style: Style::default(),
+                            },
+                            children: vec![],
+                        },
+                    ],
+                }],
+            )
+            .unwrap();
+        assert_eq!(graph.active_dialog(), Some(5));
+        assert_eq!(graph.input_labels.get(&(Some(10), "name".into())), Some(&4));
+        graph
+            .apply_keyed(1, 1, 2, vec![KeyedGraphOperation::Remove { key }])
+            .unwrap();
+        assert_eq!(graph.active_dialog(), None);
+        assert!(graph.input_owners.get(&4).is_none());
+        assert!(graph.input_labels.get(&(Some(10), "name".into())).is_none());
+    }
+
+    #[test]
+    fn keyed_graph_set_replaces_subtree_and_preserves_keyed_instance() {
+        let key = keyed_test_key(1);
+        let mut graph = keyed_graph();
+        graph
+            .apply_keyed(
+                1,
+                0,
+                1,
+                vec![KeyedGraphOperation::Insert {
+                    key,
+                    before: None,
+                    root: 2,
+                    nodes: keyed_button_fragment(2, 10, "old"),
+                }],
+            )
+            .unwrap();
+        let edit = graph
+            .apply_keyed(
+                1,
+                1,
+                7,
+                vec![KeyedGraphOperation::Set {
+                    key,
+                    root: 4,
+                    nodes: keyed_button_fragment(4, 10, "new"),
+                }],
+            )
+            .unwrap();
+        assert_eq!((edit.staged, edit.removed), (2, 2));
+        assert_eq!(graph.children_of(1).collect::<Vec<_>>(), vec![4]);
+        assert_eq!(graph.boundary_root(10), Some(4));
+        assert_eq!(graph.focus_order(), vec![5]);
+        assert_eq!(
+            graph.parent_location(4),
+            Some(ParentLocation::Keyed {
+                container: 1,
+                key,
+                instance: 10
+            })
+        );
+    }
+
+    #[test]
+    fn keyed_graph_edits_update_every_ancestor_subtree_size() {
+        let key = keyed_test_key(1);
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![
+                    Node {
+                        id: 1,
+                        kind: NodeKind::Row {
+                            label: "outer".into(),
+                            style: Style::default(),
+                        },
+                        children: vec![2],
+                    },
+                    Node {
+                        id: 2,
+                        kind: NodeKind::Column {
+                            label: "keyed".into(),
+                            style: Style::default(),
+                        },
+                        children: vec![],
+                    },
+                ],
+            })
+            .unwrap();
+        graph
+            .apply_keyed(
+                2,
+                0,
+                1,
+                vec![KeyedGraphOperation::Insert {
+                    key,
+                    before: None,
+                    root: 3,
+                    nodes: keyed_button_fragment(3, 10, "item"),
+                }],
+            )
+            .unwrap();
+        assert_eq!(graph.subtree_size(2), Some(3));
+        assert_eq!(graph.subtree_size(1), Some(4));
+        graph
+            .apply_keyed(2, 1, 2, vec![KeyedGraphOperation::Remove { key }])
+            .unwrap();
+        assert_eq!(graph.subtree_size(2), Some(1));
+        assert_eq!(graph.subtree_size(1), Some(2));
+    }
+
+    #[test]
+    fn keyed_graph_stale_duplicate_and_fragment_failures_leave_graph_unchanged() {
+        let key = keyed_test_key(1);
+        let mut graph = keyed_graph();
+        let before = graph
+            .nodes_preorder()
+            .iter()
+            .map(|node| node.id)
+            .collect::<Vec<_>>();
+        assert!(
+            graph
+                .apply_keyed(
+                    1,
+                    9,
+                    10,
+                    vec![KeyedGraphOperation::Insert {
+                        key,
+                        before: None,
+                        root: 2,
+                        nodes: keyed_button_fragment(2, 10, "a"),
+                    }],
+                )
+                .is_err()
+        );
+        assert!(
+            graph
+                .apply_keyed(
+                    1,
+                    0,
+                    1,
+                    vec![
+                        KeyedGraphOperation::Insert {
+                            key,
+                            before: None,
+                            root: 2,
+                            nodes: keyed_button_fragment(2, 10, "a"),
+                        },
+                        KeyedGraphOperation::Insert {
+                            key,
+                            before: None,
+                            root: 4,
+                            nodes: keyed_button_fragment(4, 11, "b"),
+                        },
+                    ],
+                )
+                .is_err()
+        );
+        assert!(
+            graph
+                .apply_keyed(
+                    1,
+                    0,
+                    1,
+                    vec![KeyedGraphOperation::Insert {
+                        key,
+                        before: None,
+                        root: 2,
+                        nodes: vec![Node {
+                            id: 2,
+                            kind: NodeKind::Boundary { instance: 10 },
+                            children: vec![],
+                        }],
+                    }],
+                )
+                .is_err()
+        );
+        assert_eq!(
+            graph
+                .nodes_preorder()
+                .iter()
+                .map(|node| node.id)
+                .collect::<Vec<_>>(),
+            before
+        );
+        assert_eq!(graph.subtree_size(1), Some(1));
+    }
+
+    #[test]
+    fn keyed_graph_move_work_is_bounded_at_ten_thousand_items() {
+        let mut graph = keyed_graph();
+        let mut operations = Vec::with_capacity(10_000);
+        for value in 0..10_000_u64 {
+            let mut key = [0; 32];
+            key[..8].copy_from_slice(&value.to_le_bytes());
+            let root = value * 2 + 2;
+            operations.push(KeyedGraphOperation::Insert {
+                key,
+                before: None,
+                root,
+                nodes: keyed_button_fragment(root, value + 10, "row"),
+            });
+        }
+        graph.apply_keyed(1, 0, 1, operations).unwrap();
+        let mut first = [0; 32];
+        first[..8].copy_from_slice(&0_u64.to_le_bytes());
+        let edit = graph
+            .apply_keyed(
+                1,
+                1,
+                2,
+                vec![KeyedGraphOperation::Move {
+                    key: first,
+                    before: None,
+                }],
+            )
+            .unwrap();
+        assert_eq!(edit.graph_visits, 0);
+        assert!(edit.first_touches <= 3);
+        assert_eq!(edit.original_reads, edit.first_touches);
+        assert_eq!(graph.children_of(1).next_back(), Some(2));
     }
 
     fn button(label: &str, enabled: bool) -> NodeKind {
