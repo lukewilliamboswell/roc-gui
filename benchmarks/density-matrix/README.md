@@ -22,6 +22,8 @@ The window specification visits the same four corners, waits for each
 configuration to be presented, and clicks the first visible action through
 GPUI. It bounds production-native button and component-boundary work for every
 completed click frame. The rendered boundary stays local, while the production
-counter records 25 boundary elements handed to GPUI at low interaction density
-and 2,500 at high interaction density. That distinction makes the existing
-global element handoff visible without inferring it from timing.
+counter records at most the changed row's 25 boundary elements at both
+interaction scales. Each 25-control action row declares its real 1,898 by 24
+pixel extent, so clean rows use the ordinary GPUI view cache. The public window
+assertion does not report row-view handoff, so any remaining row-level traversal
+is unavailable here rather than inferred from the boundary counter.

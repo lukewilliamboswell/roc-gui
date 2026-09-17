@@ -123,7 +123,23 @@ render = |state| {
 			)
 			$control_id = $control_id + 1
 		}
-		$control_rows = $control_rows.append(Elem.row({ label: "Action row", gap: 2, padding: 0 }, $controls))
+		$control_rows = $control_rows.append(
+			Elem.row(
+				{
+					label: "Action row",
+					gap: 2,
+					padding: 0,
+					width: Px(1898),
+					height: Px(24),
+					min_width: Px(1898),
+					min_height: Px(24),
+					max_width: Px(1898),
+					max_height: Px(24),
+					grow: False,
+				},
+				$controls,
+			),
+		)
 	}
 
 	Elem.col(
