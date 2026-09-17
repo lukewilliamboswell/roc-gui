@@ -656,6 +656,11 @@ KeyedSeq(value) :: {
 	Placement : KeyedSeqPlacement
 	Edit(value) : KeyedSeqEdit(value)
 	Transition(value) : KeyedSeqTransition(value)
+	PlatformSaved : [PlatformFirstMount, PlatformRevision(U64)]
+	PlatformMountReason : [PlatformInitial, PlatformStale({ available_base : U64, saved : U64 })]
+	PlatformStep(value) : [PlatformInsert(Key, value, Placement), PlatformMove(Key, Placement), PlatformRemove(Key), PlatformSet(Key, value)]
+	PlatformCounters : { full_mounts : U64, inserted : U64, moved : U64, removed : U64, rendered : U64, retained : U64, set : U64, stale : U64 }
+	PlatformPlan(value) : [PlatformDelta({ base_revision : U64, counters : PlatformCounters, revision : U64, steps : List(PlatformStep(value)) }), PlatformFullMount({ counters : PlatformCounters, items : List({ key : Key, value : value }), reason : PlatformMountReason, revision : U64 })]
 	Error : [DuplicateKey(Key), MissingAnchor(Key), MissingKey(Key), SlotExhausted]
 
 	empty : KeyedSeq(value)
@@ -675,6 +680,57 @@ KeyedSeq(value) :: {
 		Ok(state.transition)
 	} else {
 		Err(StaleRevision({ actual: state.transition.base_revision, requested: base }))
+	}
+
+	## Internal lowering contract for the future keyed container runtime. Only
+	## Insert and Set steps carry values to render; Move and Remove identify
+	## already-mounted item boundaries. A stale revision is an explicit full
+	## mount rather than a silently inferred delta.
+	platform_plan : KeyedSeq(value), PlatformSaved -> PlatformPlan(value)
+	platform_plan = |sequence, saved| {
+		KeyedSeq.(state) = sequence
+		empty_counters = { full_mounts: 0, inserted: 0, moved: 0, removed: 0, rendered: 0, retained: 0, set: 0, stale: 0 }
+		match saved {
+			PlatformFirstMount => PlatformFullMount({
+				items: to_list(sequence),
+				revision: state.revision,
+				reason: PlatformInitial,
+				counters: { ..empty_counters, full_mounts: 1, rendered: len(sequence) },
+			})
+			PlatformRevision(saved_revision) if saved_revision == state.revision => PlatformDelta({ base_revision: saved_revision, revision: state.revision, steps: [], counters: empty_counters })
+			PlatformRevision(saved_revision) if saved_revision == state.transition.base_revision => {
+				transition = transition_from(sequence, saved_revision) ?? crash "KeyedSeq platform plan lost its checked transition"
+				var $steps = []
+				var $counters = empty_counters
+				for edit in transition.edits {
+					match edit {
+						InsertBefore(key, value, placement) => {
+							$steps = $steps.append(PlatformInsert(key, value, placement))
+							$counters = { ..$counters, inserted: $counters.inserted + 1, rendered: $counters.rendered + 1 }
+						}
+						MoveBefore(key, placement) => {
+							$steps = $steps.append(PlatformMove(key, placement))
+							$counters = { ..$counters, moved: $counters.moved + 1, retained: $counters.retained + 1 }
+						}
+						Remove(key) => {
+							$steps = $steps.append(PlatformRemove(key))
+							$counters = { ..$counters, removed: $counters.removed + 1 }
+						}
+						Set(key, value) => {
+							$steps = $steps.append(PlatformSet(key, value))
+							$counters = { ..$counters, rendered: $counters.rendered + 1, set: $counters.set + 1 }
+						}
+					}
+				}
+				PlatformDelta({ base_revision: saved_revision, revision: transition.revision, steps: $steps, counters: $counters })
+			}
+			PlatformRevision(saved_revision) => PlatformFullMount({
+				items: to_list(sequence),
+				revision: state.revision,
+				reason: PlatformStale({ available_base: state.transition.base_revision, saved: saved_revision }),
+				counters: { ..empty_counters, full_mounts: 1, rendered: len(sequence), stale: 1 },
+			})
+		}
 	}
 
 	record : KeyedSeq(value), List(Edit(value)) -> KeyedSeq(value)
@@ -1009,4 +1065,45 @@ expect {
 	current_ok = match current { Ok(transition) => transition.revision == 1 and transition.base_revision == 0, _ => False }
 	stale_ok = match stale { Err(StaleRevision({ actual, requested })) => actual == 0 and requested == 9, _ => False }
 	current_ok and stale_ok
+}
+
+## The lowering plan renders only inserted and set values. Moves retain their
+## mounted item boundary and removals need no renderer.
+expect {
+	a = Key.id(51)
+	b = Key.id(52)
+	c = Key.id(53)
+	d = Key.id(54)
+	initial = KeyedSeq.from_list([{ key: a, value: "a" }, { key: b, value: "b" }, { key: c, value: "c" }]) ?? crash "plan initial"
+	edits = [Set(a, "A"), MoveBefore(c, Before(a)), Remove(b), InsertBefore(d, "d", End)]
+	updated = KeyedSeq.apply_all(initial, edits) ?? crash "plan update"
+	match KeyedSeq.platform_plan(updated, PlatformRevision(KeyedSeq.revision(initial))) {
+		PlatformDelta(plan) => plan.base_revision == 1
+			and plan.revision == 2
+			and plan.steps == [PlatformSet(a, "A"), PlatformMove(c, Before(a)), PlatformRemove(b), PlatformInsert(d, "d", End)]
+			and plan.counters == { full_mounts: 0, inserted: 1, moved: 1, removed: 1, rendered: 2, retained: 1, set: 1, stale: 0 }
+		_ => False
+	}
+}
+
+## First mount and stale recovery explicitly report full rendering; an already
+## consumed revision is a zero-work delta.
+expect {
+	a = Key.id(61)
+	b = Key.id(62)
+	initial = KeyedSeq.from_list([{ key: a, value: 1 }]) ?? crash "mount initial"
+	updated = KeyedSeq.insert_before(initial, b, 2, End) ?? crash "mount update"
+	first_ok = match KeyedSeq.platform_plan(updated, PlatformFirstMount) {
+		PlatformFullMount(plan) => plan.reason == PlatformInitial and plan.items == [{ key: a, value: 1 }, { key: b, value: 2 }] and plan.counters.rendered == 2 and plan.counters.full_mounts == 1 and plan.counters.stale == 0
+		_ => False
+	}
+	stale_ok = match KeyedSeq.platform_plan(updated, PlatformRevision(99)) {
+		PlatformFullMount(plan) => plan.reason == PlatformStale({ available_base: 1, saved: 99 }) and plan.counters.rendered == 2 and plan.counters.full_mounts == 1 and plan.counters.stale == 1
+		_ => False
+	}
+	current_ok = match KeyedSeq.platform_plan(updated, PlatformRevision(2)) {
+		PlatformDelta(plan) => plan.base_revision == 2 and plan.revision == 2 and plan.steps.is_empty() and plan.counters.rendered == 0
+		_ => False
+	}
+	first_ok and stale_ok and current_ok
 }

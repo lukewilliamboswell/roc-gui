@@ -9,7 +9,7 @@ platform ""
 	requires {
 		glue_main : {}
 	}
-	exposes []
+	exposes [KeyedSeq]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -104,6 +104,7 @@ platform ""
 	}
 
 import HostGlue
+import KeyedSeq
 import Action
 import Files
 import InternalFiles
