@@ -26,7 +26,7 @@ create_grid = |count, first_identity| {
 		$cells = Index.set($cells, $id, { id: $id, key: Key.id(first_identity + $id - 1), inside: False, lit: False, generation: 0 })
 		$id = $id + 1
 	}
-	{ cells: $cells, count, columns: if count == 100 10 else 100, next_identity: first_identity + count }
+	{ cells: $cells, count, columns: if count == 100 10 else 125, next_identity: first_identity + count }
 }
 
 enter : Cell -> Action(Cell)
@@ -129,5 +129,5 @@ main : Program(State)
 main = Program.run({
 	init: create_grid(10000, 1),
 	render,
-	window: { title: "Hover trail", width: 660, height: 720, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) },
+	window: { title: "Hover trail", width: 800, height: 640, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) },
 })

@@ -18,6 +18,8 @@ native hover delivery and container reuse across all three sizes. The window cas
 check that a local enter renders at
 most its one cell boundary and five button views: the changed cell plus the
 four ordinary size/reset controls. Unrelated cell views must remain cached. The scaling case also bounds boundary
-elements handed to GPUI by the affected row width (10 or 100), so a low render
+elements handed to GPUI by the affected row width (10 or 125), so a low render
 count cannot hide traversal of all 10,000 cells.
-The 100 by 100 default grid fits in the window without virtualization.
+The 125 by 80 default grid fits in the window without virtualization, with
+room to spare below the last row so a window a platform opens smaller than
+requested still shows every cell.

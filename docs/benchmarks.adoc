@@ -148,7 +148,7 @@ direct sibling identity without per-row wrapper scopes at 100, 1,000, and
 local work independently of unrelated sibling count. Captured timings and
 allocation spans report only the work measured by their owners; they do not
 establish copying, retained memory, or unmeasured native work.
-Hover trail:: Move across a 100 by 100 grid of native buttons, lighting each
+Hover trail:: Move across a 125 by 80 grid of native buttons, lighting each
 cell and leaving a delayed reset trail. Every cell is an unmemoized keyed
 translation with persistent indexed state. Entry, exit, and completion ladders
 at 100, 1,000, and 10,000 cells assert one boundary rendered, no comparison, and

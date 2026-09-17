@@ -28,6 +28,10 @@ pub struct Options {
     pub shot_dir: PathBuf,
     pub timeout: Duration,
     pub require_shots: bool,
+    /// The content size the application asked its window to open at, in
+    /// points. Kept beside the size the window actually got so a run says
+    /// which one it measured.
+    pub requested_window: (f32, f32),
 }
 
 /// Why a step did not pass.
@@ -221,6 +225,26 @@ fn stale(value: probe::Stale) -> StepError {
         painted: value.painted,
         graph: value.graph,
     }
+}
+
+/// How the window that answered differs from the window that was asked for.
+///
+/// A platform may refuse the size an application requests: a display smaller
+/// than the request, or a window manager with its own view of where a window
+/// may end. Every geometry answer afterwards is then about a window nobody
+/// asked for, and an element laid out past the fold reads as "not on screen"
+/// with nothing to say why. Returns the sentence that names the difference,
+/// and nothing at all when the window opened at the size it was given.
+fn window_shortfall(requested: (f32, f32), actual: Option<(f32, f32)>) -> Option<String> {
+    let (want_width, want_height) = requested;
+    let (got_width, got_height) = actual?;
+    // Half a point of slack: a scale factor can round a size it did honour.
+    let short = got_width + 0.5 < want_width || got_height + 0.5 < want_height;
+    short.then(|| {
+        format!(
+            "the window opened at {got_width:.0}x{got_height:.0} points but the application asked for {want_width:.0}x{want_height:.0}, so content past the edge is clipped"
+        )
+    })
 }
 
 /// Whether a node is visible, not merely laid out.
@@ -495,7 +519,7 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
     }
 
     let mut json = String::new();
-    json.push_str("{\n  \"schema_version\": 1,\n");
+    json.push_str("{\n  \"schema_version\": 2,\n");
     json.push_str(&format!(
         "  \"spec\": {{ \"name\": \"{}\" }},\n",
         escape(&outcome.spec_name)
@@ -514,12 +538,18 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
         },
         outcome.unavailable_shots
     ));
+    // The requested size is recorded whether or not the window was measured:
+    // it is what the application asked for, and it is known even when the
+    // window closed before anything could be measured about it.
+    let (requested_width, requested_height) = options.requested_window;
     match outcome.window {
         Some((width, height)) => json.push_str(&format!(
-            "  \"window\": {{ \"width_points\": {width:.0}, \"height_points\": {height:.0}, \"scale_factor\": {:.1} }},\n",
+            "  \"window\": {{ \"width_points\": {width:.0}, \"height_points\": {height:.0}, \"requested_width_points\": {requested_width:.0}, \"requested_height_points\": {requested_height:.0}, \"scale_factor\": {:.1} }},\n",
             outcome.scale_factor
         )),
-        None => json.push_str("  \"window\": null,\n"),
+        None => json.push_str(&format!(
+            "  \"window\": {{ \"width_points\": null, \"height_points\": null, \"requested_width_points\": {requested_width:.0}, \"requested_height_points\": {requested_height:.0}, \"scale_factor\": null }},\n"
+        )),
     }
     json.push_str(&format!(
         "  \"require_shots\": {},\n",
@@ -1425,12 +1455,22 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
                     }
                     Err(error) => {
                         outcome.failed = true;
+                        // A clipped element is the one failure a smaller
+                        // window explains, so that is where the difference is
+                        // reported rather than in every unrelated message.
+                        let mut message = error.message(step.line);
+                        if matches!(error, StepError::OffScreen { .. })
+                            && let Some(note) =
+                                window_shortfall(options.requested_window, outcome.window)
+                        {
+                            message.push_str(&format!("; {note}"));
+                        }
                         outcome.steps.push(StepRecord {
                             ordinal,
                             line: step.line,
                             kind: step.command.kind(),
                             status: "fail",
-                            message: Some(error.message(step.line)),
+                            message: Some(message),
                             shot: None,
                         });
                         break;
@@ -1596,6 +1636,22 @@ mod tests {
         let message = error.message(12);
         assert!(message.starts_with("line 12: "), "{message}");
         assert!(message.contains("3 task(s) outstanding"), "{message}");
+    }
+
+    #[test]
+    fn a_window_smaller_than_requested_says_so_and_a_faithful_one_stays_silent() {
+        // The size that was honoured explains nothing and is not mentioned.
+        assert!(window_shortfall((660.0, 720.0), Some((660.0, 720.0))).is_none());
+        // Rounding within half a point is the size it was given.
+        assert!(window_shortfall((660.0, 720.0), Some((660.0, 719.7))).is_none());
+        // A window larger than the request is not a shortfall either.
+        assert!(window_shortfall((660.0, 720.0), Some((800.0, 900.0))).is_none());
+        // Nothing was measured, so nothing is claimed.
+        assert!(window_shortfall((660.0, 720.0), None).is_none());
+        let note = window_shortfall((660.0, 720.0), Some((660.0, 652.0)))
+            .expect("a clamped window is a difference worth reporting");
+        assert!(note.contains("opened at 660x652"), "{note}");
+        assert!(note.contains("asked for 660x720"), "{note}");
     }
 
     #[test]

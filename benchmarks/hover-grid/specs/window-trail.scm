@@ -4,6 +4,11 @@
     (expect-count (button-prefix "Cell ") 10000)
     (expect-on-screen (role button :name "Cell 1"))
     (expect-on-screen (role button :name "Cell 10000"))
+    ; Park the pointer away from the grid first: hover is a real mouse move,
+    ; so a cursor resting on a cell would otherwise exit it inside the
+    ; measurement and count as work this step did not cause.
+    (hover-exit (role button :name "Cell 1"))
+    (settle)
     (mark-native-work)
     (hover-enter (role button :name "Cell 1"))
     (expect-background (role button :name "Cell 1") 0x66E0FF)

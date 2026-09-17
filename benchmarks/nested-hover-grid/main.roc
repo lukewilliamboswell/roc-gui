@@ -99,7 +99,7 @@ make_tree = |width, height, x, y, columns, id, depth, seed| {
 
 create_grid : U64, U64 -> State
 create_grid = |count, seed| {
-	columns = if count == 100 10 else 100
+	columns = if count == 100 10 else 125
 	{ tree: make_tree(columns, count / columns, 0, 0, columns, 0, 0, seed), count, next_identity: seed + 10000000, inspected: 0 }
 }
 
@@ -209,4 +209,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: create_grid(10000, 1), render, window: { title: "Nested hover trail", width: 660, height: 740, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) } })
+main = Program.run({ init: create_grid(10000, 1), render, window: { title: "Nested hover trail", width: 800, height: 700, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) } })

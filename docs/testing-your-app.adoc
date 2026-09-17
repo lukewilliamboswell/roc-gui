@@ -149,11 +149,13 @@ The report names every step and points at every image:
 [source,json]
 ----
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "spec": { "name": "Greeting appears when the button is pressed" },
   "run_mode": "window-scenario",
   "outcome": "pass",
-  "window": { "width_points": 480, "height_points": 240, "scale_factor": 2.0 },
+  "window": { "width_points": 480, "height_points": 240,
+              "requested_width_points": 480, "requested_height_points": 240,
+              "scale_factor": 2.0 },
   "steps": [
     { "ordinal": 0, "line": 3, "kind": "settle", "status": "pass" },
     { "ordinal": 2, "line": 5, "kind": "screenshot", "status": "pass",

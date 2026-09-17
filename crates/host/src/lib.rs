@@ -4869,6 +4869,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                     shot_dir: window_shot_dir,
                     timeout: Duration::from_millis(u64::from(window_timeout_ms)),
                     require_shots: window_require_shots,
+                    requested_window: (window_config.width as f32, window_config.height as f32),
                 },
                 cx,
             );
