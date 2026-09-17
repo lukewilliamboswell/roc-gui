@@ -1,7 +1,9 @@
 ## Persistent traversal frames. Owners box large payloads before insertion.
 ## Keep the recursive node boxed too: with the pinned development backend the
 ## inline and chunked representations inflate or copy generated continuation
-## state and are measurably slower on repeated-selection scaling cases.
+## state and are measurably slower on repeated-selection scaling cases. Inline
+## frames have also overflowed deep traversal on Windows, so this indirection is
+## a cross-target correctness boundary rather than an optional allocation tweak.
 WorkStack(a) :: [Empty, Node(Box({ item : a, rest : WorkStack(a) }))].{
 
 	## A traversal with no pending frames.

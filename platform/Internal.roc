@@ -347,6 +347,10 @@ Internal := [].{
 	# Enter/finish work preserves depth-first builder and owner ordering without
 	# suspending a Roc call frame per node. Finish items contain shallow props,
 	# never a parent descriptor that retains its already-visited descendants.
+	## Box the large traversal payloads so LowerWork and every continuation that
+	## captures it stay bounded. Leaving these records inline made the pinned
+	## development backend generate roughly MiB-sized stack frames and turned
+	## full-tree lowering into continuation-copy work proportional to payload size.
 	VisitWork(a) : { elem : Elem(a), position : U64 }
 	BoundaryWork(a) : { cleared : BoundaryInfo(a), owner : BoundaryInfo(a), parent : Box(BuildingOwner(a)) }
 
