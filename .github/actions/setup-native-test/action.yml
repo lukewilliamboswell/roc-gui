@@ -22,6 +22,9 @@ runs:
         python3 scripts/install_released_host.py || status=$?
         case "$status" in
           0) echo "Released host matches the committed host inputs; Cargo build skipped." ;;
-          3) python3 scripts/run_cargo.py test --locked --package roc-gui-host ;;
+          3)
+            python3 scripts/run_cargo.py test --locked --package roc-gui-host
+            python3 build.py
+            ;;
           *) exit "$status" ;;
         esac
