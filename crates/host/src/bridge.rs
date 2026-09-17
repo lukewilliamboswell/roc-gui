@@ -1043,6 +1043,12 @@ pub enum Patch {
         nodes: Vec<Node>,
         retained_roots: Vec<u64>,
     },
+    Keyed {
+        container: u64,
+        base_revision: u64,
+        new_revision: u64,
+        operations: Vec<KeyedGraphOperation>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1056,6 +1062,9 @@ pub struct ApplyFacts {
     pub validation_visits: u64,
     pub validate_ns: u64,
     pub apply_ns: u64,
+    pub keyed_graph_visits: u64,
+    pub keyed_original_reads: u64,
+    pub keyed_first_touches: u64,
 }
 
 #[derive(Debug)]
@@ -1074,8 +1083,8 @@ pub struct GraphApply {
     pub staged_instances: Vec<u64>,
 }
 
-#[derive(Clone, Debug)]
-enum KeyedGraphOperation {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeyedGraphOperation {
     Insert {
         key: KeyedChildKey,
         before: Option<KeyedChildKey>,
@@ -1096,7 +1105,7 @@ enum KeyedGraphOperation {
     },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct KeyedGraphApply {
     revision: u64,
     staged: u64,
@@ -1104,6 +1113,12 @@ struct KeyedGraphApply {
     graph_visits: u64,
     original_reads: u64,
     first_touches: u64,
+    staged_ids: Vec<u64>,
+    removed_ids: Vec<u64>,
+    staged_instances: Vec<u64>,
+    removed_instances: Vec<u64>,
+    validate_ns: u64,
+    apply_ns: u64,
 }
 
 /// One step of an [`ElementIdentity`]: a node's key among its siblings.
@@ -1570,6 +1585,17 @@ impl MountedGraph {
         new_revision: u64,
         operations: Vec<KeyedGraphOperation>,
     ) -> Result<KeyedGraphApply, String> {
+        self.apply_keyed_inner::<false>(container, base_revision, new_revision, operations)
+    }
+
+    fn apply_keyed_inner<const MEASURE: bool>(
+        &mut self,
+        container: u64,
+        base_revision: u64,
+        new_revision: u64,
+        operations: Vec<KeyedGraphOperation>,
+    ) -> Result<KeyedGraphApply, String> {
+        let validate_started = MEASURE.then(Instant::now);
         let previous_dialog = self.dialog;
         let entry = self
             .nodes
@@ -1802,9 +1828,12 @@ impl MountedGraph {
         let original_reads = journal.original_reads;
         let first_touches = journal.first_touches;
         drop(journal);
+        let validate_ns = validate_started.map(elapsed_ns).unwrap_or(0);
+        let apply_started = MEASURE.then(Instant::now);
 
         let old_size = self.nodes[&container].subtree_size;
         let mut hovered_identities = HashSet::new();
+        let mut removed_instances = Vec::new();
         for id in &removed_ids {
             if self.hovered.remove(id) {
                 hovered_identities.insert(self.identity(*id));
@@ -1815,6 +1844,7 @@ impl MountedGraph {
             match entry.node.kind {
                 NodeKind::Boundary { instance } => {
                     self.boundary_instances.remove(&instance);
+                    removed_instances.push(instance);
                 }
                 NodeKind::TextInput { label, .. } => {
                     let owner = self.input_owners.remove(id).flatten();
@@ -1826,9 +1856,14 @@ impl MountedGraph {
         }
         let mut staged = 0;
         let mut staged_ids = Vec::new();
+        let mut staged_instances = Vec::new();
         for fragment in fragments {
             staged += fragment.nodes.len() as u64;
             staged_ids.extend(fragment.nodes.iter().map(|node| node.id));
+            staged_instances.extend(fragment.nodes.iter().filter_map(|node| match node.kind {
+                NodeKind::Boundary { instance } => Some(instance),
+                _ => None,
+            }));
             self.insert_nodes(fragment.nodes, &fragment.validated);
             let child = order.children.get(&fragment.key).expect("final keyed root");
             let root = self.nodes.get_mut(&fragment.root).expect("inserted root");
@@ -1859,11 +1894,11 @@ impl MountedGraph {
             .expect("validated container")
             .keyed_children = Some(order);
         if !hovered_identities.is_empty() {
-            for id in staged_ids {
-                if matches!(self.node(id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
-                    && hovered_identities.contains(&self.identity(id))
+            for id in &staged_ids {
+                if matches!(self.node(*id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
+                    && hovered_identities.contains(&self.identity(*id))
                 {
-                    self.hovered.insert(id);
+                    self.hovered.insert(*id);
                 }
             }
         }
@@ -1887,6 +1922,12 @@ impl MountedGraph {
             graph_visits,
             original_reads,
             first_touches,
+            staged_ids,
+            removed_ids,
+            staged_instances,
+            removed_instances,
+            validate_ns,
+            apply_ns: apply_started.map(elapsed_ns).unwrap_or(0),
         })
     }
 
@@ -1918,6 +1959,52 @@ impl MountedGraph {
     }
 
     fn apply_inner<const MEASURE: bool>(&mut self, patch: Patch) -> Result<GraphApply, String> {
+        let patch = match patch {
+            Patch::Keyed {
+                container,
+                base_revision,
+                new_revision,
+                operations,
+            } => {
+                let keyed = if MEASURE {
+                    self.apply_keyed_inner::<true>(
+                        container,
+                        base_revision,
+                        new_revision,
+                        operations,
+                    )?
+                } else {
+                    self.apply_keyed(container, base_revision, new_revision, operations)?
+                };
+                return Ok(GraphApply {
+                    facts: ApplyFacts {
+                        kind: "keyed",
+                        staged: keyed.staged,
+                        removed: keyed.removed,
+                        live: self.nodes.len() as u64,
+                        scanned: 0,
+                        retained_nodes: 0,
+                        validation_visits: keyed.graph_visits,
+                        validate_ns: keyed.validate_ns,
+                        apply_ns: keyed.apply_ns,
+                        keyed_graph_visits: keyed.graph_visits,
+                        keyed_original_reads: keyed.original_reads,
+                        keyed_first_touches: keyed.first_touches,
+                    },
+                    root: Some(container),
+                    staged_ids: keyed.staged_ids,
+                    removed_ids: keyed.removed_ids,
+                    retired_root: false,
+                    parent: None,
+                    retained_roots: vec![],
+                    retained_nodes: 0,
+                    validation_visits: keyed.graph_visits,
+                    removed_instances: keyed.removed_instances,
+                    staged_instances: keyed.staged_instances,
+                });
+            }
+            patch => patch,
+        };
         let previous_dialog = self.dialog;
         let validate_started = MEASURE.then(Instant::now);
         let (old_root, root, nodes, retained_roots) = match patch {
@@ -1935,6 +2022,9 @@ impl MountedGraph {
                         validation_visits: 0,
                         validate_ns,
                         apply_ns: apply_started.map(elapsed_ns).unwrap_or(0),
+                        keyed_graph_visits: 0,
+                        keyed_original_reads: 0,
+                        keyed_first_touches: 0,
                     },
                     root: None,
                     staged_ids: vec![],
@@ -1960,6 +2050,7 @@ impl MountedGraph {
                 nodes,
                 retained_roots,
             } => (Some(old_root), root, nodes, retained_roots),
+            Patch::Keyed { .. } => unreachable!("keyed patch returned above"),
         };
         if old_root.is_none() && self.root.is_some() {
             return Err("application attempted to mount twice".into());
@@ -2231,6 +2322,9 @@ impl MountedGraph {
             validation_visits,
             validate_ns,
             apply_ns: apply_started.map(elapsed_ns).unwrap_or(0),
+            keyed_graph_visits: 0,
+            keyed_original_reads: 0,
+            keyed_first_touches: 0,
         };
         Ok(GraphApply {
             facts,
@@ -2569,6 +2663,14 @@ pub struct BridgeState {
     retained_lookup: Option<NodeSet>,
     child_builders: Vec<(u64, Vec<u64>)>,
     next_child_builder_id: u64,
+    keyed_edit: Option<KeyedEditBuilder>,
+}
+
+struct KeyedEditBuilder {
+    container: u64,
+    base_revision: u64,
+    new_revision: u64,
+    operations: Vec<KeyedGraphOperation>,
 }
 
 impl BridgeState {
@@ -2583,7 +2685,124 @@ impl BridgeState {
             retained_lookup: None,
             child_builders: Vec::new(),
             next_child_builder_id: 1,
+            keyed_edit: None,
         }
+    }
+
+    pub fn begin_keyed_edit(
+        &mut self,
+        container: u64,
+        base_revision: u64,
+        new_revision: u64,
+    ) -> Result<(), String> {
+        if self.pending.is_some() || self.keyed_edit.is_some() {
+            return Err("Roc began overlapping native graph transactions".into());
+        }
+        if !self.staged.is_empty()
+            || !self.retained_roots.is_empty()
+            || !self.child_builders.is_empty()
+        {
+            return Err("keyed edit began with unfinished ordinary staging".into());
+        }
+        self.keyed_edit = Some(KeyedEditBuilder {
+            container,
+            base_revision,
+            new_revision,
+            operations: Vec::new(),
+        });
+        Ok(())
+    }
+
+    fn keyed_fragment(&mut self, root: u64) -> Result<Vec<Node>, String> {
+        if self.keyed_edit.is_none() {
+            return Err("keyed item outside an edit".into());
+        }
+        if !self.child_builders.is_empty() {
+            return Err("keyed item committed with unfinished child builders".into());
+        }
+        if self.staged.is_empty() || !self.staged.iter().any(|node| node.id == root) {
+            return Err(format!(
+                "keyed item root {root} was not staged in this edit"
+            ));
+        }
+        Ok(std::mem::take(&mut self.staged))
+    }
+
+    pub fn keyed_insert_before(
+        &mut self,
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+        root: u64,
+    ) -> Result<(), String> {
+        let nodes = self.keyed_fragment(root)?;
+        self.keyed_edit
+            .as_mut()
+            .ok_or_else(|| "keyed InsertBefore outside an edit".to_string())?
+            .operations
+            .push(KeyedGraphOperation::Insert {
+                key,
+                before,
+                root,
+                nodes,
+            });
+        Ok(())
+    }
+
+    pub fn keyed_remove(&mut self, key: KeyedChildKey) -> Result<(), String> {
+        self.keyed_order_only(KeyedGraphOperation::Remove { key })
+    }
+
+    pub fn keyed_move_before(
+        &mut self,
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+    ) -> Result<(), String> {
+        self.keyed_order_only(KeyedGraphOperation::Move { key, before })
+    }
+
+    fn keyed_order_only(&mut self, operation: KeyedGraphOperation) -> Result<(), String> {
+        if !self.staged.is_empty() || !self.child_builders.is_empty() {
+            return Err("keyed order edit followed unfinished item staging".into());
+        }
+        self.keyed_edit
+            .as_mut()
+            .ok_or_else(|| "keyed operation outside an edit".to_string())?
+            .operations
+            .push(operation);
+        Ok(())
+    }
+
+    pub fn keyed_set(&mut self, key: KeyedChildKey, root: u64) -> Result<(), String> {
+        let nodes = self.keyed_fragment(root)?;
+        self.keyed_edit
+            .as_mut()
+            .ok_or_else(|| "keyed Set outside an edit".to_string())?
+            .operations
+            .push(KeyedGraphOperation::Set { key, root, nodes });
+        Ok(())
+    }
+
+    pub fn commit_keyed_edit(&mut self) -> Result<(), String> {
+        if self.pending.is_some() {
+            return Err("Roc emitted two patches in one dispatch".into());
+        }
+        if !self.staged.is_empty() || !self.child_builders.is_empty() {
+            return Err("keyed edit committed with unfinished item staging".into());
+        }
+        if let Some(components) = &mut self.components {
+            components.finish_render()?;
+        }
+        let edit = self
+            .keyed_edit
+            .take()
+            .ok_or_else(|| "keyed commit outside an edit".to_string())?;
+        self.pending = Some(Patch::Keyed {
+            container: edit.container,
+            base_revision: edit.base_revision,
+            new_revision: edit.new_revision,
+            operations: edit.operations,
+        });
+        Ok(())
     }
 
     pub fn begin_children(&mut self) -> Result<u64, String> {
@@ -2661,6 +2880,9 @@ impl BridgeState {
         if self.pending.is_some() {
             return Err("Roc retained a subtree before the previous patch was consumed".into());
         }
+        if self.keyed_edit.is_some() {
+            return Err("keyed item fragments cannot retain mounted subtrees".into());
+        }
         if root == 0
             || root
                 >= self
@@ -2690,6 +2912,9 @@ impl BridgeState {
         }
         if !self.child_builders.is_empty() {
             return Err("Roc committed a patch with unfinished child builders".into());
+        }
+        if self.keyed_edit.is_some() {
+            return Err("ordinary patch committed during a keyed edit".into());
         }
         if let Some(components) = &mut self.components {
             components.finish_render()?;
@@ -3768,6 +3993,77 @@ mod tests {
         assert!(edit.first_touches <= 3);
         assert_eq!(edit.original_reads, edit.first_touches);
         assert_eq!(graph.children_of(1).next_back(), Some(2));
+    }
+
+    #[test]
+    fn bridge_keyed_builder_emits_one_production_patch_with_owned_counters() {
+        let (a, b) = (keyed_test_key(1), keyed_test_key(2));
+        let mut bridge = BridgeState::new();
+        let container = bridge
+            .stage_node(
+                NodeKind::Column {
+                    label: "keyed".into(),
+                    style: Style::default(),
+                },
+                vec![],
+            )
+            .unwrap();
+        bridge.commit(Commit::Mount { root: container }).unwrap();
+        let mut graph = MountedGraph::default();
+        graph.apply(bridge.pending.take().unwrap()).unwrap();
+
+        bridge.begin_keyed_edit(container, 0, 5).unwrap();
+        let child_a = bridge.stage_node(button("a", true), vec![]).unwrap();
+        let root_a = bridge
+            .stage_node(NodeKind::Boundary { instance: 10 }, vec![child_a])
+            .unwrap();
+        bridge.keyed_insert_before(a, None, root_a).unwrap();
+        let child_b = bridge.stage_node(button("b", true), vec![]).unwrap();
+        let root_b = bridge
+            .stage_node(NodeKind::Boundary { instance: 11 }, vec![child_b])
+            .unwrap();
+        bridge.keyed_insert_before(b, Some(a), root_b).unwrap();
+        bridge.commit_keyed_edit().unwrap();
+        assert!(matches!(bridge.pending, Some(Patch::Keyed { .. })));
+        let inserted = graph.apply(bridge.pending.take().unwrap()).unwrap();
+        assert_eq!(inserted.facts.kind, "keyed");
+        assert_eq!(inserted.facts.keyed_graph_visits, 8);
+        assert_eq!(
+            inserted.facts.keyed_original_reads,
+            inserted.facts.keyed_first_touches
+        );
+        assert_eq!(
+            graph.children_of(container).collect::<Vec<_>>(),
+            vec![root_b, root_a]
+        );
+
+        bridge.begin_keyed_edit(container, 5, 6).unwrap();
+        bridge.keyed_move_before(a, Some(b)).unwrap();
+        bridge.commit_keyed_edit().unwrap();
+        let moved = graph.apply(bridge.pending.take().unwrap()).unwrap();
+        assert_eq!(moved.facts.keyed_graph_visits, 0);
+        assert!(moved.facts.keyed_first_touches <= 3);
+        assert_eq!(
+            graph.children_of(container).collect::<Vec<_>>(),
+            vec![root_a, root_b]
+        );
+    }
+
+    #[test]
+    fn bridge_keyed_builder_keeps_fragment_and_ordinary_transactions_separate() {
+        let mut bridge = BridgeState::new();
+        bridge.begin_keyed_edit(1, 0, 1).unwrap();
+        assert!(bridge.commit(Commit::NoChange).is_err());
+        let unstaged = keyed_test_key(1);
+        assert!(bridge.keyed_insert_before(unstaged, None, 99).is_err());
+        let child = bridge.stage_node(button("item", true), vec![]).unwrap();
+        assert!(bridge.keyed_remove(unstaged).is_err());
+        let root = bridge
+            .stage_node(NodeKind::Boundary { instance: 10 }, vec![child])
+            .unwrap();
+        bridge.keyed_set(unstaged, root).unwrap();
+        bridge.commit_keyed_edit().unwrap();
+        assert!(matches!(bridge.pending, Some(Patch::Keyed { .. })));
     }
 
     fn button(label: &str, enabled: bool) -> NodeKind {

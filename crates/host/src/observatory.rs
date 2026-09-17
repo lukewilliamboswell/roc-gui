@@ -357,6 +357,9 @@ pub struct Cycle {
     pub parent_nodes_scanned: u64,
     pub retained_nodes: u64,
     pub validation_visits: u64,
+    pub keyed_graph_visits: u64,
+    pub keyed_original_reads: u64,
+    pub keyed_first_touches: u64,
     pub roc_work: [RocWork; ROC_WORK_KINDS],
     pub roc_work_valid: bool,
     pub component_work: Option<ComponentWork>,
@@ -1478,8 +1481,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
         },
         Event::Cycle(cycle) => {
             connection.execute(
-                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
-                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits)],
+                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits,keyed_graph_visits,keyed_original_reads,keyed_first_touches) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23)",
+                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits), as_i64(cycle.keyed_graph_visits), as_i64(cycle.keyed_original_reads), as_i64(cycle.keyed_first_touches)],
             )
             .map_err(|error| format!("cannot write cycle row: {error}"))?;
             let cycle_id = connection.last_insert_rowid();
@@ -1767,7 +1770,7 @@ CREATE TABLE cycles(
     step_ordinal INTEGER,
     measurement_phase TEXT NOT NULL CHECK(measurement_phase IN ('initialization','setup','measured','interactive')),
     trigger TEXT NOT NULL,
-    patch_kind TEXT NOT NULL CHECK(patch_kind IN ('mount','no_change','replace')),
+    patch_kind TEXT NOT NULL CHECK(patch_kind IN ('mount','no_change','replace','keyed')),
     duration_ns INTEGER NOT NULL,
     roc_callback_ns INTEGER NOT NULL,
     validate_ns INTEGER NOT NULL,
@@ -1780,6 +1783,9 @@ CREATE TABLE cycles(
     parent_nodes_scanned INTEGER NOT NULL,
     retained_nodes INTEGER NOT NULL,
     validation_visits INTEGER NOT NULL,
+    keyed_graph_visits INTEGER NOT NULL,
+    keyed_original_reads INTEGER NOT NULL,
+    keyed_first_touches INTEGER NOT NULL,
     roc_work_valid INTEGER NOT NULL CHECK(roc_work_valid IN (0,1)),
     component_work_recorded INTEGER NOT NULL CHECK(component_work_recorded IN (0,1)),
     UNIQUE(run_id,ordinal),
@@ -1988,6 +1994,9 @@ mod tests {
             parent_nodes_scanned: 1,
             retained_nodes: 0,
             validation_visits: 1,
+            keyed_graph_visits: 0,
+            keyed_original_reads: 0,
+            keyed_first_touches: 0,
             roc_work: [RocWork::default(); ROC_WORK_KINDS],
             roc_work_valid: true,
             component_work: None,
@@ -2391,6 +2400,9 @@ mod tests {
         update.component_work = Some(ComponentWork([2, 1, 0, 0, 0, 0, 0, 5, 3]));
         update.retained_nodes = 7;
         update.validation_visits = 9;
+        update.keyed_graph_visits = 4;
+        update.keyed_original_reads = 3;
+        update.keyed_first_touches = 3;
         update.roc_work = attributed;
         update.roc_work[0] = RocWork {
             occurred: true,
@@ -2464,6 +2476,15 @@ mod tests {
             2
         );
         assert_eq!(db.query_row("SELECT count(*) FROM component_work_assertions WHERE expected_count=observed_count", [], |row| row.get::<_, i64>(0)).unwrap(), 3);
+        assert_eq!(
+            db.query_row(
+                "SELECT keyed_graph_visits,keyed_original_reads,keyed_first_touches FROM cycles WHERE ordinal=0",
+                [],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?))
+            )
+            .unwrap(),
+            (4, 3, 3)
+        );
         let mut component_report = db
             .prepare(include_str!(
                 "../../../scripts/stats_queries/component_work.sql"

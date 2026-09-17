@@ -39,13 +39,14 @@ use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueComponentResolve,
     HostGlueHttpAcquireResult, HostGlueHttpSendArgs, HostGlueHttpSendResult,
-    HostGlueNodeActionButton, HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs,
-    HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs, HostGlueNodeDialogArgs,
-    HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
-    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace,
-    RocErasedCallable, RocHost, RocList, RocStr, decref_erased_callable, incref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueKeyedEditBeginArgs, HostGlueKeyedInsertBeforeArgs, HostGlueKeyedMoveBeforeArgs,
+    HostGlueKeyedSetArgs, HostGlueNodeActionButton, HostGlueNodeActionButtonArgs,
+    HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
+    HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
+    HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs,
+    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList, RocListWith, RocStr,
+    decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -647,6 +648,82 @@ pub extern "C" fn roc_gui_children_push(builder: u64, child: u64) {
             .borrow_mut()
             .push_child(builder, child)
             .unwrap_or_else(|message| panic!("invalid native child build: {message}"));
+    });
+}
+
+fn take_key(bytes: RocListWith<u8, false>, optional: bool) -> Option<[u8; 32]> {
+    let decoded = if optional && bytes.is_empty() {
+        Ok(None)
+    } else {
+        bytes.as_slice().try_into().map(Some)
+    };
+    unsafe { bytes.decref(roc_host()) };
+    decoded.unwrap_or_else(|_| panic!("keyed child keys must contain exactly 32 bytes"))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_edit_begin(args: HostGlueKeyedEditBeginArgs) {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .begin_keyed_edit(args.container, args.base_revision, args.new_revision)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_insert_before(args: HostGlueKeyedInsertBeforeArgs) {
+    let key = take_key(args.key, false).expect("required keyed child key");
+    let before = take_key(args.before, true);
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_insert_before(key, before, args.root)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_remove(key: RocListWith<u8, false>) {
+    let key = take_key(key, false).expect("required keyed child key");
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_remove(key)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_move_before(args: HostGlueKeyedMoveBeforeArgs) {
+    let key = take_key(args.key, false).expect("required keyed child key");
+    let before = take_key(args.before, true);
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_move_before(key, before)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_set(args: HostGlueKeyedSetArgs) {
+    let key = take_key(args.key, false).expect("required keyed child key");
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_set(key, args.root)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_edit_commit() {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .commit_keyed_edit()
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
     });
 }
 
@@ -3028,6 +3105,9 @@ impl Runtime {
             component_work: observatory::component_cycle_work(),
             retained_nodes: applied.facts.retained_nodes,
             validation_visits: applied.facts.validation_visits,
+            keyed_graph_visits: applied.facts.keyed_graph_visits,
+            keyed_original_reads: applied.facts.keyed_original_reads,
+            keyed_first_touches: applied.facts.keyed_first_touches,
         });
         self.cycle_ordinal += 1;
     }
@@ -3038,7 +3118,7 @@ impl Runtime {
     }
 
     fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
-        if applied.facts.kind == "no_change" {
+        if matches!(applied.facts.kind, "no_change" | "keyed") {
             return;
         }
         let retired_identities = applied

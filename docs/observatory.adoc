@@ -129,6 +129,12 @@ fresh-node shape validation, rooted fresh/frontier traversal, retirement
 discovery, and retained-root liveness checks. They do not stand for metadata
 index lookups, identity ancestry work, or all host operations.
 
+Keyed graph transactions additionally report `cycles.keyed_graph_visits`,
+`cycles.keyed_original_reads`, and `cycles.keyed_first_touches`. The graph
+owner counts validated or retired fragment nodes; the keyed-order owner counts
+original link reads and distinct first-touched keys. Ordinary patches report
+zero because they perform no keyed graph transaction.
+
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.

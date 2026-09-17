@@ -1131,6 +1131,118 @@ const _: () = assert!(core::mem::size_of::<AnonStructB050404c6fb0b263>() == 28, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructB050404c6fb0b263>() == 4, "AnonStructB050404c6fb0b263 alignment mismatch");
 
+/// Element type for __AnonStruct_805ea43d90e5fb6e
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct805ea43d90e5fb6e {
+    pub base_revision: u64,
+    pub container: u64,
+    pub new_revision: u64,
+}
+
+/// Element type for __AnonStruct_805ea43d90e5fb6e
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct805ea43d90e5fb6e {
+    pub base_revision: u64,
+    pub container: u64,
+    pub new_revision: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct805ea43d90e5fb6e>() == 24, "AnonStruct805ea43d90e5fb6e size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct805ea43d90e5fb6e>() == 8, "AnonStruct805ea43d90e5fb6e alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct805ea43d90e5fb6e>() == 24, "AnonStruct805ea43d90e5fb6e size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct805ea43d90e5fb6e>() == 8, "AnonStruct805ea43d90e5fb6e alignment mismatch");
+
+/// Element type for __AnonStruct_1f2ff78011a2f7cd
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1f2ff78011a2f7cd {
+    pub root: u64,
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+/// Element type for __AnonStruct_1f2ff78011a2f7cd
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1f2ff78011a2f7cd {
+    pub root: u64,
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1f2ff78011a2f7cd>() == 56, "AnonStruct1f2ff78011a2f7cd size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1f2ff78011a2f7cd>() == 8, "AnonStruct1f2ff78011a2f7cd alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1f2ff78011a2f7cd>() == 32, "AnonStruct1f2ff78011a2f7cd size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1f2ff78011a2f7cd>() == 8, "AnonStruct1f2ff78011a2f7cd alignment mismatch");
+
+/// Element type for __AnonStruct_8e6ae4c4e7aeda0d
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct8e6ae4c4e7aeda0d {
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+/// Element type for __AnonStruct_8e6ae4c4e7aeda0d
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct8e6ae4c4e7aeda0d {
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct8e6ae4c4e7aeda0d>() == 48, "AnonStruct8e6ae4c4e7aeda0d size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct8e6ae4c4e7aeda0d>() == 8, "AnonStruct8e6ae4c4e7aeda0d alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct8e6ae4c4e7aeda0d>() == 24, "AnonStruct8e6ae4c4e7aeda0d size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct8e6ae4c4e7aeda0d>() == 4, "AnonStruct8e6ae4c4e7aeda0d alignment mismatch");
+
+/// Element type for __AnonStruct_73b63742301b46aa
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct73b63742301b46aa {
+    pub root: u64,
+    pub key: RocListWith<u8, false>,
+}
+
+/// Element type for __AnonStruct_73b63742301b46aa
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct73b63742301b46aa {
+    pub root: u64,
+    pub key: RocListWith<u8, false>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct73b63742301b46aa>() == 32, "AnonStruct73b63742301b46aa size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct73b63742301b46aa>() == 8, "AnonStruct73b63742301b46aa alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct73b63742301b46aa>() == 24, "AnonStruct73b63742301b46aa size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct73b63742301b46aa>() == 8, "AnonStruct73b63742301b46aa alignment mismatch");
+
 /// Element type for __AnonStruct_2c3712e02fef0cd
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -8705,6 +8817,265 @@ pub struct HostGlueChildrenPushArgs {
     pub arg1: u64,
 }
 
+/// Arguments for HostGlue.keyed_edit_begin!
+/// Roc signature: { base_revision : U64, container : U64, new_revision : U64 } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedEditBeginArgs {
+    pub base_revision: u64,
+    pub container: u64,
+    pub new_revision: u64,
+}
+
+/// Arguments for HostGlue.keyed_edit_begin!
+/// Roc signature: { base_revision : U64, container : U64, new_revision : U64 } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedEditBeginArgs {
+    pub base_revision: u64,
+    pub container: u64,
+    pub new_revision: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedEditBeginArgs>() == 24, "HostGlueKeyedEditBeginArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedEditBeginArgs>() == 8, "HostGlueKeyedEditBeginArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedEditBeginArgs>() == 24, "HostGlueKeyedEditBeginArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedEditBeginArgs>() == 8, "HostGlueKeyedEditBeginArgs alignment mismatch");
+
+impl HostGlueKeyedEditBeginArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct HostGlueKeyedEditBeginArgsRelease;
+
+unsafe impl RocRelease<HostGlueKeyedEditBeginArgs> for HostGlueKeyedEditBeginArgsRelease {
+    unsafe fn release(value: HostGlueKeyedEditBeginArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+/// Arguments for HostGlue.keyed_insert_before!
+/// Roc signature: { before : List(U8), key : List(U8), root : U64 } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedInsertBeforeArgs {
+    pub root: u64,
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.keyed_insert_before!
+/// Roc signature: { before : List(U8), key : List(U8), root : U64 } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedInsertBeforeArgs {
+    pub root: u64,
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedInsertBeforeArgs>() == 56, "HostGlueKeyedInsertBeforeArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedInsertBeforeArgs>() == 8, "HostGlueKeyedInsertBeforeArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedInsertBeforeArgs>() == 32, "HostGlueKeyedInsertBeforeArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedInsertBeforeArgs>() == 8, "HostGlueKeyedInsertBeforeArgs alignment mismatch");
+
+impl HostGlueKeyedInsertBeforeArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.before.decref(roc_host); }
+        unsafe { value.key.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.before.incref(amount); }
+        unsafe { value.key.incref(amount); }
+    }
+}
+
+pub struct HostGlueKeyedInsertBeforeArgsRelease;
+
+unsafe impl RocRelease<HostGlueKeyedInsertBeforeArgs> for HostGlueKeyedInsertBeforeArgsRelease {
+    unsafe fn release(value: HostGlueKeyedInsertBeforeArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+/// Arguments for HostGlue.keyed_remove!
+/// Roc signature: List(U8) => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedRemoveArgs {
+    pub arg0: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.keyed_move_before!
+/// Roc signature: { before : List(U8), key : List(U8) } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedMoveBeforeArgs {
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.keyed_move_before!
+/// Roc signature: { before : List(U8), key : List(U8) } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedMoveBeforeArgs {
+    pub before: RocListWith<u8, false>,
+    pub key: RocListWith<u8, false>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedMoveBeforeArgs>() == 48, "HostGlueKeyedMoveBeforeArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedMoveBeforeArgs>() == 8, "HostGlueKeyedMoveBeforeArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedMoveBeforeArgs>() == 24, "HostGlueKeyedMoveBeforeArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedMoveBeforeArgs>() == 4, "HostGlueKeyedMoveBeforeArgs alignment mismatch");
+
+impl HostGlueKeyedMoveBeforeArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.before.decref(roc_host); }
+        unsafe { value.key.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.before.incref(amount); }
+        unsafe { value.key.incref(amount); }
+    }
+}
+
+pub struct HostGlueKeyedMoveBeforeArgsRelease;
+
+unsafe impl RocRelease<HostGlueKeyedMoveBeforeArgs> for HostGlueKeyedMoveBeforeArgsRelease {
+    unsafe fn release(value: HostGlueKeyedMoveBeforeArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+/// Arguments for HostGlue.keyed_set!
+/// Roc signature: { key : List(U8), root : U64 } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedSetArgs {
+    pub root: u64,
+    pub key: RocListWith<u8, false>,
+}
+
+/// Arguments for HostGlue.keyed_set!
+/// Roc signature: { key : List(U8), root : U64 } => {}
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueKeyedSetArgs {
+    pub root: u64,
+    pub key: RocListWith<u8, false>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedSetArgs>() == 32, "HostGlueKeyedSetArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedSetArgs>() == 8, "HostGlueKeyedSetArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueKeyedSetArgs>() == 24, "HostGlueKeyedSetArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueKeyedSetArgs>() == 8, "HostGlueKeyedSetArgs alignment mismatch");
+
+impl HostGlueKeyedSetArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.key.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.key.incref(amount); }
+    }
+}
+
+pub struct HostGlueKeyedSetArgsRelease;
+
+unsafe impl RocRelease<HostGlueKeyedSetArgs> for HostGlueKeyedSetArgsRelease {
+    unsafe fn release(value: HostGlueKeyedSetArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 /// Arguments for HostGlue.component_work!
 /// Roc signature: U8, U64 => {}
 /// Refcounted fields are owned by the hosted function.
@@ -11074,6 +11445,10 @@ pub struct InternalFilesDirReadArgs {
 // Platform Type Aliases
 
 pub type HostGlueNodeStyledTextArg0 = AnonStructB050404c6fb0b263;
+pub type HostGlueKeyedEditBeginArg0 = AnonStruct805ea43d90e5fb6e;
+pub type HostGlueKeyedInsertBeforeArg0 = AnonStruct1f2ff78011a2f7cd;
+pub type HostGlueKeyedMoveBeforeArg0 = AnonStruct8e6ae4c4e7aeda0d;
+pub type HostGlueKeyedSetArg0 = AnonStruct73b63742301b46aa;
 pub type HostGlueComponentResolve = AnonStruct2c3712e02fef0cd;
 pub type HostGlueNodeRowArg0 = AnonStruct8f1f3c623bb69cc9;
 pub type HostGlueNodeColumnArg0 = AnonStruct8f1f3c623bb69cc9;
@@ -11333,6 +11708,128 @@ pub struct AnonStructB050404c6fb0b263Release;
 
 unsafe impl RocRelease<AnonStructB050404c6fb0b263> for AnonStructB050404c6fb0b263Release {
     unsafe fn release(value: AnonStructB050404c6fb0b263, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct805ea43d90e5fb6e {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct805ea43d90e5fb6eRelease;
+
+unsafe impl RocRelease<AnonStruct805ea43d90e5fb6e> for AnonStruct805ea43d90e5fb6eRelease {
+    unsafe fn release(value: AnonStruct805ea43d90e5fb6e, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct1f2ff78011a2f7cd {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.before.decref(roc_host); }
+        unsafe { value.key.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.before.incref(amount); }
+        unsafe { value.key.incref(amount); }
+    }
+}
+
+pub struct AnonStruct1f2ff78011a2f7cdRelease;
+
+unsafe impl RocRelease<AnonStruct1f2ff78011a2f7cd> for AnonStruct1f2ff78011a2f7cdRelease {
+    unsafe fn release(value: AnonStruct1f2ff78011a2f7cd, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct8e6ae4c4e7aeda0d {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.before.decref(roc_host); }
+        unsafe { value.key.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.before.incref(amount); }
+        unsafe { value.key.incref(amount); }
+    }
+}
+
+pub struct AnonStruct8e6ae4c4e7aeda0dRelease;
+
+unsafe impl RocRelease<AnonStruct8e6ae4c4e7aeda0d> for AnonStruct8e6ae4c4e7aeda0dRelease {
+    unsafe fn release(value: AnonStruct8e6ae4c4e7aeda0d, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct73b63742301b46aa {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.key.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.key.incref(amount); }
+    }
+}
+
+pub struct AnonStruct73b63742301b46aaRelease;
+
+unsafe impl RocRelease<AnonStruct73b63742301b46aa> for AnonStruct73b63742301b46aaRelease {
+    unsafe fn release(value: AnonStruct73b63742301b46aa, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -14772,6 +15269,42 @@ unsafe extern "C" {
     /// Hosted symbol for HostGlue.children_push!
     /// Roc signature: U64, U64 => {}
     pub fn roc_gui_children_push(arg0: u64, arg1: u64);
+
+    /// Hosted symbol for HostGlue.keyed_edit_begin!
+    /// Roc signature: { base_revision : U64, container : U64, new_revision : U64 } => {}
+    pub fn roc_gui_keyed_edit_begin(arg0: HostGlueKeyedEditBeginArgs);
+
+    /// Hosted symbol for HostGlue.keyed_insert_before!
+    /// Roc signature: { before : List(U8), key : List(U8), root : U64 } => {}
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_keyed_insert_before(arg0: HostGlueKeyedInsertBeforeArgs);
+
+    /// Hosted symbol for HostGlue.keyed_remove!
+    /// Roc signature: List(U8) => {}
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_keyed_remove(arg0: RocListWith<u8, false>);
+
+    /// Hosted symbol for HostGlue.keyed_move_before!
+    /// Roc signature: { before : List(U8), key : List(U8) } => {}
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_keyed_move_before(arg0: HostGlueKeyedMoveBeforeArgs);
+
+    /// Hosted symbol for HostGlue.keyed_set!
+    /// Roc signature: { key : List(U8), root : U64 } => {}
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_keyed_set(arg0: HostGlueKeyedSetArgs);
+
+    /// Hosted symbol for HostGlue.keyed_edit_commit!
+    /// Roc signature: {} => {}
+    pub fn roc_gui_keyed_edit_commit();
 
     /// Hosted symbol for HostGlue.component_work!
     /// Roc signature: U8, U64 => {}

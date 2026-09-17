@@ -10,7 +10,10 @@ WITH evidence AS (
            sum(staged_nodes) AS staged_nodes,sum(removed_nodes) AS removed_nodes,
            max(live_nodes) AS peak_live_nodes,
            sum(parent_nodes_scanned) AS parent_nodes_scanned,
-           sum(retained_nodes) AS retained_nodes,sum(validation_visits) AS validation_visits
+           sum(retained_nodes) AS retained_nodes,sum(validation_visits) AS validation_visits,
+           sum(keyed_graph_visits) AS keyed_graph_visits,
+           sum(keyed_original_reads) AS keyed_original_reads,
+           sum(keyed_first_touches) AS keyed_first_touches
     FROM cycles JOIN runs ON runs.id=cycles.run_id
     WHERE runs.phase='sample' AND cycles.measurement_phase='measured'
 )
@@ -26,5 +29,8 @@ SELECT evidence.status AS evidence_status,evidence.reason AS evidence_reason,
        CASE WHEN evidence.status='complete' THEN measured.parent_nodes_scanned END AS parent_nodes_scanned,
        CASE WHEN evidence.status='complete' THEN measured.retained_nodes END AS retained_nodes,
        CASE WHEN evidence.status='complete' THEN measured.validation_visits END AS validation_visits,
+       CASE WHEN evidence.status='complete' THEN measured.keyed_graph_visits END AS keyed_graph_visits,
+       CASE WHEN evidence.status='complete' THEN measured.keyed_original_reads END AS keyed_original_reads,
+       CASE WHEN evidence.status='complete' THEN measured.keyed_first_touches END AS keyed_first_touches,
        'see the gpui_frame_spans view; layout solve, presentation, and GPU timing remain unavailable' AS later_gpui_stages
 FROM evidence CROSS JOIN gpui CROSS JOIN measured;

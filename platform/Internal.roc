@@ -38,6 +38,42 @@ Internal := [].{
 
 	Building(a) : { boundaries : BuildingOwners(a), root : U64, routes : Index(Route(a)) }
 
+	## Host transaction primitives for keyed columns. Keyed items are complete
+	## component boundaries; public Elem construction is added separately.
+	keyed_edit_begin! : U64, U64, U64 => {}
+	keyed_edit_begin! = |container, base_revision, new_revision| Host.keyed_edit_begin!({ container, base_revision, new_revision })
+
+	keyed_insert_before! : Key, [AtEnd, Before(Key)], U64, U64 => {}
+	keyed_insert_before! = |key, position, instance, child| {
+		before = match position {
+			AtEnd => []
+			Before(anchor) => Key.to_bytes(anchor)
+		}
+		root = Host.node_boundary!(instance, child)
+		Host.keyed_insert_before!({ key: Key.to_bytes(key), before, root })
+	}
+
+	keyed_remove! : Key => {}
+	keyed_remove! = |key| Host.keyed_remove!(Key.to_bytes(key))
+
+	keyed_move_before! : Key, [AtEnd, Before(Key)] => {}
+	keyed_move_before! = |key, position| Host.keyed_move_before!({
+		key: Key.to_bytes(key),
+		before: match position {
+			AtEnd => []
+			Before(anchor) => Key.to_bytes(anchor)
+		},
+	})
+
+	keyed_set! : Key, U64, U64 => {}
+	keyed_set! = |key, instance, child| {
+		root = Host.node_boundary!(instance, child)
+		Host.keyed_set!({ key: Key.to_bytes(key), root })
+	}
+
+	keyed_edit_commit! : () => {}
+	keyed_edit_commit! = || Host.keyed_edit_commit!()
+
 	max_style_value = 16384
 
 	color = |value| match value {
