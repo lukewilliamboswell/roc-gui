@@ -37,6 +37,10 @@ Local changes:
   exercises the production GPUI event path and duplicate-exit suppression;
   the host press, replacement, rerender, and virtual-list regressions cover the
   routed click lifetime.
+- `src/scene.rs` and `src/window.rs`: expose an opt-in frame-work observer with
+  deterministic counters for fresh and replayed GPUI-owned reconstruction.
+  The observer reports only after frame construction and element-state
+  migration finish; it does not alter cache policy or rendering behaviour.
 
 - `src/view.rs`: adds opt-in `AnyView::cached_with_independent_children`.
   A dirty parent with unchanged bounds, content mask, text style, and cache
