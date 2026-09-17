@@ -17,4 +17,6 @@ alternate event route.
 Adjacent specifications cover local edits, nested child creation/destruction,
 front insertion, middle removal, far reorder, fresh identity replacement, and
 keyboard focus after removal. Scaling cases use 100, 1,000, and 10,000 active
-incidents and record deterministic patch and component-work counters.
+incidents and record deterministic patch and component-work counters. A real
+window case also bounds native button renders, boundary renders, and boundary
+element creation while inserting and removing visible incidents.
