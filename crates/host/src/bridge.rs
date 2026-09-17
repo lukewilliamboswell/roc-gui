@@ -1016,7 +1016,7 @@ pub enum ParentLocation {
 }
 
 impl ParentLocation {
-    fn parent(self) -> u64 {
+    pub(crate) fn parent(self) -> u64 {
         match self {
             Self::OrdinaryIndex { parent, .. } => parent,
             Self::Keyed { container, .. } => container,
@@ -1081,6 +1081,29 @@ pub struct GraphApply {
     pub validation_visits: u64,
     pub removed_instances: Vec<u64>,
     pub staged_instances: Vec<u64>,
+    pub(crate) keyed_edits: Vec<KeyedNativeEdit>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum KeyedNativeEdit {
+    Insert {
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+        root: u64,
+    },
+    Remove {
+        key: KeyedChildKey,
+        root: u64,
+    },
+    Move {
+        key: KeyedChildKey,
+        before: Option<KeyedChildKey>,
+    },
+    Set {
+        key: KeyedChildKey,
+        old_root: u64,
+        root: u64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1119,6 +1142,7 @@ struct KeyedGraphApply {
     removed_instances: Vec<u64>,
     validate_ns: u64,
     apply_ns: u64,
+    native_edits: Vec<KeyedNativeEdit>,
 }
 
 /// One step of an [`ElementIdentity`]: a node's key among its siblings.
@@ -1296,7 +1320,7 @@ impl MountedGraph {
         false
     }
 
-    fn identity(&self, id: u64) -> ElementIdentity {
+    pub(crate) fn identity(&self, id: u64) -> ElementIdentity {
         let mut identity = Vec::new();
         let mut current = Some(id);
         while let Some(id) = current {
@@ -1642,178 +1666,208 @@ impl MountedGraph {
 
         let owner = self.component_owner(container);
         let mut journal = KeyedOrderJournal::new(&mut order);
-        let prepared = (|| -> Result<(Vec<FragmentPlan>, Vec<u64>, u64), String> {
-            let mut fragments = Vec::new();
-            let mut staged_ids = NodeSet::default();
-            let mut staged_instances = NodeSet::default();
-            let mut graph_visits = 0;
+        let prepared =
+            (|| -> Result<(Vec<FragmentPlan>, Vec<u64>, u64, Vec<KeyedNativeEdit>), String> {
+                let mut fragments = Vec::new();
+                let mut native_edits = Vec::new();
+                let mut staged_ids = NodeSet::default();
+                let mut staged_instances = NodeSet::default();
+                let mut graph_visits = 0;
 
-            for operation in operations {
-                match operation {
-                    KeyedGraphOperation::Insert {
-                        key,
-                        before,
-                        root,
-                        nodes,
-                    } => {
-                        let validated =
-                            validate_fragment(root, &nodes, &NodeSet::default(), owner, |id| {
-                                self.node(id)
-                            })?;
-                        graph_visits += validated.visits;
-                        let instance = match validated
-                            .lookup(root, &nodes, |id| self.node(id))
-                            .map(|node| &node.kind)
-                        {
-                            Some(NodeKind::Boundary { instance }) => *instance,
-                            _ => {
-                                return Err("a keyed item root must be a component boundary".into());
-                            }
-                        };
-                        Self::validate_keyed_staged_fragment(
-                            self,
-                            &nodes,
-                            &mut staged_ids,
-                            &mut staged_instances,
-                            None,
-                        )?;
-                        journal
-                            .insert(key, root, instance, before)
-                            .map_err(|error| {
+                for operation in operations {
+                    match operation {
+                        KeyedGraphOperation::Insert {
+                            key,
+                            before,
+                            root,
+                            nodes,
+                        } => {
+                            let validated = validate_fragment(
+                                root,
+                                &nodes,
+                                &NodeSet::default(),
+                                owner,
+                                |id| self.node(id),
+                            )?;
+                            graph_visits += validated.visits;
+                            let instance = match validated
+                                .lookup(root, &nodes, |id| self.node(id))
+                                .map(|node| &node.kind)
+                            {
+                                Some(NodeKind::Boundary { instance }) => *instance,
+                                _ => {
+                                    return Err(
+                                        "a keyed item root must be a component boundary".into()
+                                    );
+                                }
+                            };
+                            Self::validate_keyed_staged_fragment(
+                                self,
+                                &nodes,
+                                &mut staged_ids,
+                                &mut staged_instances,
+                                None,
+                            )?;
+                            journal
+                                .insert(key, root, instance, before)
+                                .map_err(|error| {
+                                    format!("keyed order rejected transaction: {error:?}")
+                                })?;
+                            native_edits.push(KeyedNativeEdit::Insert { key, before, root });
+                            fragments.push(FragmentPlan {
+                                key,
+                                root,
+                                nodes,
+                                validated,
+                            });
+                        }
+                        KeyedGraphOperation::Remove { key } => {
+                            let root = journal
+                                .child(key)
+                                .map_err(|error| {
+                                    format!("keyed order rejected transaction: {error:?}")
+                                })?
+                                .root;
+                            journal.remove(key).map_err(|error| {
                                 format!("keyed order rejected transaction: {error:?}")
                             })?;
-                        fragments.push(FragmentPlan {
-                            key,
-                            root,
-                            nodes,
-                            validated,
-                        });
-                    }
-                    KeyedGraphOperation::Remove { key } => journal
-                        .remove(key)
-                        .map_err(|error| format!("keyed order rejected transaction: {error:?}"))?,
-                    KeyedGraphOperation::Move { key, before } => {
-                        journal.move_before(key, before).map_err(|error| {
-                            format!("keyed order rejected transaction: {error:?}")
-                        })?
-                    }
-                    KeyedGraphOperation::Set { key, root, nodes } => {
-                        let child = journal.child(key).map_err(|error| {
-                            format!("keyed order rejected transaction: {error:?}")
-                        })?;
-                        let validated =
-                            validate_fragment(root, &nodes, &NodeSet::default(), owner, |id| {
-                                self.node(id)
+                            native_edits.push(KeyedNativeEdit::Remove { key, root });
+                        }
+                        KeyedGraphOperation::Move { key, before } => {
+                            journal.move_before(key, before).map_err(|error| {
+                                format!("keyed order rejected transaction: {error:?}")
                             })?;
-                        graph_visits += validated.visits;
-                        match validated
-                            .lookup(root, &nodes, |id| self.node(id))
-                            .map(|node| &node.kind)
-                        {
-                            Some(NodeKind::Boundary { instance })
-                                if *instance == child.instance => {}
-                            Some(NodeKind::Boundary { .. }) => {
-                                return Err(
-                                    "a keyed Set must preserve its component instance".into()
-                                );
-                            }
-                            _ => {
-                                return Err("a keyed item root must be a component boundary".into());
-                            }
+                            native_edits.push(KeyedNativeEdit::Move { key, before });
                         }
-                        Self::validate_keyed_staged_fragment(
-                            self,
-                            &nodes,
-                            &mut staged_ids,
-                            &mut staged_instances,
-                            Some(child.instance),
-                        )?;
-                        journal.replace(key, root).map_err(|error| {
-                            format!("keyed order rejected transaction: {error:?}")
-                        })?;
-                        fragments.push(FragmentPlan {
-                            key,
-                            root,
-                            nodes,
-                            validated,
-                        });
+                        KeyedGraphOperation::Set { key, root, nodes } => {
+                            let child = journal.child(key).map_err(|error| {
+                                format!("keyed order rejected transaction: {error:?}")
+                            })?;
+                            let validated = validate_fragment(
+                                root,
+                                &nodes,
+                                &NodeSet::default(),
+                                owner,
+                                |id| self.node(id),
+                            )?;
+                            graph_visits += validated.visits;
+                            match validated
+                                .lookup(root, &nodes, |id| self.node(id))
+                                .map(|node| &node.kind)
+                            {
+                                Some(NodeKind::Boundary { instance })
+                                    if *instance == child.instance => {}
+                                Some(NodeKind::Boundary { .. }) => {
+                                    return Err(
+                                        "a keyed Set must preserve its component instance".into()
+                                    );
+                                }
+                                _ => {
+                                    return Err(
+                                        "a keyed item root must be a component boundary".into()
+                                    );
+                                }
+                            }
+                            Self::validate_keyed_staged_fragment(
+                                self,
+                                &nodes,
+                                &mut staged_ids,
+                                &mut staged_instances,
+                                Some(child.instance),
+                            )?;
+                            journal.replace(key, root).map_err(|error| {
+                                format!("keyed order rejected transaction: {error:?}")
+                            })?;
+                            native_edits.push(KeyedNativeEdit::Set {
+                                key,
+                                old_root: child.root,
+                                root,
+                            });
+                            fragments.push(FragmentPlan {
+                                key,
+                                root,
+                                nodes,
+                                validated,
+                            });
+                        }
                     }
                 }
-            }
 
-            let mut removed_roots = Vec::new();
-            for (key, original) in &journal.originals {
-                let final_child = journal.order.children.get(key);
-                if let Some(original) = original
-                    && final_child.is_none_or(|child| child.root != original.root)
-                {
-                    removed_roots.push(original.root);
+                let mut removed_roots = Vec::new();
+                for (key, original) in &journal.originals {
+                    let final_child = journal.order.children.get(key);
+                    if let Some(original) = original
+                        && final_child.is_none_or(|child| child.root != original.root)
+                    {
+                        removed_roots.push(original.root);
+                    }
                 }
-            }
-            let mut removed_ids = Vec::new();
-            for root in removed_roots {
-                let mut pending = vec![root];
-                while let Some(id) = pending.pop() {
-                    graph_visits += 1;
-                    removed_ids.push(id);
-                    pending.extend(self.children_of(id));
+                let mut removed_ids = Vec::new();
+                for root in removed_roots {
+                    let mut pending = vec![root];
+                    while let Some(id) = pending.pop() {
+                        graph_visits += 1;
+                        removed_ids.push(id);
+                        pending.extend(self.children_of(id));
+                    }
                 }
-            }
-            let removed = removed_ids.iter().copied().collect::<NodeSet>();
+                let removed = removed_ids.iter().copied().collect::<NodeSet>();
 
-            fragments.retain(|fragment| {
-                journal
-                    .order
-                    .children
-                    .get(&fragment.key)
-                    .is_some_and(|child| child.root == fragment.root)
-            });
-            let mut labels = HashSet::new();
-            let mut staged_dialog = false;
-            for fragment in &fragments {
-                for node in &fragment.nodes {
-                    match &node.kind {
-                        NodeKind::Dialog { .. } => {
-                            if staged_dialog || self.dialog.is_some_and(|id| !removed.contains(&id))
-                            {
-                                return Err(
-                                    "mounted graph would contain more than one modal dialog".into(),
-                                );
+                fragments.retain(|fragment| {
+                    journal
+                        .order
+                        .children
+                        .get(&fragment.key)
+                        .is_some_and(|child| child.root == fragment.root)
+                });
+                let mut labels = HashSet::new();
+                let mut staged_dialog = false;
+                for fragment in &fragments {
+                    for node in &fragment.nodes {
+                        match &node.kind {
+                            NodeKind::Dialog { .. } => {
+                                if staged_dialog
+                                    || self.dialog.is_some_and(|id| !removed.contains(&id))
+                                {
+                                    return Err(
+                                        "mounted graph would contain more than one modal dialog"
+                                            .into(),
+                                    );
+                                }
+                                staged_dialog = true;
                             }
-                            staged_dialog = true;
-                        }
-                        NodeKind::TextInput { label, .. } => {
-                            let owner = fragment.validated.input_owners[&node.id];
-                            if !labels.insert((owner, label.clone()))
-                                || self
-                                    .input_labels
-                                    .get(&(owner, label.clone()))
+                            NodeKind::TextInput { label, .. } => {
+                                let owner = fragment.validated.input_owners[&node.id];
+                                if !labels.insert((owner, label.clone()))
+                                    || self
+                                        .input_labels
+                                        .get(&(owner, label.clone()))
+                                        .is_some_and(|id| !removed.contains(id))
+                                {
+                                    return Err(format!(
+                                        "mounted graph contains duplicate text input label {label:?}"
+                                    ));
+                                }
+                            }
+                            NodeKind::Boundary { instance } => {
+                                if self
+                                    .boundary_instances
+                                    .get(instance)
                                     .is_some_and(|id| !removed.contains(id))
-                            {
-                                return Err(format!(
-                                    "mounted graph contains duplicate text input label {label:?}"
-                                ));
+                                {
+                                    return Err(format!(
+                                        "component instance {instance} is already mounted"
+                                    ));
+                                }
                             }
+                            _ => {}
                         }
-                        NodeKind::Boundary { instance } => {
-                            if self
-                                .boundary_instances
-                                .get(instance)
-                                .is_some_and(|id| !removed.contains(id))
-                            {
-                                return Err(format!(
-                                    "component instance {instance} is already mounted"
-                                ));
-                            }
-                        }
-                        _ => {}
                     }
                 }
-            }
-            Ok((fragments, removed_ids, graph_visits))
-        })();
+                Ok((fragments, removed_ids, graph_visits, native_edits))
+            })();
 
-        let (fragments, removed_ids, graph_visits) = match prepared {
+        let (fragments, removed_ids, graph_visits, native_edits) = match prepared {
             Ok(prepared) => prepared,
             Err(error) => {
                 journal.rollback();
@@ -1928,6 +1982,7 @@ impl MountedGraph {
             removed_instances,
             validate_ns,
             apply_ns: apply_started.map(elapsed_ns).unwrap_or(0),
+            native_edits,
         })
     }
 
@@ -2001,6 +2056,7 @@ impl MountedGraph {
                     validation_visits: keyed.graph_visits,
                     removed_instances: keyed.removed_instances,
                     staged_instances: keyed.staged_instances,
+                    keyed_edits: keyed.native_edits,
                 });
             }
             patch => patch,
@@ -2036,6 +2092,7 @@ impl MountedGraph {
                     validation_visits: 0,
                     removed_instances: vec![],
                     staged_instances: vec![],
+                    keyed_edits: vec![],
                 });
             }
             Patch::Mount { root, nodes } => (None, root, nodes, vec![]),
@@ -2338,6 +2395,7 @@ impl MountedGraph {
             validation_visits,
             removed_instances,
             staged_instances,
+            keyed_edits: vec![],
         })
     }
 

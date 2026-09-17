@@ -134,6 +134,11 @@ Keyed graph transactions additionally report `cycles.keyed_graph_visits`,
 owner counts validated or retired fragment nodes; the keyed-order owner counts
 original link reads and distinct first-touched keys. Ordinary patches report
 zero because they perform no keyed graph transaction.
+`cycles.keyed_native_edits` and the three keyed item-entity columns record the
+native application owner's accepted edits and item entities created, retired,
+or moved. Native-work kind 16 records keyed-container renders and view-element
+construction. Layout, prepaint, and paint remain frame-wide owner spans; no
+keyed-container share is inferred from them.
 
 Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather

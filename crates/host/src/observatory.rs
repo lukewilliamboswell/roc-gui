@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 16;
+pub const SCHEMA_VERSION: u32 = 17;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -29,7 +29,8 @@ pub const ROC_WORK_KINDS: usize = 5;
 
 /// Counts reported by the production native operations, indexed by NodeKind::tag.
 /// These are renders and view-element construction, not inferred cache outcomes.
-pub const NATIVE_NODE_KINDS: usize = 16;
+pub const NATIVE_NODE_KINDS: usize = 17;
+pub const KEYED_CONTAINER_NATIVE_KIND: u8 = 16;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NativeWork {
@@ -360,6 +361,10 @@ pub struct Cycle {
     pub keyed_graph_visits: u64,
     pub keyed_original_reads: u64,
     pub keyed_first_touches: u64,
+    pub keyed_native_edits: u64,
+    pub keyed_item_entities_created: u64,
+    pub keyed_item_entities_retired: u64,
+    pub keyed_item_entities_moved: u64,
     pub roc_work: [RocWork; ROC_WORK_KINDS],
     pub roc_work_valid: bool,
     pub component_work: Option<ComponentWork>,
@@ -1481,8 +1486,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
         },
         Event::Cycle(cycle) => {
             connection.execute(
-                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits,keyed_graph_visits,keyed_original_reads,keyed_first_touches) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23)",
-                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits), as_i64(cycle.keyed_graph_visits), as_i64(cycle.keyed_original_reads), as_i64(cycle.keyed_first_touches)],
+                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits,keyed_graph_visits,keyed_original_reads,keyed_first_touches,keyed_native_edits,keyed_item_entities_created,keyed_item_entities_retired,keyed_item_entities_moved) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27)",
+                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits), as_i64(cycle.keyed_graph_visits), as_i64(cycle.keyed_original_reads), as_i64(cycle.keyed_first_touches), as_i64(cycle.keyed_native_edits), as_i64(cycle.keyed_item_entities_created), as_i64(cycle.keyed_item_entities_retired), as_i64(cycle.keyed_item_entities_moved)],
             )
             .map_err(|error| format!("cannot write cycle row: {error}"))?;
             let cycle_id = connection.last_insert_rowid();
@@ -1665,7 +1670,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=16;
+PRAGMA user_version=17;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1786,6 +1791,10 @@ CREATE TABLE cycles(
     keyed_graph_visits INTEGER NOT NULL,
     keyed_original_reads INTEGER NOT NULL,
     keyed_first_touches INTEGER NOT NULL,
+    keyed_native_edits INTEGER NOT NULL,
+    keyed_item_entities_created INTEGER NOT NULL,
+    keyed_item_entities_retired INTEGER NOT NULL,
+    keyed_item_entities_moved INTEGER NOT NULL,
     roc_work_valid INTEGER NOT NULL CHECK(roc_work_valid IN (0,1)),
     component_work_recorded INTEGER NOT NULL CHECK(component_work_recorded IN (0,1)),
     UNIQUE(run_id,ordinal),
@@ -1816,7 +1825,7 @@ CREATE TABLE gpui_frames(
 CREATE TABLE gpui_native_work(
     frame_id INTEGER NOT NULL REFERENCES gpui_frames(id),
     metric INTEGER NOT NULL CHECK(metric BETWEEN 0 AND 1),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 15),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 16),
     count INTEGER NOT NULL CHECK(count > 0),
     PRIMARY KEY(frame_id,metric,kind)
 );
@@ -1997,6 +2006,10 @@ mod tests {
             keyed_graph_visits: 0,
             keyed_original_reads: 0,
             keyed_first_touches: 0,
+            keyed_native_edits: 0,
+            keyed_item_entities_created: 0,
+            keyed_item_entities_retired: 0,
+            keyed_item_entities_moved: 0,
             roc_work: [RocWork::default(); ROC_WORK_KINDS],
             roc_work_valid: true,
             component_work: None,
@@ -2403,6 +2416,10 @@ mod tests {
         update.keyed_graph_visits = 4;
         update.keyed_original_reads = 3;
         update.keyed_first_touches = 3;
+        update.keyed_native_edits = 2;
+        update.keyed_item_entities_created = 1;
+        update.keyed_item_entities_retired = 1;
+        update.keyed_item_entities_moved = 1;
         update.roc_work = attributed;
         update.roc_work[0] = RocWork {
             occurred: true,
@@ -2478,12 +2495,12 @@ mod tests {
         assert_eq!(db.query_row("SELECT count(*) FROM component_work_assertions WHERE expected_count=observed_count", [], |row| row.get::<_, i64>(0)).unwrap(), 3);
         assert_eq!(
             db.query_row(
-                "SELECT keyed_graph_visits,keyed_original_reads,keyed_first_touches FROM cycles WHERE ordinal=0",
+                "SELECT keyed_graph_visits,keyed_original_reads,keyed_first_touches,keyed_native_edits,keyed_item_entities_created,keyed_item_entities_retired,keyed_item_entities_moved FROM cycles WHERE ordinal=0",
                 [],
-                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?))
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?, row.get::<_, i64>(3)?, row.get::<_, i64>(4)?, row.get::<_, i64>(5)?, row.get::<_, i64>(6)?))
             )
             .unwrap(),
-            (4, 3, 3)
+            (4, 3, 3, 2, 1, 1, 1)
         );
         let mut component_report = db
             .prepare(include_str!(

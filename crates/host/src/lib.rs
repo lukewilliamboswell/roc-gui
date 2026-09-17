@@ -1631,6 +1631,128 @@ fn headless_smoke() {
     eprintln!("PASS: Roc counter dispatched -1 -> 0 -> 1 using translated subtree patches");
 }
 
+type NativeKey = [u8; 32];
+
+struct KeyedViewChild {
+    view: Entity<NodeView>,
+    previous: Option<NativeKey>,
+    next: Option<NativeKey>,
+}
+
+#[derive(Default)]
+struct KeyedViewOrder {
+    head: Option<NativeKey>,
+    tail: Option<NativeKey>,
+    children: HashMap<NativeKey, KeyedViewChild>,
+}
+
+impl KeyedViewOrder {
+    fn insert(&mut self, key: NativeKey, before: Option<NativeKey>, view: Entity<NodeView>) {
+        let previous = before
+            .and_then(|anchor| self.children[&anchor].previous)
+            .or_else(|| before.is_none().then_some(self.tail).flatten());
+        self.children.insert(
+            key,
+            KeyedViewChild {
+                view,
+                previous,
+                next: before,
+            },
+        );
+        if let Some(previous) = previous {
+            self.children
+                .get_mut(&previous)
+                .expect("keyed predecessor")
+                .next = Some(key);
+        } else {
+            self.head = Some(key);
+        }
+        if let Some(next) = before {
+            self.children.get_mut(&next).expect("keyed anchor").previous = Some(key);
+        } else {
+            self.tail = Some(key);
+        }
+    }
+
+    fn remove(&mut self, key: NativeKey) -> Entity<NodeView> {
+        let child = self.children.remove(&key).expect("mounted keyed child");
+        if let Some(previous) = child.previous {
+            self.children
+                .get_mut(&previous)
+                .expect("keyed predecessor")
+                .next = child.next;
+        } else {
+            self.head = child.next;
+        }
+        if let Some(next) = child.next {
+            self.children
+                .get_mut(&next)
+                .expect("keyed successor")
+                .previous = child.previous;
+        } else {
+            self.tail = child.previous;
+        }
+        child.view
+    }
+
+    fn move_before(&mut self, key: NativeKey, before: Option<NativeKey>) -> bool {
+        if before == Some(key) || self.children[&key].next == before {
+            return false;
+        }
+        let view = self.remove(key);
+        self.insert(key, before, view);
+        true
+    }
+
+    fn iter(&self) -> KeyedViewIter<'_> {
+        KeyedViewIter {
+            order: self,
+            next: self.head,
+            remaining: self.children.len(),
+        }
+    }
+}
+
+struct KeyedViewIter<'a> {
+    order: &'a KeyedViewOrder,
+    next: Option<NativeKey>,
+    remaining: usize,
+}
+
+impl Iterator for KeyedViewIter<'_> {
+    type Item = Entity<NodeView>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let key = self.next.expect("non-empty keyed view order");
+        let child = &self.order.children[&key];
+        self.next = child.next;
+        self.remaining -= 1;
+        Some(child.view.clone())
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+impl ExactSizeIterator for KeyedViewIter<'_> {}
+
+enum NativeChildrenIter<'a> {
+    Ordinary(std::iter::Cloned<std::slice::Iter<'a, Entity<NodeView>>>),
+    Keyed(KeyedViewIter<'a>),
+}
+
+impl Iterator for NativeChildrenIter<'_> {
+    type Item = Entity<NodeView>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Ordinary(iter) => iter.next(),
+            Self::Keyed(iter) => iter.next(),
+        }
+    }
+}
+
 struct NodeView {
     node: Node,
     /// Where this node sits, named rather than numbered. Two mounted nodes
@@ -1639,6 +1761,7 @@ struct NodeView {
     /// rerender under the finger.
     identity: ElementIdentity,
     children: Vec<Entity<NodeView>>,
+    keyed_children: Option<KeyedViewOrder>,
     runtime: WeakEntity<Runtime>,
     is_root: bool,
     /// Baseline alignment needs descendants' real layout baselines, which a
@@ -1654,6 +1777,15 @@ struct NodeView {
     /// and so that a window specification can reach the same offset cell the
     /// production wheel handler writes.
     scroll: Option<ScrollTracker>,
+}
+
+impl NodeView {
+    fn native_children(&self) -> NativeChildrenIter<'_> {
+        match &self.keyed_children {
+            Some(order) => NativeChildrenIter::Keyed(order.iter()),
+            None => NativeChildrenIter::Ordinary(self.children.iter().cloned()),
+        }
+    }
 }
 
 /// The retained scroll position of one scrolling node.
@@ -1973,7 +2105,11 @@ fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
 
 fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
     let node = view.read(cx);
-    observatory::note_native_view_element(node.node.kind.tag());
+    observatory::note_native_view_element(if node.keyed_children.is_some() {
+        observatory::KEYED_CONTAINER_NATIVE_KIND
+    } else {
+        node.node.kind.tag()
+    });
     let independent_children = matches!(
         node.node.kind,
         NodeKind::Boundary { .. }
@@ -2018,7 +2154,11 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
 
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        observatory::note_native_render(self.node.kind.tag());
+        observatory::note_native_render(if self.keyed_children.is_some() {
+            observatory::KEYED_CONTAINER_NATIVE_KIND
+        } else {
+            self.node.kind.tag()
+        });
         #[cfg(test)]
         tests::record_native_style(_cx.entity_id(), &self.node);
         // A component boundary owns identity and updates, but contributes no
@@ -2604,9 +2744,7 @@ impl Render for NodeView {
         if append_children {
             element
                 .children(
-                    self.children
-                        .iter()
-                        .cloned()
+                    self.native_children()
                         .map(|view| native_node_view(view, _cx)),
                 )
                 .into_any_element()
@@ -2683,6 +2821,14 @@ struct InitialMount {
     roc_callback_ns: u64,
     roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
     roc_work_valid: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct KeyedNativeApply {
+    edits: u64,
+    item_entities_created: u64,
+    item_entities_retired: u64,
+    item_entities_moved: u64,
 }
 
 impl Runtime {
@@ -3059,7 +3205,7 @@ impl Runtime {
             panic!("invalid native graph patch: {message}")
         });
         accept_transaction(&self.graph, &applied);
-        self.apply_to_gpui(&applied, cx);
+        let _ = self.apply_to_gpui(&applied, cx);
     }
 
     // Carries per-cycle measurement facts straight into the observatory record.
@@ -3081,7 +3227,7 @@ impl Runtime {
         accept_transaction(&self.graph, &applied);
         let graph_apply_ns = applied.facts.apply_ns;
         let gpui_started = Instant::now();
-        self.apply_to_gpui(&applied, cx);
+        let keyed_native = self.apply_to_gpui(&applied, cx);
         let gpui_apply_ns = elapsed_ns(gpui_started);
         observatory::cycle(observatory::Cycle {
             run_id: 1,
@@ -3108,6 +3254,10 @@ impl Runtime {
             keyed_graph_visits: applied.facts.keyed_graph_visits,
             keyed_original_reads: applied.facts.keyed_original_reads,
             keyed_first_touches: applied.facts.keyed_first_touches,
+            keyed_native_edits: keyed_native.edits,
+            keyed_item_entities_created: keyed_native.item_entities_created,
+            keyed_item_entities_retired: keyed_native.item_entities_retired,
+            keyed_item_entities_moved: keyed_native.item_entities_moved,
         });
         self.cycle_ordinal += 1;
     }
@@ -3117,9 +3267,16 @@ impl Runtime {
         probe::frame(self.generation)
     }
 
-    fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
-        if matches!(applied.facts.kind, "no_change" | "keyed") {
-            return;
+    fn apply_to_gpui(
+        &mut self,
+        applied: &bridge::GraphApply,
+        cx: &mut Context<Self>,
+    ) -> KeyedNativeApply {
+        if applied.facts.kind == "no_change" {
+            return KeyedNativeApply::default();
+        }
+        if applied.facts.kind == "keyed" {
+            return self.apply_keyed_to_gpui(applied, cx);
         }
         let retired_identities = applied
             .removed_ids
@@ -3399,6 +3556,144 @@ impl Runtime {
         {
             self.canvas_drag = None;
         }
+        KeyedNativeApply::default()
+    }
+
+    fn apply_keyed_to_gpui(
+        &mut self,
+        applied: &bridge::GraphApply,
+        cx: &mut Context<Self>,
+    ) -> KeyedNativeApply {
+        let mut work = KeyedNativeApply {
+            edits: applied.keyed_edits.len() as u64,
+            ..Default::default()
+        };
+        let container = applied.root.expect("keyed patch container");
+        let retired_identities = applied
+            .removed_ids
+            .iter()
+            .filter_map(|id| {
+                self.identities
+                    .get(id)
+                    .cloned()
+                    .map(|identity| (*id, identity))
+            })
+            .collect::<Vec<_>>();
+        self.recyclable.clear();
+        for id in &applied.removed_ids {
+            if let Some(view) = self.views.get(id) {
+                self.recyclable
+                    .insert(view.read(cx).identity.clone(), view.clone());
+            }
+            self.identities.remove(id);
+        }
+        for id in &applied.staged_ids {
+            self.identities.insert(*id, self.graph.identity(*id));
+        }
+        self.generation += 1;
+        self.materialize(&applied.staged_ids, cx);
+
+        let container_view = self.views[&container].clone();
+        container_view.update(cx, |view, cx| {
+            let order = view
+                .keyed_children
+                .get_or_insert_with(KeyedViewOrder::default);
+            for edit in &applied.keyed_edits {
+                match *edit {
+                    bridge::KeyedNativeEdit::Insert { key, before, root } => {
+                        order.insert(key, before, self.views[&root].clone());
+                        work.item_entities_created += 1;
+                    }
+                    bridge::KeyedNativeEdit::Remove { key, root } => {
+                        debug_assert_eq!(order.children[&key].view.read(cx).node.id, root);
+                        order.remove(key);
+                        work.item_entities_retired += 1;
+                    }
+                    bridge::KeyedNativeEdit::Move { key, before } => {
+                        work.item_entities_moved += u64::from(order.move_before(key, before));
+                    }
+                    bridge::KeyedNativeEdit::Set {
+                        key,
+                        old_root: _,
+                        root,
+                    } => {
+                        order.children.get_mut(&key).expect("keyed Set child").view =
+                            self.views[&root].clone();
+                        work.item_entities_retired += 1;
+                        work.item_entities_created += 1;
+                    }
+                }
+            }
+            cx.notify();
+        });
+
+        let next_dialog = self.graph.active_dialog();
+        match (self.active_dialog.is_some(), next_dialog) {
+            (false, Some(dialog)) => {
+                self.dialog_return_focus = self.last_trigger_focus.take();
+                self.focus_after_render = self.graph.first_focusable_in(dialog);
+            }
+            (true, None) => {
+                self.focus_after_render = self
+                    .dialog_return_focus
+                    .take()
+                    .and_then(|identity| self.find_native_identity(&identity));
+            }
+            _ => {
+                if let Some((id, identity)) = self.focused_identity.clone()
+                    && self.graph.node(id).is_none()
+                {
+                    self.focus_after_render = self.find_native_identity(&identity).or_else(|| {
+                        self.focused_position
+                            .and_then(|was_at| self.graph.focus_destination(was_at))
+                    });
+                }
+            }
+        }
+        if self.active_dialog != next_dialog {
+            for (id, view) in self.views.iter().chain(
+                self.virtual_entities
+                    .iter()
+                    .map(|(id, cached)| (id, &cached.view)),
+            ) {
+                let enabled =
+                    next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
+                view.update(cx, |view, cx| {
+                    view.input_enabled = enabled;
+                    if let Some(editor) = &view.input {
+                        let accepts_input =
+                            matches!(view.node.kind, NodeKind::TextInput { enabled: true, .. });
+                        editor.update(cx, |editor, cx| {
+                            editor.set_enabled(enabled && accepts_input, cx)
+                        });
+                    }
+                });
+            }
+        }
+        self.active_dialog = next_dialog;
+
+        for id in &applied.removed_ids {
+            self.views.remove(id);
+            self.virtual_entities.remove(id);
+            self.preserved_virtual.remove(id);
+            self.focus_handles.remove(id);
+            self.scroll_trackers.remove(id);
+            self.canvas_surfaces.remove(id);
+        }
+        for (retired, identity) in retired_identities {
+            if self.editor_nodes.get(&identity) == Some(&retired) {
+                self.editor_nodes.remove(&identity);
+                self.editors.remove(&identity);
+            }
+        }
+        if self
+            .canvas_drag
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_drag = None;
+        }
+        work
     }
 
     fn find_native_identity(&self, identity: &ElementIdentity) -> Option<u64> {
@@ -3427,7 +3722,10 @@ impl Runtime {
             {
                 return true;
             }
-            current = self.graph.parent(id).map(|(parent, _)| parent);
+            current = self
+                .graph
+                .parent_location(id)
+                .map(bridge::ParentLocation::parent);
         }
         false
     }
@@ -3499,6 +3797,7 @@ impl Runtime {
                 view.update(cx, |existing, cx| {
                     existing.node = node;
                     existing.children = vec![];
+                    existing.keyed_children = None;
                     existing.is_root = false;
                     existing.baseline_layout = baseline_layout;
                     existing.input_enabled = input_enabled;
@@ -3515,6 +3814,7 @@ impl Runtime {
                     node,
                     identity,
                     children: vec![],
+                    keyed_children: None,
                     runtime,
                     is_root: false,
                     baseline_layout,
@@ -4997,7 +5297,7 @@ mod tests {
         CanvasPrimitive, CanvasPrimitiveKind, WindowConfig, canvas_target, counted_roc_alloc,
         counted_roc_dealloc, counted_roc_realloc, make_counted_roc_host, validate_window_config,
     };
-    use crate::bridge::{Length, MountedGraph, Node, NodeKind, Patch, Style};
+    use crate::bridge::{KeyedGraphOperation, Length, MountedGraph, Node, NodeKind, Patch, Style};
     use crate::observatory;
     use gpui::{
         Bounds, Modifiers, MouseButton, Pixels, Point, TestAppContext, VisualTestContext,
@@ -6077,6 +6377,228 @@ mod tests {
             roc_work: [observatory::RocWork::default(); observatory::ROC_WORK_KINDS],
             roc_work_valid: false,
         }
+    }
+
+    fn keyed_key(value: u8) -> [u8; 32] {
+        [value; 32]
+    }
+
+    fn keyed_column_root(id: u64) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Column {
+                label: "keyed-column".into(),
+                style: Style::default(),
+            },
+            children: vec![],
+        }
+    }
+
+    fn keyed_button_fragment(root: u64, button: u64, instance: u64, label: &str) -> Vec<Node> {
+        vec![
+            Node {
+                id: root,
+                kind: NodeKind::Boundary { instance },
+                children: vec![button],
+            },
+            Node {
+                id: button,
+                kind: NodeKind::Button {
+                    caption: label.into(),
+                    label: label.into(),
+                    enabled: true,
+                    hover_enter: true,
+                    hover_exit: true,
+                    style: Style::default(),
+                },
+                children: vec![],
+            },
+        ]
+    }
+
+    fn apply_keyed_native(
+        runtime: &mut Runtime,
+        patch: Patch,
+        cx: &mut gpui::Context<Runtime>,
+    ) -> super::KeyedNativeApply {
+        let applied = runtime.graph.apply(patch).expect("valid keyed patch");
+        runtime.apply_to_gpui(&applied, cx)
+    }
+
+    #[gpui::test]
+    fn keyed_native_move_preserves_entities_and_remove_retires_routes(cx: &mut TestAppContext) {
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![keyed_column_root(1)],
+                }),
+                cx,
+            )
+        });
+        runtime.update(cx, |runtime, cx| {
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 0,
+                    new_revision: 1,
+                    operations: vec![
+                        KeyedGraphOperation::Insert {
+                            key: keyed_key(1),
+                            before: None,
+                            root: 10,
+                            nodes: keyed_button_fragment(10, 11, 100, "one"),
+                        },
+                        KeyedGraphOperation::Insert {
+                            key: keyed_key(2),
+                            before: None,
+                            root: 20,
+                            nodes: keyed_button_fragment(20, 21, 200, "two"),
+                        },
+                    ],
+                },
+                cx,
+            );
+            assert_eq!(work.edits, 2);
+            assert_eq!(work.item_entities_created, 2);
+            let first_boundary = runtime.views[&10].entity_id();
+            let first_button = runtime.views[&11].entity_id();
+            let second_boundary = runtime.views[&20].entity_id();
+            runtime.focused_identity = Some((11, runtime.identities[&11].clone()));
+            assert!(runtime.graph.hover_transition(11, true).is_some());
+
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 1,
+                    new_revision: 2,
+                    operations: vec![KeyedGraphOperation::Move {
+                        key: keyed_key(2),
+                        before: Some(keyed_key(1)),
+                    }],
+                },
+                cx,
+            );
+            assert_eq!(work.item_entities_moved, 1);
+            assert_eq!(runtime.views[&10].entity_id(), first_boundary);
+            assert_eq!(runtime.views[&11].entity_id(), first_button);
+            assert_eq!(runtime.views[&20].entity_id(), second_boundary);
+            let order = runtime.views[&1].read(cx).keyed_children.as_ref().unwrap();
+            assert_eq!(
+                order
+                    .iter()
+                    .map(|view| view.read(cx).node.id)
+                    .collect::<Vec<_>>(),
+                vec![20, 10]
+            );
+
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 2,
+                    new_revision: 3,
+                    operations: vec![KeyedGraphOperation::Set {
+                        key: keyed_key(2),
+                        root: 30,
+                        nodes: keyed_button_fragment(30, 31, 200, "two"),
+                    }],
+                },
+                cx,
+            );
+            assert_eq!(work.item_entities_created, 1);
+            assert_eq!(work.item_entities_retired, 1);
+            assert_eq!(runtime.views[&30].entity_id(), second_boundary);
+            assert!(!runtime.views.contains_key(&20));
+
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 3,
+                    new_revision: 4,
+                    operations: vec![KeyedGraphOperation::Remove { key: keyed_key(1) }],
+                },
+                cx,
+            );
+            assert_eq!(work.item_entities_retired, 1);
+            assert!(!runtime.views.contains_key(&10));
+            assert!(!runtime.views.contains_key(&11));
+            assert!(runtime.graph.hover_transition(11, false).is_none());
+            assert_eq!(runtime.focus_after_render, None);
+        });
+    }
+
+    #[gpui::test]
+    fn keyed_native_move_work_is_independent_of_ten_thousand_items(cx: &mut TestAppContext) {
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![keyed_column_root(1)],
+                }),
+                cx,
+            )
+        });
+        runtime.update(cx, |runtime, cx| {
+            let operations = (0..10_000_u64)
+                .map(|index| KeyedGraphOperation::Insert {
+                    key: {
+                        let mut key = [0_u8; 32];
+                        key[..8].copy_from_slice(&index.to_le_bytes());
+                        key
+                    },
+                    before: None,
+                    root: 10_000 + index * 2,
+                    nodes: keyed_button_fragment(
+                        10_000 + index * 2,
+                        10_001 + index * 2,
+                        10_000 + index,
+                        "item",
+                    ),
+                })
+                .collect();
+            let initial = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 0,
+                    new_revision: 1,
+                    operations,
+                },
+                cx,
+            );
+            assert_eq!(initial.item_entities_created, 10_000);
+            let mut last = [0_u8; 32];
+            last[..8].copy_from_slice(&9_999_u64.to_le_bytes());
+            let mut middle = [0_u8; 32];
+            middle[..8].copy_from_slice(&5_000_u64.to_le_bytes());
+            let entity = runtime.views[&(10_000 + 9_999 * 2)].entity_id();
+            let moved = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 1,
+                    new_revision: 2,
+                    operations: vec![KeyedGraphOperation::Move {
+                        key: last,
+                        before: Some(middle),
+                    }],
+                },
+                cx,
+            );
+            assert_eq!(
+                moved,
+                super::KeyedNativeApply {
+                    edits: 1,
+                    item_entities_moved: 1,
+                    ..Default::default()
+                }
+            );
+            assert_eq!(runtime.views[&(10_000 + 9_999 * 2)].entity_id(), entity);
+        });
     }
 
     #[gpui::test]

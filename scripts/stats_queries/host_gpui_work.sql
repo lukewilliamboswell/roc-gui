@@ -13,7 +13,11 @@ WITH evidence AS (
            sum(retained_nodes) AS retained_nodes,sum(validation_visits) AS validation_visits,
            sum(keyed_graph_visits) AS keyed_graph_visits,
            sum(keyed_original_reads) AS keyed_original_reads,
-           sum(keyed_first_touches) AS keyed_first_touches
+           sum(keyed_first_touches) AS keyed_first_touches,
+           sum(keyed_native_edits) AS keyed_native_edits,
+           sum(keyed_item_entities_created) AS keyed_item_entities_created,
+           sum(keyed_item_entities_retired) AS keyed_item_entities_retired,
+           sum(keyed_item_entities_moved) AS keyed_item_entities_moved
     FROM cycles JOIN runs ON runs.id=cycles.run_id
     WHERE runs.phase='sample' AND cycles.measurement_phase='measured'
 )
@@ -32,5 +36,9 @@ SELECT evidence.status AS evidence_status,evidence.reason AS evidence_reason,
        CASE WHEN evidence.status='complete' THEN measured.keyed_graph_visits END AS keyed_graph_visits,
        CASE WHEN evidence.status='complete' THEN measured.keyed_original_reads END AS keyed_original_reads,
        CASE WHEN evidence.status='complete' THEN measured.keyed_first_touches END AS keyed_first_touches,
+       CASE WHEN evidence.status='complete' THEN measured.keyed_native_edits END AS keyed_native_edits,
+       CASE WHEN evidence.status='complete' THEN measured.keyed_item_entities_created END AS keyed_item_entities_created,
+       CASE WHEN evidence.status='complete' THEN measured.keyed_item_entities_retired END AS keyed_item_entities_retired,
+       CASE WHEN evidence.status='complete' THEN measured.keyed_item_entities_moved END AS keyed_item_entities_moved,
        'see the gpui_frame_spans view; layout solve, presentation, and GPU timing remain unavailable' AS later_gpui_stages
 FROM evidence CROSS JOIN gpui CROSS JOIN measured;
