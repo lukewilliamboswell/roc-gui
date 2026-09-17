@@ -336,44 +336,89 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
-    if RESOURCE_ROUTING.enabled() {
-        files::route_dealloc(pointer);
-        assets::route_dealloc(pointer);
-        audio::route_dealloc(pointer);
-        sqlite::route_dealloc(pointer);
-        app_data::route_dealloc(pointer);
-        clipboard::route_dealloc(pointer);
-        device::route_dealloc(pointer);
-        system_monitor::route_dealloc(pointer);
-        tcp::route_dealloc(pointer);
-        process::route_dealloc(pointer);
-        timers::route_dealloc(pointer);
-        http::route_dealloc(pointer);
+    let mask = RESOURCE_ROUTING.mask();
+    if mask != 0 {
+        use resource_domain as domain;
+        if mask & domain::FILES != 0 {
+            files::route_dealloc(pointer);
+        }
+        if mask & domain::ASSETS != 0 {
+            assets::route_dealloc(pointer);
+        }
+        if mask & domain::AUDIO != 0 {
+            audio::route_dealloc(pointer);
+        }
+        if mask & domain::SQLITE != 0 {
+            sqlite::route_dealloc(pointer);
+        }
+        if mask & domain::APP_DATA != 0 {
+            app_data::route_dealloc(pointer);
+        }
+        if mask & domain::CLIPBOARD != 0 {
+            clipboard::route_dealloc(pointer);
+        }
+        if mask & domain::DEVICE != 0 {
+            device::route_dealloc(pointer);
+        }
+        if mask & domain::SYSTEM_MONITOR != 0 {
+            system_monitor::route_dealloc(pointer);
+        }
+        if mask & domain::TCP != 0 {
+            tcp::route_dealloc(pointer);
+        }
+        if mask & domain::PROCESS != 0 {
+            process::route_dealloc(pointer);
+        }
+        if mask & domain::TIMERS != 0 {
+            timers::route_dealloc(pointer);
+        }
+        if mask & domain::HTTP != 0 {
+            http::route_dealloc(pointer);
+        }
     }
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
 
-/// Monotonic: registration enables routing before the handle can escape to
-/// Roc or another thread. Never reset this when stores empty or sessions end;
-/// that would require synchronizing with concurrent registration/deallocation.
-struct ResourceRouting(std::sync::atomic::AtomicBool);
+/// One bit per resource store, so an application that only ever used one
+/// resource kind visits one route per free instead of all twelve.
+pub(crate) mod resource_domain {
+    pub const FILES: u32 = 1 << 0;
+    pub const ASSETS: u32 = 1 << 1;
+    pub const AUDIO: u32 = 1 << 2;
+    pub const SQLITE: u32 = 1 << 3;
+    pub const APP_DATA: u32 = 1 << 4;
+    pub const CLIPBOARD: u32 = 1 << 5;
+    pub const DEVICE: u32 = 1 << 6;
+    pub const SYSTEM_MONITOR: u32 = 1 << 7;
+    pub const TCP: u32 = 1 << 8;
+    pub const PROCESS: u32 = 1 << 9;
+    pub const TIMERS: u32 = 1 << 10;
+    pub const HTTP: u32 = 1 << 11;
+}
+
+/// Monotonic per domain: registration enables that domain's routing before the
+/// handle can escape to Roc or another thread. Never reset a bit when stores
+/// empty or sessions end; that would require synchronizing with concurrent
+/// registration/deallocation.
+struct ResourceRouting(std::sync::atomic::AtomicU32);
 
 impl ResourceRouting {
     const fn new() -> Self {
-        Self(std::sync::atomic::AtomicBool::new(false))
+        Self(std::sync::atomic::AtomicU32::new(0))
     }
 
-    fn enabled(&self) -> bool {
+    fn mask(&self) -> u32 {
         self.0.load(Ordering::Acquire)
     }
 
     fn register<V, S: std::hash::BuildHasher>(
         &self,
+        domain: u32,
         allocations: &mut std::collections::HashMap<usize, V, S>,
         base: usize,
         value: V,
     ) -> Option<V> {
-        self.0.store(true, Ordering::Release);
+        self.0.fetch_or(domain, Ordering::Release);
         allocations.insert(base, value)
     }
 }
@@ -382,11 +427,12 @@ static RESOURCE_ROUTING: ResourceRouting = ResourceRouting::new();
 
 /// All resource allocation maps must register here before publishing a handle.
 pub(crate) fn register_resource_allocation<V, S: std::hash::BuildHasher>(
+    domain: u32,
     allocations: &mut std::collections::HashMap<usize, V, S>,
     base: usize,
     value: V,
 ) -> Option<V> {
-    RESOURCE_ROUTING.register(allocations, base, value)
+    RESOURCE_ROUTING.register(domain, allocations, base, value)
 }
 
 /// Once resource routing is enabled, every Roc free visits its routes. HashMap's
@@ -414,23 +460,32 @@ mod resource_allocation_tests {
     fn registration_enables_routing_permanently_before_publication() {
         let routing = ResourceRouting::new();
         let mut allocations = HashMap::new();
-        assert!(!routing.enabled());
+        assert_eq!(routing.mask(), 0);
         std::thread::scope(|scope| {
             scope
                 .spawn(|| {
-                    assert_eq!(routing.register(&mut allocations, 8, 42), None);
-                    assert!(routing.enabled());
+                    assert_eq!(
+                        routing.register(super::resource_domain::TCP, &mut allocations, 8, 42),
+                        None
+                    );
+                    assert_eq!(routing.mask(), super::resource_domain::TCP);
                 })
                 .join()
                 .unwrap();
         });
-        assert!(routing.enabled());
+        assert_eq!(routing.mask(), super::resource_domain::TCP);
         assert_eq!(remove_resource_allocation(&mut allocations, 8), Some(42));
         allocations.clear();
-        assert!(routing.enabled());
-        assert_eq!(routing.register(&mut allocations, 16, 99), None);
+        assert_eq!(routing.mask(), super::resource_domain::TCP);
+        assert_eq!(
+            routing.register(super::resource_domain::FILES, &mut allocations, 16, 99),
+            None
+        );
         assert_eq!(remove_resource_allocation(&mut allocations, 16), Some(99));
-        assert!(routing.enabled());
+        assert_eq!(
+            routing.mask(),
+            super::resource_domain::TCP | super::resource_domain::FILES
+        );
     }
 
     impl BuildHasher for CountHashes<'_> {

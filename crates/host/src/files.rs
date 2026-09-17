@@ -223,7 +223,7 @@ fn capability(dir: Arc<Dir>, mut metadata: GrantMetadata) -> *mut u64 {
     let allocation_base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.dirs.insert(id, dir);
     guard.metadata.insert(id, metadata);
-    crate::register_resource_allocation(&mut guard.allocations, allocation_base as usize, id);
+    crate::register_resource_allocation(crate::resource_domain::FILES, &mut guard.allocations, allocation_base as usize, id);
     guard.lifecycle[2] += 1;
     handle
 }

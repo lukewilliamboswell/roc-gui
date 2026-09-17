@@ -105,7 +105,7 @@ fn capability(source: Source) -> *mut u64 {
             sampling: Mutex::new(false),
         }),
     );
-    crate::register_resource_allocation(&mut guard.allocations, base, id);
+    crate::register_resource_allocation(crate::resource_domain::SYSTEM_MONITOR, &mut guard.allocations, base, id);
     handle
 }
 fn lookup(handle: *mut u64) -> Option<Arc<Sampler>> {

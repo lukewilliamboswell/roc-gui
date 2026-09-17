@@ -92,7 +92,7 @@ fn allocate_handle(guard: &mut Store) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
     guard.handles.insert(id, ());
-    crate::register_resource_allocation(&mut guard.allocations, base, id);
+    crate::register_resource_allocation(crate::resource_domain::CLIPBOARD, &mut guard.allocations, base, id);
     handle
 }
 

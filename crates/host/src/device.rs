@@ -178,7 +178,7 @@ pub extern "C" fn roc_device_acquire() -> HostGlueDeviceAcquireResult {
     let id = next_id(&mut guard);
     let (handle, base) = allocate_handle(id);
     guard.grants.insert(id, configured);
-    crate::register_resource_allocation(&mut guard.grant_allocations, base, id);
+    crate::register_resource_allocation(crate::resource_domain::DEVICE, &mut guard.grant_allocations, base, id);
     HostGlueDeviceAcquireResult {
         payload: HostGlueDeviceAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
@@ -313,7 +313,7 @@ pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostGlueDeviceConnectR
             closed: Mutex::new(false),
         }),
     );
-    crate::register_resource_allocation(&mut guard.connection_allocations, base, id);
+    crate::register_resource_allocation(crate::resource_domain::DEVICE, &mut guard.connection_allocations, base, id);
     CONNECTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     HostGlueDeviceConnectResult {
         payload: HostGlueDeviceConnectResultPayload {
