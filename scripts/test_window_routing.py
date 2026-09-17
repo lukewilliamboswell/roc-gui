@@ -90,6 +90,38 @@ class ArtifactTests(unittest.TestCase):
             self.assertEqual(artifacts.name, "pointer")
             self.assertEqual(artifacts.parent, case.capture.parent)
 
+    def test_failure_record_has_only_relative_identity_and_bounded_status(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = self.case(Path(directory))
+            captured = io.StringIO()
+            with patch.object(run_specs.time, "monotonic", return_value=15.25):
+                with contextlib.redirect_stdout(captured):
+                    result = run_specs.finish_case(
+                        case, 10.0, "window", "process_exit", "private diagnostic", -1073741819
+                    )
+            self.assertEqual(result, (case, "private diagnostic"))
+            record = json.loads(run_specs.failure_record(case).read_text(encoding="utf-8"))
+            self.assertEqual(record["spec"], "examples/counter/specs/pointer.scm")
+            self.assertEqual(record["application"], "examples/counter/main.roc")
+            self.assertEqual(record["elapsed_seconds"], 5.25)
+            self.assertEqual(record["exit_status"], "0xC0000005")
+            self.assertNotIn("private diagnostic", json.dumps(record))
+            self.assertIn("elapsed=5.250s", captured.getvalue())
+
+    def test_debugger_text_removes_runner_and_user_identity(self) -> None:
+        private = (
+            r"C:\Users\alice\project\app.exe "
+            r"D:\a\roc-gui\roc-gui\source\main.roc "
+            r"D:\a\_temp\native.exe "
+            + str(ROOT / "platform/main.roc")
+        )
+        sanitized = run_specs.sanitize_debugger_output(private)
+        self.assertNotIn("alice", sanitized)
+        self.assertNotIn(str(ROOT), sanitized)
+        self.assertNotIn(r"D:\a", sanitized)
+        self.assertIn("C:/Users/user", sanitized)
+        self.assertIn("/workspace/platform/main.roc", sanitized)
+
 
 class ReportTests(unittest.TestCase):
     def test_failing_steps_and_screenshots_are_printed(self) -> None:

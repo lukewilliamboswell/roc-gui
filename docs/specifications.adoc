@@ -571,3 +571,12 @@ The default is one case at a time. `--jobs N` runs cases concurrently, which is
 useful for semantic validation but marks timing-environment evidence partial.
 Use serial runs for performance comparisons. `--aa` repeats each passing case
 with the same executable to show run-to-run noise.
+
+The runner prints a UTC start, UTC finish, and elapsed wall time for every case,
+including timeouts and process failures. Timing is diagnostic evidence only;
+specification assertions and deterministic counters decide correctness. CI runs
+ordinary semantics, serial scaling cases, native smoke checks, and real-window
+specifications as independent jobs. On failure it retains bounded JSON status,
+partial `.rgstats` evidence, and a sanitized textual Windows debugger report
+when one is available. Raw process memory is never retained because it can
+contain application data and machine identity.
