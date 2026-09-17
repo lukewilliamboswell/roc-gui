@@ -804,10 +804,3 @@ names the evidence so a fix can be verified against the same case.
   closes upstream. The vendored example icons are neutral greys, which are
   invariant under the exchange and therefore honest either way. Verify with a
   specification that samples a known pixel of a known fixture once a fix lands.
-
-- [ ] **CI keeps no window evidence.** A window case writes `report.json` beside
-  its screenshots, and that report now names the size the window opened at
-  against the size the application asked for. The workflow uploads none of it,
-  so a failure that only reproduces on a hosted runner is read from the log line
-  alone and the geometry that explains it has to be reconstructed locally.
-  Upload the specification evidence directory on failure.

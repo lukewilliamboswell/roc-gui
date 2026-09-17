@@ -9,10 +9,35 @@ permissions:
   contents: read
 
 jobs:
-  native:
-    name: Native suite (${{ matrix.target }})
+  policy:
+    name: Repository policy and host tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+      - name: Repository policy and artifact tests
+        run: |
+          python3 scripts/check_no_tracked_machine_code.py --all-tracked
+          python3 -m unittest \
+            scripts/test_no_tracked_machine_code.py \
+            scripts/test_dependency_artifacts.py \
+            scripts/test_host_release_policy.py \
+            scripts/test_macos_interfaces.py \
+            scripts/test_gpui_smoke.py \
+            scripts/test_window_routing.py
+      - name: Test GPUI dependency patches
+        run: |
+          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope
+          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support dirty_cached_parent
+
+  semantics:
+    name: Ordinary semantics (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash
@@ -34,63 +59,140 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
-      - name: Install the Windows GNU host target
-        if: runner.os == 'Windows'
-        run: |
-          rustup toolchain install 1.95.0 --profile minimal
-          rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
-      - name: Repository policy and artifact tests
-        run: |
-          python3 scripts/check_no_tracked_machine_code.py --all-tracked
-          python3 -m unittest \
-            scripts/test_no_tracked_machine_code.py \
-            scripts/test_dependency_artifacts.py \
-            scripts/test_host_release_policy.py \
-            scripts/test_macos_interfaces.py \
-            scripts/test_window_routing.py
-      - name: Admit released host or test changed host
-        run: |
-          status=0
-          python3 scripts/install_released_host.py || status=$?
-          case "$status" in
-            0) echo "Released host matches the committed host inputs; Cargo build skipped." ;;
-            3) python3 scripts/run_cargo.py test --locked --package roc-gui-host ;;
-            *) exit "$status" ;;
-          esac
-      - name: Test GPUI dependency patches
-        if: runner.os == 'Linux'
-        run: |
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support dirty_cached_parent
-      - name: Full application specification suite
-        run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }} --timeout 180 --only semantic
-      - name: Real GPUI window smoke
-        if: runner.os == 'macOS'
+      - uses: ./.github/actions/setup-native-test
+      - name: Run ordinary application specifications
+        run: >-
+          python3 scripts/run_specs.py "examples/*/specs/*.scm"
+          --exclude "examples/*/specs/*scale*.scm"
+          --jobs ${{ matrix.spec_jobs }} --timeout 180 --only semantic
+          --output="$RUNNER_TEMP/spec-evidence"
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semantic-failure-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/spec-evidence/**/*.failure.json
+            ${{ runner.temp }}/spec-evidence/**/*.failure.rgstats
+            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  scaling:
+    name: Scaling semantics (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    defaults:
+      run:
         shell: bash
-        run: |
-          roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
-          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
-      - name: Real GPUI window smoke (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          roc build --no-cache --target=x64mingw --opt=dev --output="$RUNNER_TEMP/counter.exe" examples/counter/main.roc
-          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter.exe"
-      # Screenshots stay unavailable on macOS: hosted runners do not grant Screen
-      # Recording. Every behavioural window assertion still gates. Windows
-      # captures through PrintWindow and needs no permission.
-      # Windows captures through PrintWindow, so a missing screenshot there is a
-      # failure rather than a fact of the runner; only macOS is excused.
-      - name: Window specifications
-        if: runner.os == 'macOS' || runner.os == 'Windows'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x64glibc
+          - os: macos-15
+            target: arm64mac
+          - os: windows-2025
+            target: x64mingw
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+      - name: Run scaling specifications serially
+        run: >-
+          python3 scripts/run_specs.py "benchmarks/*/specs/*.scm"
+          "examples/*/specs/*scale*.scm"
+          --jobs 1 --timeout 300 --only semantic
+          --output="$RUNNER_TEMP/spec-evidence"
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: scaling-failure-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/spec-evidence/**/*.failure.json
+            ${{ runner.temp }}/spec-evidence/**/*.failure.rgstats
+            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  smoke:
+    name: Native smoke (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
         shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: arm64mac
+            executable: counter
+          - os: windows-2025
+            target: x64mingw
+            executable: counter.exe
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+      - name: Build and exercise a real GPUI window
         run: |
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            python3 scripts/run_specs.py --only window --exclude "examples/*/specs/gallery.scm" --allow-missing-shots
-          else
-            python3 scripts/run_specs.py --only window --exclude "examples/*/specs/gallery.scm"
-          fi
+          roc build --no-cache --target=${{ matrix.target }} --opt=dev --output="$RUNNER_TEMP/${{ matrix.executable }}" examples/counter/main.roc
+          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/${{ matrix.executable }}" --failure-record="$RUNNER_TEMP/smoke-evidence/failure.json"
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: smoke-failure-${{ matrix.target }}
+          path: ${{ runner.temp }}/smoke-evidence/failure.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  window:
+    name: Window specifications (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: arm64mac
+            missing_shots: --allow-missing-shots
+          - os: windows-2025
+            target: x64mingw
+            missing_shots: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+      - name: Run real GPUI window specifications
+        run: >-
+          python3 scripts/run_specs.py --only window
+          --exclude "examples/*/specs/gallery.scm"
+          --timeout 180 --output="$RUNNER_TEMP/spec-evidence"
+          ${{ matrix.missing_shots }}
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: window-failure-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/spec-evidence/**/*.failure.json
+            ${{ runner.temp }}/spec-evidence/**/report.json
+            ${{ runner.temp }}/spec-evidence/**/*.png
+            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
