@@ -639,6 +639,10 @@ rows_order_valid = |order| {
 rows_slot_index : U64 -> U64
 rows_slot_index = |slot| slot
 
+KeyedSeqPlacement : [Before(Key), End]
+KeyedSeqEdit(value) : [InsertBefore(Key, value, KeyedSeqPlacement), MoveBefore(Key, KeyedSeqPlacement), Remove(Key), Set(Key, value)]
+KeyedSeqTransition(value) : { base_revision : U64, revision : U64, edits : List(KeyedSeqEdit(value)) }
+
 ## A persistent ordered collection keyed by the platform's complete Key digest.
 KeyedSeq(value) :: {
 	order : RowsOrder,
@@ -646,13 +650,38 @@ KeyedSeq(value) :: {
 	keys : Dict(Key, U64),
 	next_slot : U64,
 	last_visits : U64,
+	revision : U64,
+	transition : KeyedSeqTransition(value),
 }.{
-	Placement : [Before(Key), End]
-	Edit(value) : [InsertBefore(Key, value, Placement), MoveBefore(Key, Placement), Remove(Key), Set(Key, value)]
+	Placement : KeyedSeqPlacement
+	Edit(value) : KeyedSeqEdit(value)
+	Transition(value) : KeyedSeqTransition(value)
 	Error : [DuplicateKey(Key), MissingAnchor(Key), MissingKey(Key), SlotExhausted]
 
 	empty : KeyedSeq(value)
-	empty = KeyedSeq.({ order: rows_order_empty(), values: Dict.empty(), keys: Dict.empty(), next_slot: 1, last_visits: 0 })
+	empty = KeyedSeq.({ order: rows_order_empty(), values: Dict.empty(), keys: Dict.empty(), next_slot: 1, last_visits: 0, revision: 0, transition: { base_revision: 0, revision: 0, edits: [] } })
+
+	## Current committed collection revision.
+	revision : KeyedSeq(value) -> U64
+	revision = |KeyedSeq.(state)| state.revision
+
+	## The semantic journal that produced the current revision.
+	last_transition : KeyedSeq(value) -> Transition(value)
+	last_transition = |KeyedSeq.(state)| state.transition
+
+	## Read the last journal only when it directly follows the supplied base.
+	transition_from : KeyedSeq(value), U64 -> Try(Transition(value), [StaleRevision({ actual : U64, requested : U64 })])
+	transition_from = |KeyedSeq.(state), base| if state.transition.base_revision == base {
+		Ok(state.transition)
+	} else {
+		Err(StaleRevision({ actual: state.transition.base_revision, requested: base }))
+	}
+
+	record : KeyedSeq(value), List(Edit(value)) -> KeyedSeq(value)
+	record = |KeyedSeq.(state), edits| {
+		next = state.revision + 1
+		KeyedSeq.({ ..state, revision: next, transition: { base_revision: state.revision, revision: next, edits } })
+	}
 
 	## Exact order-tree nodes visited by the last structural operation.
 	last_visits : KeyedSeq(value) -> U64
@@ -677,14 +706,19 @@ KeyedSeq(value) :: {
 	from_list : List({ key : Key, value : value }) -> Try(KeyedSeq(value), Error)
 	from_list = |entries| {
 		var $sequence = empty
+		var $edits = []
+		var $visits = 0
 		for entry in entries {
-			$sequence = insert_before($sequence, entry.key, entry.value, End)?
+			$sequence = insert_before_raw($sequence, entry.key, entry.value, End)?
+			$visits = $visits + last_visits($sequence)
+			$edits = $edits.append(InsertBefore(entry.key, entry.value, End))
 		}
-		Ok($sequence)
+		KeyedSeq.(state) = $sequence
+		Ok(record(KeyedSeq.({ ..state, last_visits: $visits }), $edits))
 	}
 
-	insert_before : KeyedSeq(value), Key, value, Placement -> Try(KeyedSeq(value), Error)
-	insert_before = |KeyedSeq.(state), key, value, placement| {
+	insert_before_raw : KeyedSeq(value), Key, value, Placement -> Try(KeyedSeq(value), Error)
+	insert_before_raw = |KeyedSeq.(state), key, value, placement| {
 		if state.keys.contains(key) {
 			Err(DuplicateKey(key))
 		} else if state.next_slot == 18446744073709551615 {
@@ -700,7 +734,7 @@ KeyedSeq(value) :: {
 			slot = state.next_slot
 			rank_visits = match placement { End => 0, Before(_) => rows_order_path_visits(state.order, index, False) }
 			visits = rank_visits + rows_order_path_visits(state.order, index, True)
-			Ok(KeyedSeq.({
+			Ok(KeyedSeq.({ ..state,
 				order: rows_order_insert(state.order, index, slot),
 				values: state.values.insert(slot, { key, value }),
 				keys: state.keys.insert(key, slot),
@@ -710,8 +744,14 @@ KeyedSeq(value) :: {
 		}
 	}
 
-	remove : KeyedSeq(value), Key -> Try(KeyedSeq(value), Error)
-	remove = |KeyedSeq.(state), key| {
+	insert_before : KeyedSeq(value), Key, value, Placement -> Try(KeyedSeq(value), Error)
+	insert_before = |sequence, key, value, placement| match insert_before_raw(sequence, key, value, placement) {
+		Err(error) => Err(error)
+		Ok(changed) => Ok(record(changed, [InsertBefore(key, value, placement)]))
+	}
+
+	remove_raw : KeyedSeq(value), Key -> Try(KeyedSeq(value), Error)
+	remove_raw = |KeyedSeq.(state), key| {
 		slot = state.keys.get(key) ? |_| MissingKey(key)
 		rank = rows_order_rank(state.order, slot) ?? crash "KeyedSeq value lacked an order rank"
 		visits = rows_order_path_visits(state.order, rank, False) * 2
@@ -719,14 +759,22 @@ KeyedSeq(value) :: {
 		Ok(KeyedSeq.({ ..state, order: removed.order, values: state.values.remove(slot), keys: state.keys.remove(key), last_visits: visits }))
 	}
 
-	set : KeyedSeq(value), Key, value -> Try(KeyedSeq(value), Error)
-	set = |KeyedSeq.(state), key, value| {
+	remove : KeyedSeq(value), Key -> Try(KeyedSeq(value), Error)
+	remove = |sequence, key| match remove_raw(sequence, key) { Err(error) => Err(error), Ok(changed) => Ok(record(changed, [Remove(key)])) }
+
+	set_raw : KeyedSeq(value), Key, value -> Try(KeyedSeq(value), Error)
+	set_raw = |KeyedSeq.(state), key, value| {
 		slot = state.keys.get(key) ? |_| MissingKey(key)
 		Ok(KeyedSeq.({ ..state, values: state.values.insert(slot, { key, value }), last_visits: 0 }))
 	}
 
-	move_before : KeyedSeq(value), Key, Placement -> Try(KeyedSeq(value), Error)
-	move_before = |KeyedSeq.(state), key, placement| {
+	## Set is item-local (zero structural visits) but remains journaled so a
+	## retained keyed child can receive its replacement value.
+	set : KeyedSeq(value), Key, value -> Try(KeyedSeq(value), Error)
+	set = |sequence, key, value| match set_raw(sequence, key, value) { Err(error) => Err(error), Ok(changed) => Ok(record(changed, [Set(key, value)])) }
+
+	move_before_raw : KeyedSeq(value), Key, Placement -> Try(KeyedSeq(value), Error)
+	move_before_raw = |KeyedSeq.(state), key, placement| {
 		slot = state.keys.get(key) ? |_| MissingKey(key)
 		match placement {
 			Before(anchor) if anchor == key => Ok(KeyedSeq.(state))
@@ -748,21 +796,36 @@ KeyedSeq(value) :: {
 		}
 	}
 
+	move_before : KeyedSeq(value), Key, Placement -> Try(KeyedSeq(value), Error)
+	move_before = |sequence, key, placement| match move_before_raw(sequence, key, placement) {
+		Err(error) => Err(error)
+		Ok(changed) => Ok(record(changed, [MoveBefore(key, placement)]))
+	}
+
+	apply_raw : KeyedSeq(value), Edit(value) -> Try(KeyedSeq(value), Error)
+	apply_raw = |sequence, edit| match edit {
+		InsertBefore(key, value, placement) => insert_before_raw(sequence, key, value, placement)
+		MoveBefore(key, placement) => move_before_raw(sequence, key, placement)
+		Remove(key) => remove_raw(sequence, key)
+		Set(key, value) => set_raw(sequence, key, value)
+	}
+
 	apply : KeyedSeq(value), Edit(value) -> Try(KeyedSeq(value), Error)
-	apply = |sequence, edit| match edit {
-		InsertBefore(key, value, placement) => insert_before(sequence, key, value, placement)
-		MoveBefore(key, placement) => move_before(sequence, key, placement)
-		Remove(key) => remove(sequence, key)
-		Set(key, value) => set(sequence, key, value)
+	apply = |sequence, edit| match apply_raw(sequence, edit) {
+		Err(error) => Err(error)
+		Ok(changed) => Ok(record(changed, [edit]))
 	}
 
 	apply_all : KeyedSeq(value), List(Edit(value)) -> Try(KeyedSeq(value), Error)
 	apply_all = |sequence, edits| {
 		var $result = sequence
+		var $visits = 0
 		for edit in edits {
-			$result = apply($result, edit)?
+			$result = apply_raw($result, edit)?
+			$visits = $visits + last_visits($result)
 		}
-		Ok($result)
+		KeyedSeq.(state) = $result
+		Ok(record(KeyedSeq.({ ..state, last_visits: $visits }), edits))
 	}
 
 	## Produce an executable semantic journal transforming before into after.
@@ -782,10 +845,10 @@ KeyedSeq(value) :: {
 					_ => MoveBefore(target.key, placement)
 				}
 			}
-			ordered = apply(working, journal_edit) ?? crash "KeyedSeq diff emitted an invalid order edit"
+			ordered = apply_raw(working, journal_edit) ?? crash "KeyedSeq diff emitted an invalid order edit"
 			with_value = match get(ordered, target.key) {
 				Ok(value) if value == target.value => { sequence: ordered, journal: edits.append(journal_edit) }
-				_ => { sequence: set(ordered, target.key, target.value) ?? crash "KeyedSeq diff set failed", journal: edits.append(journal_edit).append(Set(target.key, target.value)) }
+				_ => { sequence: set_raw(ordered, target.key, target.value) ?? crash "KeyedSeq diff set failed", journal: edits.append(journal_edit).append(Set(target.key, target.value)) }
 			}
 			# Consume the established front without publishing a remove operation.
 			KeyedSeq.(state) = with_value.sequence
@@ -892,4 +955,58 @@ expect {
 	journal = KeyedSeq.diff(before, after)
 	applied = KeyedSeq.apply_all(before, journal) ?? crash "journal"
 	KeyedSeq.to_list(applied) == KeyedSeq.to_list(after) and KeyedSeq.debug_valid(applied)
+}
+
+## Individual events publish one semantic edit and advance exactly once.
+expect {
+	a = Key.id(21)
+	b = Key.id(22)
+	one = KeyedSeq.insert_before(KeyedSeq.empty, a, "a", End) ?? crash "revision insert"
+	two = KeyedSeq.set(one, a, "A") ?? crash "revision set"
+	three = KeyedSeq.insert_before(two, b, "b", Before(a)) ?? crash "revision insert before"
+	one_transition = KeyedSeq.last_transition(one)
+	two_transition = KeyedSeq.last_transition(two)
+	three_transition = KeyedSeq.last_transition(three)
+	KeyedSeq.revision(one) == 1
+		and one_transition == { base_revision: 0, revision: 1, edits: [InsertBefore(a, "a", End)] }
+		and KeyedSeq.revision(two) == 2
+		and two_transition == { base_revision: 1, revision: 2, edits: [Set(a, "A")] }
+		and KeyedSeq.last_visits(two) == 0
+		and KeyedSeq.revision(three) == 3
+		and three_transition == { base_revision: 2, revision: 3, edits: [InsertBefore(b, "b", Before(a))] }
+		# Earlier snapshots retain their own transition metadata.
+		and KeyedSeq.last_transition(one) == one_transition
+}
+
+## A multi-edit transaction is atomic at one revision and retains the exact
+## submitted journal. Failed validation does not mutate its input snapshot.
+expect {
+	a = Key.id(31)
+	b = Key.id(32)
+	c = Key.id(33)
+	initial = KeyedSeq.from_list([{ key: a, value: 1 }, { key: b, value: 2 }]) ?? crash "transaction initial"
+	edits = [MoveBefore(b, Before(a)), Set(a, 10), InsertBefore(c, 3, End)]
+	updated = KeyedSeq.apply_all(initial, edits) ?? crash "transaction apply"
+	transition = KeyedSeq.last_transition(updated)
+	failed = KeyedSeq.apply_all(initial, [Remove(a), Remove(a)])
+	failure_reported = match failed { Err(MissingKey(found)) => found == a, _ => False }
+	KeyedSeq.revision(initial) == 1
+		and KeyedSeq.revision(updated) == 2
+		and transition == { base_revision: 1, revision: 2, edits }
+		and KeyedSeq.to_list(updated) == [{ key: b, value: 2 }, { key: a, value: 10 }, { key: c, value: 3 }]
+		and failure_reported
+		and KeyedSeq.to_list(initial) == [{ key: a, value: 1 }, { key: b, value: 2 }]
+		and KeyedSeq.revision(initial) == 1
+}
+
+## Runtime consumers must present the exact base revision of the retained
+## one-generation journal; older bases require a snapshot instead.
+expect {
+	key = Key.id(41)
+	sequence = KeyedSeq.insert_before(KeyedSeq.empty, key, 41, End) ?? crash "stale sequence"
+	current = KeyedSeq.transition_from(sequence, 0)
+	stale = KeyedSeq.transition_from(sequence, 9)
+	current_ok = match current { Ok(transition) => transition.revision == 1 and transition.base_revision == 0, _ => False }
+	stale_ok = match stale { Err(StaleRevision({ actual, requested })) => actual == 0 and requested == 9, _ => False }
+	current_ok and stale_ok
 }
