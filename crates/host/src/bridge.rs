@@ -1301,6 +1301,14 @@ impl MountedGraph {
         }
     }
 
+    pub(crate) fn keyed_children(&self, id: u64) -> Option<Vec<([u8; 32], u64)>> {
+        self.nodes
+            .get(&id)?
+            .keyed_children
+            .as_ref()
+            .map(|order| order.iter().map(|(key, child)| (key, child.root)).collect())
+    }
+
     pub fn node(&self, id: u64) -> Option<&Node> {
         self.nodes.get(&id).map(|entry| &entry.node)
     }
@@ -2154,16 +2162,10 @@ impl MountedGraph {
         let parent_location = old_root.and_then(|id| self.parent_location(id));
         let parent = match parent_location {
             Some(ParentLocation::OrdinaryIndex { parent, index }) => Some((parent, index)),
-            Some(ParentLocation::Keyed { container, key, .. }) => {
-                let index = self.nodes[&container]
-                    .keyed_children
-                    .as_ref()
-                    .expect("keyed parent has order")
-                    .iter()
-                    .position(|(candidate, _)| candidate == key)
-                    .expect("keyed parent contains child");
-                Some((container, index))
-            }
+            // A keyed child's identity segment is its boundary instance, not
+            // its ordinal position. Avoid enumerating siblings merely to
+            // validate and replace one keyed root.
+            Some(ParentLocation::Keyed { container, .. }) => Some((container, 0)),
             None => None,
         };
         if old_root.is_some() && parent.is_none() && old_root != self.root {
@@ -2367,11 +2369,6 @@ impl MountedGraph {
         self.nodes.get_mut(&root).expect("validated root").segment = root_segment;
         let new_size = self.nodes[&root].subtree_size;
         if let Some((parent_id, position)) = parent {
-            self.nodes
-                .get_mut(&parent_id)
-                .expect("validated parent")
-                .node
-                .children[position] = root;
             if let Some(ParentLocation::Keyed { key, .. }) = parent_location {
                 self.nodes
                     .get_mut(&parent_id)
@@ -2383,6 +2380,12 @@ impl MountedGraph {
                     .get_mut(&key)
                     .expect("keyed parent contains child")
                     .root = root;
+            } else {
+                self.nodes
+                    .get_mut(&parent_id)
+                    .expect("validated parent")
+                    .node
+                    .children[position] = root;
             }
             // Replacing a component's content preserves its boundary key.
             // None of the other siblings' occurrence keys can change, even

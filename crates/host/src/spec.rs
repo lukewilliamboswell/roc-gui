@@ -1596,13 +1596,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             let kind = values[2].atom().ok_or_else(|| {
                 error(
                     &values[2],
-                    "patch kind must be mount, replace, or no_change",
+                    "patch kind must be mount, replace, keyed, or no_change",
                 )
             })?;
-            if !matches!(kind, "mount" | "replace" | "no_change") {
+            if !matches!(kind, "mount" | "replace" | "keyed" | "no_change") {
                 return Err(error(
                     &values[2],
-                    "patch kind must be mount, replace, or no_change",
+                    "patch kind must be mount, replace, keyed, or no_change",
                 ));
             }
             let count = |value: &SExpr| {

@@ -211,7 +211,9 @@ is sitting on.
 `Elem.keyed_col(render_item, Elem.ColProps.{ ... }, Elem.KeyedColConfig.{ key, get, set, on_delegate })`::
 Lay out a `KeyedSeq` vertically while preserving each item's component lifetime
 by its complete `Key`. Inserts, moves, removals, and replacements are applied as
-one native keyed transaction. Item actions project through their key, so a move
+one native keyed transaction. `on_delegate : parent, Key -> Action(parent)`
+receives the complete key of the delegating item. Item actions project through
+their key, so a move
 does not retarget an action and a removed item cannot be recreated by a late
 completion. If the platform has missed the sequence's one-generation journal,
 it reconciles the full ordered snapshot while retaining every surviving key.

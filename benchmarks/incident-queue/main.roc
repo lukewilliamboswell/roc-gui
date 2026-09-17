@@ -3,86 +3,86 @@ app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-0
 import pf.Action
 import pf.Elem
 import pf.Gui
-import pf.Index
 import pf.Key
+import pf.KeyedSeq
 import pf.Program
 
 IncidentRequest : [NoRequest, Promote, Replace, Dismiss]
+ControlRequest : [NoControlRequest, Load(U64), AddUrgent]
 
-Incident : { id : U64, key : Key, acknowledged : Bool, expanded : Bool, note : Str, request : IncidentRequest }
+Incident : { id : U64, acknowledged : Bool, expanded : Bool, note : Str, request : IncidentRequest }
+Controls : { active : U64, next_id : U64, removed : U64, request : ControlRequest }
+QueueRow : [ControlRow(Controls), IncidentRow(Incident)]
 
-State : { incidents : Index(Incident), order : List(U64), next_id : U64, removed : U64 }
+State : { rows : KeyedSeq(QueueRow) }
 
-find_incident : Index(Incident), U64 -> Try(Incident, [Removed])
-find_incident = |incidents, id| Index.get(incidents, id).map_err(|_| Removed)
+control_key = Key.from_str("incident-queue-controls")
+
+find_incident : KeyedSeq(QueueRow), Key -> Try(Incident, [Removed])
+find_incident = |rows, key| match KeyedSeq.get(rows, key) { Ok(IncidentRow(value)) => Ok(value), _ => Err(Removed) }
+
+get_controls : KeyedSeq(QueueRow) -> Controls
+get_controls = |rows| match KeyedSeq.get(rows, control_key) { Ok(ControlRow(value)) => value, _ => crash "queue controls missing" }
 
 create_queue : U64, U64 -> State
 create_queue = |count, first_id| {
-	var $incidents = Index.empty
-	var $order = []
+	var $entries = [{ key: control_key, value: ControlRow({ active: count, next_id: first_id + count, removed: 0, request: NoControlRequest }) }]
+	var $id = first_id
 	for _ in List.repeat({}, count) {
-		id = first_id + $order.len()
-		$incidents = Index.set($incidents, id, { id, key: Key.id(id), acknowledged: False, expanded: False, note: "", request: NoRequest })
-		$order = $order.append(id)
+		id = $id
+		$entries = $entries.append({ key: Key.id(id), value: IncidentRow({ id, acknowledged: False, expanded: False, note: "", request: NoRequest }) })
+		$id = id + 1
 	}
-	{ incidents: $incidents, order: $order, next_id: first_id + count, removed: 0 }
+	{ rows: KeyedSeq.from_list($entries) ?? crash "create incident queue" }
 }
 
 add_front : State -> State
 add_front = |state| {
-	id = state.next_id
-	incident = { id, key: Key.id(id), acknowledged: False, expanded: False, note: "", request: NoRequest }
-	{ ..state, incidents: Index.set(state.incidents, id, incident), order: [id].concat(state.order), next_id: id + 1 }
+	controls = get_controls(state.rows)
+	id = controls.next_id
+	key = Key.id(id)
+	incident = { id, acknowledged: False, expanded: False, note: "", request: NoRequest }
+	placement = KeyedSeq.placement_after(state.rows, control_key) ?? crash "first incident placement"
+	updated_controls = { ..controls, active: controls.active + 1, next_id: id + 1, request: NoControlRequest }
+	edits = [Set(control_key, ControlRow(updated_controls)), InsertBefore(key, IncidentRow(incident), placement)]
+	{ rows: KeyedSeq.apply_all(state.rows, edits) ?? crash "insert urgent incident" }
 }
 
-remove_incident : State, U64 -> State
-remove_incident = |state, id| {
-	{ ..state, incidents: Index.remove(state.incidents, id), order: state.order.keep_if(|current| current != id), removed: state.removed + 1 }
-}
-
-promote : State, U64 -> State
-promote = |state, id| {
-	if state.order.first() == Ok(id) {
-		state
-	} else {
-		{ ..state, order: [id].concat(state.order.keep_if(|current| current != id)) }
-	}
-}
-
-replace_incident : State, U64 -> State
-replace_incident = |state, old_id| {
-	new_id = state.next_id
-	replacement = { id: new_id, key: Key.id(new_id), acknowledged: False, expanded: False, note: "", request: NoRequest }
-	var $next_order = []
-	for id in state.order {
-		$next_order = $next_order.append(if id == old_id new_id else id)
-	}
-	{
-		..state,
-		incidents: Index.set(Index.remove(state.incidents, old_id), new_id, replacement),
-		order: $next_order,
-		next_id: new_id + 1,
-		removed: state.removed + 1,
-	}
-}
-
-store_incident : State, Incident -> State
-store_incident = |state, incident| { ..state, incidents: Index.set(state.incidents, incident.id, incident) }
-
-handle_request : State, U64 -> Action(State)
-handle_request = |state, id| {
-	incident = find_incident(state.incidents, id) ?? crash "delegating incident is missing"
-	cleared = store_incident(state, { ..incident, request: NoRequest })
+handle_request : State, Key -> Action(State)
+handle_request = |state, key| {
+	incident = find_incident(state.rows, key) ?? crash "delegating incident is missing"
+	controls = get_controls(state.rows)
+	cleared = { ..incident, request: NoRequest }
+	var $edits = [Set(key, IncidentRow(cleared))]
 	match incident.request {
-		NoRequest => Action.update(cleared)
-		Promote => Action.update(promote(cleared, id))
-		Replace => Action.update(replace_incident(cleared, id))
-		Dismiss => Action.update(remove_incident(cleared, id))
+		NoRequest => {}
+		Promote => {
+			placement = KeyedSeq.placement_after(state.rows, control_key) ?? crash "promote placement"
+			$edits = $edits.append(MoveBefore(key, placement))
+		}
+		Replace => {
+			new_key = Key.id(controls.next_id)
+			placement = KeyedSeq.placement_after(state.rows, key) ?? crash "replace incident placement"
+			replacement = { id: controls.next_id, acknowledged: False, expanded: False, note: "", request: NoRequest }
+			$edits = [Set(control_key, ControlRow({ ..controls, next_id: controls.next_id + 1, removed: controls.removed + 1 })), Remove(key), InsertBefore(new_key, IncidentRow(replacement), placement)]
+		}
+		Dismiss => {
+			$edits = [Set(control_key, ControlRow({ ..controls, active: controls.active - 1, removed: controls.removed + 1 })), Remove(key)]
+		}
 	}
+	rows = KeyedSeq.apply_all(state.rows, $edits) ?? crash "commit delegated incident edit"
+	Action.update({ rows: rows })
 }
 
-render_incident : Incident -> Elem(Incident)
-render_incident = |incident| {
+incident_update : QueueRow, (Incident -> Incident) -> Action(QueueRow)
+incident_update = |row, change| match row { IncidentRow(value) => Action.update(IncidentRow(change(value))), _ => Action.none }
+
+incident_delegate : QueueRow, IncidentRequest -> Action(QueueRow)
+incident_delegate = |row, request| match row { IncidentRow(value) => Action.delegate(IncidentRow({ ..value, request })), _ => Action.none }
+
+render_incident : QueueRow -> Elem(QueueRow)
+render_incident = |row| {
+	incident = match row { IncidentRow(value) => value, _ => crash "incident renderer received controls" }
 	var $details = []
 	if incident.expanded {
 		$details = $details.append(
@@ -90,8 +90,8 @@ render_incident = |incident| {
 				label: "Note for incident ${incident.id.to_str()}",
 				value: incident.note,
 				placeholder: "Add investigation note",
-				on_change: |current, event| Action.update({ ..current, note: event.value }),
-				on_submit: |current, _| Action.update({ ..current, expanded: False }),
+				on_change: |current, event| incident_update(current, |value| { ..value, note: event.value }),
+				on_submit: |current, _| incident_update(current, |value| { ..value, expanded: False }),
 			}),
 		)
 	}
@@ -105,12 +105,12 @@ render_incident = |incident| {
 					Elem.button({
 						caption: if incident.acknowledged "Reopen" else "Acknowledge",
 						label: "Toggle incident ${incident.id.to_str()}",
-						on_press: |current, _| Action.update({ ..current, acknowledged: !current.acknowledged }),
+						on_press: |current, _| incident_update(current, |value| { ..value, acknowledged: !value.acknowledged }),
 					}),
 					Elem.button({
 						caption: if incident.expanded "Collapse" else "Investigate",
 						label: "Toggle details for incident ${incident.id.to_str()}",
-						on_press: |current, _| Action.update({ ..current, expanded: !current.expanded }),
+						on_press: |current, _| incident_update(current, |value| { ..value, expanded: !value.expanded }),
 					}),
 				],
 			),
@@ -121,52 +121,71 @@ render_incident = |incident| {
 		{ label: "Queue entry ${incident.id.to_str()}", gap: 4 },
 		[
 			card,
-			Elem.button({ caption: "Promote", label: "Promote incident ${incident.id.to_str()}", on_press: |current, _| Action.delegate({ ..current, request: Promote }) }),
-			Elem.button({ caption: "Replace", label: "Replace incident ${incident.id.to_str()}", on_press: |current, _| Action.delegate({ ..current, request: Replace }) }),
-			Elem.button({ caption: "Dismiss", label: "Dismiss incident ${incident.id.to_str()}", on_press: |current, _| Action.delegate({ ..current, request: Dismiss }) }),
+			Elem.button({ caption: "Promote", label: "Promote incident ${incident.id.to_str()}", on_press: |current, _| incident_delegate(current, Promote) }),
+			Elem.button({ caption: "Replace", label: "Replace incident ${incident.id.to_str()}", on_press: |current, _| incident_delegate(current, Replace) }),
+			Elem.button({ caption: "Dismiss", label: "Dismiss incident ${incident.id.to_str()}", on_press: |current, _| incident_delegate(current, Dismiss) }),
 		],
 	)
 }
 
-render : State -> Elem(State)
-render = |state| {
-	var $cards = []
-	for id in state.order {
-		incident = find_incident(state.incidents, id) ?? crash "ordered incident is missing"
-		entry = Elem.try_translate(
-			render_incident,
-			{
-				key: incident.key,
-				get: |parent| find_incident(parent.incidents, id),
-				set: |parent, child| match find_incident(parent.incidents, id) {
-					Ok(_) => Ok(store_incident(parent, { ..child, id }))
-					Err(_) => Err(Removed)
-				},
-				on_delegate: |candidate| handle_request(candidate, id),
-				memo: Some(|previous, next| previous == next),
-			},
-		)
-		$cards = $cards.append(entry)
-	}
+control_delegate : QueueRow, ControlRequest -> Action(QueueRow)
+control_delegate = |row, request| match row { ControlRow(value) => Action.delegate(ControlRow({ ..value, request })), _ => Action.none }
+
+render_controls : QueueRow -> Elem(QueueRow)
+render_controls = |row| {
+	controls = match row { ControlRow(value) => value, _ => crash "control renderer received incident" }
 	Elem.col(
-		{ label: "Incident queue", padding: 10, gap: 6 },
-		[
-			Elem.text("Interactive incident queue"),
-			Elem.row(
-				{ gap: 4 },
-				[
-					Elem.button({ caption: "Load 100", label: "Load 100 incidents", on_press: |latest, _| Action.update(create_queue(100, latest.next_id)) }),
-					Elem.button({ caption: "Load 1,000", label: "Load 1000 incidents", on_press: |latest, _| Action.update(create_queue(1000, latest.next_id)) }),
-					Elem.button({ caption: "Load 10,000", label: "Load 10000 incidents", on_press: |latest, _| Action.update(create_queue(10000, latest.next_id)) }),
-					Elem.button({ caption: "Add urgent", label: "Add urgent incident", on_press: |latest, _| Action.update(add_front(latest)) }),
-				],
-			),
-			Elem.text("Active: ${state.order.len().to_str()}"),
-			Elem.text("Dismissed or replaced: ${state.removed.to_str()}"),
-			Elem.col({ label: "Active incidents", gap: 2 }, $cards),
-		],
+	{ label: "Incident queue controls", gap: 6 },
+	[
+		Elem.text("Interactive incident queue"),
+		Elem.row(
+			{ gap: 4 },
+			[
+				Elem.button({ caption: "Load 100", label: "Load 100 incidents", on_press: |current, _| control_delegate(current, Load(100)) }),
+				Elem.button({ caption: "Load 1,000", label: "Load 1000 incidents", on_press: |current, _| control_delegate(current, Load(1000)) }),
+				Elem.button({ caption: "Load 10,000", label: "Load 10000 incidents", on_press: |current, _| control_delegate(current, Load(10000)) }),
+				Elem.button({ caption: "Add urgent", label: "Add urgent incident", on_press: |current, _| control_delegate(current, AddUrgent) }),
+			],
+		),
+		Elem.text("Active: ${controls.active.to_str()}"),
+		Elem.text("Dismissed or replaced: ${controls.removed.to_str()}"),
+	],
 	)
 }
+
+render_row : QueueRow -> Elem(QueueRow)
+render_row = |row| match row {
+	ControlRow(_) => render_controls(row)
+	IncidentRow(_) => render_incident(row)
+}
+
+handle_control : State -> Action(State)
+handle_control = |state| {
+	controls = get_controls(state.rows)
+	match controls.request {
+		NoControlRequest => Action.update({ rows: KeyedSeq.apply_all(state.rows, [Set(control_key, ControlRow({ ..controls, request: NoControlRequest }))]) ?? crash "clear control request" })
+		AddUrgent => Action.update(add_front(state))
+		Load(count) => {
+			var $edits = []
+			for entry in KeyedSeq.to_list(state.rows) { if entry.key != control_key { $edits = $edits.append(Remove(entry.key)) } }
+			$edits = $edits.append(Set(control_key, ControlRow({ active: count, next_id: controls.next_id + count, removed: 0, request: NoControlRequest })))
+			var $id = controls.next_id
+			for _ in List.repeat({}, count) {
+				id = $id
+				incident = { id, acknowledged: False, expanded: False, note: "", request: NoRequest }
+				$edits = $edits.append(InsertBefore(Key.id(id), IncidentRow(incident), End))
+				$id = id + 1
+			}
+			Action.update({ rows: KeyedSeq.apply_all(state.rows, $edits) ?? crash "load incident queue" })
+		}
+	}
+}
+
+handle_row_request : State, Key -> Action(State)
+handle_row_request = |state, key| if key == control_key { handle_control(state) } else { handle_request(state, key) }
+
+render : State -> Elem(State)
+render = |_state| Elem.keyed_col(render_row, { label: "Incident queue", padding: 10, gap: 6 }, Elem.KeyedColConfig.{ key: Key.from_str("incident-queue"), get: |state| state.rows, set: |state, rows| { ..state, rows }, on_delegate: handle_row_request })
 
 main : Program(State)
 main = Program.run({

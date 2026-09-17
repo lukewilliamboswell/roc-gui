@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-15-fe09c42" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
 import pf.Action
 import pf.Elem
@@ -49,7 +49,7 @@ render = |_state| Elem.keyed_col(
 		key: Key.from_str("items"),
 		get: |state| state.items,
 		set: |state, items| { ..state, items },
-		on_delegate: accept_command,
+		on_delegate: |state, _key| accept_command(state),
 	},
 )
 

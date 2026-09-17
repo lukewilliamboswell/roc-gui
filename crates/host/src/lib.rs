@@ -3928,7 +3928,17 @@ impl Runtime {
                         .clone()
                 })
                 .collect();
-            self.views[&node.id].update(cx, |view, _| view.children = children);
+            let keyed = self.graph.keyed_children(node.id);
+            self.views[&node.id].update(cx, |view, _| {
+                view.children = children;
+                if let Some(entries) = keyed {
+                    let mut order = KeyedViewOrder::default();
+                    for (key, root) in entries {
+                        order.insert(key, None, self.views[&root].clone());
+                    }
+                    view.keyed_children = Some(order);
+                }
+            });
         }
     }
 

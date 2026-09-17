@@ -34,7 +34,7 @@ Elem(a) :: [
 		key : Key,
 		get : parent -> KeyedSeq(item),
 		set : parent, KeyedSeq(item) -> parent,
-		on_delegate : parent -> Action(parent) ?? Action.update,
+		on_delegate : parent, Key -> Action(parent) ?? |parent, _key| Action.update(parent),
 	}
 
 	## Platform representation of a local boundary. Applications construct one
@@ -843,8 +843,8 @@ Elem(a) :: [
 			transition = KeyedSeq.last_transition(sequence)
 			item_elem = |key| {
 				get_item = |latest| match KeyedSeq.get((config.get)(latest), key) { Ok(item) => Ok(item) Err(_) => Err(Removed) }
-				set_item = |latest, item| match KeyedSeq.set((config.get)(latest), key, item) { Ok(next) => Ok((config.set)(latest, next)) Err(_) => Err(Removed) }
-				try_translate(render_item, { key, get: get_item, set: set_item, on_delegate: config.on_delegate })
+				set_item = |latest, item| match KeyedSeq.set_local((config.get)(latest), key, item) { Ok(next) => Ok((config.set)(latest, next)) Err(_) => Err(Removed) }
+				try_translate(render_item, { key, get: get_item, set: set_item, on_delegate: |candidate| (config.on_delegate)(candidate, key) })
 			}
 			var $operations = []
 			var $children = []

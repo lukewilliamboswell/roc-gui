@@ -753,6 +753,21 @@ KeyedSeq(value) :: {
 		Ok(entry.value)
 	}
 
+	placement_after : KeyedSeq(value), Key -> Try(Placement, Error)
+	placement_after = |KeyedSeq.(state), key| {
+		slot = state.keys.get(key) ? |_| MissingKey(key)
+		rank = rows_order_rank(state.order, slot) ?? crash "Rows placement value lacked a rank"
+		if rank + 1 >= rows_order_len(state.order) {
+			Ok(End)
+		} else {
+			location = rows_order_locate_node(state.order, state.order.root, rank + 1, False)
+			leaf = rows_order_table_get(state.order.nodes, location.leaf) ?? crash "Rows placement leaf was missing"
+			next_slot = match leaf { OrderLeaf({ slots, .. }) => slots.get(location.offset) ?? crash "Rows placement slot was missing" OrderBranch(_) => crash "Rows placement location was not a leaf" }
+			next = state.values.get(next_slot) ?? crash "Rows placement value was missing"
+			Ok(Before(next.key))
+		}
+	}
+
 	to_list : KeyedSeq(value) -> List({ key : Key, value : value })
 	to_list = |KeyedSeq.(state)| rows_order_fold(state.order, [], |items, slot| {
 		entry = state.values.get(slot) ?? crash "KeyedSeq order named a missing value"
@@ -823,6 +838,12 @@ KeyedSeq(value) :: {
 		slot = state.keys.get(key) ? |_| MissingKey(key)
 		Ok(KeyedSeq.({ ..state, values: state.values.insert(slot, { key, value }), last_visits: 0 }))
 	}
+
+	## Replace an item's value for an already-mounted item boundary without
+	## publishing a container edit. The boundary update itself owns rendering;
+	## structural delegates publish their complete transaction separately.
+	set_local : KeyedSeq(value), Key, value -> Try(KeyedSeq(value), Error)
+	set_local = set_raw
 
 	## Set is item-local (zero structural visits) but remains journaled so a
 	## retained keyed child can receive its replacement value.
