@@ -2282,9 +2282,10 @@ impl MountedGraph {
         // structural scope. Native GPUI element identity includes that path.
         let mut identity = outer_identity;
         let mut pending = vec![(root, root_segment.clone(), false)];
-        // Scratch reused across nodes; allocating either per visited node
-        // dominated this walk's allocator traffic on large fragments.
-        let mut occurrences = HashMap::new();
+        // Child scratch reused across nodes: clearing a Vec costs its live
+        // length. The occurrence map is NOT reused — HashMap::clear walks the
+        // retained capacity, so a map grown by one 10,000-child parent would
+        // be re-walked for every later node.
         let mut children = Vec::new();
         while let Some((id, segment, exiting)) = pending.pop() {
             if exiting {
@@ -2310,7 +2311,7 @@ impl MountedGraph {
                 }
             }
             pending.push((id, root_segment.clone(), true));
-            occurrences.clear();
+            let mut occurrences = HashMap::new();
             children.clear();
             for (position, child) in node.children.iter().enumerate() {
                 let child_node = validated
