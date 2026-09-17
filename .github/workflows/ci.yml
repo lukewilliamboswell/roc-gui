@@ -68,7 +68,7 @@ jobs:
           python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope
           python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support dirty_cached_parent
       - name: Full application specification suite
-        run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }} --only semantic
+        run: python3 scripts/run_specs.py --jobs ${{ matrix.spec_jobs }} --timeout 180 --only semantic
       - name: Real GPUI window smoke
         if: runner.os == 'macOS'
         shell: bash
