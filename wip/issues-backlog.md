@@ -289,6 +289,15 @@ names the evidence so a fix can be verified against the same case.
   acceptance. Minimize the compiler-dependent ownership or layout failure,
   then rebuild and verify both modes before removing this blocker.
 
+  Verified fixed at compiler `main` `5982c9b2` (2026-09-18): counter passes
+  2/2 and review-queue 15/15 with `--roc-opt speed`, and the full semantic
+  suite passes 317/331 — the 14 failures are a *separate* upstream regression
+  in nested-translate refcounting that crashes both backends (see the
+  nightly-upgrade blocker entry below). At 10,000 rows the `speed` build's
+  select callback is 197.4 ms against 721.5 ms for the same source on the
+  same compiler with `--opt=dev`. Move the pin and remove the driver override
+  once that remaining regression is fixed upstream.
+
 - [ ] **Dense hover applications access-violate on the Windows development
   backend.** Every semantic case for `benchmarks/hover-grid` and
   `benchmarks/nested-hover-grid` exits with Windows status `0xC0000005`
@@ -326,6 +335,14 @@ names the evidence so a fix can be verified against the same case.
   minimized. Minimize it against the pinned compiler, report it, and update the
   pin when fixed.
 
+  2026-09-18: the shape recorded above, grafted back into today's
+  `active_index`, passes `specs/stale-load.scm` under both the pinned
+  compiler and compiler `main` `5982c9b2`. The un-minimized trigger depended
+  on the example as it stood in September and is no longer reachable from the
+  current tree. If it reappears, capture the whole failing working tree
+  before rewriting the shape; a guard or annotation changing behaviour is an
+  inference bug regardless of the workaround.
+
 - [ ] **An unannotated helper that reads a field of its own result segfaults
   `roc check`.** Reaching for undo and redo that reconcile a stale selection in
   `examples/animation-studio`, this shape crashed the compiler itself — not the
@@ -353,6 +370,13 @@ names the evidence so a fix can be verified against the same case.
   Reordering the two definitions makes no difference. The example carries the
   annotation. Minimize it against the pinned compiler, report it, and update the
   pin when fixed.
+
+  2026-09-18: removing the annotation from today's `restore` (with
+  `apply_frame` still unannotated) no longer crashes `roc check` under either
+  the pinned compiler or compiler `main` `5982c9b2`. The trigger depended on
+  surrounding module state that has since changed; the annotation stays as
+  documentation only. Annotation presence changing compile behaviour is an
+  inference bug in principle — if this reappears, keep the failing tree.
 
 - [ ] **Persistent-index maintenance retains a high allocation constant.**
   Bounded route-ID chunks removed the superlinear ownership-list allocation
@@ -398,6 +422,17 @@ names the evidence so a fix can be verified against the same case.
   and repeatably slowed lowering from 118.77–118.98 ms to 122.67–122.79 ms.
   Both representation experiments were rejected. Continue by attributing the
   generated frame rather than adding indirection based on aggregate bytes.
+
+  2026-09-18: attributed. The development backend never reuses stack slots
+  (`allocStack` in `src/backend/dev/*/CodeGen.zig` only grows), so frame size
+  tracks total temporaries: twelve ~3 MiB specializations with ~794 KiB
+  page-probed frames at the pinned nightly, ~927 KiB text and ~250 KiB frames
+  at compiler `main` `5982c9b2`, holding ~60% of on-CPU callback time.
+  Reported upstream as roc-lang/roc#11448. The same source at the same head
+  commit built with `--opt=speed` runs the 10k select callback in 197.4 ms
+  against 721.5 ms, so the pin upgrade plus the LLVM backend recovers most of
+  this entry once the upgrade blocker below is fixed. `wip/performance.md`
+  carries the measurement detail.
 
   These semantic captures contain no GPUI frame work, and `origin/main` has no
   keyed-collection analogue, so they neither compare native rendering nor
@@ -732,6 +767,12 @@ names the evidence so a fix can be verified against the same case.
   `Assets.Store` and `Files.Dir.Read` and which compile in seconds. Closing this
   needs the compiler defect fixed and reported upstream; the platform change
   itself is then the same one made for every other resource.
+
+  2026-09-18: with both handles made nominal and every `Audio` operation
+  unwrapping them, compiler `main` `5982c9b2` checks and builds music-player
+  in seconds on both backends, and the pinned compiler's default-backend
+  build now terminates in 49 s rather than hanging. The compiler defect is
+  gone at head; make the nominal platform change after the pin moves.
 
 - [ ] **A resource handle captured by a task closure cannot be stored by its
   completion.** Writing `Tcp.Stream` back into application state from
