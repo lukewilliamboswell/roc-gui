@@ -338,6 +338,33 @@ struct KeyedChildOrder {
 }
 
 impl KeyedChildOrder {
+    fn from_seed(
+        revision: u64,
+        entries: &[(KeyedChildKey, u64, u64)],
+    ) -> Result<Self, KeyedOrderError> {
+        let mut order = Self::default();
+        order.revision = revision;
+        for (index, (key, root, instance)) in entries.iter().copied().enumerate() {
+            if order.children.contains_key(&key) {
+                return Err(KeyedOrderError::Duplicate(key));
+            }
+            let previous = index.checked_sub(1).map(|prior| entries[prior].0);
+            let next = entries.get(index + 1).map(|entry| entry.0);
+            order.children.insert(
+                key,
+                KeyedChild {
+                    root,
+                    instance,
+                    previous,
+                    next,
+                },
+            );
+        }
+        order.head = entries.first().map(|entry| entry.0);
+        order.tail = entries.last().map(|entry| entry.0);
+        Ok(order)
+    }
+
     fn iter(&self) -> KeyedChildIter<'_> {
         KeyedChildIter {
             order: self,
@@ -646,6 +673,12 @@ pub enum NodeKind {
         label: String,
         style: Style,
     },
+    KeyedColumn {
+        label: String,
+        style: Style,
+        revision: u64,
+        keys: Vec<KeyedChildKey>,
+    },
     Dialog {
         label: String,
         style: Style,
@@ -787,7 +820,7 @@ impl NodeKind {
             Self::Checkbox { .. } => 2,
             Self::Textarea { .. } => 3,
             Self::Image { .. } => 4,
-            Self::Column { .. } => 5,
+            Self::Column { .. } | Self::KeyedColumn { .. } => 5,
             Self::Dialog { .. } => 6,
             Self::Panel { .. } => 7,
             Self::Row { .. } => 8,
@@ -816,6 +849,7 @@ impl NodeKind {
             | Self::Textarea { label, .. }
             | Self::Image { label, .. }
             | Self::Column { label, .. }
+            | Self::KeyedColumn { label, .. }
             | Self::Dialog { label, .. }
             | Self::Panel { label, .. }
             | Self::Row { label, .. }
@@ -2117,7 +2151,21 @@ impl MountedGraph {
                 return Err(format!("replacement target {id} is missing"));
             }
         }
-        let parent = old_root.and_then(|id| self.parent(id));
+        let parent_location = old_root.and_then(|id| self.parent_location(id));
+        let parent = match parent_location {
+            Some(ParentLocation::OrdinaryIndex { parent, index }) => Some((parent, index)),
+            Some(ParentLocation::Keyed { container, key, .. }) => {
+                let index = self.nodes[&container]
+                    .keyed_children
+                    .as_ref()
+                    .expect("keyed parent has order")
+                    .iter()
+                    .position(|(candidate, _)| candidate == key)
+                    .expect("keyed parent contains child");
+                Some((container, index))
+            }
+            None => None,
+        };
         if old_root.is_some() && parent.is_none() && old_root != self.root {
             return Err("replacement target is detached".into());
         }
@@ -2315,8 +2363,7 @@ impl MountedGraph {
             }
         }
         self.insert_nodes(nodes, &validated);
-        self.nodes.get_mut(&root).expect("validated root").parent =
-            parent.map(|(parent, index)| ParentLocation::OrdinaryIndex { parent, index });
+        self.nodes.get_mut(&root).expect("validated root").parent = parent_location;
         self.nodes.get_mut(&root).expect("validated root").segment = root_segment;
         let new_size = self.nodes[&root].subtree_size;
         if let Some((parent_id, position)) = parent {
@@ -2325,6 +2372,18 @@ impl MountedGraph {
                 .expect("validated parent")
                 .node
                 .children[position] = root;
+            if let Some(ParentLocation::Keyed { key, .. }) = parent_location {
+                self.nodes
+                    .get_mut(&parent_id)
+                    .expect("validated keyed parent")
+                    .keyed_children
+                    .as_mut()
+                    .expect("keyed parent has order")
+                    .children
+                    .get_mut(&key)
+                    .expect("keyed parent contains child")
+                    .root = root;
+            }
             // Replacing a component's content preserves its boundary key.
             // None of the other siblings' occurrence keys can change, even
             // when this parent has thousands of directly mounted components.
@@ -2400,6 +2459,7 @@ impl MountedGraph {
     }
 
     fn insert_nodes(&mut self, nodes: Vec<Node>, validated: &ValidatedFragment) {
+        let inserted_ids = nodes.iter().map(|node| node.id).collect::<NodeSet>();
         for node in nodes {
             self.max_seen_node_id = self.max_seen_node_id.max(node.id);
             match &node.kind {
@@ -2432,6 +2492,38 @@ impl MountedGraph {
                 },
             );
         }
+        let seeded = self
+            .nodes
+            .iter()
+            .filter_map(|(id, entry)| match &entry.node.kind {
+                NodeKind::KeyedColumn { revision, keys, .. }
+                    if inserted_ids.contains(id) && entry.keyed_children.is_none() =>
+                {
+                    Some((*id, *revision, keys.clone(), entry.node.children.clone()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for (container, revision, keys, roots) in seeded {
+            let entries = keys
+                .into_iter()
+                .zip(roots)
+                .map(|(key, root)| {
+                    let instance = match self.nodes[&root].node.kind {
+                        NodeKind::Boundary { instance } => instance,
+                        _ => unreachable!("validated keyed seed child is a boundary"),
+                    };
+                    (key, root, instance)
+                })
+                .collect::<Vec<_>>();
+            self.nodes
+                .get_mut(&container)
+                .expect("seeded keyed container was inserted")
+                .keyed_children = Some(
+                KeyedChildOrder::from_seed(revision, &entries)
+                    .expect("validated keyed seed has unique keys"),
+            );
+        }
         for id in &validated.postorder {
             let children = self.nodes[id].node.children.clone();
             let size = 1 + children
@@ -2440,11 +2532,21 @@ impl MountedGraph {
                 .sum::<u64>();
             self.nodes.get_mut(id).expect("inserted node").subtree_size = size;
             for (position, child) in children.into_iter().enumerate() {
-                self.nodes.get_mut(&child).expect("validated child").parent =
-                    Some(ParentLocation::OrdinaryIndex {
+                let parent = match self.nodes[id].keyed_children.as_ref() {
+                    Some(order) => {
+                        let (key, keyed_child) = order.iter().nth(position).expect("keyed child");
+                        ParentLocation::Keyed {
+                            container: *id,
+                            key,
+                            instance: keyed_child.instance,
+                        }
+                    }
+                    None => ParentLocation::OrdinaryIndex {
                         parent: *id,
                         index: position,
-                    });
+                    },
+                };
+                self.nodes.get_mut(&child).expect("validated child").parent = Some(parent);
             }
             self.refresh_child_segments(*id);
         }
@@ -2930,6 +3032,48 @@ impl BridgeState {
             .ok_or_else(|| "native node id space exhausted".to_string())?;
         self.staged.push(Node { id, kind, children });
         Ok(id)
+    }
+
+    pub fn seed_keyed_column(
+        &mut self,
+        container: u64,
+        revision: u64,
+        keys: Vec<KeyedChildKey>,
+    ) -> Result<(), String> {
+        let position = self
+            .staged
+            .iter()
+            .position(|node| node.id == container)
+            .ok_or_else(|| format!("keyed seed container {container} was not staged"))?;
+        let node = &self.staged[position];
+        if keys.len() != node.children.len() {
+            return Err("keyed seed key count differs from child count".into());
+        }
+        let (label, style) = match &node.kind {
+            NodeKind::Column { label, style } => (label.clone(), style.clone()),
+            _ => return Err("keyed seed target is not a column".into()),
+        };
+        let mut seen = HashSet::with_capacity(keys.len());
+        for (key, child) in keys.iter().zip(&node.children) {
+            if !seen.insert(*key) {
+                return Err("keyed seed contains a duplicate key".into());
+            }
+            let child_node = self
+                .staged
+                .iter()
+                .find(|candidate| candidate.id == *child)
+                .ok_or_else(|| format!("keyed seed child {child} was not staged"))?;
+            if !matches!(child_node.kind, NodeKind::Boundary { .. }) {
+                return Err("keyed seed child is not a component boundary".into());
+            }
+        }
+        self.staged[position].kind = NodeKind::KeyedColumn {
+            label,
+            style,
+            revision,
+            keys,
+        };
+        Ok(())
     }
 
     /// Declare a mounted component root as an opaque leaf of this transaction.
@@ -4122,6 +4266,83 @@ mod tests {
         bridge.keyed_set(unstaged, root).unwrap();
         bridge.commit_keyed_edit().unwrap();
         assert!(matches!(bridge.pending, Some(Patch::Keyed { .. })));
+    }
+
+    #[test]
+    fn seeded_keyed_column_mounts_with_revision_and_accepts_later_edits() {
+        let key = keyed_test_key(7);
+        let mut bridge = BridgeState::new();
+        let leaf = bridge.stage_node(button("seeded", true), vec![]).unwrap();
+        let boundary = bridge
+            .stage_node(NodeKind::Boundary { instance: 70 }, vec![leaf])
+            .unwrap();
+        let container = bridge
+            .stage_node(
+                NodeKind::Column {
+                    label: "seeded".into(),
+                    style: Style::default(),
+                },
+                vec![boundary],
+            )
+            .unwrap();
+        bridge.seed_keyed_column(container, 4, vec![key]).unwrap();
+        bridge.commit(Commit::Mount { root: container }).unwrap();
+
+        let mut graph = MountedGraph::default();
+        graph.apply(bridge.pending.take().unwrap()).unwrap();
+        assert_eq!(
+            graph.children_of(container).collect::<Vec<_>>(),
+            vec![boundary]
+        );
+        assert!(
+            matches!(graph.parent_location(boundary), Some(ParentLocation::Keyed { container: seeded, key: found, instance: 70 }) if seeded == container && found == key)
+        );
+
+        bridge.begin_keyed_edit(container, 4, 5).unwrap();
+        bridge.keyed_remove(key).unwrap();
+        bridge.commit_keyed_edit().unwrap();
+        graph.apply(bridge.pending.take().unwrap()).unwrap();
+        assert!(graph.children_of(container).next().is_none());
+    }
+
+    #[test]
+    fn keyed_seed_rejects_bad_counts_duplicates_and_non_boundaries() {
+        let key = keyed_test_key(1);
+        let mut bridge = BridgeState::new();
+        let leaf = bridge.stage_node(button("plain", true), vec![]).unwrap();
+        let column = bridge
+            .stage_node(
+                NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default(),
+                },
+                vec![leaf],
+            )
+            .unwrap();
+        assert!(bridge.seed_keyed_column(column, 1, vec![]).is_err());
+        assert!(bridge.seed_keyed_column(column, 1, vec![key]).is_err());
+
+        let first = bridge
+            .stage_node(NodeKind::Boundary { instance: 1 }, vec![leaf])
+            .unwrap();
+        let second_leaf = bridge.stage_node(button("second", true), vec![]).unwrap();
+        let second = bridge
+            .stage_node(NodeKind::Boundary { instance: 2 }, vec![second_leaf])
+            .unwrap();
+        let duplicate = bridge
+            .stage_node(
+                NodeKind::Column {
+                    label: String::new(),
+                    style: Style::default(),
+                },
+                vec![first, second],
+            )
+            .unwrap();
+        assert!(
+            bridge
+                .seed_keyed_column(duplicate, 1, vec![key, key])
+                .is_err()
+        );
     }
 
     fn button(label: &str, enabled: bool) -> NodeKind {

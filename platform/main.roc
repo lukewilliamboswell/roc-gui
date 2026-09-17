@@ -13,6 +13,7 @@ platform ""
 		"roc_gui_node_styled_text": Host.node_styled_text!,
 		"roc_gui_children_begin": Host.children_begin!,
 		"roc_gui_children_push": Host.children_push!,
+		"roc_gui_keyed_seed": Host.keyed_seed!,
 		"roc_gui_keyed_edit_begin": Host.keyed_edit_begin!,
 		"roc_gui_keyed_insert_before": Host.keyed_insert_before!,
 		"roc_gui_keyed_remove": Host.keyed_remove!,

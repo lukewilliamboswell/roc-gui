@@ -2,6 +2,7 @@ import Action
 import Event
 import Gui
 import Key
+import KeyedSeq
 import Work
 
 ## A declarative UI tree whose event handlers transition application state `a`.
@@ -15,6 +16,7 @@ Elem(a) :: [
 	Image(ImageProps),
 	Canvas(CanvasProps(a)),
 	Column({ children : List(Elem(a)), props : ColProps }),
+	KeyedColumn({ base_revision : U64, children : List(Elem(a)), full_children : List(Elem(a)), full_keys : List(Key), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
 	Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 	Panel({ children : List(Elem(a)), props : PanelProps }),
 	Row({ children : List(Elem(a)), props : RowProps }),
@@ -24,6 +26,16 @@ Elem(a) :: [
 	StyledText(TextProps),
 	Text(Str),
 ].{
+	KeyedOperation : [KeyedInsert(Key, KeyedSeq.Placement), KeyedMove(Key, KeyedSeq.Placement), KeyedRemove(Key), KeyedSet(Key)]
+	## Adapt a persistent keyed sequence into a native column. Every item is a
+	## component boundary owned by its complete Key; item actions project by key,
+	## so reordering never changes their target and removal cannot recreate one.
+	KeyedColConfig(parent, item) := {
+		key : Key,
+		get : parent -> KeyedSeq(item),
+		set : parent, KeyedSeq(item) -> parent,
+		on_delegate : parent -> Action(parent) ?? Action.update,
+	}
 
 	## Platform representation of a local boundary. Applications construct one
 	## with `translate`, `translate_with`, or `try_translate`.
@@ -823,6 +835,43 @@ Elem(a) :: [
 	col : ColProps, List(Elem(a)) -> Elem(a)
 	col = |props, children| Column({ children, props })
 
+	keyed_col : (item -> Elem(item)), ColProps, KeyedColConfig(parent, item) -> Elem(parent)
+	keyed_col = |render_item, props, KeyedColConfig.(config)| Component(BoundComponent.{
+		key: Some(config.key),
+		render: |parent, done!| {
+			sequence = (config.get)(parent)
+			transition = KeyedSeq.last_transition(sequence)
+			item_elem = |key| {
+				get_item = |latest| match KeyedSeq.get((config.get)(latest), key) { Ok(item) => Ok(item) Err(_) => Err(Removed) }
+				set_item = |latest, item| match KeyedSeq.set((config.get)(latest), key, item) { Ok(next) => Ok((config.set)(latest, next)) Err(_) => Err(Removed) }
+				try_translate(render_item, { key, get: get_item, set: set_item, on_delegate: config.on_delegate })
+			}
+			var $operations = []
+			var $children = []
+			var $keys = []
+			for edit in transition.edits {
+				match edit {
+					InsertBefore(key, _value, placement) => {
+						$operations = $operations.append(KeyedInsert(key, placement))
+						$keys = $keys.append(key)
+						$children = $children.append(item_elem(key))
+					}
+					MoveBefore(key, placement) => { $operations = $operations.append(KeyedMove(key, placement)) }
+					Remove(key) => { $operations = $operations.append(KeyedRemove(key)) }
+					Set(key, _value) => {
+						$operations = $operations.append(KeyedSet(key))
+						$keys = $keys.append(key)
+						$children = $children.append(item_elem(key))
+					}
+				}
+			}
+			full = KeyedSeq.to_list(sequence)
+			Work.next(|| done!(KeyedColumn({ base_revision: transition.base_revision, children: $children, full_children: full.map(|entry| item_elem(entry.key)), full_keys: full.map(|entry| entry.key), keys: $keys, operations: $operations, props, revision: transition.revision })))
+		},
+		exists: |_parent, done!| Work.next(|| done!(True)),
+		remember: None,
+	})
+
 	## Present one modal surface, focus its first enabled control, trap keyboard
 	## traversal inside it, and restore its opener after dismissal.
 	dialog : DialogProps(a), List(Elem(a)) -> Elem(a)
@@ -934,6 +983,7 @@ Elem(a) :: [
 		StyledText(text_value) => StyledText(text_value)
 		Row(value) => Row({ props: value.props, children: [] })
 		Column(value) => Column({ props: value.props, children: [] })
+		KeyedColumn(_) => crash "keyed_col cannot be lifted; construct it at its owning state boundary"
 		Dialog(value) => {
 			child_handler = value.props.on_dismiss
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
@@ -1265,6 +1315,7 @@ Elem(a) :: [
 		Image(ImageProps),
 		Canvas(CanvasProps(a)),
 		Column({ children : List(Elem(a)), props : ColProps }),
+		KeyedColumn({ base_revision : U64, children : List(Elem(a)), full_children : List(Elem(a)), full_keys : List(Key), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
 		Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
 		Panel({ children : List(Elem(a)), props : PanelProps }),
 		Row({ children : List(Elem(a)), props : RowProps }),
@@ -1282,6 +1333,7 @@ Elem(a) :: [
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => Canvas(canvas_value)
 		Column(children) => Column(children)
+		KeyedColumn(keyed_value) => KeyedColumn(keyed_value)
 		Dialog(dialog_value) => Dialog(dialog_value)
 		Panel(children) => Panel(children)
 		Row(children) => Row(children)

@@ -20,6 +20,7 @@ platform ""
 		"roc_gui_node_styled_text": HostGlue.node_styled_text!,
 		"roc_gui_children_begin": HostGlue.children_begin!,
 		"roc_gui_children_push": HostGlue.children_push!,
+		"roc_gui_keyed_seed": HostGlue.keyed_seed!,
 		"roc_gui_keyed_edit_begin": HostGlue.keyed_edit_begin!,
 		"roc_gui_keyed_insert_before": HostGlue.keyed_insert_before!,
 		"roc_gui_keyed_remove": HostGlue.keyed_remove!,

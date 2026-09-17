@@ -2,6 +2,7 @@ import Host
 import Action
 import Elem
 import Key
+import KeyedSeq
 import Gui
 import Session
 import Index
@@ -23,6 +24,10 @@ Internal := [].{
 		revision : U64,
 		route_ids : RouteIds,
 		children : List(U64),
+		keyed_container : U64,
+		keyed_revision : U64,
+		keyed_items : List({ key : Key, instance : U64 }),
+		keyed : [None, Some(Elem.ColProps)],
 	}
 
 	Lowered(a) : {
@@ -31,10 +36,10 @@ Internal := [].{
 		routes : Index(Route(a)),
 	}
 
-	BuildingOwner : { key : U64, revision : U64, path : List(U64), route_ids : RouteIds, children : List(U64) }
+	BuildingOwner(a) : { key : U64, revision : U64, path : List(U64), route_ids : RouteIds, children : List(U64), keyed_container : U64, keyed_revision : U64, keyed_keys : List(Key), keyed : [None, Some(Elem.ColProps)] }
 
 	# Keep active owner metadata compact in the explicit lowering work stack.
-	BuildingOwners(a) : { stored : Index(BoundaryInfo(a)), active : Box(BuildingOwner) }
+	BuildingOwners(a) : { stored : Index(BoundaryInfo(a)), active : Box(BuildingOwner(a)) }
 
 	Building(a) : { boundaries : BuildingOwners(a), root : U64, routes : Index(Route(a)) }
 
@@ -43,31 +48,32 @@ Internal := [].{
 	keyed_edit_begin! : U64, U64, U64 => {}
 	keyed_edit_begin! = |container, base_revision, new_revision| Host.keyed_edit_begin!({ container, base_revision, new_revision })
 
-	keyed_insert_before! : Key, [AtEnd, Before(Key)], U64, U64 => {}
-	keyed_insert_before! = |key, position, instance, child| {
+	keyed_seed! : U64, U64, List(Key) => {}
+	keyed_seed! = |container, revision, keys| Host.keyed_seed!({ container, revision, keys: keys.map(Key.to_bytes) })
+
+	keyed_insert_before! : Key, [End, Before(Key)], U64 => {}
+	keyed_insert_before! = |key, position, root| {
 		before = match position {
-			AtEnd => []
+			End => []
 			Before(anchor) => Key.to_bytes(anchor)
 		}
-		root = Host.node_boundary!(instance, child)
 		Host.keyed_insert_before!({ key: Key.to_bytes(key), before, root })
 	}
 
 	keyed_remove! : Key => {}
 	keyed_remove! = |key| Host.keyed_remove!(Key.to_bytes(key))
 
-	keyed_move_before! : Key, [AtEnd, Before(Key)] => {}
+	keyed_move_before! : Key, [End, Before(Key)] => {}
 	keyed_move_before! = |key, position| Host.keyed_move_before!({
 		key: Key.to_bytes(key),
 		before: match position {
-			AtEnd => []
+			End => []
 			Before(anchor) => Key.to_bytes(anchor)
 		},
 	})
 
-	keyed_set! : Key, U64, U64 => {}
-	keyed_set! = |key, instance, child| {
-		root = Host.node_boundary!(instance, child)
+	keyed_set! : Key, U64 => {}
+	keyed_set! = |key, root| {
 		Host.keyed_set!({ key: Key.to_bytes(key), root })
 	}
 
@@ -346,14 +352,17 @@ Internal := [].{
 		Append(U64),
 		CloseRow(U64, Elem.RowProps),
 		CloseColumn(U64, Elem.ColProps),
+		CloseKeyedColumn(U64, Elem.ColProps, List(Key), U64),
 		CloseDialog(U64, Elem.DialogProps(a)),
 		ClosePanel(U64, Elem.PanelProps),
 		CloseScroll(Elem.ScrollProps(a)),
 		CloseList(U64, Elem.VirtualListProps(a)),
 		OpenItem(U64),
 		CloseItem(U64),
-		CloseBoundary(BoundaryInfo(a), BoundaryInfo(a), Box(BuildingOwner)),
+		CloseBoundary(BoundaryInfo(a), BoundaryInfo(a), Box(BuildingOwner(a))),
 	]
+
+	KeyedStep(a) : [KeyedInsert(Key, Box(Elem(a)), KeyedSeq.Placement), KeyedMove(Key, KeyedSeq.Placement), KeyedRemove(Key), KeyedSet(Key, Box(Elem(a)))]
 
 	queue_children : WorkStack(LowerWork(a)), List(Elem(a)), U64 -> WorkStack(LowerWork(a))
 	queue_children = |work, children, builder| {
@@ -396,6 +405,13 @@ Internal := [].{
 						Host.scope_enter!(2, value.props.label, child_position)
 						builder = Host.children_begin!()
 						$work = queue_children($work.push(CloseColumn(builder, value.props)), value.children, builder)
+					}
+					KeyedColumn(value) => {
+						active = Box.unbox($boundaries.active)
+						$boundaries = { stored: $boundaries.stored, active: Box.box({ ..active, keyed: Some(value.props) }) }
+						Host.scope_enter!(2, value.props.label, child_position)
+						builder = Host.children_begin!()
+						$work = queue_children($work.push(CloseKeyedColumn(builder, value.props, value.full_keys, value.revision)), value.full_children, builder)
 					}
 					Dialog(value) => {
 						Host.scope_enter!(4, value.props.label, child_position)
@@ -494,6 +510,13 @@ Internal := [].{
 				}
 				CloseColumn(builder, props) => {
 					$root = finish_column!(builder, props)
+					Host.scope_exit!()
+				}
+				CloseKeyedColumn(builder, props, keys, revision) => {
+					$root = finish_column!(builder, props)
+					keyed_seed!($root, revision, keys)
+					active = Box.unbox($boundaries.active)
+					$boundaries = { stored: $boundaries.stored, active: Box.box({ ..active, keyed_container: $root, keyed_revision: revision, keyed_keys: keys }) }
 					Host.scope_exit!()
 				}
 				ClosePanel(builder, props) => {
@@ -794,7 +817,7 @@ Internal := [].{
 		)
 	}
 
-	prepare_component! : Elem.BoundComponent(a), a, U64, Index(Route(a)), BuildingOwners(a), ([Retained(Building(a)), Descend(BoundaryInfo(a), Box(BuildingOwner))] -> Work) => Work
+	prepare_component! : Elem.BoundComponent(a), a, U64, Index(Route(a)), BuildingOwners(a), ([Retained(Building(a)), Descend(BoundaryInfo(a), Box(BuildingOwner(a)))] -> Work) => Work
 	prepare_component! = |bound, state, parent, routes, boundaries, done!| {
 		Host.work_end!(3)
 		Host.work_start!(0)
@@ -825,7 +848,7 @@ Internal := [].{
 			}
 			Err(_) => {
 				Host.component_work!(3, 1)
-				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [] }
+				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: [], keyed: None }
 			}
 		}
 		with_parent = Box.box({ ..parent_info, children: parent_info.children.append(resolved.instance) })
@@ -889,6 +912,240 @@ Internal := [].{
 		{ routes: $routes, boundaries: $boundaries }
 	}
 
+	keyed_instance = |items, wanted| {
+		var $found = None
+		for item in items {
+			if item.key == wanted {
+				$found = Some(item.instance)
+			}
+		}
+		$found
+	}
+
+	keyed_without = |items, unwanted| {
+		var $kept = []
+		for item in items {
+			if item.key != unwanted {
+				$kept = $kept.append(item)
+			}
+		}
+		$kept
+	}
+
+	keyed_place = |items, item, placement| match placement {
+		End => items.append(item)
+		Before(anchor) => {
+			var $placed = []
+			var $inserted = False
+			for current in items {
+				if !($inserted) and current.key == anchor {
+					$placed = $placed.append(item)
+					$inserted = True
+				}
+				$placed = $placed.append(current)
+			}
+			if !$inserted {
+				crash "keyed placement anchor missing"
+			}
+			$placed
+		}
+	}
+
+	# Lower only values carried by Insert and Set. The resulting root already is
+	# the item's boundary root and is passed to the host transaction unchanged.
+	keyed_lower! = |elem, owner, state, routes, boundaries, done!| {
+		active = { key: owner.key, revision: owner.revision, path: owner.path, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_keys: [], keyed: None }
+		lower!(
+			elem,
+			state,
+			owner.key,
+			routes,
+			{ stored: boundaries, active: Box.box(active) },
+			0,
+			|lowered| {
+				built = Box.unbox(lowered.boundaries.active)
+				instance = built.children.get(0) ?? crash "keyed item did not lower to a component boundary"
+				if built.children.len() != 1 {
+					crash "keyed item must lower to exactly one component boundary"
+				}
+				Work.next(|| done!({ instance, root: lowered.root, routes: lowered.routes, boundaries: lowered.boundaries.stored }))
+			},
+		)
+	}
+
+	keyed_steps! = |steps, owner, state, routes, boundaries, items, native, done!| if steps.is_empty() {
+		Work.next(|| done!({ routes, boundaries, items, native }))
+	} else {
+		step = steps.first() ?? crash "missing keyed step"
+		rest = steps.drop_first(1)
+		match step {
+			KeyedMove(key, placement) => {
+				keyed_move_before!(key, placement)
+				instance = match keyed_instance(items, key) {
+					Some(found) => found
+					None => crash "keyed move target missing"
+				}
+				next_items = keyed_place(keyed_without(items, key), { key, instance }, placement)
+				Work.next(|| keyed_steps!(rest, owner, state, routes, boundaries, next_items, native, done!))
+			}
+			KeyedRemove(key) => {
+				keyed_remove!(key)
+				instance = match keyed_instance(items, key) {
+					Some(found) => found
+					None => crash "keyed remove target missing"
+				}
+				retired = retire!(instance, routes, boundaries)
+				Work.next(|| keyed_steps!(rest, owner, state, retired.routes, retired.boundaries, keyed_without(items, key), native, done!))
+			}
+			KeyedInsert(key, elem, placement) => keyed_lower!(
+				Box.unbox(elem),
+				owner,
+				state,
+				routes,
+				boundaries,
+				|built| {
+					keyed_insert_before!(key, placement, built.root)
+					next_items = keyed_place(items, { key, instance: built.instance }, placement)
+					Work.next(|| keyed_steps!(rest, owner, state, built.routes, built.boundaries, next_items, native, done!))
+				},
+			)
+			KeyedSet(key, elem) => {
+				old_instance = match keyed_instance(items, key) {
+					Some(found) => found
+					None => crash "keyed set target missing"
+				}
+				keyed_lower!(
+					Box.unbox(elem),
+					owner,
+					state,
+					routes,
+					boundaries,
+					|built| {
+						if built.instance != old_instance {
+							crash "keyed set changed item boundary identity"
+						}
+						keyed_set!(key, built.root)
+						Work.next(|| keyed_steps!(rest, owner, state, built.routes, built.boundaries, items, native, done!))
+					},
+				)
+			}
+		}
+	}
+
+	emit_keyed_native! = |native| for edit in native {
+		match edit {
+			NativeInsert(key, placement, root) => keyed_insert_before!(key, placement, root)
+			NativeMove(key, placement) => keyed_move_before!(key, placement)
+			NativeRemove(key) => keyed_remove!(key)
+			NativeSet(key, root) => keyed_set!(key, root)
+		}
+	}
+
+	keyed_descriptor_steps : List(Elem.KeyedOperation), List(Key), List(Elem(a)) -> List(KeyedStep(a))
+	keyed_descriptor_steps = |operations, keys, children| {
+		var $steps = []
+		var $child_index = 0
+		for operation in operations {
+			match operation {
+				KeyedInsert(key, placement) => {
+					child = children.get($child_index) ?? crash "keyed insert child missing"
+					expected = keys.get($child_index) ?? crash "keyed insert key missing"
+					if expected != key { crash "keyed insert child key mismatch" }
+					$steps = $steps.append(KeyedInsert(key, Box.box(child), placement))
+					$child_index = $child_index + 1
+				}
+				KeyedSet(key) => {
+					child = children.get($child_index) ?? crash "keyed set child missing"
+					expected = keys.get($child_index) ?? crash "keyed set key missing"
+					if expected != key { crash "keyed set child key mismatch" }
+					$steps = $steps.append(KeyedSet(key, Box.box(child)))
+					$child_index = $child_index + 1
+				}
+				KeyedMove(key, placement) => { $steps = $steps.append(KeyedMove(key, placement)) }
+				KeyedRemove(key) => { $steps = $steps.append(KeyedRemove(key)) }
+			}
+		}
+		if $child_index != children.len() { crash "unused keyed descriptor children" }
+		$steps
+	}
+
+	keyed_fallback_steps : List({ key : Key, instance : U64 }), List(Key), List(Elem(a)) -> List(KeyedStep(a))
+	keyed_fallback_steps = |old_items, keys, children| {
+		var $steps = []
+		for old in old_items {
+			var $present = False
+			for key in keys { if key == old.key { $present = True } }
+			if !$present { $steps = $steps.append(KeyedRemove(old.key)) }
+		}
+		if keys.len() != children.len() { crash "keyed fallback key count differs from children" }
+		var $index = keys.len()
+		var $placement = End
+		while $index > 0 {
+			$index = $index - 1
+			key = keys.get($index) ?? crash "keyed fallback key missing"
+			child = children.get($index) ?? crash "keyed fallback child missing"
+			match keyed_instance(old_items, key) {
+				Some(_) => {
+					$steps = $steps.append(KeyedMove(key, $placement))
+					$steps = $steps.append(KeyedSet(key, Box.box(child)))
+				}
+				None => { $steps = $steps.append(KeyedInsert(key, Box.box(child), $placement)) }
+			}
+			$placement = Before(key)
+		}
+		$steps
+	}
+
+	update_keyed! : BoundaryInfo(a), Elem.ColProps, a, [None, Some(Box(Action.Worker(a)))], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_keyed! = |owner, props, state, task, task_owner, render, routes, boundaries| {
+		Host.work_start!(2)
+		Host.component_work!(0, 1)
+		render! = owner.render
+		render!(state, |rendered| Work.next(|| {
+		Host.work_end!(2)
+		Host.work_start!(3)
+		descriptor = match Elem.inspect(rendered) {
+			KeyedColumn(value) => value
+			_ => crash "keyed boundary rendered a non-keyed element"
+		}
+		planned = if descriptor.base_revision == owner.keyed_revision {
+			{ base: descriptor.base_revision, revision: descriptor.revision, steps: keyed_descriptor_steps(descriptor.operations, descriptor.keys, descriptor.children) }
+		} else {
+			{ base: owner.keyed_revision, revision: descriptor.revision, steps: keyed_fallback_steps(owner.keyed_items, descriptor.full_keys, descriptor.full_children) }
+		}
+		Host.begin_render!(owner.key)
+		keyed_edit_begin!(owner.keyed_container, planned.base, planned.revision)
+		# Match the native column scope used by the initial mount so keyed item
+		# digests resolve to their existing boundary instances after moves.
+		Host.scope_enter!(2, props.label, 0)
+		keyed_steps!(
+			planned.steps,
+			owner,
+			state,
+			routes,
+			boundaries,
+			owner.keyed_items,
+			[],
+			|built| Work.flush(
+				|| {
+					Host.work_end!(3)
+					Host.work_start!(0)
+					Host.scope_exit!()
+					keyed_edit_commit!()
+					updated = { ..owner, children: built.items.map(|item| item.instance), keyed_revision: planned.revision, keyed_items: built.items, memo: Unknown }
+					match task {
+						None => {}
+						Some(worker) => enqueue_work!(task_owner, worker)
+					}
+					Host.work_end!(0)
+					install!(state, render, built.routes, Index.set(built.boundaries, owner.key, updated))
+					Work.done
+				},
+			),
+		)
+		}))
+	}
+
 	rebuild! : BoundaryInfo(a), a, Index(Route(a)), Index(BoundaryInfo(a)), (Lowered(a) -> Work) => Work
 	rebuild! = |owner, state, routes, boundaries, done!| prepare_rebuild!(
 		owner,
@@ -909,7 +1166,7 @@ Internal := [].{
 		cleared = { ..owner, revision: owner.revision + 1, route_ids: RouteIds.empty, children: [], memo: Unknown }
 		# Keep growing metadata out of the persistent index until this owner is
 		# complete; per-route publication shares and repeatedly copies its lists.
-		prepared = { stored: boundaries, active: Box.box({ key: cleared.key, revision: cleared.revision, path: cleared.path, route_ids: RouteIds.empty, children: [] }) }
+		prepared = { stored: boundaries, active: Box.box({ key: cleared.key, revision: cleared.revision, path: cleared.path, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_keys: [], keyed: None }) }
 		Host.work_end!(0)
 		Host.work_start!(2)
 		Host.component_work!(0, 1)
@@ -930,11 +1187,34 @@ Internal := [].{
 	}
 
 	finish_rebuild! = |owner, cleared, state, lowered, done!| {
+		completed = Box.unbox(lowered.boundaries.active)
+		var $keyed_items = []
+		var $keyed_index = 0.U64
+		for key in completed.keyed_keys {
+			instance = completed.children.get($keyed_index) ?? crash "keyed item boundary missing"
+			$keyed_items = $keyed_items.append({ key, instance })
+			$keyed_index = $keyed_index + 1
+		}
+		keyed_meta = if completed.keyed_container == 0 {
+			{ container: cleared.keyed_container, revision: cleared.keyed_revision, items: cleared.keyed_items }
+		} else {
+			{ container: completed.keyed_container, revision: completed.keyed_revision, items: $keyed_items }
+		}
 		root = if owner.key == 0 lowered.root else Host.node_boundary!(owner.key, lowered.root)
 		Host.work_end!(3)
 		Host.work_start!(0)
-		completed = Box.unbox(lowered.boundaries.active)
-		current = { ..cleared, route_ids: completed.route_ids, children: completed.children }
+		current = {
+			..cleared,
+			route_ids: completed.route_ids,
+			children: completed.children,
+			keyed_container: keyed_meta.container,
+			keyed_revision: keyed_meta.revision,
+			keyed_items: keyed_meta.items,
+			keyed: match completed.keyed {
+				Some(value) => Some(value)
+				None => cleared.keyed
+			},
+		}
 		var $live = Index.empty
 		for child in current.children {
 			$live = Index.set($live, child, True)
@@ -1048,46 +1328,53 @@ Internal := [].{
 	update_boundary! : a, [None, Some(Box(Action.Worker(a)))], U64, U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
 	update_boundary! = |state, task, task_owner, render_owner, render, routes, boundaries| {
 		owner = Index.get(boundaries, render_owner) ?? crash "missing render owner"
-		unchanged!(
-			owner,
-			state,
-			|same| Work.next(
-				|| {
-					if same {
-						Work.flush(
-							|| {
-								Host.apply!(NoChange)
-								match task {
-									None => {}
-									Some(worker) => enqueue_work!(task_owner, worker)
-								}
-								install!(state, render, routes, boundaries)
-								Work.done
-							},
-						)
-					} else {
-						Host.begin_render!(render_owner)
-						rebuild!(
-							owner,
-							state,
-							routes,
-							boundaries,
-							|lowered| Work.flush(
+		keyed = match owner.keyed {
+			Some(keyed_props) => Some(keyed_props)
+			None => None
+		}
+		match keyed {
+			Some(value) => update_keyed!(owner, value, state, task, task_owner, render, routes, boundaries)
+			None => unchanged!(
+				owner,
+				state,
+				|same| Work.next(
+					|| {
+						if same {
+							Work.flush(
 								|| {
-									Host.apply!(Replace({ old_root: owner.root, root: lowered.root }))
+									Host.apply!(NoChange)
 									match task {
 										None => {}
 										Some(worker) => enqueue_work!(task_owner, worker)
 									}
-									install!(state, render, lowered.routes, lowered.boundaries)
+									install!(state, render, routes, boundaries)
 									Work.done
 								},
-							),
-						)
-					}
-				},
-			),
-		)
+							)
+						} else {
+							Host.begin_render!(render_owner)
+							rebuild!(
+								owner,
+								state,
+								routes,
+								boundaries,
+								|lowered| Work.flush(
+									|| {
+										Host.apply!(Replace({ old_root: owner.root, root: lowered.root }))
+										match task {
+											None => {}
+											Some(worker) => enqueue_work!(task_owner, worker)
+										}
+										install!(state, render, lowered.routes, lowered.boundaries)
+										Work.done
+									},
+								),
+							)
+						}
+					},
+				),
+			)
+		}
 	}
 
 	install! : a, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => {}
@@ -1172,7 +1459,7 @@ Internal := [].{
 	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Gui.Color, foreground : Gui.Color } => {}
 	start! = |initial, render, window| {
 		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
-		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [] }
+		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: [], keyed: None }
 		Host.begin_render!(0)
 		run_work!(
 			rebuild!(

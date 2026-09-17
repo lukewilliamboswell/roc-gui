@@ -14,6 +14,7 @@ Host := [].{
 	children_begin! : () => U64
 
 	children_push! : U64, U64 => {}
+	keyed_seed! : { container : U64, revision : U64, keys : List(List(U8)) } => {}
 	keyed_edit_begin! : { container : U64, base_revision : U64, new_revision : U64 } => {}
 	keyed_insert_before! : { key : List(U8), before : List(U8), root : U64 } => {}
 	keyed_remove! : List(U8) => {}

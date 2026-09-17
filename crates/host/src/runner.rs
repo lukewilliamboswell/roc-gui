@@ -123,6 +123,7 @@ pub(crate) fn graph_claim(
                         | NodeKind::Canvas { style, .. }
                         | NodeKind::Image { style, .. }
                         | NodeKind::Column { style, .. }
+                        | NodeKind::KeyedColumn { style, .. }
                         | NodeKind::Dialog { style, .. }
                         | NodeKind::Panel { style, .. }
                         | NodeKind::Row { style, .. }
@@ -335,6 +336,7 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Some(node.id)
             }
             (Locator::ColumnName(expected), NodeKind::Column { label, .. })
+            | (Locator::ColumnName(expected), NodeKind::KeyedColumn { label, .. })
                 if !label.is_empty() && expected == label =>
             {
                 Some(node.id)

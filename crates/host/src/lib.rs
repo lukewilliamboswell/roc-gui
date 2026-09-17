@@ -40,13 +40,14 @@ use roc_platform_abi::{
     DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueComponentResolve,
     HostGlueHttpAcquireResult, HostGlueHttpSendArgs, HostGlueHttpSendResult,
     HostGlueKeyedEditBeginArgs, HostGlueKeyedInsertBeforeArgs, HostGlueKeyedMoveBeforeArgs,
-    HostGlueKeyedSetArgs, HostGlueNodeActionButton, HostGlueNodeActionButtonArgs,
-    HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
-    HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs,
-    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList, RocListWith, RocStr,
-    decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueKeyedSeedArgs, HostGlueKeyedSetArgs, HostGlueNodeActionButton,
+    HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs,
+    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
+    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
+    RocListWith, RocStr, decref_erased_callable, incref_erased_callable, make_roc_host,
+    roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -668,6 +669,27 @@ pub extern "C" fn roc_gui_keyed_edit_begin(args: HostGlueKeyedEditBeginArgs) {
             .borrow_mut()
             .begin_keyed_edit(args.container, args.base_revision, args.new_revision)
             .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_seed(args: HostGlueKeyedSeedArgs) {
+    let keys = args
+        .keys
+        .as_slice()
+        .iter()
+        .map(|key| {
+            key.as_slice()
+                .try_into()
+                .unwrap_or_else(|_| panic!("keyed child keys must contain exactly 32 bytes"))
+        })
+        .collect::<Vec<[u8; 32]>>();
+    unsafe { args.decref(roc_host()) };
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .seed_keyed_column(args.container, args.revision, keys)
+            .unwrap_or_else(|message| panic!("invalid keyed native seed: {message}"));
     });
 }
 
@@ -2089,6 +2111,7 @@ fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
         NodeKind::Button { style, .. } if node.children.is_empty() => style,
         NodeKind::Row { style, .. }
         | NodeKind::Column { style, .. }
+        | NodeKind::KeyedColumn { style, .. }
         | NodeKind::Panel { style, .. } => style,
         _ => return None,
     };
@@ -2115,6 +2138,7 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
         NodeKind::Boundary { .. }
             | NodeKind::Row { .. }
             | NodeKind::Column { .. }
+            | NodeKind::KeyedColumn { .. }
             | NodeKind::Panel { .. }
     );
     let mut layout_view = view.clone();
@@ -2305,7 +2329,9 @@ impl Render for NodeView {
                         }
                     });
             }
-            NodeKind::Column { style, .. } | NodeKind::Panel { style, .. } => {
+            NodeKind::Column { style, .. }
+            | NodeKind::KeyedColumn { style, .. }
+            | NodeKind::Panel { style, .. } => {
                 element = apply_style(element.flex().flex_col(), style);
             }
             NodeKind::Dialog { style, .. } => {
@@ -3715,7 +3741,7 @@ impl Runtime {
         while let Some(id) = current {
             let node = self.graph.node(id).expect("mounted layout ancestor");
             if matches!(&node.kind,
-                NodeKind::Row { style, .. } | NodeKind::Column { style, .. }
+                NodeKind::Row { style, .. } | NodeKind::Column { style, .. } | NodeKind::KeyedColumn { style, .. }
                 | NodeKind::Panel { style, .. } | NodeKind::Dialog { style, .. }
                 | NodeKind::Scroll { style, .. } | NodeKind::VirtualList { style, .. }
                 if style.align == Align::Baseline)
