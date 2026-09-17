@@ -111,7 +111,8 @@ and memo checks. They count invocation even when a fallible adapter returns
 `keyed_order_visits` counts persistent order-tree nodes visited while updating
 mounted keyed-owner metadata. `keyed_snapshot_items` counts items materialised
 only for initial mount or stale-revision recovery; an exact journal update
-records zero.
+records zero. Neither count stands for host graph work, native edits, layout,
+or paint.
 The iterative executor accumulates these counts and publishes them before the
 same turn commits. They are not inferred from component depth, rendered nodes,
 or elapsed time. These are owner-defined events, not estimates of total work.
@@ -167,7 +168,7 @@ phase and task completion has its own cycle, including steps that await several 
 Waiting for workers and applying graph patches are outside the callback span.
 The enclosing cycle duration includes the wait.
 
-Schema 16 records task completions delivered by the interactive window loop
+Schema 18 records task completions delivered by the interactive window loop
 as well as those driven by specifications. Each delivered completion records
 its own callback, application spans, allocation activity, and graph work.
 
@@ -198,7 +199,7 @@ to GPUI; a compositor frame callback would be the seam that owns them.
 
 == Count native rendering work
 
-Schema 16 stores native work in `gpui_native_work`, keyed by
+Schema 18 stores native work in `gpui_native_work`, keyed by
 `frame_id`, numeric `metric`, and numeric `kind`. Each `frame_id` references
 `gpui_frames.id`. Metric `0`, `node_view_renders`, counts actual calls to the
 production `NodeView::render` implementation. Metric `1`,

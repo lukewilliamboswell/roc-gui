@@ -364,21 +364,12 @@ names the evidence so a fix can be verified against the same case.
   See PR #23 for the measured optimization history and rejected follow-ups.
   Timing alone must not gate correctness.
 
-- [ ] **Investigate remaining full-root scaling after keyed component retention.**
-  Production keyed columns now provide the structural alternative for dynamic
-  ordered collections. `KeyedSeq` publishes a revision-checked semantic journal,
-  and `Elem.keyed_col` applies insert, remove, move, and set through one mounted
-  graph and native transaction while retaining surviving item identities. The
-  incident-queue scale cases pass at 100, 1,000, and 10,000 entries with constant
-  component renders and registry visits for one structural edit. This closes
-  the dynamic-child reconciliation part of this investigation; ordinary `List`
-  columns intentionally retain full-root semantics.
-
-  It does not establish proportional layout or paint. A front insertion changes
-  the geometry of every following row, and the production window case still
-  reports button and boundary rendering in proportion to the visible collection.
-  Keep layout, prepaint, paint, and scene retention as separately owned work;
-  do not attribute those frame costs to keyed graph reconciliation.
+- [ ] **Investigate remaining intentional full-root scaling.** Ordinary `List`
+  columns intentionally retain full-root semantics; keyed columns provide the
+  proportional structural alternative. A front insertion can still change the
+  geometry of every following row. Keep layout, prepaint, paint, and scene
+  retention as separately owned work, and do not attribute those frame costs
+  to keyed graph reconciliation.
 
   Historical serial schema-11 captures passed all four sparse-update scales
   and A/A repeats with the compiler/backend used for that checkpoint. The

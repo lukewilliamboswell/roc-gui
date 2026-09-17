@@ -211,12 +211,20 @@ is sitting on.
 `Elem.keyed_col(render_item, Elem.ColProps.{ ... }, Elem.KeyedColConfig.{ key, get, set, on_delegate })`::
 Lay out a `KeyedSeq` vertically while preserving each item's component lifetime
 by its complete `Key`. Inserts, moves, removals, and replacements are applied as
-one native keyed transaction. `on_delegate : parent, Key -> Action(parent)`
+one mounted-graph transaction and one native keyed transaction. Construct a
+sequence with `KeyedSeq.empty` and update it with `insert_before`, `remove`,
+`move_before`, `set`, or one atomic `apply_all`; `Before(anchor)` and `End`
+describe placement. Duplicate inserted keys, missing targets, and missing
+anchors reject the operation without publishing a partial revision.
+`on_delegate : parent, Key -> Action(parent)`
 receives the complete key of the delegating item. Item actions project through
 their key, so a move
 does not retarget an action and a removed item cannot be recreated by a late
 completion. If the platform has missed the sequence's one-generation journal,
 it reconciles the full ordered snapshot while retaining every surviving key.
+An exact journal renders only inserted and set items; a move preserves the
+existing item component and a removal retires it, its routes, and its pending
+task delivery. The full snapshot is materialised only for stale recovery.
 `Elem.panel(Elem.PanelProps.{ ... }, children)`:: Group children vertically in
 a labelled surface that is padded, bordered, and rounded by default. `heading`
 is the panel's own visible heading, painted above its children in

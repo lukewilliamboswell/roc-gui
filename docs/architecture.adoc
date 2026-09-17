@@ -135,6 +135,18 @@ scope. Duplicate keys in one scope are rejected. Unkeyed translations allocate
 fresh lifetimes when reconstructed by their parent; a local update preserves
 its own boundary. Key names and digests never enter observatory captures.
 
+A keyed column carries a persistent ordered sequence and its exact
+one-generation journal into lowering. The Roc owner applies that journal to its
+persistent keyed-instance metadata, then publishes one atomic mounted-graph
+transaction and one native-container transaction. Inserts and sets render the
+affected item; moves retain its component and native identity; removals retire
+that identity and its routes. If the mounted owner has an older revision, the
+column lazily enumerates its complete ordered snapshot and reconciles surviving
+keys. Any rejected operation publishes neither graph nor native state. The Roc
+runtime, graph, native container, and GPUI frame each record only the work they
+own, so a bounded graph edit is not used as evidence for unmeasured layout or
+paint.
+
 A keyed boundary can opt into memoization. A matching instance with the same
 policy and valid snapshot compares the saved input with its input in latest
 state. A hit retains the complete marker subtree, routes, and nested boundaries
