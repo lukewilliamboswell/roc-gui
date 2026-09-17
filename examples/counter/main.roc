@@ -18,7 +18,7 @@ ink = Gui.rgb(0x1F1C17)
 muted_ink = Gui.rgb(0x8C8474)
 
 render : State -> Elem(State)
-render = |state| Elem.col(
+render = |curr_state| Elem.col(
 	Elem.ColProps.{
 		label: "Counter page",
 		width: Fill,
@@ -30,7 +30,7 @@ render = |state| Elem.col(
 		Elem.col(
 			Elem.ColProps.{ gap: 6 },
 			[
-				Elem.col(Elem.ColProps.{ gap: 0, font_size: 22 }, [Elem.text(state.title)]),
+				Elem.col(Elem.ColProps.{ gap: 0, font_size: 22 }, [Elem.text(curr_state.title)]),
 				Elem.col(
 					Elem.ColProps.{ gap: 0, fg: muted_ink, font_size: 13 },
 					[Elem.text("Two independent tallies, each its own state boundary")],

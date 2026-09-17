@@ -11,9 +11,8 @@ recording is off unless a window specification asked for it, gated at runtime
 rather than at compile time, so the binary you ship is the binary the
 specification drives.
 
-Build the application with the native development backend (`--opt=dev`), then
-run both kinds of specifications against that same executable. The Rust host
-uses its separate release build profile.
+Build the application, then run both kinds of specifications against that same
+executable.
 
 == Two runners
 
@@ -31,7 +30,7 @@ on screen rather than merely mounted, how large it is, and what it looks like.
 
 [source,sh]
 ----
-roc build --opt=dev my-app.roc
+roc build my-app.roc
 
 ./my-app --host-run-spec specs/greeting.scm
 ./my-app --host-run-window-spec specs/greeting-window.scm \
@@ -139,7 +138,7 @@ Run it:
 
 [source,sh]
 ----
-roc build --opt=dev my-app.roc
+roc build my-app.roc
 ./my-app --host-run-window-spec specs/greeting.scm \
     --host-window-report=.test-out/report.json \
     --host-window-shot-dir=.test-out

@@ -24,7 +24,7 @@ with none of the application around it.
 
 ```sh
 python3 build.py
-roc build --opt=dev --output=file-explorer examples/file-explorer/main.roc
+roc build --output=file-explorer examples/file-explorer/main.roc
 ./file-explorer -- --host-cap-dir examples/file-explorer/fixture
 ```
 

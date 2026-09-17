@@ -17,7 +17,7 @@ folder does.
 
 ```sh
 python3 build.py
-roc build --opt=dev --output=music-player examples/music-player/main.roc
+roc build --output=music-player examples/music-player/main.roc
 ./music-player -- --host-cap-dir examples/music-player/library
 ```
 

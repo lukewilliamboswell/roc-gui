@@ -4,6 +4,8 @@ import Internal
 
 ## A GUI application with initial state and a pure renderer for that state.
 Program(state) := Config(state).{
+
+	## Initial application data, renderer, and optional native window properties.
 	Config(state) := {
 		init : state,
 		render : state -> Elem(state),

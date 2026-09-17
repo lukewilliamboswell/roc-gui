@@ -15,7 +15,7 @@ draft.
 
 ```sh
 python3 build.py
-roc build --opt=dev --output=settings-center examples/settings-center/main.roc
+roc build --output=settings-center examples/settings-center/main.roc
 ./settings-center -- --host-cap-app-data ./settings-store
 ```
 

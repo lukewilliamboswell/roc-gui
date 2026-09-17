@@ -1,4 +1,4 @@
-(test "Counter buttons dispatch through their keyed components"
+(test "Counter buttons dispatch through their local components"
   (steps
     (expect-visible (text "Counter"))
     (expect-visible (text "-1"))

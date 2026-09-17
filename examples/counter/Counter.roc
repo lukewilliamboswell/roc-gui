@@ -78,9 +78,10 @@ Counter := [].{
 	)
 
 	render : Str, State -> Elem(State)
-	render = |name, state| Elem.col(
+	render = |name, curr_state| Elem.col(
 		Elem.ColProps.{
 			label: "${name} counter",
+
 			## The cards divide the page's measure between them rather than
 			## sitting at a fixed width with the remainder left over: a page
 			## that ends in dead space reads as an accident.
@@ -93,6 +94,7 @@ Counter := [].{
 			border_color: rule,
 			border_width: 1,
 			radius: 16,
+
 			## The card is raised off the paper rather than outlined onto it: a
 			## hairline rule in this palette all but disappears against the
 			## ground it was chosen to sit quietly against, so the separation is
@@ -107,12 +109,12 @@ Counter := [].{
 				Elem.ColProps.{ gap: 0, fg: muted_ink, font_size: 13 },
 				[Elem.text(name)],
 			),
-			numeral(state.count),
+			numeral(curr_state.count),
 			Elem.row(
 				Elem.RowProps.{ gap: 12 },
 				[
-					control("−", "${name} decrement", |prev, _| Action.update({ count: prev.count - 1.I64 })),
-					control("+", "${name} increment", |prev, _| Action.update({ count: prev.count + 1.I64 })),
+					control("−", "${name} decrement", |prev_state, _| Action.update({ count: prev_state.count - 1.I64 })),
+					control("+", "${name} increment", |prev_state, _| Action.update({ count: prev_state.count + 1.I64 })),
 				],
 			),
 		],

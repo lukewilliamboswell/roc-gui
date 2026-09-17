@@ -1,11 +1,19 @@
-## Persistent radix index for U64 application and platform identifiers. A change copies
+## A persistent collection addressed by stable U64 identifiers. Use ordinary
+## lists for small collections; use an Index when replacing one entry in a large,
+## shared collection would otherwise copy the list. Keep display order separately.
+## Missing entries return `Err(Missing)`. Older versions remain readable.
+##
+## A change copies
 ## at most sixteen radix branches, irrespective of unrelated live entries.
 ## Leaves retain the remaining key bits and split only when keys collide;
 ## distinct entries do not each need a sixteen-level chain of unary branches.
 Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
+
+	## An index containing no entries.
 	empty : Index(a)
 	empty = Empty
 
+	## Look up an identifier, returning `Err(Missing)` if it is absent.
 	get : Index(a), U64 -> Try(a, [Missing])
 	get = |index, key| match index {
 		Empty => Err(Missing)
@@ -13,6 +21,7 @@ Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
 		Branch(children) => get(Box.unbox(children.get(key % 16) ?? crash "invalid index branch"), key / 16)
 	}
 
+	## Insert or replace an entry while preserving earlier versions of the index.
 	set : Index(a), U64, a -> Index(a)
 	set = |index, key, value| match index {
 		Empty => Value(key, value)
@@ -26,15 +35,15 @@ Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
 		Branch(children) => set_child(children, key, value)
 	}
 
+	## Implementation helper replacing the radix branch selected by the key.
 	set_child : List(Box(Index(a))), U64, a -> Index(a)
 	set_child = |children, key, value| {
 		slot = key % 16
-		# Use the element-update primitive: on 09-12 this beats both a separate
-		# get/set pair and an explicit empty-slot handoff in the scaling ladder.
-		# List.update preserves copy-on-write for shared snapshots.
+		# Update the selected branch while preserving shared snapshots.
 		Branch(children.update(slot, |child| Box.box(set(Box.unbox(child), key / 16, value))) ?? crash "invalid index update")
 	}
 
+	## Remove an entry. An absent identifier leaves the contents unchanged.
 	remove : Index(a), U64 -> Index(a)
 	remove = |index, key| match index {
 		Empty => Empty

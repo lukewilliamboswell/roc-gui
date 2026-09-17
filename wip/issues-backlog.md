@@ -256,8 +256,19 @@ names the evidence so a fix can be verified against the same case.
   preserve boundary ownership and stale-completion suppression, and measure
   queue depth and delay at their production owner before making latency claims.
 
+- [ ] **Generated Roc API pages omit record-field documentation.** Running
+  `roc docs platform/main.roc` renders the `Elem.TranslateConfig` type comment
+  and signature but omits the doc comments on `key`, `get`, `set`, `on_delegate`,
+  and `memo`. The type-level documentation includes the essential contracts so
+  readers can use the generated reference. Track the compiler documentation
+  generator fix and verify the field descriptions in its HTML output.
+
 - [ ] **Resolve the default LLVM backend's CPS runtime corruption.** The
-  selected compiler successfully builds the counter and review-queue with the
+  temporary workaround is to add `--opt=dev` to the `roc build` commands in
+  the guides and example READMEs. The specification driver defaults to this
+  backend while the compiler issue is open. This is not a platform requirement;
+  remove the driver override after verifying the compiler fix.
+  Selected compiler builds of the counter and review-queue succeed with the
   default LLVM backend, but those executables expose incorrect initial state
   and callback reference-count failures. Identical production source built
   with `--opt=dev` passes all 17 core semantic specifications and all 27 flat

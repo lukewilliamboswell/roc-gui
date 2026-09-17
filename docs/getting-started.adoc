@@ -15,15 +15,11 @@ python3 build.py
 The result is `platform/targets/x64glibc/libhost.a`. Re-run `build.py` after a
 host change.
 
-Applications use Roc’s native development backend (`--opt=dev`). The Rust
-host archive is built in release mode; its optimization profile is independent
-of the Roc application backend.
-
 == Build and run the example
 
 [source,sh]
 ----
-roc build --opt=dev --output=counter examples/counter/main.roc
+roc build --output=counter examples/counter/main.roc
 ./counter
 ----
 
@@ -46,7 +42,7 @@ import pf.Program
 State : { greeting : Str }
 
 render : State -> Elem(State)
-render = |state| Elem.text(state.greeting)
+render = |curr_state| Elem.text(curr_state.greeting)
 
 main : Program(State)
 main = Program.run({ init: { greeting: "Hello from Roc" }, render })
@@ -56,7 +52,7 @@ Choose an executable name explicitly when building your application:
 
 [source,sh]
 ----
-roc build --opt=dev --output=my-app path/to/main.roc
+roc build --output=my-app path/to/main.roc
 ./my-app
 ----
 
@@ -72,7 +68,7 @@ terminal workspace needs a local interactive shell profile:
 
 [source,sh]
 ----
-roc build --opt=dev --output=terminal-workspace examples/terminal-workspace/main.roc
+roc build --output=terminal-workspace examples/terminal-workspace/main.roc
 ./terminal-workspace --host-cap-process local-shell
 ----
 

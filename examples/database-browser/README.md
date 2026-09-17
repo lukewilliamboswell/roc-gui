@@ -21,7 +21,7 @@ step.
 ```sh
 python3 build.py
 python3 examples/database-browser/generate_fixture.py
-roc build --opt=dev --output=database-browser examples/database-browser/main.roc
+roc build --output=database-browser examples/database-browser/main.roc
 ./database-browser -- --host-cap-dir examples/database-browser/fixture
 ```
 

@@ -1,8 +1,9 @@
 = Building an application
 
-Resource-bearing APIs consume opaque grants under the policy set out in the
-resource access chapter. A path, URL, or application-rendered dialog is never a
-substitute for trusted authorisation.
+Start with one state type, a render function, and event handlers that return
+actions. Ordinary functions are enough to organise a small application. This
+chapter introduces local components when part of the UI needs to update
+independently, then keys and memoization when their additional guarantees help.
 
 == State, render, and actions
 
@@ -17,13 +18,13 @@ import pf.Program
 State : { count : I64 }
 
 render : State -> Elem(State)
-render = |state| Elem.col({}, [
-    Elem.text("Count: ${state.count.to_str()}"),
+render = |curr_state| Elem.col({}, [
+    Elem.text("Count: ${curr_state.count.to_str()}"),
     Elem.button({
         caption: "Add one",
         label: "Increment count",
-        on_press: |previous, _event|
-            Action.update({ count: previous.count + 1.I64 }),
+        on_press: |prev_state, _event|
+            Action.update({ count: prev_state.count + 1.I64 }),
     }),
 ])
 
@@ -38,25 +39,22 @@ It returns an action:
 `Action.update(next_state)`:: Propose the next state and update the required
 render scope, subject to the component's memoization policy.
 `Action.none`:: Keep the existing state and element tree unchanged.
-`Action.delegate(next_state)`:: Propose a child change to the nearest component's
-parent policy. That policy returns the action to accept, revise, veto, or
-delegate further.
-`Action.task({ pending, run, resolve })`:: Commit `pending`, run `run` on the
-bounded native worker pool, then invoke `resolve` against the latest state on
-the UI thread if the task's owning component instance still exists.
 
-Render-time `state`, dispatch-time handler input, and completion-time resolver
-input are different snapshots. Derive changes from the handler or resolver
-argument, not captured render-time state. A worker captures the smallest request
-input it needs; its resolver combines the result with latest state. Keeping old
-state alive can prevent in-place updates, but capturing a value does not itself
-imply a deep copy. Memoization snapshots and other sharing also affect ownership.
+The names in the example distinguish two moments. `curr_state` describes the
+UI being rendered. The handler's `prev_state` is the state immediately before
+its action is applied.
 
-`Action.task` supplies the commit--effect--resolve sequence. Task delivery is
-tied to the owning boundary instance. Removing that instance suppresses its
-completion, not necessarily the external operation. A request that must survive
-a child closing is delegated to a surviving parent, whose policy starts and
-owns the task.
+Roc values are immutable. A handler that captures `curr_state` keeps that
+snapshot alive in its closure. Later updates to a shared list or string may
+therefore require cloning storage to preserve the captured value. Derive actions
+from `prev_state` to avoid unnecessarily capturing the renderer's snapshot.
+This does not eliminate cloning: other retained values, including memoization
+snapshots, can still require it. Renaming a captured value does not change its
+ownership or lifetime.
+
+Using the handler argument also matters when handlers are retained across
+updates: it supplies the latest state, whereas a captured render snapshot
+still describes the earlier render.
 
 Use `Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
@@ -81,7 +79,25 @@ composes them through `Elem.translate` or `Elem.translate_with`; no setup-time
 registration is needed. The host assigns each mounted boundary its lifetime.
 The module does not import `Program` or choose the application's window.
 
-== Timers and subscriptions
+== Asynchronous actions
+
+Use `Action.task({ pending, run, resolve })` when an event needs to wait for
+external work. `pending` describes the UI while that work runs, such as a loading
+indicator. After accepting that state, the platform runs `run` on its bounded
+worker pool and passes the result to `resolve` on the UI thread.
+
+The resolver receives `prev_state`, the state immediately before completion,
+so it can preserve edits made while the worker was running. Capture only the
+request data needed by the worker; derive the completion action from the
+resolver's argument. Resource operations require the grants described in the
+resource access chapter.
+
+Tasks belong to the component that accepts them. Removing that component
+suppresses completion delivery, but does not necessarily cancel the external
+operation. The local-state section explains how a parent can own work that must
+survive a child closing.
+
+=== Timers and subscriptions
 
 `Timer.start!({ interval_ms })` creates an opaque `Timer.Handle` for intervals
 from 1 through 60,000 milliseconds. `handle.next!()` waits for one tick
@@ -110,7 +126,7 @@ over the same native action-button node. `caption` is the visible text and
 `label` is the stable semantic name, as in every other control; use
 `Elem.action_button` for styling.
 Both button constructors accept `on_hover_enter` and `on_hover_exit` as optional
-`Some(|latest, event| Action.update(...))` callbacks. Their defaults are `None`:
+`Some(|prev_state, event| Action.update(...))` callbacks. Their defaults are `None`:
 unconfigured buttons allocate no hover routes. `Event.Hover` carries no fields.
 Hover callbacks receive current state and return ordinary actions, including
 cell-owned tasks. Native hover transitions follow GPUI pointer movement with no
@@ -129,8 +145,8 @@ Elem.button({
     caption: "Preview",
     label: "Preview item",
     on_press: |_, _| Action.none,
-    on_hover_enter: Some(|latest, _| Action.update({ ..latest, preview: True })),
-    on_hover_exit: Some(|latest, _| Action.update({ ..latest, preview: False })),
+    on_hover_enter: Some(|prev_state, _| Action.update({ ..prev_state, preview: True })),
+    on_hover_exit: Some(|prev_state, _| Action.update({ ..prev_state, preview: False })),
 })
 ----
 
@@ -300,13 +316,19 @@ application that says nothing keeps it.
 
 == Translations and local state
 
+Begin by splitting a large render function into ordinary helper functions.
+Introduce a translation when a part of the UI should work with its own smaller
+state and update independently. For example, each counter can own its counting
+logic while the page holds two counter states.
+
 `Elem.translate(render, get, set)` introduces a local rendering, delegation,
-and task-ownership boundary. Its adapters operate directly on state:
+and task-ownership boundary. `get` reads the child's state from the parent;
+`set` puts an updated child back while preserving the rest of the parent:
 
 [source,roc]
 ----
-render = |state| Elem.col({}, [
-    Elem.text(state.title),
+render = |curr_state| Elem.col({}, [
+    Elem.text(curr_state.title),
     Elem.translate(
         |counter| Counter.render("Left", counter),
         |parent| parent.left,
@@ -321,8 +343,11 @@ An unkeyed translation has a fresh lifetime whenever its parent reconstructs
 it. Its own local updates preserve its lifetime and parent-owned application
 data survives reconstruction unless an action changes it.
 
-Use `Elem.translate_with(render, config)` to preserve a logical boundary across
-parent rebuilds and keyed reordering:
+=== Preserve a component across parent renders
+
+Use `Elem.translate_with(render, config)` when a component should keep its
+lifetime across parent rebuilds or reordering. A stable key lets an in-flight
+task still reach that same component after the parent renders:
 
 [source,roc]
 ----
@@ -338,7 +363,7 @@ Elem.translate_with(
 
 The required configuration fields are `key`, `get`, and `set`.
 `on_delegate : parent -> Action(parent)` defaults to `Action.update`.
-`memo` defaults to `None`; `Some(|previous, next| previous == next)` opts into
+`memo` defaults to `None`; `Some(|prev_state, curr_state| prev_state == curr_state)` opts into
 comparison of child inputs.
 
 `Elem.try_translate(render, config)` has the same configuration but its getter
@@ -354,23 +379,16 @@ Emitting a boundary whose getter returns
 
 === Keys identify instances within a scope
 
-`Key` is a nominal value backed by the full `Crypto.SHA256.Digest`. It supports
-equality and hashing. A string literal constructs a key through `from_quote`
-at compilation; `Key.from_str` constructs a computed string key at runtime.
-`Key.id(U64)` constructs a numeric application key.
+Use a string literal for a fixed component, `Key.from_str` for a computed name,
+or `Key.id(U64)` for a numeric application identifier. The string `"7"` and
+`Key.id(7)` are distinct keys. Compute dynamic keys when creating model entries
+and reuse them during rendering.
 
-String keys hash byte `0` followed by their UTF-8 bytes. Numeric keys hash byte
-`1` followed by eight little-endian bytes. Thus the string `"7"` and numeric
-`Key.id(7)` are separate identities. All 256 digest bits are retained, with no
-short-name limit, truncation, or implicit interpolation. Compute dynamic
-collection keys when creating model entries and reuse them during rendering.
-
-The host validates and copies each 32-byte digest, then resolves the surviving
-owner, native-container scope, and key to a separate `U64` mounted-instance ID.
-Duplicate keys within one scope are rejected. Reordering within that scope
+Keys must be unique within their owner and native-container scope. A container's
+kind and semantic label help define that scope. Reordering within that scope
 preserves the lifetime; changing key or scope, removing and remounting, or
 remounting the owner creates a new lifetime. Instance IDs are never recycled
-within a session. Neither original names nor digests enter captures.
+within a session. The architecture chapter describes the identity protocol.
 
 A key promises the same logical component and stable state projection for its
 lifetime. Rebinding either requires a different key. The platform does not
@@ -379,6 +397,11 @@ stable when native interaction state should survive. A translation adds no
 padding or layout surface.
 
 === Persistent application collections
+
+Keep a small collection in a list unless measurements give you a reason to
+change it. For a large collection with frequent single-entry updates, retaining
+an old state can force the list to be copied. An index limits how much shared
+storage each update needs to copy; it does not eliminate copying.
 
 `Index(value)` is a persistent map keyed by application `U64` identifiers.
 `Index.empty`, `Index.get(index, id)`, `Index.set(index, id, value)`, and
@@ -395,6 +418,10 @@ without copying an unrelated flat list. The row-boundaries application uses
 the same persistent index as the platform's production route registry.
 
 === Local updates and delegation
+
+Sometimes a child change also affects its parent: a counter may contribute to
+a page total, or a review decision may need approval from the queue. Choose
+delegation when the parent must participate in the change.
 
 `Action.update(next_child)` commits through the adapters and renders only its
 originating boundary. Parent and sibling renderers and comparators are not
@@ -419,6 +446,11 @@ Delegation reaching the root becomes a root update. Handlers receive current
 state. Veto commits none of the candidate, including its child changes.
 
 === Memoization is opt-in
+
+Add memoization when a parent frequently rebuilds an expensive child whose input
+has not changed. A key alone preserves lifetime; memoization additionally lets
+the platform reuse the child's rendered UI. Start without it so there is no
+comparison policy to maintain or extra state snapshot to retain.
 
 Ordinary translations require no equality and retain no comparison snapshot.
 A keyed translation enables memoization with `memo: Some(compare)`. Comparison

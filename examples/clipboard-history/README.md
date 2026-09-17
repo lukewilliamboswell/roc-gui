@@ -18,7 +18,7 @@ reads like a report.
 
 ```sh
 python3 build.py
-roc build --opt=dev --output=clipboard-history examples/clipboard-history/main.roc
+roc build --output=clipboard-history examples/clipboard-history/main.roc
 ./clipboard-history -- --host-cap-clipboard
 ```
 

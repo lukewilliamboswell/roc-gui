@@ -121,6 +121,12 @@ Routes and boundaries live in indexed registries; each boundary owns lists of
 its direct routes and child boundaries, so replacing it need not filter all
 routes in the application.
 
+Application keys retain all 256 SHA-256 digest bits. String keys hash a byte
+`0` followed by UTF-8 bytes; numeric keys hash a byte `1` followed by eight
+little-endian bytes. This separates numeric and string identities without a
+short-name limit or truncation. String literals use `Key.from_quote` at
+compilation; computed strings use `Key.from_str` at runtime.
+
 Lowering resolves a keyed boundary using its surviving owner, native-container
 scope, and full SHA-256 key digest. The host validates the 32-byte digest and
 assigns a separate, monotonically increasing mounted-instance ID. A matching

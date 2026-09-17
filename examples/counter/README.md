@@ -14,7 +14,7 @@ on one card cannot move the other, and that is asserted rather than assumed.
 
 ```sh
 python3 build.py
-roc build --opt=dev --output=counter examples/counter/main.roc
+roc build --output=counter examples/counter/main.roc
 ./counter
 ```
 

@@ -24,6 +24,9 @@ Elem(a) :: [
 	StyledText(TextProps),
 	Text(Str),
 ].{
+
+	## Platform representation of a local boundary. Applications construct one
+	## with `translate`, `translate_with`, or `try_translate`.
 	BoundComponent(a) := {
 		key : [None, Some(Key)],
 		render : (a, (Elem(a) -> Work) -> Work),
@@ -31,32 +34,74 @@ Elem(a) :: [
 		remember : [None, Some((a, (Box((a, (Bool -> Work) -> Work)) -> Work) -> Work))],
 	}
 
+	## Connect a child renderer to parent state and give it a stable lifetime.
+	## Start with `key`, `get`, and `set`; add policies only when needed.
+	## `get` reads the child; `set` replaces it while preserving other parent data.
+	## `on_delegate` receives the proposed parent and defaults to `Action.update`;
+	## returning `Action.none` rejects the whole proposal. `memo` defaults to None.
+	## A comparator receives saved and incoming child states: True promises that
+	## both the rendered UI and captured handlers remain equivalent. Retaining
+	## that comparison snapshot can require cloning during subsequent updates.
 	TranslateConfig(parent, child) := {
+
+		## Stable identity within the owner and container scope, independent of order.
 		key : Key,
+
+		## Read the child's state from the parent supplied by the platform.
 		get : parent -> child,
+
+		## Replace that child while preserving unrelated parent state.
 		set : parent, child -> parent,
+
+		## Decide whether to accept a proposed parent containing the child's change.
+		## `Action.none` rejects the entire proposal. The default accepts it.
 		on_delegate : parent -> Action(parent) ?? Action.update,
+
+		## Compare saved and incoming child states. True promises equivalent UI and
+		## captured handlers. Keeping the comparison snapshot can require cloning.
 		memo : [None, Some((child, child -> Bool))] ?? None,
 	}
 
+	## Connect a removable child by stable identity, not a captured list position.
+	## Omit the element when the child is already absent.
+	## `get` and `set` return `Err(Removed)` when the projection no longer exists.
+	## A rejected setter discards the whole action before delegation or task launch.
+	## Preserve unrelated parent data and never recreate a removed child in `set`.
+	## `on_delegate` and `memo` follow the same contracts as TranslateConfig.
 	TryTranslateConfig(parent, child) := {
+
+		## Stable identity for this logical child within its owner and container.
 		key : Key,
+
+		## Read the child, or return `Err(Removed)` if it no longer exists.
 		get : parent -> Try(child, [Removed]),
+
+		## Replace an existing child, preserving other data. `Err(Removed)` rejects
+		## the whole action before delegation or task launch; do not recreate it.
 		set : parent, child -> Try(parent, [Removed]),
+
+		## Handle the proposed parent after a successful setter; defaults to acceptance.
 		on_delegate : parent -> Action(parent) ?? Action.update,
+
+		## Optional saved/incoming comparison, with the same contract as TranslateConfig.
 		memo : [None, Some((child, child -> Bool))] ?? None,
 	}
 
-	## A local rendering, delegation and task-ownership boundary. Reconstructing
+	## Embed a renderer over a smaller part of parent state. Local updates render
+	## this child without rebuilding siblings. `get` reads it; `set` replaces it.
+	## Reconstructing
 	## this unkeyed descriptor from its parent starts a fresh mounted lifetime.
 	translate : (child -> Elem(child)), (parent -> child), (parent, child -> parent) -> Elem(parent)
 	translate = |render, get, set| boundary(render, None, |parent, done| Work.get(|| done(Ok(get(parent)))), |parent, child| Ok(set(parent, child)), Action.update, None)
 
+	## Preserve a child's lifetime across parent renders and reordering using a key.
+	## Use this when tasks or native interaction state should survive those renders.
 	## Keys preserve the lifetime within the surviving owner and native scope.
 	## Memoization is opt-in; its input must cover rendering and handler captures.
 	translate_with : (child -> Elem(child)), TranslateConfig(parent, child) -> Elem(parent)
 	translate_with = |render, TranslateConfig.(config)| boundary(render, Some(config.key), |parent, done| Work.get(|| done(Ok((config.get)(parent)))), |parent, child| Ok((config.set)(parent, child)), config.on_delegate, config.memo)
 
+	## Embed a removable collection entry using a stable key and fallible adapters.
 	## Missing projections discard task completions and cannot recreate state.
 	try_translate : (child -> Elem(child)), TryTranslateConfig(parent, child) -> Elem(parent)
 	try_translate = |render, TryTranslateConfig.(config)| {

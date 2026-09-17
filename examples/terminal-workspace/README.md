@@ -19,7 +19,7 @@ holds only the text the child wrote.
 
 ```sh
 python3 build.py
-roc build --opt=dev --output=terminal-workspace examples/terminal-workspace/main.roc
+roc build --output=terminal-workspace examples/terminal-workspace/main.roc
 ./terminal-workspace -- --host-cap-process local-shell
 ```
 

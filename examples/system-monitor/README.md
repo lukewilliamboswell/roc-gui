@@ -22,7 +22,7 @@ usernames, paths, command lines, or machine identifiers.
 
 ```sh
 python3 build.py
-roc build --opt=dev --output=system-monitor examples/system-monitor/main.roc
+roc build --output=system-monitor examples/system-monitor/main.roc
 ./system-monitor -- --host-cap-system-monitor
 ```
 
