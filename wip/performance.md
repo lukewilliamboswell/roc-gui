@@ -251,6 +251,15 @@ semantic cases pass. P1–P3 and P6–P8 remain open.
   did, and keep the A/A discipline. *Gate:* all semantic suites; Windows
   hover-grid entry re-checked (its crash reproduces with both current
   representations, so any change in behaviour is signal).
+**P2 experiment (rejected):** extracting the widest `lower_leaf!` arm
+(ActionButton) into an annotated top-level helper changed neither the twelve
+~3 MiB specializations nor their 198-page probed frames — the development
+backend folds the helper back in. Source-level function splitting at this
+granularity does not shrink the generated frame; shrinking it needs either
+indirection the compiler cannot inline through (which the earlier boxing
+experiments showed costs more than it saves) or the upstream stack-slot-reuse
+fix. File the upstream issue with the M4 numbers.
+
 - **P2 — Restructure the hot lowering functions to shrink generated frames.**
   Informed by M4: split `lower_work!`'s match arms into small top-level
   helpers so one procedure's frame is not the union of all arms' temporaries;
