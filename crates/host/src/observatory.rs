@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 18;
+pub const SCHEMA_VERSION: u32 = 19;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -462,7 +462,7 @@ pub struct StepResult {
     pub expected_count: Option<u64>,
     pub observed_count: Option<u64>,
     pub audio_counters: Option<([u64; 9], [u64; 9])>,
-    pub clipboard_counters: Option<([u64; 4], [u64; 4])>,
+    pub clipboard_counters: Option<([Option<u64>; 4], [u64; 4])>,
     pub sqlite_counters: Option<([u64; 3], [u64; 3])>,
     pub http_counters: Option<([u64; 4], [u64; 4])>,
     pub tcp_counters: Option<([u64; 5], [u64; 5])>,
@@ -1453,7 +1453,7 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             if let Some((expected, observed)) = clipboard_counters {
                 connection.execute(
                     "INSERT INTO clipboard_counter_assertions(step_id,expected_live_handles,observed_live_handles,expected_acquire,observed_acquire,expected_read,observed_read,expected_write,observed_write) VALUES((SELECT id FROM steps WHERE run_id=?1 AND ordinal=?2),?3,?4,?5,?6,?7,?8,?9,?10)",
-                    params![result.run_id, result.ordinal as i64, as_i64(expected[0]), as_i64(observed[0]), as_i64(expected[1]), as_i64(observed[1]), as_i64(expected[2]), as_i64(observed[2]), as_i64(expected[3]), as_i64(observed[3])],
+                    params![result.run_id, result.ordinal as i64, expected[0].map(as_i64), as_i64(observed[0]), expected[1].map(as_i64), as_i64(observed[1]), expected[2].map(as_i64), as_i64(observed[2]), expected[3].map(as_i64), as_i64(observed[3])],
                 ).map_err(|error| format!("cannot write clipboard counter assertion: {error}"))?;
             }
             if let Some((expected, observed)) = sqlite_counters {
@@ -1672,7 +1672,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=18;
+PRAGMA user_version=19;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1744,10 +1744,10 @@ CREATE TABLE audio_counter_assertions(
 );
 CREATE TABLE clipboard_counter_assertions(
     step_id INTEGER PRIMARY KEY REFERENCES steps(id),
-    expected_live_handles INTEGER NOT NULL, observed_live_handles INTEGER NOT NULL,
-    expected_acquire INTEGER NOT NULL, observed_acquire INTEGER NOT NULL,
-    expected_read INTEGER NOT NULL, observed_read INTEGER NOT NULL,
-    expected_write INTEGER NOT NULL, observed_write INTEGER NOT NULL
+    expected_live_handles INTEGER, observed_live_handles INTEGER NOT NULL,
+    expected_acquire INTEGER, observed_acquire INTEGER NOT NULL,
+    expected_read INTEGER, observed_read INTEGER NOT NULL,
+    expected_write INTEGER, observed_write INTEGER NOT NULL
 );
 CREATE TABLE database_counter_assertions(
     step_id INTEGER PRIMARY KEY REFERENCES steps(id),

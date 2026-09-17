@@ -189,7 +189,7 @@ pub enum Command {
     ExpectSubscriptions(usize),
     ExpectTcpStreams(usize),
     ExpectProcesses(usize),
-    ExpectClipboardCounters([u64; 4]),
+    ExpectClipboardCounters([Option<u64>; 4]),
     ExpectSqliteCounters([u64; 3]),
     ExpectHttpCounters([u64; 4]),
     ExpectTcpCounters([u64; 5]),
@@ -1323,15 +1323,21 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 })?,
         ),
         "expect-clipboard-counters" if values.len() == 5 => {
-            let mut expected = [0u64; 4];
+            let mut expected = [None; 4];
             for (index, value) in values[1..].iter().enumerate() {
-                expected[index] = value
+                let atom = value
                     .atom()
-                    .ok_or_else(|| error(value, "clipboard counters must be integers"))?
-                    .parse()
-                    .map_err(|_| {
-                        error(value, "clipboard counters must be non-negative integers")
-                    })?;
+                    .ok_or_else(|| error(value, "clipboard counters must be integers or _"))?;
+                expected[index] = if atom == "_" {
+                    None
+                } else {
+                    Some(atom.parse().map_err(|_| {
+                        error(
+                            value,
+                            "clipboard counters must be non-negative integers or _",
+                        )
+                    })?)
+                };
             }
             Command::ExpectClipboardCounters(expected)
         }
@@ -2314,7 +2320,14 @@ mod tests {
                 .unwrap();
         assert!(matches!(
             clipboard.steps[0].command,
-            Command::ExpectClipboardCounters([1, 2, 3, 4])
+            Command::ExpectClipboardCounters([Some(1), Some(2), Some(3), Some(4)])
+        ));
+        let clipboard =
+            parse(r#"(test "clipboard counters" (steps (expect-clipboard-counters 1 2 _ 4)))"#)
+                .unwrap();
+        assert!(matches!(
+            clipboard.steps[0].command,
+            Command::ExpectClipboardCounters([Some(1), Some(2), None, Some(4)])
         ));
         let sqlite =
             parse(r#"(test "SQLite counters" (steps (expect-sqlite-counters 1 2 3)))"#).unwrap();

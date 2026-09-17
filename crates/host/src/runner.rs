@@ -9,6 +9,24 @@ use crate::{
 };
 use std::time::Instant;
 
+fn counter_pattern<const N: usize>(
+    expected: &[Option<u64>; N],
+    observed: [u64; N],
+) -> (bool, (u64, u64)) {
+    expected
+        .iter()
+        .zip(observed)
+        .fold((true, (0, 0)), |(matches, totals), (expected, observed)| {
+            let Some(expected) = expected else {
+                return (matches, totals);
+            };
+            (
+                matches && *expected == observed,
+                (totals.0 + expected, totals.1 + observed),
+            )
+        })
+}
+
 /// Apply the production graph transaction before publishing its Roc session.
 fn apply_transaction(graph: &mut MountedGraph, patch: Patch) -> Result<ApplyFacts, String> {
     match graph.apply_measured(patch) {
@@ -1083,13 +1101,14 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::ExpectClipboardCounters(expected) => {
                 let (operations, handles) = crate::clipboard::counters();
                 let observed = [handles as u64, operations[0], operations[1], operations[2]];
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                let (matches, totals) = counter_pattern(expected, observed);
+                count_evidence = Some(totals);
                 clipboard_counter_evidence = Some((*expected, observed));
-                if observed == *expected {
+                if matches {
                     Ok(())
                 } else {
                     Err(format!(
-                        "line {}: expected clipboard counters {:?}, observed {:?}",
+                        "line {}: expected clipboard counter pattern {:?}, observed {:?}",
                         step.line, expected, observed
                     ))
                 }
@@ -1453,6 +1472,23 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         result?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod counter_pattern_tests {
+    use super::counter_pattern;
+
+    #[test]
+    fn unconstrained_owner_counts_do_not_decide_the_claim_or_aggregate() {
+        assert_eq!(
+            counter_pattern(&[Some(1), Some(1), None, Some(1)], [1, 1, 3, 1]),
+            (true, (3, 3))
+        );
+        assert_eq!(
+            counter_pattern(&[Some(1), Some(1), None, Some(1)], [1, 2, 3, 1]),
+            (false, (3, 4))
+        );
+    }
 }
 
 // Flat constructor for the observatory cycle record.
