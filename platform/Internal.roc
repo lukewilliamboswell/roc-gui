@@ -347,8 +347,11 @@ Internal := [].{
 	# Enter/finish work preserves depth-first builder and owner ordering without
 	# suspending a Roc call frame per node. Finish items contain shallow props,
 	# never a parent descriptor that retains its already-visited descendants.
+	VisitWork(a) : { elem : Elem(a), position : U64 }
+	BoundaryWork(a) : { cleared : BoundaryInfo(a), owner : BoundaryInfo(a), parent : Box(BuildingOwner(a)) }
+
 	LowerWork(a) : [
-		Visit(Elem(a), U64),
+		Visit(Box(VisitWork(a))),
 		Append(U64),
 		CloseRow(U64, Elem.RowProps),
 		CloseColumn(U64, Elem.ColProps),
@@ -359,7 +362,7 @@ Internal := [].{
 		CloseList(U64, Elem.VirtualListProps(a)),
 		OpenItem(U64),
 		CloseItem(U64),
-		CloseBoundary(BoundaryInfo(a), BoundaryInfo(a), Box(BuildingOwner(a))),
+		CloseBoundary(Box(BoundaryWork(a))),
 	]
 
 	KeyedStep(a) : [KeyedInsert(Key, Box(Elem(a)), KeyedSeq.Placement), KeyedMove(Key, KeyedSeq.Placement), KeyedRemove(Key), KeyedSet(Key, Box(Elem(a)))]
@@ -371,13 +374,13 @@ Internal := [].{
 		while $position > 0 {
 			$position = $position - 1
 			child = children.get($position) ?? crash "missing traversal child"
-			$work = $work.push(Append(builder)).push(Visit(child, $position))
+			$work = $work.push(Append(builder)).push(Visit(Box.box({ elem: child, position: $position })))
 		}
 		$work
 	}
 
 	lower! : Elem(a), a, U64, Index(Route(a)), BuildingOwners(a), U64, (Building(a) -> Work) => Work
-	lower! = |elem, state, active_boundary, routes, boundaries, position, done!| lower_work!(WorkStack.empty.push(Visit(elem, position)), state, active_boundary, routes, boundaries, 0, done!)
+	lower! = |elem, state, active_boundary, routes, boundaries, position, done!| lower_work!(WorkStack.empty.push(Visit(Box.box({ elem, position }))), state, active_boundary, routes, boundaries, 0, done!)
 
 	lower_work! = |work, state, active_boundary, routes, boundaries, root, done!| {
 		var $work = work
@@ -385,17 +388,23 @@ Internal := [].{
 		var $boundaries = boundaries
 		var $root = root
 		var $pending = None
-		var $visited = False
+		# Bound one continuation's synchronous work without paying the continuation
+		# and generated stack-frame cost once for every individual node.
+		var $budget = 4096
 		var $active_boundary = active_boundary
-		while !$visited and !$work.is_empty() and (match $pending {
+		while $budget > 0 and !$work.is_empty() and (match $pending {
 			None => True
 			Some(_) => False
 		}) {
 			frame = $work.pop() ?? crash "missing lowering work"
-			$visited = True
+			$budget = $budget - 1
 			$work = frame.rest
 			match frame.item {
-				Visit(current, child_position) => match Elem.inspect(current) {
+				Visit(boxed_visit) => {
+					visit = Box.unbox(boxed_visit)
+					current = visit.elem
+					child_position = visit.position
+					match Elem.inspect(current) {
 					Row(value) => {
 						Host.scope_enter!(1, value.props.label, child_position)
 						builder = Host.children_begin!()
@@ -436,7 +445,7 @@ Internal := [].{
 					}
 					Scroll(value) => {
 						Host.scope_enter!(5, value.label, child_position)
-						$work = $work.push(CloseScroll({ ..value, content: Elem.text("") })).push(Visit(value.content, 0))
+						$work = $work.push(CloseScroll({ ..value, content: Elem.text("") })).push(Visit(Box.box({ elem: value.content, position: 0 })))
 					}
 					VirtualList(value) => {
 						Host.scope_enter!(6, value.label, child_position)
@@ -446,7 +455,7 @@ Internal := [].{
 						while $index > 0 {
 							$index = $index - 1
 							row = value.items.get($index) ?? crash "missing virtual row"
-							$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(row.content, 0)).push(OpenItem(row.key))
+							$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(Box.box({ elem: row.content, position: 0 }))).push(OpenItem(row.key))
 						}
 					}
 					Component(bound) => {
@@ -466,7 +475,7 @@ Internal := [].{
 									Descend(owner, parent) => Work.next(
 										|| {
 											Host.component_enter!(owner.key)
-											prepare_rebuild!(owner, state, saved_routes, saved_boundaries.stored, |prepared| Work.next(|| lower_work!(remaining.push(CloseBoundary(owner, prepared.cleared, parent)).push(Visit(prepared.rendered, 0)), state, owner.key, prepared.routes, prepared.prepared, 0, done!)))
+											prepare_rebuild!(owner, state, saved_routes, saved_boundaries.stored, |prepared| Work.next(|| lower_work!(remaining.push(CloseBoundary(Box.box({ owner, cleared: prepared.cleared, parent }))).push(Visit(Box.box({ elem: prepared.rendered, position: 0 }))), state, owner.key, prepared.routes, prepared.prepared, 0, done!)))
 										},
 									)
 								},
@@ -479,8 +488,13 @@ Internal := [].{
 						$routes = built.routes
 						$boundaries = built.boundaries
 					}
+					}
 				}
-				CloseBoundary(owner, cleared, parent) => {
+				CloseBoundary(boxed_boundary) => {
+					boundary = Box.unbox(boxed_boundary)
+					owner = boundary.owner
+					cleared = boundary.cleared
+					parent = boundary.parent
 					remaining = $work
 					built = { root: $root, routes: $routes, boundaries: $boundaries }
 					$pending = Some(
@@ -796,7 +810,7 @@ Internal := [].{
 
 	unchanged! : BoundaryInfo(a), a, (Bool -> Work) => Work
 	unchanged! = |owner, state, done!| match owner.memo {
-		Unknown => Work.next(|| done!(False))
+		Unknown => done!(False)
 		Known(boxed) => Work.next(
 			|| {
 				Host.work_start!(4)

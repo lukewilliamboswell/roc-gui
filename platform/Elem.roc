@@ -143,27 +143,21 @@ Elem(a) :: [
 				),
 			)
 		}
-		render_boundary = |parent, done| Work.next(
-			|| project(
+		render_boundary = |parent, done| project(
 				parent,
 				|result| match result {
 					Err(Removed) => crash "render emitted a removed component"
-					Ok(child) => Work.next(|| done(lift_with(render(child), project, set, adapt)))
+					Ok(child) => done(lift_with(render(child), project, set, adapt))
 				},
-			),
 		)
-		exists = |parent, done| Work.next(
-			|| project(
+		exists = |parent, done| project(
 				parent,
-				|result| Work.next(
-					|| done(
+				|result| done(
 						match result {
 							Ok(_) => True
 							Err(Removed) => False
 						},
-					),
 				),
-			),
 		)
 		Component(BoundComponent.{ key, render: render_boundary, exists: exists, remember })
 	}

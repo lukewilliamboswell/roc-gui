@@ -373,16 +373,20 @@ names the evidence so a fix can be verified against the same case.
 
   A serial development-backend comparison against `origin/main` at `d0a98ce`,
   using byte-identical applications and specifications, the same pinned
-  compiler, isolated jobs, and A/A repeats, exposes a material full-root cost in
-  this branch. Repeated 10,000-row replacement increased from 50.49–50.67 ms to
-  773.02–785.22 ms median Roc callback time; 10,000 styled-checkbox selection
-  increased from 15.32–16.04 ms to 190.52–190.82 ms. Loading the unchanged
-  10,000-item virtual list increased from 14.71–14.86 ms to 299.40–475.01 ms,
-  with the wide repeat range itself evidence of noise. In contrast, moving one
-  canvas layer decreased from 421–431 us to 185–198 us, and an idempotent
-  10,000-row reselect decreased from 2.47–2.52 ms to 52–81 us. Diagnose the
-  full-root render, lowering, validation, graph-apply, and allocation owners
-  separately; do not trade away the bounded local path to optimize these cases.
+  compiler, isolated jobs, and A/A repeats, exposed a generated-frame bug in
+  the explicit lowering traversal. Large work items and recursive trampoline
+  values were stored inline and the traversal resumed once per item; the
+  10,000-row replacement therefore spent about 729 ms in lowering. Boxing the
+  large ownership boundaries and processing a bounded batch per continuation
+  reduced its callback from 773–785 ms initially to 163.93–164.76 ms, versus
+  50.60–50.76 ms on main. Styled-checkbox selection is now 65.36–66.05 ms
+  versus 16.43–16.59 ms; loading the unchanged 10,000-item virtual list is
+  61.52–61.93 ms versus 15.17–15.41 ms. In contrast, moving one canvas layer is
+  170–173 us versus 422–446 us, and an idempotent 10,000-row reselect is 47–48
+  us versus 2.63–2.66 ms. The catastrophic 12–32x regression is fixed, but
+  ordinary full-root reconstruction remains 3–4x slower and still allocates
+  traversal/continuation state per node. Attribute and remove that residual
+  cost without trading away stack safety or the bounded local path.
   These semantic captures contain no GPUI frame work, and `origin/main` has no
   keyed-collection analogue, so they neither compare native rendering nor
   establish an A/B result for keyed insert, move, or removal.
