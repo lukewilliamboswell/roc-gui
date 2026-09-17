@@ -161,6 +161,18 @@ semantic suites. The `materialize` `Node::clone` half of R3 remains open — it
 needs `NodeView` to share the node (`Arc<Node>` or id-based reads) rather than
 own a copy, and is cheaper now that `Style` is boxed.
 
+Serial same-machine A/B against a `b4e1b0a` worktree (7 samples each,
+development-backend applications, release hosts; timings diagnostic, semantic
+results and counters gated): at 10,000 rows, select callback 795.7 → 756.6 ms,
+validate 13.5 → 10.6 ms, graph apply 20.6 → 17.2 ms; keyed insert/remove
+graph apply 1.87 → 1.52 ms and 1.05 → 0.86 ms. One instructive detour: the
+first scratch-reuse attempt in the identity walk reused the occurrence map,
+and `HashMap::clear` walking retained capacity turned a 10,000-child parent
+into an O(n²) sweep — a measured 13.5 → 18.3 ms validate *regression*, caught
+by the A/B ladder and bisected to its commit before being fixed. The
+remaining ~750 ms of the 10k full-root callback is the Roc-side lowering span
+that P1/P2/M4 target.
+
 - **R1 — Cache focus order per graph generation.** `focus_order()` is a full
   preorder per GPUI frame (`lib.rs:4338-4348`). Cache the computed order (and
   the focused-handle lookup) keyed by graph generation; invalidate on commit.
