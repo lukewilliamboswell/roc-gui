@@ -7,7 +7,9 @@ import pf.Index
 import pf.Key
 import pf.Program
 
-Incident : { id : U64, key : Key, acknowledged : Bool, expanded : Bool, note : Str }
+IncidentRequest : [NoRequest, Promote, Replace, Dismiss]
+
+Incident : { id : U64, key : Key, acknowledged : Bool, expanded : Bool, note : Str, request : IncidentRequest }
 
 State : { incidents : Index(Incident), order : List(U64), next_id : U64, removed : U64 }
 
@@ -20,7 +22,7 @@ create_queue = |count, first_id| {
 	var $order = []
 	for _ in List.repeat({}, count) {
 		id = first_id + $order.len()
-		$incidents = Index.set($incidents, id, { id, key: Key.id(id), acknowledged: False, expanded: False, note: "" })
+		$incidents = Index.set($incidents, id, { id, key: Key.id(id), acknowledged: False, expanded: False, note: "", request: NoRequest })
 		$order = $order.append(id)
 	}
 	{ incidents: $incidents, order: $order, next_id: first_id + count, removed: 0 }
@@ -29,7 +31,7 @@ create_queue = |count, first_id| {
 add_front : State -> State
 add_front = |state| {
 	id = state.next_id
-	incident = { id, key: Key.id(id), acknowledged: False, expanded: False, note: "" }
+	incident = { id, key: Key.id(id), acknowledged: False, expanded: False, note: "", request: NoRequest }
 	{ ..state, incidents: Index.set(state.incidents, id, incident), order: [id].concat(state.order), next_id: id + 1 }
 }
 
@@ -50,7 +52,7 @@ promote = |state, id| {
 replace_incident : State, U64 -> State
 replace_incident = |state, old_id| {
 	new_id = state.next_id
-	replacement = { id: new_id, key: Key.id(new_id), acknowledged: False, expanded: False, note: "" }
+	replacement = { id: new_id, key: Key.id(new_id), acknowledged: False, expanded: False, note: "", request: NoRequest }
 	var $next_order = []
 	for id in state.order {
 		$next_order = $next_order.append(if id == old_id new_id else id)
@@ -67,6 +69,18 @@ replace_incident = |state, old_id| {
 store_incident : State, Incident -> State
 store_incident = |state, incident| { ..state, incidents: Index.set(state.incidents, incident.id, incident) }
 
+handle_request : State, U64 -> Action(State)
+handle_request = |state, id| {
+	incident = find_incident(state.incidents, id) ?? crash "delegating incident is missing"
+	cleared = store_incident(state, { ..incident, request: NoRequest })
+	match incident.request {
+		NoRequest => Action.update(cleared)
+		Promote => Action.update(promote(cleared, id))
+		Replace => Action.update(replace_incident(cleared, id))
+		Dismiss => Action.update(remove_incident(cleared, id))
+	}
+}
+
 render_incident : Incident -> Elem(Incident)
 render_incident = |incident| {
 	var $details = []
@@ -81,8 +95,8 @@ render_incident = |incident| {
 			}),
 		)
 	}
-	Elem.col(
-		{ label: "Incident ${incident.id.to_str()}", padding: 4, gap: 3 },
+	card = Elem.col(
+		{ padding: 4, gap: 3 },
 		[
 			Elem.text("Incident ${incident.id.to_str()} · ${if incident.acknowledged "acknowledged" else "open"}"),
 			Elem.row(
@@ -103,6 +117,15 @@ render_incident = |incident| {
 			Elem.col({ gap: 2 }, $details),
 		],
 	)
+	Elem.row(
+		{ label: "Queue entry ${incident.id.to_str()}", gap: 4 },
+		[
+			card,
+			Elem.button({ caption: "Promote", label: "Promote incident ${incident.id.to_str()}", on_press: |current, _| Action.delegate({ ..current, request: Promote }) }),
+			Elem.button({ caption: "Replace", label: "Replace incident ${incident.id.to_str()}", on_press: |current, _| Action.delegate({ ..current, request: Replace }) }),
+			Elem.button({ caption: "Dismiss", label: "Dismiss incident ${incident.id.to_str()}", on_press: |current, _| Action.delegate({ ..current, request: Dismiss }) }),
+		],
+	)
 }
 
 render : State -> Elem(State)
@@ -110,7 +133,7 @@ render = |state| {
 	var $cards = []
 	for id in state.order {
 		incident = find_incident(state.incidents, id) ?? crash "ordered incident is missing"
-		card = Elem.try_translate(
+		entry = Elem.try_translate(
 			render_incident,
 			{
 				key: incident.key,
@@ -119,20 +142,11 @@ render = |state| {
 					Ok(_) => Ok(store_incident(parent, { ..child, id }))
 					Err(_) => Err(Removed)
 				},
+				on_delegate: |candidate| handle_request(candidate, id),
 				memo: Some(|previous, next| previous == next),
 			},
 		)
-		$cards = $cards.append(
-			Elem.row(
-				{ label: "Queue entry ${id.to_str()}", gap: 4 },
-				[
-					card,
-					Elem.button({ caption: "Promote", label: "Promote incident ${id.to_str()}", on_press: |current, _| Action.update(promote(current, id)) }),
-					Elem.button({ caption: "Replace", label: "Replace incident ${id.to_str()}", on_press: |current, _| Action.update(replace_incident(current, id)) }),
-					Elem.button({ caption: "Dismiss", label: "Dismiss incident ${id.to_str()}", on_press: |current, _| Action.update(remove_incident(current, id)) }),
-				],
-			),
-		)
+		$cards = $cards.append(entry)
 	}
 	Elem.col(
 		{ label: "Incident queue", padding: 10, gap: 6 },

@@ -4,6 +4,7 @@
     (click (role button :name "Load 10000 incidents"))
     (mark-metrics)
     (click (role button :name "Dismiss incident 5100"))
+    (expect-patch :kind replace :staged 10 :removed 21)
     (expect-count (text-prefix "Incident ") 9999)
     (expect-not-visible (role row :name "Queue entry 5100"))
     (expect-visible (text "Dismissed or replaced: 1"))

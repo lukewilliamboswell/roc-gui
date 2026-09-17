@@ -4,6 +4,7 @@
     (click (role button :name "Load 10000 incidents"))
     (mark-metrics)
     (click (role button :name "Add urgent incident"))
+    (expect-patch :kind replace :staged 21 :removed 10)
     (expect-count (text-prefix "Incident ") 10001)
     (expect-before (text "Incident 10101 · open") (text "Incident 101 · open"))
     (expect-component-work :rendered 2 :compared 10000 :skipped 10000 :mounted 1 :retired 0 :registry-visits 10002)))
