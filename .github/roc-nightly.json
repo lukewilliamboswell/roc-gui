@@ -27,6 +27,7 @@
     "examples/image-library/main.roc",
     "examples/music-player/main.roc",
     "examples/redis-explorer/main.roc",
+    "examples/review-queue/main.roc",
     "examples/settings-center/main.roc",
     "examples/system-monitor/main.roc",
     "examples/terminal-workspace/main.roc"
