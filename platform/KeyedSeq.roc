@@ -1,7 +1,9 @@
 import Key
+import Index
 
 ## Persistent storage primitives for KeyedSeq's stable-slot order tree. The
-## bounded tables and 32-way nodes path-copy only the chunks on an edit path.
+## radix tables and 32-way nodes path-copy only the branches and chunks on an
+## edit path.
 
 RowsGenerationCallable : Box(({} -> Box({})))
 
@@ -13,7 +15,7 @@ RowsOrderParent : [OrderParent({ node : U64, child : U64 }), OrderRoot]
 
 RowsOrderCell(value) : [OrderCellEmpty, OrderCellValue(value)]
 
-RowsOrderTable(value) : Dict(U64, List(RowsOrderCell(value)))
+RowsOrderTable(value) : Index(List(RowsOrderCell(value)))
 
 RowsOrderEntry(value) : { key : U64, value : value }
 
@@ -32,7 +34,7 @@ rows_order_table_location = |key| {
 rows_order_table_get : RowsOrderTable(value), U64 -> Try(value, [Missing])
 rows_order_table_get = |table, key| {
 	location = rows_order_table_location(key)
-	chunk = table.get(location.chunk) ? |_| Missing
+	chunk = Index.get(table, location.chunk) ? |_| Missing
 	cell = chunk.get(location.offset) ? |_| Missing
 	match cell {
 		OrderCellEmpty => Err(Missing)
@@ -45,23 +47,23 @@ rows_order_table_get = |table, key| {
 rows_order_table_set : RowsOrderTable(value), U64, value -> RowsOrderTable(value)
 rows_order_table_set = |table, key, value| {
 	location = rows_order_table_location(key)
-	var $chunk = table.get(location.chunk) ?? []
+	var $chunk = Index.get(table, location.chunk) ?? []
 	while $chunk.len() <= location.offset {
 		$chunk = $chunk.append(OrderCellEmpty)
 	}
 	updated = $chunk.set(location.offset, OrderCellValue(value)) ?? crash "Rows order table offset was invalid"
-	table.insert(location.chunk, updated)
+	Index.set(table, location.chunk, updated)
 }
 
 rows_order_table_remove : RowsOrderTable(value), U64 -> RowsOrderTable(value)
 rows_order_table_remove = |table, key| {
 	location = rows_order_table_location(key)
-	match table.get(location.chunk) {
+	match Index.get(table, location.chunk) {
 		Err(_) => table
 		Ok(chunk) =>
 			match chunk.set(location.offset, OrderCellEmpty) {
 				Err(_) => table
-				Ok(updated) => table.insert(location.chunk, updated)
+				Ok(updated) => Index.set(table, location.chunk, updated)
 			}
 		}
 }
@@ -79,15 +81,14 @@ rows_order_table_from_entries = |entries| {
 			Same
 		},
 	)
-	chunk_capacity = (entries.len() + rows_order_table_chunk_size - 1).div_trunc_by(rows_order_table_chunk_size)
-	var $table = Dict.with_capacity(chunk_capacity)
+	var $table = Index.empty
 	var $chunk_key = 0
 	var $chunk = []
 	var $has_chunk = False
 	for entry in sorted {
 		location = rows_order_table_location(entry.key)
 		if $has_chunk and location.chunk != $chunk_key {
-			$table = $table.insert($chunk_key, $chunk)
+			$table = Index.set($table, $chunk_key, $chunk)
 			$chunk = []
 		}
 		$has_chunk = True
@@ -98,7 +99,7 @@ rows_order_table_from_entries = |entries| {
 		$chunk = $chunk.append(OrderCellValue(entry.value))
 	}
 	if $has_chunk {
-		$table.insert($chunk_key, $chunk)
+		Index.set($table, $chunk_key, $chunk)
 	} else {
 		$table
 	}
@@ -122,10 +123,10 @@ rows_order_node_len = |node|
 
 rows_order_empty : () -> RowsOrder
 rows_order_empty = || {
-	nodes = rows_order_table_set(Dict.empty(), 1, OrderLeaf({ slots: [], len: 0 }))
-	parents = rows_order_table_set(Dict.empty(), 1, OrderRoot)
+	nodes = rows_order_table_set(Index.empty, 1, OrderLeaf({ slots: [], len: 0 }))
+	parents = rows_order_table_set(Index.empty, 1, OrderRoot)
 	slot_leaf : RowsOrderTable(U64)
-	slot_leaf = Dict.empty()
+	slot_leaf = Index.empty
 	{ root: 1, nodes, parents, slot_leaf, next_node: 2, free_nodes: [] }
 }
 
@@ -639,6 +640,64 @@ rows_order_valid = |order| {
 rows_slot_index : U64 -> U64
 rows_slot_index = |slot| slot
 
+KeySlots : Index(Index(Index(Index({ key : Key, slot : U64 }))))
+
+## Address all four 64-bit limbs of the complete digest. Each level is an
+## existing persistent radix index, so editing one key never clones siblings.
+key_slot_limb : Key, U64 -> U64
+key_slot_limb = |key, limb| {
+	bytes = Key.to_bytes(key)
+	var $value = 0.U64
+	var $factor = 1.U64
+	var $offset = limb * 8
+	for byte_index in [0, 1, 2, 3, 4, 5, 6, 7] {
+		byte = bytes.get($offset) ?? crash "Key digest was not 32 bytes"
+		$value = $value + U8.to_u64(byte) * $factor
+		if byte_index < 7 { $factor = $factor * 256 }
+		$offset = $offset + 1
+	}
+	$value
+}
+
+key_slots_get : KeySlots, Key -> Try(U64, [Missing])
+key_slots_get = |slots, key| {
+	one = Index.get(slots, key_slot_limb(key, 0))?
+	two = Index.get(one, key_slot_limb(key, 1))?
+	three = Index.get(two, key_slot_limb(key, 2))?
+	entry = Index.get(three, key_slot_limb(key, 3))?
+	if entry.key == key Ok(entry.slot) else Err(Missing)
+}
+
+key_slots_set : KeySlots, Key, U64 -> KeySlots
+key_slots_set = |slots, key, slot| {
+	one_key = key_slot_limb(key, 0)
+	two_key = key_slot_limb(key, 1)
+	three_key = key_slot_limb(key, 2)
+	four_key = key_slot_limb(key, 3)
+	one = Index.get(slots, one_key) ?? Index.empty
+	two = Index.get(one, two_key) ?? Index.empty
+	three = Index.get(two, three_key) ?? Index.empty
+	Index.set(slots, one_key, Index.set(one, two_key, Index.set(two, three_key, Index.set(three, four_key, { key, slot }))))
+}
+
+key_slots_remove : KeySlots, Key -> KeySlots
+key_slots_remove = |slots, key| {
+	one_key = key_slot_limb(key, 0)
+	two_key = key_slot_limb(key, 1)
+	three_key = key_slot_limb(key, 2)
+	four_key = key_slot_limb(key, 3)
+	match Index.get(slots, one_key) {
+		Err(_) => slots
+		Ok(one) => match Index.get(one, two_key) {
+			Err(_) => slots
+			Ok(two) => match Index.get(two, three_key) {
+				Err(_) => slots
+				Ok(three) => Index.set(slots, one_key, Index.set(one, two_key, Index.set(two, three_key, Index.remove(three, four_key))))
+			}
+		}
+	}
+}
+
 KeyedSeqPlacement : [Before(Key), End]
 KeyedSeqEdit(value) : [InsertBefore(Key, value, KeyedSeqPlacement), MoveBefore(Key, KeyedSeqPlacement), Remove(Key), Set(Key, value)]
 KeyedSeqTransition(value) : { base_revision : U64, revision : U64, edits : List(KeyedSeqEdit(value)) }
@@ -646,8 +705,8 @@ KeyedSeqTransition(value) : { base_revision : U64, revision : U64, edits : List(
 ## A persistent ordered collection keyed by the platform's complete Key digest.
 KeyedSeq(value) :: {
 	order : RowsOrder,
-	values : Dict(U64, { key : Key, value : value }),
-	keys : Dict(Key, U64),
+	values : Index({ key : Key, value : value }),
+	keys : KeySlots,
 	next_slot : U64,
 	last_visits : U64,
 	revision : U64,
@@ -659,7 +718,7 @@ KeyedSeq(value) :: {
 	Error : [DuplicateKey(Key), MissingAnchor(Key), MissingKey(Key), SlotExhausted]
 
 	empty : KeyedSeq(value)
-	empty = KeyedSeq.({ order: rows_order_empty(), values: Dict.empty(), keys: Dict.empty(), next_slot: 1, last_visits: 0, revision: 0, transition: { base_revision: 0, revision: 0, edits: [] } })
+	empty = KeyedSeq.({ order: rows_order_empty(), values: Index.empty, keys: Index.empty, next_slot: 1, last_visits: 0, revision: 0, transition: { base_revision: 0, revision: 0, edits: [] } })
 
 	## Current committed collection revision.
 	revision : KeyedSeq(value) -> U64
@@ -692,14 +751,14 @@ KeyedSeq(value) :: {
 
 	get : KeyedSeq(value), Key -> Try(value, Error)
 	get = |KeyedSeq.(state), key| {
-		slot = state.keys.get(key) ? |_| MissingKey(key)
-		entry = state.values.get(slot) ? |_| MissingKey(key)
+		slot = key_slots_get(state.keys, key) ? |_| MissingKey(key)
+		entry = Index.get(state.values, slot) ? |_| MissingKey(key)
 		Ok(entry.value)
 	}
 
 	placement_after : KeyedSeq(value), Key -> Try(Placement, Error)
 	placement_after = |KeyedSeq.(state), key| {
-		slot = state.keys.get(key) ? |_| MissingKey(key)
+		slot = key_slots_get(state.keys, key) ? |_| MissingKey(key)
 		rank = rows_order_rank(state.order, slot) ?? crash "Rows placement value lacked a rank"
 		if rank + 1 >= rows_order_len(state.order) {
 			Ok(End)
@@ -707,14 +766,14 @@ KeyedSeq(value) :: {
 			location = rows_order_locate_node(state.order, state.order.root, rank + 1, False)
 			leaf = rows_order_table_get(state.order.nodes, location.leaf) ?? crash "Rows placement leaf was missing"
 			next_slot = match leaf { OrderLeaf({ slots, .. }) => slots.get(location.offset) ?? crash "Rows placement slot was missing" OrderBranch(_) => crash "Rows placement location was not a leaf" }
-			next = state.values.get(next_slot) ?? crash "Rows placement value was missing"
+			next = Index.get(state.values, next_slot) ?? crash "Rows placement value was missing"
 			Ok(Before(next.key))
 		}
 	}
 
 	to_list : KeyedSeq(value) -> List({ key : Key, value : value })
 	to_list = |KeyedSeq.(state)| rows_order_fold(state.order, [], |items, slot| {
-		entry = state.values.get(slot) ?? crash "KeyedSeq order named a missing value"
+		entry = Index.get(state.values, slot) ?? crash "KeyedSeq order named a missing value"
 		items.append(entry)
 	})
 
@@ -734,7 +793,7 @@ KeyedSeq(value) :: {
 
 	insert_before_raw : KeyedSeq(value), Key, value, Placement -> Try(KeyedSeq(value), Error)
 	insert_before_raw = |KeyedSeq.(state), key, value, placement| {
-		if state.keys.contains(key) {
+		if key_slots_get(state.keys, key) != Err(Missing) {
 			Err(DuplicateKey(key))
 		} else if state.next_slot == 18446744073709551615 {
 			Err(SlotExhausted)
@@ -742,7 +801,7 @@ KeyedSeq(value) :: {
 			index = match placement {
 				End => rows_order_len(state.order)
 				Before(anchor) => {
-					anchor_slot = state.keys.get(anchor) ? |_| MissingAnchor(anchor)
+					anchor_slot = key_slots_get(state.keys, anchor) ? |_| MissingAnchor(anchor)
 					rows_order_rank(state.order, anchor_slot) ?? crash "KeyedSeq anchor lacked an order rank"
 				}
 			}
@@ -751,8 +810,8 @@ KeyedSeq(value) :: {
 			visits = rank_visits + rows_order_path_visits(state.order, index, True)
 			Ok(KeyedSeq.({ ..state,
 				order: rows_order_insert(state.order, index, slot),
-				values: state.values.insert(slot, { key, value }),
-				keys: state.keys.insert(key, slot),
+				values: Index.set(state.values, slot, { key, value }),
+				keys: key_slots_set(state.keys, key, slot),
 				next_slot: slot + 1,
 				last_visits: visits,
 			}))
@@ -767,11 +826,11 @@ KeyedSeq(value) :: {
 
 	remove_raw : KeyedSeq(value), Key -> Try(KeyedSeq(value), Error)
 	remove_raw = |KeyedSeq.(state), key| {
-		slot = state.keys.get(key) ? |_| MissingKey(key)
+		slot = key_slots_get(state.keys, key) ? |_| MissingKey(key)
 		rank = rows_order_rank(state.order, slot) ?? crash "KeyedSeq value lacked an order rank"
 		visits = rows_order_path_visits(state.order, rank, False) * 2
 		removed = rows_order_remove(state.order, rank)
-		Ok(KeyedSeq.({ ..state, order: removed.order, values: state.values.remove(slot), keys: state.keys.remove(key), last_visits: visits }))
+		Ok(KeyedSeq.({ ..state, order: removed.order, values: Index.remove(state.values, slot), keys: key_slots_remove(state.keys, key), last_visits: visits }))
 	}
 
 	remove : KeyedSeq(value), Key -> Try(KeyedSeq(value), Error)
@@ -779,8 +838,8 @@ KeyedSeq(value) :: {
 
 	set_raw : KeyedSeq(value), Key, value -> Try(KeyedSeq(value), Error)
 	set_raw = |KeyedSeq.(state), key, value| {
-		slot = state.keys.get(key) ? |_| MissingKey(key)
-		Ok(KeyedSeq.({ ..state, values: state.values.insert(slot, { key, value }), last_visits: 0 }))
+		slot = key_slots_get(state.keys, key) ? |_| MissingKey(key)
+		Ok(KeyedSeq.({ ..state, values: Index.set(state.values, slot, { key, value }), last_visits: 0 }))
 	}
 
 	## Replace an item's value for an already-mounted item boundary without
@@ -796,7 +855,7 @@ KeyedSeq(value) :: {
 
 	move_before_raw : KeyedSeq(value), Key, Placement -> Try(KeyedSeq(value), Error)
 	move_before_raw = |KeyedSeq.(state), key, placement| {
-		slot = state.keys.get(key) ? |_| MissingKey(key)
+		slot = key_slots_get(state.keys, key) ? |_| MissingKey(key)
 		match placement {
 			Before(anchor) if anchor == key => Ok(KeyedSeq.(state))
 			_ => {
@@ -806,7 +865,7 @@ KeyedSeq(value) :: {
 				new_rank = match placement {
 					End => rows_order_len(without)
 					Before(anchor) => {
-						anchor_slot = state.keys.get(anchor) ? |_| MissingAnchor(anchor)
+						anchor_slot = key_slots_get(state.keys, anchor) ? |_| MissingAnchor(anchor)
 						rows_order_rank(without, anchor_slot) ?? crash "KeyedSeq move anchor lacked a rank"
 					}
 				}
@@ -873,9 +932,9 @@ KeyedSeq(value) :: {
 			}
 			# Consume the established front without publishing a remove operation.
 			KeyedSeq.(state) = with_value.sequence
-			front_slot = state.keys.get(target.key) ?? crash "KeyedSeq diff front missing"
+			front_slot = key_slots_get(state.keys, target.key) ?? crash "KeyedSeq diff front missing"
 			front_removed = rows_order_remove(state.order, 0)
-			remainder = KeyedSeq.({ ..state, order: front_removed.order, values: state.values.remove(front_slot), keys: state.keys.remove(target.key) })
+			remainder = KeyedSeq.({ ..state, order: front_removed.order, values: Index.remove(state.values, front_slot), keys: key_slots_remove(state.keys, target.key) })
 			diff_entries(remainder, rest, with_value.journal)
 		}
 	}
@@ -884,14 +943,14 @@ KeyedSeq(value) :: {
 	debug_valid : KeyedSeq(value) -> Bool
 	debug_valid = |KeyedSeq.(state)| {
 		entries = to_list(KeyedSeq.(state))
-		var $valid = rows_order_valid(state.order) and entries.len() == rows_order_len(state.order) and entries.len() == state.keys.len() and entries.len() == state.values.len()
+		var $valid = rows_order_valid(state.order) and entries.len() == rows_order_len(state.order)
 		var $index = 0
 		for entry in entries {
-			match state.keys.get(entry.key) {
+			match key_slots_get(state.keys, entry.key) {
 				Err(_) => { $valid = False }
 				Ok(slot) => {
 					$valid = $valid and rows_order_rank(state.order, slot) == Ok($index)
-					match state.values.get(slot) {
+					match Index.get(state.values, slot) {
 						Err(_) => { $valid = False }
 						Ok(stored) => { $valid = $valid and stored.key == entry.key }
 					}
