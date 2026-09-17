@@ -278,6 +278,19 @@ names the evidence so a fix can be verified against the same case.
   acceptance. Minimize the compiler-dependent ownership or layout failure,
   then rebuild and verify both modes before removing this blocker.
 
+- [ ] **Dense hover applications access-violate on the Windows development
+  backend.** Every semantic case for `benchmarks/hover-grid` and
+  `benchmarks/nested-hover-grid` exits with Windows status `0xC0000005`
+  (`3221225477`) while the same executables and cases pass on Linux and macOS.
+  The failure is present with boxed and inline `WorkStack` and `RouteIds`
+  representations, so those recursive layouts are not its cause. Both
+  applications initialize 10,000 cells before a specification step runs;
+  reproduce with `python scripts/run_specs.py
+  benchmarks/hover-grid/specs/enter-100.scm --only semantic --jobs 1
+  --fail-fast` on Windows and capture the first fault under a native debugger.
+  CI runs `35182881640`, `35186539776`, `35189199235`, and `35192621661`
+  show the same failure signature.
+
 - [ ] **A guarded match over a local tag value segfaults the built
   application.** Reaching for a chosen-row marker in `examples/music-player`,
   this shape crashed the built executable with SIGSEGV in
