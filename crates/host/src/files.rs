@@ -1,3 +1,4 @@
+use crate::grant::{self, Enforcement, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use cap_fs_ext::{DirExt, FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::{
@@ -5,7 +6,7 @@ use cap_std::{
     fs::{Dir, OpenOptions},
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     io::Read,
     mem::ManuallyDrop,
     path::{Component, Path},
@@ -21,8 +22,6 @@ struct Store {
     initial: Option<(Arc<Dir>, String)>,
     dirs: HashMap<u64, Arc<Dir>>,
     allocations: HashMap<usize, u64>,
-    metadata: HashMap<u64, GrantMetadata>,
-    revoked_roots: HashSet<u64>,
     operations: [u64; 4],
     selection: [u64; 7],
     portal_enabled: bool,
@@ -35,30 +34,29 @@ struct Store {
     lifecycle: [u64; 6],
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum GrantSource {
-    Portal,
-    Provisioned,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum GrantLifetime {
-    Session,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct GrantMetadata {
-    source: GrantSource,
-    lifetime: GrantLifetime,
-    parent: Option<u64>,
-    root: u64,
-}
 const REFUSAL_COOLDOWN: Duration = Duration::from_secs(2);
 
-fn derived_metadata(parent: u64, metadata: GrantMetadata) -> GrantMetadata {
-    GrantMetadata {
-        parent: Some(parent),
-        ..metadata
-    }
-}
+/// What a directory handle may do: read its files, enumerate its children, and
+/// derive a child directory. Never write — the only read-write directory this
+/// platform hands out is private application storage, which is a different
+/// grant of a different kind.
+const DIRECTORY_RIGHTS: Rights = Rights::READ.union(Rights::LIST).union(Rights::DERIVE);
+
+/// What a chosen directory is worth as enforcement, and why it is one constant
+/// rather than a per-platform answer.
+///
+/// Both hosts present the choice in a surface the operating system owns — the
+/// XDG Desktop Portal on Linux, the window-owned panel on macOS — and both then
+/// reach the result through [`open_selected`], which reopens the chosen path
+/// with `ambient_authority()`. The portal hands back a URI and this host takes
+/// the path, not the descriptor, so on neither platform does the grant carry
+/// authority the process did not already hold. That is honest consent and a real
+/// record of a real decision; it is not confinement, and recording it as
+/// [`Enforcement::ConsentOnly`] is what stops the platform claiming otherwise.
+///
+/// This becomes [`Enforcement::Brokered`] when the confined-process work lands
+/// and the broker returns a descriptor. Nothing in the Roc API changes with it.
+const SELECTION_ENFORCEMENT: Enforcement = Enforcement::ConsentOnly;
 
 fn prompt_is_allowed(
     portal_enabled: bool,
@@ -78,8 +76,6 @@ fn store() -> &'static Mutex<Store> {
             initial: None,
             dirs: HashMap::new(),
             allocations: HashMap::new(),
-            metadata: HashMap::new(),
-            revoked_roots: HashSet::new(),
             operations: [0; 4],
             selection: [0; 7],
             portal_enabled: false,
@@ -122,7 +118,12 @@ pub fn configure(
     guard.chooser_cancels = chooser_cancels;
     guard.chooser_in_flight = false;
     guard.refusal_until = None;
-    guard.revoked_roots.clear();
+    drop(guard);
+    // Configuration replaces this resource's provisioning wholesale. The grants
+    // that named the previous configuration did not have their authority taken
+    // away; they ceased to exist, which is forgetting rather than revoking.
+    grant::forget_kind(grant::Kind::Directory);
+    let mut guard = store().lock().expect("capability store poisoned");
     guard.lifecycle = [0; 6];
     if guard.initial.is_some() {
         guard.selection[6] = 1;
@@ -153,19 +154,19 @@ pub struct AccessSnapshot {
 }
 
 pub fn access_snapshot() -> AccessSnapshot {
-    let guard = store().lock().expect("capability store poisoned");
     let mut snapshot = AccessSnapshot::default();
-    for metadata in guard
-        .metadata
-        .values()
-        .filter(|value| value.parent.is_none())
-    {
-        if guard.revoked_roots.contains(&metadata.root) {
+    for entry in grant::enumerate() {
+        if entry.kind != grant::Kind::Directory || entry.parent.is_some() {
+            continue;
+        }
+        if entry.revoked {
             snapshot.revoked += 1;
         } else {
-            match metadata.source {
-                GrantSource::Portal => snapshot.portal_session_read += 1,
-                GrantSource::Provisioned => snapshot.provisioned_session_read += 1,
+            match entry.origin {
+                Origin::TrustedSelection(_) => snapshot.portal_session_read += 1,
+                Origin::Provisioned | Origin::Automatic => {
+                    snapshot.provisioned_session_read += 1
+                }
             }
         }
     }
@@ -173,22 +174,18 @@ pub fn access_snapshot() -> AccessSnapshot {
 }
 
 pub fn revoke_all_roots() -> usize {
-    let mut guard = store().lock().expect("capability store poisoned");
-    guard.lifecycle[3] += 1;
-    let roots: Vec<u64> = guard
-        .metadata
-        .values()
-        .filter(|value| value.parent.is_none())
-        .map(|value| value.root)
-        .collect();
-    let mut changed = 0;
-    for root in roots {
-        if guard.revoked_roots.insert(root) {
-            changed += 1;
-        }
-    }
+    store().lock().expect("capability store poisoned").lifecycle[3] += 1;
+    // The count is of roots, because a root is what a person revoked; the kernel
+    // takes the descendants with it and counts those separately.
+    let changed = grant::enumerate()
+        .iter()
+        .filter(|entry| {
+            entry.kind == grant::Kind::Directory && entry.parent.is_none() && !entry.revoked
+        })
+        .count();
+    grant::revoke_kind(grant::Kind::Directory);
     if changed > 0 {
-        guard.lifecycle[4] += 1;
+        store().lock().expect("capability store poisoned").lifecycle[4] += 1;
     }
     changed
 }
@@ -198,18 +195,20 @@ fn record_operation(index: usize) {
     guard.operations[index] = guard.operations[index].saturating_add(1);
 }
 
-fn capability(dir: Arc<Dir>, mut metadata: GrantMetadata) -> *mut u64 {
+/// Hand a directory to Roc as an opaque handle, and record the grant that
+/// handle is. `parent` is the handle this one was derived from, absent for a
+/// root; `origin` is consulted only for a root, because a derived grant inherits
+/// how its parent's authority arrived rather than asserting its own.
+fn capability(dir: Arc<Dir>, parent: Option<u64>, origin: Origin) -> *mut u64 {
     let mut guard = store().lock().expect("capability store poisoned");
     let id = guard.next;
     guard.next = guard
         .next
         .checked_add(1)
         .expect("directory capability ids exhausted");
-    if metadata.parent.is_none() {
-        metadata.root = id;
-        guard.lifecycle[0] += 1;
-    } else {
-        guard.lifecycle[1] += 1;
+    match parent {
+        None => guard.lifecycle[0] += 1,
+        Some(_) => guard.lifecycle[1] += 1,
     }
     let handle = unsafe {
         allocate_box(
@@ -222,9 +221,26 @@ fn capability(dir: Arc<Dir>, mut metadata: GrantMetadata) -> *mut u64 {
     unsafe { handle.write(id) };
     let allocation_base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.dirs.insert(id, dir);
-    guard.metadata.insert(id, metadata);
     crate::register_resource_allocation(crate::resource_domain::FILES, &mut guard.allocations, allocation_base as usize, id);
     guard.lifecycle[2] += 1;
+    drop(guard);
+    match parent {
+        None => grant::record_root(
+            grant::Kind::Directory,
+            id,
+            DIRECTORY_RIGHTS,
+            origin,
+            Lifetime::Session,
+        ),
+        Some(parent) => {
+            grant::record_derived(
+                grant::Kind::Directory,
+                id,
+                DIRECTORY_RIGHTS,
+                (grant::Kind::Directory, parent),
+            );
+        }
+    }
     handle
 }
 
@@ -238,32 +254,46 @@ enum LookupError {
     Revoked,
 }
 
+/// Every directory operation passes through here, so the kernel's acceptance
+/// point is this resource's acceptance point rather than a second rule beside
+/// it. Reading is the right every directory operation needs; `open_dir` needs
+/// `DERIVE` as well, which [`grant::record_derived`] checks when it builds the
+/// child.
 fn lookup_state(handle: *mut u64) -> Result<Arc<Dir>, LookupError> {
     let id = unsafe { handle.as_ref().copied() }.ok_or(LookupError::Invalid)?;
-    let mut guard = store().lock().map_err(|_| LookupError::Invalid)?;
-    let metadata = guard.metadata.get(&id).ok_or(LookupError::Invalid)?;
-    if guard.revoked_roots.contains(&metadata.root) {
-        guard.lifecycle[5] += 1;
-        Err(LookupError::Revoked)
-    } else {
-        guard.dirs.get(&id).cloned().ok_or(LookupError::Invalid)
+    match grant::accept(grant::Kind::Directory, id, Rights::READ) {
+        Err(grant::Refusal::Revoked) => {
+            store().lock().expect("capability store poisoned").lifecycle[5] += 1;
+            Err(LookupError::Revoked)
+        }
+        Err(_) => Err(LookupError::Invalid),
+        Ok(_) => store()
+            .lock()
+            .map_err(|_| LookupError::Invalid)?
+            .dirs
+            .get(&id)
+            .cloned()
+            .ok_or(LookupError::Invalid),
     }
 }
 
-fn grant_metadata(handle: *mut u64) -> Option<(u64, GrantMetadata)> {
-    let id = unsafe { handle.as_ref().copied()? };
-    let metadata = store().lock().ok()?.metadata.get(&id).copied()?;
-    Some((id, metadata))
+fn handle_id(handle: *mut u64) -> Option<u64> {
+    unsafe { handle.as_ref().copied() }
 }
 
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("capability store poisoned");
-    if let Some(id) =
-        crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize)
-    {
+    let released =
+        crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize);
+    if let Some(id) = released {
         guard.dirs.remove(&id);
-        guard.metadata.remove(&id);
         guard.lifecycle[2] = guard.lifecycle[2].saturating_sub(1);
+    }
+    drop(guard);
+    // The application stopped holding the handle. That is releasing, not
+    // revoking, and the kernel counts the two separately on purpose.
+    if let Some(id) = released {
+        grant::release(grant::Kind::Directory, id);
     }
 }
 
@@ -431,16 +461,8 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
     })
 }
 
-fn chosen(dir: Arc<Dir>, name: &str, source: GrantSource) -> InternalFilesPickDirectoryResult {
-    let directory = capability(
-        dir,
-        GrantMetadata {
-            source,
-            lifetime: GrantLifetime::Session,
-            parent: None,
-            root: 0,
-        },
-    );
+fn chosen(dir: Arc<Dir>, name: &str, origin: Origin) -> InternalFilesPickDirectoryResult {
+    let directory = capability(dir, None, origin);
     let value = InternalFilesPickDirectoryOkChosen {
         directory,
         name: RocStr::from_str(name, roc_host()),
@@ -600,7 +622,7 @@ pub extern "C" fn roc_files_pick_directory() -> InternalFilesPickDirectoryResult
         .initial
         .clone();
     match initial {
-        Some((dir, name)) => chosen(dir, &name, GrantSource::Provisioned),
+        Some((dir, name)) => chosen(dir, &name, Origin::Provisioned),
         None => select_portal(),
     }
 }
@@ -658,7 +680,9 @@ fn select_portal() -> InternalFilesPickDirectoryResult {
     }
     drop(guard);
     match result {
-        PortalSelection::Chosen(dir, name) => chosen(dir, &name, GrantSource::Portal),
+        PortalSelection::Chosen(dir, name) => {
+            chosen(dir, &name, Origin::TrustedSelection(SELECTION_ENFORCEMENT))
+        }
         PortalSelection::Canceled => canceled(),
         PortalSelection::Denied => InternalFilesPickDirectoryResult {
             payload: InternalFilesPickDirectoryResultPayload {
@@ -763,7 +787,7 @@ pub extern "C" fn roc_files_dir_open_read(
     record_operation(2);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
-    let inherited = grant_metadata(cap);
+    let parent = handle_id(cap);
     let dir = lookup_state(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = match dir {
@@ -775,17 +799,10 @@ pub extern "C" fn roc_files_dir_open_read(
     match result {
         Ok(dir) => InternalFilesDirOpenReadResult {
             payload: InternalFilesDirOpenReadResultPayload {
-                ok: ManuallyDrop::new(capability(
-                    dir,
-                    inherited
-                        .map(|(parent, value)| derived_metadata(parent, value))
-                        .unwrap_or(GrantMetadata {
-                            source: GrantSource::Provisioned,
-                            lifetime: GrantLifetime::Session,
-                            parent: None,
-                            root: 0,
-                        }),
-                )),
+                // `lookup_state` already accepted the parent, so the handle is
+                // live and this child is derived from it. A child with no
+                // readable parent handle cannot arise here.
+                ok: ManuallyDrop::new(capability(dir, parent, Origin::Provisioned)),
             },
             tag: InternalFilesDirOpenReadResultTag::Ok,
         },
@@ -882,21 +899,26 @@ mod tests {
     }
 
     #[test]
-    fn derived_grants_keep_source_and_immediate_parent() {
-        let root = GrantMetadata {
-            source: GrantSource::Portal,
-            lifetime: GrantLifetime::Session,
-            parent: None,
-            root: 11,
-        };
+    fn a_directory_grant_reads_lists_and_derives_but_never_writes() {
+        assert!(DIRECTORY_RIGHTS.contains(Rights::READ));
+        assert!(DIRECTORY_RIGHTS.contains(Rights::LIST));
+        assert!(DIRECTORY_RIGHTS.contains(Rights::DERIVE));
+        assert!(
+            !DIRECTORY_RIGHTS.contains(Rights::WRITE),
+            "a chosen project is read-only; private application storage is the \
+             read-write grant and it is a different kind"
+        );
+    }
+
+    #[test]
+    fn a_chosen_directory_is_consent_rather_than_confinement() {
+        // `open_selected` reopens the chosen path with ambient authority on both
+        // platforms, so neither host's chooser hands over authority the process
+        // lacked. The platform must not report otherwise.
+        assert_eq!(SELECTION_ENFORCEMENT, Enforcement::ConsentOnly);
         assert_eq!(
-            derived_metadata(7, root),
-            GrantMetadata {
-                source: GrantSource::Portal,
-                lifetime: GrantLifetime::Session,
-                parent: Some(7),
-                root: 11,
-            }
+            Origin::TrustedSelection(SELECTION_ENFORCEMENT).enforcement(),
+            Enforcement::ConsentOnly
         );
     }
 

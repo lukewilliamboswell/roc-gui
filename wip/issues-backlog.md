@@ -13,6 +13,26 @@ the change lands; do not soften the docs to match the gap.
   routes; and verify denial outside grants. The audited starting point and
   platform matrix are in `wip/resource-access-inventory.md`.
 
+- [ ] **Eleven resources still have no grant model.** `crates/host/src/grant.rs`
+  is the one model `docs/resource-access.adoc` describes — resource identity,
+  rights, origin, lifetime, parent, root, revocation — with one acceptance point
+  and one revocation linearisation for the whole platform. Files is its reference
+  adopter and proves it against the hardest case: root and derived grants,
+  ancestry, revocation reaching descendants, and the provisioned/selected
+  distinction. Every other resource still keeps an ad-hoc handle map with no
+  lineage, no record of how its authority arrived, and in most cases no
+  revocation at all, exactly as `wip/resource-access-inventory.md` reports.
+
+  Migrate them, adopting the kernel rather than extending it where possible:
+  app-data, assets, sqlite (whose parent-revocation semantics are recorded
+  unverified and which the kernel answers by construction), http, tcp, process,
+  device, audio, system-monitor, clipboard. Each migration keeps its own typed
+  payload and changes only where its grant is recorded, accepted, and released.
+  A resource is migrated when its operations refuse a revoked grant and its
+  grants appear in `grant::enumerate`. Do not add a second lifetime, origin, or
+  revocation rule beside the kernel's; if one is genuinely needed, it belongs in
+  the kernel where every resource gets it.
+
 - [ ] **Trusted identity, access review, and revocation are absent.** Define
   stable publisher/package identity, remembered-grant storage and migration,
   expiry and a protected App access surface. Files now carry root/child ancestry
@@ -21,12 +41,21 @@ the change lands; do not soften the docs to match the gap.
   byte policy under confinement.
 
 - [ ] **Trusted file workflows remain incomplete.** Open Project is presented by
-  the operating system on both hosts: the production XDG Desktop Portal on Linux
-  Wayland and the window-owned native directory panel on macOS. Both record
-  session/source/parent lineage, and `--host-cap-dir` remains development
-  provisioning. The macOS panel is a native chooser, not a sandbox powerbox: it
-  grants no authority the unsandboxed process does not already hold, so it is
-  honest consent but not enforcement until the macOS sandbox work below lands.
+  the operating system on both hosts: the XDG Desktop Portal on Linux Wayland and
+  the window-owned native directory panel on macOS. Both record grant origin and
+  parent lineage through `crates/host/src/grant.rs`, and `--host-cap-dir` remains
+  development provisioning.
+
+  Neither host is a powerbox yet, and the entry previously said this only of
+  macOS. `open_selected` (`crates/host/src/files.rs`) is shared by both and
+  reopens the chosen path with `ambient_authority()`: the portal hands back a URI
+  and this host takes the path rather than the descriptor, so on Linux too the
+  grant carries no authority the process did not already hold. Both are recorded
+  as `Enforcement::ConsentOnly`, which is honest consent and a real record of a
+  real decision, but not confinement. Closing that needs the confined-process
+  work above, after which the broker returns a descriptor and the constant
+  becomes `Brokered` with no change to the Roc API.
+
   Add Open
   Document's smallest single-file grant, persistent grants, revocation, edit
   grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,

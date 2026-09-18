@@ -10,6 +10,7 @@ mod clipboard;
 mod device;
 mod files;
 mod frame_spans;
+mod grant;
 mod http;
 mod image_data;
 mod input;
