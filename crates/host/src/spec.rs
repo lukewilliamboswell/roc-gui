@@ -465,15 +465,14 @@ impl Command {
             | Self::ExpectImageBytes(_, _)
             | Self::ExpectComponentWork(_)
             | Self::ExpectBefore(_, _)
-            | Self::ExpectBackground(_, _) => Capability::Both,
-            // Semantic-only because the window runner does not implement them.
-            // They are honest claims, made by one runner rather than two; the
-            // alternative of accepting a specification and then refusing a step
-            // mid-run would report a failure that is about the harness rather
-            // than about the application.
-            Self::Drag(..)
-            | Self::ReplaceText(_, _)
-            | Self::Submit(_)
+            | Self::ExpectBackground(_, _)
+            // Answered from a process-global resource owner, of which the host
+            // has exactly one. A window run reads the same files registry, the
+            // same clipboard and the same audio device table the semantic run
+            // reads, through the same shared implementation, so a windowed case
+            // can photograph a granted-authority readout and assert the counter
+            // that produced it in the same run. Revoking grants likewise acts on
+            // the one registry; what the application then sees is its next read.
             | Self::RevokeFileGrants
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
@@ -495,7 +494,15 @@ impl Command {
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
             | Self::ExpectImageOwnerCounters(_)
-            | Self::ExpectAssetCounters(_) => Capability::Semantic,
+            | Self::ExpectAssetCounters(_) => Capability::Both,
+            // Semantic-only because the window runner does not implement them.
+            // They are honest claims, made by one runner rather than two; the
+            // alternative of accepting a specification and then refusing a step
+            // mid-run would report a failure that is about the harness rather
+            // than about the application.
+            Self::Drag(..)
+            | Self::ReplaceText(_, _)
+            | Self::Submit(_) => Capability::Semantic,
         }
     }
 

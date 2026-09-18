@@ -411,21 +411,241 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
         .collect()
 }
 
-fn expect_file_counter(
-    line: usize,
-    name: &str,
-    expected: u64,
-    observed: u64,
-    evidence: &mut Option<(u64, u64)>,
-) -> Result<(), String> {
-    *evidence = Some((expected, observed));
-    if expected == observed {
-        Ok(())
-    } else {
-        Err(format!(
-            "line {line}: expected {expected} file {name}, observed {observed}"
-        ))
+/// Evidence a resource claim contributes to its observatory step record.
+///
+/// The window runner discards this: it writes a report of step outcomes, not a
+/// capture. It is returned rather than recorded here so that the reading of the
+/// owner and the recording of it stay in one place each.
+#[derive(Default)]
+pub(crate) struct CounterEvidence {
+    pub audio: Option<([u64; 9], [u64; 9])>,
+    pub clipboard: Option<([Option<u64>; 4], [u64; 4])>,
+    pub sqlite: Option<([u64; 3], [u64; 3])>,
+    pub http: Option<([u64; 4], [u64; 4])>,
+    pub tcp: Option<([u64; 5], [u64; 5])>,
+}
+
+/// A claim answered from a process-global resource owner, and its evidence.
+///
+/// Like [`graph_claim`], these are true or false of the same host on either
+/// runner: there is one files registry, one clipboard, one audio device table,
+/// and a window run reaches them through this function rather than through a
+/// second reading of the same statics. File operation counts are differences
+/// from the baseline the caller's lifecycle began at; every other reading is
+/// absolute. The message carries no line number: the caller is what knows where
+/// the step was written.
+pub(crate) fn resource_claim(
+    command: &Command,
+    file_baseline: [u64; 4],
+) -> Option<(Result<(), String>, Option<(u64, u64)>, CounterEvidence)> {
+    /// An exact owner reading, reported as the whole array on either side.
+    fn exact<const N: usize>(
+        name: &str,
+        expected: &[u64; N],
+        observed: [u64; N],
+    ) -> (Result<(), String>, Option<(u64, u64)>) {
+        let counts = Some((expected.iter().sum(), observed.iter().sum()));
+        if observed == *expected {
+            (Ok(()), counts)
+        } else {
+            (
+                Err(format!(
+                    "expected {name} {expected:?}, observed {observed:?}"
+                )),
+                counts,
+            )
+        }
     }
+
+    /// A single owner reading named in the singular by the step itself.
+    fn single(noun: &str, expected: u64, observed: u64) -> (Result<(), String>, Option<(u64, u64)>) {
+        let counts = Some((expected, observed));
+        if expected == observed {
+            (Ok(()), counts)
+        } else {
+            (
+                Err(format!("expected {expected} {noun}, observed {observed}")),
+                counts,
+            )
+        }
+    }
+
+    let mut evidence = CounterEvidence::default();
+    let (result, counts) = match command {
+        Command::ExpectSubscriptions(expected) => {
+            // Historically the only counter assertion with no count evidence;
+            // left that way so a capture does not gain a column here.
+            let active = crate::timers::active_count();
+            (
+                if active == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected {expected} active subscriptions, observed {active}"
+                    ))
+                },
+                None,
+            )
+        }
+        Command::ExpectTcpStreams(expected) => single(
+            "active TCP streams",
+            *expected as u64,
+            crate::tcp::active_count() as u64,
+        ),
+        Command::ExpectProcesses(expected) => {
+            let active = crate::process::active_count();
+            let (spawned, _, _, canceled) = crate::process::counters();
+            if canceled > spawned {
+                (
+                    Err("process lifecycle counters violated ownership invariants".to_owned()),
+                    None,
+                )
+            } else {
+                single("active PTY processes", *expected as u64, active as u64)
+            }
+        }
+        Command::ExpectClipboardCounters(expected) => {
+            let (operations, handles) = crate::clipboard::counters();
+            let observed = [handles as u64, operations[0], operations[1], operations[2]];
+            let (matches, totals) = counter_pattern(expected, observed);
+            evidence.clipboard = Some((*expected, observed));
+            (
+                if matches {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected clipboard counter pattern {expected:?}, observed {observed:?}"
+                    ))
+                },
+                Some(totals),
+            )
+        }
+        Command::ExpectSqliteCounters(expected) => {
+            let (operations, connections) = crate::sqlite::counters();
+            let observed = [connections as u64, operations[0], operations[1]];
+            evidence.sqlite = Some((*expected, observed));
+            exact("SQLite counters", expected, observed)
+        }
+        Command::ExpectHttpCounters(expected) => {
+            let (operations, clients) = crate::http::counters();
+            let observed = [clients as u64, operations[0], operations[1], operations[2]];
+            evidence.http = Some((*expected, observed));
+            exact("HTTP counters", expected, observed)
+        }
+        Command::ExpectTcpCounters(expected) => {
+            let (operations, streams) = crate::tcp::counters();
+            let observed = [
+                streams as u64,
+                operations[0],
+                operations[1],
+                operations[2],
+                operations[3],
+            ];
+            evidence.tcp = Some((*expected, observed));
+            exact("TCP counters", expected, observed)
+        }
+        Command::ExpectDeviceConnections(expected) => {
+            let active = crate::device::active_count();
+            let (_, connected, _, closed) = crate::device::counters();
+            if closed > connected {
+                (
+                    Err("device lifecycle counters violated ownership invariants".to_owned()),
+                    None,
+                )
+            } else {
+                single("active device connections", *expected as u64, active as u64)
+            }
+        }
+        Command::ExpectDeviceTransactions(expected) => {
+            let (_, _, transactions, _) = crate::device::counters();
+            single("device transactions", *expected as u64, transactions)
+        }
+        Command::ExpectSystemSamplers(expected) => {
+            let active = crate::system_monitor::active_count();
+            let (acquired, _, closed) = crate::system_monitor::counters();
+            if closed > acquired {
+                (
+                    Err("system sampler lifecycle counters violated ownership invariants"
+                        .to_owned()),
+                    None,
+                )
+            } else {
+                single("active system samplers", *expected as u64, active as u64)
+            }
+        }
+        Command::ExpectSystemSamples(expected) => {
+            let (_, sampled, _) = crate::system_monitor::counters();
+            single("system samples", *expected as u64, sampled)
+        }
+        Command::ExpectAudioCounters(expected) => {
+            let (operations, outputs, tracks) = crate::audio::counters();
+            let observed = [
+                outputs as u64,
+                tracks as u64,
+                operations[0],
+                operations[1],
+                operations[2],
+                operations[3],
+                operations[4],
+                operations[5],
+                operations[6],
+            ];
+            evidence.audio = Some((*expected, observed));
+            exact("audio counters", expected, observed)
+        }
+        Command::ExpectFilePicks(expected) => single(
+            "file picks",
+            *expected,
+            crate::files::operation_counts()[0] - file_baseline[0],
+        ),
+        Command::ExpectFileLists(expected) => single(
+            "file lists",
+            *expected,
+            crate::files::operation_counts()[1] - file_baseline[1],
+        ),
+        Command::ExpectFileOpens(expected) => single(
+            "file opens",
+            *expected,
+            crate::files::operation_counts()[2] - file_baseline[2],
+        ),
+        Command::ExpectFileReads(expected) => single(
+            "file reads",
+            *expected,
+            crate::files::operation_counts()[3] - file_baseline[3],
+        ),
+        Command::ExpectFileSelectionCounters(expected) => exact(
+            "file selection counters",
+            expected,
+            crate::files::selection_counts(),
+        ),
+        Command::ExpectFileLifecycleCounters(expected) => exact(
+            "file lifecycle counters",
+            expected,
+            crate::files::lifecycle_counts(),
+        ),
+        Command::ExpectFileAccess(expected) => {
+            let access = crate::files::access_snapshot();
+            exact(
+                "file access",
+                expected,
+                [
+                    access.portal_session_read,
+                    access.provisioned_session_read,
+                    access.revoked,
+                ],
+            )
+        }
+        Command::ExpectImageOwnerCounters(expected) => exact(
+            "image owner counters",
+            expected,
+            crate::image_data::counters(),
+        ),
+        Command::ExpectAssetCounters(expected) => {
+            exact("asset counters", expected, crate::assets::counters())
+        }
+        _ => return None,
+    };
+    Some((result, counts, evidence))
 }
 
 pub fn run(spec: &Spec) -> Result<(), String> {
@@ -1060,285 +1280,45 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
                 Ok(())
             }
-            Command::ExpectSubscriptions(expected) => {
-                let active = crate::timers::active_count();
-                if active == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected {expected} active subscriptions, observed {active}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectTcpStreams(expected) => {
-                let active = crate::tcp::active_count();
-                count_evidence = Some((*expected as u64, active as u64));
-                if active == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected {expected} active TCP streams, observed {active}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectProcesses(expected) => {
-                let active = crate::process::active_count();
-                let (spawned, _, _, canceled) = crate::process::counters();
-                if canceled > spawned {
-                    return Err("process lifecycle counters violated ownership invariants".into());
-                }
-                if active == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected {expected} active PTY processes, observed {active}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectClipboardCounters(expected) => {
-                let (operations, handles) = crate::clipboard::counters();
-                let observed = [handles as u64, operations[0], operations[1], operations[2]];
-                let (matches, totals) = counter_pattern(expected, observed);
-                count_evidence = Some(totals);
-                clipboard_counter_evidence = Some((*expected, observed));
-                if matches {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected clipboard counter pattern {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectSqliteCounters(expected) => {
-                let (operations, connections) = crate::sqlite::counters();
-                let observed = [connections as u64, operations[0], operations[1]];
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                sqlite_counter_evidence = Some((*expected, observed));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected SQLite counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectHttpCounters(expected) => {
-                let (operations, clients) = crate::http::counters();
-                let observed = [clients as u64, operations[0], operations[1], operations[2]];
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                http_counter_evidence = Some((*expected, observed));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected HTTP counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectTcpCounters(expected) => {
-                let (operations, streams) = crate::tcp::counters();
-                let observed = [
-                    streams as u64,
-                    operations[0],
-                    operations[1],
-                    operations[2],
-                    operations[3],
-                ];
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                tcp_counter_evidence = Some((*expected, observed));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected TCP counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectDeviceConnections(expected) => {
-                let active = crate::device::active_count();
-                let (_, connected, _, closed) = crate::device::counters();
-                if closed > connected {
-                    return Err("device lifecycle counters violated ownership invariants".into());
-                }
-                count_evidence = Some((*expected as u64, active as u64));
-                if active == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected {expected} active device connections, observed {active}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectDeviceTransactions(expected) => {
-                let (_, _, transactions, _) = crate::device::counters();
-                count_evidence = Some((*expected as u64, transactions));
-                if transactions == *expected as u64 {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected {expected} device transactions, observed {transactions}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectSystemSamplers(expected) => {
-                let active = crate::system_monitor::active_count();
-                let (acquired, _, closed) = crate::system_monitor::counters();
-                if closed > acquired {
-                    return Err(
-                        "system sampler lifecycle counters violated ownership invariants".into(),
-                    );
-                }
-                count_evidence = Some((*expected as u64, active as u64));
-                if active == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected {expected} active system samplers, observed {active}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectSystemSamples(expected) => {
-                let (_, sampled, _) = crate::system_monitor::counters();
-                count_evidence = Some((*expected as u64, sampled));
-                if sampled == *expected as u64 {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected {expected} system samples, observed {sampled}",
-                        step.line
-                    ))
-                }
-            }
-            Command::ExpectAudioCounters(expected) => {
-                let (operations, outputs, tracks) = crate::audio::counters();
-                let observed = [
-                    outputs as u64,
-                    tracks as u64,
-                    operations[0],
-                    operations[1],
-                    operations[2],
-                    operations[3],
-                    operations[4],
-                    operations[5],
-                    operations[6],
-                ];
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                audio_counter_evidence = Some((*expected, observed));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected audio counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectFilePicks(expected) => expect_file_counter(
-                step.line,
-                "picks",
-                *expected,
-                crate::files::operation_counts()[0] - file_counter_baseline[0],
-                &mut count_evidence,
-            ),
-            Command::ExpectFileLists(expected) => expect_file_counter(
-                step.line,
-                "lists",
-                *expected,
-                crate::files::operation_counts()[1] - file_counter_baseline[1],
-                &mut count_evidence,
-            ),
-            Command::ExpectFileOpens(expected) => expect_file_counter(
-                step.line,
-                "opens",
-                *expected,
-                crate::files::operation_counts()[2] - file_counter_baseline[2],
-                &mut count_evidence,
-            ),
-            Command::ExpectFileReads(expected) => expect_file_counter(
-                step.line,
-                "reads",
-                *expected,
-                crate::files::operation_counts()[3] - file_counter_baseline[3],
-                &mut count_evidence,
-            ),
-            Command::ExpectFileSelectionCounters(expected) => {
-                let observed = crate::files::selection_counts();
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected file selection counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectFileLifecycleCounters(expected) => {
-                let observed = crate::files::lifecycle_counts();
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected file lifecycle counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectFileAccess(expected) => {
-                let access = crate::files::access_snapshot();
-                let observed = [
-                    access.portal_session_read,
-                    access.provisioned_session_read,
-                    access.revoked,
-                ];
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected file access {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
+            // Claims about a process-global resource owner, and the one step
+            // that changes one. Both runners answer them from the same reading
+            // of the same host, so `expect-file-reads` cannot come to mean two
+            // things; only the recording of the evidence is this runner's.
+            Command::ExpectSubscriptions(_)
+            | Command::ExpectTcpStreams(_)
+            | Command::ExpectProcesses(_)
+            | Command::ExpectClipboardCounters(_)
+            | Command::ExpectSqliteCounters(_)
+            | Command::ExpectHttpCounters(_)
+            | Command::ExpectTcpCounters(_)
+            | Command::ExpectDeviceConnections(_)
+            | Command::ExpectDeviceTransactions(_)
+            | Command::ExpectSystemSamplers(_)
+            | Command::ExpectSystemSamples(_)
+            | Command::ExpectAudioCounters(_)
+            | Command::ExpectFilePicks(_)
+            | Command::ExpectFileLists(_)
+            | Command::ExpectFileOpens(_)
+            | Command::ExpectFileReads(_)
+            | Command::ExpectFileSelectionCounters(_)
+            | Command::ExpectFileLifecycleCounters(_)
+            | Command::ExpectFileAccess(_)
+            | Command::ExpectAssetCounters(_)
+            | Command::ExpectImageOwnerCounters(_) => {
+                let (result, counts, evidence) =
+                    resource_claim(&step.command, file_counter_baseline)
+                        .expect("resource claim is missing an arm");
+                count_evidence = counts;
+                audio_counter_evidence = evidence.audio;
+                clipboard_counter_evidence = evidence.clipboard;
+                sqlite_counter_evidence = evidence.sqlite;
+                http_counter_evidence = evidence.http;
+                tcp_counter_evidence = evidence.tcp;
+                result.map_err(|message| format!("line {}: {message}", step.line))
             }
             Command::RevokeFileGrants => {
                 crate::files::revoke_all_roots();
                 Ok(())
-            }
-            Command::ExpectAssetCounters(expected) => {
-                let observed = crate::assets::counters();
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected asset counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
-            }
-            Command::ExpectImageOwnerCounters(expected) => {
-                let observed = crate::image_data::counters();
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
-                if observed == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "line {}: expected image owner counters {:?}, observed {:?}",
-                        step.line, expected, observed
-                    ))
-                }
             }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();

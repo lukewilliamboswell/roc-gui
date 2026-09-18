@@ -388,9 +388,8 @@ them silently:
 
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount. Also every step the
-window runner does not implement: `drag`, `replace-text`, `submit`, the
-live-resource and capability counter assertions, and the repository fixture steps the
-Contributing chapter describes.
+window runner does not implement: `drag`, `replace-text`, `submit`, and the
+repository fixture steps the Contributing chapter describes.
 
 `window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
 `expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
@@ -408,6 +407,14 @@ case could not put a single item into a clipboard-driven application, and so
 could not photograph one. The value and ordering assertions read the mounted
 graph, which both runners hold, and both call the same code to answer them, so
 one window case can assert a semantic truth and photograph it in the same run.
+
+Also `revoke-file-grants` and the live-resource and capability counter
+assertions. The host owns one files registry, one clipboard, one audio device
+table; both runners read them through the same shared implementation, and
+revocation acts on that one registry. A windowed case can therefore photograph a
+granted-authority readout and assert the counters that produced it in the same
+run. File operation counts are differences from the start of the run's
+lifecycle, of which the window runner has exactly one.
 
 A step is classified by what a runner actually does, so a specification is
 refused before the window opens rather than part-way through a run.

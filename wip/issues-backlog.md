@@ -516,23 +516,27 @@ names the evidence so a fix can be verified against the same case.
   compositor lane below rather than a desktop session.
 
 - [ ] **Shared steps the window runner does not implement.** `drag`,
-  `replace-text`, `submit`, `revoke-file-grants`, and the owner counter
-  assertions are still classified semantic-only because the window runner
-  refuses them, not because they would be dishonest there.
+  `replace-text`, and `submit` are still classified semantic-only because the
+  window runner refuses them, not because they would be dishonest there.
 
   The value and ordering assertions have since landed and are no longer on this
   list. They cost almost nothing, because each is answered from the mounted
   graph alone: `runner::graph_claim` now holds the only implementation and both
-  runners call it, so the five words cannot come to mean two things. The four
-  that remain are each a different problem rather than four of the same one.
-  `drag` and `submit` want a pointer and a submit route the window runner
+  runners call it, so the five words cannot come to mean two things.
+  `revoke-file-grants` and the owner counter assertions have since landed the
+  same way: `runner::resource_claim` is the only reading of the host's one files
+  registry, clipboard, audio device table and the rest, and both runners call
+  it, so `examples/file-explorer/specs/window-listing.scm` now photographs the
+  listing and asserts the picks, lists and reads that produced it in the same
+  run. File operation counts are differences from the start of a lifecycle, of
+  which the window runner has exactly one.
+
+  The two that remain are each a different problem rather than two of the same
+  one. `drag` and `submit` want a pointer and a submit route the window runner
   reaches only by simulation, which is the entry above; `replace-text` sets a
   value directly, which in a window would bypass the editing path `type`
   exists to exercise, so it needs a decision about whether that is worth
-  offering at all. `revoke-file-grants` and the owner counters read
-  process-global state that is already reachable from the window runner — they
-  are held back only by the per-counter plumbing, and are the cheapest next
-  step.
+  offering at all.
 
   `clipboard-text` and `await-ticks` have since landed in the window runner and
   are no longer on this list. They are worth reading before the next one is
