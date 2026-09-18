@@ -48,7 +48,7 @@ A new element, property, event, or state mechanism is complete when it has:
 
 A resource feature additionally requires trusted authorisation, OS-enforced
 scope, derivation and lifetime rules, revocation semantics, privacy review, and
-platform-boundary tests. The Resource access and trusted grants chapter
+platform-boundary tests. The Resource access chapter
 describes them.
 
 Exercise recorder-disabled, enabled, saturated, output-limited, interrupted,

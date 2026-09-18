@@ -1,135 +1,190 @@
-= Resource access and trusted grants
+= Resource access
 
-Roc GUI applications begin with UI, bounded timers, and isolated private
-application storage. Documents, projects, save destinations, network services,
-devices, clipboard observation, and capture sources require a grant whose scope
-matches the user-visible task. A display name, path string, URL, or application
-dialog is not authority.
+[.lead]
+An application can only do what it has been given.
 
-== Security boundary
+That is the whole rule. Everything in this chapter follows from it, and if some
+part of the platform ever seems to contradict it, the platform is wrong.
 
-The supported application process is confined from ambient operating-system
-resources. Trusted broker services run outside that process, own protected
-selection and consent UI, and return opaque typed grants through the Roc ABI.
-The operating system enforces the confinement boundary; Roc types make grants
-composable but are not the sandbox.
+Most of what you build needs nothing from this chapter. A window, a layout, a
+timer, your own state: none of it touches anything belonging to anyone else, so
+none of it needs permission. This chapter is about the moment your application
+wants something that belongs to the person using it — their documents, their
+network, their devices, their clipboard.
 
-The broker attributes every request to a stable application identity. Publisher
-or package-identity changes do not inherit remembered grants. Development and
-automation provisioning uses the same registry and operation paths, is visibly
-identified as development authority, and never represents user consent.
+== What you start with
 
-== Service policy
+Every application begins with a useful private environment, provided
+automatically and without a prompt:
 
-[cols="2,3,2"]
-|===
-|Service |Authorisation and scope |Lifetime
+* a window, its input, and a clock;
+* private storage of your own, isolated from every other application;
+* the assets you shipped inside your own executable.
 
-|UI, ordinary clocks, secure randomness
-|Automatically provisioned narrow services with documented precision and quotas
-|Application session
+None of these holds anyone's data but yours, and none of them can reach anything
+else, which is exactly why they need no decision from anybody. An application
+that uses only these never asks the person for anything, and should not.
 
-|Private application storage
-|Isolated by stable application identity with an independent quota
-|Persistent until uninstall or explicit data removal
+== How you get more
 
-|Shipped application assets
-|The application's own read-only content, provisioned automatically with no prompt: one directory handle rooted beside the executable, beneath the working directory, or at a host-provisioned content directory, never an absolute path the application names
-|Application session
+Someone gives it to you. Usually that someone is the person using your
+application, and the way they give it to you is by *choosing the thing*.
 
-|Open document or project
-|Trusted selection states read, edit, import-copy, or project scope; selecting a file never grants its parent
-|Session by default; “Remember this project” is explicit
+[source,roc]
+----
+Files.pick_directory!(access)
+----
 
-|Save or export
-|Trusted destination selection includes replacement consent and one atomic commit
-|One commit, with explicit retry after failure
+This opens the operating system's own folder chooser. If the person picks a
+folder, you are handed a value that reads that folder. If they cancel, you are
+handed nothing, and cancelling is an ordinary outcome rather than a failure.
 
-|Network
-|A named service or selected destination; public internet, LAN, loopback, and listening are distinct scopes
-|Task or session; remembered services remain revocable
+There is no second step. No "this application would like to access your files"
+dialog appears before or after, because the choosing *was* the permission.
+Someone who picked `~/Photos/2026` has said everything that needs saying, and
+asking them again only teaches them to click past questions without reading.
 
-|Audio output
-|Ordinary mixer service; exclusive access and unusual routing require separate scope
-|Playback or session
+That is the practical point. The usual way a permission system fails is that
+people stop reading it. Every decision this platform asks for is attached to a
+thing the person just picked, shown in a window they recognise, at the moment
+they wanted something to happen.
 
-|Microphone and system capture
-|In-context trusted authorisation with a protected activity indicator
-|Recording or call session
+== A grant is a value
 
-|USB and device services
-|Trusted device and function selection, preferring purpose-specific services
-|Until disconnect unless explicitly remembered
-|===
+What you get back is an ordinary Roc value. You hold it in your state, pass it
+to functions, and store it in a record:
 
-Three file-shaped services are deliberately distinct and are never substituted
-for one another. Opening a document or project is user data reached through
-trusted selection. Private application storage is durable read-write state
-isolated by application identity. Shipped application assets are the
-application's own read-only content: they hold no user data, so they are
-provisioned without a prompt, and they carry no authority beyond the one
-directory handle they are, so they never stand in for either of the others.
+[source,roc]
+----
+State : { project : [None, Some(Files.Dir.Read)] }
+----
 
-== Grant semantics
+Three things are true of it, and between them they are the reason this works.
 
-A grant records the resource identity, operations, parent grant, application
-identity, lifetime, revocation state, and resource budget. Applications receive
-only an opaque rights-specific handle. Derived handles never broaden authority:
-a project child remains beneath its parent, an HTTP redirect remains within its
-destination grant, and a selected file does not reveal siblings.
+*You cannot make one up.* There is no constructor. A `Files.Dir.Read` exists
+because someone handed you one.
 
-Cancellation is a successful selection outcome. Denial, revocation, expiry,
-unavailability, invalid handles, and resource limits are distinct typed
-failures. Refcount cleanup releases a handle but is not revocation. Revocation
-has one broker-owned linearisation point: operations accepted before it follow
-their documented commit/cancellation rule; later operations and descendants
-fail. Bytes already returned to application state cannot be recalled.
+*Its type says what it is for.* A `Files.Dir.Read` reads a directory. There is
+no permission list to consult alongside it, because the type you are holding is
+the permission, and at every call site you can see exactly what you are handing
+over.
 
-The trusted *App access* surface lists concrete grants, rights, lifetime, and
-active connection or capture state, and provides revoke controls. Ordinary work
-inside a valid grant does not reprompt. Expanding scope requires another trusted
-decision, and refusal is rate-limited so an application cannot nag repeatedly.
+*Nothing is ambient.* No function anywhere in the platform conjures authority
+out of nothing. Every grant you hold traces back to something a person chose, or
+to the small private environment above.
 
-== Trusted workflows
+== Narrowing, and handing things on
 
-Open document and Open project are broker interactions, not application-rendered
-confirmation dialogs. Save As brokers an atomic destination replacement and
-defines cancellation, target races, temporary-file cleanup, disk-full behaviour,
-and the commit boundary. Project imports, sidecars, multiple roots,
-drag-and-drop, sharing, and file clipboard operations use the same grant rules.
+You can always give away less than you hold, and never more.
 
-Network enforcement follows the actual connection. It covers DNS results,
-address changes, redirects, proxies, connection reuse, IP literals, loopback,
-link-local, and private networks without a check/use gap. Connectivity and
-credentials are separate grants. Permission to read a document plus permission
-to send to a service permits that data flow; destination restriction alone is
-not an exfiltration guarantee.
+[source,roc]
+----
+covers = project.open_dir!("covers")
+----
 
-== Libraries and components
+`covers` reads one subfolder. It cannot see its parent, its siblings, or
+anything above it. When some part of your application needs to work with the
+covers, give it `covers` and not `project`.
 
-Libraries accept the narrow handle they need as an argument. They do not
-reacquire ambient or global authority. A parent component may attenuate a grant
-for a child but cannot describe that child as restricted while also giving it a
-route to acquire broader authority. Native extensions belong to the trusted
-computing base unless isolated behind the same broker boundary.
+This is the part that protects *you*, rather than the person using your
+application.
 
-== Verification
+A Roc package you depend on is code you did not write, compiled into your
+binary. In most ecosystems such a package holds everything your program holds:
+it can read any file your process can read and open any connection your process
+can open. The attacks that actually happen to working developers are
+overwhelmingly this shape.
 
-The grant registry answers for every resource at once, so what an application
-holds is a list a specification states and a person reads, not a number. Both
-read the same rendering: kind, origin, the enforcement that origin carries,
-lineage, and rights. A grant that was released and a grant that was revoked are
-counted apart, because an application that stopped holding a handle did not have
-its authority taken away.
+Here a library can use only what you hand it. A charting package that takes your
+data and returns an element cannot read your documents, because you never gave
+it anything that reads documents and it has no way to ask for one. You do not
+have to audit it to know that — you can see what it received.
 
-Every resource slice includes its Roc API and hosted ABI, broker/host behaviour,
-semantic locators, owner-recorded deterministic counters, failure specifications, a
-normal-use scaling case, and documentation. Security assertions additionally
-exercise minimal authority, trusted selection and cancellation, sibling and
-parent denial, traversal and symlinks, expiry, root and child revocation,
-queued/running work, races, identity changes, and privacy-safe evidence.
+[NOTE]
+====
+This bounds the blast radius; it is not a guarantee of good behaviour. A library
+you hand a network client to may use that client for anything. Give the narrowest
+thing that does the job, and notice when a library asks for something broad.
+====
 
-Headless semantic specifications prove the mounted graph and normal Roc event
-route. They do not certify protected consent UI, compositor delivery, OS
-confinement, accessibility, or native portal behaviour. Those claims require the
-production GPUI path and external platform tests.
+== Taking it back
+
+A person can withdraw a grant. When they do, everything derived from it stops at
+the same moment: the subfolder handles, the database opened from that folder, the
+connection opened through that device. You do not have to hunt them down and
+close them. They refuse their next use with a typed error that says the authority
+was withdrawn, rather than one that says something went wrong.
+
+Two limits, stated plainly because a model that overpromises here is worse than
+one that does not try:
+
+* Work already finished stays finished. Bytes you have read are in your
+  application's memory, and withdrawing a grant cannot reach in and remove them.
+* A grant given for a session ends with the session. Nothing carries over to the
+  next run unless the person asked for it to be remembered.
+
+== Why it is built this way
+
+The idea is older than most of the software that ignores it.
+
+In 1966 Dennis and Van Horn described a *capability*: an unforgeable reference
+that both names a resource and carries the right to use it. The essential
+property is the absence of ambient authority. You cannot act on something merely
+because you know its name.
+
+In 1988 Norm Hardy wrote up the *confused deputy*, still the clearest argument
+for why that matters. A compiler on a shared system could write to a billing file
+its users could not. A user asked the compiler to write output to that path, and
+the compiler — holding authority the user lacked — destroyed the billing records.
+Nothing was broken into. Access control lists answer "who is asking", and the
+answer was "the compiler", which was true and useless. Capabilities answer a
+better question: what did the requester bring with them?
+
+File paths are that problem's natural habitat. A path is a name anyone can write
+down, and whether it works depends on who happens to be running. Hand over a
+directory handle instead and the question cannot arise.
+
+The *powerbox* — a trusted chooser where the act of choosing is the act of
+granting — came out of the E language and CapDesk in the early 2000s, and is now
+the mainstream answer rather than an exotic one. WebAssembly's WASI has no
+ambient `open`: a module receives directory handles or reaches nothing. Deno made
+permission explicit and per-resource. XDG Desktop Portals on Linux, and the file
+and photo pickers on macOS and iOS, are the same shape — the operating system
+shows the chooser and the application receives only what was chosen.
+
+The counter-example is worth keeping in mind too. Android first showed a list of
+permissions at install time, and people learned to scroll past it, because a list
+of abstract capabilities presented before anything has happened is not a question
+anyone can answer. Every platform that started there has since moved the decision
+to the moment of use and attached it to the thing being used.
+
+== What this costs you
+
+It would be dishonest to present this as free.
+
+* You have to thread grants through your application state. A function that
+  reads a file needs the handle passed to it, so your state has to hold it and
+  your call sites have to show it.
+* You cannot open a path you were not given, including for good reasons. A
+  convenience you might expect — reading a configuration file from a known
+  location — is private storage here instead.
+* Development and automation need grants with nobody present to give them. Those
+  flags exist, and they are recorded as provisioning rather than as consent, so
+  evidence never reports a test fixture as a decision a person made.
+* It does not make untrusted *data* safe. A malformed image is dangerous to
+  decode however narrowly you were granted the file it arrived in.
+
+If a rule in this chapter costs you something and protects nobody, that is a
+defect in the platform, and worth saying so.
+
+== What is deliberately absent
+
+* No permission list in a manifest, and no approval at install time.
+* No "allow this application to access your files" prompt, before or after a
+  choice.
+* No interface that takes an absolute path.
+* No switch that grants everything, for convenience or for compatibility.
+
+The last is the load-bearing absence. A model with an escape hatch becomes a
+model everybody escapes, and then the sentence at the top of this chapter stops
+being true.
