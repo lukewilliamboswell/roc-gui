@@ -29,10 +29,10 @@ the change lands; do not soften the docs to match the gap.
   becomes brokered is a specification change rather than a claim in prose.
 
   And there is no trusted *App access* surface. `grant::enumerate` and
-  `Grant::describe` are what it would read — the same rendering specifications
-  read, so the two cannot drift — but a person cannot yet see what an
-  application holds or revoke any of it. `revoke` and `revoke_kind` exist and
-  are exercised; nothing but a specification calls them.
+  `Grant::describe` are what it would read — the same rendering both runners
+  read, so the surface and its evidence cannot drift — but a person cannot yet
+  see what an application holds or revoke any of it. `revoke` and `revoke_kind`
+  exist and are exercised; nothing but a specification calls them.
 
   Adopting the kernel found three things worth keeping in mind for the rest of
   this work, each recorded in `grant.rs` where it was fixed: rights are not
