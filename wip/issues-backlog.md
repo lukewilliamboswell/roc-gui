@@ -48,6 +48,24 @@ the change lands; do not soften the docs to match the gap.
 
 ## Device Configurator follow-on features
 
+- [ ] **A device is granted by a command-line flag, not by choosing one.**
+  `--host-cap-device virtual|VID:PID` is the only authority path: `device.rs`
+  reads one `configured` grant at process start and `Device.acquire!()` answers
+  `AccessDenied` forever if there is none. Issue #1's policy row for USB/device
+  services requires trusted device/function selection, and that issue states
+  plainly that a development provisioning flag must not masquerade as an
+  interactive chooser. So the flag is honest only while it is visibly
+  development provisioning, which is what the window now says. Close this with a
+  host-owned device picker whose selection is the grant, naming one device and
+  no more, with ancestry, lifetime until disconnect, explicit remembered access,
+  and revocation — the same broker shape the file entries above describe.
+  Implementing device services is outside issue #1; the policy it states is not.
+
+  Until then a person who launches the example without the flag can only be told
+  what happened. Pressing Discover once is refused, and the control is then
+  withheld rather than left to be pressed for the same answer, because the grant
+  cannot change while the window is open. That is honest, not adequate.
+
 - [ ] Add hot-plug notifications and reconnect policy to the host-owned HID
   connection lifecycle, preserving stale-completion suppression in the app.
 - [ ] Add persistent named mapping profiles and per-control remapping once the

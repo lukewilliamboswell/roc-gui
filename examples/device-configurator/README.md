@@ -21,9 +21,15 @@ roc build --output=device-configurator examples/device-configurator/main.roc
 
 The grant names one device and only that device: either `virtual` — a
 deterministic in-process device that speaks the same framed protocol — or a
-`VID:PID` pair for real hardware, reached through `hidapi`. Without the grant,
-discovery is refused and the window says so. `virtual:100` grants a device
-reporting a hundred controls.
+`VID:PID` pair for real hardware, reached through `hidapi`. `virtual:100` grants
+a device reporting a hundred controls.
+
+The flag is development and automation provisioning, not a chooser. It is read
+once when the application starts, so without it discovery is refused for as long
+as the window is open: the window says what was not done, withholds the control
+that could only give the same answer again, and says that a device is granted at
+launch. A trusted device picker whose selection is itself the grant is an open
+gap, recorded in `wip/issues-backlog.md`.
 
 ## What is editable
 
@@ -42,6 +48,8 @@ offering to act on hardware that is gone.
 - Nothing is saved. There are no stored profiles and no export.
 - Only one device is connected at a time, and a discovery is withheld while a
   connection is open rather than queued.
+- A device is named by a launch flag. There is no trusted picker to choose one
+  from, so a refusal cannot be resolved without restarting the application.
 
 ## Assets
 

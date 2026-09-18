@@ -15,8 +15,11 @@
     (click (role button :name "Discover devices"))
     (await-task)
     (expect-visible (text "Device access denied"))
-    ; The refusal says what was and was not done, and what would change it.
-    (expect-visible (text "The host granted no device, so nothing was searched for and nothing was opened. Grant a device and press Discover again."))
+    ; The refusal says what was and was not done, and what would change it —
+    ; which is not pressing this control again, because the grant was fixed when
+    ; the application started.
+    (expect-visible (text "No device was granted to this application when it started, so nothing was searched for and nothing was opened. Choosing one from here is not something this build can offer."))
+    (expect-visible (text "A device is granted when the application starts. Start it again with a device grant to search."))
     (expect-visible (text "Blocked"))
     (expect-visible (text "Nothing was searched for."))
     (expect-not-visible (text-prefix "Device 0:"))

@@ -36,7 +36,7 @@ range_height = 10.U32
 copy = |status| match status {
 	Ready => {
 		headline: "Ready to discover devices",
-		note: "Nothing has been asked of the host yet. Discovery looks only inside the grant you were given and cannot widen it.",
+		note: "Nothing has been asked of the host yet. Discovery looks only inside the device grant this application was started with, and cannot widen it.",
 	}
 	Discovering => {
 		headline: "Discovering devices",
@@ -78,9 +78,14 @@ copy = |status| match status {
 		headline: "Disconnected",
 		note: "The handle is released. Any unapplied edit went with it; connecting again reads the device's own settings.",
 	}
+	## A refusal here is not a prompt that was declined and could be offered
+	## again: the grant is fixed when the application starts, so this answer is
+	## the same for as long as this window is open. Saying "press Discover
+	## again" invited a person to keep pressing a control that could only ever
+	## give them the same red.
 	Refused(message) => {
 		headline: message,
-		note: "The host granted no device, so nothing was searched for and nothing was opened. Grant a device and press Discover again.",
+		note: "No device was granted to this application when it started, so nothing was searched for and nothing was opened. Choosing one from here is not something this build can offer.",
 	}
 	Lost(message) => {
 		headline: message,
@@ -108,6 +113,15 @@ link_colour = |status| match status {
 
 alarmed = |status| match status {
 	Refused(_) | Lost(_) => True
+	_ => False
+}
+
+## Told apart from `alarmed` because the two alarms have different remedies. A
+## device that was lost can be searched for again; a grant that was never made
+## cannot be made from here, so the control that would ask for it is withheld
+## rather than left to be pressed for the same answer.
+refused = |status| match status {
+	Refused(_) => True
 	_ => False
 }
 
@@ -277,7 +291,7 @@ devices_panel = |state| Theme.panel(
 		Theme.secondary(
 			if state.devices.is_empty() "Discover devices" else "Discover again",
 			"Discover devices",
-			state.connected == None,
+			state.connected == None and !refused(state.status),
 			|current, _| Configurator.discover(current),
 		),
 	].concat(
@@ -285,9 +299,17 @@ devices_panel = |state| Theme.panel(
 		## card in that list. Offering the search while a handle is open would let
 		## a person strand it with one press, so it is withheld and the reason is
 		## given where the control is.
-		match state.connected {
-			Some(_) => [Theme.aside("Disconnect before searching again.")]
-			None => []
+		##
+		## A refused grant withholds it for a different reason: the answer cannot
+		## change while this window is open, so the control has nothing left to
+		## do. What would change it is said where the control was.
+		if refused(state.status) {
+			[Theme.aside("A device is granted when the application starts. Start it again with a device grant to search.")]
+		} else {
+			match state.connected {
+				Some(_) => [Theme.aside("Disconnect before searching again.")]
+				None => []
+			}
 		},
 	),
 )
