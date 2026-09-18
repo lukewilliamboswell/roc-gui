@@ -37,21 +37,24 @@ use bridge::{
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueHttpAcquireResult,
-    HostGlueHttpSendArgs, HostGlueHttpSendResult, HostGlueNodeActionButtonArgs,
-    HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs, HostGlueNodeColumnArgs,
-    HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodeRowArgs,
-    HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualItemArgs, HostGlueNodeVirtualListArgs,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocStr, decref_erased_callable,
-    make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueComponentResolve,
+    HostGlueHttpAcquireResult, HostGlueHttpSendArgs, HostGlueHttpSendResult,
+    HostGlueKeyedEditBeginArgs, HostGlueKeyedInsertBeforeArgs, HostGlueKeyedMoveBeforeArgs,
+    HostGlueKeyedSeedArgs, HostGlueKeyedSetArgs, HostGlueNodeActionButton,
+    HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs,
+    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
+    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
+    RocListWith, RocStr, decref_erased_callable, incref_erased_callable, make_roc_host,
+    roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
     collections::HashMap,
     ffi::c_void,
     path::PathBuf,
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering},
     sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
 };
@@ -68,25 +71,114 @@ actions!(
 );
 
 unsafe extern "C" {
-    fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable);
-    fn roc_gui_run_task(task: RocErasedCallable) -> RocErasedCallable;
+    fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable, owner: u64);
+    fn roc_gui_run_task(task: RocErasedCallable);
+}
+
+#[derive(Debug)]
+struct TaskEnvelope {
+    callable: usize,
+    owner: u64,
+    epoch: u64,
+}
+
+impl TaskEnvelope {
+    fn take_callable(&mut self) -> RocErasedCallable {
+        std::mem::take(&mut self.callable) as RocErasedCallable
+    }
+}
+
+impl Drop for TaskEnvelope {
+    fn drop(&mut self) {
+        if self.callable != 0 {
+            unsafe { decref_erased_callable(self.take_callable(), roc_host()) };
+        }
+    }
+}
+
+thread_local! {
+    // Outer Some means a worker invocation is active; inner Some owns its result.
+    static TASK_COMPLETION_OUTPUT: RefCell<Option<Option<usize>>> = const { RefCell::new(None) };
+}
+
+struct TaskCompletionOutputGuard;
+impl Drop for TaskCompletionOutputGuard {
+    fn drop(&mut self) {
+        let abandoned = TASK_COMPLETION_OUTPUT.with(|slot| slot.borrow_mut().take().flatten());
+        if let Some(callable) = abandoned {
+            unsafe { decref_erased_callable(callable as RocErasedCallable, roc_host()) };
+        }
+    }
+}
+
+fn collect_task_completion(run: impl FnOnce()) -> Result<RocErasedCallable, &'static str> {
+    TASK_COMPLETION_OUTPUT.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        if slot.is_some() {
+            return Err("nested Roc task worker invocation");
+        }
+        *slot = Some(None);
+        Ok(())
+    })?;
+    let guard = TaskCompletionOutputGuard;
+    run();
+    let result = TASK_COMPLETION_OUTPUT
+        .with(|slot| slot.borrow_mut().as_mut().unwrap().take())
+        .map(|callable| callable as RocErasedCallable)
+        .ok_or("Roc worker returned without a completion");
+    drop(guard);
+    result
+}
+
+/// Takes ownership even on rejection; only callable identity crosses this ABI.
+fn publish_task_completion(completion: RocErasedCallable) -> Result<(), &'static str> {
+    if completion.is_null() {
+        return Err("Roc worker published a null completion");
+    }
+    let accepted = TASK_COMPLETION_OUTPUT.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        match slot.as_mut() {
+            Some(result) if result.is_none() => {
+                *result = Some(completion as usize);
+                Ok(())
+            }
+            Some(_) => Err("Roc worker published more than one completion"),
+            None => Err("Roc completion published outside a worker invocation"),
+        }
+    });
+    if accepted.is_err() {
+        unsafe { decref_erased_callable(completion, roc_host()) };
+    }
+    accepted
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_task_complete(completion: RocErasedCallable) {
+    publish_task_completion(completion).expect("invalid Roc worker completion publication");
 }
 
 struct TaskRuntime {
-    jobs: async_channel::Sender<usize>,
-    completions: async_channel::Receiver<usize>,
+    jobs: async_channel::Sender<TaskEnvelope>,
+    pending_jobs: async_channel::Receiver<TaskEnvelope>,
+    completions: async_channel::Receiver<TaskEnvelope>,
     accepted: AtomicU64,
     completed: AtomicU64,
+    /// The process-lived allocator remains valid after UI session retirement.
+    allocator_host: usize,
 }
 
 static TASK_RUNTIME: OnceLock<TaskRuntime> = OnceLock::new();
+static TASK_EPOCH: AtomicU64 = AtomicU64::new(1);
+/// Retirement and publication share one short gate. A result cannot land just
+/// after retirement drained the completion queue and lost its last consumer.
+static TASK_PUBLICATION: Mutex<()> = Mutex::new(());
 static GPUI_SMOKE: AtomicBool = AtomicBool::new(false);
 static GPUI_SMOKE_RENDERS: AtomicU64 = AtomicU64::new(0);
 
 fn task_runtime() -> &'static TaskRuntime {
     TASK_RUNTIME.get_or_init(|| {
-        let (job_sender, job_receiver) = async_channel::unbounded::<usize>();
-        let (completion_sender, completion_receiver) = async_channel::unbounded::<usize>();
+        let (job_sender, job_receiver) = async_channel::unbounded::<TaskEnvelope>();
+        let (completion_sender, completion_receiver) = async_channel::unbounded::<TaskEnvelope>();
         let worker_count = std::thread::available_parallelism()
             .map(usize::from)
             .unwrap_or(4)
@@ -97,10 +189,18 @@ fn task_runtime() -> &'static TaskRuntime {
             std::thread::Builder::new()
                 .name(format!("roc-gui-worker-{ordinal}"))
                 .spawn(move || {
-                    while let Ok(task) = jobs.recv_blocking() {
-                        let completion = unsafe { roc_gui_run_task(task as RocErasedCallable) };
-                        if completions.send_blocking(completion as usize).is_err() {
-                            break;
+                    while let Ok(mut task) = jobs.recv_blocking() {
+                        if task.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+                            continue;
+                        }
+                        let completion = collect_task_completion(|| unsafe {
+                            roc_gui_run_task(task.take_callable())
+                        })
+                        .expect("Roc worker must publish exactly one completion");
+                        task.callable = completion as usize;
+                        let _publication = TASK_PUBLICATION.lock().expect("task publication gate");
+                        if task.epoch == TASK_EPOCH.load(Ordering::Acquire) {
+                            let _ = completions.send_blocking(task);
                         }
                     }
                 })
@@ -108,20 +208,29 @@ fn task_runtime() -> &'static TaskRuntime {
         }
         TaskRuntime {
             jobs: job_sender,
+            pending_jobs: job_receiver,
             completions: completion_receiver,
             accepted: AtomicU64::new(0),
             completed: AtomicU64::new(0),
+            allocator_host: ROC_HOST.load(Ordering::Acquire) as usize,
         }
     })
 }
 
-static mut ROC_HOST: *mut RocHost = core::ptr::null_mut();
+static ROC_HOST: AtomicPtr<RocHost> = AtomicPtr::new(core::ptr::null_mut());
+
+#[derive(Default)]
+struct StagedTurn {
+    dispatcher: Option<RocErasedCallable>,
+    jobs: Vec<TaskEnvelope>,
+}
 
 thread_local! {
     static BRIDGE: RefCell<BridgeState> = const { RefCell::new(BridgeState::new()) };
     static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
     static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
+    static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
 }
 
 #[derive(Clone, Copy)]
@@ -197,11 +306,16 @@ pub extern "C" fn roc_gui_window_config(
 }
 
 fn set_roc_host(host: *mut RocHost) {
-    unsafe { ROC_HOST = host };
+    ROC_HOST.store(host, Ordering::Release);
 }
 
 fn roc_host_ptr() -> *mut RocHost {
-    let pointer = unsafe { ROC_HOST };
+    let mut pointer = ROC_HOST.load(Ordering::Acquire);
+    if pointer.is_null() {
+        pointer = TASK_RUNTIME.get().map_or(core::ptr::null_mut(), |runtime| {
+            runtime.allocator_host as *mut RocHost
+        });
+    }
     if pointer.is_null() {
         eprintln!("roc-gui host error: RocHost is not initialized");
         std::process::abort();
@@ -222,19 +336,186 @@ pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
-    files::route_dealloc(pointer);
-    assets::route_dealloc(pointer);
-    audio::route_dealloc(pointer);
-    sqlite::route_dealloc(pointer);
-    app_data::route_dealloc(pointer);
-    clipboard::route_dealloc(pointer);
-    device::route_dealloc(pointer);
-    system_monitor::route_dealloc(pointer);
-    tcp::route_dealloc(pointer);
-    process::route_dealloc(pointer);
-    timers::route_dealloc(pointer);
-    http::route_dealloc(pointer);
+    let mask = RESOURCE_ROUTING.mask();
+    if mask != 0 {
+        use resource_domain as domain;
+        if mask & domain::FILES != 0 {
+            files::route_dealloc(pointer);
+        }
+        if mask & domain::ASSETS != 0 {
+            assets::route_dealloc(pointer);
+        }
+        if mask & domain::AUDIO != 0 {
+            audio::route_dealloc(pointer);
+        }
+        if mask & domain::SQLITE != 0 {
+            sqlite::route_dealloc(pointer);
+        }
+        if mask & domain::APP_DATA != 0 {
+            app_data::route_dealloc(pointer);
+        }
+        if mask & domain::CLIPBOARD != 0 {
+            clipboard::route_dealloc(pointer);
+        }
+        if mask & domain::DEVICE != 0 {
+            device::route_dealloc(pointer);
+        }
+        if mask & domain::SYSTEM_MONITOR != 0 {
+            system_monitor::route_dealloc(pointer);
+        }
+        if mask & domain::TCP != 0 {
+            tcp::route_dealloc(pointer);
+        }
+        if mask & domain::PROCESS != 0 {
+            process::route_dealloc(pointer);
+        }
+        if mask & domain::TIMERS != 0 {
+            timers::route_dealloc(pointer);
+        }
+        if mask & domain::HTTP != 0 {
+            http::route_dealloc(pointer);
+        }
+    }
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
+}
+
+/// One bit per resource store, so an application that only ever used one
+/// resource kind visits one route per free instead of all twelve.
+pub(crate) mod resource_domain {
+    pub const FILES: u32 = 1 << 0;
+    pub const ASSETS: u32 = 1 << 1;
+    pub const AUDIO: u32 = 1 << 2;
+    pub const SQLITE: u32 = 1 << 3;
+    pub const APP_DATA: u32 = 1 << 4;
+    pub const CLIPBOARD: u32 = 1 << 5;
+    pub const DEVICE: u32 = 1 << 6;
+    pub const SYSTEM_MONITOR: u32 = 1 << 7;
+    pub const TCP: u32 = 1 << 8;
+    pub const PROCESS: u32 = 1 << 9;
+    pub const TIMERS: u32 = 1 << 10;
+    pub const HTTP: u32 = 1 << 11;
+}
+
+/// Monotonic per domain: registration enables that domain's routing before the
+/// handle can escape to Roc or another thread. Never reset a bit when stores
+/// empty or sessions end; that would require synchronizing with concurrent
+/// registration/deallocation.
+struct ResourceRouting(std::sync::atomic::AtomicU32);
+
+impl ResourceRouting {
+    const fn new() -> Self {
+        Self(std::sync::atomic::AtomicU32::new(0))
+    }
+
+    fn mask(&self) -> u32 {
+        self.0.load(Ordering::Acquire)
+    }
+
+    fn register<V, S: std::hash::BuildHasher>(
+        &self,
+        domain: u32,
+        allocations: &mut std::collections::HashMap<usize, V, S>,
+        base: usize,
+        value: V,
+    ) -> Option<V> {
+        self.0.fetch_or(domain, Ordering::Release);
+        allocations.insert(base, value)
+    }
+}
+
+static RESOURCE_ROUTING: ResourceRouting = ResourceRouting::new();
+
+/// All resource allocation maps must register here before publishing a handle.
+pub(crate) fn register_resource_allocation<V, S: std::hash::BuildHasher>(
+    domain: u32,
+    allocations: &mut std::collections::HashMap<usize, V, S>,
+    base: usize,
+    value: V,
+) -> Option<V> {
+    RESOURCE_ROUTING.register(domain, allocations, base, value)
+}
+
+/// Once resource routing is enabled, every Roc free visits its routes. HashMap's
+/// remove hashes even an empty map, so avoid that work for inactive domains.
+/// The caller still holds its store lock; live-handle removal is unchanged.
+pub(crate) fn remove_resource_allocation<V, S: std::hash::BuildHasher>(
+    allocations: &mut std::collections::HashMap<usize, V, S>,
+    base: usize,
+) -> Option<V> {
+    if allocations.is_empty() {
+        None
+    } else {
+        allocations.remove(&base)
+    }
+}
+
+#[cfg(test)]
+mod resource_allocation_tests {
+    use super::{ResourceRouting, remove_resource_allocation};
+    use std::{cell::Cell, collections::HashMap, hash::BuildHasher};
+
+    struct CountHashes<'a>(&'a Cell<usize>);
+
+    #[test]
+    fn registration_enables_routing_permanently_before_publication() {
+        let routing = ResourceRouting::new();
+        let mut allocations = HashMap::new();
+        assert_eq!(routing.mask(), 0);
+        std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    assert_eq!(
+                        routing.register(super::resource_domain::TCP, &mut allocations, 8, 42),
+                        None
+                    );
+                    assert_eq!(routing.mask(), super::resource_domain::TCP);
+                })
+                .join()
+                .unwrap();
+        });
+        assert_eq!(routing.mask(), super::resource_domain::TCP);
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), Some(42));
+        allocations.clear();
+        assert_eq!(routing.mask(), super::resource_domain::TCP);
+        assert_eq!(
+            routing.register(super::resource_domain::FILES, &mut allocations, 16, 99),
+            None
+        );
+        assert_eq!(remove_resource_allocation(&mut allocations, 16), Some(99));
+        assert_eq!(
+            routing.mask(),
+            super::resource_domain::TCP | super::resource_domain::FILES
+        );
+    }
+
+    impl BuildHasher for CountHashes<'_> {
+        type Hasher = std::collections::hash_map::DefaultHasher;
+
+        fn build_hasher(&self) -> Self::Hasher {
+            self.0.set(self.0.get() + 1);
+            Self::Hasher::new()
+        }
+    }
+
+    #[test]
+    fn inactive_resource_routes_do_not_hash_even_with_retained_capacity() {
+        let hashes = Cell::new(0);
+        let mut allocations = HashMap::with_capacity_and_hasher(32, CountHashes(&hashes));
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), None);
+        assert_eq!(hashes.get(), 0);
+
+        allocations.insert(8, 42);
+        hashes.set(0);
+        assert_eq!(remove_resource_allocation(&mut allocations, 16), None);
+        assert_eq!(allocations.len(), 1);
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), Some(42));
+        assert!(hashes.get() > 0);
+        assert!(allocations.capacity() > 0);
+
+        hashes.set(0);
+        assert_eq!(remove_resource_allocation(&mut allocations, 8), None);
+        assert_eq!(hashes.get(), 0);
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -300,6 +581,85 @@ fn stage_node(kind: NodeKind, children: Vec<u64>) -> u64 {
     })
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_boundary(instance: u64, child: u64) -> u64 {
+    stage_node(NodeKind::Boundary { instance }, vec![child])
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_retain_subtree(root: u64) -> u64 {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .retain_subtree(root)
+            .unwrap_or_else(|message| panic!("invalid retained component: {message}"))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_work(kind: u8, amount: u64) {
+    observatory::note_component_work(kind, amount);
+}
+
+fn with_component_registry<T>(
+    operation: impl FnOnce(&mut bridge::ComponentRegistry) -> Result<T, String>,
+) -> T {
+    BRIDGE.with(|bridge| {
+        operation(
+            bridge
+                .borrow_mut()
+                .components
+                .get_or_insert_with(Default::default),
+        )
+        .unwrap_or_else(|message| panic!("invalid component reconciliation: {message}"))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_begin_render(owner: u64) {
+    with_component_registry(|registry| registry.begin_render(owner));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_scope_enter(tag: u8, label: RocStr, position: u64) {
+    let label_text = label.as_str().to_owned();
+    unsafe { label.decref(roc_host()) };
+    with_component_registry(|registry| registry.scope_enter(tag, &label_text, position));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_scope_exit() {
+    with_component_registry(|registry| registry.scope_exit());
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_resolve(
+    key_kind: u8,
+    key_digest: RocList<u8>,
+) -> HostGlueComponentResolve {
+    let resolved = BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .components
+            .get_or_insert_with(Default::default)
+            .resolve(key_kind, key_digest.as_slice())
+    });
+    unsafe { key_digest.decref(roc_host()) };
+    let (instance, root) =
+        resolved.unwrap_or_else(|message| panic!("invalid component reconciliation: {message}"));
+    HostGlueComponentResolve { instance, root }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_enter(instance: u64) {
+    with_component_registry(|registry| registry.component_enter(instance));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_component_exit() {
+    with_component_registry(|registry| registry.component_exit());
+}
+
 /// Stage one owned text node and return its fresh host identity.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
@@ -347,6 +707,103 @@ pub extern "C" fn roc_gui_children_push(builder: u64, child: u64) {
     });
 }
 
+fn take_key(bytes: RocListWith<u8, false>, optional: bool) -> Option<[u8; 32]> {
+    let decoded = if optional && bytes.is_empty() {
+        Ok(None)
+    } else {
+        bytes.as_slice().try_into().map(Some)
+    };
+    unsafe { bytes.decref(roc_host()) };
+    decoded.unwrap_or_else(|_| panic!("keyed child keys must contain exactly 32 bytes"))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_edit_begin(args: HostGlueKeyedEditBeginArgs) {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .begin_keyed_edit(args.container, args.base_revision, args.new_revision)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_seed(args: HostGlueKeyedSeedArgs) {
+    let keys = args
+        .keys
+        .as_slice()
+        .iter()
+        .map(|key| {
+            key.as_slice()
+                .try_into()
+                .unwrap_or_else(|_| panic!("keyed child keys must contain exactly 32 bytes"))
+        })
+        .collect::<Vec<[u8; 32]>>();
+    unsafe { args.decref(roc_host()) };
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .seed_keyed_column(args.container, args.revision, keys)
+            .unwrap_or_else(|message| panic!("invalid keyed native seed: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_insert_before(args: HostGlueKeyedInsertBeforeArgs) {
+    let key = take_key(args.key, false).expect("required keyed child key");
+    let before = take_key(args.before, true);
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_insert_before(key, before, args.root)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_remove(key: RocListWith<u8, false>) {
+    let key = take_key(key, false).expect("required keyed child key");
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_remove(key)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_move_before(args: HostGlueKeyedMoveBeforeArgs) {
+    let key = take_key(args.key, false).expect("required keyed child key");
+    let before = take_key(args.before, true);
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_move_before(key, before)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_set(args: HostGlueKeyedSetArgs) {
+    let key = take_key(args.key, false).expect("required keyed child key");
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .keyed_set(key, args.root)
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_keyed_edit_commit() {
+    BRIDGE.with(|bridge| {
+        bridge
+            .borrow_mut()
+            .commit_keyed_edit()
+            .unwrap_or_else(|message| panic!("invalid keyed native edit: {message}"));
+    });
+}
+
 fn finish_children(builder: u64) -> Vec<u64> {
     BRIDGE.with(|bridge| {
         bridge
@@ -361,7 +818,7 @@ fn finish_children(builder: u64) -> Vec<u64> {
 /// macro keeps them in step as the style vocabulary grows.
 macro_rules! decode_layout_style {
     ($args:expr) => {
-        Style {
+        Box::new(Style {
             gap: $args.gap,
             padding: [
                 $args.padding_top,
@@ -403,7 +860,7 @@ macro_rules! decode_layout_style {
             overflow_y: decode_overflow($args.overflow_y),
             align: decode_align($args.align),
             justify: decode_justify($args.justify),
-        }
+        })
     };
 }
 
@@ -500,22 +957,39 @@ pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -
 
 /// Stage one styled action button.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_action_button(args: HostGlueNodeActionButtonArgs) -> u64 {
+pub extern "C" fn roc_gui_node_action_button(
+    args: HostGlueNodeActionButtonArgs,
+) -> HostGlueNodeActionButton {
     let caption = args.caption.as_str().to_owned();
     let label = args.label.as_str().to_owned();
     unsafe {
         args.caption.decref(roc_host());
         args.label.decref(roc_host());
     }
-    stage_node(
+    let id = stage_node(
         NodeKind::Button {
             caption,
             label,
             enabled: args.enabled,
+            hover_enter: args.hover_enter,
+            hover_exit: args.hover_exit,
             style: decode_layout_style!(args),
         },
         vec![],
-    )
+    );
+    HostGlueNodeActionButton {
+        id,
+        hover_enter: if args.hover_enter {
+            id | bridge::HOVER_ENTER_EVENT_BIT
+        } else {
+            0
+        },
+        hover_exit: if args.hover_exit {
+            id | bridge::HOVER_EXIT_EVENT_BIT
+        } else {
+            0
+        },
+    }
 }
 
 fn decode_length(kind: u8, value: u32) -> Length {
@@ -710,7 +1184,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         primitives.iter().all(|item| keys.insert(item.key)),
         "canvas primitive keys must be unique"
     );
-    let style = Style {
+    let style = Box::new(Style {
         width: decode_length(args.width_kind, args.width),
         height: decode_length(args.height_kind, args.height),
         grow: args.grow,
@@ -721,7 +1195,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         overflow_x: Overflow::Clip,
         overflow_y: Overflow::Clip,
         ..Style::default()
-    };
+    });
     unsafe { args.decref(roc_host()) };
     stage_node(
         NodeKind::Canvas {
@@ -809,22 +1283,8 @@ pub extern "C" fn roc_gui_apply(patch: MountOrNoChangeOrReplace) {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_set_dispatch(dispatcher: RocErasedCallable) {
     assert!(!dispatcher.is_null(), "Roc installed a null dispatcher");
-    BRIDGE.with(|bridge| {
-        let previous = bridge.borrow_mut().dispatcher.replace(dispatcher);
-        if let Some(previous) = previous {
-            unsafe { decref_erased_callable(previous, roc_host()) };
-        }
-    });
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_set_task_dispatch(dispatcher: RocErasedCallable) {
-    assert!(
-        !dispatcher.is_null(),
-        "Roc installed a null task dispatcher"
-    );
-    BRIDGE.with(|bridge| {
-        let previous = bridge.borrow_mut().task_dispatcher.replace(dispatcher);
+    STAGED_TURN.with(|turn| {
+        let previous = turn.borrow_mut().dispatcher.replace(dispatcher);
         if let Some(previous) = previous {
             unsafe { decref_erased_callable(previous, roc_host()) };
         }
@@ -857,14 +1317,56 @@ pub extern "C" fn roc_http_acquire() -> HostGlueHttpAcquireResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_enqueue_task(task: RocErasedCallable) {
+pub extern "C" fn roc_gui_enqueue_task(owner: u64, task: RocErasedCallable) {
     assert!(!task.is_null(), "Roc enqueued a null task");
-    let runtime = task_runtime();
-    runtime.accepted.fetch_add(1, Ordering::Relaxed);
-    runtime
-        .jobs
-        .send_blocking(task as usize)
-        .expect("Roc task runtime stopped");
+    STAGED_TURN.with(|turn| {
+        turn.borrow_mut().jobs.push(TaskEnvelope {
+            callable: task as usize,
+            owner,
+            epoch: TASK_EPOCH.load(Ordering::Acquire),
+        })
+    });
+}
+
+/// Publish a turn only after the mounted graph accepted its patch. Jobs cannot
+/// race validation or observe a session that failed to mount.
+pub(crate) fn accept_transaction(graph: &MountedGraph, applied: &bridge::GraphApply) {
+    let turn = STAGED_TURN.with(|staged| std::mem::take(&mut *staged.borrow_mut()));
+    BRIDGE.with(|bridge| {
+        let mut bridge = bridge.borrow_mut();
+        if let Some(components) = &mut bridge.components {
+            components.commit(graph, applied);
+        }
+        if let Some(next) = turn.dispatcher {
+            if let Some(previous) = bridge.dispatcher.replace(next) {
+                unsafe { decref_erased_callable(previous, roc_host()) };
+            }
+        }
+    });
+    observatory::commit_component_work();
+    for job in turn.jobs {
+        if job.owner == 0 || graph.boundary_root(job.owner).is_some() {
+            let runtime = task_runtime();
+            runtime.accepted.fetch_add(1, Ordering::Relaxed);
+            runtime
+                .jobs
+                .send_blocking(job)
+                .expect("Roc task runtime stopped");
+        }
+    }
+}
+
+pub(crate) fn reject_transaction() {
+    BRIDGE.with(|bridge| {
+        if let Some(components) = &mut bridge.borrow_mut().components {
+            components.abort();
+        }
+    });
+    let turn = STAGED_TURN.with(|staged| std::mem::take(&mut *staged.borrow_mut()));
+    if let Some(callable) = turn.dispatcher {
+        unsafe { decref_erased_callable(callable, roc_host()) };
+    }
+    observatory::reject_component_work();
 }
 
 /// How long one task may run before a specification calls it hung.
@@ -882,15 +1384,18 @@ pub(crate) const TASK_BUDGET: std::time::Duration = std::time::Duration::from_se
 /// not completed in fifty of them is waiting on something else entirely.
 const SPIN_BEFORE_SLEEPING: std::time::Duration = std::time::Duration::from_millis(50);
 
-fn await_task_completion() -> Result<RocErasedCallable, String> {
+fn await_task_completion() -> Result<TaskEnvelope, String> {
     let runtime = task_runtime();
     let started = std::time::Instant::now();
     let deadline = started + TASK_BUDGET;
     loop {
         match runtime.completions.try_recv() {
             Ok(value) => {
+                if value.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+                    continue;
+                }
                 runtime.completed.fetch_add(1, Ordering::Relaxed);
-                return Ok(value as RocErasedCallable);
+                return Ok(value);
             }
             Err(async_channel::TryRecvError::Closed) => return Err("task runtime stopped".into()),
             Err(async_channel::TryRecvError::Empty) if std::time::Instant::now() < deadline => {
@@ -952,8 +1457,13 @@ fn take_patch() -> Patch {
 // answer the click. This seam lets a test answer it in Rust. It is compiled
 // out of the shipped binary.
 #[cfg(test)]
+type TestDispatcher = Box<dyn Fn(u64) -> Patch>;
+
+#[cfg(test)]
 thread_local! {
-    static TEST_DISPATCHER: RefCell<Option<Box<dyn Fn(u64) -> Patch>>> =
+    static TEST_DISPATCHER: RefCell<Option<TestDispatcher>> =
+        const { RefCell::new(None) };
+    static TEST_COMPLETION_DISPATCHER: RefCell<Option<TestDispatcher>> =
         const { RefCell::new(None) };
 }
 
@@ -963,6 +1473,7 @@ fn install_test_dispatcher(dispatcher: impl Fn(u64) -> Patch + 'static) {
 }
 
 fn dispatch(event_id: u64) -> Patch {
+    observatory::begin_component_work();
     #[cfg(test)]
     {
         let answered =
@@ -973,15 +1484,15 @@ fn dispatch(event_id: u64) -> Patch {
     }
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
-            .borrow_mut()
+            .borrow()
             .dispatcher
-            .take()
             .expect("Roc dispatcher is not installed")
     });
+    unsafe { incref_erased_callable(dispatcher, 1) };
     unsafe { roc_gui_dispatch(dispatcher, event_id) };
-    BRIDGE.with(|bridge| {
+    STAGED_TURN.with(|turn| {
         assert!(
-            bridge.borrow().dispatcher.is_some(),
+            turn.borrow().dispatcher.is_some(),
             "Roc dispatch did not install its successor"
         );
     });
@@ -1016,18 +1527,30 @@ fn dispatch_canvas(event_id: u64, event: CanvasEventPayload) -> Patch {
     patch
 }
 
-fn complete(completion: RocErasedCallable) -> Patch {
+fn complete(mut completion: TaskEnvelope) -> Patch {
+    observatory::begin_component_work();
+    if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+        return Patch::NoChange;
+    }
+    #[cfg(test)]
+    if let Some(patch) = TEST_COMPLETION_DISPATCHER.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .map(|dispatch| dispatch(completion.owner))
+    }) {
+        return patch;
+    }
     let dispatcher = BRIDGE.with(|bridge| {
         bridge
-            .borrow_mut()
-            .task_dispatcher
-            .take()
-            .expect("Roc task dispatcher is not installed")
+            .borrow()
+            .dispatcher
+            .expect("Roc session dispatcher is not installed")
     });
-    unsafe { roc_gui_complete(dispatcher, completion) };
-    BRIDGE.with(|bridge| {
+    unsafe { incref_erased_callable(dispatcher, 1) };
+    unsafe { roc_gui_complete(dispatcher, completion.take_callable(), completion.owner) };
+    STAGED_TURN.with(|turn| {
         assert!(
-            bridge.borrow().task_dispatcher.is_some(),
+            turn.borrow().dispatcher.is_some(),
             "Roc completion did not install its successor"
         );
     });
@@ -1035,13 +1558,32 @@ fn complete(completion: RocErasedCallable) -> Patch {
 }
 
 fn clear_bridge() {
+    let retired = {
+        let _publication = TASK_PUBLICATION.lock().expect("task publication gate");
+        TASK_EPOCH.fetch_add(1, Ordering::AcqRel);
+        let mut retired = Vec::new();
+        if let Some(runtime) = TASK_RUNTIME.get() {
+            while let Ok(ready) = runtime.completions.try_recv() {
+                retired.push(ready);
+            }
+            // Waiting workers may all be blocked inside effects. Queued jobs
+            // have not started and need not keep their captures until one wakes.
+            while let Ok(pending) = runtime.pending_jobs.try_recv() {
+                retired.push(pending);
+            }
+            runtime.accepted.store(0, Ordering::Relaxed);
+            runtime.completed.store(0, Ordering::Relaxed);
+        }
+        retired
+    };
+    drop(retired);
+    reject_transaction();
+    observatory::clear_component_work();
     BRIDGE.with(|bridge| {
         let mut bridge = bridge.borrow_mut();
         bridge.pending = None;
+        bridge.components = None;
         if let Some(dispatcher) = bridge.dispatcher.take() {
-            unsafe { decref_erased_callable(dispatcher, roc_host()) };
-        }
-        if let Some(dispatcher) = bridge.task_dispatcher.take() {
             unsafe { decref_erased_callable(dispatcher, roc_host()) };
         }
     });
@@ -1069,12 +1611,21 @@ fn contains_text(nodes: &[Node], expected: &str) -> bool {
 }
 
 fn headless_smoke() {
+    observatory::begin_component_work();
     unsafe { roc_gui_init() };
     let (initial_root, initial_nodes) = match take_patch() {
         Patch::Mount { root, nodes } => (root, nodes),
         other => panic!("expected initial mount, got {other:?}"),
     };
     validate_tree(initial_root, &initial_nodes).expect("invalid initial counter tree");
+    let mut graph = MountedGraph::default();
+    let applied = graph
+        .apply(Patch::Mount {
+            root: initial_root,
+            nodes: initial_nodes.clone(),
+        })
+        .expect("invalid smoke mount");
+    accept_transaction(&graph, &applied);
     assert!(contains_text(&initial_nodes, "Counter"));
     assert!(contains_text(&initial_nodes, "-1"));
     assert!(contains_text(&initial_nodes, "3"));
@@ -1086,6 +1637,10 @@ fn headless_smoke() {
         Patch::NoChange,
         "stale event was not ignored"
     );
+    let applied = graph
+        .apply(Patch::NoChange)
+        .expect("invalid smoke no-change");
+    accept_transaction(&graph, &applied);
 
     let (first_target, first_nodes) = match dispatch(initial_plus) {
         Patch::Replace {
@@ -1094,6 +1649,14 @@ fn headless_smoke() {
             nodes,
         } => {
             validate_tree(root, &nodes).expect("invalid first counter replacement");
+            let applied = graph
+                .apply(Patch::Replace {
+                    old_root,
+                    root,
+                    nodes: nodes.clone(),
+                })
+                .expect("invalid smoke update");
+            accept_transaction(&graph, &applied);
             (old_root, nodes)
         }
         other => panic!("expected first subtree replacement, got {other:?}"),
@@ -1112,12 +1675,28 @@ fn headless_smoke() {
         Patch::NoChange,
         "removed button id was not treated as stale"
     );
+    let applied = graph
+        .apply(Patch::NoChange)
+        .expect("invalid smoke no-change");
+    accept_transaction(&graph, &applied);
 
     let next_plus = button_with_name(&first_nodes, "Left increment")
         .expect("replacement increment button is missing");
     let second_nodes = match dispatch(next_plus) {
-        Patch::Replace { root, nodes, .. } => {
+        Patch::Replace {
+            old_root,
+            root,
+            nodes,
+        } => {
             validate_tree(root, &nodes).expect("invalid second counter replacement");
+            let applied = graph
+                .apply(Patch::Replace {
+                    old_root,
+                    root,
+                    nodes: nodes.clone(),
+                })
+                .expect("invalid smoke update");
+            accept_transaction(&graph, &applied);
             nodes
         }
         other => panic!("expected second subtree replacement, got {other:?}"),
@@ -1129,6 +1708,128 @@ fn headless_smoke() {
     eprintln!("PASS: Roc counter dispatched -1 -> 0 -> 1 using translated subtree patches");
 }
 
+type NativeKey = [u8; 32];
+
+struct KeyedViewChild {
+    view: Entity<NodeView>,
+    previous: Option<NativeKey>,
+    next: Option<NativeKey>,
+}
+
+#[derive(Default)]
+struct KeyedViewOrder {
+    head: Option<NativeKey>,
+    tail: Option<NativeKey>,
+    children: HashMap<NativeKey, KeyedViewChild>,
+}
+
+impl KeyedViewOrder {
+    fn insert(&mut self, key: NativeKey, before: Option<NativeKey>, view: Entity<NodeView>) {
+        let previous = before
+            .and_then(|anchor| self.children[&anchor].previous)
+            .or_else(|| before.is_none().then_some(self.tail).flatten());
+        self.children.insert(
+            key,
+            KeyedViewChild {
+                view,
+                previous,
+                next: before,
+            },
+        );
+        if let Some(previous) = previous {
+            self.children
+                .get_mut(&previous)
+                .expect("keyed predecessor")
+                .next = Some(key);
+        } else {
+            self.head = Some(key);
+        }
+        if let Some(next) = before {
+            self.children.get_mut(&next).expect("keyed anchor").previous = Some(key);
+        } else {
+            self.tail = Some(key);
+        }
+    }
+
+    fn remove(&mut self, key: NativeKey) -> Entity<NodeView> {
+        let child = self.children.remove(&key).expect("mounted keyed child");
+        if let Some(previous) = child.previous {
+            self.children
+                .get_mut(&previous)
+                .expect("keyed predecessor")
+                .next = child.next;
+        } else {
+            self.head = child.next;
+        }
+        if let Some(next) = child.next {
+            self.children
+                .get_mut(&next)
+                .expect("keyed successor")
+                .previous = child.previous;
+        } else {
+            self.tail = child.previous;
+        }
+        child.view
+    }
+
+    fn move_before(&mut self, key: NativeKey, before: Option<NativeKey>) -> bool {
+        if before == Some(key) || self.children[&key].next == before {
+            return false;
+        }
+        let view = self.remove(key);
+        self.insert(key, before, view);
+        true
+    }
+
+    fn iter(&self) -> KeyedViewIter<'_> {
+        KeyedViewIter {
+            order: self,
+            next: self.head,
+            remaining: self.children.len(),
+        }
+    }
+}
+
+struct KeyedViewIter<'a> {
+    order: &'a KeyedViewOrder,
+    next: Option<NativeKey>,
+    remaining: usize,
+}
+
+impl Iterator for KeyedViewIter<'_> {
+    type Item = Entity<NodeView>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let key = self.next.expect("non-empty keyed view order");
+        let child = &self.order.children[&key];
+        self.next = child.next;
+        self.remaining -= 1;
+        Some(child.view.clone())
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+impl ExactSizeIterator for KeyedViewIter<'_> {}
+
+enum NativeChildrenIter<'a> {
+    Ordinary(std::iter::Cloned<std::slice::Iter<'a, Entity<NodeView>>>),
+    Keyed(KeyedViewIter<'a>),
+}
+
+impl Iterator for NativeChildrenIter<'_> {
+    type Item = Entity<NodeView>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Ordinary(iter) => iter.next(),
+            Self::Keyed(iter) => iter.next(),
+        }
+    }
+}
+
 struct NodeView {
     node: Node,
     /// Where this node sits, named rather than numbered. Two mounted nodes
@@ -1137,8 +1838,12 @@ struct NodeView {
     /// rerender under the finger.
     identity: ElementIdentity,
     children: Vec<Entity<NodeView>>,
+    keyed_children: Option<KeyedViewOrder>,
     runtime: WeakEntity<Runtime>,
     is_root: bool,
+    /// Baseline alignment needs descendants' real layout baselines, which a
+    /// fixed-size cache placeholder cannot provide. Updated with graph patches.
+    baseline_layout: bool,
     input_enabled: bool,
     focus_handle: Option<FocusHandle>,
     input: Option<Entity<input::TextInput>>,
@@ -1149,6 +1854,15 @@ struct NodeView {
     /// and so that a window specification can reach the same offset cell the
     /// production wheel handler writes.
     scroll: Option<ScrollTracker>,
+}
+
+impl NodeView {
+    fn native_children(&self) -> NativeChildrenIter<'_> {
+        match &self.keyed_children {
+            Some(order) => NativeChildrenIter::Keyed(order.iter()),
+            None => NativeChildrenIter::Ordinary(self.children.iter().cloned()),
+        }
+    }
 }
 
 /// The retained scroll position of one scrolling node.
@@ -1441,8 +2155,96 @@ fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     element.focus(move |focused| focused.border_2().border_color(ring))
 }
 
+/// GPUI's view cache needs the outer layout before it renders the view. Only
+/// use it when the application fixes both dimensions independently of content
+/// and flex allocation. Intrinsic and flexible nodes keep ordinary layout.
+fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
+    if is_root {
+        return None;
+    }
+    let style = match &node.kind {
+        NodeKind::Button { style, .. } if node.children.is_empty() => style,
+        NodeKind::Row { style, .. }
+        | NodeKind::Column { style, .. }
+        | NodeKind::KeyedColumn { style, .. }
+        | NodeKind::Panel { style, .. } => style,
+        _ => return None,
+    };
+    let (Length::Px(width), Length::Px(height)) = (style.width, style.height) else {
+        return None;
+    };
+    (!style.grow
+        && style.min_width == Length::Px(width)
+        && style.max_width == Length::Px(width)
+        && style.min_height == Length::Px(height)
+        && style.max_height == Length::Px(height))
+    .then_some((width, height))
+}
+
+fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
+    let node = view.read(cx);
+    observatory::note_native_view_element(if node.keyed_children.is_some() {
+        observatory::KEYED_CONTAINER_NATIVE_KIND
+    } else {
+        node.node.kind.tag()
+    });
+    let independent_children = matches!(
+        node.node.kind,
+        NodeKind::Boundary { .. }
+            | NodeKind::Row { .. }
+            | NodeKind::Column { .. }
+            | NodeKind::KeyedColumn { .. }
+            | NodeKind::Panel { .. }
+    );
+    let mut layout_view = view.clone();
+    let extent = loop {
+        let node = layout_view.read(cx);
+        if node.is_root || node.baseline_layout {
+            break None;
+        }
+        if matches!(node.node.kind, NodeKind::Boundary { .. }) && node.children.len() == 1 {
+            layout_view = node.children[0].clone();
+        } else {
+            break fixed_node_extent(&node.node, false);
+        }
+    };
+    let view = AnyView::from(view);
+    match extent {
+        Some((width, height)) => {
+            let mut layout = div()
+                .w(px(width as f32))
+                .h(px(height as f32))
+                .min_w(px(width as f32))
+                .max_w(px(width as f32))
+                .min_h(px(height as f32))
+                .max_h(px(height as f32));
+            // Mounted children own their data and notifications. Bounds,
+            // clipping and inherited text are tracked by GPUI's cache key;
+            // the host does not expose implicit group-hover style contexts.
+            if independent_children {
+                view.cached_with_independent_children(layout.style().clone())
+            } else {
+                view.cached(layout.style().clone())
+            }
+        }
+        None => view,
+    }
+}
+
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        observatory::note_native_render(if self.keyed_children.is_some() {
+            observatory::KEYED_CONTAINER_NATIVE_KIND
+        } else {
+            self.node.kind.tag()
+        });
+        #[cfg(test)]
+        tests::record_native_style(_cx.entity_id(), &self.node);
+        // A component boundary owns identity and updates, but contributes no
+        // flex item, padding, or other native layout box.
+        if matches!(self.node.kind, NodeKind::Boundary { .. }) {
+            return native_node_view(self.children[0].clone(), _cx).into_any_element();
+        }
         // The element key is the view's own, not the mounted node id: a node id
         // is never reused, so keying by it gave every control a new GPUI
         // element on every patch and threw away the element state — including
@@ -1455,8 +2257,9 @@ impl Render for NodeView {
             element = element.size_full().min_h_0().min_w_0();
         }
         match &self.node.kind {
+            NodeKind::Boundary { .. } => unreachable!("boundary rendered above"),
             NodeKind::Canvas {
-                label,
+                label: _,
                 primitives,
                 style,
             } => {
@@ -1466,8 +2269,7 @@ impl Render for NodeView {
                 let down_bounds = self.canvas_bounds.clone();
                 let down_runtime = self.runtime.clone();
                 let paint_runtime = self.runtime.clone();
-                let down_label = label.clone();
-                let paint_label = label.clone();
+                let canvas_id = self.node.id;
                 let drawing = canvas(
                     move |bounds, _, _| {
                         *bounds_slot.lock().expect("canvas bounds poisoned") = Some(bounds);
@@ -1542,7 +2344,6 @@ impl Render for NodeView {
                             }
                         }
                         let move_runtime = paint_runtime.clone();
-                        let move_label = paint_label.clone();
                         window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Bubble {
                                 let x =
@@ -1550,12 +2351,11 @@ impl Render for NodeView {
                                 let y =
                                     f32::from(event.position.y - bounds.origin.y).round() as i32;
                                 let _ = move_runtime.update(cx, |runtime, cx| {
-                                    runtime.canvas_pointer(&move_label, 1, x, y, 0, cx)
+                                    runtime.canvas_pointer_for_node(canvas_id, 1, x, y, 0, cx)
                                 });
                             }
                         });
                         let up_runtime = paint_runtime.clone();
-                        let up_label = paint_label.clone();
                         window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
                             if phase == DispatchPhase::Bubble && event.button == MouseButton::Left {
                                 let x =
@@ -1563,7 +2363,7 @@ impl Render for NodeView {
                                 let y =
                                     f32::from(event.position.y - bounds.origin.y).round() as i32;
                                 let _ = up_runtime.update(cx, |runtime, cx| {
-                                    runtime.canvas_pointer(&up_label, 2, x, y, 0, cx)
+                                    runtime.canvas_pointer_for_node(canvas_id, 2, x, y, 0, cx)
                                 });
                             }
                         });
@@ -1579,22 +2379,26 @@ impl Render for NodeView {
                             let y = f32::from(event.position.y - bounds.origin.y).round() as i32;
                             let target = canvas_target(&hit_items, x, y).unwrap_or(0);
                             let _ = down_runtime.update(cx, |runtime, cx| {
-                                runtime.canvas_pointer(&down_label, 0, x, y, target, cx)
+                                runtime.canvas_pointer_for_node(canvas_id, 0, x, y, target, cx)
                             });
                         }
                     });
             }
-            NodeKind::Column { style, .. } | NodeKind::Panel { style, .. } => {
+            NodeKind::Column { style, .. }
+            | NodeKind::KeyedColumn { style, .. }
+            | NodeKind::Panel { style, .. } => {
                 element = apply_style(element.flex().flex_col(), style);
             }
             NodeKind::Dialog { style, .. } => {
                 let dialog_id = self.node.id;
                 let runtime = self.runtime.clone();
-                let inner = apply_style(
-                    div().id("dialog-surface").flex().flex_col(),
-                    style,
-                )
-                .children(self.children.iter().cloned().map(AnyView::from));
+                let inner = apply_style(div().id("dialog-surface").flex().flex_col(), style)
+                    .children(
+                        self.children
+                            .iter()
+                            .cloned()
+                            .map(|view| native_node_view(view, _cx)),
+                    );
                 element = element
                     .absolute()
                     .top_0()
@@ -1652,24 +2456,20 @@ impl Render for NodeView {
                 element = apply_style(element.flex().flex_col().flex_grow(), style)
                     .min_h_0()
                     .max_h_full()
-                    .child(
-                        {
-                            let list = uniform_list("virtual-list", count, move |range, _, cx| {
-                                runtime
-                                    .update(cx, |runtime, cx| {
-                                        runtime.virtual_range(list_id, range, height, gap, cx)
-                                    })
-                                    .unwrap_or_default()
-                            })
-                            .size_full();
-                            match &self.scroll {
-                                Some(ScrollTracker::List(handle)) => {
-                                    list.track_scroll(handle.clone())
-                                }
-                                _ => list,
-                            }
-                        },
-                    );
+                    .child({
+                        let list = uniform_list("virtual-list", count, move |range, _, cx| {
+                            runtime
+                                .update(cx, |runtime, cx| {
+                                    runtime.virtual_range(list_id, range, height, gap, cx)
+                                })
+                                .unwrap_or_default()
+                        })
+                        .size_full();
+                        match &self.scroll {
+                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle.clone()),
+                            _ => list,
+                        }
+                    });
             }
             NodeKind::Text(value) => {
                 element = element.child(value.clone());
@@ -1735,8 +2535,7 @@ impl Render for NodeView {
                             cx.stop_propagation();
                             let _ = runtime
                                 .update(cx, |runtime, cx| runtime.input_if_live(node_id, next, cx));
-                        },
-                    );
+                        });
                 } else if !*enabled {
                     element = apply_disabled(element, style);
                 }
@@ -1812,6 +2611,8 @@ impl Render for NodeView {
             NodeKind::Button {
                 caption,
                 enabled,
+                hover_enter,
+                hover_exit,
                 style,
                 ..
             } => {
@@ -1827,6 +2628,27 @@ impl Render for NodeView {
                         .child(caption.clone()),
                     style,
                 );
+                // Keep GPUI edge state current while canonical input guards suppress
+                // disabled or modal-blocked callbacks. Removing this listener would
+                // retain a stale inside state across pointer movement behind a modal.
+                if *hover_enter || *hover_exit {
+                    let hover_runtime = self.runtime.clone();
+                    let hover_view = _cx.entity().downgrade();
+                    element = element.on_hover(move |entered, _, cx| {
+                        // One mouse move can leave one control and enter another.
+                        // The first callback may rebuild their shared parent before
+                        // GPUI invokes the second. Follow this exact surviving
+                        // native entity to its refreshed route; removed entities
+                        // retain only a stale ID and cannot reach a replacement.
+                        let Some(view) = hover_view.upgrade() else {
+                            return;
+                        };
+                        let node_id = view.read(cx).node.id;
+                        let _ = hover_runtime.update(cx, |runtime, cx| {
+                            runtime.hover_if_live(node_id, *entered, cx)
+                        });
+                    });
+                }
                 if *enabled && self.input_enabled {
                     if let Some(handle) = &self.focus_handle {
                         element = element.track_focus(handle).tab_index(0);
@@ -2001,9 +2823,14 @@ impl Render for NodeView {
             element = element.child(probe::marker(self.node.id));
         }
         if append_children {
-            element.children(self.children.iter().cloned().map(AnyView::from))
-        } else {
             element
+                .children(
+                    self.native_children()
+                        .map(|view| native_node_view(view, _cx)),
+                )
+                .into_any_element()
+        } else {
+            element.into_any_element()
         }
     }
 }
@@ -2026,6 +2853,11 @@ struct Runtime {
     /// getting a fresh one. Held only until the next patch.
     recyclable: HashMap<ElementIdentity, Entity<NodeView>>,
     virtual_views: HashMap<(u64, u64), VirtualCached>,
+    virtual_row_owners: HashMap<u64, u64>,
+    virtual_lists: HashMap<u64, VirtualListCache>,
+    virtual_entities: HashMap<u64, VirtualCached>,
+    preserved_virtual: std::collections::HashSet<u64>,
+    virtual_constructions: u64,
     focus_handles: HashMap<u64, FocusHandle>,
     /// The live scroll position of every mounted scrolling node, by id. The
     /// same tracker the node's view holds, so writing through it moves the
@@ -2040,19 +2872,30 @@ struct Runtime {
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
     active_dialog: Option<u64>,
-    dialog_return_focus: Option<(u8, String)>,
-    last_trigger_focus: Option<(u8, String)>,
-    focused_identity: Option<(u64, (u8, String))>,
+    dialog_return_focus: Option<ElementIdentity>,
+    last_trigger_focus: Option<ElementIdentity>,
+    focused_identity: Option<(u64, ElementIdentity)>,
     /// The focused control's position in the focus order when it was last
     /// rendered. It is the only thing that survives the control itself.
     focused_position: Option<usize>,
+    /// The graph's focus order, computed once per generation instead of once
+    /// per rendered frame; `focus_order` walks the whole graph.
+    focus_order_cache: Option<(u64, Vec<u64>)>,
     focus_after_render: Option<u64>,
-    editors: HashMap<String, Entity<input::TextInput>>,
-    canvas_drag: Option<(String, u64)>,
+    editors: HashMap<ElementIdentity, Entity<input::TextInput>>,
+    editor_nodes: HashMap<ElementIdentity, u64>,
+    canvas_drag: Option<(ElementIdentity, u64)>,
 }
 
+#[derive(Clone)]
 struct VirtualCached {
     view: Entity<NodeView>,
+    entities: u64,
+}
+
+#[derive(Default)]
+struct VirtualListCache {
+    rows: std::collections::HashSet<u64>,
     entities: u64,
 }
 
@@ -2060,8 +2903,16 @@ struct InitialMount {
     patch: Patch,
     cycle_started: Instant,
     roc_callback_ns: u64,
-    roc_work: [observatory::RocWork; 4],
+    roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
     roc_work_valid: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct KeyedNativeApply {
+    edits: u64,
+    item_entities_created: u64,
+    item_entities_retired: u64,
+    item_entities_moved: u64,
 }
 
 impl Runtime {
@@ -2073,6 +2924,11 @@ impl Runtime {
             identities: HashMap::new(),
             recyclable: HashMap::new(),
             virtual_views: HashMap::new(),
+            virtual_row_owners: HashMap::new(),
+            virtual_lists: HashMap::new(),
+            virtual_entities: HashMap::new(),
+            preserved_virtual: std::collections::HashSet::new(),
+            virtual_constructions: 0,
             focus_handles: HashMap::new(),
             scroll_trackers: HashMap::new(),
             canvas_surfaces: HashMap::new(),
@@ -2083,8 +2939,10 @@ impl Runtime {
             last_trigger_focus: None,
             focused_identity: None,
             focused_position: None,
+            focus_order_cache: None,
             focus_after_render: None,
             editors: HashMap::new(),
+            editor_nodes: HashMap::new(),
             canvas_drag: None,
         };
         if observatory::active() {
@@ -2103,11 +2961,13 @@ impl Runtime {
         let completions = task_runtime().completions.clone();
         cx.spawn(async move |runtime, cx| {
             while let Ok(completion) = completions.recv().await {
+                if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+                    continue;
+                }
                 task_runtime().completed.fetch_add(1, Ordering::Relaxed);
                 if runtime
                     .update(cx, |runtime, cx| {
-                        let patch = complete(completion as RocErasedCallable);
-                        runtime.apply_unrecorded(patch, cx);
+                        runtime.complete_live_task(completion, cx);
                     })
                     .is_err()
                 {
@@ -2120,7 +2980,8 @@ impl Runtime {
         // who presses Open waits for the panel, and every millisecond between
         // the press and the panel is time the application looks unresponsive
         // for no reason.
-        let (chooser_requests, chooser_pending) = async_channel::unbounded::<files::ChooserRequest>();
+        let (chooser_requests, chooser_pending) =
+            async_channel::unbounded::<files::ChooserRequest>();
         files::install_chooser(chooser_requests);
         cx.spawn(async move |_, cx| {
             while let Ok(request) = chooser_pending.recv().await {
@@ -2173,22 +3034,44 @@ impl Runtime {
         target: u64,
         cx: &mut Context<Self>,
     ) {
-        let resolved_target = match phase {
-            0 => {
-                self.canvas_drag = Some((label.to_owned(), target));
-                target
-            }
-            1 | 2 => match &self.canvas_drag {
-                Some((active, target)) if active == label => *target,
-                _ => return,
-            },
-            _ => return,
-        };
         let id = self.graph.nodes_preorder().into_iter().find_map(|node| {
             matches!(&node.kind, NodeKind::Canvas { label: current, .. } if current == label)
                 .then_some(node.id)
         });
-        let Some(id) = id else { return };
+        if let Some(id) = id {
+            self.canvas_pointer_for_node(id, phase, x, y, target, cx);
+        }
+    }
+
+    fn canvas_pointer_for_node(
+        &mut self,
+        id: u64,
+        phase: u8,
+        x: i32,
+        y: i32,
+        target: u64,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(
+            self.graph.node(id).map(|node| &node.kind),
+            Some(NodeKind::Canvas { .. })
+        ) {
+            return;
+        }
+        let Some(identity) = self.identities.get(&id).cloned() else {
+            return;
+        };
+        let resolved_target = match phase {
+            0 => {
+                self.canvas_drag = Some((identity.clone(), target));
+                target
+            }
+            1 | 2 => match &self.canvas_drag {
+                Some((active, target)) if *active == identity => *target,
+                _ => return,
+            },
+            _ => return,
+        };
         let event = CanvasEventPayload {
             phase,
             x,
@@ -2220,26 +3103,42 @@ impl Runtime {
             self.graph.node(id).map(|node| &node.kind),
             Some(NodeKind::Dialog { .. })
         ) {
-            self.last_trigger_focus = self
-                .graph
-                .node(id)
-                .and_then(|node| node.kind.focus_identity());
+            self.last_trigger_focus = self.identities.get(&id).cloned();
         }
         self.dispatch_live_event(id, "click", cx);
     }
 
+    fn hover_if_live(&mut self, id: u64, entered: bool, cx: &mut Context<Self>) {
+        if let Some(route) = self.graph.hover_transition(id, entered) {
+            self.dispatch_live_event(
+                route,
+                if entered { "hover-enter" } else { "hover-exit" },
+                cx,
+            );
+        }
+    }
+
     fn text_event_if_live(
         &mut self,
+        identity: &ElementIdentity,
         node_id: u64,
         event_id: u64,
         value: String,
         trigger: &'static str,
         cx: &mut Context<Self>,
     ) {
+        let acknowledgement = self
+            .editors
+            .get(identity)
+            .cloned()
+            .map(|editor| (editor, value.clone()));
         if self
             .active_dialog
             .is_some_and(|dialog| !self.graph.is_descendant_of(node_id, dialog))
         {
+            if let Some((editor, submitted)) = acknowledgement {
+                editor.update(cx, |editor, cx| editor.acknowledge(&submitted, cx));
+            }
             return;
         }
         let valid = self
@@ -2252,7 +3151,13 @@ impl Runtime {
                 _ => false,
             });
         if !valid {
+            if let Some((editor, submitted)) = acknowledgement {
+                editor.update(cx, |editor, cx| editor.acknowledge(&submitted, cx));
+            }
             return;
+        }
+        if let Some((editor, submitted)) = &acknowledgement {
+            editor.update(cx, |editor, _| editor.begin_acknowledgement(submitted));
         }
         if observatory::active() {
             let cycle_started = Instant::now();
@@ -2272,6 +3177,33 @@ impl Runtime {
             );
         } else {
             let patch = dispatch_input(event_id, value);
+            self.apply_unrecorded(patch, cx);
+        }
+        if let Some((editor, submitted)) = acknowledgement {
+            editor.update(cx, |editor, cx| editor.acknowledge(&submitted, cx));
+        }
+    }
+
+    /// Measure only delivery after the worker result has arrived, never queue or wait time.
+    fn complete_live_task(&mut self, completion: TaskEnvelope, cx: &mut Context<Self>) {
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = complete(completion);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "task",
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = complete(completion);
             self.apply_unrecorded(patch, cx);
         }
     }
@@ -2353,11 +3285,12 @@ impl Runtime {
     /// The counterpart to [`Self::apply_recorded`], for patches that are not
     /// themselves a measurable interaction.
     fn apply_unrecorded(&mut self, patch: Patch, cx: &mut Context<Self>) {
-        let applied = self
-            .graph
-            .apply(patch)
-            .unwrap_or_else(|message| panic!("invalid native graph patch: {message}"));
-        self.apply_to_gpui(&applied, cx);
+        let applied = self.graph.apply(patch).unwrap_or_else(|message| {
+            reject_transaction();
+            panic!("invalid native graph patch: {message}")
+        });
+        accept_transaction(&self.graph, &applied);
+        let _ = self.apply_to_gpui(&applied, cx);
     }
 
     // Carries per-cycle measurement facts straight into the observatory record.
@@ -2368,17 +3301,18 @@ impl Runtime {
         trigger: &'static str,
         cycle_started: Instant,
         roc_callback_ns: u64,
-        roc_work: [observatory::RocWork; 4],
+        roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
         roc_work_valid: bool,
         cx: &mut Context<Self>,
     ) {
-        let applied = self
-            .graph
-            .apply_measured(patch)
-            .unwrap_or_else(|message| panic!("invalid native graph patch: {message}"));
+        let applied = self.graph.apply_measured(patch).unwrap_or_else(|message| {
+            reject_transaction();
+            panic!("invalid native graph patch: {message}")
+        });
+        accept_transaction(&self.graph, &applied);
         let graph_apply_ns = applied.facts.apply_ns;
         let gpui_started = Instant::now();
-        self.apply_to_gpui(&applied, cx);
+        let keyed_native = self.apply_to_gpui(&applied, cx);
         let gpui_apply_ns = elapsed_ns(gpui_started);
         observatory::cycle(observatory::Cycle {
             run_id: 1,
@@ -2399,6 +3333,16 @@ impl Runtime {
             parent_nodes_scanned: applied.facts.scanned,
             roc_work,
             roc_work_valid,
+            component_work: observatory::component_cycle_work(),
+            retained_nodes: applied.facts.retained_nodes,
+            validation_visits: applied.facts.validation_visits,
+            keyed_graph_visits: applied.facts.keyed_graph_visits,
+            keyed_original_reads: applied.facts.keyed_original_reads,
+            keyed_first_touches: applied.facts.keyed_first_touches,
+            keyed_native_edits: keyed_native.edits,
+            keyed_item_entities_created: keyed_native.item_entities_created,
+            keyed_item_entities_retired: keyed_native.item_entities_retired,
+            keyed_item_entities_moved: keyed_native.item_entities_moved,
         });
         self.cycle_ordinal += 1;
     }
@@ -2408,7 +3352,55 @@ impl Runtime {
         probe::frame(self.generation)
     }
 
-    fn apply_to_gpui(&mut self, applied: &bridge::GraphApply, cx: &mut Context<Self>) {
+    fn apply_to_gpui(
+        &mut self,
+        applied: &bridge::GraphApply,
+        cx: &mut Context<Self>,
+    ) -> KeyedNativeApply {
+        if applied.facts.kind == "no_change" {
+            return KeyedNativeApply::default();
+        }
+        if applied.facts.kind == "keyed" {
+            return self.apply_keyed_to_gpui(applied, cx);
+        }
+        let retired_identities = applied
+            .removed_ids
+            .iter()
+            .filter_map(|id| {
+                self.identities
+                    .get(id)
+                    .cloned()
+                    .map(|identity| (*id, identity))
+            })
+            .collect::<Vec<_>>();
+        let virtual_parent = applied
+            .parent
+            .filter(|(parent, _)| self.virtual_entities.contains_key(parent));
+        let old_virtual_root = virtual_parent.map(|(parent, position)| {
+            self.virtual_entities[&parent].view.read(cx).children[position].clone()
+        });
+        let old_virtual_entities = old_virtual_root.as_ref().map_or(0, |root| {
+            self.virtual_entities[&root.read(cx).node.id].entities
+        });
+        // Count only this list's materialized tree. Nested list rows have
+        // separate cache ownership, and retained frontiers contribute no
+        // retirements even though their ancestors are replaced.
+        let mut removed_virtual = 0;
+        let mut retired_views = old_virtual_root.into_iter().collect::<Vec<_>>();
+        while let Some(view) = retired_views.pop() {
+            let view = view.read(cx);
+            if self.graph.node(view.node.id).is_none() {
+                removed_virtual += 1;
+                retired_views.extend(view.children.iter().cloned());
+            }
+        }
+        self.preserved_virtual.extend(
+            applied
+                .retained_roots
+                .iter()
+                .copied()
+                .filter(|id| self.virtual_entities.contains_key(id)),
+        );
         // Offer every view whose node this patch retired back to the staged
         // nodes, indexed by identity. A whole-root rebuild stages a complete
         // new set of node ids for what is, to the person using the
@@ -2421,7 +3413,11 @@ impl Runtime {
             doomed.extend(self.views.keys().copied());
         }
         for id in doomed {
-            if let Some(view) = self.views.get(&id) {
+            if let Some(view) = self
+                .views
+                .get(&id)
+                .or_else(|| self.virtual_entities.get(&id).map(|cached| &cached.view))
+            {
                 let identity = view.read(cx).identity.clone();
                 self.recyclable.insert(identity, view.clone());
             }
@@ -2429,33 +3425,106 @@ impl Runtime {
         // Every applied patch leaves the window a frame behind, which is what
         // makes a painted read of the new tree refuse until it catches up.
         self.generation += 1;
-        if !applied.staged_ids.is_empty() || !applied.removed_ids.is_empty() || applied.retired_root
         {
-            let mut recycled = HashMap::<u64, u64>::new();
-            for ((list, _), cached) in &self.virtual_views {
-                *recycled.entry(*list).or_default() += cached.entities;
+            let mut affected = std::collections::HashSet::new();
+            for id in &applied.removed_ids {
+                if self.virtual_row_owners.contains_key(id) {
+                    affected.insert(*id);
+                }
+                if let Some(list) = self.virtual_lists.get(id) {
+                    affected.extend(list.rows.iter().copied());
+                }
             }
-            for (list, entities) in recycled {
-                observatory::virtual_list_frame(list, 0, 0, entities, 0);
+            for item in affected {
+                let old_list = self.virtual_row_owners[&item];
+                let cached = self
+                    .uncache_virtual_row(old_list, item)
+                    .expect("affected virtual row");
+                let owner = self
+                    .graph
+                    .parent(item)
+                    .map(|(parent, _)| parent)
+                    .filter(|parent| {
+                        matches!(
+                            self.graph.node(*parent).map(|node| &node.kind),
+                            Some(NodeKind::VirtualList { .. })
+                        )
+                    });
+                if let Some(owner) = owner {
+                    // A retained visible item can move to a newly staged list
+                    // without rebuilding any of its native descendants.
+                    self.cache_virtual_row(owner, item, cached);
+                } else {
+                    observatory::virtual_list_frame(old_list, 0, 0, cached.entities, 0);
+                    self.offer_subtree(cached.view, cx);
+                }
             }
-            // A virtual row's views live only in this cache, so offer them back
-            // by identity too before it is dropped: a control inside a list is
-            // exposed to exactly the same lost press as one outside it.
-            let rows = self
-                .virtual_views
-                .values()
-                .map(|cached| cached.view.clone())
-                .collect::<Vec<_>>();
-            for row in rows {
-                self.offer_subtree(row, cx);
-            }
-            self.virtual_views.clear();
         }
         if applied.retired_root {
             self.views.clear();
         }
         refresh_identities(&self.graph, applied, &mut self.identities);
         self.materialize(&applied.staged_ids, cx);
+        for retained in &applied.retained_roots {
+            self.refresh_retained_baseline_layout(*retained, cx);
+        }
+        if let (Some(root), Some((parent, _))) = (applied.root, virtual_parent) {
+            let constructions_before = self.virtual_constructions;
+            let (_, new_virtual_entities) = self.build_virtual_node(root, cx);
+            let mut ancestor = Some(parent);
+            let mut changed_list = None;
+            while let Some(id) = ancestor {
+                // A list view does not materialize its rows as ordinary
+                // children. A nested list's local work stops at that edge.
+                if matches!(
+                    self.graph.node(id).map(|node| &node.kind),
+                    Some(NodeKind::VirtualList { .. })
+                ) {
+                    changed_list = Some(id);
+                    break;
+                }
+                if let Some(cached) = self.virtual_entities.get_mut(&id) {
+                    cached.entities = cached
+                        .entities
+                        .checked_sub(old_virtual_entities)
+                        .expect("virtual ancestor count underflow")
+                        + new_virtual_entities;
+                }
+                if let Some(list) = self.virtual_row_owners.get(&id).copied() {
+                    let cached = self
+                        .virtual_views
+                        .get_mut(&(list, id))
+                        .expect("indexed virtual row");
+                    cached.entities = cached
+                        .entities
+                        .checked_sub(old_virtual_entities)
+                        .expect("virtual row count underflow")
+                        + new_virtual_entities;
+                    let summary = self
+                        .virtual_lists
+                        .get_mut(&list)
+                        .expect("indexed virtual list");
+                    summary.entities = summary
+                        .entities
+                        .checked_sub(old_virtual_entities)
+                        .expect("virtual list count underflow")
+                        + new_virtual_entities;
+                }
+                ancestor = self.graph.parent(id).map(|(parent, _)| parent);
+            }
+            if let Some(list) = changed_list {
+                let (items, entities) = self.virtual_lists.get(&list).map_or((0, 0), |summary| {
+                    (summary.rows.len() as u64, summary.entities)
+                });
+                observatory::virtual_list_frame(
+                    list,
+                    items,
+                    self.virtual_constructions - constructions_before,
+                    removed_virtual,
+                    entities,
+                );
+            }
+        }
         let next_dialog = self.graph.active_dialog();
         match (self.active_dialog.is_some(), next_dialog) {
             (false, Some(dialog)) => {
@@ -2466,7 +3535,7 @@ impl Runtime {
                 self.focus_after_render = self
                     .dialog_return_focus
                     .take()
-                    .and_then(|identity| self.graph.find_focus_identity(&identity));
+                    .and_then(|identity| self.find_native_identity(&identity));
             }
             _ => {
                 if let Some((id, identity)) = self.focused_identity.clone() {
@@ -2475,10 +3544,8 @@ impl Runtime {
                         // control that is gone hands focus to whatever now
                         // holds its place, rather than dropping it and
                         // leaving a person's next Tab starting from nowhere.
-                        self.focus_after_render = self
-                            .graph
-                            .find_focus_identity(&identity)
-                            .or_else(|| {
+                        self.focus_after_render =
+                            self.find_native_identity(&identity).or_else(|| {
                                 self.focused_position
                                     .and_then(|was_at| self.graph.focus_destination(was_at))
                             });
@@ -2486,22 +3553,45 @@ impl Runtime {
                 }
             }
         }
-        self.active_dialog = next_dialog;
-        for (id, view) in &self.views {
-            let enabled = next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
-            view.update(cx, |view, _| view.input_enabled = enabled);
+        if self.active_dialog != next_dialog {
+            for (id, view) in self.views.iter().chain(
+                self.virtual_entities
+                    .iter()
+                    .map(|(id, cached)| (id, &cached.view)),
+            ) {
+                let enabled =
+                    next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
+                view.update(cx, |view, cx| {
+                    view.input_enabled = enabled;
+                    if let Some(editor) = &view.input {
+                        let accepts_input =
+                            matches!(view.node.kind, NodeKind::TextInput { enabled: true, .. });
+                        editor.update(cx, |editor, cx| {
+                            editor.set_enabled(enabled && accepts_input, cx)
+                        });
+                    }
+                    cx.notify();
+                });
+            }
         }
+        self.active_dialog = next_dialog;
         if let Some(root_id) = applied.root {
             if let (Some((_parent_id, position)), Some(new_root), Some(parent_view)) = (
                 applied.parent,
-                self.views.get(&root_id).cloned(),
+                self.native_view(root_id),
                 applied
                     .parent
-                    .and_then(|(parent, _)| self.views.get(&parent).cloned()),
+                    .and_then(|(parent, _)| self.native_view(parent)),
             ) {
                 parent_view.update(cx, |view, cx| {
                     view.node.children[position] = root_id;
                     view.children[position] = new_root.clone();
+                    if view.is_root && matches!(view.node.kind, NodeKind::Boundary { .. }) {
+                        new_root.update(cx, |child, cx| {
+                            child.is_root = true;
+                            cx.notify();
+                        });
+                    }
                     cx.notify();
                 });
             } else if applied.parent.is_some() {
@@ -2513,30 +3603,251 @@ impl Runtime {
                 }
             } else {
                 let new_root = self.views[&root_id].clone();
-                new_root.update(cx, |view, cx| {
-                    view.is_root = true;
-                    cx.notify();
-                });
+                let mut layout_root = new_root.clone();
+                loop {
+                    let next = layout_root.update(cx, |view, cx| {
+                        view.is_root = true;
+                        cx.notify();
+                        matches!(view.node.kind, NodeKind::Boundary { .. })
+                            .then(|| view.children[0].clone())
+                    });
+                    match next {
+                        Some(child) => layout_root = child,
+                        None => break,
+                    }
+                }
                 self.root = Some(new_root);
                 cx.notify();
             }
         }
         for id in &applied.removed_ids {
             self.views.remove(id);
+            self.virtual_entities.remove(id);
+            self.preserved_virtual.remove(id);
             self.focus_handles.remove(id);
             self.scroll_trackers.remove(id);
             self.canvas_surfaces.remove(id);
         }
-        let live_labels: std::collections::HashSet<String> = self
-            .graph
-            .nodes_preorder()
-            .into_iter()
-            .filter_map(|node| match &node.kind {
-                NodeKind::TextInput { label, .. } => Some(label.clone()),
-                _ => None,
+        for (retired, identity) in retired_identities {
+            if self.editor_nodes.get(&identity) == Some(&retired) {
+                self.editor_nodes.remove(&identity);
+                self.editors.remove(&identity);
+            }
+        }
+        if self
+            .canvas_drag
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_drag = None;
+        }
+        KeyedNativeApply::default()
+    }
+
+    fn apply_keyed_to_gpui(
+        &mut self,
+        applied: &bridge::GraphApply,
+        cx: &mut Context<Self>,
+    ) -> KeyedNativeApply {
+        let mut work = KeyedNativeApply {
+            edits: applied.keyed_edits.len() as u64,
+            ..Default::default()
+        };
+        let container = applied.root.expect("keyed patch container");
+        let retired_identities = applied
+            .removed_ids
+            .iter()
+            .filter_map(|id| {
+                self.identities
+                    .get(id)
+                    .cloned()
+                    .map(|identity| (*id, identity))
             })
-            .collect();
-        self.editors.retain(|label, _| live_labels.contains(label));
+            .collect::<Vec<_>>();
+        self.recyclable.clear();
+        for id in &applied.removed_ids {
+            if let Some(view) = self.views.get(id) {
+                self.recyclable
+                    .insert(view.read(cx).identity.clone(), view.clone());
+            }
+            self.identities.remove(id);
+        }
+        for id in &applied.staged_ids {
+            self.identities.insert(*id, self.graph.identity(*id));
+        }
+        self.generation += 1;
+        self.materialize(&applied.staged_ids, cx);
+
+        let container_view = self.views[&container].clone();
+        container_view.update(cx, |view, cx| {
+            let order = view
+                .keyed_children
+                .get_or_insert_with(KeyedViewOrder::default);
+            for edit in &applied.keyed_edits {
+                match *edit {
+                    bridge::KeyedNativeEdit::Insert { key, before, root } => {
+                        order.insert(key, before, self.views[&root].clone());
+                        work.item_entities_created += 1;
+                    }
+                    bridge::KeyedNativeEdit::Remove { key, root } => {
+                        debug_assert_eq!(order.children[&key].view.read(cx).node.id, root);
+                        order.remove(key);
+                        work.item_entities_retired += 1;
+                    }
+                    bridge::KeyedNativeEdit::Move { key, before } => {
+                        work.item_entities_moved += u64::from(order.move_before(key, before));
+                    }
+                    bridge::KeyedNativeEdit::Set {
+                        key,
+                        old_root: _,
+                        root,
+                    } => {
+                        order.children.get_mut(&key).expect("keyed Set child").view =
+                            self.views[&root].clone();
+                        work.item_entities_retired += 1;
+                        work.item_entities_created += 1;
+                    }
+                }
+            }
+            cx.notify();
+        });
+
+        let next_dialog = self.graph.active_dialog();
+        match (self.active_dialog.is_some(), next_dialog) {
+            (false, Some(dialog)) => {
+                self.dialog_return_focus = self.last_trigger_focus.take();
+                self.focus_after_render = self.graph.first_focusable_in(dialog);
+            }
+            (true, None) => {
+                self.focus_after_render = self
+                    .dialog_return_focus
+                    .take()
+                    .and_then(|identity| self.find_native_identity(&identity));
+            }
+            _ => {
+                if let Some((id, identity)) = self.focused_identity.clone()
+                    && self.graph.node(id).is_none()
+                {
+                    self.focus_after_render = self.find_native_identity(&identity).or_else(|| {
+                        self.focused_position
+                            .and_then(|was_at| self.graph.focus_destination(was_at))
+                    });
+                }
+            }
+        }
+        if self.active_dialog != next_dialog {
+            for (id, view) in self.views.iter().chain(
+                self.virtual_entities
+                    .iter()
+                    .map(|(id, cached)| (id, &cached.view)),
+            ) {
+                let enabled =
+                    next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
+                view.update(cx, |view, cx| {
+                    view.input_enabled = enabled;
+                    if let Some(editor) = &view.input {
+                        let accepts_input =
+                            matches!(view.node.kind, NodeKind::TextInput { enabled: true, .. });
+                        editor.update(cx, |editor, cx| {
+                            editor.set_enabled(enabled && accepts_input, cx)
+                        });
+                    }
+                });
+            }
+        }
+        self.active_dialog = next_dialog;
+
+        for id in &applied.removed_ids {
+            self.views.remove(id);
+            self.virtual_entities.remove(id);
+            self.preserved_virtual.remove(id);
+            self.focus_handles.remove(id);
+            self.scroll_trackers.remove(id);
+            self.canvas_surfaces.remove(id);
+        }
+        for (retired, identity) in retired_identities {
+            if self.editor_nodes.get(&identity) == Some(&retired) {
+                self.editor_nodes.remove(&identity);
+                self.editors.remove(&identity);
+            }
+        }
+        if self
+            .canvas_drag
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_drag = None;
+        }
+        work
+    }
+
+    /// The graph's focus order for the current generation, computed at most
+    /// once per applied patch rather than on every rendered frame.
+    fn focus_order_cached(&mut self) -> &[u64] {
+        if self
+            .focus_order_cache
+            .as_ref()
+            .is_none_or(|(generation, _)| *generation != self.generation)
+        {
+            self.focus_order_cache = Some((self.generation, self.graph.focus_order()));
+        }
+        &self
+            .focus_order_cache
+            .as_ref()
+            .expect("focus order cache was just populated")
+            .1
+    }
+
+    fn find_native_identity(&self, identity: &ElementIdentity) -> Option<u64> {
+        self.identities.iter().find_map(|(id, candidate)| {
+            (candidate == identity && self.graph.node(*id).is_some()).then_some(*id)
+        })
+    }
+
+    fn native_view(&self, id: u64) -> Option<Entity<NodeView>> {
+        self.views.get(&id).cloned().or_else(|| {
+            self.virtual_entities
+                .get(&id)
+                .map(|cached| cached.view.clone())
+        })
+    }
+
+    fn requires_baseline_layout(&self, id: u64) -> bool {
+        let mut current = Some(id);
+        while let Some(id) = current {
+            let node = self.graph.node(id).expect("mounted layout ancestor");
+            if matches!(&node.kind,
+                NodeKind::Row { style, .. } | NodeKind::Column { style, .. } | NodeKind::KeyedColumn { style, .. }
+                | NodeKind::Panel { style, .. } | NodeKind::Dialog { style, .. }
+                | NodeKind::Scroll { style, .. } | NodeKind::VirtualList { style, .. }
+                if style.align == Align::Baseline)
+            {
+                return true;
+            }
+            current = self
+                .graph
+                .parent_location(id)
+                .map(bridge::ParentLocation::parent);
+        }
+        false
+    }
+
+    fn refresh_retained_baseline_layout(&self, id: u64, cx: &mut Context<Self>) {
+        let mut pending = vec![id];
+        while let Some(id) = pending.pop() {
+            let Some(view) = self.native_view(id) else {
+                continue;
+            };
+            let baseline_layout = self.requires_baseline_layout(id);
+            if view.read(cx).baseline_layout == baseline_layout {
+                continue;
+            }
+            view.update(cx, |view, cx| {
+                view.baseline_layout = baseline_layout;
+                cx.notify();
+            });
+            pending.extend(self.graph.children_of(id).rev());
+        }
     }
 
     /// Give a staged node its GPUI entity.
@@ -2554,6 +3865,7 @@ impl Runtime {
         input_enabled: bool,
         cx: &mut Context<Self>,
     ) -> Entity<NodeView> {
+        let baseline_layout = self.requires_baseline_layout(node.id);
         let identity = self.identities.get(&node.id).cloned().unwrap_or_default();
         // An empty identity is not an identity: it would make every unplaced
         // node the same control as every other.
@@ -2587,7 +3899,9 @@ impl Runtime {
                 view.update(cx, |existing, cx| {
                     existing.node = node;
                     existing.children = vec![];
+                    existing.keyed_children = None;
                     existing.is_root = false;
+                    existing.baseline_layout = baseline_layout;
                     existing.input_enabled = input_enabled;
                     existing.focus_handle = focus_handle;
                     existing.input = editor;
@@ -2602,8 +3916,10 @@ impl Runtime {
                     node,
                     identity,
                     children: vec![],
+                    keyed_children: None,
                     runtime,
                     is_root: false,
+                    baseline_layout,
                     input_enabled,
                     focus_handle,
                     input: editor,
@@ -2616,22 +3932,37 @@ impl Runtime {
 
     /// Index a retired view and everything under it by identity.
     fn offer_subtree(&mut self, view: Entity<NodeView>, cx: &mut Context<Self>) {
-        let (identity, children) = {
+        let mut pending = vec![view];
+        while let Some(view) = pending.pop() {
             let node = view.read(cx);
-            (node.identity.clone(), node.children.clone())
-        };
-        self.recyclable.insert(identity, view);
-        for child in children {
-            self.offer_subtree(child, cx);
+            if self.preserved_virtual.contains(&node.node.id) {
+                continue;
+            }
+            let identity = node.identity.clone();
+            pending.extend(node.children.iter().rev().cloned());
+            self.recyclable.insert(identity, view);
         }
     }
 
     fn materialize(&mut self, node_ids: &[u64], cx: &mut Context<Self>) {
-        let virtualized = self.graph.virtual_descendant_ids();
+        for id in node_ids {
+            if matches!(
+                self.graph.node(*id).map(|node| &node.kind),
+                Some(NodeKind::TextInput { .. })
+            ) {
+                if let Some(identity) = self
+                    .identities
+                    .get(id)
+                    .filter(|identity| self.editors.contains_key(*identity))
+                {
+                    self.editor_nodes.insert(identity.clone(), *id);
+                }
+            }
+        }
         let eager = node_ids
             .iter()
             .copied()
-            .filter(|id| !virtualized.contains(id))
+            .filter(|id| !self.graph.is_virtual_descendant(*id))
             .collect::<Vec<_>>();
         for id in &eager {
             let node = self
@@ -2662,18 +3993,28 @@ impl Runtime {
         }
         for id in &eager {
             let node = self.graph.node(*id).expect("applied node is missing");
-            let children = node
-                .children
-                .iter()
-                .filter(|id| !virtualized.contains(id))
+            let children = self
+                .graph
+                .children_of(node.id)
+                .filter(|id| !self.graph.is_virtual_descendant(*id))
                 .map(|id| {
                     self.views
-                        .get(id)
+                        .get(&id)
                         .expect("validated child is missing")
                         .clone()
                 })
                 .collect();
-            self.views[&node.id].update(cx, |view, _| view.children = children);
+            let keyed = self.graph.keyed_children(node.id);
+            self.views[&node.id].update(cx, |view, _| {
+                view.children = children;
+                if let Some(entries) = keyed {
+                    let mut order = KeyedViewOrder::default();
+                    for (key, root) in entries {
+                        order.insert(key, None, self.views[&root].clone());
+                    }
+                    view.keyed_children = Some(order);
+                }
+            });
         }
     }
 
@@ -2684,25 +4025,40 @@ impl Runtime {
         cx: &mut Context<Self>,
     ) -> Option<Entity<input::TextInput>> {
         if let NodeKind::TextInput {
-            label,
+            label: _,
             value,
             placeholder,
             enabled,
             ..
         } = &node.kind
         {
+            let identity = self
+                .identities
+                .get(&node.id)
+                .cloned()
+                .expect("input identity is missing");
+            let change_identity = identity.clone();
+            let submit_identity = identity.clone();
             let runtime = cx.entity().downgrade();
             let change_runtime = runtime.clone();
             let submit_runtime = runtime.clone();
             let node_id = node.id;
             let change: input::TextCallback = std::rc::Rc::new(move |text, cx| {
                 let _ = change_runtime.update(cx, |runtime, cx| {
-                    runtime.text_event_if_live(node_id, node_id, text, "text_change", cx)
+                    runtime.text_event_if_live(
+                        &change_identity,
+                        node_id,
+                        node_id,
+                        text,
+                        "text_change",
+                        cx,
+                    )
                 });
             });
             let submit: input::TextCallback = std::rc::Rc::new(move |text, cx| {
                 let _ = submit_runtime.update(cx, |runtime, cx| {
                     runtime.text_event_if_live(
+                        &submit_identity,
                         node_id,
                         node_id | SUBMIT_EVENT_BIT,
                         text,
@@ -2711,7 +4067,8 @@ impl Runtime {
                     )
                 });
             });
-            if let Some(editor) = self.editors.get(label).cloned() {
+            self.editor_nodes.insert(identity.clone(), node.id);
+            if let Some(editor) = self.editors.get(&identity).cloned() {
                 editor.update(cx, |editor, cx| {
                     editor.configure(
                         value,
@@ -2734,7 +4091,7 @@ impl Runtime {
                         cx,
                     )
                 });
-                self.editors.insert(label.clone(), editor.clone());
+                self.editors.insert(identity, editor.clone());
                 Some(editor)
             }
         } else {
@@ -2743,38 +4100,124 @@ impl Runtime {
     }
 
     fn build_virtual_node(&mut self, id: u64, cx: &mut Context<Self>) -> (Entity<NodeView>, u64) {
-        let node = self
-            .graph
-            .node(id)
-            .expect("virtual node is missing")
-            .clone();
-        let (children, descendants) = if matches!(node.kind, NodeKind::VirtualList { .. }) {
-            (vec![], 0)
-        } else {
-            let built = node
-                .children
-                .iter()
-                .map(|child| self.build_virtual_node(*child, cx))
-                .collect::<Vec<_>>();
-            let count = built.iter().map(|(_, count)| *count).sum();
-            (built.into_iter().map(|(view, _)| view).collect(), count)
-        };
-        let input_enabled = self
-            .active_dialog
-            .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
-        let view = self.claim_view(node, input_enabled, cx);
-        view.update(cx, |view, _| view.children = children);
-        if let Some(handle) = view.read(cx).focus_handle.clone() {
-            self.focus_handles.insert(id, handle);
+        enum Work {
+            Enter(u64),
+            Finish(u64),
         }
-        if let Some(tracker) = view.read(cx).scroll.clone() {
-            self.scroll_trackers.insert(id, tracker);
+        let mut pending = vec![Work::Enter(id)];
+        while let Some(work) = pending.pop() {
+            match work {
+                Work::Enter(id) => {
+                    if self.preserved_virtual.remove(&id) && self.virtual_entities.contains_key(&id)
+                    {
+                        continue;
+                    }
+                    let node = self.graph.node(id).expect("virtual node is missing");
+                    let children = if matches!(node.kind, NodeKind::VirtualList { .. }) {
+                        vec![]
+                    } else {
+                        self.graph.children_of(id).collect()
+                    };
+                    pending.push(Work::Finish(id));
+                    pending.extend(children.into_iter().rev().map(Work::Enter));
+                }
+                Work::Finish(id) => {
+                    let node = self
+                        .graph
+                        .node(id)
+                        .expect("virtual node is missing")
+                        .clone();
+                    let mut children = Vec::new();
+                    let mut descendants = 0;
+                    if !matches!(node.kind, NodeKind::VirtualList { .. }) {
+                        for child in self.graph.children_of(id) {
+                            let cached = self
+                                .virtual_entities
+                                .get(&child)
+                                .expect("built virtual child");
+                            children.push(cached.view.clone());
+                            descendants += cached.entities;
+                        }
+                    }
+                    let input_enabled = self
+                        .active_dialog
+                        .is_none_or(|dialog| self.graph.is_descendant_of(id, dialog));
+                    let view = self.claim_view(node, input_enabled, cx);
+                    view.update(cx, |view, _| view.children = children);
+                    if let Some(handle) = view.read(cx).focus_handle.clone() {
+                        self.focus_handles.insert(id, handle);
+                    }
+                    if let Some(tracker) = view.read(cx).scroll.clone() {
+                        self.scroll_trackers.insert(id, tracker);
+                    }
+                    if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
+                        self.canvas_surfaces
+                            .insert(id, view.read(cx).canvas_bounds.clone());
+                    }
+                    self.virtual_constructions += 1;
+                    self.virtual_entities.insert(
+                        id,
+                        VirtualCached {
+                            view,
+                            entities: descendants + 1,
+                        },
+                    );
+                }
+            }
         }
-        if matches!(view.read(cx).node.kind, NodeKind::Canvas { .. }) {
-            self.canvas_surfaces
-                .insert(id, view.read(cx).canvas_bounds.clone());
+        let cached = self.virtual_entities.get(&id).expect("built virtual root");
+        (cached.view.clone(), cached.entities)
+    }
+
+    fn forget_virtual_subtree(&mut self, root: Entity<NodeView>, cx: &App) {
+        let mut pending = vec![root];
+        while let Some(view) = pending.pop() {
+            let view = view.read(cx);
+            pending.extend(view.children.iter().cloned());
+            if let Some(list) = self.virtual_lists.get(&view.node.id) {
+                let rows = list.rows.iter().copied().collect::<Vec<_>>();
+                for row in rows {
+                    if let Some(cached) = self.uncache_virtual_row(view.node.id, row) {
+                        pending.push(cached.view);
+                    }
+                }
+            }
+            self.virtual_entities.remove(&view.node.id);
+            self.preserved_virtual.remove(&view.node.id);
+            self.focus_handles.remove(&view.node.id);
+            self.scroll_trackers.remove(&view.node.id);
+            self.canvas_surfaces.remove(&view.node.id);
         }
-        (view, descendants + 1)
+    }
+
+    fn cache_virtual_row(&mut self, list: u64, item: u64, cached: VirtualCached) {
+        assert!(
+            !self.virtual_row_owners.contains_key(&item),
+            "virtual row already cached"
+        );
+        self.virtual_row_owners.insert(item, list);
+        let summary = self.virtual_lists.entry(list).or_default();
+        summary.rows.insert(item);
+        summary.entities += cached.entities;
+        self.virtual_views.insert((list, item), cached);
+    }
+
+    fn uncache_virtual_row(&mut self, list: u64, item: u64) -> Option<VirtualCached> {
+        let cached = self.virtual_views.remove(&(list, item))?;
+        self.virtual_row_owners.remove(&item);
+        let summary = self
+            .virtual_lists
+            .get_mut(&list)
+            .expect("cached virtual list");
+        summary.rows.remove(&item);
+        summary.entities = summary
+            .entities
+            .checked_sub(cached.entities)
+            .expect("cached virtual list count underflow");
+        if summary.rows.is_empty() {
+            self.virtual_lists.remove(&list);
+        }
+        Some(cached)
     }
 
     fn virtual_range(
@@ -2785,46 +4228,65 @@ impl Runtime {
         row_gap: u32,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
-        let item_ids = self
-            .graph
-            .node(list_id)
-            .expect("virtual list is missing")
-            .children
-            .clone();
+        let list = self.graph.node(list_id).expect("virtual list is missing");
         let wanted = range
-            .filter_map(|index| item_ids.get(index).copied())
+            .filter_map(|index| list.children.get(index).copied())
             .collect::<Vec<_>>();
         let wanted_set = wanted
             .iter()
             .copied()
             .collect::<std::collections::HashSet<_>>();
-        let recycled = self
-            .virtual_views
+        let evicted = self
+            .virtual_lists
+            .get(&list_id)
+            .into_iter()
+            .flat_map(|summary| summary.rows.iter().copied())
+            .filter(|item| !wanted_set.contains(item))
+            .collect::<Vec<_>>();
+        let mut recycled = 0;
+        for item in evicted {
+            let cached = self
+                .uncache_virtual_row(list_id, item)
+                .expect("virtual cache disappeared");
+            recycled += cached.entities;
+            self.forget_virtual_subtree(cached.view, cx);
+        }
+        let abandoned = self
+            .preserved_virtual
             .iter()
-            .filter(|((owner, item), _)| *owner == list_id && !wanted_set.contains(item))
-            .map(|(_, cached)| cached.entities)
-            .sum();
-        self.virtual_views
-            .retain(|(owner, item), _| *owner != list_id || wanted_set.contains(item));
-        let mut materialized = 0;
+            .copied()
+            .filter(|id| {
+                let mut child = *id;
+                while let Some((parent, _)) = self.graph.parent(child) {
+                    if parent == list_id {
+                        return !wanted_set.contains(&child);
+                    }
+                    child = parent;
+                }
+                false
+            })
+            .collect::<Vec<_>>();
+        for id in abandoned {
+            if let Some(cached) = self.virtual_entities.get(&id).cloned() {
+                recycled += cached.entities;
+                self.forget_virtual_subtree(cached.view, cx);
+            }
+        }
+        let construction_start = self.virtual_constructions;
         for item in &wanted {
             if !self.virtual_views.contains_key(&(list_id, *item)) {
                 let (view, entities) = self.build_virtual_node(*item, cx);
-                materialized += entities;
-                self.virtual_views
-                    .insert((list_id, *item), VirtualCached { view, entities });
+                self.cache_virtual_row(list_id, *item, VirtualCached { view, entities });
             }
         }
         let live_entities = self
-            .virtual_views
-            .iter()
-            .filter(|((owner, _), _)| *owner == list_id)
-            .map(|(_, cached)| cached.entities)
-            .sum();
+            .virtual_lists
+            .get(&list_id)
+            .map_or(0, |summary| summary.entities);
         observatory::virtual_list_frame(
             list_id,
             wanted.len() as u64,
-            materialized,
+            self.virtual_constructions - construction_start,
             recycled,
             live_entities,
         );
@@ -2864,14 +4326,58 @@ fn refresh_identities(
     for id in &applied.removed_ids {
         identities.remove(id);
     }
+    let retained = applied
+        .retained_roots
+        .iter()
+        .copied()
+        .collect::<std::collections::HashSet<_>>();
+    let refresh = |root: u64,
+                   own: bridge::IdentitySegment,
+                   parent: &[bridge::IdentitySegment],
+                   identities: &mut HashMap<u64, ElementIdentity>| {
+        let mut pending = vec![(root, own, parent.to_vec())];
+        while let Some((id, own, parent)) = pending.pop() {
+            if retained.contains(&id) && identities.contains_key(&id) {
+                continue;
+            }
+            let mut identity = if matches!(own, bridge::IdentitySegment::Boundary { .. }) {
+                vec![]
+            } else {
+                parent
+            };
+            identity.push(own);
+            identities.insert(id, identity.clone());
+            pending.extend(
+                graph
+                    .child_segments(id)
+                    .into_iter()
+                    .map(|(child, own)| (child, own, identity.clone())),
+            );
+        }
+    };
     let parent_identity = match (applied.retired_root, applied.parent) {
         (false, Some((parent, _))) => identities.get(&parent).cloned(),
         _ => None,
     };
     let (Some((parent, _)), Some(parent_identity)) = (applied.parent, parent_identity) else {
-        *identities = graph.element_identities();
+        if let Some(root) = applied.root.and_then(|id| graph.node(id)) {
+            refresh(
+                root.id,
+                bridge::IdentitySegment::of(root, 0, 0),
+                &[],
+                identities,
+            );
+        }
         return;
     };
+    if let Some(root) = applied.root
+        && let Some(segment @ bridge::IdentitySegment::Boundary { .. }) = graph.cached_segment(root)
+    {
+        // A component token fixes this segment independently of its siblings.
+        // Replacing the boundary cannot renumber any sibling occurrence.
+        refresh(root, segment.clone(), &parent_identity, identities);
+        return;
+    }
     let staged = applied
         .staged_ids
         .iter()
@@ -2881,7 +4387,7 @@ fn refresh_identities(
         let settled = !staged.contains(&child)
             && identities.get(&child).and_then(|identity| identity.last()) == Some(&segment);
         if !settled {
-            graph.identities_below(child, segment, &parent_identity, identities);
+            refresh(child, segment, &parent_identity, identities);
         }
     }
 }
@@ -2892,6 +4398,7 @@ fn elapsed_ns(start: Instant) -> u64 {
 
 impl Render for Runtime {
     fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let native_start = observatory::native_work_totals();
         if GPUI_SMOKE.load(Ordering::Relaxed) {
             GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
         }
@@ -2909,12 +4416,15 @@ impl Render for Runtime {
             .iter()
             .find(|(_, handle)| handle.is_focused(window))
             .map(|(id, _)| *id);
-        self.focused_position = focused_now
-            .and_then(|id| self.graph.focus_order().into_iter().position(|other| other == id));
+        self.focused_position = focused_now.and_then(|id| {
+            self.focus_order_cached()
+                .iter()
+                .position(|other| *other == id)
+        });
         self.focused_identity = focused_now.and_then(|id| {
             self.graph
                 .node(id)
-                .and_then(|node| node.kind.focus_identity())
+                .and_then(|_| self.identities.get(&id).cloned())
                 .map(|identity| (id, identity))
         });
         // The application's tree hangs below one `FrameSpans`, the element that
@@ -2932,7 +4442,13 @@ impl Render for Runtime {
                 .bg(rgb(window_ground().unwrap_or(0x16252c)))
                 .text_color(rgb(window_ink().unwrap_or(0xeeeeea)))
                 .text_lg()
-                .children(self.root.iter().cloned().map(AnyView::from)),
+                .children(
+                    self.root
+                        .iter()
+                        .cloned()
+                        .map(|view| native_node_view(view, _cx)),
+                ),
+            native_start,
         )
     }
 }
@@ -3296,7 +4812,10 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
             spec::Grant::Directory(_) => {
                 let path = resolved.expect("directory grant names a path");
                 if !path.is_dir() {
-                    return Err(format!("directory grant does not exist: {}", path.display()));
+                    return Err(format!(
+                        "directory grant does not exist: {}",
+                        path.display()
+                    ));
                 }
                 flags.push("--host-cap-dir".into());
                 flags.push(path.display().to_string());
@@ -3538,14 +5057,15 @@ fn start_requested_recorder(
 /// # Safety
 ///
 /// Must only be called once, by the C runtime startup code, on the main thread
-/// before any other host function runs. It installs a stack-allocated Roc host
-/// for the lifetime of the call and clears it before returning. The C
+/// before any other host function runs. Its allocator context lives for the
+/// process lifetime so a retired session's workers can release owned results.
+/// UI dispatch authority is retired separately before returning. The C
 /// arguments are ignored; arguments are read through `std::env` instead.
 #[unsafe(no_mangle)]
 #[cfg(not(test))]
 pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
-    let mut host = make_counted_roc_host(core::ptr::null_mut());
-    set_roc_host(&mut host);
+    let host = Box::leak(Box::new(make_counted_roc_host(core::ptr::null_mut())));
+    set_roc_host(host);
 
     let args = match parse_host_args() {
         Ok(args) => args,
@@ -3630,10 +5150,9 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         return 2;
     }
     assets::configure(args.cap_assets.as_deref());
-    if let Err(message) = clipboard::configure(
-        args.cap_clipboard_system,
-        args.cap_clipboard_fixture,
-    ) {
+    if let Err(message) =
+        clipboard::configure(args.cap_clipboard_system, args.cap_clipboard_fixture)
+    {
         eprintln!("roc-gui clipboard capability error: {message}");
         set_roc_host(core::ptr::null_mut());
         return 2;
@@ -3725,6 +5244,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let cycle_started = Instant::now();
     observatory::reset_roc_work();
     let roc_started = Instant::now();
+    observatory::begin_component_work();
     unsafe { roc_gui_init() };
     let roc_callback_ns = elapsed_ns(roc_started);
     let (roc_work, roc_work_valid) = observatory::take_roc_work();
@@ -3797,7 +5317,10 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                     }),
                     ..Default::default()
                 },
-                move |_, cx| cx.new(|cx| Runtime::new(initial, cx)),
+                move |window, cx| {
+                    window.observe_frame_work(observatory::gpui_frame_work);
+                    cx.new(|cx| Runtime::new(initial, cx))
+                },
             )
             .expect("failed to open GPUI window");
         watchdog::milestone(watchdog::Milestone::WindowOpened);
@@ -3808,16 +5331,21 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         // observers synchronously before terminating; finalizing here is what
         // makes a window capture readable at all. `finish` is idempotent, so
         // the tail below remains correct on platforms whose run does return.
-        if observatory::active() {
-            cx.on_app_quit(|_| {
+        cx.on_app_quit(|_| {
+            if observatory::active() {
                 observatory::run_end(1, "pass", observatory::now_ns(), None);
                 if let Err(message) = observatory::finish("success") {
                     eprintln!("roc-gui stats error: {message}");
                 }
-                async {}
-            })
-            .detach();
-        }
+            }
+            // Some platforms terminate inside GPUI's quit path. Retire the
+            // session here as well as in the returning run-loop tail; late
+            // workers retain only the process-lived allocator context.
+            clear_bridge();
+            set_roc_host(core::ptr::null_mut());
+            async {}
+        })
+        .detach();
         if let Some(case) = window_spec {
             window_runner::spawn(
                 case,
@@ -3827,6 +5355,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                     shot_dir: window_shot_dir,
                     timeout: Duration::from_millis(u64::from(window_timeout_ms)),
                     require_shots: window_require_shots,
+                    requested_window: (window_config.width as f32, window_config.height as f32),
                 },
                 cx,
             );
@@ -3879,7 +5408,7 @@ mod tests {
         CanvasPrimitive, CanvasPrimitiveKind, WindowConfig, canvas_target, counted_roc_alloc,
         counted_roc_dealloc, counted_roc_realloc, make_counted_roc_host, validate_window_config,
     };
-    use crate::bridge::{Length, MountedGraph, Node, NodeKind, Patch, Style};
+    use crate::bridge::{KeyedGraphOperation, Length, MountedGraph, Node, NodeKind, Patch, Style};
     use crate::observatory;
     use gpui::{
         Bounds, Modifiers, MouseButton, Pixels, Point, TestAppContext, VisualTestContext,
@@ -3888,6 +5417,259 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
     use std::time::Instant;
+
+    thread_local! {
+        static NATIVE_STYLES: RefCell<std::collections::HashMap<gpui::EntityId, Option<u32>>> = RefCell::new(std::collections::HashMap::new());
+    }
+
+    pub(super) fn record_native_style(id: gpui::EntityId, node: &Node) {
+        NATIVE_STYLES.with(|styles| {
+            let background = match &node.kind {
+                NodeKind::Button { style, .. } => style.bg,
+                _ => None,
+            };
+            styles.borrow_mut().insert(id, background);
+        });
+    }
+
+    fn native_style(id: gpui::EntityId) -> Option<u32> {
+        NATIVE_STYLES.with(|styles| styles.borrow().get(&id).copied().flatten())
+    }
+
+    fn patched_button_count(nodes: &[Node]) -> u64 {
+        nodes
+            .iter()
+            .filter(|node| matches!(node.kind, NodeKind::Button { .. }))
+            .count() as u64
+    }
+
+    fn fixed_style(width: u32, height: u32) -> Box<Style> {
+        Box::new(Style {
+            width: Length::Px(width),
+            min_width: Length::Px(width),
+            max_width: Length::Px(width),
+            height: Length::Px(height),
+            min_height: Length::Px(height),
+            max_height: Length::Px(height),
+            ..Style::default()
+        })
+    }
+
+    fn fixed_hover_buttons(base: u64) -> Vec<Node> {
+        let mut nodes = two_hover_buttons(base);
+        for node in &mut nodes {
+            if let NodeKind::Button { style, .. } = &mut node.kind {
+                style.max_width = Length::Px(100);
+                style.max_height = Length::Px(100);
+                style.bg = Some(0x123456);
+            }
+        }
+        nodes[0].children = vec![base + 3, base + 4];
+        nodes.push(Node {
+            id: base + 3,
+            kind: NodeKind::Boundary { instance: 1 },
+            children: vec![base + 1],
+        });
+        nodes.push(Node {
+            id: base + 4,
+            kind: NodeKind::Boundary { instance: 2 },
+            children: vec![base + 2],
+        });
+        nodes
+    }
+
+    #[test]
+    fn native_cache_requires_content_independent_button_geometry() {
+        let nodes = fixed_hover_buttons(1000);
+        assert_eq!(super::fixed_node_extent(&nodes[1], false), Some((100, 100)));
+        assert_eq!(super::fixed_node_extent(&nodes[1], true), None);
+        assert_eq!(super::fixed_node_extent(&nodes[0], false), None);
+        let mut button = nodes[1].clone();
+        if let NodeKind::Button { style, .. } = &mut button.kind {
+            style.grow = true;
+        }
+        assert_eq!(super::fixed_node_extent(&button, false), None);
+        if let NodeKind::Button { style, .. } = &mut button.kind {
+            style.grow = false;
+            style.max_width = Length::Auto;
+        }
+        assert_eq!(super::fixed_node_extent(&button, false), None);
+    }
+
+    #[gpui::test]
+    fn native_cache_retains_siblings_and_refreshes_changed_buttons(cx: &mut TestAppContext) {
+        let events = recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let (left, right) = runtime.read_with(cx, |runtime, _| {
+            (
+                runtime.views[&1001].entity_id(),
+                runtime.views[&1002].entity_id(),
+            )
+        });
+        let before = observatory::native_work_totals().rendered[1];
+        assert_eq!(native_style(left), Some(0x123456));
+        assert_eq!(native_style(right), Some(0x123456));
+
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        assert_eq!(observatory::native_work_totals().rendered[1] - before, 0);
+
+        let expected = runtime.update(cx, |runtime, cx| {
+            let mut next = runtime.graph.node(1001).unwrap().clone();
+            next.id = 2001;
+            if let NodeKind::Button { style, .. } = &mut next.kind {
+                style.bg = Some(0xabcdef);
+            }
+            let nodes = vec![next];
+            let expected = patched_button_count(&nodes);
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1001,
+                    root: 2001,
+                    nodes,
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&2001].entity_id(), left);
+            expected
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            expected,
+            "only buttons changed by the actual patch render; the unrelated sibling does not"
+        );
+        assert_eq!(native_style(left), Some(0xabcdef));
+        assert_eq!(native_style(right), Some(0x123456));
+
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(150.0), px(50.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow()[0],
+            2001 | crate::bridge::HOVER_ENTER_EVENT_BIT
+        );
+        let mut transitions = events.borrow()[1..].to_vec();
+        transitions.sort_unstable();
+        assert_eq!(
+            transitions,
+            vec![
+                2001 | crate::bridge::HOVER_EXIT_EVENT_BIT,
+                1002 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+            ]
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_invalidates_when_parent_moves_retained_buttons(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals().rendered[1];
+        runtime.update(cx, |runtime, cx| {
+            let mut row = runtime.graph.node(1000).unwrap().clone();
+            row.id = 2000;
+            if let NodeKind::Row { style, .. } = &mut row.kind {
+                style.padding[3] = 15;
+            }
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 2000,
+                    nodes: vec![row],
+                    retained_roots: vec![1003, 1004],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            2,
+            "both moved buttons must refresh cached paint and hitboxes"
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_invalidates_when_parent_clips_retained_buttons(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let mut nodes = fixed_hover_buttons(1000);
+        if let NodeKind::Row { style, .. } = &mut nodes[0].kind {
+            style.width = Length::Px(50);
+            style.height = Length::Px(100);
+        }
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals().rendered[1];
+        runtime.update(cx, |runtime, cx| {
+            let mut row = runtime.graph.node(1000).unwrap().clone();
+            row.id = 2000;
+            if let NodeKind::Row { style, .. } = &mut row.kind {
+                style.overflow_x = super::Overflow::Clip;
+            }
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 2000,
+                    nodes: vec![row],
+                    retained_roots: vec![1003, 1004],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            2,
+            "both clipped buttons must refresh cached paint and hitboxes"
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_allows_a_retained_button_to_become_flexible(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let left = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        runtime.update(cx, |runtime, cx| {
+            let mut button = runtime.graph.node(1001).unwrap().clone();
+            button.id = 2001;
+            if let NodeKind::Button { style, .. } = &mut button.kind {
+                style.max_width = Length::Auto;
+                style.width = Length::Fill;
+            }
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1001,
+                    root: 2001,
+                    nodes: vec![button],
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&2001].entity_id(), left);
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals().rendered[1];
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().rendered[1] - before,
+            1,
+            "the flexible button renders normally while its fixed sibling stays cached"
+        );
+    }
 
     #[test]
     fn host_internal_allocators_use_counted_runtime_routes() {
@@ -3905,6 +5687,608 @@ mod tests {
             host.roc_realloc as usize,
             counted_roc_realloc as *const () as usize
         );
+    }
+
+    #[gpui::test]
+    fn native_cache_baseline_alignment_updates_retained_descendants(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        crate::probe::enable();
+        let mut nodes = fixed_hover_buttons(1000);
+        for (index, node) in nodes.iter_mut().enumerate() {
+            if let NodeKind::Button { style, .. } = &mut node.kind {
+                style.font_size = if index == 1 { 10 } else { 30 };
+            }
+        }
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let original = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        for (old_root, root, align, expected_renders) in [
+            (1000, 2000, super::Align::Baseline, 2),
+            (2000, 3000, super::Align::Start, 0),
+        ] {
+            runtime.update(cx, |runtime, cx| {
+                let mut row = runtime.graph.node(old_root).unwrap().clone();
+                row.id = root;
+                if let NodeKind::Row { style, .. } = &mut row.kind {
+                    style.align = align;
+                }
+                runtime.apply_unrecorded(
+                    Patch::ReplaceRetaining {
+                        old_root,
+                        root,
+                        nodes: vec![row],
+                        retained_roots: vec![1003, 1004],
+                    },
+                    cx,
+                );
+                assert_eq!(runtime.views[&1001].entity_id(), original);
+                for id in [1001, 1002, 1003, 1004] {
+                    assert_eq!(
+                        runtime.views[&id].read(cx).baseline_layout,
+                        align == super::Align::Baseline
+                    );
+                }
+            });
+            cx.run_until_parked();
+            let actual_bounds = runtime.read_with(cx, |runtime, _| {
+                let frame = runtime.painted().unwrap();
+                let first = frame.bounds(1001).unwrap();
+                let second = frame.bounds(1002).unwrap();
+                (first, second)
+            });
+            let before = observatory::native_work_totals();
+            runtime.update(cx, |_, cx| cx.notify());
+            cx.run_until_parked();
+            assert_eq!(
+                observatory::native_work_totals().since(before).rendered[1],
+                expected_renders
+            );
+            if align == super::Align::Baseline {
+                let mut reference_nodes = fixed_hover_buttons(4000);
+                if let NodeKind::Row { style, .. } = &mut reference_nodes[0].kind {
+                    style.align = super::Align::Baseline;
+                }
+                for (index, node) in reference_nodes.iter_mut().enumerate() {
+                    if let NodeKind::Button { style, .. } = &mut node.kind {
+                        style.font_size = if index == 1 { 10 } else { 30 };
+                        // Same fixed basis/floor without cache admission, to
+                        // compare against the normal GPUI layout path.
+                        style.max_width = Length::Auto;
+                    }
+                }
+                let (reference, reference_cx) = cx.cx.add_window_view(|_, cx| {
+                    Runtime::new(
+                        initial_mount(Patch::Mount {
+                            root: 4000,
+                            nodes: reference_nodes,
+                        }),
+                        cx,
+                    )
+                });
+                reference_cx.run_until_parked();
+                let reference_bounds = reference.read_with(reference_cx, |runtime, _| {
+                    let frame = runtime.painted().unwrap();
+                    (frame.bounds(4001).unwrap(), frame.bounds(4002).unwrap())
+                });
+                assert_eq!(actual_bounds, reference_bounds);
+            }
+        }
+    }
+
+    #[gpui::test]
+    fn native_cache_fixed_container_style_and_removal_update_retained_children(
+        cx: &mut TestAppContext,
+    ) {
+        let events = recording_dispatcher();
+        let mut nodes = fixed_hover_buttons(1000);
+        if let NodeKind::Row { style, .. } = &mut nodes[0].kind {
+            *style = fixed_style(200, 100);
+        }
+        nodes.push(Node {
+            id: 900,
+            kind: NodeKind::Column {
+                label: "Outer".into(),
+                style: Box::default(),
+            },
+            children: vec![901],
+        });
+        nodes.push(Node {
+            id: 901,
+            kind: NodeKind::Panel {
+                label: "Fixed panel".into(),
+                style: fixed_style(200, 100),
+            },
+            children: vec![902],
+        });
+        nodes.push(Node {
+            id: 902,
+            kind: NodeKind::Boundary { instance: 9 },
+            children: vec![1000],
+        });
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 900, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let before = observatory::native_work_totals();
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        let work = observatory::native_work_totals().since(before);
+        assert_eq!(work.rendered[1], 0);
+        assert_eq!(
+            work.view_elements_created[15], 0,
+            "cached panel must not offer its child boundary"
+        );
+
+        // Inherited text is part of GPUI's cache key, even though the retained
+        // children's own mounted data and dimensions are unchanged.
+        let before = observatory::native_work_totals();
+        runtime.update(cx, |runtime, cx| {
+            let mut panel = runtime.graph.node(901).unwrap().clone();
+            panel.id = 1901;
+            if let NodeKind::Panel { style, .. } = &mut panel.kind {
+                style.fg = Some(0xabcdef);
+                style.font_size = 19;
+            }
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 901,
+                    root: 1901,
+                    nodes: vec![panel],
+                    retained_roots: vec![902],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            observatory::native_work_totals().since(before).rendered[1],
+            2
+        );
+
+        runtime.update(cx, |runtime, cx| {
+            runtime.focus_after_render = Some(1002);
+            cx.notify();
+        });
+        cx.run_until_parked();
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            let mut button = runtime.graph.node(1002).unwrap().clone();
+            button.id = 2002;
+            if let NodeKind::Button { caption, .. } = &mut button.kind {
+                *caption = "Updated".into();
+            }
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1004,
+                    root: 2004,
+                    nodes: vec![
+                        Node {
+                            id: 2004,
+                            kind: NodeKind::Boundary { instance: 2 },
+                            children: vec![2002],
+                        },
+                        button,
+                    ],
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        cx.dispatch_action(ActivateEnter);
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[2002],
+            "focus and keyboard routing must follow the updated cached descendant"
+        );
+        events.borrow_mut().clear();
+
+        // Reusing caches after an ancestor hit must not preserve the removed
+        // control's listeners or the surviving control's previous position.
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            let mut row = runtime.graph.node(1000).unwrap().clone();
+            row.id = 3000;
+            row.children = vec![2004];
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 3000,
+                    nodes: vec![row],
+                    retained_roots: vec![2004],
+                },
+                cx,
+            );
+            assert!(runtime.graph.node(1001).is_none());
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[2002 | crate::bridge::HOVER_ENTER_EVENT_BIT]
+        );
+    }
+
+    #[gpui::test]
+    fn native_cache_changed_button_work_is_independent_of_grid_size(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        for count in [100_u64, 1_000, 10_000] {
+            let mut nodes = vec![
+                Node {
+                    id: 1,
+                    kind: NodeKind::Column {
+                        label: "Grid".into(),
+                        style: Box::default(),
+                    },
+                    children: vec![2],
+                },
+                Node {
+                    id: 2,
+                    kind: NodeKind::Column {
+                        label: "Cells".into(),
+                        style: fixed_style(500, (count / 100 * 5) as u32),
+                    },
+                    children: Vec::new(),
+                },
+            ];
+            for row_index in 0..count / 100 {
+                let row_id = row_index + 3;
+                nodes[1].children.push(row_id);
+                let mut row = Node {
+                    id: row_id,
+                    kind: NodeKind::Row {
+                        label: String::new(),
+                        style: fixed_style(500, 5),
+                    },
+                    children: Vec::new(),
+                };
+                for column in 0..100 {
+                    let index = row_index * 100 + column;
+                    let boundary = 1_000 + index * 2;
+                    let button = boundary + 1;
+                    row.children.push(boundary);
+                    nodes.push(Node {
+                        id: boundary,
+                        kind: NodeKind::Boundary {
+                            instance: index + 1,
+                        },
+                        children: vec![button],
+                    });
+                    nodes.push(Node {
+                        id: button,
+                        kind: NodeKind::Button {
+                            caption: String::new(),
+                            label: format!("Cell {index}"),
+                            enabled: true,
+                            hover_enter: true,
+                            hover_exit: true,
+                            style: Box::new(Style {
+                                width: Length::Px(5),
+                                height: Length::Px(5),
+                                min_width: Length::Px(5),
+                                max_width: Length::Px(5),
+                                min_height: Length::Px(5),
+                                max_height: Length::Px(5),
+                                bg: Some(0x123456),
+                                ..Style::default()
+                            }),
+                        },
+                        children: Vec::new(),
+                    });
+                }
+                nodes.push(row);
+            }
+            let (runtime, window_cx) = cx.add_window_view(|_, cx| {
+                Runtime::new(initial_mount(Patch::Mount { root: 1, nodes }), cx)
+            });
+            window_cx.run_until_parked();
+            let before = observatory::native_work_totals();
+            runtime.update(window_cx, |_, cx| cx.notify());
+            window_cx.run_until_parked();
+            assert_eq!(
+                observatory::native_work_totals().since(before).rendered[1],
+                0,
+                "an unchanged {count}-cell grid renders no buttons"
+            );
+            assert_eq!(
+                observatory::native_work_totals().since(before).rendered[15],
+                0,
+                "an unchanged {count}-cell grid renders no transparent boundaries"
+            );
+            let unchanged = observatory::native_work_totals().since(before);
+            assert_eq!(
+                unchanged.view_elements_created[8], 0,
+                "cached grid must not offer row views"
+            );
+            assert_eq!(
+                unchanged.view_elements_created[15], 0,
+                "cached grid must not offer cell boundaries"
+            );
+            assert_eq!(
+                unchanged.view_elements_created[1], 0,
+                "cached grid must not offer button views"
+            );
+
+            let before = observatory::native_work_totals();
+            let expected = runtime.update(window_cx, |runtime, cx| {
+                let previous = runtime.views[&1001].entity_id();
+                let mut button = runtime.graph.node(1001).unwrap().clone();
+                button.id = 1_000_001;
+                if let NodeKind::Button { style, .. } = &mut button.kind {
+                    style.bg = Some(0xabcdef);
+                }
+                let nodes = vec![
+                    Node {
+                        id: 1_000_000,
+                        kind: NodeKind::Boundary { instance: 1 },
+                        children: vec![button.id],
+                    },
+                    button,
+                ];
+                let mut expected = [0_u64; 16];
+                for node in &nodes {
+                    expected[usize::from(node.kind.tag())] += 1;
+                }
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: 1000,
+                        root: 1_000_000,
+                        nodes,
+                    },
+                    cx,
+                );
+                assert_eq!(runtime.views[&1_000_001].entity_id(), previous);
+                (expected, previous)
+            });
+            window_cx.run_until_parked();
+            let work = observatory::native_work_totals().since(before);
+            let rendered = work.rendered;
+            for kind in [1, 15] {
+                assert_eq!(
+                    rendered[kind], expected.0[kind],
+                    "only patch-emitted fixed controls and boundaries render in a {count}-cell grid (kind {kind})"
+                );
+            }
+            assert_eq!(rendered[8], 1, "only the affected row renders");
+            assert_eq!(
+                work.view_elements_created[8],
+                count / 100,
+                "the dirty grid offers its rows"
+            );
+            assert_eq!(
+                work.view_elements_created[15], 100,
+                "only the affected row offers cell boundaries"
+            );
+            assert_eq!(
+                work.view_elements_created[1], 1,
+                "only the changed boundary offers its button"
+            );
+            assert_eq!(native_style(expected.1), Some(0xabcdef));
+        }
+    }
+
+    /// Use the generated callable allocator and final-drop ABI, without
+    /// inventing a second representation for the transaction ownership tests.
+    fn counted_callable(
+        dropped: &std::sync::Arc<std::sync::atomic::AtomicU64>,
+    ) -> crate::roc_platform_abi::RocErasedCallable {
+        use crate::roc_platform_abi::{
+            RocHost, roc_erased_callable_allocate, roc_erased_callable_capture_ptr,
+        };
+        use std::sync::{Arc, atomic::Ordering};
+        extern "C" fn never_called(
+            _: *mut RocHost,
+            _: *mut u8,
+            _: *const u8,
+            _: *mut u8,
+            _: *mut u8,
+            _: *mut *const std::ffi::c_void,
+        ) {
+            unreachable!("a lifetime test invoked a Roc callable");
+        }
+        extern "C" fn on_drop(capture: *mut u8, _: *mut RocHost) {
+            let counter = unsafe {
+                Arc::from_raw(capture.cast::<*const std::sync::atomic::AtomicU64>().read())
+            };
+            counter.fetch_add(1, Ordering::Relaxed);
+        }
+        if super::ROC_HOST.load(Ordering::Acquire).is_null() {
+            let host = Box::into_raw(Box::new(make_counted_roc_host(core::ptr::null_mut())));
+            if super::ROC_HOST
+                .compare_exchange(
+                    core::ptr::null_mut(),
+                    host,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                )
+                .is_err()
+            {
+                unsafe { drop(Box::from_raw(host)) };
+            }
+        }
+        unsafe {
+            let callable = roc_erased_callable_allocate(
+                super::roc_host(),
+                never_called,
+                Some(on_drop),
+                std::mem::size_of::<usize>(),
+            );
+            roc_erased_callable_capture_ptr(callable)
+                .cast::<*const std::sync::atomic::AtomicU64>()
+                .write(Arc::into_raw(dropped.clone()));
+            callable
+        }
+    }
+
+    #[test]
+    fn worker_completion_output_requires_exactly_one_owned_callable() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let first_drops = Arc::new(AtomicU64::new(0));
+        let rejected_drops = Arc::new(AtomicU64::new(0));
+        assert!(super::publish_task_completion(counted_callable(&rejected_drops)).is_err());
+        assert_eq!(rejected_drops.load(Ordering::Relaxed), 1);
+        assert!(super::collect_task_completion(|| {}).is_err());
+        let completion = super::collect_task_completion(|| {
+            assert!(super::collect_task_completion(|| panic!("nested worker ran")).is_err());
+            super::roc_gui_task_complete(counted_callable(&first_drops));
+            assert!(super::publish_task_completion(counted_callable(&rejected_drops)).is_err());
+        })
+        .unwrap();
+        assert_eq!(first_drops.load(Ordering::Relaxed), 0);
+        assert_eq!(rejected_drops.load(Ordering::Relaxed), 2);
+        unsafe { super::decref_erased_callable(completion, super::roc_host()) };
+        assert_eq!(first_drops.load(Ordering::Relaxed), 1);
+        assert!(super::collect_task_completion(|| {}).is_err());
+    }
+
+    #[test]
+    fn worker_completion_output_releases_abandoned_result_and_is_thread_local() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let failed = std::panic::catch_unwind(|| {
+            let _ = super::collect_task_completion(|| {
+                super::roc_gui_task_complete(counted_callable(&drops));
+                panic!("test worker failed after publishing");
+            });
+        });
+        assert!(failed.is_err());
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let threads = (0..2)
+            .map(|_| {
+                let barrier = barrier.clone();
+                let drops = drops.clone();
+                std::thread::spawn(move || {
+                    let completion = super::collect_task_completion(|| {
+                        super::roc_gui_task_complete(counted_callable(&drops));
+                        barrier.wait();
+                    })
+                    .unwrap();
+                    unsafe { super::decref_erased_callable(completion, super::roc_host()) };
+                })
+            })
+            .collect::<Vec<_>>();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        assert_eq!(drops.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    fn worker_completion_output_preserves_owner_and_discards_stale_epoch() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let completion = super::collect_task_completion(|| {
+            super::roc_gui_task_complete(counted_callable(&drops));
+        })
+        .unwrap();
+        let envelope = super::TaskEnvelope {
+            callable: completion as usize,
+            owner: 71,
+            epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+        };
+        assert_eq!(envelope.owner, 71);
+        assert!(matches!(super::complete(envelope), Patch::NoChange));
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        observatory::reject_component_work();
+        let observed_owner = Rc::new(RefCell::new(None));
+        let recorded_owner = observed_owner.clone();
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(move |owner| {
+                *recorded_owner.borrow_mut() = Some(owner);
+                Patch::NoChange
+            }));
+        });
+        let current = super::collect_task_completion(|| {
+            super::roc_gui_task_complete(counted_callable(&drops));
+        })
+        .unwrap();
+        let envelope = super::TaskEnvelope {
+            callable: current as usize,
+            owner: 71,
+            epoch: super::TASK_EPOCH.load(Ordering::Acquire),
+        };
+        assert!(matches!(super::complete(envelope), Patch::NoChange));
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(*observed_owner.borrow(), Some(71));
+        assert_eq!(drops.load(Ordering::Relaxed), 2);
+        observatory::reject_component_work();
+    }
+
+    #[test]
+    fn rejected_transaction_releases_candidate_and_worker_but_preserves_session() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let old_drops = Arc::new(AtomicU64::new(0));
+        let next_drops = Arc::new(AtomicU64::new(0));
+        let task_drops = Arc::new(AtomicU64::new(0));
+        let old = counted_callable(&old_drops);
+        super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher = Some(old));
+        super::roc_gui_set_dispatch(counted_callable(&next_drops));
+        super::roc_gui_enqueue_task(0, counted_callable(&task_drops));
+
+        super::reject_transaction();
+        super::reject_transaction();
+
+        assert_eq!(old_drops.load(Ordering::Relaxed), 0);
+        assert_eq!(next_drops.load(Ordering::Relaxed), 1);
+        assert_eq!(task_drops.load(Ordering::Relaxed), 1);
+        let retained = super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher.take());
+        assert_eq!(retained, Some(old));
+        unsafe { super::decref_erased_callable(old, super::roc_host()) };
+        assert_eq!(old_drops.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn accepted_transaction_discards_a_worker_whose_owner_was_removed() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let mut graph = MountedGraph::default();
+        let applied = graph.apply(Patch::NoChange).expect("empty accepted turn");
+        super::roc_gui_enqueue_task(42, counted_callable(&drops));
+
+        super::accept_transaction(&graph, &applied);
+
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        super::STAGED_TURN.with(|turn| assert!(turn.borrow().jobs.is_empty()));
+    }
+
+    #[test]
+    fn stale_epoch_completion_is_dropped_without_invoking_the_session() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let drops = Arc::new(AtomicU64::new(0));
+        let completion = super::TaskEnvelope {
+            callable: counted_callable(&drops) as usize,
+            owner: 0,
+            epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+        };
+
+        assert!(matches!(super::complete(completion), Patch::NoChange));
+
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        super::STAGED_TURN.with(|turn| assert!(turn.borrow().dispatcher.is_none()));
+        observatory::reject_component_work();
     }
 
     #[test]
@@ -3970,11 +6354,11 @@ mod tests {
     /// Every node id is fresh, exactly as a whole-root `Action.update` rebuild
     /// produces, so consecutive trees share nothing but their semantic names.
     fn transport_tree(base: u64, caption: &str, label: &str) -> (u64, Vec<Node>) {
-        let fill = Style {
+        let fill = Box::new(Style {
             width: Length::Fill,
             height: Length::Fill,
             ..Style::default()
-        };
+        });
         let column = base;
         let button = base + 1;
         (
@@ -3984,7 +6368,7 @@ mod tests {
                     id: column,
                     kind: NodeKind::Column {
                         label: "Transport".into(),
-                        style: fill,
+                        style: fill.clone(),
                     },
                     children: vec![button],
                 },
@@ -3994,6 +6378,8 @@ mod tests {
                         caption: caption.into(),
                         label: label.into(),
                         enabled: true,
+                        hover_enter: false,
+                        hover_exit: false,
                         style: fill,
                     },
                     children: vec![],
@@ -4013,7 +6399,7 @@ mod tests {
             id,
             kind: NodeKind::Row {
                 label: label.into(),
-                style: Style::default(),
+                style: Box::default(),
             },
             children,
         };
@@ -4047,11 +6433,11 @@ mod tests {
     /// A one-row virtual list, so a press can be aimed at a control the list
     /// materialises rather than one the eager tree holds.
     fn queue_tree(base: u64) -> (u64, Vec<Node>) {
-        let fill = Style {
+        let fill = Box::new(Style {
             width: Length::Fill,
             height: Length::Fill,
             ..Style::default()
-        };
+        });
         (
             base,
             vec![
@@ -4059,7 +6445,7 @@ mod tests {
                     id: base,
                     kind: NodeKind::Column {
                         label: "Queue".into(),
-                        style: fill,
+                        style: fill.clone(),
                     },
                     children: vec![base + 1],
                 },
@@ -4069,7 +6455,7 @@ mod tests {
                         name: "Tracks".into(),
                         row_height: 40,
                         row_gap: 0,
-                        style: Style::default(),
+                        style: Box::default(),
                     },
                     children: vec![base + 2],
                 },
@@ -4084,6 +6470,8 @@ mod tests {
                         caption: "Track seven".into(),
                         label: "Play track seven".into(),
                         enabled: true,
+                        hover_enter: false,
+                        hover_exit: false,
                         style: fill,
                     },
                     children: vec![],
@@ -4097,9 +6485,317 @@ mod tests {
             patch,
             cycle_started: Instant::now(),
             roc_callback_ns: 0,
-            roc_work: [observatory::RocWork::default(); 4],
+            roc_work: [observatory::RocWork::default(); observatory::ROC_WORK_KINDS],
             roc_work_valid: false,
         }
+    }
+
+    fn keyed_key(value: u8) -> [u8; 32] {
+        [value; 32]
+    }
+
+    fn keyed_column_root(id: u64) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Column {
+                label: "keyed-column".into(),
+                style: Box::default(),
+            },
+            children: vec![],
+        }
+    }
+
+    fn keyed_button_fragment(root: u64, button: u64, instance: u64, label: &str) -> Vec<Node> {
+        vec![
+            Node {
+                id: root,
+                kind: NodeKind::Boundary { instance },
+                children: vec![button],
+            },
+            Node {
+                id: button,
+                kind: NodeKind::Button {
+                    caption: label.into(),
+                    label: label.into(),
+                    enabled: true,
+                    hover_enter: true,
+                    hover_exit: true,
+                    style: Box::default(),
+                },
+                children: vec![],
+            },
+        ]
+    }
+
+    fn apply_keyed_native(
+        runtime: &mut Runtime,
+        patch: Patch,
+        cx: &mut gpui::Context<Runtime>,
+    ) -> super::KeyedNativeApply {
+        let applied = runtime.graph.apply(patch).expect("valid keyed patch");
+        runtime.apply_to_gpui(&applied, cx)
+    }
+
+    #[gpui::test]
+    fn keyed_native_move_preserves_entities_and_remove_retires_routes(cx: &mut TestAppContext) {
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![keyed_column_root(1)],
+                }),
+                cx,
+            )
+        });
+        runtime.update(cx, |runtime, cx| {
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 0,
+                    new_revision: 1,
+                    operations: vec![
+                        KeyedGraphOperation::Insert {
+                            key: keyed_key(1),
+                            before: None,
+                            root: 10,
+                            nodes: keyed_button_fragment(10, 11, 100, "one"),
+                        },
+                        KeyedGraphOperation::Insert {
+                            key: keyed_key(2),
+                            before: None,
+                            root: 20,
+                            nodes: keyed_button_fragment(20, 21, 200, "two"),
+                        },
+                    ],
+                },
+                cx,
+            );
+            assert_eq!(work.edits, 2);
+            assert_eq!(work.item_entities_created, 2);
+            let first_boundary = runtime.views[&10].entity_id();
+            let first_button = runtime.views[&11].entity_id();
+            let second_boundary = runtime.views[&20].entity_id();
+            runtime.focused_identity = Some((11, runtime.identities[&11].clone()));
+            assert!(runtime.graph.hover_transition(11, true).is_some());
+
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 1,
+                    new_revision: 2,
+                    operations: vec![KeyedGraphOperation::Move {
+                        key: keyed_key(2),
+                        before: Some(keyed_key(1)),
+                    }],
+                },
+                cx,
+            );
+            assert_eq!(work.item_entities_moved, 1);
+            assert_eq!(runtime.views[&10].entity_id(), first_boundary);
+            assert_eq!(runtime.views[&11].entity_id(), first_button);
+            assert_eq!(runtime.views[&20].entity_id(), second_boundary);
+            let order = runtime.views[&1].read(cx).keyed_children.as_ref().unwrap();
+            assert_eq!(
+                order
+                    .iter()
+                    .map(|view| view.read(cx).node.id)
+                    .collect::<Vec<_>>(),
+                vec![20, 10]
+            );
+
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 2,
+                    new_revision: 3,
+                    operations: vec![KeyedGraphOperation::Set {
+                        key: keyed_key(2),
+                        root: 30,
+                        nodes: keyed_button_fragment(30, 31, 200, "two"),
+                    }],
+                },
+                cx,
+            );
+            assert_eq!(work.item_entities_created, 1);
+            assert_eq!(work.item_entities_retired, 1);
+            assert_eq!(runtime.views[&30].entity_id(), second_boundary);
+            assert!(!runtime.views.contains_key(&20));
+
+            let work = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 3,
+                    new_revision: 4,
+                    operations: vec![KeyedGraphOperation::Remove { key: keyed_key(1) }],
+                },
+                cx,
+            );
+            assert_eq!(work.item_entities_retired, 1);
+            assert!(!runtime.views.contains_key(&10));
+            assert!(!runtime.views.contains_key(&11));
+            assert!(runtime.graph.hover_transition(11, false).is_none());
+            assert_eq!(runtime.focus_after_render, None);
+        });
+    }
+
+    #[gpui::test]
+    fn keyed_native_move_work_is_independent_of_ten_thousand_items(cx: &mut TestAppContext) {
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![keyed_column_root(1)],
+                }),
+                cx,
+            )
+        });
+        runtime.update(cx, |runtime, cx| {
+            let operations = (0..10_000_u64)
+                .map(|index| KeyedGraphOperation::Insert {
+                    key: {
+                        let mut key = [0_u8; 32];
+                        key[..8].copy_from_slice(&index.to_le_bytes());
+                        key
+                    },
+                    before: None,
+                    root: 10_000 + index * 2,
+                    nodes: keyed_button_fragment(
+                        10_000 + index * 2,
+                        10_001 + index * 2,
+                        10_000 + index,
+                        "item",
+                    ),
+                })
+                .collect();
+            let initial = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 0,
+                    new_revision: 1,
+                    operations,
+                },
+                cx,
+            );
+            assert_eq!(initial.item_entities_created, 10_000);
+            let mut last = [0_u8; 32];
+            last[..8].copy_from_slice(&9_999_u64.to_le_bytes());
+            let mut middle = [0_u8; 32];
+            middle[..8].copy_from_slice(&5_000_u64.to_le_bytes());
+            let entity = runtime.views[&(10_000 + 9_999 * 2)].entity_id();
+            let moved = apply_keyed_native(
+                runtime,
+                Patch::Keyed {
+                    container: 1,
+                    base_revision: 1,
+                    new_revision: 2,
+                    operations: vec![KeyedGraphOperation::Move {
+                        key: last,
+                        before: Some(middle),
+                    }],
+                },
+                cx,
+            );
+            assert_eq!(
+                moved,
+                super::KeyedNativeApply {
+                    edits: 1,
+                    item_entities_moved: 1,
+                    ..Default::default()
+                }
+            );
+            assert_eq!(runtime.views[&(10_000 + 9_999 * 2)].entity_id(), entity);
+        });
+    }
+
+    #[gpui::test]
+    fn live_task_completion_records_its_own_patch_and_callback(cx: &mut TestAppContext) {
+        let _guard = observatory::RECORDER_TEST.lock().unwrap();
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: two_hover_buttons(1000),
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-live-completion-{}-{}.rgstats",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        observatory::start(observatory::Config {
+            path: path.clone(),
+            detail: observatory::Detail::Full,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-test",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        observatory::run_start(1, "interactive", None, 0, 1);
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(|owner| {
+                observatory::start_roc_work(0);
+                let patch = if owner == 1 {
+                    Patch::Replace {
+                        old_root: 1000,
+                        root: 2000,
+                        nodes: two_hover_buttons(2000),
+                    }
+                } else {
+                    Patch::NoChange
+                };
+                observatory::end_roc_work(0);
+                patch
+            }))
+        });
+        runtime.update(cx, |runtime, cx| {
+            for owner in [1, 2] {
+                runtime.complete_live_task(
+                    super::TaskEnvelope {
+                        callable: 0,
+                        owner,
+                        epoch: super::TASK_EPOCH.load(std::sync::atomic::Ordering::Acquire),
+                    },
+                    cx,
+                );
+            }
+            assert!(runtime.graph.node(2000).is_some());
+            assert!(runtime.graph.node(1000).is_none());
+        });
+        super::TEST_COMPLETION_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        observatory::run_end(1, "pass", 0, None);
+        observatory::finish("success").unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        let rows = db.prepare("SELECT patch_kind, staged_nodes, removed_nodes, gpui_apply_ns IS NOT NULL, roc_work_valid FROM cycles WHERE trigger='task' ORDER BY ordinal").unwrap()
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?, row.get::<_, bool>(3)?, row.get::<_, bool>(4)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                ("replace".into(), 3, 3, true, true),
+                ("no_change".into(), 0, 0, true, true)
+            ]
+        );
+        let timed: i64 = db.query_row("SELECT count(*) FROM cycles WHERE trigger='task' AND roc_callback_ns <= duration_ns", [], |row| row.get(0)).unwrap();
+        assert_eq!(timed, 2);
+        drop(db);
+        std::fs::remove_file(path).unwrap();
     }
 
     fn recording_dispatcher() -> Rc<RefCell<Vec<u64>>> {
@@ -4110,6 +6806,662 @@ mod tests {
             Patch::NoChange
         });
         clicks
+    }
+
+    fn hover_tree(base: u64) -> (u64, Vec<Node>) {
+        let (root, mut nodes) = transport_tree(base, "Cell", "Cell");
+        if let NodeKind::Button {
+            hover_enter,
+            hover_exit,
+            ..
+        } = &mut nodes[1].kind
+        {
+            *hover_enter = true;
+            *hover_exit = true;
+        }
+        (root, nodes)
+    }
+
+    fn two_hover_buttons(base: u64) -> Vec<Node> {
+        let control = |offset, label: &str| Node {
+            id: base + offset,
+            kind: NodeKind::Button {
+                caption: label.into(),
+                label: label.into(),
+                enabled: true,
+                hover_enter: true,
+                hover_exit: true,
+                style: Box::new(Style {
+                    width: Length::Px(100),
+                    height: Length::Px(100),
+                    min_width: Length::Px(100),
+                    min_height: Length::Px(100),
+                    max_width: Length::Px(100),
+                    max_height: Length::Px(100),
+                    ..Style::default()
+                }),
+            },
+            children: vec![],
+        };
+        vec![
+            Node {
+                id: base,
+                kind: NodeKind::Row {
+                    label: "Two controls".into(),
+                    style: Box::new(Style {
+                        gap: 0,
+                        align: super::Align::Start,
+                        width: Length::Fill,
+                        height: Length::Fill,
+                        ..Style::default()
+                    }),
+                },
+                children: vec![base + 1, base + 2],
+            },
+            control(1, "First"),
+            control(2, "Second"),
+        ]
+    }
+
+    #[gpui::test]
+    fn sibling_hover_edges_survive_a_parent_rebuild_in_the_same_mouse_move(
+        cx: &mut TestAppContext,
+    ) {
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let recorded = events.clone();
+        let base = RefCell::new(1000_u64);
+        install_test_dispatcher(move |route| {
+            recorded.borrow_mut().push(route);
+            let old_root = *base.borrow();
+            let root = old_root + 10;
+            *base.borrow_mut() = root;
+            Patch::Replace {
+                old_root,
+                root,
+                nodes: two_hover_buttons(root),
+            }
+        });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: two_hover_buttons(1000),
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(events.borrow().len(), 1);
+        cx.simulate_mouse_move(point(px(150.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            3,
+            "one crossing must deliver both sibling transitions even if the first rebuilds their parent"
+        );
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            5,
+            "reentering the first control must not be suppressed by stale graph hover state"
+        );
+    }
+
+    #[gpui::test]
+    fn hover_edges_do_not_retarget_a_removed_native_control(cx: &mut TestAppContext) {
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let recorded = events.clone();
+        let base = RefCell::new(1000_u64);
+        install_test_dispatcher(move |route| {
+            recorded.borrow_mut().push(route);
+            let old_root = *base.borrow();
+            let root = old_root + 10;
+            *base.borrow_mut() = root;
+            let mut nodes = two_hover_buttons(root);
+            if recorded.borrow().len() >= 2
+                && let NodeKind::Button { label, .. } = &mut nodes[1].kind
+            {
+                *label = "Replacement".into();
+            }
+            Patch::Replace {
+                old_root,
+                root,
+                nodes,
+            }
+        });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: two_hover_buttons(1000),
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(events.borrow().len(), 1);
+        cx.simulate_mouse_move(point(px(150.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            2,
+            "the removed first control's queued exit must not address its replacement"
+        );
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(
+            events.borrow().len(),
+            4,
+            "the replacement receives only its own new enter edge"
+        );
+    }
+
+    #[gpui::test]
+    fn modal_hover_policy_allows_background_reentry(cx: &mut TestAppContext) {
+        let events = recording_dispatcher();
+        let mut nodes = fixed_hover_buttons(1000);
+        nodes[0].children.push(1005);
+        nodes.push(Node {
+            id: 1005,
+            kind: NodeKind::Column {
+                label: "modal-slot".into(),
+                style: Box::default(),
+            },
+            children: vec![],
+        });
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let inside = point(px(50.0), px(50.0));
+        let outside = point(px(-10.0), px(-10.0));
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        assert_eq!(events.borrow().len(), 1);
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1005,
+                    root: 2000,
+                    nodes: vec![Node {
+                        id: 2000,
+                        kind: NodeKind::Dialog {
+                            label: "Modal".into(),
+                            style: Box::default(),
+                        },
+                        children: vec![],
+                    }],
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(outside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().len(),
+            1,
+            "modal must suppress background exits"
+        );
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 2000,
+                    root: 3000,
+                    nodes: vec![Node {
+                        id: 3000,
+                        kind: NodeKind::Column {
+                            label: "modal-slot".into(),
+                            style: Box::default(),
+                        },
+                        children: vec![],
+                    }],
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+            ]
+        );
+        cx.simulate_mouse_move(outside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().last(),
+            Some(&(1001 | crate::bridge::HOVER_EXIT_EVENT_BIT))
+        );
+    }
+
+    #[gpui::test]
+    fn hover_exits_the_window_and_reenters_the_same_cached_button(cx: &mut TestAppContext) {
+        let events = recording_dispatcher();
+        let nodes = fixed_hover_buttons(1000);
+        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        cx.run_until_parked();
+        let inside = point(px(50.0), px(50.0));
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        // Platforms may report the last position inside the window on exit.
+        cx.simulate_event(gpui::MouseExitEvent {
+            position: inside,
+            pressed_button: None,
+            modifiers: Modifiers::none(),
+        });
+        cx.simulate_event(gpui::MouseExitEvent {
+            position: inside,
+            pressed_button: None,
+            modifiers: Modifiers::none(),
+        });
+        cx.simulate_mouse_move(inside, None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+                1001 | crate::bridge::HOVER_EXIT_EVENT_BIT,
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+            ]
+        );
+    }
+
+    #[gpui::test]
+    fn hover_dispatches_once_per_edge_across_replacement_and_discards_stale_routes(
+        cx: &mut TestAppContext,
+    ) {
+        let events = recording_dispatcher();
+        let (root, nodes) = hover_tree(1000);
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(40.0), px(40.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[1001 | crate::bridge::HOVER_ENTER_EVENT_BIT]
+        );
+        let original = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        let (root, nodes) = hover_tree(2000);
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1000,
+                    root,
+                    nodes,
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&2001].entity_id(), original);
+            runtime.hover_if_live(1001, false, cx);
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        assert_eq!(events.borrow().len(), 1);
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.simulate_mouse_move(point(px(-20.0), px(-20.0)), None, Modifiers::none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[
+                1001 | crate::bridge::HOVER_ENTER_EVENT_BIT,
+                2001 | crate::bridge::HOVER_EXIT_EVENT_BIT
+            ]
+        );
+        let (root, mut nodes) = hover_tree(3000);
+        if let NodeKind::Button { enabled, .. } = &mut nodes[1].kind {
+            *enabled = false;
+        }
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 2000,
+                    root,
+                    nodes,
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());
+        assert_eq!(events.borrow().len(), 2);
+    }
+
+    #[gpui::test]
+    fn retained_component_keeps_native_entity_and_pending_press(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, mut nodes) = transport_tree(1000, "Press", "Press");
+        nodes[0].children = vec![1002];
+        nodes.push(Node {
+            id: 1002,
+            kind: NodeKind::Boundary { instance: 7 },
+            children: vec![1001],
+        });
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        let original = runtime.read_with(cx, |runtime, _| runtime.views[&1001].entity_id());
+        let point = point(px(60.0), px(60.0));
+        cx.simulate_mouse_move(point, None, Modifiers::none());
+        cx.simulate_mouse_down(point, MouseButton::Left, Modifiers::none());
+        runtime.update(cx, |runtime, cx| {
+            let mut next = runtime.graph.node(1000).unwrap().clone();
+            next.id = 2000;
+            runtime.apply_unrecorded(
+                Patch::ReplaceRetaining {
+                    old_root: 1000,
+                    root: 2000,
+                    nodes: vec![next],
+                    retained_roots: vec![1002],
+                },
+                cx,
+            );
+            assert_eq!(runtime.views[&1001].entity_id(), original);
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::none());
+        assert_eq!(clicks.borrow().as_slice(), &[1001]);
+    }
+
+    #[gpui::test]
+    fn deep_virtual_subtrees_materialize_retain_and_retire_without_recursive_walks(
+        cx: &mut TestAppContext,
+    ) {
+        use gpui::AppContext;
+        recording_dispatcher();
+        let depth = 2048_u64;
+        let (root, mut nodes) = queue_tree(1000);
+        let leaf = nodes.pop().unwrap();
+        nodes[0].kind = NodeKind::Column {
+            label: "Deep virtual owner".into(),
+            style: Box::new(Style {
+                align: super::Align::Baseline,
+                ..Style::default()
+            }),
+        };
+        for offset in 0..depth {
+            nodes.push(Node {
+                id: 1003 + offset,
+                kind: NodeKind::Column {
+                    label: String::new(),
+                    style: Box::default(),
+                },
+                children: vec![1004 + offset],
+            });
+        }
+        nodes.push(Node {
+            id: 1003 + depth,
+            ..leaf
+        });
+        // Exercise the actual entity/materialization lifecycle without asking
+        // GPUI's separate layout engine to lay out a 2,048-deep viewport.
+        let runtime = cx.new(|cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        runtime.update(cx, |runtime, cx| {
+            let (view, count) = runtime.build_virtual_node(1002, cx);
+            assert_eq!(count, depth + 2);
+            let identity = view.entity_id();
+            let constructions = runtime.virtual_constructions;
+            runtime.preserved_virtual.insert(1002);
+            let (retained, retained_count) = runtime.build_virtual_node(1002, cx);
+            assert_eq!(retained.entity_id(), identity);
+            assert_eq!(retained_count, count);
+            assert_eq!(runtime.virtual_constructions, constructions);
+            for cached in runtime.virtual_entities.values() {
+                cached
+                    .view
+                    .update(cx, |view, _| view.baseline_layout = false);
+            }
+            runtime.refresh_retained_baseline_layout(1002, cx);
+            assert!(
+                runtime
+                    .virtual_entities
+                    .values()
+                    .all(|cached| cached.view.read(cx).baseline_layout)
+            );
+            runtime.offer_subtree(view.clone(), cx);
+            assert_eq!(runtime.recyclable.len() as u64, count);
+            runtime.forget_virtual_subtree(view, cx);
+            assert!(runtime.virtual_entities.is_empty());
+            runtime.recyclable.clear();
+        });
+    }
+
+    #[gpui::test]
+    fn a_local_virtual_component_update_keeps_its_row_and_press(cx: &mut TestAppContext) {
+        let clicks = recording_dispatcher();
+        let (root, mut nodes) = queue_tree(1000);
+        nodes
+            .iter_mut()
+            .find(|node| node.id == 1002)
+            .unwrap()
+            .children = vec![1004];
+        nodes.push(Node {
+            id: 1004,
+            kind: NodeKind::Boundary { instance: 50 },
+            children: vec![1003],
+        });
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        let (row, button) = runtime.read_with(cx, |runtime, _| {
+            (
+                runtime.virtual_views[&(1001, 1002)].view.entity_id(),
+                runtime.virtual_entities[&1003].view.entity_id(),
+            )
+        });
+        let on_button = point(px(20.0), px(20.0));
+        cx.simulate_mouse_move(on_button, None, Modifiers::none());
+        cx.simulate_mouse_down(on_button, MouseButton::Left, Modifiers::none());
+        runtime.update(cx, |runtime, cx| {
+            let mut next_button = runtime.graph.node(1003).unwrap().clone();
+            next_button.id = 1006;
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1004,
+                    root: 1005,
+                    nodes: vec![
+                        Node {
+                            id: 1005,
+                            kind: NodeKind::Boundary { instance: 50 },
+                            children: vec![1006],
+                        },
+                        next_button,
+                    ],
+                },
+                cx,
+            );
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].view.entity_id(), row);
+            assert_eq!(runtime.virtual_entities[&1006].view.entity_id(), button);
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].entities, 3);
+            assert!(!runtime.virtual_entities.contains_key(&1003));
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_up(on_button, MouseButton::Left, Modifiers::none());
+        assert_eq!(clicks.borrow().as_slice(), &[1006]);
+    }
+
+    #[gpui::test]
+    fn retiring_a_nested_virtual_list_does_not_subtract_its_rows_from_the_outer_cache(
+        cx: &mut TestAppContext,
+    ) {
+        let (root, mut nodes) = queue_tree(1000);
+        let button = nodes.pop().unwrap();
+        nodes.extend([
+            Node {
+                id: 1003,
+                kind: NodeKind::Boundary { instance: 50 },
+                children: vec![1004],
+            },
+            Node {
+                id: 1004,
+                kind: NodeKind::VirtualList {
+                    name: "Nested".into(),
+                    row_height: 20,
+                    row_gap: 0,
+                    style: Box::default(),
+                },
+                children: vec![1005],
+            },
+            Node {
+                id: 1005,
+                kind: NodeKind::VirtualItem { key: 9 },
+                children: vec![1006],
+            },
+            Node {
+                id: 1006,
+                ..button.clone()
+            },
+        ]);
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            // Drive the production range callback for both mounted lists.
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            drop(runtime.virtual_range(1004, 0..1, 20, 0, cx));
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].entities, 3);
+            assert_eq!(runtime.virtual_views[&(1004, 1005)].entities, 2);
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1003,
+                    root: 2003,
+                    nodes: vec![
+                        Node {
+                            id: 2003,
+                            kind: NodeKind::Boundary { instance: 50 },
+                            children: vec![2004],
+                        },
+                        Node { id: 2004, ..button },
+                    ],
+                },
+                cx,
+            );
+            assert_eq!(runtime.virtual_views[&(1001, 1002)].entities, 3);
+            assert_eq!(runtime.virtual_lists[&1001].entities, 3);
+            assert!(!runtime.virtual_lists.contains_key(&1004));
+            assert!(!runtime.virtual_row_owners.contains_key(&1005));
+        });
+    }
+
+    #[gpui::test]
+    fn equally_named_inputs_in_different_components_have_separate_editors(cx: &mut TestAppContext) {
+        let input = |id| Node {
+            id,
+            kind: NodeKind::TextInput {
+                label: "Name".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let nodes = vec![
+            Node {
+                id: 1,
+                kind: NodeKind::Column {
+                    label: "Form".into(),
+                    style: Box::default(),
+                },
+                children: vec![2, 4],
+            },
+            Node {
+                id: 2,
+                kind: NodeKind::Boundary { instance: 10 },
+                children: vec![3],
+            },
+            input(3),
+            Node {
+                id: 4,
+                kind: NodeKind::Boundary { instance: 20 },
+                children: vec![5],
+            },
+            input(5),
+        ];
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1, nodes }), cx)
+        });
+        runtime.read_with(cx, |runtime, cx| {
+            assert_ne!(
+                runtime.views[&3]
+                    .read(cx)
+                    .input
+                    .as_ref()
+                    .unwrap()
+                    .entity_id(),
+                runtime.views[&5]
+                    .read(cx)
+                    .input
+                    .as_ref()
+                    .unwrap()
+                    .entity_id()
+            );
+            assert_ne!(runtime.identities[&3], runtime.identities[&5]);
+        });
+    }
+
+    #[gpui::test]
+    fn an_edit_queued_before_rerender_is_acknowledged_when_its_route_is_stale(
+        cx: &mut TestAppContext,
+    ) {
+        install_test_dispatcher(|_| panic!("stale native edit reached Roc"));
+        let node = |id| Node {
+            id,
+            kind: NodeKind::TextInput {
+                label: "Name".into(),
+                value: "saved".into(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![node(1)],
+                }),
+                cx,
+            )
+        });
+        let editor = runtime.read_with(cx, |runtime, cx| {
+            runtime.views[&1].read(cx).input.as_ref().unwrap().clone()
+        });
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                gpui::EntityInputHandler::replace_text_in_range(
+                    editor,
+                    Some(0..5),
+                    "queued",
+                    window,
+                    cx,
+                );
+            });
+            // Apply before the deferred native input callback. The reused
+            // editor still has the original controlled value.
+            runtime.update(cx, |runtime, cx| {
+                runtime.apply_unrecorded(
+                    Patch::Replace {
+                        old_root: 1,
+                        root: 2,
+                        nodes: vec![node(2)],
+                    },
+                    cx,
+                )
+            });
+        });
+        cx.run_until_parked();
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.displayed_value(), "saved")
+        });
     }
 
     /// The baseline the two tests below are measured against: with nothing
@@ -4323,12 +7675,16 @@ mod roc_test_symbols {
     }
 
     #[unsafe(no_mangle)]
-    extern "C" fn roc_gui_complete(_dispatcher: RocErasedCallable, _completion: RocErasedCallable) {
+    extern "C" fn roc_gui_complete(
+        _dispatcher: RocErasedCallable,
+        _completion: RocErasedCallable,
+        _owner: u64,
+    ) {
         unreachable!("a host test called into Roc");
     }
 
     #[unsafe(no_mangle)]
-    extern "C" fn roc_gui_run_task(_task: RocErasedCallable) -> RocErasedCallable {
+    extern "C" fn roc_gui_run_task(_task: RocErasedCallable) {
         unreachable!("a host test called into Roc");
     }
 }

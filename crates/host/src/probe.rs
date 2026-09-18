@@ -12,9 +12,12 @@
 //!
 //! # Why bounds persist across frames
 //!
-//! GPUI caches views: a `NodeView` whose state did not change is not
-//! re-rendered, so its prepaint closure does not run again and it records
-//! nothing that frame. Treating "absent this frame" as "not laid out" would
+//! The host uses GPUI's view cache for non-root buttons and row, column, and panel containers with fixed
+//! width and height, matching minimum and maximum dimensions, and no grow,
+//! including transparent boundary chains around eligible nodes.
+//! An unchanged cached view's prepaint closure does not run again and records
+//! nothing that frame. Other nodes use ordinary GPUI rendering. Treating
+//! "absent this frame" as "not laid out" would
 //! therefore report a perfectly visible, unchanged control as missing. Bounds
 //! are kept until the node leaves the mounted graph, and [`retain_mounted`]
 //! prunes them when it does.

@@ -20,4 +20,6 @@
     (click (role button :name "Restore item 1"))
     (await-task)
     (expect-visible (text "Selected item is now on the clipboard"))
-    (expect-clipboard-counters 1 1 2 1)))
+    ; Capture remains live, so another periodic read may finish while these UI
+    ; steps run. Its observed count is evidence, but it is not deterministic.
+    (expect-clipboard-counters 1 1 _ 1)))

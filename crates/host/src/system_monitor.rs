@@ -78,7 +78,7 @@ pub fn active_count() -> usize {
 }
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("system monitor store poisoned");
-    if let Some(id) = guard.allocations.remove(&(base as usize)) {
+    if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
         guard.samplers.remove(&id);
     }
 }
@@ -105,7 +105,7 @@ fn capability(source: Source) -> *mut u64 {
             sampling: Mutex::new(false),
         }),
     );
-    guard.allocations.insert(base, id);
+    crate::register_resource_allocation(crate::resource_domain::SYSTEM_MONITOR, &mut guard.allocations, base, id);
     handle
 }
 fn lookup(handle: *mut u64) -> Option<Arc<Sampler>> {

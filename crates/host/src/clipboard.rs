@@ -92,7 +92,7 @@ fn allocate_handle(guard: &mut Store) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
     guard.handles.insert(id, ());
-    guard.allocations.insert(base, id);
+    crate::register_resource_allocation(crate::resource_domain::CLIPBOARD, &mut guard.allocations, base, id);
     handle
 }
 
@@ -102,7 +102,7 @@ fn valid(handle: *mut u64, guard: &Store) -> bool {
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     if let Ok(mut guard) = store().lock()
-        && let Some(id) = guard.allocations.remove(&(base as usize))
+        && let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize)
     {
         guard.handles.remove(&id);
     }

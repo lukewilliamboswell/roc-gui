@@ -122,9 +122,13 @@ snapshots through the same ABI as the physical source.
 
 == Locators
 
-Text and prefix locators come first, then role locators in alphabetical order
-by role.
+`within` scopes any locator to a named part of the mounted graph. Text and
+prefix locators follow, then role locators in alphabetical order by role.
 
+`(within ANCESTOR TARGET)`:: Matches `TARGET` nodes that are strict descendants
+of a node matched by `ANCESTOR`. Either locator may itself use `within`. The
+ancestor never matches itself, and several matching ancestors do not duplicate
+a target. Multiple target matches remain ambiguous for interactions.
 `(text "value")`:: Text whose entire value equals `value`.
 `(text-prefix "prefix")`:: Text beginning with `prefix`.
 `(button-prefix "prefix")`:: Button names beginning with `prefix`.
@@ -156,8 +160,23 @@ semantic label.
 semantic name.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
-missing targets fail instead of choosing one by traversal order. Make button
-names unique wherever the buttons are visible together.
+missing targets fail instead of choosing one by traversal order. Use unique
+semantic names or scope repeated component-local names through a named
+container:
+
+[source,scheme]
+----
+(replace-text
+  (within (role panel :name "Left editor") (role textbox :name "Value"))
+  "Changed")
+----
+
+Both runners resolve scoped locators through the same mounted-graph matcher.
+Scopes do not depend on native view materialisation, so they also work for
+logically mounted virtual-list rows. A canvas primitive is a strict semantic
+child of its owning canvas, so `(within (role canvas :name "Stage")
+(canvas-item-prefix "Dot"))` counts matching primitives on that canvas. A
+primitive is a leaf and cannot itself contain further matches.
 
 Row and column locators describe the mounted application graph. They do not
 assert pixel geometry or operating-system accessibility.
@@ -195,6 +214,29 @@ same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
+`(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Deliver a button hover
+transition through the canonical mounted graph and normal Roc route. Duplicate
+transitions and disabled controls dispatch nothing. Both runners use the same
+transition owner. The window runner requires an entering target to be painted
+and visible, then dispatches a GPUI mouse-move event at its centre. Exit moves
+the simulated pointer outside the window; GPUI performs hit testing and delivers
+the resulting transitions.
+`(expect-background LOCATOR 0xRRGGBB)`:: Compare the explicit application
+background in the mounted graph. Native hover refinements are separate. Missing
+backgrounds fail as unavailable; colors are not recorded as count evidence.
+`(mark-native-work)`:: Start observing completed native frames in a window run.
+The underlying production counters remain active independently of recording.
+`(expect-native-work :button-renders-max N :boundary-renders-max N :boundary-elements-max N :cached-prepaint-subtrees-min N :cached-paint-subtrees-min N :replayed-scene-operations-min N :fresh-hitboxes-max N :fresh-mouse-listeners-max N :element-states-moved-min N)`:: Bound
+actual button and boundary view renders and boundary view elements created in
+every completed frame since the mark. Each limit is optional, but at least one
+is required. GPUI-owned limits distinguish cached subtree replay from fresh
+hitbox and listener insertion and finish-time element-state movement. Minimums
+prove that reuse work actually occurred; maxima bound fresh reconstruction.
+Element creation measures the host handing a view to GPUI even
+when that view subsequently reuses its rendered subtree. A missing
+mark or no completed frame fails as unavailable. Choose limits from the
+changed patch frontier and the application's ordinary native controls; these
+assertions belong to controlled interactions without unrelated input or resize.
 `(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
 gesture through a canvas's production event route. Coordinates are integer
 logical pixels in canvas space.
@@ -228,7 +270,19 @@ or content becomes evidence.
 exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.
 `(expect-clipboard-counters LIVE ACQUIRE READ WRITE)`:: Require the
-owner-recorded live handle count and attempted clipboard operations.
+owner-recorded live handle count and attempted clipboard operations. A field
+may be `_` when concurrent production work makes that particular expectation
+nondeterministic. Its observed value is still recorded; the expected evidence
+column is absent rather than zero.
+`(expect-component-work :rendered N :compared N :skipped N :mounted N :retired N :registry-visits N :ancestor-invalidations N :projection-gets N :projection-sets N :keyed-order-visits N :keyed-snapshot-items N)`::
+Require exact component-runtime work in the most recently committed action
+turn, including its nested rendering and lowering. Supply one or more named
+counts in any order; omitted counts are unconstrained. Both runners read the
+same production observation, including when capture is disabled. A missing
+observation fails as unavailable. Assertions do not start a new action turn.
+Projection counts record configured getter and setter calls, including calls
+that return `Removed`; they exclude arbitrary application reads and background
+worker execution. They measure adapter work separately from boundary renders.
 `(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
 observed counts.
 `(expect-device-connections N)`:: Require exactly `N` host-owned device
@@ -262,14 +316,14 @@ samples.
 `(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Require the complete
 owner-recorded TCP resource and attempted-operation vector.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
-`(expect-value LOCATOR "value")`:: Require an exact controlled textarea value.
+`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value.
 The value is compared in memory and is not copied into captures or diagnostics.
-`(expect-value-bytes LOCATOR N)`:: Require the textarea value to contain exactly
+`(expect-value-bytes LOCATOR N)`:: Require the text-input or textarea value to contain exactly
 `N` UTF-8 bytes, and record the expected and observed deterministic counts.
 `(expect-visible LOCATOR)`:: Require at least one match.
 
-Each counter assertion reads the capability registry that owns the resource's
-lifecycle, and records its expected and observed values as ordinary
+Each counter assertion reads the production owner of the resource or component
+work, and records its expected and observed values as ordinary
 deterministic step evidence.
 
 Prefer semantic results—visible text, counts, and order—for application
@@ -335,7 +389,7 @@ them silently:
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount. Also every step the
 window runner does not implement: `drag`, `replace-text`, `submit`, the
-live-resource and owner counter assertions, and the repository fixture steps the
+live-resource and capability counter assertions, and the repository fixture steps the
 Contributing chapter describes.
 
 `window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
@@ -345,7 +399,7 @@ content to be below, and no size a window could be resized from.
 
 `both`:: `click`, `focus`, `press-key`, `await-task`, `await-count`, `clipboard-text`,
 `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
-`expect-count`, and the value and ordering assertions — `expect-value`,
+`expect-count`, `expect-component-work`, and the value and ordering assertions — `expect-value`,
 `expect-value-bytes`, `expect-image-bytes`, `expect-before`, and
 `expect-canvas-primitives`. The fixture clipboard is one process-wide store, so
 changing the granted source and waiting for the application's own timer to
@@ -462,7 +516,10 @@ not exercised; those belong to the pointer seam this host does not have.
 Pointer steps are simulated at the production handler, but are refused unless
 the control was laid out, is unclipped, is enabled, and is not behind a modal
 dialog, so a `click` a real user could not have performed fails rather than
-passing quietly. There is no `hover` step. The Testing your
+passing quietly. `hover-enter` and `hover-exit` dispatch mouse-move events into
+the live GPUI window, exercising hit testing, production views, and the normal
+event route. They do not move the operating-system pointer. GPUI tests also
+verify replacement continuity and disabled or stale routes. The Testing your
 application chapter explains why, and what each guarantee is worth.
 
 === What the probe cannot see
@@ -520,3 +577,12 @@ The default is one case at a time. `--jobs N` runs cases concurrently, which is
 useful for semantic validation but marks timing-environment evidence partial.
 Use serial runs for performance comparisons. `--aa` repeats each passing case
 with the same executable to show run-to-run noise.
+
+The runner prints a UTC start, UTC finish, and elapsed wall time for every case,
+including timeouts and process failures. Timing is diagnostic evidence only;
+specification assertions and deterministic counters decide correctness. CI runs
+ordinary semantics, serial scaling cases, native smoke checks, and real-window
+specifications as independent jobs. On failure it retains bounded JSON status,
+partial `.rgstats` evidence, and a sanitized textual Windows debugger report
+when one is available. Raw process memory is never retained because it can
+contain application data and machine identity.

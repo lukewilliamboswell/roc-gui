@@ -14,6 +14,10 @@ import tarfile
 import tempfile
 import tomllib
 
+import vendored_gpui
+
+INVENTORY_SCHEMA = 2
+
 NOTICE = re.compile(r"^(?:licen[cs]e|copying|copyright|notice|authors)(?:$|[._-])", re.I)
 EMBEDDED_NOTICE = re.compile(rb"copyright|licen[cs]e|SPDX|public.domain|source.code.form|same.terms", re.I)
 REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
@@ -120,7 +124,42 @@ def reviewed_source_files(archive, record, checksum, vcs):
     return selected
 
 
-def collect(about, lock, cache, destination, supplements=None, include_sources=False, review=None, include_embedded=False):
+def collect_vendored(package, stage, root, include_sources, include_embedded):
+    provenance, manifest, files, archive = vendored_gpui.admit(package, root)
+    policy = (Path(root or vendored_gpui.ROOT) / vendored_gpui.POLICY_PATH).read_bytes()
+    if hashlib.sha256(policy).hexdigest() != provenance["policy_sha256"]:
+        raise ValueError("vendored GPUI policy changed during collection")
+    notices = {name: data for name, data in files.items()
+               if NOTICE.match(PurePosixPath(name).name) or name == manifest.get("license-file")}
+    declarations = {name: files[name] for name in
+                    ("Cargo.toml", "Cargo.toml.orig", ".cargo_vcs_info.json", "ROC-GUI-PATCHES.md")
+                    if name in files}
+    declarations["ROC-GUI-SOURCE-POLICY.json"] = policy
+    embedded = {name: data for name, data in files.items()
+                if name not in notices and name not in declarations and EMBEDDED_NOTICE.search(data)} if include_embedded else {}
+    record = {"name": "gpui", "version": "0.2.2", "crate_sha256": None,
+              "declared_license": "Apache-2.0", "authors": manifest.get("authors", []),
+              "vendored_source": provenance, "upstream_provenance": None, "review": None}
+    for category, payload in (("notice_files", notices), ("declaration_files", declarations),
+                              ("embedded_notice_files", embedded), ("upstream_notice_files", {}),
+                              ("reviewed_source_files", {}), ("reviewed_upstream_files", {})):
+        record[category] = {}
+        for name, data in sorted(payload.items()):
+            relative = Path("crates/gpui-0.2.2") / category / name
+            output = stage / relative
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(data)
+            record[category][name] = {"path": relative.as_posix(), "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+    if include_sources:
+        relative = Path("sources/gpui-0.2.2-vendored.tar")
+        (stage / relative).parent.mkdir(exist_ok=True)
+        (stage / relative).write_bytes(archive)
+        record["source_archive"] = {"path": relative.as_posix(),
+                                    "sha256": provenance["source_archive_sha256"], "size": len(archive)}
+    return record
+
+
+def collect(about, lock, cache, destination, supplements=None, include_sources=False, review=None, include_embedded=False, source_root=None):
     """Publish a complete inventory atomically; any unknown identity stops it."""
     if destination.exists():
         raise FileExistsError(destination)
@@ -156,7 +195,10 @@ def collect(about, lock, cache, destination, supplements=None, include_sources=F
             if identity not in locked:
                 raise ValueError("selected crate is absent from Cargo.lock")
             if package["source"] is None:
-                own_packages.append({"name": package["name"], "version": package["version"]})
+                if vendored_gpui.is_own_package(package, source_root):
+                    own_packages.append({"name": package["name"], "version": package["version"]})
+                else:
+                    records.append(collect_vendored(package, stage, source_root, include_sources, include_embedded))
                 continue
             if package["source"] != REGISTRY or not locked.get(identity):
                 raise ValueError("selected crate has no supported Cargo.lock identity")
@@ -202,7 +244,7 @@ def collect(about, lock, cache, destination, supplements=None, include_sources=F
             records.append(record)
         if not records:
             raise ValueError("no third-party crates selected for notice review")
-        inventory = {"schema_version": 1, "cargo_lock_sha256": hashlib.sha256(locked_bytes).hexdigest(),
+        inventory = {"schema_version": INVENTORY_SCHEMA, "cargo_lock_sha256": hashlib.sha256(locked_bytes).hexdigest(),
                      "embedded_notice_scan": include_embedded,
                      "about_report_sha256": hashlib.sha256(report_bytes).hexdigest(),
                      "packages": sorted(records, key=lambda p: (p["name"], p["version"])),

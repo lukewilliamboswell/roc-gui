@@ -10,6 +10,7 @@ from contextlib import closing, contextmanager
 import fnmatch
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -22,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 10
+SUPPORTED_SCHEMA = 19
 
 
 @dataclass(frozen=True)
@@ -143,21 +144,12 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
     return cases
 
 
-# TODO: build every application the same way once the Roc optimizing backend
-# stops miscompiling these. An optimized build fails a few runs in ten, on every
-# platform: it segfaults with an access violation, crashes with "hit a runtime
-# error", or silently loses a directory listing. `--opt=dev` is clean over 40
-# runs, and none of these applications measures a benchmark, so their timings are
-# nobody's evidence. `file-explorer` joined the list after CI hit the same
-# access violation in `navigation.scm` that `folder-browser` showed first.
-# `system-monitor` likewise hangs or exits with 0xC0000005 on Windows, but its
-# live timer's deterministic sample count needs the optimized build elsewhere.
-DEV_BUILD_APPS = frozenset({"file-explorer", "folder-browser", "music-player"}) | (
-    frozenset({"system-monitor"}) if sys.platform == "win32" else frozenset()
-)
-
-
-def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
+# Use one explicit application backend across examples and benchmarks. The
+# selected compiler's LLVM callback/state corruption is tracked in the backlog;
+# --roc-opt allows intentional compiler diagnostics without an automatic retry
+# or fallback. The Rust host's build profile is independent of this option.
+def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
+    print(f"Roc application build mode: {roc_opt}", flush=True)
     subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
     if not skip_host_build:
         sys.path.insert(0, str(ROOT / "scripts"))
@@ -167,9 +159,8 @@ def build(cases: list[Case], roc: str, skip_host_build: bool) -> None:
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
-        workaround = ["--opt=dev"] if app.parent.name in DEV_BUILD_APPS else []
         subprocess.run(
-            [roc, "build", *workaround, f"--output={executable}", str(app)],
+            [roc, "build", f"--opt={roc_opt}", f"--output={executable}", str(app)],
             cwd=ROOT,
             check=True,
         )
@@ -222,6 +213,120 @@ def window_artifacts(case: Case) -> Path:
     return case.capture.with_suffix("")
 
 
+def case_identity(case: Case) -> str:
+    """Repository-relative case identity safe to print and retain in CI."""
+    return case.spec.relative_to(ROOT).as_posix()
+
+
+def failure_record(case: Case) -> Path:
+    """Privacy-safe machine-readable failure evidence beside a case capture."""
+    return case.capture.with_suffix(".failure.json")
+
+
+def sanitize_debugger_output(output: str) -> str:
+    """Remove machine and user identity from a debugger's textual backtrace."""
+    sanitized = output.replace(str(ROOT), "/workspace")
+    home = str(Path.home())
+    if home:
+        sanitized = sanitized.replace(home, "/home/user")
+    temporary = tempfile.gettempdir()
+    if temporary:
+        sanitized = sanitized.replace(temporary, "/tmp")
+    # Windows debugger output can use either separator and is produced on a
+    # different machine from this Python source.
+    sanitized = re.sub(r"(?i)[A-Z]:[\\/]Users[\\/][^\\/\s]+", "C:/Users/user", sanitized)
+    sanitized = re.sub(
+        r"(?i)[A-Z]:[\\/]a[\\/](?:_temp|[^\\/\s]+[\\/][^\\/\s]+)",
+        "C:/runner/workspace",
+        sanitized,
+    )
+    sanitized = re.sub(
+        r"(?i)[A-Z]:[\\/]actions-runner[\\/]_work[\\/][^\\/\s]+[\\/][^\\/\s]+",
+        "C:/runner/workspace",
+        sanitized,
+    )
+    return sanitized
+
+
+def windows_debugger() -> Path | None:
+    """Find cdb without recording host-specific installation paths."""
+    if found := shutil.which("cdb.exe") or shutil.which("cdb"):
+        return Path(found)
+    kits = Path("C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe")
+    return kits if kits.is_file() else None
+
+
+def capture_windows_crash_report(case: Case, command: list[str], returncode: int, timeout: float) -> None:
+    """Rerun an access violation under cdb and retain only sanitized text.
+
+    Raw process dumps contain stack memory, command lines, and machine paths,
+    so CI never uploads them. The debugger is restricted to stack and module
+    commands, and this function removes runner and user identity before writing.
+    """
+    if os.name != "nt" or returncode & 0xFFFFFFFF != 0xC0000005:
+        return
+    debugger = windows_debugger()
+    if debugger is None:
+        return
+    report = case.capture.with_suffix(".crash.txt")
+    report.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        completed = subprocess.run(
+            [str(debugger), "-o", "-g", "-G", "-c", "kp;lm;q", *command],
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=timeout,
+        )
+        trace = completed.stdout.decode(errors="replace")
+    except subprocess.TimeoutExpired as error:
+        trace = (error.stdout or b"").decode(errors="replace") + "\nDEBUGGER TIMEOUT\n"
+    report.write_text(
+        "privacy: sanitized textual debugger report; no process memory retained\n"
+        f"spec: {case_identity(case)}\n"
+        f"status: 0x{returncode & 0xFFFFFFFF:08X}\n\n"
+        + sanitize_debugger_output(trace),
+        encoding="utf-8",
+    )
+
+
+def finish_case(
+    case: Case,
+    started: float,
+    runner: str,
+    outcome: str,
+    error: str | None,
+    returncode: int | None = None,
+) -> tuple[Case, str | None]:
+    """Report duration immediately and retain bounded, non-secret failure facts."""
+    elapsed = time.monotonic() - started
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    print(
+        f"END {case_identity(case)} runner={runner} outcome={outcome} "
+        f"elapsed={elapsed:.3f}s utc={now}",
+        flush=True,
+    )
+    if error is not None:
+        record = {
+            "schema_version": 1,
+            "spec": case_identity(case),
+            "application": case.app.relative_to(ROOT).as_posix(),
+            "runner": runner,
+            "outcome": outcome,
+            "elapsed_seconds": round(elapsed, 3),
+            "exit_status": None if returncode is None else f"0x{returncode & 0xFFFFFFFF:08X}",
+        }
+        path = failure_record(case)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        if case.capture.is_file():
+            shutil.copy2(
+                case.capture,
+                case.capture.with_name(f"{case.capture.stem}.failure{case.capture.suffix}"),
+            )
+    return case, error
+
+
 def run_case(
     case: Case,
     grants: dict,
@@ -236,6 +341,12 @@ def run_case(
     Both runners share this function so a case is wired to the capabilities its
     specification declares exactly once, whichever runner it needs.
     """
+    started = time.monotonic()
+    print(
+        f"START {case_identity(case)} runner={runner} "
+        f"utc={datetime.now(timezone.utc).isoformat(timespec='seconds')}",
+        flush=True,
+    )
     case.capture.parent.mkdir(parents=True, exist_ok=True)
     if runner == "window":
         artifacts = window_artifacts(case)
@@ -275,10 +386,15 @@ def run_case(
                 timeout=timeout,
             )
         except subprocess.TimeoutExpired:
-            return case, f"timed out after {timeout:g}s"
+            error = f"timed out after {timeout:g}s"
+            return finish_case(case, started, runner, "timeout", error)
     if completed.returncode != 0:
         diagnostic = completed.stderr.decode(errors="replace").strip()
-        return case, f"exit {completed.returncode}: {diagnostic}"
+        capture_windows_crash_report(case, command, completed.returncode, timeout)
+        error = f"exit {completed.returncode}: {diagnostic}"
+        return finish_case(
+            case, started, runner, "process_exit", error, completed.returncode
+        )
     if runner == "window":
         # A window run's evidence is its report, not a SQLite capture, which it
         # does not produce.
@@ -286,7 +402,8 @@ def run_case(
         try:
             written = json.loads(report.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
-            return case, f"unreadable window report: {error}"
+            message = f"unreadable window report: {error}"
+            return finish_case(case, started, runner, "invalid_evidence", message)
         outcome = written.get("outcome")
         # A run that captured no screenshot proved nothing visual. Tolerating
         # that is a decision this suite makes explicitly, never a silence: the
@@ -300,15 +417,17 @@ def run_case(
             print(f"DEGRADED {case.spec.relative_to(ROOT)}: "
                   f"{written.get('unavailable_shots', 0)} screenshot(s) unavailable"
                   + (f" ({'; '.join(missing)})" if missing else ""), file=sys.stderr)
-            return case, None
+            return finish_case(case, started, runner, "degraded", None)
         if outcome != "pass":
-            return case, f"window report outcome {outcome!r}"
-        return case, None
+            error = f"window report outcome {outcome!r}"
+            return finish_case(case, started, runner, "semantic_failure", error)
+        return finish_case(case, started, runner, "pass", None)
     try:
         validate_capture(case.capture)
     except (OSError, sqlite3.Error, RuntimeError, ValueError) as error:
-        return case, f"invalid capture: {error}"
-    return case, None
+        message = f"invalid capture: {error}"
+        return finish_case(case, started, runner, "invalid_evidence", message)
+    return finish_case(case, started, runner, "pass", None)
 
 
 def parse_args() -> argparse.Namespace:
@@ -336,6 +455,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-retries", type=int, default=0,
                         help="retry a failed window case this many times with fresh artifacts")
     parser.add_argument("--roc", default=os.environ.get("ROC", "roc"))
+    parser.add_argument("--roc-opt", choices=("dev", "speed", "size"), default="dev",
+                        help="Roc application backend (default: dev); speed and size are LLVM diagnostic builds")
     args = parser.parse_args()
     if args.jobs < 1 or args.timeout <= 0 or args.window_retries < 0:
         parser.error("jobs and timeout must be positive; window retries cannot be negative")
@@ -354,7 +475,7 @@ def main() -> int:
         print("error: no .scm specs selected", file=sys.stderr)
         return 2
     try:
-        build(cases, args.roc, args.skip_host_build)
+        build(cases, args.roc, args.skip_host_build, args.roc_opt)
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1

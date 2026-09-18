@@ -61,7 +61,9 @@ pub fn counters() -> ([u64; 4], usize) {
 
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("TCP capability store poisoned");
-    if let Some(id) = guard.allocations.remove(&(allocation_base as usize)) {
+    if let Some(id) =
+        crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize)
+    {
         guard.streams.remove(&id);
     }
 }
@@ -92,7 +94,7 @@ fn capability(stream: TcpStream) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.streams.insert(id, Arc::new(Mutex::new(Some(stream))));
-    guard.allocations.insert(base as usize, id);
+    crate::register_resource_allocation(crate::resource_domain::TCP, &mut guard.allocations, base as usize, id);
     handle
 }
 

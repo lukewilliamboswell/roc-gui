@@ -8,8 +8,7 @@ State : Browser.State
 ## deep teal, and a host that changed its own default would otherwise pull
 ## the whole palette out from under them.
 main = Program.run({
-	init: Browser.init,
-	render: Browser.render,
+	init: Browser.init, render: Browser.render,
 	window: {
 		title: "Folder browser",
 		width: 760,

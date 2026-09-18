@@ -12,11 +12,13 @@ State : {
 }
 
 paper = Gui.rgb(0xF2EFE6)
+
 ink = Gui.rgb(0x1F1C17)
+
 muted_ink = Gui.rgb(0x8C8474)
 
 render : State -> Elem(State)
-render = |state| Elem.col(
+render = |curr_state| Elem.col(
 	Elem.ColProps.{
 		label: "Counter page",
 		width: Fill,
@@ -28,7 +30,7 @@ render = |state| Elem.col(
 		Elem.col(
 			Elem.ColProps.{ gap: 6 },
 			[
-				Elem.col(Elem.ColProps.{ gap: 0, font_size: 22 }, [Elem.text(state.title)]),
+				Elem.col(Elem.ColProps.{ gap: 0, font_size: 22 }, [Elem.text(curr_state.title)]),
 				Elem.col(
 					Elem.ColProps.{ gap: 0, fg: muted_ink, font_size: 13 },
 					[Elem.text("Two independent tallies, each its own state boundary")],
@@ -38,8 +40,8 @@ render = |state| Elem.col(
 		Elem.row(
 			Elem.RowProps.{ width: Fill, gap: 24 },
 			[
-				Elem.translate(|child| Counter.render("Left", child), |parent| parent.left, |parent, child| { ..parent, left: child }),
-				Elem.translate(|child| Counter.render("Right", child), |parent| parent.right, |parent, child| { ..parent, right: child }),
+				Elem.translate(|counter| Counter.render("Left", counter), |parent| parent.left, |parent, counter| { ..parent, left: counter }),
+				Elem.translate(|counter| Counter.render("Right", counter), |parent| parent.right, |parent, counter| { ..parent, right: counter }),
 			],
 		),
 	],
@@ -47,11 +49,7 @@ render = |state| Elem.col(
 
 main : Program(State)
 main = Program.run({
-	init: {
-		left: Counter.init(-1),
-		right: Counter.init(3),
-		title: "Counter",
-	},
+	init: { left: Counter.init(-1), right: Counter.init(3), title: "Counter" },
 	render,
 	window: { title: "Counter", width: 640, height: 400, background: paper, foreground: ink },
 })

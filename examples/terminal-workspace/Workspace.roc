@@ -53,6 +53,7 @@ header = Elem.row(
 	],
 )
 
+render : State -> Elem.Elem(State)
 render = |_state| Elem.col(
 	Elem.ColProps.{
 		label: "Terminal workspace",
@@ -67,6 +68,6 @@ render = |_state| Elem.col(
 	},
 	[
 		header,
-		Elem.translate(Terminal.render, |current| current.terminal, |current, terminal| { ..current, terminal }),
+		Elem.translate_with(Terminal.render, { key: "terminal", get: |state| state.terminal, set: |state, terminal| { ..state, terminal } }),
 	],
 )

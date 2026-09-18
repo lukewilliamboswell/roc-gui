@@ -7,8 +7,7 @@ State : Explorer.State
 ## rather than inheriting the host's, so the identity cannot be pulled out from
 ## under the application by a change it does not control.
 main = Program.run({
-	init: Explorer.init,
-	render: Explorer.render,
+	init: Explorer.init, render: Explorer.render,
 	window: {
 		title: "File Explorer",
 		width: 960,

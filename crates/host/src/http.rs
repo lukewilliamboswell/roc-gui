@@ -101,7 +101,7 @@ pub fn acquire() -> HostGlueHttpAcquireResult {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
     g.clients.insert(id, Arc::new(origin));
-    g.allocations.insert(base, id);
+    crate::register_resource_allocation(crate::resource_domain::HTTP, &mut g.allocations, base, id);
     HostGlueHttpAcquireResult {
         payload: HostGlueHttpAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
@@ -168,7 +168,7 @@ fn lookup(handle: *mut u64) -> Option<Arc<Url>> {
 }
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut g = store().lock().unwrap();
-    if let Some(id) = g.allocations.remove(&(base as usize)) {
+    if let Some(id) = crate::remove_resource_allocation(&mut g.allocations, base as usize) {
         g.clients.remove(&id);
     }
 }

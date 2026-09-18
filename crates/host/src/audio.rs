@@ -99,7 +99,7 @@ fn allocate(guard: &mut Store, id: u64, track: bool) -> *mut u64 {
     let handle = unsafe { allocate_box(8, 8, false, roc_host()) as *mut u64 };
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(size_of::<isize>()) } as usize;
-    guard.allocations.insert(base, (id, track));
+    crate::register_resource_allocation(crate::resource_domain::AUDIO, &mut guard.allocations, base, (id, track));
     handle
 }
 
@@ -109,7 +109,8 @@ fn id(handle: *mut u64) -> Option<u64> {
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     if let Ok(mut guard) = store().lock()
-        && let Some((id, track)) = guard.allocations.remove(&(base as usize))
+        && let Some((id, track)) =
+            crate::remove_resource_allocation(&mut guard.allocations, base as usize)
     {
         if track {
             guard.tracks.remove(&id);

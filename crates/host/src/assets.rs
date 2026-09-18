@@ -138,13 +138,13 @@ fn allocate(directory: Arc<Dir>) -> Result<*mut u64, Failure> {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.stores.insert(id, directory);
-    guard.allocations.insert(base as usize, id);
+    crate::register_resource_allocation(crate::resource_domain::ASSETS, &mut guard.allocations, base as usize, id);
     Ok(handle)
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     if let Ok(mut guard) = registry().lock() {
-        if let Some(id) = guard.allocations.remove(&(base as usize)) {
+        if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
             guard.stores.remove(&id);
         }
     }

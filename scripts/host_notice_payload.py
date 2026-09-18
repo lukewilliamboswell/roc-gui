@@ -10,7 +10,8 @@ import tarfile
 from cargo_build_evidence import derive, evidence_files, same_checkout_lock
 from host_build_identity import HOST_FILES, validate_outputs
 from dependency_archive import write_archive
-from rust_license_inventory import EMBEDDED_NOTICE
+from rust_license_inventory import EMBEDDED_NOTICE, INVENTORY_SCHEMA
+from vendored_gpui import is_third_party, archive_digest
 from toolchain_license_inventory import selected_toolchains, component_version
 
 CATEGORIES = ("notice_files", "declaration_files", "upstream_notice_files", "reviewed_source_files",
@@ -197,7 +198,8 @@ def validate_notices(directory, target, host_bytes, fingerprint, policy_root, ou
     if not seen:
         raise ValueError("notice payload has no third-party packages")
     crates = notice_json(data, "crate-inventory.json")
-    if (not crates.get("embedded_notice_scan") or crates["cargo_lock_sha256"] != manifest["cargo_lock_sha256"]
+    if (crates.get("schema_version") != INVENTORY_SCHEMA
+            or not crates.get("embedded_notice_scan") or crates["cargo_lock_sha256"] != manifest["cargo_lock_sha256"]
             or {(p["name"], p["version"]) for p in crates["packages"]} != seen
             or len(crates["packages"]) != len(seen)):
         raise ValueError("notice archive has an incomplete crate evidence inventory")
@@ -253,7 +255,7 @@ def validate_sources(source_tree, manifest, notice_data, host_bytes, lock_bytes)
     if json.loads(build_bytes) != notice_json(notice_data, "build.json"):
         raise ValueError("source companion has different host build receipt")
     validate_outputs(json.loads(build_bytes), manifest["target"], manifest["source_fingerprint"], manifest["cargo_host"])
-    expected_packages = {p["id"]: p for p in evidence["packages"] if p["source"] is not None}
+    expected_packages = {p["id"]: p for p in evidence["packages"] if is_third_party(p)}
     observed = {p["id"]: {k: v for k, v in p.items() if k != "referenced_standard_terms"}
                 for p in manifest["packages"]}
     if observed != expected_packages:
@@ -271,7 +273,7 @@ def validate_sources(source_tree, manifest, notice_data, host_bytes, lock_bytes)
     for package in crates["packages"]:
         record = package["source_archive"]
         matched = by_identity.get((package["name"], package["version"]))
-        if not matched or record["sha256"] != matched["crate_sha256"]:
+        if not matched or record["sha256"] != archive_digest(matched):
             raise ValueError("source companion crate differs from compiled lock identity")
         path = prefix + record["path"]
         checked_file(source_tree, path, record)
@@ -319,12 +321,13 @@ def compose(target, evidence_root, crate_root, toolchain_root, policy_root, host
     if selection != json.loads((evidence_root / "selection.json").read_text()):
         raise ValueError("Cargo notice selection differs from the compiled package set")
     crates = json.loads((crate_root / "inventory.json").read_text())
-    if (crates["cargo_lock_sha256"] != digest(lock) or not crates.get("embedded_notice_scan")
+    if (crates.get("schema_version") != INVENTORY_SCHEMA
+            or crates["cargo_lock_sha256"] != digest(lock) or not crates.get("embedded_notice_scan")
             or crates["about_report_sha256"] != digest((evidence_root / "selection.json").read_bytes())
             or crates["supplements_sha256"] != digest((policy_root / "manifest.json").read_bytes())
             or crates["review_sha256"] != digest((policy_root / "review.json").read_bytes())):
         raise ValueError("crate notice inventory differs from the build or reviewed inputs")
-    expected = {(p["name"], p["version"]): p for p in evidence["packages"] if p["source"] is not None}
+    expected = {(p["name"], p["version"]): p for p in evidence["packages"] if is_third_party(p)}
     if len(crates["packages"]) != len(expected) or {(p["name"], p["version"]) for p in crates["packages"]} != set(expected):
         raise ValueError("notice inventory does not cover the compiled package set")
     files = {"build.json": build_bytes}
@@ -337,7 +340,8 @@ def compose(target, evidence_root, crate_root, toolchain_root, policy_root, host
         identity = (package["name"], package["version"])
         compiled = expected[identity]
         if (package["crate_sha256"] != compiled["crate_sha256"]
-                or package["declared_license"] != compiled["declared_license"]):
+                or package["declared_license"] != compiled["declared_license"]
+                or package.get("vendored_source") != compiled.get("vendored_source")):
             raise ValueError("crate declaration differs from compiled package metadata")
         expression = package["declared_license"]
         if expression not in policy["expressions"]:
@@ -350,7 +354,7 @@ def compose(target, evidence_root, crate_root, toolchain_root, policy_root, host
             for entry in package[category].values():
                 files[entry["path"]] = checked_file(crate_root, entry["path"], entry)
         source = package["source_archive"]
-        if source["sha256"] != compiled["crate_sha256"]:
+        if source["sha256"] != archive_digest(compiled):
             raise ValueError("source companion contains an unlocked crate")
         sources["licenses/gui-host-sources/" + source["path"]] = checked_file(crate_root, source["path"], source)
         selected.append(dict(compiled, referenced_standard_terms=terms))

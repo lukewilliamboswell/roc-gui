@@ -13,10 +13,11 @@ repos:
         files: \.rs$
         pass_filenames: false
       # Clippy runs through run_cargo.py so the host links against its verified
-      # build-time inputs, the same way CI builds it.
+      # build-time inputs, the same way CI builds it. Vendored GPUI retains its
+      # upstream lint baseline; its local patches have focused CI regressions.
       - id: cargo-clippy
         name: Lint Rust with Clippy
-        entry: python3 scripts/run_cargo.py clippy --locked --workspace --all-targets -- -D warnings
+        entry: python3 scripts/run_cargo.py clippy --locked --package roc-gui-host --all-targets --no-deps -- -D warnings
         language: system
         files: (\.rs|Cargo\.toml|Cargo\.lock)$
         pass_filenames: false

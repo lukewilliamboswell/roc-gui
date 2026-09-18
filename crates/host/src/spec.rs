@@ -155,6 +155,23 @@ pub struct Step {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Click(Locator),
+    /// Deliver a hover transition through the production graph event route.
+    HoverEnter(Locator),
+    HoverExit(Locator),
+    /// Compare explicit application background, not a native hover refinement.
+    ExpectBackground(Locator, u32),
+    MarkNativeWork,
+    ExpectNativeWork {
+        button_renders_max: Option<u64>,
+        boundary_renders_max: Option<u64>,
+        boundary_elements_max: Option<u64>,
+        cached_prepaint_subtrees_min: Option<u64>,
+        cached_paint_subtrees_min: Option<u64>,
+        replayed_scene_operations_min: Option<u64>,
+        fresh_hitboxes_max: Option<u64>,
+        fresh_mouse_listeners_max: Option<u64>,
+        element_states_moved_min: Option<u64>,
+    },
     Drag(Locator, i32, i32, i32, i32),
     ReplaceText(Locator, String),
     Focus(Locator),
@@ -172,7 +189,7 @@ pub enum Command {
     ExpectSubscriptions(usize),
     ExpectTcpStreams(usize),
     ExpectProcesses(usize),
-    ExpectClipboardCounters([u64; 4]),
+    ExpectClipboardCounters([Option<u64>; 4]),
     ExpectSqliteCounters([u64; 3]),
     ExpectHttpCounters([u64; 4]),
     ExpectTcpCounters([u64; 5]),
@@ -194,6 +211,8 @@ pub enum Command {
     /// refused reads, and bytes read. All six are numeric; no path, file name,
     /// or asset content ever becomes evidence.
     ExpectAssetCounters([u64; 6]),
+    /// Counts from the most recently committed production action turn.
+    ExpectComponentWork([Option<u64>; crate::observatory::COMPONENT_WORK_NAMES.len()]),
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
@@ -333,6 +352,11 @@ impl Command {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Click(_) => "click",
+            Self::HoverEnter(_) => "hover-enter",
+            Self::HoverExit(_) => "hover-exit",
+            Self::ExpectBackground(_, _) => "expect-background",
+            Self::MarkNativeWork => "mark-native-work",
+            Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
             Self::ReplaceText(_, _) => "replace-text",
             Self::Focus(_) => "focus",
@@ -363,6 +387,7 @@ impl Command {
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
+            Self::ExpectComponentWork(_) => "expect-component-work",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
@@ -399,6 +424,8 @@ impl Command {
             Self::ExpectPatch(_) | Self::MarkMetrics => Capability::Semantic,
             // Settling on presented frames has no meaning without a window.
             Self::Settle { .. }
+            | Self::MarkNativeWork
+            | Self::ExpectNativeWork { .. }
             | Self::ExpectOnScreen(_)
             | Self::ExpectRenderedCount(_, _)
             | Self::ExpectBounds(_, _)
@@ -412,6 +439,8 @@ impl Command {
             | Self::Scroll { .. } => Capability::Window,
             // Shared with the semantic runner, and implemented by both.
             Self::Click(_)
+            | Self::HoverEnter(_)
+            | Self::HoverExit(_)
             | Self::Focus(_)
             | Self::PressKey(_)
             | Self::AwaitTask
@@ -434,7 +463,9 @@ impl Command {
             | Self::ExpectValue(_, _)
             | Self::ExpectValueBytes(_, _)
             | Self::ExpectImageBytes(_, _)
-            | Self::ExpectBefore(_, _) => Capability::Both,
+            | Self::ExpectComponentWork(_)
+            | Self::ExpectBefore(_, _)
+            | Self::ExpectBackground(_, _) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
             // They are honest claims, made by one runner rather than two; the
             // alternative of accepting a specification and then refusing a step
@@ -472,6 +503,8 @@ impl Command {
         matches!(
             self,
             Self::Click(_)
+                | Self::HoverEnter(_)
+                | Self::HoverExit(_)
                 | Self::Drag(..)
                 | Self::ReplaceText(_, _)
                 | Self::Focus(_)
@@ -496,6 +529,7 @@ pub struct PatchExpectation {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Locator {
+    Within(Box<Locator>, Box<Locator>),
     Text(String),
     TextPrefix(String),
     ButtonName(String),
@@ -516,11 +550,24 @@ pub enum Locator {
     TextInputName(String),
 }
 
+impl Locator {
+    /// The final target role, without changing the scope used for resolution.
+    pub(crate) fn target(&self) -> &Self {
+        match self {
+            Self::Within(_, target) => target.target(),
+            _ => self,
+        }
+    }
+}
+
 impl fmt::Display for Locator {
     /// Render a locator the way it is written in a specification, so a failure
     /// message quotes the author's own words back to them.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (form, value) = match self {
+            Self::Within(ancestor, target) => {
+                return write!(formatter, "(within {ancestor} {target})");
+            }
             Self::Text(value) => ("(text", value),
             Self::TextPrefix(value) => ("(text-prefix", value),
             Self::ButtonName(value) => ("(role button :name", value),
@@ -706,7 +753,10 @@ fn parse_grants(entries: &[SExpr]) -> Result<Vec<Grant>, ParseError> {
     for entry in entries {
         let list = require_list(entry, "grant")?;
         let grant = parse_grant(entry, list)?;
-        if grants.iter().any(|existing| existing.name() == grant.name()) {
+        if grants
+            .iter()
+            .any(|existing| existing.name() == grant.name())
+        {
             return Err(error(entry, format!("duplicate {} grant", grant.name())));
         }
         grants.push(grant);
@@ -747,7 +797,10 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
             Some(profile @ ("local-shell" | "test-program")) => {
                 Ok(Grant::Process(profile.to_owned()))
             }
-            _ => Err(error(node, "process grant must be local-shell or test-program")),
+            _ => Err(error(
+                node,
+                "process grant must be local-shell or test-program",
+            )),
         },
         ("device", 2 | 3) => {
             if list[1].atom() != Some("virtual") {
@@ -763,7 +816,9 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
                     let controls = count
                         .atom()
                         .and_then(|value| value.parse::<u32>().ok())
-                        .ok_or_else(|| error(node, "virtual device control count must be an integer"))?;
+                        .ok_or_else(|| {
+                            error(node, "virtual device control count must be an integer")
+                        })?;
                     Ok(Grant::Device(format!("virtual:{controls}")))
                 }
             }
@@ -776,7 +831,9 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
                 let processes = count
                     .atom()
                     .and_then(|value| value.parse::<u32>().ok())
-                    .ok_or_else(|| error(node, "system-monitor process count must be an integer"))?;
+                    .ok_or_else(|| {
+                        error(node, "system-monitor process count must be an integer")
+                    })?;
                 Ok(Grant::SystemMonitor(format!("processes:{processes}")))
             }
             _ => Err(error(
@@ -1016,6 +1073,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         .ok_or_else(|| error(node, "step requires a command name"))?;
     let command = match head {
         "click" if values.len() == 2 => Command::Click(parse_locator(&values[1])?),
+        "hover-enter" if values.len() == 2 => Command::HoverEnter(parse_locator(&values[1])?),
+        "hover-exit" if values.len() == 2 => Command::HoverExit(parse_locator(&values[1])?),
+        "expect-background" if values.len() == 3 => {
+            let color = values[2]
+                .atom()
+                .and_then(|value| value.strip_prefix("0x"))
+                .and_then(|value| u32::from_str_radix(value, 16).ok())
+                .filter(|value| *value <= 0xffffff)
+                .ok_or_else(|| {
+                    error(
+                        &values[2],
+                        "expect-background requires an RGB color as 0xRRGGBB",
+                    )
+                })?;
+            Command::ExpectBackground(parse_locator(&values[1])?, color)
+        }
         "drag" if values.len() == 6 => Command::Drag(
             parse_locator(&values[1])?,
             parse_i32(&values[2], "drag coordinate")?,
@@ -1160,18 +1233,20 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     let amount = by
                         .atom()
                         .and_then(|text| text.parse::<i32>().ok())
-                        .filter(|value| value.unsigned_abs() >= 1 && value.unsigned_abs() <= 100_000)
+                        .filter(|value| {
+                            value.unsigned_abs() >= 1 && value.unsigned_abs() <= 100_000
+                        })
                         .ok_or_else(|| {
-                            error(by, "scroll :by is a non-zero number of logical pixels, up to 100000")
+                            error(
+                                by,
+                                "scroll :by is a non-zero number of logical pixels, up to 100000",
+                            )
                         })?;
                     ScrollMotion::By(amount)
                 }
                 (None, Some(to)) => ScrollMotion::To(parse_locator(to)?),
                 _ => {
-                    return Err(error(
-                        node,
-                        "scroll requires exactly one of :by and :to",
-                    ));
+                    return Err(error(node, "scroll requires exactly one of :by and :to"));
                 }
             };
             Command::Scroll { region, motion }
@@ -1248,15 +1323,21 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 })?,
         ),
         "expect-clipboard-counters" if values.len() == 5 => {
-            let mut expected = [0u64; 4];
+            let mut expected = [None; 4];
             for (index, value) in values[1..].iter().enumerate() {
-                expected[index] = value
+                let atom = value
                     .atom()
-                    .ok_or_else(|| error(value, "clipboard counters must be integers"))?
-                    .parse()
-                    .map_err(|_| {
-                        error(value, "clipboard counters must be non-negative integers")
-                    })?;
+                    .ok_or_else(|| error(value, "clipboard counters must be integers or _"))?;
+                expected[index] = if atom == "_" {
+                    None
+                } else {
+                    Some(atom.parse().map_err(|_| {
+                        error(
+                            value,
+                            "clipboard counters must be non-negative integers or _",
+                        )
+                    })?)
+                };
             }
             Command::ExpectClipboardCounters(expected)
         }
@@ -1469,6 +1550,45 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         "expect-before" if values.len() == 3 => {
             Command::ExpectBefore(parse_locator(&values[1])?, parse_locator(&values[2])?)
         }
+        "expect-component-work" if values.len() >= 3 && values.len() % 2 == 1 => {
+            let mut expected = [None; crate::observatory::COMPONENT_WORK_NAMES.len()];
+            for pair in values[1..].chunks_exact(2) {
+                let name = pair[0]
+                    .atom()
+                    .and_then(|name| name.strip_prefix(':'))
+                    .ok_or_else(|| {
+                        error(
+                            &pair[0],
+                            "component work requires named :counter COUNT pairs",
+                        )
+                    })?;
+                let index = crate::observatory::COMPONENT_WORK_NAMES
+                    .iter()
+                    .position(|candidate| candidate.replace('_', "-") == name)
+                    .ok_or_else(|| error(&pair[0], "unknown component work counter"))?;
+                if expected[index].is_some() {
+                    return Err(error(&pair[0], "duplicate component work counter"));
+                }
+                expected[index] = Some(
+                    pair[1]
+                        .atom()
+                        .ok_or_else(|| {
+                            error(
+                                &pair[1],
+                                "component work count must be a non-negative integer",
+                            )
+                        })?
+                        .parse::<u64>()
+                        .map_err(|_| {
+                            error(
+                                &pair[1],
+                                "component work count must be a non-negative integer",
+                            )
+                        })?,
+                );
+            }
+            Command::ExpectComponentWork(expected)
+        }
         "expect-patch" if values.len() == 7 => {
             if values[1].atom() != Some(":kind")
                 || values[3].atom() != Some(":staged")
@@ -1482,13 +1602,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             let kind = values[2].atom().ok_or_else(|| {
                 error(
                     &values[2],
-                    "patch kind must be mount, replace, or no_change",
+                    "patch kind must be mount, replace, keyed, or no_change",
                 )
             })?;
-            if !matches!(kind, "mount" | "replace" | "no_change") {
+            if !matches!(kind, "mount" | "replace" | "keyed" | "no_change") {
                 return Err(error(
                     &values[2],
-                    "patch kind must be mount, replace, or no_change",
+                    "patch kind must be mount, replace, keyed, or no_change",
                 ));
             }
             let count = |value: &SExpr| {
@@ -1503,6 +1623,71 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 staged: count(&values[4])?,
                 removed: count(&values[6])?,
             })
+        }
+        "mark-native-work" if values.len() == 1 => Command::MarkNativeWork,
+        "expect-native-work" => {
+            let keys = parse_keywords(
+                head,
+                &values[1..],
+                &[
+                    ":button-renders-max",
+                    ":boundary-renders-max",
+                    ":boundary-elements-max",
+                    ":cached-prepaint-subtrees-min",
+                    ":cached-paint-subtrees-min",
+                    ":replayed-scene-operations-min",
+                    ":fresh-hitboxes-max",
+                    ":fresh-mouse-listeners-max",
+                    ":element-states-moved-min",
+                ],
+            )?;
+            let count = |key| -> Result<Option<u64>, ParseError> {
+                keys.expr(key)
+                    .map(|value| {
+                        value
+                            .atom()
+                            .and_then(|value| value.parse::<u64>().ok())
+                            .ok_or_else(|| {
+                                error(value, format!("{key} requires a non-negative integer"))
+                            })
+                    })
+                    .transpose()
+            };
+            let button_renders_max = count(":button-renders-max")?;
+            let boundary_renders_max = count(":boundary-renders-max")?;
+            let boundary_elements_max = count(":boundary-elements-max")?;
+            let cached_prepaint_subtrees_min = count(":cached-prepaint-subtrees-min")?;
+            let cached_paint_subtrees_min = count(":cached-paint-subtrees-min")?;
+            let replayed_scene_operations_min = count(":replayed-scene-operations-min")?;
+            let fresh_hitboxes_max = count(":fresh-hitboxes-max")?;
+            let fresh_mouse_listeners_max = count(":fresh-mouse-listeners-max")?;
+            let element_states_moved_min = count(":element-states-moved-min")?;
+            if button_renders_max.is_none()
+                && boundary_renders_max.is_none()
+                && boundary_elements_max.is_none()
+                && cached_prepaint_subtrees_min.is_none()
+                && cached_paint_subtrees_min.is_none()
+                && replayed_scene_operations_min.is_none()
+                && fresh_hitboxes_max.is_none()
+                && fresh_mouse_listeners_max.is_none()
+                && element_states_moved_min.is_none()
+            {
+                return Err(error(
+                    node,
+                    "expect-native-work requires at least one native work maximum",
+                ));
+            }
+            Command::ExpectNativeWork {
+                button_renders_max,
+                boundary_renders_max,
+                boundary_elements_max,
+                cached_prepaint_subtrees_min,
+                cached_paint_subtrees_min,
+                replayed_scene_operations_min,
+                fresh_hitboxes_max,
+                fresh_mouse_listeners_max,
+                element_states_moved_min,
+            }
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click"
@@ -1536,6 +1721,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "revoke-file-grants"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
+        | "expect-component-work"
         | "expect-visible"
         | "expect-not-visible"
         | "expect-count"
@@ -1547,6 +1733,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-image-bytes"
         | "submit"
         | "mark-metrics"
+        | "mark-native-work"
         | "expect-on-screen"
         | "expect-rendered-count"
         | "expect-bounds"
@@ -1596,6 +1783,14 @@ fn parse_region(node: &SExpr) -> Result<Region, ParseError> {
 fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
     let values = require_list(node, "locator")?;
     match values.first().and_then(SExpr::atom) {
+        Some("within") if values.len() == 3 => Ok(Locator::Within(
+            Box::new(parse_locator(&values[1])?),
+            Box::new(parse_locator(&values[2])?),
+        )),
+        Some("within") => Err(error(
+            node,
+            "within requires an ancestor and a target locator",
+        )),
         Some("text") if values.len() == 2 => values[1]
             .string()
             .map(|value| Locator::Text(value.to_owned()))
@@ -1971,6 +2166,141 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_work_limits_are_window_only_and_strictly_parsed() {
+        let parsed = parse(
+            r#"(test "native" (steps (mark-native-work)
+            (expect-native-work :button-renders-max 0 :boundary-renders-max 1)
+            (expect-native-work :button-renders-max 18446744073709551615)
+            (expect-native-work :boundary-renders-max 2)
+            (expect-native-work :boundary-elements-max 100)
+            (expect-native-work :cached-prepaint-subtrees-min 1 :cached-paint-subtrees-min 2
+              :replayed-scene-operations-min 3 :fresh-hitboxes-max 4
+              :fresh-mouse-listeners-max 5 :element-states-moved-min 6)))"#,
+        )
+        .unwrap();
+        for step in &parsed.steps {
+            assert_eq!(step.command.capability(), Capability::Window);
+        }
+        assert_eq!(
+            parsed.steps[1].command,
+            Command::ExpectNativeWork {
+                button_renders_max: Some(0),
+                boundary_renders_max: Some(1),
+                boundary_elements_max: None,
+                cached_prepaint_subtrees_min: None,
+                cached_paint_subtrees_min: None,
+                replayed_scene_operations_min: None,
+                fresh_hitboxes_max: None,
+                fresh_mouse_listeners_max: None,
+                element_states_moved_min: None,
+            }
+        );
+        assert_eq!(
+            parsed.steps[5].command,
+            Command::ExpectNativeWork {
+                button_renders_max: None,
+                boundary_renders_max: None,
+                boundary_elements_max: None,
+                cached_prepaint_subtrees_min: Some(1),
+                cached_paint_subtrees_min: Some(2),
+                replayed_scene_operations_min: Some(3),
+                fresh_hitboxes_max: Some(4),
+                fresh_mouse_listeners_max: Some(5),
+                element_states_moved_min: Some(6),
+            }
+        );
+        for command in [
+            "mark-native-work 1",
+            "expect-native-work",
+            "expect-native-work :unknown 1",
+            "expect-native-work :boundary-elements-max -1",
+            "expect-native-work :button-renders-max",
+            "expect-native-work :button-renders-max -1",
+            "expect-native-work :button-renders-max 1.5",
+            "expect-native-work :button-renders-max 18446744073709551616",
+            "expect-native-work :button-renders-max 1 :button-renders-max 2",
+        ] {
+            assert!(
+                parse(&format!("(test \"bad\" (steps ({command})))")).is_err(),
+                "{command}"
+            );
+        }
+    }
+
+    #[test]
+    fn hover_transitions_and_background_claims_are_shared_and_validate_colors() {
+        let spec = parse(
+            r#"(test "hover" (steps
+            (hover-enter (role button :name "Cell 1"))
+            (hover-exit (role button :name "Cell 1"))
+            (expect-background (role button :name "Cell 1") 0x66E0FF)))"#,
+        )
+        .unwrap();
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(spec.steps[0].command.is_operation());
+        assert!(!spec.steps[2].command.is_operation());
+        assert!(matches!(
+            spec.steps[2].command,
+            Command::ExpectBackground(_, 0x66E0FF)
+        ));
+        for color in ["0x1000000", "0xnope", "-1"] {
+            assert!(
+                parse(&format!(
+                    r#"(test "bad" (steps (expect-background (role button :name "Cell") {color})))"#
+                ))
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn component_work_assertions_name_optional_last_turn_counts_on_both_runners() {
+        let spec = parse(
+            r#"(test "component work" (steps
+            (expect-component-work :skipped 2 :rendered 1 :registry-visits 5 :projection-gets 7 :projection-sets 3)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectComponentWork([
+                Some(1),
+                None,
+                Some(2),
+                None,
+                None,
+                Some(5),
+                None,
+                Some(7),
+                Some(3),
+                None,
+                None
+            ])
+        );
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(!spec.steps[0].command.is_operation());
+    }
+
+    #[test]
+    fn component_work_assertions_reject_ambiguous_or_invalid_counts() {
+        for command in [
+            "(expect-component-work)",
+            "(expect-component-work :rendered)",
+            "(expect-component-work :rendered -1)",
+            "(expect-component-work :rendered 1 :rendered 2)",
+            "(expect-component-work :registry_visits 1)",
+            "(expect-component-work :unknown 0)",
+            "(expect-component-work :rendered 18446744073709551616)",
+        ] {
+            assert!(
+                parse(&format!("(test \"invalid\" (steps {command}))")).is_err(),
+                "{command}"
+            );
+        }
+    }
+
+    #[test]
     fn parses_clipboard_fixture_changes_without_exposing_an_ambient_source() {
         let spec = parse(
             r#"(test "clipboard"
@@ -1990,7 +2320,14 @@ mod tests {
                 .unwrap();
         assert!(matches!(
             clipboard.steps[0].command,
-            Command::ExpectClipboardCounters([1, 2, 3, 4])
+            Command::ExpectClipboardCounters([Some(1), Some(2), Some(3), Some(4)])
+        ));
+        let clipboard =
+            parse(r#"(test "clipboard counters" (steps (expect-clipboard-counters 1 2 _ 4)))"#)
+                .unwrap();
+        assert!(matches!(
+            clipboard.steps[0].command,
+            Command::ExpectClipboardCounters([Some(1), Some(2), None, Some(4)])
         ));
         let sqlite =
             parse(r#"(test "SQLite counters" (steps (expect-sqlite-counters 1 2 3)))"#).unwrap();
@@ -2065,6 +2402,37 @@ mod tests {
     }
 
     #[test]
+    fn within_locators_nest_and_display_as_authored() {
+        let locator = r#"(within (role panel :name "Left") (within (role row :name "Editor") (role textbox :name "Value")))"#;
+        let spec = parse(&format!("(test \"scope\" (steps (focus {locator})))")).unwrap();
+        let Command::Focus(parsed) = &spec.steps[0].command else {
+            panic!("expected focus");
+        };
+        assert_eq!(parsed.to_string(), locator);
+        assert_eq!(parsed.target(), &Locator::TextInputName("Value".into()));
+        assert_eq!(spec.steps[0].command.capability(), Capability::Both);
+    }
+
+    #[test]
+    fn within_rejects_missing_extra_or_invalid_locators() {
+        for locator in [
+            "(within)",
+            "(within (text \"a\"))",
+            "(within (text \"a\") (text \"b\") (text \"c\"))",
+            "(within \"a\" (text \"b\"))",
+            "(within (text \"a\") (unknown \"b\"))",
+        ] {
+            assert!(
+                parse(&format!(
+                    "(test \"scope\" (steps (expect-visible {locator})))"
+                ))
+                .is_err(),
+                "accepted {locator}",
+            );
+        }
+    }
+
+    #[test]
     fn scroll_takes_a_distance_or_a_target_but_not_both() {
         let spec = parse(
             r#"(test "scroll"
@@ -2111,8 +2479,7 @@ mod tests {
 
     #[test]
     fn scrolling_is_window_only() {
-        let spec =
-            parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by 40)))"#).unwrap();
+        let spec = parse(r#"(test "s" (steps (scroll (role scroll :name "c") :by 40)))"#).unwrap();
         assert!(check_runner(&spec, Runner::Window).is_ok());
         let refusal = check_runner(&spec, Runner::Semantic).unwrap_err();
         assert!(refusal.contains("window-only"), "{refusal}");
@@ -2278,22 +2645,20 @@ mod tests {
 
     #[test]
     fn rejects_an_unknown_grant() {
-        let error = parse(r#"(test "g" (grants (webcam full)) (steps (await-ticks 1)))"#)
-            .unwrap_err();
+        let error =
+            parse(r#"(test "g" (grants (webcam full)) (steps (await-ticks 1)))"#).unwrap_err();
         assert_eq!(error.line, 1);
         assert!(error.message.contains("unsupported grant webcam"));
     }
 
     #[test]
     fn rejects_a_malformed_grant() {
-        let error = parse(
-            "(test \"g\"\n  (grants\n    (directory))\n  (steps (await-ticks 1)))",
-        )
-        .unwrap_err();
+        let error = parse("(test \"g\"\n  (grants\n    (directory))\n  (steps (await-ticks 1)))")
+            .unwrap_err();
         assert_eq!(error.line, 3);
         assert!(error.message.contains("malformed directory grant"));
-        let profile = parse(r#"(test "g" (grants (process sudo)) (steps (await-ticks 1)))"#)
-            .unwrap_err();
+        let profile =
+            parse(r#"(test "g" (grants (process sudo)) (steps (await-ticks 1)))"#).unwrap_err();
         assert!(profile.message.contains("local-shell or test-program"));
         let duplicate =
             parse(r#"(test "g" (grants (audio null) (audio null)) (steps (await-ticks 1)))"#)

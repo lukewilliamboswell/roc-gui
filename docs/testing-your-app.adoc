@@ -11,6 +11,9 @@ recording is off unless a window specification asked for it, gated at runtime
 rather than at compile time, so the binary you ship is the binary the
 specification drives.
 
+Build the application, then run both kinds of specifications against that same
+executable.
+
 == Two runners
 
 A specification is an S-expression file describing what a user does and what
@@ -146,11 +149,13 @@ The report names every step and points at every image:
 [source,json]
 ----
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "spec": { "name": "Greeting appears when the button is pressed" },
   "run_mode": "window-scenario",
   "outcome": "pass",
-  "window": { "width_points": 480, "height_points": 240, "scale_factor": 2.0 },
+  "window": { "width_points": 480, "height_points": 240,
+              "requested_width_points": 480, "requested_height_points": 240,
+              "scale_factor": 2.0 },
   "steps": [
     { "ordinal": 0, "line": 3, "kind": "settle", "status": "pass" },
     { "ordinal": 2, "line": 5, "kind": "screenshot", "status": "pass",

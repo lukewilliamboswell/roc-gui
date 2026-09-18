@@ -1,0 +1,16 @@
+(test "A reusable workspace renderer mounts twice with independent nested terminal state"
+  (steps
+    (click (role button :name "Split workspace"))
+    (expect-component-work :rendered 5 :compared 0 :skipped 0 :mounted 2 :retired 0)
+    (expect-visible (within (role column :name "Primary workspace") (text "filter off")))
+    (expect-visible (within (role column :name "Secondary workspace") (text "filter off")))
+    (replace-text (within (role column :name "Secondary workspace") (role textbox :name "Search terminal")) "needle")
+    (submit (within (role column :name "Secondary workspace") (role textbox :name "Search terminal")))
+    (expect-visible (within (role column :name "Primary workspace") (text "filter off")))
+    (expect-visible (within (role column :name "Secondary workspace") (text "filter \"needle\"")))
+    (expect-component-work :rendered 1 :compared 0 :skipped 0 :mounted 0 :retired 0)
+    (click (role button :name "Split workspace"))
+    (expect-component-work :rendered 5 :compared 0 :skipped 0 :mounted 0 :retired 0)
+    (expect-visible (within (role column :name "Primary workspace") (text "filter off")))
+    (expect-visible (within (role column :name "Secondary workspace") (text "filter \"needle\"")))
+    (expect-processes 0)))

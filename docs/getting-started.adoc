@@ -19,7 +19,7 @@ host change.
 
 [source,sh]
 ----
-roc build examples/counter/main.roc
+roc build --output=counter examples/counter/main.roc
 ./counter
 ----
 
@@ -42,13 +42,10 @@ import pf.Program
 State : { greeting : Str }
 
 render : State -> Elem(State)
-render = |state| Elem.text(state.greeting)
+render = |curr_state| Elem.text(curr_state.greeting)
 
 main : Program(State)
-main = Program.run({
-    init: { greeting: "Hello from Roc" },
-    render,
-})
+main = Program.run({ init: { greeting: "Hello from Roc" }, render })
 ----
 
 Choose an executable name explicitly when building your application:
@@ -59,11 +56,11 @@ roc build --output=my-app path/to/main.roc
 ./my-app
 ----
 
-Pass `--host-help` after Roc's argument separator to list native host options:
+Pass `--host-help` to the executable to list native host options:
 
 [source,sh]
 ----
-roc path/to/main.roc -- --host-help
+./my-app --host-help
 ----
 
 Capabilities are absent by default. Grant each one explicitly. For example, the
@@ -71,7 +68,8 @@ terminal workspace needs a local interactive shell profile:
 
 [source,sh]
 ----
-roc examples/terminal-workspace/main.roc -- --host-cap-process local-shell
+roc build --output=terminal-workspace examples/terminal-workspace/main.roc
+./terminal-workspace --host-cap-process local-shell
 ----
 
 The application receives only that fixed profile; it cannot select an
@@ -85,7 +83,7 @@ resource access chapter.
 == Run the specifications
 
 Every application keeps its specifications in one `specs/` directory beside
-`main.roc`. The counter has five:
+`main.roc`. Run the counter's cases with:
 
 [source,sh]
 ----

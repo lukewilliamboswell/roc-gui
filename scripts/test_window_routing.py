@@ -6,15 +6,42 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import run_specs
 from run_specs import ROOT, Case, discover, report_window_failure, window_artifacts
+
+
+class ApplicationBuildTests(unittest.TestCase):
+    def test_application_backend_is_explicit_and_does_not_depend_on_app_name(self) -> None:
+        for requested, expected in ((None, "dev"), ("speed", "speed")):
+            with self.subTest(mode=requested), tempfile.TemporaryDirectory() as temporary:
+                cases = discover(["examples/counter/specs/counting.scm"], Path(temporary))
+                with patch.object(run_specs.subprocess, "run") as run:
+                    if requested is None:
+                        run_specs.build(cases, "selected-roc", True)
+                    else:
+                        run_specs.build(cases, "selected-roc", True, requested)
+                compiler_calls = [call.args[0] for call in run.call_args_list
+                                  if call.args[0][0] == "selected-roc"]
+                self.assertEqual(len(compiler_calls), 1)
+                self.assertIn(f"--opt={expected}", compiler_calls[0])
+
+    def test_failed_diagnostic_build_does_not_retry_another_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            cases = discover(["examples/counter/specs/counting.scm"], Path(temporary))
+            failure = subprocess.CalledProcessError(1, ["selected-roc", "build"])
+            with patch.object(run_specs.subprocess, "run", side_effect=[None, failure]) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    run_specs.build(cases, "selected-roc", True, "speed")
+            self.assertEqual(run.call_count, 2)
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -62,6 +89,38 @@ class ArtifactTests(unittest.TestCase):
             artifacts = window_artifacts(case)
             self.assertEqual(artifacts.name, "pointer")
             self.assertEqual(artifacts.parent, case.capture.parent)
+
+    def test_failure_record_has_only_relative_identity_and_bounded_status(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = self.case(Path(directory))
+            captured = io.StringIO()
+            with patch.object(run_specs.time, "monotonic", return_value=15.25):
+                with contextlib.redirect_stdout(captured):
+                    result = run_specs.finish_case(
+                        case, 10.0, "window", "process_exit", "private diagnostic", -1073741819
+                    )
+            self.assertEqual(result, (case, "private diagnostic"))
+            record = json.loads(run_specs.failure_record(case).read_text(encoding="utf-8"))
+            self.assertEqual(record["spec"], "examples/counter/specs/pointer.scm")
+            self.assertEqual(record["application"], "examples/counter/main.roc")
+            self.assertEqual(record["elapsed_seconds"], 5.25)
+            self.assertEqual(record["exit_status"], "0xC0000005")
+            self.assertNotIn("private diagnostic", json.dumps(record))
+            self.assertIn("elapsed=5.250s", captured.getvalue())
+
+    def test_debugger_text_removes_runner_and_user_identity(self) -> None:
+        private = (
+            r"C:\Users\alice\project\app.exe "
+            r"D:\a\roc-gui\roc-gui\source\main.roc "
+            r"D:\a\_temp\native.exe "
+            + str(ROOT / "platform/main.roc")
+        )
+        sanitized = run_specs.sanitize_debugger_output(private)
+        self.assertNotIn("alice", sanitized)
+        self.assertNotIn(str(ROOT), sanitized)
+        self.assertNotIn(r"D:\a", sanitized)
+        self.assertIn("C:/Users/user", sanitized)
+        self.assertIn("/workspace/platform/main.roc", sanitized)
 
 
 class ReportTests(unittest.TestCase):

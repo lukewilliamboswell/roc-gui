@@ -6,6 +6,18 @@ rows, more text, a deeper tree, or a change farther from a render boundary. A
 benchmark never receives a special element or alternate renderer unavailable to
 an ordinary application.
 
+Every scaling investigation answers one question: "Is our integration
+invalidating, rebuilding, or handing GPUI substantially more work than the
+application change requires?" A scale ladder separates application rendering
+and lowering, the mounted-graph transaction, native entity work, and GPUI frame
+work. Semantic results and deterministic counters recorded by those owners are
+the gates; timings diagnose the remaining work but do not define correctness.
+
+The specification runner builds Roc applications with the native development
+backend by default. Compare captures from the same backend and executable
+before interpreting timing differences; the Rust host uses its independent
+release build profile.
+
 == Benchmark policy
 
 Add a `benchmark` clause before `steps`:
@@ -65,6 +77,25 @@ Timing is diagnostic evidence, not a pass/fail threshold. Semantic assertions,
 patch expectations, scale verification, and capture health are deterministic
 gates.
 
+== Verify depth with a process-stack budget
+
+Tree-shape specifications exercise ordinary construction, lifted structural
+containers, translation ownership, current-state delegation, and replacement
+by a shallow tree. Run the same production executable and specifications with
+an explicit process-stack budget as well as the ordinary environment. Preserve
+the selected compiler and build mode in the comparison evidence.
+
+The structural regression reaches 10,000 lifted containers and exercises two
+leaf updates before teardown. The translation regressions build and retire
+1,000 owners, including alternating state types, current-state task resolution,
+removal before completion, and veto at an intermediate boundary. Run each with
+a 1 MB stack to verify its headless construction, adaptation, lowering, and
+release path. Record the compiler backend with these results. A successful
+case establishes that particular path; it does not measure arbitrary
+application recursion or GPUI layout and paint depth. Record failures and
+their owning call paths in the backlog rather than widening the process stack
+to make the result pass.
+
 == Bound recorder detail overhead
 
 Use the same realistic scaling case and isolated job count for both recorder
@@ -110,10 +141,54 @@ exercises styled button lowering, native materialisation, dispatch, and
 replacement at realistic application sizes.
 Row boundaries:: Update the first, middle, and last item when each row owns its
 own render boundary, and exercise selection, deletion, swaps, and sparse
-updates whose invariants are owned by the collection. This contrasts local
-replacement with collection-wide work while exposing boundary lookup cost as
-collection position and size grow.
+updates whose invariants are owned by the collection. Persistent row `Index`
+storage keyed by stable IDs is separate from display order, so resolving or
+replacing a row follows a bounded radix path without scanning or copying the
+collection. Local edits render one row and replace four nodes: its boundary
+marker, row, text, and button. Collection-owned changes enumerate the boundary
+frontier and, when memoization is enabled, retain rows whose complete input is
+equivalent. Dynamic SHA-256 keys are stored when entries are created. The compact-view
+toggle removes per-row management controls and puts keyed components directly
+beside each other under the list container; its local-edit cases exercise
+direct sibling identity without per-row wrapper scopes at 100, 1,000, and
+10,000 rows in both memo modes. Component, patch, and validation counts establish
+local work independently of unrelated sibling count. Captured timings and
+allocation spans report only the work measured by their owners; they do not
+establish copying, retained memory, or unmeasured native work.
+Incident queue / keyed collections:: Exercise local item updates, front
+insertion, middle removal, far movement, identity replacement, and nested child
+creation and destruction in a live queue at 100, 1,000, and 10,000 incidents.
+The application uses `KeyedSeq` and `Elem.keyed_col`; it does not substitute a
+benchmark-only collection or renderer. Component and keyed-order counters prove
+the Roc work requested by one edit, graph counters prove the canonical mounted
+transaction, and native counters prove the entities handed to GPUI. Exact
+journal edits materialise no full snapshot; the deliberate stale-journal case
+records the complete fallback it consumes. These results establish
+proportional integration work, not constant GPUI layout or paint: an operation
+that changes row geometry can still require GPUI to lay out the affected scene.
+Hover trail:: Move across a 125 by 80 grid of native buttons, lighting each
+cell and leaving a delayed reset trail. Every cell is an unmemoized keyed
+translation with persistent indexed state. Entry, exit, and completion ladders
+at 100, 1,000, and 10,000 cells assert one boundary rendered, no comparison, and
+two mounted nodes replaced. Reentry tokens and fresh grid keys protect against
+stale completions. A 32-cell burst exercises queued work, and a window case
+checks both grid corners and native GPUI mouse-move delivery. Native GPUI mouse-movement
+tests exercise the same production views and event route. Callback durations
+exclude waiting for reset tasks; cycle durations include the wait. Neither
+headless captures nor injected window events measure physical pointer
+sampling or compositor presentation latency.
 Text rows:: Vary short, long, and metadata-rich text across row counts.
+Textarea editing:: Edit the production multiline text control at 1,000, 10,000,
+and 100,000 initial bytes through an ordinary append action. The same application
+selects memoized or unmemoized keyed translations; exact value lengths,
+component counts, and patch counts establish semantic equivalence. Root refresh
+also distinguishes retained input from unconditional rendering. Append derives
+its value from dispatch-time state. Same-length late edits change the final byte
+to exercise comparison beyond the early length check. Policy switching keeps
+the same key and mounted lifetime while resetting the cache. Allocation spans
+report work observed by their owners; they do not establish snapshot-retained
+bytes or identify copy-on-write as a cause. Serial A/A captures characterize
+timing noise without turning timing into a correctness gate.
 Checkboxes:: Lower and replace 10,000 real styled controls through their
 ordinary check event route.
 Tree shape:: Compare deep narrow trees and balanced trees so total node count

@@ -44,7 +44,7 @@ def check(directory: Path, roc: str) -> None:
                 main.write_text(replace_platform(main.read_text(), url))
                 executable = stage / "bin" / source.parent.parent.name / source.parent.name
                 executable.parent.mkdir(parents=True, exist_ok=True)
-                subprocess.run([roc, "build", "--no-cache", f"--target={target}",
+                subprocess.run([roc, "build", "--opt=dev", "--no-cache", f"--target={target}",
                                 f"--output={executable}", str(main)], check=True, timeout=180)
                 for spec in sorted(app.glob("specs/*.scm")):
                     cases.append(Case(

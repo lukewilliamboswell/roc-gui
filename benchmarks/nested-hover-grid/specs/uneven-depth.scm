@@ -1,0 +1,14 @@
+(test "Uneven quadrant depths preserve local updates and task resolution"
+ (steps
+  (hover-enter (role button :name "Cell 1"))
+  (expect-component-work :rendered 1 :compared 0 :ancestor-invalidations 7 :projection-gets 22 :projection-sets 8)
+  (hover-exit (role button :name "Cell 1"))
+  (await-task)
+  (expect-background (role button :name "Cell 1") 0x263247)
+  (expect-component-work :rendered 1 :compared 0 :ancestor-invalidations 7 :projection-gets 22 :projection-sets 8)
+  (hover-enter (role button :name "Cell 10000"))
+  (expect-component-work :rendered 1 :compared 0 :ancestor-invalidations 8 :projection-gets 25 :projection-sets 9)
+  (hover-exit (role button :name "Cell 10000"))
+  (await-task)
+  (expect-background (role button :name "Cell 10000") 0x263247)
+  (expect-component-work :rendered 1 :compared 0 :ancestor-invalidations 8 :projection-gets 25 :projection-sets 9)))

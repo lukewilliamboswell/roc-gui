@@ -72,7 +72,7 @@ pub fn start(interval_ms: u64) -> *mut u64 {
     };
     unsafe { handle.write(id) };
     let allocation = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
-    guard.allocations.insert(allocation, id);
+    crate::register_resource_allocation(crate::resource_domain::TIMERS, &mut guard.allocations, allocation, id);
     handle
 }
 pub fn next(handle: *mut u64) -> bool {
@@ -122,7 +122,8 @@ pub fn cancel(handle: *mut u64) -> bool {
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let timer = {
         let mut guard = store().lock().expect("timer store poisoned");
-        let id = guard.allocations.remove(&(allocation_base as usize));
+        let id =
+            crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize);
         id.and_then(|id| guard.timers.remove(&id))
     };
     if let Some(timer) = timer {

@@ -6,6 +6,7 @@
     (expect-visible (text "-1"))
     (expect-visible (text "3"))
     (click (role button :name "Right increment"))
+    (expect-component-work :rendered 1 :compared 0 :skipped 0 :mounted 0 :retired 0 :registry-visits 1)
     (expect-visible (text "4"))
     ; the left tally is untouched by the right card's control
     (expect-visible (text "-1"))

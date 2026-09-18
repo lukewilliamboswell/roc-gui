@@ -9,7 +9,7 @@ platform ""
 	requires {
 		glue_main : {}
 	}
-	exposes []
+	exposes [KeyedSeq]
 	packages {
 		roc: "nightly-2026-09-12-220fd47",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
@@ -20,6 +20,22 @@ platform ""
 		"roc_gui_node_styled_text": HostGlue.node_styled_text!,
 		"roc_gui_children_begin": HostGlue.children_begin!,
 		"roc_gui_children_push": HostGlue.children_push!,
+		"roc_gui_keyed_seed": HostGlue.keyed_seed!,
+		"roc_gui_keyed_edit_begin": HostGlue.keyed_edit_begin!,
+		"roc_gui_keyed_insert_before": HostGlue.keyed_insert_before!,
+		"roc_gui_keyed_remove": HostGlue.keyed_remove!,
+		"roc_gui_keyed_move_before": HostGlue.keyed_move_before!,
+		"roc_gui_keyed_set": HostGlue.keyed_set!,
+		"roc_gui_keyed_edit_commit": HostGlue.keyed_edit_commit!,
+		"roc_gui_component_work": HostGlue.component_work!,
+		"roc_gui_node_boundary": HostGlue.node_boundary!,
+		"roc_gui_retain_subtree": HostGlue.retain_subtree!,
+		"roc_gui_begin_render": HostGlue.begin_render!,
+		"roc_gui_scope_enter": HostGlue.scope_enter!,
+		"roc_gui_scope_exit": HostGlue.scope_exit!,
+		"roc_gui_component_resolve": HostGlue.component_resolve!,
+		"roc_gui_component_enter": HostGlue.component_enter!,
+		"roc_gui_component_exit": HostGlue.component_exit!,
 		"roc_gui_node_row": HostGlue.node_row!,
 		"roc_gui_node_column": HostGlue.node_column!,
 		"roc_gui_node_dialog": HostGlue.node_dialog!,
@@ -73,8 +89,8 @@ platform ""
 		"roc_assets_read": HostGlue.assets_read!,
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
-		"roc_gui_set_task_dispatch": HostGlue.set_task_dispatch!,
 		"roc_gui_enqueue_task": HostGlue.enqueue_task!,
+		"roc_gui_task_complete": HostGlue.task_complete!,
 		"roc_gui_timer_start": HostGlue.timer_start!,
 		"roc_gui_timer_next": HostGlue.timer_next!,
 		"roc_gui_timer_cancel": HostGlue.timer_cancel!,
@@ -95,6 +111,7 @@ platform ""
 	}
 
 import HostGlue
+import KeyedSeq
 import Action
 import Files
 import InternalFiles

@@ -1,4 +1,6 @@
 import Action
+import Work
+import Session
 import Resource
 import InternalHttp
 
@@ -12,6 +14,22 @@ Host := [].{
 	children_begin! : () => U64
 
 	children_push! : U64, U64 => {}
+	keyed_seed! : { container : U64, revision : U64, keys : List(List(U8)) } => {}
+	keyed_edit_begin! : { container : U64, base_revision : U64, new_revision : U64 } => {}
+	keyed_insert_before! : { key : List(U8), before : List(U8), root : U64 } => {}
+	keyed_remove! : List(U8) => {}
+	keyed_move_before! : { key : List(U8), before : List(U8) } => {}
+	keyed_set! : { key : List(U8), root : U64 } => {}
+	keyed_edit_commit! : () => {}
+	component_work! : U8, U64 => {}
+	node_boundary! : U64, U64 => U64
+	retain_subtree! : U64 => U64
+	begin_render! : U64 => {}
+	scope_enter! : U8, Str, U64 => {}
+	scope_exit! : () => {}
+	component_resolve! : U8, List(U8) => { instance : U64, root : U64 }
+	component_enter! : U64 => {}
+	component_exit! : () => {}
 
 	node_row! : {
 		builder : U64,
@@ -256,6 +274,8 @@ Host := [].{
 		caption : Str,
 		label : Str,
 		enabled : Bool,
+		hover_enter : Bool,
+		hover_exit : Bool,
 		gap : U32,
 		padding_top : U32,
 		padding_right : U32,
@@ -299,7 +319,7 @@ Host := [].{
 		overflow_y : U8,
 		align : U8,
 		justify : U8,
-	} => U64
+	} => { id : U64, hover_enter : U64, hover_exit : U64 }
 
 	node_virtual_item! : U64, U64 => U64
 
@@ -615,11 +635,10 @@ Host := [].{
 
 	apply! : Patch => {}
 
-	set_dispatch! : Box((U64 => {})) => {}
+	set_dispatch! : Box((Session(a) => {})) => {}
 
-	set_task_dispatch! : Box((Box((Box(a) -> Box(Action(a)))) => {})) => {}
-
-	enqueue_task! : Box((() => Box((Box(a) -> Box(Action(a)))))) => {}
+	task_complete! : Box(Action.Completion(a)) => {}
+	enqueue_task! : U64, Box(() => Work) => {}
 
 	timer_start! : U64 => Resource.Timer
 

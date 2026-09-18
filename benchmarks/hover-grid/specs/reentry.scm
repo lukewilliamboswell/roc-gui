@@ -1,0 +1,18 @@
+(test "A stale delayed reset cannot erase a reentered cell or a newer trail"
+  (steps
+    (click (role button :name "Create 100 cells"))
+    (hover-enter (role button :name "Cell 1"))
+    (expect-background (role button :name "Cell 1") 0x66E0FF)
+    (hover-exit (role button :name "Cell 1"))
+    (expect-background (role button :name "Cell 1") 0xD58AFF)
+    (hover-enter (role button :name "Cell 1"))
+    (await-task)
+    (expect-background (role button :name "Cell 1") 0x66E0FF)
+    (expect-component-work :rendered 0 :compared 0)
+    (hover-exit (role button :name "Cell 1"))
+    (hover-enter (role button :name "Cell 1"))
+    (hover-exit (role button :name "Cell 1"))
+    (await-task)
+    (await-task)
+    (expect-background (role button :name "Cell 1") 0x263247)
+    (expect-subscriptions 0)))

@@ -1,6 +1,6 @@
 use crate::{
     SUBMIT_EVENT_BIT, await_task_completion,
-    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind},
+    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind, Patch},
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
@@ -8,6 +8,66 @@ use crate::{
     take_patch, task_counts,
 };
 use std::time::Instant;
+
+fn counter_pattern<const N: usize>(
+    expected: &[Option<u64>; N],
+    observed: [u64; N],
+) -> (bool, (u64, u64)) {
+    expected
+        .iter()
+        .zip(observed)
+        .fold((true, (0, 0)), |(matches, totals), (expected, observed)| {
+            let Some(expected) = expected else {
+                return (matches, totals);
+            };
+            (
+                matches && *expected == observed,
+                (totals.0 + expected, totals.1 + observed),
+            )
+        })
+}
+
+/// Apply the production graph transaction before publishing its Roc session.
+fn apply_transaction(graph: &mut MountedGraph, patch: Patch) -> Result<ApplyFacts, String> {
+    match graph.apply_measured(patch) {
+        Ok(applied) => {
+            crate::accept_transaction(graph, &applied);
+            Ok(applied.facts)
+        }
+        Err(error) => {
+            crate::reject_transaction();
+            Err(error)
+        }
+    }
+}
+
+/// Both runners read the same completed owner observation, never reconstruct it.
+pub(crate) fn component_work_claim(
+    expected: &[Option<u64>; observatory::COMPONENT_WORK_NAMES.len()],
+) -> (Result<(), String>, Option<observatory::ComponentWork>) {
+    let observed = observatory::last_component_work();
+    let Some(work) = observed else {
+        return (
+            Err("component work is unavailable: no production turn has committed".into()),
+            None,
+        );
+    };
+    for (index, expected) in expected.iter().enumerate() {
+        if let Some(expected) = expected {
+            if *expected != work.0[index] {
+                return (
+                    Err(format!(
+                        "expected component {} count {expected}, observed {}",
+                        observatory::COMPONENT_WORK_NAMES[index],
+                        work.0[index]
+                    )),
+                    observed,
+                );
+            }
+        }
+    }
+    (Ok(()), observed)
+}
 
 /// The one primitive a canvas-item locator names, and the canvas that owns it.
 ///
@@ -20,28 +80,33 @@ pub(crate) fn canvas_item<'a>(
     graph: &'a MountedGraph,
     locator: &Locator,
 ) -> Option<(u64, &'a CanvasPrimitive)> {
-    let matching = |item: &CanvasPrimitive| match locator {
+    let candidates: std::collections::HashSet<_> = matches(graph, locator).into_iter().collect();
+    let matching = |item: &CanvasPrimitive| match locator.target() {
         Locator::CanvasItemName(name) => item.label == *name,
         Locator::CanvasItemPrefix(prefix) => item.label.starts_with(prefix),
         _ => false,
     };
-    let mut found = graph.nodes_preorder().into_iter().flat_map(|node| {
-        let primitives = match &node.kind {
-            NodeKind::Canvas { primitives, .. } => primitives.as_slice(),
-            _ => &[][..],
-        };
-        primitives
-            .iter()
-            .filter(|item| matching(item))
-            .map(move |item| (node.id, item))
-    });
+    let mut found = graph
+        .nodes_preorder()
+        .into_iter()
+        .filter(|node| candidates.contains(&node.id))
+        .flat_map(|node| {
+            let primitives = match &node.kind {
+                NodeKind::Canvas { primitives, .. } => primitives.as_slice(),
+                _ => &[][..],
+            };
+            primitives
+                .iter()
+                .filter(|item| matching(item))
+                .map(move |item| (node.id, item))
+        });
     let first = found.next()?;
     found.next().is_none().then_some(first)
 }
 
 /// A claim answered entirely from the mounted graph, and its count evidence.
 ///
-/// These five are true or false of the same graph on either runner, so they
+/// These claims are true or false of the same graph on either runner, so they
 /// belong to neither. Keeping one implementation is what lets one window
 /// specification assert a semantic truth and photograph it in the same run,
 /// without the two runners drifting into two slightly different meanings of the
@@ -62,6 +127,45 @@ pub(crate) fn graph_claim(
     }
 
     Some(match command {
+        Command::ExpectBackground(locator, expected) => {
+            let actual = only(graph, locator)
+                .map_err(|count| {
+                    format!("expect-background locator matched {count} nodes; expected exactly one")
+                })
+                .and_then(|id| match graph.node(id).map(|node| &node.kind) {
+                    Some(
+                        NodeKind::Button { style, .. }
+                        | NodeKind::Checkbox { style, .. }
+                        | NodeKind::Textarea { style, .. }
+                        | NodeKind::TextInput { style, .. }
+                        | NodeKind::Canvas { style, .. }
+                        | NodeKind::Image { style, .. }
+                        | NodeKind::Column { style, .. }
+                        | NodeKind::KeyedColumn { style, .. }
+                        | NodeKind::Dialog { style, .. }
+                        | NodeKind::Panel { style, .. }
+                        | NodeKind::Row { style, .. }
+                        | NodeKind::Scroll { style, .. }
+                        | NodeKind::VirtualList { style, .. },
+                    ) => style
+                        .bg
+                        .ok_or_else(|| "explicit background is unavailable".to_owned()),
+                    _ => Err("locator has no application background".to_owned()),
+                });
+            (
+                actual.and_then(|actual| {
+                    if actual == *expected {
+                        Ok(())
+                    } else {
+                        Err(format!(
+                            "expected background 0x{expected:06x}; observed 0x{actual:06x}"
+                        ))
+                    }
+                }),
+                None,
+            )
+        }
+
         Command::ExpectCanvasPrimitives(locator, expected) => {
             let actual = match only(graph, locator).ok().and_then(|id| graph.node(id)) {
                 Some(node) => match &node.kind {
@@ -87,35 +191,41 @@ pub(crate) fn graph_claim(
                     "expect-value locator matched {count} nodes; expected exactly one"
                 )),
                 Ok(id) => {
-                    if matches!(graph.node(id).map(|node| &node.kind), Some(NodeKind::Textarea { value, .. }) if value == expected)
+                    if matches!(graph.node(id).map(|node| &node.kind), Some(NodeKind::Textarea { value, .. } | NodeKind::TextInput { value, .. }) if value == expected)
                     {
                         Ok(())
                     } else {
-                        Err("textarea value differed".to_owned())
+                        Err("controlled input value differed".to_owned())
                     }
                 }
             },
             None,
         ),
         Command::ExpectValueBytes(locator, expected) => {
-            let found = only(graph, locator);
-            let actual = match found.ok().and_then(|id| graph.node(id)) {
-                Some(node) => match &node.kind {
-                    NodeKind::Textarea { value, .. } => value.len(),
-                    _ => 0,
+            let actual = match only(graph, locator) {
+                Err(count) => Err(format!(
+                    "expect-value-bytes locator matched {count} nodes; expected exactly one"
+                )),
+                Ok(id) => match graph.node(id).map(|node| &node.kind) {
+                    Some(NodeKind::Textarea { value, .. } | NodeKind::TextInput { value, .. }) => {
+                        Ok(value.len())
+                    }
+                    _ => Err("expect-value-bytes requires a controlled input".to_owned()),
                 },
-                None => 0,
             };
-            (
-                if found.is_ok() && actual == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "expected textarea value to contain {expected} bytes; observed {actual}"
-                    ))
-                },
-                Some((*expected as u64, actual as u64)),
-            )
+            match actual {
+                Ok(actual) => (
+                    if actual == *expected {
+                        Ok(())
+                    } else {
+                        Err(format!(
+                            "expected controlled input value to contain {expected} bytes; observed {actual}"
+                        ))
+                    },
+                    Some((*expected as u64, actual as u64)),
+                ),
+                Err(message) => (Err(message), None),
+            }
         }
         Command::ExpectImageBytes(locator, expected) => {
             let found = only(graph, locator);
@@ -162,6 +272,41 @@ pub(crate) fn graph_claim(
 /// Shared with the window runner so both resolve locators identically rather
 /// than keeping two implementations in step by hand.
 pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
+    if let Locator::Within(ancestor, target) = locator {
+        // Canvas primitives are semantic leaves. Their event address is their
+        // canvas, but that does not make a primitive a scope for its siblings.
+        if matches!(
+            ancestor.target(),
+            Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+        ) {
+            return vec![];
+        }
+        let ancestors: std::collections::HashSet<_> =
+            matches(graph, ancestor).into_iter().collect();
+        let primitive_target = matches!(
+            target.target(),
+            Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+        );
+        return matches(graph, target)
+            .into_iter()
+            .filter(|id| {
+                // A node is not its own descendant. A primitive's shared
+                // event address names its semantic parent, the canvas.
+                let mut next = if primitive_target {
+                    Some(*id)
+                } else {
+                    graph.parent(*id).map(|(parent, _)| parent)
+                };
+                while let Some(parent) = next {
+                    if ancestors.contains(&parent) {
+                        return true;
+                    }
+                    next = graph.parent(parent).map(|(parent, _)| parent);
+                }
+                false
+            })
+            .collect();
+    }
     if let Locator::CanvasItemPrefix(prefix) = locator {
         return graph
             .nodes_preorder()
@@ -209,6 +354,7 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Some(node.id)
             }
             (Locator::ColumnName(expected), NodeKind::Column { label, .. })
+            | (Locator::ColumnName(expected), NodeKind::KeyedColumn { label, .. })
                 if !label.is_empty() && expected == label =>
             {
                 Some(node.id)
@@ -325,12 +471,13 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut graph = MountedGraph::default();
     let cycle_started = Instant::now();
     observatory::reset_roc_work();
+    observatory::begin_component_work();
     let roc_started = Instant::now();
     unsafe { roc_gui_init() };
     let roc_ns = elapsed_ns(roc_started);
     let (roc_work, roc_work_valid) = observatory::take_roc_work();
     let patch = take_patch();
-    let facts = graph.apply_measured(patch)?.facts;
+    let facts = apply_transaction(&mut graph, patch)?;
     observatory::cycle(make_cycle(
         run_id,
         0,
@@ -357,19 +504,22 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             command if command.is_operation() => "setup",
             _ => "assertion",
         };
-        let mut pending_cycle = None;
+        let mut pending_cycles = Vec::new();
         let mut count_evidence = None;
         let mut audio_counter_evidence = None;
         let mut clipboard_counter_evidence = None;
         let mut sqlite_counter_evidence = None;
         let mut http_counter_evidence = None;
         let mut tcp_counter_evidence = None;
+        let mut component_work_evidence = None;
         let mut patch_evidence = None;
         let result = match &step.command {
             // Unreachable in practice: `spec::check_runner` rejects window-only
             // steps before a case reaches this runner. Kept as a real arm so the
             // refusal is stated here too rather than silently skipped.
             Command::Settle { .. }
+            | Command::MarkNativeWork
+            | Command::ExpectNativeWork { .. }
             | Command::ExpectOnScreen(_)
             | Command::ExpectRenderedCount(_, _)
             | Command::ExpectBounds(_, _)
@@ -382,9 +532,59 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 step.line,
                 step.command.kind(),
             )),
+            Command::ExpectComponentWork(expected) => {
+                let (result, observed) = component_work_claim(expected);
+                component_work_evidence = Some((*expected, observed));
+                result.map_err(|message| format!("line {}: {message}", step.line))
+            }
             Command::MarkMetrics => {
                 marked = true;
                 Ok(())
+            }
+            Command::HoverEnter(locator) | Command::HoverExit(locator) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: hover locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if !matches!(
+                    graph.node(found[0]).map(|node| &node.kind),
+                    Some(NodeKind::Button { .. })
+                ) {
+                    Err(format!("line {}: hover locator is not a button", step.line))
+                } else {
+                    // The canonical graph owns transition suppression and route liveness,
+                    // shared with the GPUI on_hover callback. No alternate handler table.
+                    let entered = matches!(step.command, Command::HoverEnter(_));
+                    let route = graph.hover_transition(found[0], entered);
+                    last_patch = None;
+                    if let Some(route) = route {
+                        let cycle_started = Instant::now();
+                        observatory::reset_roc_work();
+                        let roc_started = Instant::now();
+                        let patch = dispatch(route);
+                        let roc_ns = elapsed_ns(roc_started);
+                        let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                        let facts = apply_transaction(&mut graph, patch)?;
+                        last_patch = Some(facts);
+                        pending_cycles.push(make_cycle(
+                            run_id,
+                            cycle_ordinal,
+                            Some(ordinal),
+                            if marked { "measured" } else { "setup" },
+                            if entered { "hover-enter" } else { "hover-exit" },
+                            cycle_started,
+                            roc_ns,
+                            roc_work,
+                            &facts,
+                            roc_work_valid,
+                        ));
+                        cycle_ordinal += 1;
+                    }
+                    Ok(())
+                }
             }
             Command::Click(locator) => {
                 let matches = matches(&graph, locator);
@@ -420,7 +620,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let patch = dispatch(matches[0]);
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                    let facts = graph.apply_measured(patch)?.facts;
+                    let facts = apply_transaction(&mut graph, patch)?;
                     let next_dialog = graph.active_dialog();
                     match (previous_dialog, next_dialog) {
                         (None, Some(dialog)) => {
@@ -435,7 +635,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         _ => {}
                     }
                     last_patch = Some(facts);
-                    pending_cycle = Some(make_cycle(
+                    pending_cycles.push(make_cycle(
                         run_id,
                         cycle_ordinal,
                         Some(ordinal),
@@ -463,62 +663,42 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     graph.node(found[0]).map(|node| &node.kind)
                 {
                     let target = crate::canvas_target(primitives, *from_x, *from_y).unwrap_or(0);
-                    let cycle_started = Instant::now();
-                    observatory::reset_roc_work();
-                    let roc_started = Instant::now();
-                    let mut id = found[0];
-                    let mut patch = crate::dispatch_canvas(
-                        id,
-                        crate::CanvasEventPayload {
-                            phase: 0,
-                            x: *from_x,
-                            y: *from_y,
-                            target,
-                        },
-                    );
-                    let _ = graph.apply_measured(patch)?.facts;
-                    id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
-                        format!("line {}: canvas disappeared during drag", step.line)
-                    })?;
-                    patch = crate::dispatch_canvas(
-                        id,
-                        crate::CanvasEventPayload {
-                            phase: 1,
-                            x: *to_x,
-                            y: *to_y,
-                            target,
-                        },
-                    );
-                    let _ = graph.apply_measured(patch)?.facts;
-                    id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
-                        format!("line {}: canvas disappeared during drag", step.line)
-                    })?;
-                    patch = crate::dispatch_canvas(
-                        id,
-                        crate::CanvasEventPayload {
-                            phase: 2,
-                            x: *to_x,
-                            y: *to_y,
-                            target,
-                        },
-                    );
-                    let facts = graph.apply_measured(patch)?.facts;
-                    let roc_ns = elapsed_ns(roc_started);
-                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                    last_patch = Some(facts);
-                    pending_cycle = Some(make_cycle(
-                        run_id,
-                        cycle_ordinal,
-                        Some(ordinal),
-                        if marked { "measured" } else { "setup" },
-                        "drag",
-                        cycle_started,
-                        roc_ns,
-                        roc_work,
-                        &facts,
-                        roc_work_valid,
-                    ));
-                    cycle_ordinal += 1;
+                    for (phase, x, y) in
+                        [(0, *from_x, *from_y), (1, *to_x, *to_y), (2, *to_x, *to_y)]
+                    {
+                        let id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
+                            format!("line {}: canvas disappeared during drag", step.line)
+                        })?;
+                        let cycle_started = Instant::now();
+                        observatory::reset_roc_work();
+                        let roc_started = Instant::now();
+                        let patch = crate::dispatch_canvas(
+                            id,
+                            crate::CanvasEventPayload {
+                                phase,
+                                x,
+                                y,
+                                target,
+                            },
+                        );
+                        let roc_ns = elapsed_ns(roc_started);
+                        let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                        let facts = apply_transaction(&mut graph, patch)?;
+                        last_patch = Some(facts);
+                        pending_cycles.push(make_cycle(
+                            run_id,
+                            cycle_ordinal,
+                            Some(ordinal),
+                            if marked { "measured" } else { "setup" },
+                            "drag",
+                            cycle_started,
+                            roc_ns,
+                            roc_work,
+                            &facts,
+                            roc_work_valid,
+                        ));
+                        cycle_ordinal += 1;
+                    }
                     Ok(())
                 } else {
                     Err(format!("line {}: locator is not a canvas", step.line))
@@ -564,9 +744,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let patch = crate::dispatch_input(node_id, value.clone());
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                    let facts = graph.apply_measured(patch)?.facts;
+                    let facts = apply_transaction(&mut graph, patch)?;
                     last_patch = Some(facts);
-                    pending_cycle = Some(make_cycle(
+                    pending_cycles.push(make_cycle(
                         run_id,
                         cycle_ordinal,
                         Some(ordinal),
@@ -624,7 +804,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let patch = crate::dispatch_input(event_id, value.clone());
                     let roc_ns = elapsed_ns(roc_started);
                     let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                    let facts = graph.apply_measured(patch)?.facts;
+                    let facts = apply_transaction(&mut graph, patch)?;
                     let next_dialog = graph.active_dialog();
                     if previous_dialog.is_some() && next_dialog.is_none() {
                         focused = dialog_return_focus
@@ -632,7 +812,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             .and_then(|identity| graph.find_focus_identity(&identity));
                     }
                     last_patch = Some(facts);
-                    pending_cycle = Some(make_cycle(
+                    pending_cycles.push(make_cycle(
                         run_id,
                         cycle_ordinal,
                         Some(ordinal),
@@ -725,7 +905,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             let patch = dispatch(id);
                             let roc_ns = elapsed_ns(roc_started);
                             let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                            let facts = graph.apply_measured(patch)?.facts;
+                            let facts = apply_transaction(&mut graph, patch)?;
                             let next_dialog = graph.active_dialog();
                             match (previous_dialog, next_dialog) {
                                 (None, Some(dialog)) => {
@@ -740,7 +920,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 _ => {}
                             }
                             last_patch = Some(facts);
-                            pending_cycle = Some(make_cycle(
+                            pending_cycles.push(make_cycle(
                                 run_id,
                                 cycle_ordinal,
                                 Some(ordinal),
@@ -762,8 +942,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 let before = task_counts();
                 let cycle_started = Instant::now();
                 observatory::reset_roc_work();
-                let roc_started = Instant::now();
                 let completion = await_task_completion()?;
+                let roc_started = Instant::now();
                 let patch = complete(completion);
                 let roc_ns = elapsed_ns(roc_started);
                 let after = task_counts();
@@ -771,9 +951,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     return Err("task completion counters violated ownership invariants".into());
                 }
                 let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                let facts = graph.apply_measured(patch)?.facts;
+                let facts = apply_transaction(&mut graph, patch)?;
                 last_patch = Some(facts);
-                pending_cycle = Some(make_cycle(
+                pending_cycles.push(make_cycle(
                     run_id,
                     cycle_ordinal,
                     Some(ordinal),
@@ -789,17 +969,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 Ok(())
             }
             Command::AwaitCount(locator, expected) => {
-                // Waiting for the graph, not for a number of completions the
-                // specification cannot predict. Every task this resolves is one
-                // the application asked for, so the counters still account for
-                // each of them exactly.
+                // A wait can deliver several production turns. Record each callback
+                // and its own graph decision, never combine work with another patch.
                 let before = task_counts();
-                let cycle_started = Instant::now();
-                observatory::reset_roc_work();
-                let roc_started = Instant::now();
-                let deadline = cycle_started + crate::TASK_BUDGET;
+                let deadline = Instant::now() + crate::TASK_BUDGET;
                 let mut completions = 0u64;
-                let mut applied = None;
                 let outcome = loop {
                     let found = matches(&graph, locator).len();
                     if found == *expected {
@@ -812,21 +986,16 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             crate::TASK_BUDGET.as_secs(),
                         ));
                     }
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
                     let completion = await_task_completion()?;
+                    let roc_started = Instant::now();
                     let patch = complete(completion);
-                    applied = Some(graph.apply_measured(patch)?.facts);
-                    completions += 1;
-                };
-                let roc_ns = elapsed_ns(roc_started);
-                let after = task_counts();
-                if after.1 != before.1 + completions || after.1 > after.0 {
-                    return Err("task completion counters violated ownership invariants".into());
-                }
-                let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                count_evidence = Some((*expected as u64, matches(&graph, locator).len() as u64));
-                if let Some(facts) = applied {
+                    let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    let facts = apply_transaction(&mut graph, patch)?;
                     last_patch = Some(facts);
-                    pending_cycle = Some(make_cycle(
+                    pending_cycles.push(make_cycle(
                         run_id,
                         cycle_ordinal,
                         Some(ordinal),
@@ -839,7 +1008,13 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         roc_work_valid,
                     ));
                     cycle_ordinal += 1;
+                    completions += 1;
+                };
+                let after = task_counts();
+                if after.1 != before.1 + completions || after.1 > after.0 {
+                    return Err("task completion counters violated ownership invariants".into());
                 }
+                count_evidence = Some((*expected as u64, matches(&graph, locator).len() as u64));
                 outcome
             }
             Command::ClipboardText(text) => crate::clipboard::inject_fixture(text.clone())
@@ -852,7 +1027,12 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     ));
                 }
                 for _ in 0..*count {
-                    let patch = complete(await_task_completion()?);
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
+                    let completion = await_task_completion()?;
+                    let roc_started = Instant::now();
+                    let patch = complete(completion);
+                    let roc_ns = elapsed_ns(roc_started);
                     let fired = crate::timers::fired_count();
                     if fired <= timer_fired_seen {
                         return Err(format!(
@@ -861,7 +1041,22 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         ));
                     }
                     timer_fired_seen += 1;
-                    last_patch = Some(graph.apply_measured(patch)?.facts);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    let facts = apply_transaction(&mut graph, patch)?;
+                    last_patch = Some(facts);
+                    pending_cycles.push(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "task",
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
                 }
                 Ok(())
             }
@@ -906,13 +1101,14 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::ExpectClipboardCounters(expected) => {
                 let (operations, handles) = crate::clipboard::counters();
                 let observed = [handles as u64, operations[0], operations[1], operations[2]];
-                count_evidence = Some((expected.iter().sum(), observed.iter().sum()));
+                let (matches, totals) = counter_pattern(expected, observed);
+                count_evidence = Some(totals);
                 clipboard_counter_evidence = Some((*expected, observed));
-                if observed == *expected {
+                if matches {
                     Ok(())
                 } else {
                     Err(format!(
-                        "line {}: expected clipboard counters {:?}, observed {:?}",
+                        "line {}: expected clipboard counter pattern {:?}, observed {:?}",
                         step.line, expected, observed
                     ))
                 }
@@ -1190,12 +1386,13 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             }
             // Answered from the mounted graph alone, so the window runner
-            // makes the same five claims from the same code.
+            // makes the same claims from the same code.
             command @ (Command::ExpectCanvasPrimitives(_, _)
             | Command::ExpectValue(_, _)
             | Command::ExpectValueBytes(_, _)
             | Command::ExpectImageBytes(_, _)
-            | Command::ExpectBefore(_, _)) => {
+            | Command::ExpectBefore(_, _)
+            | Command::ExpectBackground(_, _)) => {
                 let (result, counts) =
                     graph_claim(&graph, command).expect("graph claim is missing an arm");
                 count_evidence = counts;
@@ -1240,7 +1437,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         };
         // Operation timing begins only after locator resolution, at the same
         // boundary as its attributed cycle. Assertions are correctness-only.
-        let operation_duration = pending_cycle.as_ref().map(|cycle| cycle.duration_ns);
+        let operation_duration = (!pending_cycles.is_empty())
+            .then(|| pending_cycles.iter().map(|cycle| cycle.duration_ns).sum());
         let diagnostic = result.as_ref().err().cloned();
         observatory::step(StepResult {
             run_id,
@@ -1257,6 +1455,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             sqlite_counters: sqlite_counter_evidence,
             http_counters: http_counter_evidence,
             tcp_counters: tcp_counter_evidence,
+            component_work: component_work_evidence,
             expected_patch_kind: patch_evidence.as_ref().map(|value| value.0.clone()),
             observed_patch_kind: patch_evidence.as_ref().map(|value| value.1),
             expected_staged_nodes: patch_evidence.as_ref().map(|value| value.2),
@@ -1267,12 +1466,29 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         });
         // The step is deliberately admitted before its cycle so the composite
         // foreign key remains valid even when batches split here.
-        if let Some(cycle) = pending_cycle {
+        for cycle in pending_cycles {
             observatory::cycle(cycle);
         }
         result?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod counter_pattern_tests {
+    use super::counter_pattern;
+
+    #[test]
+    fn unconstrained_owner_counts_do_not_decide_the_claim_or_aggregate() {
+        assert_eq!(
+            counter_pattern(&[Some(1), Some(1), None, Some(1)], [1, 1, 3, 1]),
+            (true, (3, 3))
+        );
+        assert_eq!(
+            counter_pattern(&[Some(1), Some(1), None, Some(1)], [1, 2, 3, 1]),
+            (false, (3, 4))
+        );
+    }
 }
 
 // Flat constructor for the observatory cycle record.
@@ -1285,7 +1501,7 @@ fn make_cycle(
     trigger: &'static str,
     cycle_started: Instant,
     roc_callback_ns: u64,
-    roc_work: [observatory::RocWork; 4],
+    roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
     facts: &ApplyFacts,
     roc_work_valid: bool,
 ) -> Cycle {
@@ -1306,11 +1522,370 @@ fn make_cycle(
         removed_nodes: facts.removed,
         live_nodes: facts.live,
         parent_nodes_scanned: facts.scanned,
+        retained_nodes: facts.retained_nodes,
+        validation_visits: facts.validation_visits,
+        keyed_graph_visits: facts.keyed_graph_visits,
+        keyed_original_reads: facts.keyed_original_reads,
+        keyed_first_touches: facts.keyed_first_touches,
+        keyed_native_edits: 0,
+        keyed_item_entities_created: 0,
+        keyed_item_entities_retired: 0,
+        keyed_item_entities_moved: 0,
         roc_work,
         roc_work_valid,
+        component_work: observatory::component_cycle_work(),
     }
 }
 
 fn elapsed_ns(start: Instant) -> u64 {
     start.elapsed().as_nanos().try_into().unwrap_or(u64::MAX)
+}
+
+#[cfg(test)]
+mod controlled_value_tests {
+    use super::*;
+    use crate::bridge::{Node, Style};
+
+    fn controlled_graph(textarea: bool, value: &str) -> (MountedGraph, Locator) {
+        let label = "Editor".to_owned();
+        let value = value.to_owned();
+        let placeholder = String::new();
+        let style: Box<Style> = Box::default();
+        let (kind, locator) = if textarea {
+            (
+                NodeKind::Textarea {
+                    label: label.clone(),
+                    value,
+                    placeholder,
+                    enabled: true,
+                    read_only: false,
+                    style,
+                },
+                Locator::TextareaName(label),
+            )
+        } else {
+            (
+                NodeKind::TextInput {
+                    label: label.clone(),
+                    value,
+                    placeholder,
+                    enabled: true,
+                    style,
+                },
+                Locator::TextInputName(label),
+            )
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![Node {
+                    id: 1,
+                    kind,
+                    children: vec![],
+                }],
+            })
+            .unwrap();
+        (graph, locator)
+    }
+
+    #[test]
+    fn background_claim_uses_explicit_graph_color_without_fabricating_counts() {
+        for color in [None, Some(0), Some(0x66E0FF)] {
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: 1,
+                    nodes: vec![Node {
+                        id: 1,
+                        kind: NodeKind::Button {
+                            caption: String::new(),
+                            label: "Cell".into(),
+                            enabled: true,
+                            hover_enter: true,
+                            hover_exit: true,
+                            style: Box::new(Style {
+                                bg: color,
+                                ..Style::default()
+                            }),
+                        },
+                        children: vec![],
+                    }],
+                })
+                .unwrap();
+            let (result, counts) = graph_claim(
+                &graph,
+                &Command::ExpectBackground(Locator::ButtonName("Cell".into()), 0x66E0FF),
+            )
+            .unwrap();
+            assert_eq!(result.is_ok(), color == Some(0x66E0FF));
+            assert_eq!(counts, None);
+            if color.is_none() {
+                assert!(result.unwrap_err().contains("unavailable"));
+            }
+        }
+    }
+
+    #[test]
+    fn controlled_values_compare_exact_text_without_exposing_it() {
+        for textarea in [false, true] {
+            let (graph, locator) = controlled_graph(textarea, "private-é");
+            let (claim, observed) = graph_claim(
+                &graph,
+                &Command::ExpectValue(locator.clone(), "private-é".into()),
+            )
+            .unwrap();
+            assert!(claim.is_ok());
+            assert_eq!(observed, None);
+            let (claim, observed) =
+                graph_claim(&graph, &Command::ExpectValue(locator, "secret-é".into())).unwrap();
+            assert_eq!(claim.unwrap_err(), "controlled input value differed");
+            assert_eq!(observed, None);
+        }
+    }
+
+    #[test]
+    fn controlled_value_lengths_count_utf8_bytes_including_empty_values() {
+        for textarea in [false, true] {
+            for value in ["", "é"] {
+                let (graph, locator) = controlled_graph(textarea, value);
+                let length = value.len();
+                let (claim, observed) =
+                    graph_claim(&graph, &Command::ExpectValueBytes(locator.clone(), length))
+                        .unwrap();
+                assert!(claim.is_ok());
+                assert_eq!(observed, Some((length as u64, length as u64)));
+                let (claim, observed) =
+                    graph_claim(&graph, &Command::ExpectValueBytes(locator, length + 1)).unwrap();
+                assert!(claim.is_err());
+                assert_eq!(observed, Some((length as u64 + 1, length as u64)));
+            }
+        }
+    }
+
+    #[test]
+    fn an_unavailable_controlled_value_is_not_reported_as_zero_bytes() {
+        let (graph, _) = controlled_graph(false, "");
+        let (claim, observed) = graph_claim(
+            &graph,
+            &Command::ExpectValueBytes(Locator::TextInputName("Absent".into()), 0),
+        )
+        .unwrap();
+        assert!(claim.is_err());
+        assert_eq!(observed, None);
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![Node {
+                    id: 1,
+                    kind: NodeKind::Text("caption".into()),
+                    children: vec![],
+                }],
+            })
+            .unwrap();
+        let (claim, observed) = graph_claim(
+            &graph,
+            &Command::ExpectValueBytes(Locator::Text("caption".into()), 0),
+        )
+        .unwrap();
+        assert!(claim.is_err());
+        assert_eq!(observed, None);
+    }
+}
+
+#[cfg(test)]
+mod component_work_tests {
+    use super::*;
+
+    #[test]
+    fn shared_component_claim_distinguishes_unavailable_zero_and_a_failed_count() {
+        observatory::clear_component_work();
+        let mut expected = [None; observatory::COMPONENT_WORK_NAMES.len()];
+        expected[0] = Some(0);
+        let (result, observed) = component_work_claim(&expected);
+        assert!(result.unwrap_err().contains("unavailable"));
+        assert_eq!(observed, None);
+        observatory::begin_component_work();
+        observatory::commit_component_work();
+        assert!(component_work_claim(&expected).0.is_ok());
+        observatory::begin_component_work();
+        observatory::note_component_work(0, 2);
+        observatory::commit_component_work();
+        assert!(
+            component_work_claim(&expected)
+                .0
+                .unwrap_err()
+                .contains("observed 2")
+        );
+        observatory::clear_component_work();
+    }
+}
+
+#[cfg(test)]
+mod locator_tests {
+    use super::*;
+    use crate::bridge::{CanvasPrimitiveKind, Node, Style};
+
+    fn within(ancestor: Locator, target: Locator) -> Locator {
+        Locator::Within(Box::new(ancestor), Box::new(target))
+    }
+
+    fn graph() -> MountedGraph {
+        let style: Box<Style> = Box::default();
+        let node = |id, kind, children| Node { id, kind, children };
+        let panel = |label: &str| NodeKind::Panel {
+            label: label.into(),
+            style: style.clone(),
+        };
+        let input = || NodeKind::TextInput {
+            label: "Value".into(),
+            value: String::new(),
+            placeholder: String::new(),
+            enabled: true,
+            style: style.clone(),
+        };
+        let primitive = |key, label: &str| CanvasPrimitive {
+            kind: CanvasPrimitiveKind::Rectangle,
+            key,
+            label: label.into(),
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            x2: 0,
+            y2: 0,
+            fill: None,
+            stroke: None,
+            stroke_width: 0,
+            radius: 0,
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 1,
+                nodes: vec![
+                    node(1, panel("Page"), vec![2, 5]),
+                    node(2, panel("Left"), vec![3]),
+                    node(3, NodeKind::Boundary { instance: 11 }, vec![4]),
+                    node(
+                        4,
+                        NodeKind::Row {
+                            label: "Contents".into(),
+                            style: style.clone(),
+                        },
+                        vec![8, 10],
+                    ),
+                    node(5, panel("Right"), vec![6]),
+                    node(6, NodeKind::Boundary { instance: 22 }, vec![7]),
+                    node(
+                        7,
+                        NodeKind::Row {
+                            label: "Contents".into(),
+                            style: style.clone(),
+                        },
+                        vec![9, 12],
+                    ),
+                    node(8, input(), vec![]),
+                    node(9, input(), vec![]),
+                    node(
+                        10,
+                        NodeKind::Canvas {
+                            label: "Canvas".into(),
+                            primitives: vec![primitive(1, "Dot one"), primitive(2, "Dot two")],
+                            style: style.clone(),
+                        },
+                        vec![],
+                    ),
+                    node(
+                        12,
+                        NodeKind::Canvas {
+                            label: "Canvas".into(),
+                            primitives: vec![primitive(1, "Dot one")],
+                            style,
+                        },
+                        vec![],
+                    ),
+                ],
+            })
+            .unwrap();
+        graph
+    }
+
+    #[test]
+    fn within_filters_duplicate_component_labels_without_hiding_ambiguity() {
+        let graph = graph();
+        let target = Locator::TextInputName("Value".into());
+        assert_eq!(matches(&graph, &target), vec![8, 9]);
+        assert_eq!(
+            matches(
+                &graph,
+                &within(Locator::PanelName("Left".into()), target.clone())
+            ),
+            vec![8]
+        );
+        assert_eq!(
+            matches(
+                &graph,
+                &within(Locator::PanelName("Page".into()), target.clone())
+            ),
+            vec![8, 9]
+        );
+        assert_eq!(
+            matches(
+                &graph,
+                &within(Locator::PanelName("Missing".into()), target)
+            ),
+            Vec::<u64>::new()
+        );
+    }
+
+    #[test]
+    fn within_is_strict_and_nested_targets_use_the_same_graph_path() {
+        let graph = graph();
+        let page = Locator::PanelName("Page".into());
+        assert!(matches(&graph, &within(page.clone(), page)).is_empty());
+        let target = within(
+            Locator::RowName("Contents".into()),
+            Locator::TextInputName("Value".into()),
+        );
+        assert_eq!(
+            matches(&graph, &within(Locator::PanelName("Left".into()), target)),
+            vec![8]
+        );
+    }
+
+    #[test]
+    fn scoped_canvas_counts_and_screenshot_targets_share_scope_resolution() {
+        let graph = graph();
+        let prefix = within(
+            Locator::PanelName("Left".into()),
+            Locator::CanvasItemPrefix("Dot".into()),
+        );
+        assert_eq!(matches(&graph, &prefix), vec![10, 10]);
+        assert!(canvas_item(&graph, &prefix).is_none());
+        let item = within(
+            Locator::PanelName("Right".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert_eq!(matches(&graph, &item), vec![12]);
+        let (owner, item) = canvas_item(&graph, &item).unwrap();
+        assert_eq!(owner, 12);
+        assert_eq!(item.label, "Dot one");
+    }
+
+    #[test]
+    fn canvas_primitive_is_a_strict_semantic_child_not_an_ancestor() {
+        let graph = graph();
+        let canvas = within(
+            Locator::PanelName("Left".into()),
+            Locator::CanvasName("Canvas".into()),
+        );
+        let primitive = Locator::CanvasItemName("Dot one".into());
+        let scoped = within(canvas.clone(), primitive.clone());
+        assert_eq!(matches(&graph, &scoped), vec![10]);
+        assert_eq!(canvas_item(&graph, &scoped).unwrap().0, 10);
+        assert!(matches(&graph, &within(canvas.clone(), canvas)).is_empty());
+        assert!(matches(&graph, &within(primitive.clone(), primitive)).is_empty());
+    }
 }

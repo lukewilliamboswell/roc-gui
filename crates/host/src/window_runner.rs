@@ -13,7 +13,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use gpui::{App, AppContext, AsyncApp, Keystroke, WindowHandle, point, px, size};
+use gpui::{App, AppContext, AsyncApp, Keystroke, MouseMoveEvent, WindowHandle, point, px, size};
 
 use crate::probe::{self, Rect};
 use crate::screenshot::{self, ShotError};
@@ -28,6 +28,10 @@ pub struct Options {
     pub shot_dir: PathBuf,
     pub timeout: Duration,
     pub require_shots: bool,
+    /// The content size the application asked its window to open at, in
+    /// points. Kept beside the size the window actually got so a run says
+    /// which one it measured.
+    pub requested_window: (f32, f32),
 }
 
 /// Why a step did not pass.
@@ -221,6 +225,26 @@ fn stale(value: probe::Stale) -> StepError {
         painted: value.painted,
         graph: value.graph,
     }
+}
+
+/// How the window that answered differs from the window that was asked for.
+///
+/// A platform may refuse the size an application requests: a display smaller
+/// than the request, or a window manager with its own view of where a window
+/// may end. Every geometry answer afterwards is then about a window nobody
+/// asked for, and an element laid out past the fold reads as "not on screen"
+/// with nothing to say why. Returns the sentence that names the difference,
+/// and nothing at all when the window opened at the size it was given.
+fn window_shortfall(requested: (f32, f32), actual: Option<(f32, f32)>) -> Option<String> {
+    let (want_width, want_height) = requested;
+    let (got_width, got_height) = actual?;
+    // Half a point of slack: a scale factor can round a size it did honour.
+    let short = got_width + 0.5 < want_width || got_height + 0.5 < want_height;
+    short.then(|| {
+        format!(
+            "the window opened at {got_width:.0}x{got_height:.0} points but the application asked for {want_width:.0}x{want_height:.0}, so content past the edge is clipped"
+        )
+    })
 }
 
 /// Whether a node is visible, not merely laid out.
@@ -451,18 +475,17 @@ fn prune_bounds(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<(), 
         .map_err(|_| StepError::WindowClosed)
 }
 
-/// Await one presented frame.
+/// Await the next frame callback with a normal view invalidation.
 async fn next_frame(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<(), StepError> {
     let (sender, receiver) = async_channel::bounded::<()>(1);
     window
-        .update(cx, |_, window, _| {
+        .update(cx, |_, window, cx| {
             window.on_next_frame(move |_, _| {
                 let _ = sender.try_send(());
             });
-            // Not `request_animation_frame`: despite its documentation it calls
-            // `current_view`, which panics outside a render pass. `refresh`
-            // marks the window dirty from anywhere.
-            window.refresh();
+            // A forced Window::refresh bypasses all view caches. Request the
+            // same ordinary invalidation as an application update instead.
+            cx.notify();
         })
         .map_err(|_| StepError::WindowClosed)?;
     receiver
@@ -496,7 +519,7 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
     }
 
     let mut json = String::new();
-    json.push_str("{\n  \"schema_version\": 1,\n");
+    json.push_str("{\n  \"schema_version\": 2,\n");
     json.push_str(&format!(
         "  \"spec\": {{ \"name\": \"{}\" }},\n",
         escape(&outcome.spec_name)
@@ -515,12 +538,18 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
         },
         outcome.unavailable_shots
     ));
+    // The requested size is recorded whether or not the window was measured:
+    // it is what the application asked for, and it is known even when the
+    // window closed before anything could be measured about it.
+    let (requested_width, requested_height) = options.requested_window;
     match outcome.window {
         Some((width, height)) => json.push_str(&format!(
-            "  \"window\": {{ \"width_points\": {width:.0}, \"height_points\": {height:.0}, \"scale_factor\": {:.1} }},\n",
+            "  \"window\": {{ \"width_points\": {width:.0}, \"height_points\": {height:.0}, \"requested_width_points\": {requested_width:.0}, \"requested_height_points\": {requested_height:.0}, \"scale_factor\": {:.1} }},\n",
             outcome.scale_factor
         )),
-        None => json.push_str("  \"window\": null,\n"),
+        None => json.push_str(&format!(
+            "  \"window\": {{ \"width_points\": null, \"height_points\": null, \"requested_width_points\": {requested_width:.0}, \"requested_height_points\": {requested_height:.0}, \"scale_factor\": null }},\n"
+        )),
     }
     json.push_str(&format!(
         "  \"require_shots\": {},\n",
@@ -592,6 +621,132 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
     std::fs::write(path, json)
 }
 
+fn check_native_work_full(
+    work: Option<crate::observatory::NativeFrameWork>,
+    gpui_work: Option<crate::observatory::GpuiFrameWorkObservation>,
+    button_max: Option<u64>,
+    boundary_max: Option<u64>,
+    boundary_elements_max: Option<u64>,
+    cached_prepaint_min: Option<u64>,
+    cached_paint_min: Option<u64>,
+    replayed_scene_min: Option<u64>,
+    fresh_hitboxes_max: Option<u64>,
+    fresh_mouse_listeners_max: Option<u64>,
+    element_states_moved_min: Option<u64>,
+) -> Result<(), StepError> {
+    let work = work.ok_or_else(|| StepError::Geometry(
+        "native work unavailable: mark-native-work and at least one completed frame are required".into()
+    ))?;
+    for (name, actual, maximum) in [
+        ("button renders", work.max_rendered[1], button_max),
+        ("boundary renders", work.max_rendered[15], boundary_max),
+        (
+            "boundary elements created",
+            work.max_view_elements_created[15],
+            boundary_elements_max,
+        ),
+    ] {
+        if let Some(maximum) = maximum
+            && actual > maximum
+        {
+            return Err(StepError::Geometry(format!(
+                "expected {name} per completed frame <= {maximum}; observed maximum {actual} across {} frame(s)",
+                work.frames
+            )));
+        }
+    }
+    if [
+        cached_prepaint_min,
+        cached_paint_min,
+        replayed_scene_min,
+        fresh_hitboxes_max,
+        fresh_mouse_listeners_max,
+        element_states_moved_min,
+    ]
+    .iter()
+    .any(Option::is_some)
+    {
+        let gpui_work = gpui_work.ok_or_else(|| StepError::Geometry(
+            "GPUI frame work unavailable: mark-native-work and a completed observed frame are required".into()
+        ))?;
+        for (name, actual, minimum) in [
+            (
+                "cached prepaint subtrees",
+                gpui_work.max_counts[0],
+                cached_prepaint_min,
+            ),
+            (
+                "cached paint subtrees",
+                gpui_work.max_counts[5],
+                cached_paint_min,
+            ),
+            (
+                "replayed scene operations",
+                gpui_work.max_counts[6],
+                replayed_scene_min,
+            ),
+            (
+                "element states moved",
+                gpui_work.max_counts[16],
+                element_states_moved_min,
+            ),
+        ] {
+            if let Some(minimum) = minimum
+                && actual < minimum
+            {
+                return Err(StepError::Geometry(format!(
+                    "expected {name} per completed frame >= {minimum}; observed maximum {actual} across {} frame(s)",
+                    gpui_work.frames
+                )));
+            }
+        }
+        for (name, actual, maximum) in [
+            (
+                "fresh hitboxes",
+                gpui_work.max_counts[12],
+                fresh_hitboxes_max,
+            ),
+            (
+                "fresh mouse listeners",
+                gpui_work.max_counts[13],
+                fresh_mouse_listeners_max,
+            ),
+        ] {
+            if let Some(maximum) = maximum
+                && actual > maximum
+            {
+                return Err(StepError::Geometry(format!(
+                    "expected {name} per completed frame <= {maximum}; observed maximum {actual} across {} frame(s)",
+                    gpui_work.frames
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn check_native_work(
+    work: Option<crate::observatory::NativeFrameWork>,
+    button_max: Option<u64>,
+    boundary_max: Option<u64>,
+    boundary_elements_max: Option<u64>,
+) -> Result<(), StepError> {
+    check_native_work_full(
+        work,
+        None,
+        button_max,
+        boundary_max,
+        boundary_elements_max,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+}
+
 /// Run one step against the live window.
 async fn run_step(
     step: &Step,
@@ -606,6 +761,39 @@ async fn run_step(
             await_painted(window, options.timeout, cx).await?;
             return take_screenshot(request, ordinal, window, options, cx);
         }
+        Command::MarkNativeWork => window
+            .update(cx, |_, _, _| {
+                crate::observatory::mark_native_work();
+                Ok(())
+            })
+            .map_err(|_| StepError::WindowClosed)?,
+        Command::ExpectNativeWork {
+            button_renders_max,
+            boundary_renders_max,
+            boundary_elements_max,
+            cached_prepaint_subtrees_min,
+            cached_paint_subtrees_min,
+            replayed_scene_operations_min,
+            fresh_hitboxes_max,
+            fresh_mouse_listeners_max,
+            element_states_moved_min,
+        } => window
+            .update(cx, |_, _, _| {
+                check_native_work_full(
+                    crate::observatory::native_work_since_mark(),
+                    crate::observatory::gpui_frame_work_since_mark(),
+                    *button_renders_max,
+                    *boundary_renders_max,
+                    *boundary_elements_max,
+                    *cached_prepaint_subtrees_min,
+                    *cached_paint_subtrees_min,
+                    *replayed_scene_operations_min,
+                    *fresh_hitboxes_max,
+                    *fresh_mouse_listeners_max,
+                    *element_states_moved_min,
+                )
+            })
+            .map_err(|_| StepError::WindowClosed)?,
         Command::Settle { frames, timeout_ms } => {
             settle(
                 window,
@@ -614,6 +802,44 @@ async fn run_step(
                 cx,
             )
             .await
+        }
+        Command::HoverEnter(locator) | Command::HoverExit(locator) => {
+            let entered = matches!(step.command, Command::HoverEnter(_));
+            let viewport = viewport_rect(window, cx)?;
+            let position = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    if !matches!(
+                        runtime.graph.node(id).map(|node| &node.kind),
+                        Some(crate::bridge::NodeKind::Button { .. })
+                    ) {
+                        return Err(StepError::NotClickable(describe(locator)));
+                    }
+                    let position = if entered {
+                        let bounds = visible_rect(runtime, locator, viewport)?;
+                        point(
+                            px((bounds.left + bounds.right) / 2.0),
+                            px((bounds.top + bounds.bottom) / 2.0),
+                        )
+                    } else {
+                        point(px(-1.0), px(-1.0))
+                    };
+                    Ok::<_, StepError>(position)
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            // Release the Runtime borrow before GPUI delivers callbacks into it.
+            cx.update_window(window.into(), |_, window, cx| {
+                window.dispatch_event(
+                    gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                        position,
+                        pressed_button: None,
+                        modifiers: Default::default(),
+                    }),
+                    cx,
+                );
+            })
+            .map_err(|_| StepError::WindowClosed)?;
+            await_painted(window, options.timeout, cx).await
         }
         Command::Click(locator) => {
             let viewport = viewport_rect(window, cx)?;
@@ -732,19 +958,19 @@ async fn run_step(
         Command::ExpectRenderedCount(locator, expected) => {
             await_painted(window, options.timeout, cx).await?;
             window
-            .update(cx, |runtime, _, _| {
-                let ids = runner::matches(&runtime.graph, locator);
-                let painted = runtime.painted().map_err(stale)?.laid_out_count(&ids);
-                if painted == *expected {
-                    Ok(())
-                } else {
-                    Err(StepError::Geometry(format!(
-                        "{} laid out {painted} instances; expected {expected}",
-                        describe(locator)
-                    )))
-                }
-            })
-            .map_err(|_| StepError::WindowClosed)?
+                .update(cx, |runtime, _, _| {
+                    let ids = runner::matches(&runtime.graph, locator);
+                    let painted = runtime.painted().map_err(stale)?.laid_out_count(&ids);
+                    if painted == *expected {
+                        Ok(())
+                    } else {
+                        Err(StepError::Geometry(format!(
+                            "{} laid out {painted} instances; expected {expected}",
+                            describe(locator)
+                        )))
+                    }
+                })
+                .map_err(|_| StepError::WindowClosed)?
         }
         Command::ExpectBounds(locator, expectation) => {
             await_painted(window, options.timeout, cx).await?;
@@ -801,13 +1027,21 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
-        // The five claims answered from the mounted graph alone, made by the
+        Command::ExpectComponentWork(expected) => window
+            .update(cx, |_, _, _| {
+                runner::component_work_claim(expected)
+                    .0
+                    .map_err(StepError::Geometry)
+            })
+            .map_err(|_| StepError::WindowClosed)?,
+        // The claims answered from the mounted graph alone, made by the
         // same code the semantic runner calls, so the word means one thing.
         Command::ExpectCanvasPrimitives(_, _)
         | Command::ExpectValue(_, _)
         | Command::ExpectValueBytes(_, _)
         | Command::ExpectImageBytes(_, _)
-        | Command::ExpectBefore(_, _) => window
+        | Command::ExpectBefore(_, _)
+        | Command::ExpectBackground(_, _) => window
             .update(cx, |runtime, _, _| {
                 runner::graph_claim(&runtime.graph, &step.command)
                     .expect("graph claim is missing an arm")
@@ -821,7 +1055,9 @@ async fn run_step(
         // one task is outstanding at every instant by construction. `await-ticks`
         // therefore counts completions rather than waiting for there to be none,
         // which is also what the step means: apply N successive wait completions.
-        Command::AwaitTicks(count) => advance_timer_fires(window, *count, options.timeout, cx).await,
+        Command::AwaitTicks(count) => {
+            advance_timer_fires(window, *count, options.timeout, cx).await
+        }
         // The fixture clipboard is one process-wide store, so changing the
         // granted source here is the same act the semantic runner performs. One
         // presented frame is all this step waits for; observing the change is
@@ -874,8 +1110,8 @@ async fn run_step(
 
 /// Resolve a locator to a control a real click could actually have activated.
 ///
-/// GPUI 0.2.2 exposes no usable pointer entry point, so the click itself is
-/// simulated at the production handler. What is *not* simulated is whether the
+/// Click and hover steps activate the production handler route directly.
+/// What is *not* simulated here is whether the
 /// click could have landed: the control must have been painted this frame, must
 /// survive clipping by the viewport and its scrolling ancestors, must accept
 /// pointer activation, and must satisfy the same modality rule the semantic
@@ -975,7 +1211,20 @@ fn scroll_region(
                 .bounds(target_id)
                 .ok_or_else(|| StepError::NotPainted(describe(target)))?;
             let viewport = Rect::from_gpui(tracker.viewport());
-            tracker.scroll_by(point(px(axis_delta(bounds.left, bounds.right, viewport.left, viewport.right)), px(axis_delta(bounds.top, bounds.bottom, viewport.top, viewport.bottom))));
+            tracker.scroll_by(point(
+                px(axis_delta(
+                    bounds.left,
+                    bounds.right,
+                    viewport.left,
+                    viewport.right,
+                )),
+                px(axis_delta(
+                    bounds.top,
+                    bounds.bottom,
+                    viewport.top,
+                    viewport.bottom,
+                )),
+            ));
             Ok(())
         }
     }
@@ -1098,7 +1347,12 @@ fn region_rect(
         // Its rectangle is the canvas's, offset by the coordinates the owner
         // drew it at — the same one-point-to-one-point mapping `canvas_target`
         // inverts to decide what a press landed on.
-        Region::Locator(locator @ (Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_))) => {
+        Region::Locator(locator)
+            if matches!(
+                locator.target(),
+                Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+            ) =>
+        {
             let (canvas, item) = runner::canvas_item(&runtime.graph, locator).ok_or_else(|| {
                 StepError::LocatorMatched {
                     locator: describe(locator),
@@ -1310,12 +1564,22 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
                     }
                     Err(error) => {
                         outcome.failed = true;
+                        // A clipped element is the one failure a smaller
+                        // window explains, so that is where the difference is
+                        // reported rather than in every unrelated message.
+                        let mut message = error.message(step.line);
+                        if matches!(error, StepError::OffScreen { .. })
+                            && let Some(note) =
+                                window_shortfall(options.requested_window, outcome.window)
+                        {
+                            message.push_str(&format!("; {note}"));
+                        }
                         outcome.steps.push(StepRecord {
                             ordinal,
                             line: step.line,
                             kind: step.command.kind(),
                             status: "fail",
-                            message: Some(error.message(step.line)),
+                            message: Some(message),
                             shot: None,
                         });
                         break;
@@ -1350,6 +1614,35 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_work_assertion_uses_owner_completed_frame_maxima() {
+        use crate::observatory as owner;
+        assert!(check_native_work(None, Some(0), None, None).is_err());
+        owner::mark_native_work();
+        assert!(check_native_work(owner::native_work_since_mark(), Some(0), None, None).is_err());
+        let before = owner::native_work_totals();
+        owner::note_native_render(1);
+        owner::note_native_render(15);
+        owner::note_native_view_element(15);
+        owner::note_native_view_element(15);
+        owner::complete_native_frame(before);
+        let before = owner::native_work_totals();
+        owner::note_native_render(1);
+        owner::note_native_render(1);
+        owner::complete_native_frame(before);
+        let work = owner::native_work_since_mark();
+        assert!(check_native_work(work, Some(2), Some(1), Some(2)).is_ok());
+        assert!(check_native_work(work, None, None, Some(1)).is_err());
+        assert!(check_native_work(work, None, Some(1), None).is_ok());
+        let error = check_native_work(work, Some(1), None, None).unwrap_err();
+        assert!(format!("{error:?}").contains("observed maximum 2"));
+        assert!(check_native_work(work, None, Some(0), None).is_err());
+        owner::mark_native_work();
+        assert!(check_native_work(owner::native_work_since_mark(), Some(0), None, None).is_err());
+        owner::complete_native_frame(owner::native_work_totals());
+        assert!(check_native_work(owner::native_work_since_mark(), Some(0), Some(0), None).is_ok());
+    }
 
     #[test]
     fn quiescence_needs_consecutive_unchanged_frames() {
@@ -1452,6 +1745,22 @@ mod tests {
         let message = error.message(12);
         assert!(message.starts_with("line 12: "), "{message}");
         assert!(message.contains("3 task(s) outstanding"), "{message}");
+    }
+
+    #[test]
+    fn a_window_smaller_than_requested_says_so_and_a_faithful_one_stays_silent() {
+        // The size that was honoured explains nothing and is not mentioned.
+        assert!(window_shortfall((660.0, 720.0), Some((660.0, 720.0))).is_none());
+        // Rounding within half a point is the size it was given.
+        assert!(window_shortfall((660.0, 720.0), Some((660.0, 719.7))).is_none());
+        // A window larger than the request is not a shortfall either.
+        assert!(window_shortfall((660.0, 720.0), Some((800.0, 900.0))).is_none());
+        // Nothing was measured, so nothing is claimed.
+        assert!(window_shortfall((660.0, 720.0), None).is_none());
+        let note = window_shortfall((660.0, 720.0), Some((660.0, 652.0)))
+            .expect("a clamped window is a difference worth reporting");
+        assert!(note.contains("opened at 660x652"), "{note}");
+        assert!(note.contains("asked for 660x720"), "{note}");
     }
 
     #[test]
