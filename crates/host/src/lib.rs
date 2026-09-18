@@ -71,6 +71,20 @@ actions!(
     ]
 );
 
+/// Every chord this host installs, in one place.
+///
+/// The window binds these and the keymap test checks these, so a chord cannot
+/// be verified in a test and absent from the running window, or the reverse.
+fn host_bindings() -> Vec<KeyBinding> {
+    vec![
+        KeyBinding::new("tab", FocusNext, None),
+        KeyBinding::new("shift-tab", FocusPrevious, None),
+        KeyBinding::new("enter", ActivateEnter, None),
+        KeyBinding::new("escape", ActivateEscape, None),
+        KeyBinding::new("space", ActivateSpace, None),
+    ]
+}
+
 unsafe extern "C" {
     fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable, owner: u64);
     fn roc_gui_run_task(task: RocErasedCallable);
@@ -5286,13 +5300,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     Application::new().run(move |cx| {
         watchdog::milestone(watchdog::Milestone::AppRunEntered);
         input::bind_keys(cx);
-        cx.bind_keys([
-            KeyBinding::new("tab", FocusNext, None),
-            KeyBinding::new("shift-tab", FocusPrevious, None),
-            KeyBinding::new("enter", ActivateEnter, None),
-            KeyBinding::new("escape", ActivateEscape, None),
-            KeyBinding::new("space", ActivateSpace, None),
-        ]);
+        cx.bind_keys(host_bindings());
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
                 cx.quit();
@@ -7687,5 +7695,40 @@ mod roc_test_symbols {
     #[unsafe(no_mangle)]
     extern "C" fn roc_gui_run_task(_task: RocErasedCallable) {
         unreachable!("a host test called into Roc");
+    }
+}
+
+/// The host's own chords, checked against GPUI's keymap rather than against a
+/// window.
+///
+/// A chord that does not resolve is indistinguishable, from inside a windowed
+/// run, from a handler that does not fire — and the difference is where the fix
+/// goes. Asking the keymap directly separates them, needs no window, and turns
+/// a chord into something a locked screen cannot stop anyone from checking.
+#[cfg(test)]
+mod host_keymap_tests {
+    use super::host_bindings;
+    use gpui::{Keymap, Keystroke};
+
+    fn resolves(chord: &str) -> bool {
+        let keymap = Keymap::new(host_bindings());
+        let keystroke = Keystroke::parse(chord).expect("the chord parses");
+        let (matched, _) = keymap.bindings_for_input(&[keystroke], &[]);
+        !matched.is_empty()
+    }
+
+    #[test]
+    fn the_hosts_activation_chords_resolve_without_a_key_context() {
+        for chord in ["tab", "shift-tab", "enter", "escape", "space"] {
+            assert!(resolves(chord), "{chord} must resolve with no context");
+        }
+    }
+
+    #[test]
+    fn an_uninstalled_chord_resolves_to_nothing() {
+        // The control the other test needs: a chord nobody bound must not
+        // match, or the assertion above would pass for any input at all.
+        assert!(!resolves("f9"));
+        assert!(!resolves("secondary-shift-a"));
     }
 }
