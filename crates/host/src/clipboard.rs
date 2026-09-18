@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
@@ -29,6 +30,15 @@ struct Store {
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
 static OPERATIONS: [AtomicU64; 3] = [const { AtomicU64::new(0) }; 3];
+/// What a clipboard handle may do. Reading the clipboard observes something the
+/// person did not direct at this application, which is capture; writing it is a
+/// write. Neither derives anything narrower.
+const CLIPBOARD_RIGHTS: Rights = Rights::CAPTURE.union(Rights::WRITE);
+
+/// How it arrives. The host flag chooses the system clipboard or a fixture; the
+/// trusted activation the contract asks for is an open backlog entry.
+const CLIPBOARD_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -44,6 +54,7 @@ fn store() -> &'static Mutex<Store> {
 }
 
 pub fn configure(system: bool, fixture: bool) -> Result<(), String> {
+    grant::forget_kind(grant::Kind::Clipboard);
     if system && fixture {
         return Err("choose either system or fixture clipboard authority".into());
     }
@@ -93,18 +104,33 @@ fn allocate_handle(guard: &mut Store) -> *mut u64 {
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
     guard.handles.insert(id, ());
     crate::register_resource_allocation(crate::resource_domain::CLIPBOARD, &mut guard.allocations, base, id);
+    grant::record_root(
+        grant::Kind::Clipboard,
+        id,
+        CLIPBOARD_RIGHTS,
+        CLIPBOARD_ORIGIN,
+        Lifetime::Session,
+    );
     handle
 }
 
 fn valid(handle: *mut u64, guard: &Store) -> bool {
-    unsafe { handle.as_ref() }.is_some_and(|id| guard.handles.contains_key(id))
+    unsafe { handle.as_ref() }.is_some_and(|id| {
+        guard.handles.contains_key(id)
+            && grant::accept(grant::Kind::Clipboard, *id, Rights::CAPTURE).is_ok()
+    })
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
+    let mut released = None;
     if let Ok(mut guard) = store().lock()
         && let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize)
     {
         guard.handles.remove(&id);
+        released = Some(id);
+    }
+    if let Some(id) = released {
+        grant::release(grant::Kind::Clipboard, id);
     }
 }
 

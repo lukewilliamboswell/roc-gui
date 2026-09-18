@@ -198,10 +198,14 @@ pub struct Grant {
     pub lifetime: Lifetime,
     /// The grant this one was derived from, absent for a root.
     pub parent: Option<u64>,
-    /// The root this grant descends from; a root is its own root. Held directly
-    /// rather than walked, so revocation is a comparison and cannot be made
-    /// quadratic by a deep derivation chain.
-    pub root: u64,
+    /// The root this grant descends from, named by kind as well as identifier
+    /// because derivation crosses resource kinds: a database snapshot descends
+    /// from the directory grant its bytes were read through. Matching a child on
+    /// its own kind would have left that snapshot readable after the project was
+    /// revoked, which is how this was found. Held directly rather than walked,
+    /// so revocation is a comparison and cannot be made quadratic by a deep
+    /// derivation chain.
+    pub root: (Kind, u64),
     pub revoked: bool,
 }
 
@@ -286,7 +290,7 @@ pub fn record_root(kind: Kind, id: u64, rights: Rights, origin: Origin, lifetime
                 origin,
                 lifetime,
                 parent: None,
-                root: id,
+                root: (kind, id),
                 revoked: false,
             },
         );
@@ -336,7 +340,7 @@ pub fn record_descendant(kind: Kind, id: u64, rights: Rights, parent: Grant) -> 
         // nothing about a revocation since. Asking the root is also what lets a
         // parent be *released* and still derive, which is the ordinary case for
         // an operation that consumes its handle.
-        if registry.revoked_roots.contains(&(parent.kind, parent.root)) {
+        if registry.revoked_roots.contains(&parent.root) {
             return false;
         }
         registry.recorded += 1;
@@ -379,9 +383,7 @@ pub fn accept(kind: Kind, id: u64, needs: Rights) -> Result<Grant, Refusal> {
         let revoked_roots = &registry.revoked_roots;
         let outcome = match registry.grants.get(&(kind, id)) {
             None => Err(Refusal::Unknown),
-            Some(grant)
-                if !grant.is_live() || revoked_roots.contains(&(kind, grant.root)) =>
-            {
+            Some(grant) if !grant.is_live() || revoked_roots.contains(&grant.root) => {
                 Err(Refusal::Revoked)
             }
             Some(grant) if !grant.rights.contains(needs) => Err(Refusal::Rights),
@@ -407,10 +409,12 @@ pub fn revoke(kind: Kind, id: u64) -> u64 {
             return 0;
         };
         let root = target.root;
-        registry.revoked_roots.insert((kind, root));
+        registry.revoked_roots.insert(root);
         let mut count = 0;
+        // Every descendant of this root, of whatever kind. A database snapshot
+        // derived from a directory is revoked with the directory.
         for grant in registry.grants.values_mut() {
-            if grant.kind == kind && grant.root == root && !grant.revoked {
+            if grant.root == root && !grant.revoked {
                 grant.revoked = true;
                 count += 1;
             }
@@ -420,19 +424,21 @@ pub fn revoke(kind: Kind, id: u64) -> u64 {
     })
 }
 
-/// Revoke every root of one kind. What a person means by "stop using my files".
+/// Revoke every root of one kind, and everything derived from those roots
+/// whatever kind it is. What a person means by "stop using my files" includes
+/// the database they opened from one.
 pub fn revoke_kind(kind: Kind) -> u64 {
     with(|registry| {
         let roots: Vec<(Kind, u64)> = registry
             .grants
             .values()
-            .filter(|grant| grant.kind == kind)
-            .map(|grant| (kind, grant.root))
+            .filter(|grant| grant.root.0 == kind)
+            .map(|grant| grant.root)
             .collect();
         registry.revoked_roots.extend(roots);
         let mut count = 0;
         for grant in registry.grants.values_mut() {
-            if grant.kind == kind && !grant.revoked {
+            if grant.root.0 == kind && !grant.revoked {
                 grant.revoked = true;
                 count += 1;
             }
@@ -481,7 +487,12 @@ pub fn counters() -> [u64; 4] {
 /// configuration did not have their authority taken away, they ceased to exist.
 pub fn forget_kind(kind: Kind) {
     with(|registry| {
-        registry.grants.retain(|(held, _), _| *held != kind);
+        // Descendants of this kind's roots go too, whatever kind they are: a
+        // snapshot of a directory that no longer exists is not authority over
+        // anything.
+        registry
+            .grants
+            .retain(|(held, _), grant| *held != kind && grant.root.0 != kind);
         registry.revoked_roots.retain(|(held, _)| *held != kind);
     });
 }
@@ -548,7 +559,7 @@ mod tests {
             device
         ));
         let connection = accept(Kind::Device, 2, Rights::WRITE).expect("connection writes");
-        assert_eq!(connection.root, 1, "and is still bound to its grant");
+        assert_eq!(connection.root, (Kind::Device, 1), "and is still bound to its grant");
     }
 
     #[test]
@@ -569,7 +580,7 @@ mod tests {
             Origin::Provisioned,
             "a flag-provisioned root must not produce children that claim consent"
         );
-        assert_eq!(child.root, 1);
+        assert_eq!(child.root, (Kind::Directory, 1));
     }
 
     #[test]
@@ -651,6 +662,25 @@ mod tests {
         release(Kind::Directory, 1);
         assert_eq!(counters()[1], 1, "released");
         assert_eq!(counters()[2], 0, "and nothing revoked");
+    }
+
+    #[test]
+    fn revocation_follows_derivation_across_resource_kinds() {
+        // A database snapshot descends from the directory its bytes were read
+        // through. Revoking the project must reach it, although it is not a
+        // directory and its own kind is never mentioned.
+        let _turn = fresh();
+        record_root(
+            Kind::Directory,
+            1,
+            Rights::READ.union(Rights::DERIVE),
+            Origin::Provisioned,
+            Lifetime::Session,
+        );
+        let project = accept(Kind::Directory, 1, Rights::READ).expect("project reads");
+        assert!(record_descendant(Kind::Sqlite, 1, Rights::READ, project));
+        assert_eq!(revoke_kind(Kind::Directory), 2);
+        assert_eq!(accept(Kind::Sqlite, 1, Rights::READ), Err(Refusal::Revoked));
     }
 
     #[test]

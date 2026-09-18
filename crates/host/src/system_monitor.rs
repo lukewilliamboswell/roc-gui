@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
@@ -47,6 +48,15 @@ static ACQUIRED: AtomicU64 = AtomicU64::new(0);
 static SAMPLED: AtomicU64 = AtomicU64::new(0);
 static CLOSED: AtomicU64 = AtomicU64::new(0);
 
+/// What a sampler may do. Reading the host's own processes is observing something
+/// the person did not direct at this application, which is capture and not read.
+const SAMPLER_RIGHTS: Rights = Rights::CAPTURE;
+
+/// How a sampler grant arrives. The host flag chooses a real `sysinfo` sampler or
+/// a deterministic source; either way it is development provisioning, not a
+/// person's decision.
+const SAMPLER_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -58,6 +68,7 @@ fn store() -> &'static Mutex<Store> {
     })
 }
 pub fn configure(grant: Grant) {
+    grant::forget_kind(grant::Kind::SystemMonitor);
     store().lock().expect("system monitor store poisoned").grant = grant;
 }
 pub fn counters() -> (u64, u64, u64) {
@@ -78,8 +89,13 @@ pub fn active_count() -> usize {
 }
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("system monitor store poisoned");
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
+    let released = crate::remove_resource_allocation(&mut guard.allocations, base as usize);
+    if let Some(id) = released {
         guard.samplers.remove(&id);
+    }
+    drop(guard);
+    if let Some(id) = released {
+        grant::release(grant::Kind::SystemMonitor, id);
     }
 }
 
@@ -106,10 +122,19 @@ fn capability(source: Source) -> *mut u64 {
         }),
     );
     crate::register_resource_allocation(crate::resource_domain::SYSTEM_MONITOR, &mut guard.allocations, base, id);
+    drop(guard);
+    grant::record_root(
+        grant::Kind::SystemMonitor,
+        id,
+        SAMPLER_RIGHTS,
+        SAMPLER_ORIGIN,
+        Lifetime::Session,
+    );
     handle
 }
 fn lookup(handle: *mut u64) -> Option<Arc<Sampler>> {
     let id = unsafe { handle.as_ref().copied()? };
+    grant::accept(grant::Kind::SystemMonitor, id, Rights::CAPTURE).ok()?;
     store().lock().ok()?.samplers.get(&id).cloned()
 }
 

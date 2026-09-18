@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{files, roc_host, roc_platform_abi::*};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::OpenOptions;
@@ -25,6 +26,11 @@ struct Store {
 }
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
 static OPERATIONS: [AtomicU64; 2] = [const { AtomicU64::new(0) }; 2];
+/// What a database snapshot may do. The broker copies the bytes into an
+/// in-memory read-only database, so there is nothing to write and nothing
+/// narrower to derive.
+const SNAPSHOT_RIGHTS: Rights = Rights::READ;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -36,6 +42,7 @@ fn store() -> &'static Mutex<Store> {
 }
 
 pub fn configure() {
+    grant::forget_kind(grant::Kind::Sqlite);
     for counter in &OPERATIONS {
         counter.store(0, Ordering::Relaxed);
     }
@@ -76,7 +83,11 @@ fn classify(err: &rusqlite::Error) -> (u8, &'static str) {
     }
 }
 
-fn capability(connection: Connection) -> *mut u64 {
+/// The snapshot is derived from the directory grant the database file was read
+/// through, so revoking that project revokes every database opened from it. The
+/// inventory recorded this as unverified; deriving it makes it true by
+/// construction rather than by a rule written twice.
+fn capability(connection: Connection, parent: grant::Grant) -> *mut u64 {
     let mut guard = store().lock().expect("SQLite capability store poisoned");
     let id = guard.next;
     guard.next = guard
@@ -95,13 +106,20 @@ fn capability(connection: Connection) -> *mut u64 {
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.connections.insert(id, connection);
     crate::register_resource_allocation(crate::resource_domain::SQLITE, &mut guard.allocations, base as usize, id);
+    drop(guard);
+    grant::record_descendant(grant::Kind::Sqlite, id, SNAPSHOT_RIGHTS, parent);
     handle
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("SQLite capability store poisoned");
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
+    let released = crate::remove_resource_allocation(&mut guard.allocations, base as usize);
+    if let Some(id) = released {
         guard.connections.remove(&id);
+    }
+    drop(guard);
+    if let Some(id) = released {
+        grant::release(grant::Kind::Sqlite, id);
     }
 }
 
@@ -113,10 +131,10 @@ pub extern "C" fn roc_sqlite_open_read(
     OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
-    let dir = files::lookup(cap);
+    let opened = files::lookup_accepted(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| {
-        let dir = dir.ok_or((3, "invalid directory capability"))?;
+        let (dir, parent) = opened.ok_or((3, "invalid directory capability"))?;
         if !files::valid_name(&owned_name) {
             return Err((4, "database name must be one direct child"));
         }
@@ -158,7 +176,7 @@ pub extern "C" fn roc_sqlite_open_read(
                 MAX_QUERY_BYTES as i32,
             )
             .map_err(|_| (8, "could not install SQLite query limit"))?;
-        Ok(capability(connection))
+        Ok(capability(connection, parent))
     })();
     match result {
         Ok(handle) => HostGlueSqliteOpenReadResult {
@@ -228,9 +246,12 @@ pub extern "C" fn roc_sqlite_query(cap: *mut u64, query: RocStr) -> HostGlueSqli
         let mut guard = store()
             .lock()
             .map_err(|_| (6, "SQLite capability store unavailable"))?;
+        let id = id.ok_or((3, "invalid SQLite capability"))?;
+        grant::accept(grant::Kind::Sqlite, id, Rights::READ)
+            .map_err(|_| (3, "invalid SQLite capability"))?;
         let connection = guard
             .connections
-            .get_mut(&id.ok_or((3, "invalid SQLite capability"))?)
+            .get_mut(&id)
             .ok_or((3, "invalid SQLite capability"))?;
         let mut statement = connection.prepare(&sql).map_err(|e| classify(&e))?;
         if !statement.readonly() {

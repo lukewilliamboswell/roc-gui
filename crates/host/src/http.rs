@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use reqwest::{Method, Url, blocking::Client};
 use std::{
@@ -20,6 +21,15 @@ struct Store {
 }
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
 static OPERATIONS: [AtomicU64; 3] = [const { AtomicU64::new(0) }; 3];
+/// What an HTTP client may do: reach one configured origin. Reading and writing
+/// are the request's own business inside that one authority.
+const CLIENT_RIGHTS: Rights = Rights::CONNECT;
+
+/// How a client grant arrives. `--host-cap-http` pins one origin; the named
+/// service setup and user-selected destinations the contract asks for are an open
+/// backlog entry.
+const CLIENT_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -36,6 +46,7 @@ fn same_origin(a: &Url, b: &Url) -> bool {
         && a.port_or_known_default() == b.port_or_known_default()
 }
 pub fn configure(origin: Option<&str>) -> Result<(), String> {
+    grant::forget_kind(grant::Kind::Http);
     let granted = match origin {
         None => None,
         Some(raw) => {
@@ -102,6 +113,14 @@ pub fn acquire() -> HostGlueHttpAcquireResult {
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
     g.clients.insert(id, Arc::new(origin));
     crate::register_resource_allocation(crate::resource_domain::HTTP, &mut g.allocations, base, id);
+    drop(g);
+    grant::record_root(
+        grant::Kind::Http,
+        id,
+        CLIENT_RIGHTS,
+        CLIENT_ORIGIN,
+        Lifetime::Session,
+    );
     HostGlueHttpAcquireResult {
         payload: HostGlueHttpAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
@@ -164,12 +183,18 @@ fn pinned_destination(url: &Url) -> Result<Option<(String, SocketAddr)>, Error> 
 }
 fn lookup(handle: *mut u64) -> Option<Arc<Url>> {
     let id = unsafe { handle.as_ref().copied()? };
+    grant::accept(grant::Kind::Http, id, Rights::CONNECT).ok()?;
     store().lock().ok()?.clients.get(&id).cloned()
 }
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut g = store().lock().unwrap();
-    if let Some(id) = crate::remove_resource_allocation(&mut g.allocations, base as usize) {
+    let released = crate::remove_resource_allocation(&mut g.allocations, base as usize);
+    if let Some(id) = released {
         g.clients.remove(&id);
+    }
+    drop(g);
+    if let Some(id) = released {
+        grant::release(grant::Kind::Http, id);
     }
 }
 pub fn send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {

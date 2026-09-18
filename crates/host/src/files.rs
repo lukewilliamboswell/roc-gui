@@ -243,6 +243,14 @@ pub(crate) fn lookup(handle: *mut u64) -> Option<Arc<Dir>> {
     lookup_state(handle).ok()
 }
 
+/// The directory and the grant it was accepted against, for the platform's own
+/// modules that derive something narrower from a directory. `Sqlite` takes a
+/// snapshot this way, which is how a revoked project reaches a database opened
+/// from it.
+pub(crate) fn lookup_accepted(handle: *mut u64) -> Option<(Arc<Dir>, grant::Grant)> {
+    accepted(handle).ok()
+}
+
 #[derive(Clone, Copy)]
 enum LookupError {
     Invalid,

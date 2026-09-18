@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
@@ -35,6 +36,15 @@ struct Store {
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
 static OPERATIONS: [AtomicU64; 4] = [const { AtomicU64::new(0) }; 4];
 
+/// What an open stream may do. A connection is already the authority; there is
+/// nothing narrower to derive from it, so it never carries `DERIVE`.
+const STREAM_RIGHTS: Rights = Rights::READ.union(Rights::WRITE);
+
+/// How a stream grant arrives. An exact numeric socket address supplied by `--host-cap-tcp`. It performs
+/// no DNS and serves development and automation; the trusted Connect broker that
+/// would make this a person's decision is an open backlog entry.
+const STREAM_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -49,6 +59,10 @@ pub fn configure(endpoint: Option<SocketAddr>) {
     guard.endpoint = endpoint;
     guard.streams.clear();
     guard.allocations.clear();
+    drop(guard);
+    // Provisioning is being replaced; the grants that named the previous
+    // endpoint cease to exist rather than having their authority taken away.
+    grant::forget_kind(grant::Kind::Tcp);
     for counter in &OPERATIONS {
         counter.store(0, Ordering::Relaxed);
     }
@@ -61,10 +75,14 @@ pub fn counters() -> ([u64; 4], usize) {
 
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("TCP capability store poisoned");
-    if let Some(id) =
-        crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize)
-    {
+    let released =
+        crate::remove_resource_allocation(&mut guard.allocations, allocation_base as usize);
+    if let Some(id) = released {
         guard.streams.remove(&id);
+    }
+    drop(guard);
+    if let Some(id) = released {
+        grant::release(grant::Kind::Tcp, id);
     }
 }
 
@@ -95,11 +113,20 @@ fn capability(stream: TcpStream) -> *mut u64 {
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.streams.insert(id, Arc::new(Mutex::new(Some(stream))));
     crate::register_resource_allocation(crate::resource_domain::TCP, &mut guard.allocations, base as usize, id);
+    drop(guard);
+    grant::record_root(
+        grant::Kind::Tcp,
+        id,
+        STREAM_RIGHTS,
+        STREAM_ORIGIN,
+        Lifetime::Session,
+    );
     handle
 }
 
 fn lookup(handle: *mut u64) -> Option<SharedStream> {
     let id = unsafe { handle.as_ref().copied()? };
+    grant::accept(grant::Kind::Tcp, id, Rights::READ).ok()?;
     store().lock().ok()?.streams.get(&id).cloned()
 }
 

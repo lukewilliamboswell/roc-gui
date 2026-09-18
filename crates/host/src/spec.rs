@@ -1759,7 +1759,9 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "revoke-file-grants"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
-        | "expect-grants"
+        // `expect-grants` is deliberately absent: it takes any number of
+        // descriptions, so it can never be the known-step-wrong-arity case this
+        // list exists to report.
         | "expect-grant-counters"
         | "expect-component-work"
         | "expect-visible"

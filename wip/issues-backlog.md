@@ -13,31 +13,34 @@ the change lands; do not soften the docs to match the gap.
   routes; and verify denial outside grants. The audited starting point and
   platform matrix are in `wip/resource-access-inventory.md`.
 
-- [ ] **Ten resources still have no grant model.** `crates/host/src/grant.rs`
-  is the one model `docs/resource-access.adoc` describes — resource identity,
-  rights, origin, lifetime, parent, root, revocation — with one acceptance point
-  and one revocation linearisation for the whole platform. Files is its reference
-  adopter and proves it against the hardest case: root and derived grants,
-  ancestry, revocation reaching descendants, and the provisioned/selected
-  distinction. Every other resource still keeps an ad-hoc handle map with no
-  lineage, no record of how its authority arrived, and in most cases no
-  revocation at all, exactly as `wip/resource-access-inventory.md` reports.
+- [ ] **No grant is enforced, and no trusted surface lists them.**
+  `crates/host/src/grant.rs` is the one model `docs/resource-access.adoc`
+  describes — resource identity, rights, origin, lifetime, parent, root,
+  revocation — with one acceptance point and one revocation linearisation for
+  the whole platform. All twelve resources record their grants in it, and
+  `(expect-grants ...)` states what an application is holding. Two things the
+  contract asks for remain, and neither is something a resource can supply on
+  its own.
 
-  Device is the second adopter, chosen because it is the opposite extreme: no
-  lineage, no revocation, and a grant whose rights are not a superset of its
-  connection's. Two adopters is the smallest number that can show the model is
-  one; it immediately found two over-reaches in the kernel, recorded in
-  `grant.rs` where they were fixed.
+  Every grant records `consent-only`. Every chooser reopens the chosen resource
+  with the process's own authority, and every other origin is a command-line
+  flag, so nothing is `brokered` until the confined-process work above lands.
+  The specification vocabulary already distinguishes the two, so the day a grant
+  becomes brokered is a specification change rather than a claim in prose.
 
-  Migrate the rest, adopting the kernel rather than extending it where possible:
-  app-data, assets, sqlite (whose parent-revocation semantics are recorded
-  unverified and which the kernel answers by construction), http, tcp, process,
-  audio, system-monitor, clipboard. Each migration keeps its own typed
-  payload and changes only where its grant is recorded, accepted, and released.
-  A resource is migrated when its operations refuse a revoked grant and its
-  grants appear in `grant::enumerate`. Do not add a second lifetime, origin, or
-  revocation rule beside the kernel's; if one is genuinely needed, it belongs in
-  the kernel where every resource gets it.
+  And there is no trusted *App access* surface. `grant::enumerate` and
+  `Grant::describe` are what it would read — the same rendering specifications
+  read, so the two cannot drift — but a person cannot yet see what an
+  application holds or revoke any of it. `revoke` and `revoke_kind` exist and
+  are exercised; nothing but a specification calls them.
+
+  Adopting the kernel found three things worth keeping in mind for the rest of
+  this work, each recorded in `grant.rs` where it was fixed: rights are not
+  comparable across resource shapes, a handle may be consumed by the very
+  operation that derives from it, and derivation crosses resource kinds — a
+  database snapshot descends from the directory its bytes were read through, and
+  matching a child on its own kind left that snapshot readable after the project
+  was revoked.
 
 - [ ] **Trusted identity, access review, and revocation are absent.** Define
   stable publisher/package identity, remembered-grant storage and migration,

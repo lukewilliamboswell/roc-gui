@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
 #[cfg(unix)]
@@ -27,6 +28,15 @@ struct Store {
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
 
+/// What private application storage may do. It is the one read-write directory
+/// this platform hands out, and it never derives: its children are flat keys
+/// rather than nested handles.
+const STORAGE_RIGHTS: Rights = Rights::READ.union(Rights::WRITE).union(Rights::LIST);
+
+/// How it arrives. It carries no user data and no authority beyond itself, so
+/// the contract provisions it automatically rather than prompting for it.
+const STORAGE_ORIGIN: Origin = Origin::Automatic;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -40,6 +50,7 @@ fn store() -> &'static Mutex<Store> {
 }
 
 pub fn configure(root: Option<&Path>) -> Result<(), String> {
+    grant::forget_kind(grant::Kind::AppData);
     let root = match root {
         Some(path) => {
             std::fs::create_dir_all(path)
@@ -93,14 +104,26 @@ fn allocate_handle(guard: &mut Store, directory: Arc<Dir>) -> *mut u64 {
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.handles.insert(id, directory);
     crate::register_resource_allocation(crate::resource_domain::APP_DATA, &mut guard.allocations, base as usize, id);
+    grant::record_root(
+        grant::Kind::AppData,
+        id,
+        STORAGE_RIGHTS,
+        STORAGE_ORIGIN,
+        Lifetime::Session,
+    );
     handle
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
+    let mut released = None;
     if let Ok(mut guard) = store().lock()
         && let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize)
     {
         guard.handles.remove(&id);
+        released = Some(id);
+    }
+    if let Some(id) = released {
+        grant::release(grant::Kind::AppData, id);
     }
 }
 
@@ -135,6 +158,8 @@ pub extern "C" fn roc_files_app_data() -> InternalFilesAppDataResult {
 
 fn lookup(cap: *mut u64) -> Result<Arc<Dir>, (u8, &'static str)> {
     let id = unsafe { cap.as_ref().copied() }.ok_or((1, "invalid application data capability"))?;
+    grant::accept(grant::Kind::AppData, id, Rights::READ)
+        .map_err(|_| (1, "invalid application data capability"))?;
     let guard = store()
         .lock()
         .map_err(|_| (5, "application data store unavailable"))?;
