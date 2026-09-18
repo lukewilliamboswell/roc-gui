@@ -13,6 +13,43 @@ the change lands; do not soften the docs to match the gap.
   routes; and verify denial outside grants. The audited starting point and
   platform matrix are in `wip/resource-access-inventory.md`.
 
+- [ ] **Authority is acquired from nothing, so a dependency can help itself.**
+  `docs/resource-access.adoc` says no function in the platform conjures
+  authority out of nothing, and that a library can use only what it is handed.
+  Neither is true. Every acquisition is nullary and ambient —
+  `Files.pick_directory!()`, `Files.app_data!()`, and `acquire!()` on `Audio`,
+  `Clipboard`, `Device`, `Http`, `Process` and `SystemMonitor` — so authority
+  originates from calling a module function rather than from a value anyone was
+  given.
+
+  Since roc-lang/roc#11079 a package may name the platform and import its
+  modules, which was verified against the pinned compiler: a package with no
+  handle passed to it typechecks a call to `Files.pick_directory!()`. Every Roc
+  dependency in the graph therefore holds everything the application holds. No
+  operating-system sandbox addresses this, because the dependency is inside the
+  same application and the same sandbox.
+
+  Close it by making authority originate from a value: the host mints one
+  unforgeable root at startup, `Program` hands it to the application, and every
+  acquisition takes it. Nine entry points and fourteen call sites in the
+  examples. The root can be an opaque nominal minted by `Internal.start!`, so
+  the ABI does not change. `Assets.open!` belongs in the same pass: it takes a
+  root kind and a path string, which is authority from a name.
+
+- [ ] **Nine resources report a revoked grant as an invalid one.** Only `Files`
+  carries `Revoked` in its `Reason`; `Audio`, `Device`, `Tcp`, `Http`,
+  `Clipboard`, `Process`, `SystemMonitor`, `Sqlite` and `Assets` collapse a
+  refused acceptance into `InvalidCapability`. The guide promises the opposite —
+  an operation after revocation fails with a typed error saying the authority was
+  withdrawn rather than one saying something went wrong — and
+  `docs/resource-access.adoc` has required denial, revocation and invalid handles
+  to be distinct outcomes since before the grant kernel existed.
+
+  This was introduced by the migration that gave those resources revocation at
+  all: `grant::accept(...).ok()?` and `.is_ok()` discard the `Refusal` that says
+  which it was. Add `Revoked` to each `Reason`, map `Refusal::Revoked` to it, and
+  regenerate the glue. Mechanical, but it changes hosted signatures.
+
 - [ ] **No grant is enforced, and no trusted surface lists them.**
   `crates/host/src/grant.rs` is the one model `docs/resource-access.adoc`
   describes — resource identity, rights, origin, lifetime, parent, root,
