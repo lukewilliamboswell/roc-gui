@@ -164,9 +164,7 @@ pub fn access_snapshot() -> AccessSnapshot {
         } else {
             match entry.origin {
                 Origin::TrustedSelection(_) => snapshot.portal_session_read += 1,
-                Origin::Provisioned | Origin::Automatic => {
-                    snapshot.provisioned_session_read += 1
-                }
+                Origin::Provisioned | Origin::Automatic => snapshot.provisioned_session_read += 1,
             }
         }
     }
@@ -221,7 +219,12 @@ fn capability(dir: Arc<Dir>, parent: Option<grant::Grant>, origin: Origin) -> *m
     unsafe { handle.write(id) };
     let allocation_base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.dirs.insert(id, dir);
-    crate::register_resource_allocation(crate::resource_domain::FILES, &mut guard.allocations, allocation_base as usize, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::FILES,
+        &mut guard.allocations,
+        allocation_base as usize,
+        id,
+    );
     guard.lifecycle[2] += 1;
     drop(guard);
     match parent {

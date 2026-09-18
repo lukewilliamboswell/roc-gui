@@ -112,7 +112,12 @@ fn capability(stream: TcpStream) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.streams.insert(id, Arc::new(Mutex::new(Some(stream))));
-    crate::register_resource_allocation(crate::resource_domain::TCP, &mut guard.allocations, base as usize, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::TCP,
+        &mut guard.allocations,
+        base as usize,
+        id,
+    );
     drop(guard);
     grant::record_root(
         grant::Kind::Tcp,
@@ -124,10 +129,24 @@ fn capability(stream: TcpStream) -> *mut u64 {
     handle
 }
 
-fn lookup(handle: *mut u64) -> Option<SharedStream> {
-    let id = unsafe { handle.as_ref().copied()? };
-    grant::accept(grant::Kind::Tcp, id, Rights::READ).ok()?;
-    store().lock().ok()?.streams.get(&id).cloned()
+/// A stream, or why it is not usable. Revocation and an invalid handle are
+/// different facts about the application and are reported as different failures.
+fn lookup(handle: *mut u64) -> Result<SharedStream, Failure> {
+    let id = unsafe { handle.as_ref().copied() }.ok_or(Failure::InvalidCapability)?;
+    grant::accept(grant::Kind::Tcp, id, Rights::READ).map_err(refusal)?;
+    store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.streams.get(&id).cloned())
+        .ok_or(Failure::InvalidCapability)
+}
+
+/// The single mapping from a refused acceptance to this resource's reason.
+fn refusal(refusal: grant::Refusal) -> Failure {
+    match refusal {
+        grant::Refusal::Revoked => Failure::Revoked,
+        grant::Refusal::Unknown | grant::Refusal::Rights => Failure::InvalidCapability,
+    }
 }
 
 #[repr(u8)]
@@ -140,6 +159,7 @@ enum Failure {
     InvalidRequest = 4,
     ResourceLimit = 5,
     Timeout = 6,
+    Revoked = 7,
 }
 
 fn io_failure(error: &std::io::Error) -> Failure {
@@ -212,8 +232,9 @@ pub extern "C" fn roc_tcp_read_up_to(
     if max_bytes == 0 || max_bytes > MAX_READ_BYTES {
         return read_err(Failure::InvalidRequest);
     }
-    let Some(shared) = shared else {
-        return read_err(Failure::InvalidCapability);
+    let shared = match shared {
+        Ok(shared) => shared,
+        Err(failure) => return read_err(failure),
     };
     let mut guard = shared.lock().expect("TCP stream mutex poisoned");
     let Some(stream) = guard.as_mut() else {
@@ -269,8 +290,9 @@ pub extern "C" fn roc_tcp_write_all(
     if owned.len() > MAX_WRITE_BYTES {
         return unit_err(Failure::ResourceLimit);
     }
-    let Some(shared) = shared else {
-        return unit_err(Failure::InvalidCapability);
+    let shared = match shared {
+        Ok(shared) => shared,
+        Err(failure) => return unit_err(failure),
     };
     let mut guard = shared.lock().expect("TCP stream mutex poisoned");
     let Some(stream) = guard.as_mut() else {
@@ -289,8 +311,9 @@ pub extern "C" fn roc_tcp_close(handle: *mut u64) -> HostGlueTcpWriteAllResult {
     unsafe {
         decref_box(handle as RocBox, roc_host());
     }
-    let Some(shared) = shared else {
-        return unit_err(Failure::InvalidCapability);
+    let shared = match shared {
+        Ok(shared) => shared,
+        Err(failure) => return unit_err(failure),
     };
     let mut guard = shared.lock().expect("TCP stream mutex poisoned");
     if let Some(stream) = guard.take() {

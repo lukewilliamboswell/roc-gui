@@ -79,6 +79,15 @@ const TRACK_RIGHTS: Rights = Rights::READ.union(Rights::WRITE);
 /// a person's decision.
 const OUTPUT_ORIGIN: Origin = Origin::Provisioned;
 
+/// A withdrawn grant and an invalid handle are different facts, so they carry
+/// different codes rather than both reporting an invalid capability.
+fn refusal(refusal: grant::Refusal, noun: &'static str) -> (u8, &'static str) {
+    match refusal {
+        grant::Refusal::Revoked => (7, "audio authority was withdrawn"),
+        _ => (1, noun),
+    }
+}
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -114,7 +123,12 @@ fn allocate(guard: &mut Store, id: u64, track: bool) -> *mut u64 {
     let handle = unsafe { allocate_box(8, 8, false, roc_host()) as *mut u64 };
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(size_of::<isize>()) } as usize;
-    crate::register_resource_allocation(crate::resource_domain::AUDIO, &mut guard.allocations, base, (id, track));
+    crate::register_resource_allocation(
+        crate::resource_domain::AUDIO,
+        &mut guard.allocations,
+        base,
+        (id, track),
+    );
     handle
 }
 
@@ -266,10 +280,15 @@ pub extern "C" fn roc_audio_load(
         return fail(4, "audio duration is unavailable");
     };
     let mut guard = store().lock().unwrap();
-    let Some(parent) = output_id
-        .and_then(|value| grant::accept(grant::Kind::Audio, value, Rights::CONNECT).ok())
-    else {
-        return fail(1, "invalid audio output capability");
+    let parent = match output_id
+        .ok_or(grant::Refusal::Unknown)
+        .and_then(|value| grant::accept(grant::Kind::Audio, value, Rights::CONNECT))
+    {
+        Ok(parent) => parent,
+        Err(why) => {
+            let (code, message) = refusal(why, "invalid audio output capability");
+            return fail(code, message);
+        }
     };
     let Some(output) = output_id.and_then(|value| guard.outputs.get(&value)) else {
         return fail(1, "invalid audio output capability");
@@ -312,19 +331,18 @@ fn with_track(
     unsafe {
         decref_box(handle as RocBox, roc_host());
     }
-    let accepted = track_id.is_some_and(|value| {
-        grant::accept(grant::Kind::Audio, value, TRACK_RIGHTS).is_ok()
-    });
-    let result = if accepted {
-        store()
+    let accepted = track_id
+        .ok_or(grant::Refusal::Unknown)
+        .and_then(|value| grant::accept(grant::Kind::Audio, value, TRACK_RIGHTS));
+    let result = match accepted {
+        Err(why) => Err(refusal(why, "invalid audio track capability")),
+        Ok(_) => store()
             .lock()
             .unwrap()
             .tracks
             .get_mut(&track_id.unwrap_or(0))
             .ok_or((1, "invalid audio track capability"))
-            .and_then(f)
-    } else {
-        Err((1, "invalid audio track capability"))
+            .and_then(f),
     };
     match result {
         Ok(()) => HostGlueAudioPlayResult {
@@ -395,8 +413,12 @@ pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostGlueAudioStatusResul
         decref_box(handle as RocBox, roc_host());
     }
     let guard = store().lock().unwrap();
-    let Some(track) = track_id
-        .filter(|value| grant::accept(grant::Kind::Audio, *value, Rights::READ).is_ok())
+    let readable = track_id
+        .ok_or(grant::Refusal::Unknown)
+        .and_then(|value| grant::accept(grant::Kind::Audio, value, Rights::READ));
+    let Some(track) = readable
+        .ok()
+        .and_then(|_| track_id)
         .and_then(|value| guard.tracks.get(&value))
     else {
         return HostGlueAudioStatusResult {

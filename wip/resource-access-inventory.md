@@ -17,6 +17,13 @@ No grant is `brokered` today — the choosers reopen the chosen resource with th
 process's own authority — and `(expect-grants ...)` fails if the platform starts
 claiming otherwise.
 
+Authority originates from a value rather than from calling a function. The host
+mints one `Resource.Access` at startup and `Program` hands it to `init`; every
+acquisition takes it, and the type is declared in a module the platform does not
+expose, so neither an application nor a package can produce one. A Roc dependency
+therefore holds exactly what it was passed. Every resource reports a withdrawn
+grant as `Revoked` rather than as an invalid handle.
+
 | Surface | API / ABI and owner | Ambient authority and grant source | Scope, derivation, lifetime, revocation | Budget / enforcement | Verification |
 | --- | --- | --- | --- | --- | --- |
 | UI graph and input | `Elem`, `Event`; `roc_gui_node_*`, dispatch/apply; `lib.rs`, `bridge.rs` | GPUI window/input owned by linked host; no resource grant | Node IDs and routes live until subtree replacement; stale IDs rejected; no security revocation | Graph/node/input bounds; structural validation | Host bridge/input tests and SCM semantics; compositor delivery and OS accessibility **Unverified** |

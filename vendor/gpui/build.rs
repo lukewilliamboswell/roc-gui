@@ -206,12 +206,7 @@ mod macos {
         println!("cargo:rerun-if-changed={}", shader_path);
 
         let output = Command::new("xcrun")
-            .args([
-                "-sdk",
-                "macosx",
-                "metal",
-                "-gline-tables-only",
-            ])
+            .args(["-sdk", "macosx", "metal", "-gline-tables-only"])
             .arg(debug_prefix_map)
             .args([
                 "-mmacosx-version-min=10.15.7",

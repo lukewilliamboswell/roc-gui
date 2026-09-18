@@ -458,7 +458,11 @@ pub(crate) fn resource_claim(
     }
 
     /// A single owner reading named in the singular by the step itself.
-    fn single(noun: &str, expected: u64, observed: u64) -> (Result<(), String>, Option<(u64, u64)>) {
+    fn single(
+        noun: &str,
+        expected: u64,
+        observed: u64,
+    ) -> (Result<(), String>, Option<(u64, u64)>) {
         let counts = Some((expected, observed));
         if expected == observed {
             (Ok(()), counts)
@@ -565,8 +569,10 @@ pub(crate) fn resource_claim(
             let (acquired, _, closed) = crate::system_monitor::counters();
             if closed > acquired {
                 (
-                    Err("system sampler lifecycle counters violated ownership invariants"
-                        .to_owned()),
+                    Err(
+                        "system sampler lifecycle counters violated ownership invariants"
+                            .to_owned(),
+                    ),
                     None,
                 )
             } else {

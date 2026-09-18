@@ -12,7 +12,7 @@ use std::{
     },
     time::Duration,
 };
-type Error = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme;
+type Error = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme;
 struct Store {
     next: u64,
     granted: Option<Url>,
@@ -181,10 +181,19 @@ fn pinned_destination(url: &Url) -> Result<Option<(String, SocketAddr)>, Error> 
     }
     Ok(Some((host.to_owned(), addresses[0])))
 }
-fn lookup(handle: *mut u64) -> Option<Arc<Url>> {
-    let id = unsafe { handle.as_ref().copied()? };
-    grant::accept(grant::Kind::Http, id, Rights::CONNECT).ok()?;
-    store().lock().ok()?.clients.get(&id).cloned()
+/// The client's origin, or why the handle cannot be used. A withdrawn grant and
+/// an invalid handle are different facts about the application.
+fn lookup(handle: *mut u64) -> Result<Arc<Url>, Error> {
+    let id = unsafe { handle.as_ref().copied() }.ok_or(Error::InvalidCapability)?;
+    grant::accept(grant::Kind::Http, id, Rights::CONNECT).map_err(|refusal| match refusal {
+        grant::Refusal::Revoked => Error::Revoked,
+        _ => Error::InvalidCapability,
+    })?;
+    store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clients.get(&id).cloned())
+        .ok_or(Error::InvalidCapability)
 }
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut g = store().lock().unwrap();
@@ -214,8 +223,9 @@ pub fn send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {
     let limit = args.max_response_bytes;
     let redirects = args.max_redirects;
     unsafe { args.decref(roc_host()) };
-    let Some(origin) = origin else {
-        return err(Error::InvalidCapability);
+    let origin = match origin {
+        Ok(origin) => origin,
+        Err(reason) => return err(reason),
     };
     if !(1..=60000).contains(&timeout)
         || !(1..=4 * 1024 * 1024).contains(&limit)

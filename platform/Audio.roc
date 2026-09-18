@@ -10,7 +10,7 @@ Audio := [].{
 	Playback : [Paused, Playing, Stopped]
 	Status : { duration_ms : U64, position_ms : U64, playback : Playback }
 	LoadedTrack : { duration_ms : U64, track : Track }
-	Reason : [AccessDenied, DecodeFailed, InvalidCapability, InvalidName, OutputUnavailable, ResourceLimit, Unsupported, Unavailable]
+	Reason : [AccessDenied, DecodeFailed, InvalidCapability, InvalidName, OutputUnavailable, ResourceLimit, Revoked, Unsupported, Unavailable]
 	AudioErr : [AcquireAudioErr(Reason), LoadAudioErr(Reason), PauseAudioErr(Reason), PlayAudioErr(Reason), SeekAudioErr(Reason), StatusAudioErr(Reason), StopAudioErr(Reason)]
 
 	acquire! : Resource.Access => Try(Output, AudioErr)
@@ -43,6 +43,7 @@ Audio := [].{
 		4 => Unsupported
 		5 => DecodeFailed
 		6 => OutputUnavailable
+		7 => Revoked
 		_ => Unavailable
 	}
 }

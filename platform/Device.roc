@@ -34,7 +34,7 @@ Device := [].{
 	}
 
 	Info : { manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }
-	Reason : [AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]
+	Reason : [AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]
 	DeviceErr : [AcquireDeviceErr(Reason), ConnectDeviceErr(Reason), DiscoverDeviceErr(Reason), TransactDeviceErr(Reason), CloseDeviceErr(Reason)]
 
 	## Acquire only the HID authority configured by the host.

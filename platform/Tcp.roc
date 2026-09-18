@@ -24,7 +24,7 @@ Tcp := [].{
 	}
 
 	## A stable, portable category for a stream failure.
-	Reason : [AccessDenied, Closed, ConnectionFailed, InvalidCapability, InvalidRequest, ResourceLimit, Timeout]
+	Reason : [AccessDenied, Closed, ConnectionFailed, InvalidCapability, InvalidRequest, ResourceLimit, Revoked, Timeout]
 
 	## A stream failure. The tag identifies the operation that failed.
 	TcpErr : [CloseTcpErr(Reason), ConnectTcpErr(Reason), ReadTcpErr(Reason), WriteTcpErr(Reason)]
@@ -41,6 +41,7 @@ Tcp := [].{
 		4 => InvalidRequest
 		5 => ResourceLimit
 		6 => Timeout
+		7 => Revoked
 		_ => ConnectionFailed
 	}
 }

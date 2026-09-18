@@ -1,4 +1,4 @@
-use crate::grant::{self, Lifetime, Origin, Rights};
+use crate::grant::{self, Rights};
 use crate::{files, roc_host, roc_platform_abi::*};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::OpenOptions;
@@ -105,7 +105,12 @@ fn capability(connection: Connection, parent: grant::Grant) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.connections.insert(id, connection);
-    crate::register_resource_allocation(crate::resource_domain::SQLITE, &mut guard.allocations, base as usize, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::SQLITE,
+        &mut guard.allocations,
+        base as usize,
+        id,
+    );
     drop(guard);
     grant::record_descendant(grant::Kind::Sqlite, id, SNAPSHOT_RIGHTS, parent);
     handle
@@ -247,8 +252,10 @@ pub extern "C" fn roc_sqlite_query(cap: *mut u64, query: RocStr) -> HostGlueSqli
             .lock()
             .map_err(|_| (6, "SQLite capability store unavailable"))?;
         let id = id.ok_or((3, "invalid SQLite capability"))?;
-        grant::accept(grant::Kind::Sqlite, id, Rights::READ)
-            .map_err(|_| (3, "invalid SQLite capability"))?;
+        grant::accept(grant::Kind::Sqlite, id, Rights::READ).map_err(|refusal| match refusal {
+            grant::Refusal::Revoked => (10, "SQLite authority was withdrawn"),
+            _ => (3, "invalid SQLite capability"),
+        })?;
         let connection = guard
             .connections
             .get_mut(&id)

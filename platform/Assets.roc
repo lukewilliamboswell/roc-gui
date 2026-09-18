@@ -115,6 +115,7 @@ Assets := [].{
 		NotDirectory,
 		NotFound,
 		ResourceLimit,
+		Revoked,
 		SchemaMismatch,
 		Unavailable,
 		Unsupported,
@@ -222,6 +223,7 @@ Assets := [].{
 		14 => ContentVersionMismatch
 		15 => ContentHashMismatch
 		16 => InvalidExpectation
+		18 => Revoked
 		_ => Unavailable
 	}
 

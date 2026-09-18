@@ -103,7 +103,12 @@ fn allocate_handle(guard: &mut Store) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
     guard.handles.insert(id, ());
-    crate::register_resource_allocation(crate::resource_domain::CLIPBOARD, &mut guard.allocations, base, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::CLIPBOARD,
+        &mut guard.allocations,
+        base,
+        id,
+    );
     grant::record_root(
         grant::Kind::Clipboard,
         id,
@@ -114,11 +119,18 @@ fn allocate_handle(guard: &mut Store) -> *mut u64 {
     handle
 }
 
-fn valid(handle: *mut u64, guard: &Store) -> bool {
-    unsafe { handle.as_ref() }.is_some_and(|id| {
-        guard.handles.contains_key(id)
-            && grant::accept(grant::Kind::Clipboard, *id, Rights::CAPTURE).is_ok()
-    })
+/// `Ok` when the handle may act, otherwise the code and message saying why. A
+/// withdrawn grant and an invalid handle are different facts.
+fn valid(handle: *mut u64, guard: &Store) -> Result<(), (u8, &'static str)> {
+    let id = unsafe { handle.as_ref() }.ok_or((1, "invalid clipboard capability"))?;
+    if !guard.handles.contains_key(id) {
+        return Err((1, "invalid clipboard capability"));
+    }
+    match grant::accept(grant::Kind::Clipboard, *id, Rights::CAPTURE) {
+        Ok(_) => Ok(()),
+        Err(grant::Refusal::Revoked) => Err((3, "clipboard authority was withdrawn")),
+        Err(_) => Err((1, "invalid clipboard capability")),
+    }
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
@@ -161,8 +173,8 @@ pub extern "C" fn roc_clipboard_read_text(handle: *mut u64) -> HostGlueClipboard
     OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let result = {
         let guard = store().lock().unwrap();
-        if !valid(handle, &guard) {
-            Err((1, "invalid clipboard capability"))
+        if let Err(failure) = valid(handle, &guard) {
+            Err(failure)
         } else {
             Ok((guard.sequence, guard.text.clone()))
         }
@@ -197,8 +209,8 @@ pub extern "C" fn roc_clipboard_write_text(
     unsafe { text.decref(roc_host()) };
     let result = {
         let mut guard = store().lock().unwrap();
-        if !valid(handle, &guard) {
-            Err((1, "invalid clipboard capability"))
+        if let Err(failure) = valid(handle, &guard) {
+            Err(failure)
         } else if owned.len() > MAX_TEXT_BYTES {
             Err((2, "clipboard text exceeds 64 KiB"))
         } else {

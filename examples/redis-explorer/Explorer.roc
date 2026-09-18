@@ -244,6 +244,7 @@ tcp_reason = |reason| match reason {
 	ConnectionFailed => { message: "The granted Redis endpoint is unavailable", remedy: "The grant stands; nothing is listening there. Start the server and connect again.", denied: False }
 	InvalidCapability => { message: "The Redis connection was no longer valid", remedy: "The stream has been closed underneath the explorer. Connect again.", denied: True }
 	InvalidRequest => { message: "The Redis transport request was invalid", remedy: "A read or write asked for a size outside the transport's bounds.", denied: False }
+	Revoked => { message: "Redis connection authority was withdrawn", remedy: "Someone took this endpoint back. The stream is closed and will not reopen.", denied: True }
 	ResourceLimit => { message: "The Redis transport exceeded its resource limit", remedy: "The reply was larger than one bounded read may carry.", denied: False }
 	Timeout => { message: "The Redis endpoint timed out", remedy: "The grant stands; the endpoint accepted the connection and never replied.", denied: False }
 }

@@ -121,7 +121,12 @@ fn capability(source: Source) -> *mut u64 {
             sampling: Mutex::new(false),
         }),
     );
-    crate::register_resource_allocation(crate::resource_domain::SYSTEM_MONITOR, &mut guard.allocations, base, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::SYSTEM_MONITOR,
+        &mut guard.allocations,
+        base,
+        id,
+    );
     drop(guard);
     grant::record_root(
         grant::Kind::SystemMonitor,
@@ -132,10 +137,26 @@ fn capability(source: Source) -> *mut u64 {
     );
     handle
 }
-fn lookup(handle: *mut u64) -> Option<Arc<Sampler>> {
-    let id = unsafe { handle.as_ref().copied()? };
-    grant::accept(grant::Kind::SystemMonitor, id, Rights::CAPTURE).ok()?;
-    store().lock().ok()?.samplers.get(&id).cloned()
+/// A sampler, or the code saying why it is not usable. A withdrawn grant and an
+/// invalid handle are different facts and are reported as different codes.
+fn lookup(handle: *mut u64) -> Result<Arc<Sampler>, u8> {
+    let id = unsafe { handle.as_ref().copied() }.ok_or(INVALID_CAPABILITY)?;
+    grant::accept(grant::Kind::SystemMonitor, id, Rights::CAPTURE).map_err(refusal)?;
+    store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.samplers.get(&id).cloned())
+        .ok_or(INVALID_CAPABILITY)
+}
+
+const INVALID_CAPABILITY: u8 = 3;
+const REVOKED: u8 = 6;
+
+fn refusal(refusal: grant::Refusal) -> u8 {
+    match refusal {
+        grant::Refusal::Revoked => REVOKED,
+        grant::Refusal::Unknown | grant::Refusal::Rights => INVALID_CAPABILITY,
+    }
 }
 
 fn acquire_err(code: u8) -> HostGlueSystemAcquireResult {
@@ -310,8 +331,9 @@ fn sample_err(code: u8) -> HostGlueSystemSampleResult {
 pub extern "C" fn roc_system_sample(handle: *mut u64) -> HostGlueSystemSampleResult {
     let sampler = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(sampler) = sampler else {
-        return sample_err(3);
+    let sampler = match sampler {
+        Ok(sampler) => sampler,
+        Err(code) => return sample_err(code),
     };
     if *sampler
         .closed
@@ -355,8 +377,9 @@ fn unit_err(code: u8) -> HostGlueSystemCloseResult {
 pub extern "C" fn roc_system_close(handle: *mut u64) -> HostGlueSystemCloseResult {
     let sampler = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(sampler) = sampler else {
-        return unit_err(3);
+    let sampler = match sampler {
+        Ok(sampler) => sampler,
+        Err(code) => return unit_err(code),
     };
     let mut closed = sampler
         .closed

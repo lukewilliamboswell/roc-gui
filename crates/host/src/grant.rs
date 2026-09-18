@@ -535,7 +535,10 @@ mod tests {
             !record_descendant(Kind::Directory, 2, Rights::READ, root),
             "a grant without DERIVE is a leaf, whatever else it can do"
         );
-        assert_eq!(accept(Kind::Directory, 2, Rights::READ), Err(Refusal::Unknown));
+        assert_eq!(
+            accept(Kind::Directory, 2, Rights::READ),
+            Err(Refusal::Unknown)
+        );
     }
 
     #[test]
@@ -559,7 +562,11 @@ mod tests {
             device
         ));
         let connection = accept(Kind::Device, 2, Rights::WRITE).expect("connection writes");
-        assert_eq!(connection.root, (Kind::Device, 1), "and is still bound to its grant");
+        assert_eq!(
+            connection.root,
+            (Kind::Device, 1),
+            "and is still bound to its grant"
+        );
     }
 
     #[test]
@@ -594,17 +601,15 @@ mod tests {
             Lifetime::Session,
         );
         let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
-        record_descendant(
-            Kind::Directory,
-            2,
-            Rights::READ.union(Rights::DERIVE),
-            root,
-        );
+        record_descendant(Kind::Directory, 2, Rights::READ.union(Rights::DERIVE), root);
         let child = accept(Kind::Directory, 2, Rights::READ).expect("child reads");
         record_descendant(Kind::Directory, 3, Rights::READ, child);
         assert_eq!(revoke(Kind::Directory, 1), 3);
         for id in 1..=3 {
-            assert_eq!(accept(Kind::Directory, id, Rights::READ), Err(Refusal::Revoked));
+            assert_eq!(
+                accept(Kind::Directory, id, Rights::READ),
+                Err(Refusal::Revoked)
+            );
         }
     }
 
@@ -623,7 +628,10 @@ mod tests {
         // Revoking the child names the root, because the rule is about ancestry
         // rather than about which handle the caller happened to hold.
         assert_eq!(revoke(Kind::Directory, 2), 2);
-        assert_eq!(accept(Kind::Directory, 1, Rights::READ), Err(Refusal::Revoked));
+        assert_eq!(
+            accept(Kind::Directory, 1, Rights::READ),
+            Err(Refusal::Revoked)
+        );
     }
 
     #[test]
@@ -646,7 +654,10 @@ mod tests {
             "an accepted parent that is later revoked derives nothing, so \
              revocation covers descendants that do not exist yet"
         );
-        assert_eq!(accept(Kind::Directory, 2, Rights::READ), Err(Refusal::Unknown));
+        assert_eq!(
+            accept(Kind::Directory, 2, Rights::READ),
+            Err(Refusal::Unknown)
+        );
     }
 
     #[test]
@@ -717,10 +728,7 @@ mod tests {
         let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
         record_descendant(Kind::Directory, 2, Rights::READ, root);
         assert_eq!(
-            enumerate()
-                .iter()
-                .map(Grant::describe)
-                .collect::<Vec<_>>(),
+            enumerate().iter().map(Grant::describe).collect::<Vec<_>>(),
             vec![
                 "directory trusted-selection/consent-only root read,list,derive",
                 "directory trusted-selection/consent-only derived read",
@@ -728,7 +736,9 @@ mod tests {
         );
         revoke(Kind::Directory, 1);
         assert!(
-            enumerate().iter().all(|entry| entry.describe().ends_with(" revoked")),
+            enumerate()
+                .iter()
+                .all(|entry| entry.describe().ends_with(" revoked")),
             "a revoked grant says so wherever it is read"
         );
     }

@@ -214,7 +214,12 @@ describe_reason = |error, origin| match error {
 	}
 	InvalidCapability => {
 		message: "HTTP capability was no longer valid",
-		remedy: "The grant has been withdrawn. Restart the bench to acquire it again.",
+		remedy: "The handle does not name a client. Acquire one before sending.",
+		denied: True,
+	}
+	Revoked => {
+		message: "HTTP authority was withdrawn",
+		remedy: "Someone took this destination back. Restart the bench to ask for it again.",
 		denied: True,
 	}
 	InvalidHeader => {

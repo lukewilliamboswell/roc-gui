@@ -18,7 +18,7 @@ Clipboard := [].{
 	}
 
 	Snapshot : { sequence : U64, text : Str }
-	Reason : [AccessDenied, ContentTooLarge, InvalidCapability, Unavailable]
+	Reason : [AccessDenied, ContentTooLarge, InvalidCapability, Revoked, Unavailable]
 	ClipboardErr : [AcquireClipboardErr(Reason), ReadClipboardErr(Reason), WriteClipboardErr(Reason)]
 
 	## Acquire the clipboard authority granted by the host.
@@ -29,6 +29,7 @@ Clipboard := [].{
 		0 => AccessDenied
 		1 => InvalidCapability
 		2 => ContentTooLarge
+		3 => Revoked
 		_ => Unavailable
 	}
 }

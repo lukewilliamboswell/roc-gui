@@ -64,6 +64,7 @@ pub(crate) enum Failure {
     ContentHashMismatch = 15,
     InvalidExpectation = 16,
     Unavailable = 17,
+    Revoked = 18,
 }
 
 /// Deterministic, content-free evidence owned by this module. Never a path, a
@@ -150,7 +151,12 @@ fn allocate(directory: Arc<Dir>) -> Result<*mut u64, Failure> {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.stores.insert(id, directory);
-    crate::register_resource_allocation(crate::resource_domain::ASSETS, &mut guard.allocations, base as usize, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::ASSETS,
+        &mut guard.allocations,
+        base as usize,
+        id,
+    );
     grant::record_root(
         grant::Kind::Assets,
         id,
@@ -176,8 +182,10 @@ pub fn route_dealloc(base: *mut std::ffi::c_void) {
 
 fn lookup(handle: *mut u64) -> Result<Arc<Dir>, Failure> {
     let id = unsafe { handle.as_ref().copied() }.ok_or(Failure::InvalidCapability)?;
-    grant::accept(grant::Kind::Assets, id, Rights::READ)
-        .map_err(|_| Failure::InvalidCapability)?;
+    grant::accept(grant::Kind::Assets, id, Rights::READ).map_err(|refusal| match refusal {
+        grant::Refusal::Revoked => Failure::Revoked,
+        _ => Failure::InvalidCapability,
+    })?;
     let guard = registry().lock().map_err(|_| Failure::Unavailable)?;
     guard
         .stores

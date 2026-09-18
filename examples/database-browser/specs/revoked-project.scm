@@ -32,7 +32,11 @@
     ; The rows already returned are still here, because revocation cannot
     ; recall what an application was already given.
     (expect-visible (text "Rows: 100"))
-    ; A further query reaches the snapshot and is refused.
+    ; A further query reaches the snapshot and is refused — and says which
+    ; refusal it was. Reporting a withdrawn grant as an invalid handle would
+    ; tell a person their database is broken when someone simply took the
+    ; folder back, and would be a different remedy on screen.
     (click (role button :name "Run query"))
     (await-task)
-    (expect-visible (role panel :name "Database error"))))
+    (expect-visible (role panel :name "Database error"))
+    (expect-visible (text "SQLite authority was withdrawn"))))
