@@ -115,11 +115,11 @@ allows — with a control to withdraw each one. It belongs to the platform rathe
 than to the application: the application cannot draw it, suppress it, or tell
 that it is open, which is the only way a withdrawal control is worth anything.
 
-When a grant is withdrawn, everything derived from it stops at
-the same moment: the subfolder handles, the database opened from that folder, the
-connection opened through that device. You do not have to hunt them down and
-close them. They refuse their next use with a typed error that says the authority
-was withdrawn, rather than one that says something went wrong.
+When a grant is withdrawn, everything derived from it stops at the same moment:
+the subfolder handles, the database opened from that folder, the connection
+opened through that device. You do not have to hunt them down and close them.
+They refuse their next use with a typed error that says the authority was
+withdrawn, rather than one that says something went wrong.
 
 Two limits, stated plainly because a model that overpromises here is worse than
 one that does not try:
