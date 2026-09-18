@@ -34,6 +34,28 @@ the change lands; do not soften the docs to match the gap.
   see what an application holds or revoke any of it. `revoke` and `revoke_kind`
   exist and are exercised; nothing but a specification calls them.
 
+  An attempt at it was written and withdrawn rather than merged, because the
+  chord that opens it never reached its action, and a withdrawal control nobody
+  can press is the unreachable claim this whole area exists to remove. What the
+  attempt established, so the next one need not rediscover it: the surface has to
+  be drawn by the host as a sibling of the application's root — it must not be a
+  mounted node, or an application could find it, style it, or notice it is open —
+  and it therefore has no locator, so it needs a host-owned assertion of its own
+  rather than one that reads the graph. The first version of that specification
+  passed while the surface never drew, because every claim in it was about the
+  application and true either way; the assertion that made it honest was a
+  host-owned open/closed flag.
+
+  The unsolved part is dispatch. `window.on_action` panics in
+  `key_dispatch.rs` when called from the top of `Runtime::render`, before a
+  dispatch node exists. An element handler on the host's root `div` never fires,
+  with or without a `key_context`, with or without a matching binding context,
+  and with or without focus established first — while the same mechanism works
+  for `ctrl-a` on a focused `TextInput`. An `App`-level global action does not
+  fire either, which suggests `dispatch_keystroke` consults only the window's
+  dispatch tree. Establish how GPUI 0.2.2 routes a window-global chord before
+  building the surface again; the drawing was never the hard part.
+
   Adopting the kernel found three things worth keeping in mind for the rest of
   this work, each recorded in `grant.rs` where it was fixed: rights are not
   comparable across resource shapes, a handle may be consumed by the very
