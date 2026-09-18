@@ -46,15 +46,41 @@ the change lands; do not soften the docs to match the gap.
   application and true either way; the assertion that made it honest was a
   host-owned open/closed flag.
 
-  The unsolved part is dispatch. `window.on_action` panics in
-  `key_dispatch.rs` when called from the top of `Runtime::render`, before a
-  dispatch node exists. An element handler on the host's root `div` never fires,
-  with or without a `key_context`, with or without a matching binding context,
-  and with or without focus established first — while the same mechanism works
-  for `ctrl-a` on a focused `TextInput`. An `App`-level global action does not
-  fire either, which suggests `dispatch_keystroke` consults only the window's
-  dispatch tree. Establish how GPUI 0.2.2 routes a window-global chord before
-  building the surface again; the drawing was never the hard part.
+  The unsolved part is dispatch, and an earlier version of this entry was wrong
+  about it. It claimed an element handler on the host's root `div` never fires.
+  That conclusion came from an `eprintln!` probe, and a control run proved the
+  probe itself never reached the terminal: a probe placed in `Runtime::render`,
+  which certainly runs, printed nothing either. Writing a file instead of
+  printing showed that the root `div`'s `FocusNext` handler **does** fire on
+  `tab`. Element handlers on the host root work. Do not re-derive that.
+
+  What is known: `window.on_action` panics in `key_dispatch.rs` when called from
+  the top of `Runtime::render`, before a dispatch node exists, so a per-frame
+  window listener has to be registered during paint as `div::on_action` already
+  does. An `App`-level global action did not fire. A `ToggleAppAccess` handler
+  on the same `div`, with the same `None` binding context and a plain closure
+  rather than a `cx.listener`, did not fire for `f9` either with or without focus
+  established first, while `tab` on that same `div` did — so the remaining
+  variable is between the key name, the action registration, and the handler
+  shape, and it was not isolated before the session's screen locked and took the
+  window runner with it. Start there rather than from the beginning.
+
+  Use a file, not stderr, for any probe in a windowed spec run.
+
+- [ ] **Tab does not move focus through the production keymap.**
+  `docs/platform-api.adoc` says Tab and Shift+Tab traverse enabled buttons,
+  checkboxes, and text inputs in rendered child order. A window specification
+  that focuses a control, sends a real `tab`, and then asserts the *same* control
+  still holds focus passes. The host's `FocusNext` action does fire — a file
+  probe in the handler is written — so `window.focus_next()` runs and focus does
+  not move, which points at `focus_enabled` or an empty `tab_stops` in the
+  rendered frame rather than at dispatch.
+
+  This was found while looking for something else and is not yet minimised: the
+  observation rests on `expect-focused`, which should be confirmed against GPUI's
+  own focus rather than the host's record of it before the defect is called
+  proven. No specification covers Tab today, which is why a documented behaviour
+  could stop working unnoticed; the fix lands with one.
 
   Adopting the kernel found three things worth keeping in mind for the rest of
   this work, each recorded in `grant.rs` where it was fixed: rights are not
