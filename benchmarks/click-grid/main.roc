@@ -100,7 +100,7 @@ render = |state| {
 
 main : Program(State)
 main = Program.run({
-	init: create_grid(10000, 1),
+	init: create_grid(100, 1),
 	render,
 	window: { title: "Stationary click grid", width: 660, height: 720, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) },
 })
