@@ -1,8 +1,10 @@
 = Roc GUI: A manual for building native applications
 :doctype: book
 :author: The Roc GUI contributors
-:revnumber: nightly-2026-09-12
-:revremark: Linux x86_64, Wayland
+// The build stamps the platform version it documents. A checkout that has not
+// been released yet says so rather than claiming a version it is not.
+:revnumber: {docs-version}
+:revremark: Linux x86-64, macOS Apple silicon, Windows x86-64
 :toc: left
 :toclevels: 3
 :sectnums:
@@ -19,6 +21,7 @@ through specifications that verify it, and on to repeatable scaling
 measurements.
 
 ifdef::backend-html5[]
+link:api/index.html[Browse the generated API reference] ·
 link:roc-gui.pdf[Download the standalone PDF manual].
 endif::[]
 

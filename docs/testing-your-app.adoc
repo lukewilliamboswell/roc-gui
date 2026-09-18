@@ -30,7 +30,7 @@ on screen rather than merely mounted, how large it is, and what it looks like.
 
 [source,sh]
 ----
-roc build my-app.roc
+roc build --opt=dev my-app.roc
 
 ./my-app --host-run-spec specs/greeting.scm
 ./my-app --host-run-window-spec specs/greeting-window.scm \
@@ -138,7 +138,7 @@ Run it:
 
 [source,sh]
 ----
-roc build my-app.roc
+roc build --opt=dev my-app.roc
 ./my-app --host-run-window-spec specs/greeting.scm \
     --host-window-report=.test-out/report.json \
     --host-window-shot-dir=.test-out
