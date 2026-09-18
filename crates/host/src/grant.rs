@@ -16,7 +16,7 @@
 //! migration of the remaining resources is mechanical rather than a rewrite.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Mutex, OnceLock},
 };
 
@@ -216,6 +216,12 @@ impl Grant {
 #[derive(Default)]
 struct Registry {
     grants: HashMap<(Kind, u64), Grant>,
+    /// Roots whose authority has been taken away, kept as the durable record of
+    /// the revocation rather than only as a flag on the grants that existed at
+    /// the time. A grant can be released while its root stays revoked, and a
+    /// descendant recorded afterwards must still be refused, so the set outlives
+    /// the entries.
+    revoked_roots: HashSet<(Kind, u64)>,
     /// Counted here rather than by each resource so that "a grant was revoked"
     /// means one thing across the platform.
     recorded: u64,
@@ -255,19 +261,50 @@ pub fn record_root(kind: Kind, id: u64, rights: Rights, origin: Origin, lifetime
     });
 }
 
-/// Record a grant derived from an existing one. A derived grant never broadens
-/// authority: its rights are intersected with its parent's, and it inherits the
-/// parent's origin, lifetime and root, so a child cannot claim to have been
-/// chosen by a person when its parent was provisioned by a flag.
+/// Record a grant derived from an existing one.
 ///
-/// Deriving from a revoked or absent parent produces nothing, which is what
-/// makes revocation cover descendants that do not exist yet.
-pub fn record_derived(kind: Kind, id: u64, rights: Rights, parent: (Kind, u64)) -> bool {
+/// "Never broadens authority" is a claim about *scope*, not about a rights
+/// lattice: a project child stays beneath its parent, a redirect stays within
+/// its destination, a selected file reveals no siblings. It is deliberately not
+/// implemented as intersecting the child's rights with the parent's, because
+/// rights are not comparable across resource shapes — a device grant may
+/// `CONNECT` and a device connection may `READ`, and neither is a subset of the
+/// other although the second is plainly derived from the first. Intersecting
+/// them produced a connection that could do nothing, which is how this was
+/// found.
+///
+/// What the kernel does enforce is the part it can know without understanding
+/// the resource: a parent that does not hold [`Rights::DERIVE`] cannot produce a
+/// child at all, a child inherits its parent's origin, lifetime and root so it
+/// cannot claim to have been chosen by a person when its parent was provisioned
+/// by a flag, and deriving from a revoked or absent parent produces nothing,
+/// which is what makes revocation cover descendants that do not exist yet. The
+/// rights a child carries are the resource's own business, and the resource
+/// states them at the one place it creates the child.
+/// The parent is passed as the [`Grant`] that [`accept`] returned, not as an id
+/// to look up again, and that is the point. Deriving is exercising authority, so
+/// the caller must have accepted the parent to do it — there is no way to reach
+/// this function without having done so.
+///
+/// It also fixes lineage at the moment the authority was exercised rather than
+/// at the moment the bookkeeping happens, which matters because an operation may
+/// consume the parent handle. `Device.connect!` does exactly that: the Roc
+/// handle is decref'd inside the call, so by the time the connection exists the
+/// grant it came from may already have been released. Looking the parent up
+/// again would find nothing and silently produce a connection with no lineage
+/// and no revocation. The child keeps the root regardless, so revoking still
+/// reaches it.
+pub fn record_descendant(kind: Kind, id: u64, rights: Rights, parent: Grant) -> bool {
+    if !parent.rights.contains(Rights::DERIVE) {
+        return false;
+    }
     with(|registry| {
-        let Some(parent_grant) = registry.grants.get(&parent).copied() else {
-            return false;
-        };
-        if !parent_grant.is_live() {
+        // Liveness is asked of the root now, not of the copy the caller is
+        // holding: that copy was accepted at some earlier instant and says
+        // nothing about a revocation since. Asking the root is also what lets a
+        // parent be *released* and still derive, which is the ordinary case for
+        // an operation that consumes its handle.
+        if registry.revoked_roots.contains(&(parent.kind, parent.root)) {
             return false;
         }
         registry.recorded += 1;
@@ -276,11 +313,11 @@ pub fn record_derived(kind: Kind, id: u64, rights: Rights, parent: (Kind, u64)) 
             Grant {
                 kind,
                 id,
-                rights: Rights(rights.0 & parent_grant.rights.0),
-                origin: parent_grant.origin,
-                lifetime: parent_grant.lifetime,
-                parent: Some(parent.1),
-                root: parent_grant.root,
+                rights,
+                origin: parent.origin,
+                lifetime: parent.lifetime,
+                parent: Some(parent.id),
+                root: parent.root,
                 revoked: false,
             },
         );
@@ -307,9 +344,14 @@ pub enum Refusal {
 /// point for the whole platform rather than one per resource.
 pub fn accept(kind: Kind, id: u64, needs: Rights) -> Result<Grant, Refusal> {
     with(|registry| {
+        let revoked_roots = &registry.revoked_roots;
         let outcome = match registry.grants.get(&(kind, id)) {
             None => Err(Refusal::Unknown),
-            Some(grant) if !grant.is_live() => Err(Refusal::Revoked),
+            Some(grant)
+                if !grant.is_live() || revoked_roots.contains(&(kind, grant.root)) =>
+            {
+                Err(Refusal::Revoked)
+            }
             Some(grant) if !grant.rights.contains(needs) => Err(Refusal::Rights),
             Some(grant) => Ok(*grant),
         };
@@ -333,6 +375,7 @@ pub fn revoke(kind: Kind, id: u64) -> u64 {
             return 0;
         };
         let root = target.root;
+        registry.revoked_roots.insert((kind, root));
         let mut count = 0;
         for grant in registry.grants.values_mut() {
             if grant.kind == kind && grant.root == root && !grant.revoked {
@@ -348,6 +391,13 @@ pub fn revoke(kind: Kind, id: u64) -> u64 {
 /// Revoke every root of one kind. What a person means by "stop using my files".
 pub fn revoke_kind(kind: Kind) -> u64 {
     with(|registry| {
+        let roots: Vec<(Kind, u64)> = registry
+            .grants
+            .values()
+            .filter(|grant| grant.kind == kind)
+            .map(|grant| (kind, grant.root))
+            .collect();
+        registry.revoked_roots.extend(roots);
         let mut count = 0;
         for grant in registry.grants.values_mut() {
             if grant.kind == kind && !grant.revoked {
@@ -398,7 +448,10 @@ pub fn counters() -> [u64; 4] {
 /// a resource's provisioning wholesale; the grants that referred to the previous
 /// configuration did not have their authority taken away, they ceased to exist.
 pub fn forget_kind(kind: Kind) {
-    with(|registry| registry.grants.retain(|(held, _), _| *held != kind));
+    with(|registry| {
+        registry.grants.retain(|(held, _), _| *held != kind);
+        registry.revoked_roots.retain(|(held, _)| *held != kind);
+    });
 }
 
 /// Forget everything. The semantic runner mounts one application per lifecycle
@@ -425,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn a_derived_grant_cannot_broaden_its_parent() {
+    fn a_parent_that_cannot_derive_produces_no_children() {
         let _turn = fresh();
         record_root(
             Kind::Directory,
@@ -434,19 +487,36 @@ mod tests {
             Origin::TrustedSelection(Enforcement::ConsentOnly),
             Lifetime::Session,
         );
-        record_derived(
-            Kind::Directory,
+        let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
+        assert!(
+            !record_descendant(Kind::Directory, 2, Rights::READ, root),
+            "a grant without DERIVE is a leaf, whatever else it can do"
+        );
+        assert_eq!(accept(Kind::Directory, 2, Rights::READ), Err(Refusal::Unknown));
+    }
+
+    #[test]
+    fn a_child_carries_the_rights_its_resource_gave_it() {
+        // Rights are not comparable across resource shapes. A device grant may
+        // connect; the connection it derives may read and write. Neither is a
+        // subset of the other, and the kernel must not pretend otherwise.
+        let _turn = fresh();
+        record_root(
+            Kind::Device,
+            1,
+            Rights::CONNECT.union(Rights::DERIVE),
+            Origin::Provisioned,
+            Lifetime::Session,
+        );
+        let device = accept(Kind::Device, 1, Rights::CONNECT).expect("grant connects");
+        assert!(record_descendant(
+            Kind::Device,
             2,
             Rights::READ.union(Rights::WRITE),
-            (Kind::Directory, 1),
-        );
-        let child = accept(Kind::Directory, 2, Rights::READ).expect("child reads");
-        assert_eq!(child.rights, Rights::READ);
-        assert_eq!(
-            accept(Kind::Directory, 2, Rights::WRITE),
-            Err(Refusal::Rights),
-            "a child must not gain a right its parent never had"
-        );
+            device
+        ));
+        let connection = accept(Kind::Device, 2, Rights::WRITE).expect("connection writes");
+        assert_eq!(connection.root, 1, "and is still bound to its grant");
     }
 
     #[test]
@@ -455,11 +525,12 @@ mod tests {
         record_root(
             Kind::Directory,
             1,
-            Rights::READ,
+            Rights::READ.union(Rights::DERIVE),
             Origin::Provisioned,
             Lifetime::Session,
         );
-        record_derived(Kind::Directory, 2, Rights::READ, (Kind::Directory, 1));
+        let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
+        record_descendant(Kind::Directory, 2, Rights::READ, root);
         let child = accept(Kind::Directory, 2, Rights::READ).expect("child reads");
         assert_eq!(
             child.origin,
@@ -479,8 +550,15 @@ mod tests {
             Origin::TrustedSelection(Enforcement::ConsentOnly),
             Lifetime::Session,
         );
-        record_derived(Kind::Directory, 2, Rights::READ, (Kind::Directory, 1));
-        record_derived(Kind::Directory, 3, Rights::READ, (Kind::Directory, 2));
+        let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
+        record_descendant(
+            Kind::Directory,
+            2,
+            Rights::READ.union(Rights::DERIVE),
+            root,
+        );
+        let child = accept(Kind::Directory, 2, Rights::READ).expect("child reads");
+        record_descendant(Kind::Directory, 3, Rights::READ, child);
         assert_eq!(revoke(Kind::Directory, 1), 3);
         for id in 1..=3 {
             assert_eq!(accept(Kind::Directory, id, Rights::READ), Err(Refusal::Revoked));
@@ -493,11 +571,12 @@ mod tests {
         record_root(
             Kind::Directory,
             1,
-            Rights::READ,
+            Rights::READ.union(Rights::DERIVE),
             Origin::Automatic,
             Lifetime::Session,
         );
-        record_derived(Kind::Directory, 2, Rights::READ, (Kind::Directory, 1));
+        let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
+        record_descendant(Kind::Directory, 2, Rights::READ, root);
         // Revoking the child names the root, because the rule is about ancestry
         // rather than about which handle the caller happened to hold.
         assert_eq!(revoke(Kind::Directory, 2), 2);
@@ -507,17 +586,22 @@ mod tests {
     #[test]
     fn a_revoked_parent_grants_no_further_children() {
         let _turn = fresh();
+        // The root can derive, so what stops the child below is the revocation
+        // and not a missing right.
         record_root(
             Kind::Directory,
             1,
-            Rights::READ,
+            Rights::READ.union(Rights::DERIVE),
             Origin::Automatic,
             Lifetime::Session,
         );
+        let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
+        assert!(record_descendant(Kind::Directory, 9, Rights::READ, root));
         revoke(Kind::Directory, 1);
         assert!(
-            !record_derived(Kind::Directory, 2, Rights::READ, (Kind::Directory, 1)),
-            "revocation must cover descendants that do not exist yet"
+            !record_descendant(Kind::Directory, 2, Rights::READ, root),
+            "an accepted parent that is later revoked derives nothing, so \
+             revocation covers descendants that do not exist yet"
         );
         assert_eq!(accept(Kind::Directory, 2, Rights::READ), Err(Refusal::Unknown));
     }

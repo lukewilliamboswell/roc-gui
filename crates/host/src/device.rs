@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
@@ -49,6 +50,23 @@ static CONNECTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::n
 static TRANSACTIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static CLOSED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+/// What an acquired device grant may do: open a connection, and derive that
+/// connection as a child of itself. Never read or write — those are the
+/// connection's rights, and a grant that is not connected can do neither.
+const GRANT_RIGHTS: Rights = Rights::CONNECT.union(Rights::DERIVE);
+
+/// What an open connection may do. Reading and writing a device is one framed
+/// transaction, so both rights travel together.
+const CONNECTION_RIGHTS: Rights = Rights::READ.union(Rights::WRITE);
+
+/// How a device grant arrives. `--host-cap-device` is the only source there is,
+/// and `docs/resource-access.adoc` requires that a flag be visibly identified as
+/// development authority rather than represented as a person's decision. The
+/// trusted device chooser this should one day be is an open backlog entry; when
+/// it lands this becomes a `TrustedSelection` at the point of selection, and
+/// nothing else here changes.
+const GRANT_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -64,6 +82,9 @@ fn store() -> &'static Mutex<Store> {
 
 pub fn configure(device: Option<GrantedDevice>) {
     store().lock().expect("device store poisoned").configured = device;
+    // Provisioning is being replaced; grants naming the previous configuration
+    // cease to exist rather than having their authority taken away.
+    grant::forget_kind(grant::Kind::Device);
 }
 
 fn allocate_handle(id: u64) -> (*mut u64, usize) {
@@ -89,11 +110,17 @@ fn next_id(store: &mut Store) -> u64 {
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("device store poisoned");
     let key = base as usize;
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.grant_allocations, key) {
+    let grant_id = crate::remove_resource_allocation(&mut guard.grant_allocations, key);
+    if let Some(id) = grant_id {
         guard.grants.remove(&id);
     }
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.connection_allocations, key) {
+    let connection_id = crate::remove_resource_allocation(&mut guard.connection_allocations, key);
+    if let Some(id) = connection_id {
         guard.connections.remove(&id);
+    }
+    drop(guard);
+    for id in grant_id.into_iter().chain(connection_id) {
+        grant::release(grant::Kind::Device, id);
     }
 }
 
@@ -150,14 +177,33 @@ fn error(tag: ErrorTag, reason: Reason) -> Error {
     Error { payload, tag }
 }
 
+/// A device grant, if this handle still names a live one. Every operation that
+/// needs the grant passes through here, so the kernel's acceptance point is this
+/// resource's acceptance point too, and a revoked device refuses to connect
+/// without device code carrying a revocation rule of its own.
 fn grant(handle: *mut u64) -> Option<GrantedDevice> {
-    let id = unsafe { handle.as_ref().copied()? };
-    store().lock().ok()?.grants.get(&id).copied()
+    accepted(handle).map(|(device, _)| device)
+}
+
+/// The granted device and the grant it was accepted against. `connect` decrefs
+/// the grant handle before the connection exists — Roc's `grant.connect!`
+/// consumes it — so the connection is derived from the grant accepted here
+/// rather than from a second lookup that would find nothing.
+fn accepted(handle: *mut u64) -> Option<(GrantedDevice, grant::Grant)> {
+    let id = grant_id(handle)?;
+    let entry = grant::accept(grant::Kind::Device, id, Rights::CONNECT).ok()?;
+    let device = store().lock().ok()?.grants.get(&id).copied()?;
+    Some((device, entry))
 }
 
 fn connection(handle: *mut u64) -> Option<Arc<Connection>> {
-    let id = unsafe { handle.as_ref().copied()? };
+    let id = grant_id(handle)?;
+    grant::accept(grant::Kind::Device, id, CONNECTION_RIGHTS).ok()?;
     store().lock().ok()?.connections.get(&id).cloned()
+}
+
+fn grant_id(handle: *mut u64) -> Option<u64> {
+    unsafe { handle.as_ref().copied() }
 }
 
 fn acquire_err(reason: Reason) -> HostGlueDeviceAcquireResult {
@@ -179,6 +225,14 @@ pub extern "C" fn roc_device_acquire() -> HostGlueDeviceAcquireResult {
     let (handle, base) = allocate_handle(id);
     guard.grants.insert(id, configured);
     crate::register_resource_allocation(crate::resource_domain::DEVICE, &mut guard.grant_allocations, base, id);
+    drop(guard);
+    grant::record_root(
+        grant::Kind::Device,
+        id,
+        GRANT_RIGHTS,
+        GRANT_ORIGIN,
+        Lifetime::Session,
+    );
     HostGlueDeviceAcquireResult {
         payload: HostGlueDeviceAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
@@ -274,9 +328,10 @@ fn connect_err(reason: Reason) -> HostGlueDeviceConnectResult {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostGlueDeviceConnectResult {
-    let configured = grant(handle);
+    let opened = accepted(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(configured) = configured else {
+    let parent = opened.map(|(_, entry)| entry);
+    let Some(configured) = opened.map(|(device, _)| device) else {
         return connect_err(Reason::InvalidCapability);
     };
     if active_count() >= MAX_ACTIVE {
@@ -314,6 +369,13 @@ pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostGlueDeviceConnectR
         }),
     );
     crate::register_resource_allocation(crate::resource_domain::DEVICE, &mut guard.connection_allocations, base, id);
+    drop(guard);
+    // The connection is the grant's child, so revoking the device takes its open
+    // connection with it and a connection can never outlive the authority that
+    // opened it. `grant` accepted the parent just above, so it is live here.
+    if let Some(parent) = parent {
+        grant::record_descendant(grant::Kind::Device, id, CONNECTION_RIGHTS, parent);
+    }
     CONNECTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     HostGlueDeviceConnectResult {
         payload: HostGlueDeviceConnectResultPayload {

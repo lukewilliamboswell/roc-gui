@@ -199,7 +199,7 @@ fn record_operation(index: usize) {
 /// handle is. `parent` is the handle this one was derived from, absent for a
 /// root; `origin` is consulted only for a root, because a derived grant inherits
 /// how its parent's authority arrived rather than asserting its own.
-fn capability(dir: Arc<Dir>, parent: Option<u64>, origin: Origin) -> *mut u64 {
+fn capability(dir: Arc<Dir>, parent: Option<grant::Grant>, origin: Origin) -> *mut u64 {
     let mut guard = store().lock().expect("capability store poisoned");
     let id = guard.next;
     guard.next = guard
@@ -233,12 +233,7 @@ fn capability(dir: Arc<Dir>, parent: Option<u64>, origin: Origin) -> *mut u64 {
             Lifetime::Session,
         ),
         Some(parent) => {
-            grant::record_derived(
-                grant::Kind::Directory,
-                id,
-                DIRECTORY_RIGHTS,
-                (grant::Kind::Directory, parent),
-            );
+            grant::record_descendant(grant::Kind::Directory, id, DIRECTORY_RIGHTS, parent);
         }
     }
     handle
@@ -260,6 +255,13 @@ enum LookupError {
 /// `DERIVE` as well, which [`grant::record_derived`] checks when it builds the
 /// child.
 fn lookup_state(handle: *mut u64) -> Result<Arc<Dir>, LookupError> {
+    accepted(handle).map(|(dir, _)| dir)
+}
+
+/// The directory and the grant it was accepted against. The grant is what a
+/// child is derived from: `open_dir` decrefs the parent handle before the child
+/// exists, so looking the parent up again could find it already released.
+fn accepted(handle: *mut u64) -> Result<(Arc<Dir>, grant::Grant), LookupError> {
     let id = unsafe { handle.as_ref().copied() }.ok_or(LookupError::Invalid)?;
     match grant::accept(grant::Kind::Directory, id, Rights::READ) {
         Err(grant::Refusal::Revoked) => {
@@ -267,18 +269,15 @@ fn lookup_state(handle: *mut u64) -> Result<Arc<Dir>, LookupError> {
             Err(LookupError::Revoked)
         }
         Err(_) => Err(LookupError::Invalid),
-        Ok(_) => store()
+        Ok(entry) => store()
             .lock()
             .map_err(|_| LookupError::Invalid)?
             .dirs
             .get(&id)
             .cloned()
+            .map(|dir| (dir, entry))
             .ok_or(LookupError::Invalid),
     }
-}
-
-fn handle_id(handle: *mut u64) -> Option<u64> {
-    unsafe { handle.as_ref().copied() }
 }
 
 pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
@@ -787,10 +786,10 @@ pub extern "C" fn roc_files_dir_open_read(
     record_operation(2);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
-    let parent = handle_id(cap);
-    let dir = lookup_state(cap);
+    let opened = accepted(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
-    let result = match dir {
+    let parent = opened.as_ref().ok().map(|(_, entry)| *entry);
+    let result = match opened.map(|(dir, _)| dir) {
         Err(LookupError::Invalid) => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidCapability),
         Err(LookupError::Revoked) => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::Revoked),
         Ok(_) if !valid_name(&owned_name) => Err(AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported::InvalidName),

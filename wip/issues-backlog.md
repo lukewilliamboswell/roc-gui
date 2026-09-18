@@ -13,7 +13,7 @@ the change lands; do not soften the docs to match the gap.
   routes; and verify denial outside grants. The audited starting point and
   platform matrix are in `wip/resource-access-inventory.md`.
 
-- [ ] **Eleven resources still have no grant model.** `crates/host/src/grant.rs`
+- [ ] **Ten resources still have no grant model.** `crates/host/src/grant.rs`
   is the one model `docs/resource-access.adoc` describes — resource identity,
   rights, origin, lifetime, parent, root, revocation — with one acceptance point
   and one revocation linearisation for the whole platform. Files is its reference
@@ -23,10 +23,16 @@ the change lands; do not soften the docs to match the gap.
   lineage, no record of how its authority arrived, and in most cases no
   revocation at all, exactly as `wip/resource-access-inventory.md` reports.
 
-  Migrate them, adopting the kernel rather than extending it where possible:
+  Device is the second adopter, chosen because it is the opposite extreme: no
+  lineage, no revocation, and a grant whose rights are not a superset of its
+  connection's. Two adopters is the smallest number that can show the model is
+  one; it immediately found two over-reaches in the kernel, recorded in
+  `grant.rs` where they were fixed.
+
+  Migrate the rest, adopting the kernel rather than extending it where possible:
   app-data, assets, sqlite (whose parent-revocation semantics are recorded
   unverified and which the kernel answers by construction), http, tcp, process,
-  device, audio, system-monitor, clipboard. Each migration keeps its own typed
+  audio, system-monitor, clipboard. Each migration keeps its own typed
   payload and changes only where its grant is recorded, accepted, and released.
   A resource is migrated when its operations refuse a revoked grant and its
   grants appear in `grant::enumerate`. Do not add a second lifetime, origin, or
@@ -361,6 +367,9 @@ built on top of them; none is a defect in what is there.
 ## Device Configurator follow-on features
 
 - [ ] **A device is granted by a command-line flag, not by choosing one.**
+  The grant now records that honestly — `device.rs` names its origin
+  `Origin::Provisioned` in one constant that says what would change it — but
+  recording it is not fixing it.
   `--host-cap-device virtual|VID:PID` is the only authority path: `device.rs`
   reads one `configured` grant at process start and `Device.acquire!()` answers
   `AccessDenied` forever if there is none. Issue #1's policy row for USB/device
