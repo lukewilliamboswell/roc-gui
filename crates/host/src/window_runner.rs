@@ -1078,6 +1078,8 @@ async fn run_step(
         | Command::ExpectFileLifecycleCounters(_)
         | Command::ExpectFileAccess(_)
         | Command::ExpectAssetCounters(_)
+        | Command::ExpectGrants(_)
+        | Command::ExpectGrantCounters(_)
         | Command::ExpectImageOwnerCounters(_) => window
             .update(cx, |_, _, _| {
                 runner::resource_claim(&step.command, file_baseline)

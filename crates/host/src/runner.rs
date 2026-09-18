@@ -643,6 +643,29 @@ pub(crate) fn resource_claim(
         Command::ExpectAssetCounters(expected) => {
             exact("asset counters", expected, crate::assets::counters())
         }
+        // The whole list, in order, compared as a list. A claim that counted
+        // grants instead would pass for an application holding entirely
+        // different authority than the one the specification names.
+        Command::ExpectGrants(expected) => {
+            let observed: Vec<String> = crate::grant::enumerate()
+                .iter()
+                .map(crate::grant::Grant::describe)
+                .collect();
+            let counts = Some((expected.len() as u64, observed.len() as u64));
+            if observed == *expected {
+                (Ok(()), counts)
+            } else {
+                (
+                    Err(format!(
+                        "expected grants {expected:?}, observed {observed:?}"
+                    )),
+                    counts,
+                )
+            }
+        }
+        Command::ExpectGrantCounters(expected) => {
+            exact("grant counters", expected, crate::grant::counters())
+        }
         _ => return None,
     };
     Some((result, counts, evidence))
@@ -1304,6 +1327,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectFileLifecycleCounters(_)
             | Command::ExpectFileAccess(_)
             | Command::ExpectAssetCounters(_)
+            | Command::ExpectGrants(_)
+            | Command::ExpectGrantCounters(_)
             | Command::ExpectImageOwnerCounters(_) => {
                 let (result, counts, evidence) =
                     resource_claim(&step.command, file_counter_baseline)

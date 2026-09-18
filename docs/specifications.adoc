@@ -266,6 +266,21 @@ match for `SECOND` in mounted-tree order.
 Require the asset owner's six totals, in that order: opens, refused opens,
 manifest checks, reads, refused reads, and bytes read. No asset path, file name,
 or content becomes evidence.
+`(expect-grant-counters RECORDED RELEASED REVOKED DENIED)`:: Require the grant
+registry's four totals, in that order. Released and revoked are counted apart
+because they are different facts: an application that stopped holding a handle
+did not have its authority taken away.
+`(expect-grants DESCRIPTION...)`:: Require exactly these grants, in registry
+order, each written as `KIND ORIGIN/ENFORCEMENT LINEAGE RIGHTS` with ` revoked`
+appended once its authority has been taken away — for example
+`"directory provisioned/consent-only root read,list,derive"`. `ORIGIN` is
+`trusted-selection`, `provisioned`, or `automatic`; `ENFORCEMENT` is `brokered`
+when the broker returned authority the process could not obtain for itself and
+`consent-only` when a person chose in a trusted surface but nothing outside the
+process enforces the scope. `LINEAGE` is `root` or `derived`. No step means the
+application holds no authority at all. Identifiers are deliberately not part of
+a description: they are allocation order, which is a fact about the run rather
+than about the authority.
 `(expect-canvas-primitives LOCATOR N)`:: Require one canvas owner to report
 exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.

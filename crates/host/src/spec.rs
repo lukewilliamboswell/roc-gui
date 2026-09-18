@@ -211,6 +211,12 @@ pub enum Command {
     /// refused reads, and bytes read. All six are numeric; no path, file name,
     /// or asset content ever becomes evidence.
     ExpectAssetCounters([u64; 6]),
+    /// Every live grant, each rendered by `grant::Grant::describe`, in registry
+    /// order. The claim a person most wants to make about authority is not a
+    /// number but a list: this is what this application is holding, and nothing
+    /// else.
+    ExpectGrants(Vec<String>),
+    ExpectGrantCounters([u64; 4]),
     /// Counts from the most recently committed production action turn.
     ExpectComponentWork([Option<u64>; crate::observatory::COMPONENT_WORK_NAMES.len()]),
     Submit(Locator),
@@ -387,6 +393,8 @@ impl Command {
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
+            Self::ExpectGrants(_) => "expect-grants",
+            Self::ExpectGrantCounters(_) => "expect-grant-counters",
             Self::ExpectComponentWork(_) => "expect-component-work",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
@@ -494,7 +502,9 @@ impl Command {
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
             | Self::ExpectImageOwnerCounters(_)
-            | Self::ExpectAssetCounters(_) => Capability::Both,
+            | Self::ExpectAssetCounters(_)
+            | Self::ExpectGrants(_)
+            | Self::ExpectGrantCounters(_) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
             // They are honest claims, made by one runner rather than two; the
             // alternative of accepting a specification and then refusing a step
@@ -1460,6 +1470,27 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectImageOwnerCounters(expected)
         }
+        // No arity bound: the claim is the whole list, so an application
+        // holding no authority at all is `(expect-grants)` and says so exactly.
+        "expect-grants" => {
+            let mut expected = Vec::new();
+            for value in &values[1..] {
+                expected.push(
+                    value
+                        .string()
+                        .ok_or_else(|| error(value, "expect-grants takes quoted grant descriptions"))?
+                        .to_owned(),
+                );
+            }
+            Command::ExpectGrants(expected)
+        }
+        "expect-grant-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-grant-counters")? as u64;
+            }
+            Command::ExpectGrantCounters(expected)
+        }
         "expect-asset-counters" if values.len() == 7 => {
             let mut expected = [0u64; 6];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1728,6 +1759,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "revoke-file-grants"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
+        | "expect-grants"
+        | "expect-grant-counters"
         | "expect-component-work"
         | "expect-visible"
         | "expect-not-visible"

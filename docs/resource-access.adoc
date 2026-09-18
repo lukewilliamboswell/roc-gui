@@ -115,6 +115,13 @@ computing base unless isolated behind the same broker boundary.
 
 == Verification
 
+The grant registry answers for every resource at once, so what an application
+holds is a list a specification states and a person reads, not a number. Both
+read the same rendering: kind, origin, the enforcement that origin carries,
+lineage, and rights. A grant that was released and a grant that was revoked are
+counted apart, because an application that stopped holding a handle did not have
+its authority taken away.
+
 Every resource slice includes its Roc API and hosted ABI, broker/host behaviour,
 semantic locators, owner-recorded deterministic counters, failure specifications, a
 normal-use scaling case, and documentation. Security assertions additionally

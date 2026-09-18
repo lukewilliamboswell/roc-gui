@@ -211,6 +211,38 @@ impl Grant {
     pub fn is_live(&self) -> bool {
         !self.revoked
     }
+
+    /// How this grant is named wherever a person or a specification reads it.
+    ///
+    /// One rendering, used by both the specification assertion and the trusted
+    /// App access surface, for the same reason `runner::graph_claim` is one
+    /// implementation: a grant must not be able to describe itself one way to
+    /// the person it is shown to and another way to the test that checks it.
+    ///
+    /// Identifiers are deliberately absent. They are allocation order, which is
+    /// a fact about the run rather than about the authority, and a specification
+    /// that pinned them would fail for reasons that have nothing to do with what
+    /// it is claiming. What is here is everything that describes the authority
+    /// itself: what it is over, how it arrived, what that arrival is worth,
+    /// whether it was derived, what it may do, and whether it still holds.
+    pub fn describe(&self) -> String {
+        let mut text = format!(
+            "{} {}/{} {} {}",
+            self.kind.name(),
+            self.origin.name(),
+            self.origin.enforcement().name(),
+            if self.parent.is_none() {
+                "root"
+            } else {
+                "derived"
+            },
+            self.rights.names().join(",")
+        );
+        if self.revoked {
+            text.push_str(" revoked");
+        }
+        text
+    }
 }
 
 #[derive(Default)]
@@ -640,6 +672,35 @@ mod tests {
         );
         assert_eq!(revoke_kind(Kind::Directory), 1);
         assert!(accept(Kind::Tcp, 1, Rights::CONNECT).is_ok());
+    }
+
+    #[test]
+    fn a_grant_describes_its_authority_and_not_the_run_it_happened_in() {
+        let _turn = fresh();
+        record_root(
+            Kind::Directory,
+            1,
+            Rights::READ.union(Rights::LIST).union(Rights::DERIVE),
+            Origin::TrustedSelection(Enforcement::ConsentOnly),
+            Lifetime::Session,
+        );
+        let root = accept(Kind::Directory, 1, Rights::READ).expect("root reads");
+        record_descendant(Kind::Directory, 2, Rights::READ, root);
+        assert_eq!(
+            enumerate()
+                .iter()
+                .map(Grant::describe)
+                .collect::<Vec<_>>(),
+            vec![
+                "directory trusted-selection/consent-only root read,list,derive",
+                "directory trusted-selection/consent-only derived read",
+            ]
+        );
+        revoke(Kind::Directory, 1);
+        assert!(
+            enumerate().iter().all(|entry| entry.describe().ends_with(" revoked")),
+            "a revoked grant says so wherever it is read"
+        );
     }
 
     #[test]
