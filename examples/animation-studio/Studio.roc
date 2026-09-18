@@ -82,12 +82,20 @@ Studio := [].{
 				x = move.origin_x + event.x - move.start_x
 				y = move.origin_y + event.y - move.start_y
 				placed = { ..state.document, shapes: state.document.shapes.map(|shape| if shape.id == move.id { ..shape, x, y } else shape) }
-				## A keyed shape's position belongs to the frame it is being
-				## moved on, not to the shape, so the movement is recorded there
-				## as it happens. Without this the drag changed the one stored
-				## position, `apply_frame` overwrote it from the keys on the next
-				## scrub, and the move was silently lost.
-				moved = if is_keyed(state.document, move.id) record_key(placed, move.id, state.frame, x, y) else placed
+				## A position belongs to the frame it was set on, not to the
+				## shape, so a movement is recorded there as it happens. Without
+				## this a drag changed the shape's one stored position and the
+				## next scrub overwrote it from the keys, silently losing the
+				## move.
+				##
+				## Every shape, not only one that has been keyed already. Two
+				## shapes that look alike behaved differently depending on
+				## whether someone had happened to press Add keyframe on one of
+				## them earlier, and nothing on the stage said which was which. A
+				## shape's first key is also its only key, and one key is a
+				## constant position at every frame, so this costs a static
+				## layout nothing but a marker on the timeline.
+				moved = record_key(placed, move.id, state.frame, x, y)
 				## The first movement of a gesture is the edit, so that is where
 				## the snapshot belongs, and it is the document as it stood
 				## before the gesture began.
@@ -149,13 +157,6 @@ Studio := [].{
 		keyframes = List.sort_with(without.append({ shape_id: id, frame, x, y }), |left, right| if left.frame < right.frame Before else if left.frame > right.frame After else Same)
 		{ ..document, keyframes }
 	}
-
-	## Whether a shape is animated at all. A shape with keys has no single
-	## position left to hold: every frame's position comes from its keys, so a
-	## move has to be recorded against the frame it was made on or it is
-	## discarded by the next scrub. A shape with no keys is a static layout
-	## object, and moving it simply moves it.
-	is_keyed = |document, id| document.keyframes.keep_if(|key| key.shape_id == id).len() > 0
 
 	add_keyframe = |state| match state.selected {
 		None => { ..state, status: "Select a shape before adding a keyframe" }

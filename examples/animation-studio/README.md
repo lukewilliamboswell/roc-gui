@@ -38,10 +38,13 @@ the last there is nothing to move towards, so that key holds. A shape with no
 keys of its own stays where it was put. Keys are kept in frame order, because
 applying a frame reads the keys either side of it.
 
-Once a shape is keyed it has no single position left to hold, so dragging it
-records a key at the frame it was dragged on — otherwise the move would be
-discarded the next time the timeline was touched. A shape with no keys is a
-static layout object, and dragging it simply moves it.
+A position belongs to the frame it was set on rather than to the shape, so
+dragging a shape records a key at the current frame — otherwise the move would
+be discarded the next time the timeline was touched. This applies to every
+shape, including one nobody has pressed Add keyframe on: a shape's first key is
+also its only key, and one key is a constant position at every frame, so a
+static layout pays nothing for it but a marker on the timeline. Add keyframe is
+then for pinning a pose without moving it.
 
 ## Not yet built
 
@@ -62,7 +65,7 @@ source and licence are recorded in `icons/NOTICE.md` and in
 Ten semantic specifications in `specs/` cover creation, selection, dragging,
 the ends of the history, keyframe ordering and replacement, the movement between
 two keys and the pose held either side of them, recording a move against the
-frame it was made on, scrubbing, and timer-driven playback with its pause and
+frame it was made on for a keyed and an unkeyed shape alike, scrubbing, and timer-driven playback with its pause and
 resume. Three window specifications
 drive the real window to check the layout, a long layer list, and the timeline.
 None of them needs a grant.
