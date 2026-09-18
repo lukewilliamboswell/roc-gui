@@ -266,6 +266,11 @@ match for `SECOND` in mounted-tree order.
 Require the asset owner's six totals, in that order: opens, refused opens,
 manifest checks, reads, refused reads, and bytes read. No asset path, file name,
 or content becomes evidence.
+`(expect-app-access open|closed)`:: Require the trusted App access surface to be
+showing, or not. Window-only, and satisfied only once the surface has actually
+drawn: it is not a mounted node — an application must not be able to find it,
+style it, or notice it is open — so no locator names it and a claim about the
+application would be true whether or not it drew.
 `(expect-grant-counters RECORDED RELEASED REVOKED DENIED)`:: Require the grant
 registry's four totals, in that order. Released and revoked are counted apart
 because they are different facts: an application that stopped holding a handle

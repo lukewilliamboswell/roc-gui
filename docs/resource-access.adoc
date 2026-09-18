@@ -109,7 +109,13 @@ thing that does the job, and notice when a library asks for something broad.
 
 == Taking it back
 
-A person can withdraw a grant. When they do, everything derived from it stops at
+A person can withdraw a grant. The trusted *App access* surface lists what this
+application is holding — what each grant is over, how it arrived, and what it
+allows — with a control to withdraw each one. It belongs to the platform rather
+than to the application: the application cannot draw it, suppress it, or tell
+that it is open, which is the only way a withdrawal control is worth anything.
+
+When a grant is withdrawn, everything derived from it stops at
 the same moment: the subfolder handles, the database opened from that folder, the
 connection opened through that device. You do not have to hunt them down and
 close them. They refuse their next use with a typed error that says the authority

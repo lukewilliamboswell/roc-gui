@@ -28,68 +28,14 @@ the change lands; do not soften the docs to match the gap.
   The specification vocabulary already distinguishes the two, so the day a grant
   becomes brokered is a specification change rather than a claim in prose.
 
-  And there is no trusted *App access* surface. `grant::enumerate` and
-  `Grant::describe` are what it would read — the same rendering both runners
-  read, so the surface and its evidence cannot drift — but a person cannot yet
-  see what an application holds or revoke any of it. `revoke` and `revoke_kind`
-  exist and are exercised; nothing but a specification calls them.
-
-  An attempt at it was written and withdrawn rather than merged, because the
-  chord that opens it never reached its action, and a withdrawal control nobody
-  can press is the unreachable claim this whole area exists to remove. What the
-  attempt established, so the next one need not rediscover it: the surface has to
-  be drawn by the host as a sibling of the application's root — it must not be a
-  mounted node, or an application could find it, style it, or notice it is open —
-  and it therefore has no locator, so it needs a host-owned assertion of its own
-  rather than one that reads the graph. The first version of that specification
-  passed while the surface never drew, because every claim in it was about the
-  application and true either way; the assertion that made it honest was a
-  host-owned open/closed flag.
-
-  The unsolved part is dispatch, and an earlier version of this entry was wrong
-  about it. It claimed an element handler on the host's root `div` never fires.
-  That conclusion came from an `eprintln!` probe, and a control run proved the
-  probe itself never reached the terminal: a probe placed in `Runtime::render`,
-  which certainly runs, printed nothing either. Writing a file instead of
-  printing showed that the root `div`'s `FocusNext` handler **does** fire on
-  `tab`. Element handlers on the host root work. Do not re-derive that.
-
-  What is known: `window.on_action` panics in `key_dispatch.rs` when called from
-  the top of `Runtime::render`, before a dispatch node exists, so a per-frame
-  window listener has to be registered during paint as `div::on_action` already
-  does. An `App`-level global action did not fire.
-
-  The chord is not the problem, and that is settled without a window.
-  `host_keymap_tests` asks GPUI's own `Keymap` directly: `secondary-shift-a`
-  matches an input of `cmd-shift-a` and of `shift-cmd-a`, and `f9` matches `f9`.
-  A chord that does not resolve and a handler that does not fire look identical
-  from inside a windowed run, and the fix goes in different places, so that
-  question now has an answer a locked screen cannot withhold.
-
-  What is left is the handler shape. The attempts that did not fire used
-  `cx.listener(...)`; the one handler known to fire — `FocusNext` on the same
-  `div`, same `None` context — is a plain closure. The plain-closure version of
-  the surface's own handler was written and never successfully run, because the
-  screen locked on that attempt. That is one run away from an answer: bind the
-  chord, put a plain closure on the root `div`, and have it write a file rather
-  than print.
-
-  Use a file, not stderr, for any probe in a windowed spec run.
-
-- [ ] **Tab does not move focus through the production keymap.**
-  `docs/platform-api.adoc` says Tab and Shift+Tab traverse enabled buttons,
-  checkboxes, and text inputs in rendered child order. A window specification
-  that focuses a control, sends a real `tab`, and then asserts the *same* control
-  still holds focus passes. The host's `FocusNext` action does fire — a file
-  probe in the handler is written — so `window.focus_next()` runs and focus does
-  not move, which points at `focus_enabled` or an empty `tab_stops` in the
-  rendered frame rather than at dispatch.
-
-  This was found while looking for something else and is not yet minimised: the
-  observation rests on `expect-focused`, which should be confirmed against GPUI's
-  own focus rather than the host's record of it before the defect is called
-  proven. No specification covers Tab today, which is why a documented behaviour
-  could stop working unnoticed; the fix lands with one.
+  The trusted *App access* surface now exists: the host's own chord opens it, it
+  lists every grant from `grant::enumerate` with the same rendering the evidence
+  uses, and each root carries a control that calls `grant::revoke`. Pressing that
+  control is not yet driven by a specification — the surface has no locator by
+  construction, so a window case cannot name the button — and until it is, the
+  withdrawal path is covered only by `revoke-file-grants` and `expect-grants`.
+  Close that with a way to drive host-owned controls, not by giving the surface
+  a node.
 
   Adopting the kernel found three things worth keeping in mind for the rest of
   this work, each recorded in `grant.rs` where it was fixed: rights are not

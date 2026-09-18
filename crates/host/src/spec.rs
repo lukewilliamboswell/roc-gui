@@ -217,6 +217,11 @@ pub enum Command {
     /// else.
     ExpectGrants(Vec<String>),
     ExpectGrantCounters([u64; 4]),
+    /// Whether the trusted App access surface is showing. The surface is not a
+    /// mounted node — an application must not be able to find it, style it, or
+    /// notice it is open — so no locator names it and this is how a
+    /// specification asks.
+    ExpectAppAccess(bool),
     /// Counts from the most recently committed production action turn.
     ExpectComponentWork([Option<u64>; crate::observatory::COMPONENT_WORK_NAMES.len()]),
     Submit(Locator),
@@ -395,6 +400,7 @@ impl Command {
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
             Self::ExpectGrants(_) => "expect-grants",
             Self::ExpectGrantCounters(_) => "expect-grant-counters",
+            Self::ExpectAppAccess(_) => "expect-app-access",
             Self::ExpectComponentWork(_) => "expect-component-work",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
@@ -432,6 +438,8 @@ impl Command {
             Self::ExpectPatch(_) | Self::MarkMetrics => Capability::Semantic,
             // Settling on presented frames has no meaning without a window.
             Self::Settle { .. }
+            // The surface only exists where there is a window to draw it on.
+            | Self::ExpectAppAccess(_)
             | Self::MarkNativeWork
             | Self::ExpectNativeWork { .. }
             | Self::ExpectOnScreen(_)
@@ -1484,6 +1492,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectGrants(expected)
         }
+        "expect-app-access" if values.len() == 2 => {
+            match values[1].atom() {
+                Some("open") => Command::ExpectAppAccess(true),
+                Some("closed") => Command::ExpectAppAccess(false),
+                _ => return Err(error(&values[1], "expect-app-access takes open or closed")),
+            }
+        }
         "expect-grant-counters" if values.len() == 5 => {
             let mut expected = [0u64; 4];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1763,6 +1778,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         // descriptions, so it can never be the known-step-wrong-arity case this
         // list exists to report.
         | "expect-grant-counters"
+        | "expect-app-access"
         | "expect-component-work"
         | "expect-visible"
         | "expect-not-visible"

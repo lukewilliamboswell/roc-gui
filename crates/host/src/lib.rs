@@ -2,6 +2,7 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 #![cfg_attr(test, allow(dead_code, unused_imports))]
 
+mod access_panel;
 mod app_data;
 mod assets;
 mod audio;
@@ -67,7 +68,8 @@ actions!(
         FocusPrevious,
         ActivateEnter,
         ActivateEscape,
-        ActivateSpace
+        ActivateSpace,
+        ToggleAppAccess
     ]
 );
 
@@ -82,6 +84,8 @@ fn host_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("enter", ActivateEnter, None),
         KeyBinding::new("escape", ActivateEscape, None),
         KeyBinding::new("space", ActivateSpace, None),
+        // The host's own chord for the trusted App access surface.
+        KeyBinding::new("secondary-shift-a", ToggleAppAccess, None),
     ]
 }
 
@@ -2851,6 +2855,16 @@ impl Render for NodeView {
 }
 
 struct Runtime {
+    /// The host root's own focus handle.
+    ///
+    /// GPUI resolves a key event against the dispatch path of whatever holds
+    /// focus, and with nothing focused that path is the dispatch tree's root
+    /// alone — which does not include the host's root element, so none of the
+    /// host's own chords reached their handlers until something in the
+    /// application had been focused first. Holding a handle here and taking
+    /// focus when nothing else wants it puts the host root on the path from the
+    /// first frame.
+    root_focus: FocusHandle,
     graph: MountedGraph,
     /// How many patches this runtime has applied.
     ///
@@ -2933,6 +2947,7 @@ struct KeyedNativeApply {
 impl Runtime {
     fn new(initial: InitialMount, cx: &mut Context<Self>) -> Self {
         let mut runtime = Self {
+            root_focus: cx.focus_handle(),
             graph: MountedGraph::default(),
             generation: 0,
             views: HashMap::new(),
@@ -4418,6 +4433,11 @@ impl Render for Runtime {
             GPUI_SMOKE_RENDERS.fetch_add(1, Ordering::Relaxed);
         }
         watchdog::milestone(watchdog::Milestone::FirstRender);
+        // Only when nothing else holds it: this exists to give host chords a
+        // dispatch path, never to take focus away from the application.
+        if window.focused(_cx).is_none() {
+            self.root_focus.focus(window);
+        }
         // What this frame is drawing, so a painted read can tell whether the
         // window has caught up with the graph it is being asked about.
         probe::begin_frame(self.generation);
@@ -4448,8 +4468,17 @@ impl Render for Runtime {
         frame_spans::FrameSpans::new(
             div()
                 .id("roc-gui-root")
+                .track_focus(&self.root_focus)
                 .on_action(|_: &FocusNext, window, _| window.focus_next())
                 .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
+                // A plain closure, like its neighbours. A `cx.listener` here
+                // leases the runtime entity while GPUI is dispatching, and the
+                // surface's state is host-owned precisely so this handler does
+                // not need one.
+                .on_action(|_: &ToggleAppAccess, window, _| {
+                    access_panel::request_toggle();
+                    window.refresh();
+                })
                 .size_full()
                 .flex()
                 .items_center()
@@ -4462,7 +4491,13 @@ impl Render for Runtime {
                         .iter()
                         .cloned()
                         .map(|view| native_node_view(view, _cx)),
-                ),
+                )
+                // Drawn last, over the application, and only by the host. It is
+                // not a node, so no locator names it and no application render
+                // can remove it.
+                .when(access_panel::wants_draw(), |root| {
+                    root.child(access_panel::render(&_cx.entity(), _cx))
+                }),
             native_start,
         )
     }
@@ -7725,10 +7760,19 @@ mod host_keymap_tests {
     }
 
     #[test]
+    fn the_app_access_chord_resolves_however_it_is_spelled() {
+        // `secondary` is cmd on macOS and ctrl elsewhere, and a person's
+        // keyboard produces the modifiers in whichever order it likes.
+        for chord in ["cmd-shift-a", "shift-cmd-a"] {
+            assert!(resolves(chord), "{chord} must open the App access surface");
+        }
+    }
+
+    #[test]
     fn an_uninstalled_chord_resolves_to_nothing() {
-        // The control the other test needs: a chord nobody bound must not
-        // match, or the assertion above would pass for any input at all.
+        // The control the other tests need: a chord nobody bound must not
+        // match, or they would pass for any input at all.
         assert!(!resolves("f9"));
-        assert!(!resolves("secondary-shift-a"));
+        assert!(!resolves("cmd-shift-z"));
     }
 }

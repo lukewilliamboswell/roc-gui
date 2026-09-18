@@ -766,7 +766,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             // Unreachable in practice: `spec::check_runner` rejects window-only
             // steps before a case reaches this runner. Kept as a real arm so the
             // refusal is stated here too rather than silently skipped.
-            Command::Settle { .. }
+            // The trusted surface needs a window to be drawn on, so this
+            // runner refuses the claim rather than answering it from state no
+            // frame ever rendered.
+            Command::ExpectAppAccess(_)
+            | Command::Settle { .. }
             | Command::MarkNativeWork
             | Command::ExpectNativeWork { .. }
             | Command::ExpectOnScreen(_)

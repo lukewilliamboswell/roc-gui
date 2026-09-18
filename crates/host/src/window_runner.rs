@@ -1031,6 +1031,20 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
+        Command::ExpectAppAccess(expected) => window
+            .update(cx, |_, _, _| {
+                let open = crate::access_panel::is_open();
+                if open == *expected {
+                    Ok(())
+                } else {
+                    Err(StepError::Geometry(format!(
+                        "expected the App access surface {}, observed {}",
+                        if *expected { "open" } else { "closed" },
+                        if open { "open" } else { "closed" }
+                    )))
+                }
+            })
+            .map_err(|_| StepError::WindowClosed)?,
         Command::ExpectComponentWork(expected) => window
             .update(cx, |_, _, _| {
                 runner::component_work_claim(expected)
