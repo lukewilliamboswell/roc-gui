@@ -1,3 +1,4 @@
+import pf.Program
 import pf.Action
 import pf.Elem
 import pf.Files
@@ -11,20 +12,22 @@ import "icons/unreadable.svg" as unreadable_glyph : List(U8)
 
 Library := [].{
 	State : State
-	init : State
-	init = { filter: "", next_request: 0, scan: None, selected: None, status: Ready, transform: Viewer.initial }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| { access, filter: "", next_request: 0, scan: None, selected: None, status: Ready, transform: Viewer.initial }
 	render : State -> Elem(State)
 	render = render
 }
 
 Status : [Busy(U64), Failed({ detail : Str, headline : Str }), Ready]
-State : { filter : Str, next_request : U64, scan : [None, Some(Gallery.Scan)], selected : [None, Some(Gallery.Asset)], status : Status, transform : Viewer.Transform }
+State : { access : Program.Access, filter : Str, next_request : U64, scan : [None, Some(Gallery.Scan)], selected : [None, Some(Gallery.Asset)], status : Status, transform : Viewer.Transform }
 
 pick = |state| {
 	id = state.next_request
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match Files.pick_directory!() {
+		run: || match Files.pick_directory!(state.access) {
 			Ok(Chosen(selection)) => match selection.directory.list!() { Ok(entries) => Scanned(Gallery.scan!(selection.directory, entries)), Err(_) => ScanFailed }
 			Ok(Canceled) => ScanCanceled
 			Err(_) => ScanDenied

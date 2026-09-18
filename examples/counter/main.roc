@@ -49,7 +49,7 @@ render = |curr_state| Elem.col(
 
 main : Program(State)
 main = Program.run({
-	init: { left: Counter.init(-1), right: Counter.init(3), title: "Counter" },
+	init: |_access| { left: Counter.init(-1), right: Counter.init(3), title: "Counter" },
 	render,
 	window: { title: "Counter", width: 640, height: 400, background: paper, foreground: ink },
 })

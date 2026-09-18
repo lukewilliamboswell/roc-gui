@@ -39,4 +39,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: { rows: [], selected: 0 }, render })
+main = Program.run({ init: |_access| { rows: [], selected: 0 }, render })

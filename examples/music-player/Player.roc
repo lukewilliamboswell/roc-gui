@@ -1,3 +1,4 @@
+import pf.Program
 import pf.Action
 import pf.Assets
 import pf.Audio
@@ -7,8 +8,10 @@ import pf.Gui
 
 Player := [].{
 	State : State
-	init : State
-	init = { alarm: False, art: NoArt, chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| { access, alarm: False, art: NoArt, chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
 	render : State -> Elem(State)
 	render = render
 }
@@ -33,7 +36,7 @@ Chosen : [Nothing, At(U64)]
 ## report or a failure. Carrying the kind beside the text is what lets a failure
 ## look like one. A decode error rendered in the same quiet grey as "Paused" is
 ## a designed state only by accident.
-State : { alarm : Bool, art : Art, chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
+State : { access : Program.Access, alarm : Bool, art : Art, chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
 
 ## The two ways of saying something. Every transition goes through one of them,
 ## so no path can leave a stale alarm colouring the next ordinary message.
@@ -62,8 +65,8 @@ art_manifest = { asset_set: "nocturne-art", schema: 1.U32, content_version: 1.U3
 ## do differently about a manifest that disagrees and about a directory that is
 ## not where the application was started from. The reason is not lost: the asset
 ## owner's counters separate a refused open from a refused read.
-read_cover! : {} => Art
-read_cover! = |{}| match Assets.open!(Assets.with_manifest(Assets.working_directory("examples/music-player/assets"), art_manifest)) {
+read_cover! : Program.Access => Art
+read_cover! = |access| match Assets.open!(access, Assets.with_manifest(Assets.working_directory("examples/music-player/assets"), art_manifest)) {
 	Err(_) => NoCover
 	Ok(store) => match store.read!("art/nocturne-cover.jpg") {
 		Err(_) => NoCover
@@ -106,12 +109,12 @@ scan = |state| Action.task({
 	run: || {
 		## The cover is read whatever the chooser goes on to answer. A folder a
 		## person declined to pick is not a reason for the sleeve to stay bare.
-		art = read_cover!({})
-		outcome = match Files.pick_directory!() {
+		art = read_cover!(state.access)
+		outcome = match Files.pick_directory!(state.access) {
 			Err(PickDirectoryErr(Unavailable)) => ScanFailed("This system offers no folder chooser")
 			Err(_) => ScanFailed("Music folder access was denied")
 			Ok(Canceled) => ScanCanceled
-			Ok(Chosen(selection)) => match Audio.acquire!() {
+			Ok(Chosen(selection)) => match Audio.acquire!(state.access) {
 				Err(err) => ScanFailed(audio_error(err))
 				Ok(output) => match selection.directory.list!() {
 					Err(_) => ScanFailed("Music folder could not be read")

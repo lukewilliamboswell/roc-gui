@@ -67,7 +67,7 @@ initial_items = KeyedSeq.from_list([
 
 main : Program(State)
 main = Program.run({
-	init: { items: initial_items },
+	init: |_access| { items: initial_items },
 	render,
 	window: { title: "Keyed column", width: 640, height: 480, background: Gui.rgb(0xFFFFFF), foreground: Gui.rgb(0x202020) },
 })

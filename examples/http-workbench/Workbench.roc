@@ -1,5 +1,6 @@
 ## Request document state, the authority the bench currently holds, and the
 ## asynchronous HTTP transitions between them.
+import pf.Program
 import pf.Action
 import pf.Http
 import http.Request
@@ -17,8 +18,11 @@ Authority : [Unexercised, Granted(Str), Refused(Str)]
 Workbench := [].{
 	Authority : Authority
 	State : State
-	init : State
-	init = {
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| {
+		access,
 		method: "POST",
 		url: "",
 		query: "",
@@ -84,6 +88,7 @@ Workbench := [].{
 }
 
 State : {
+	access : Program.Access,
 	method : Str,
 	url : Str,
 	query : Str,
@@ -128,7 +133,7 @@ send_method = |state, method| {
 	Action.task({
 		pending: { ..state, next_id: id + 1, active_id: id, sending: True, error: "", remedy: "" },
 		run: || {
-			client = Http.acquire!()?
+			client = Http.acquire!(state.access)?
 			client.send!(Http.Config.{ timeout_ms: 2_000, max_response_bytes: 262_144 }, request)
 		},
 		resolve: |latest, result| if latest.active_id != id Action.none else match result {

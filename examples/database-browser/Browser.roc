@@ -1,6 +1,7 @@
 ## The browser's state, the authority it currently holds over one folder, and
 ## the asynchronous transitions between them. The mounted presentation lives in
 ## `View.roc`.
+import pf.Program
 import pf.Action
 import pf.Files
 import pf.Sqlite
@@ -20,6 +21,7 @@ Folder : { name : Str, directory : Files.Dir.Read, entries : List(Files.Entry) }
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
 State : {
+	access : Program.Access,
 	database : [None, Some(Sqlite.Db)],
 	folder : [None, Some(Folder)],
 	grant : Grant,
@@ -36,8 +38,11 @@ Browser := [].{
 	Grant : Grant
 	State : State
 	Status : Status
-	init : State
-	init = {
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| {
+		access,
 		database: None,
 		folder: None,
 		grant: Ungranted,
@@ -74,7 +79,7 @@ choose = |state| {
 	id = state.next_request
 	Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match Files.pick_directory!() {
+		run: || match Files.pick_directory!(state.access) {
 			Ok(Chosen(selection)) => match selection.directory.list!() {
 				Ok(entries) => ChosenFolder({ name: selection.name, directory: selection.directory, entries })
 				Err(_) => ChooseFailed

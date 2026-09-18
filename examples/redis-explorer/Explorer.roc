@@ -1,6 +1,7 @@
 ## The explorer's state, the authority it holds over one TCP endpoint, and the
 ## asynchronous transitions between them. The mounted presentation lives in
 ## `View.roc`.
+import pf.Program
 import pf.Action
 import pf.Tcp
 import redis.Bytes
@@ -34,14 +35,18 @@ Link : [
 ## that said no. Only a refusal is a statement about authority.
 Trouble : { message : Str, remedy : Str, denied : Bool }
 
-State : { keys : List(Key), link : Link, next_request : U64, pattern : Str, selection : [None, Some(Selection)], trouble : [None, Some(Trouble)] }
+State : {
+	access : Program.Access, keys : List(Key), link : Link, next_request : U64, pattern : Str, selection : [None, Some(Selection)], trouble : [None, Some(Trouble)] }
 
 Explorer := [].{
 	Link : Link
 	State : State
 	Trouble : Trouble
-	init : State
-	init = { keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| {
+		access, keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
 	connect : State -> Action(State)
 	connect = connect
 	disconnect : State, Tcp.Stream -> Action(State)
@@ -73,7 +78,7 @@ connect = |state| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, link: Opening(id), trouble: None },
 		run: || {
-			stream = Tcp.connect!() ? |error| ConnectFailed(tcp_trouble(error))
+			stream = Tcp.connect!(state.access) ? |error| ConnectFailed(tcp_trouble(error))
 			pong = connection(stream).request!(Commands.Session.ping()) ? |error| ConnectFailed(redis_trouble(error))
 			if pong == Bytes.from_str("PONG") {
 				Ok(stream)

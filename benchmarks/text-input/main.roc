@@ -45,4 +45,4 @@ render = |state| {
 }
 
 main : Program(State)
-main = Program.run({ init: { count: 100, search: "" }, render })
+main = Program.run({ init: |_access| { count: 100, search: "" }, render })

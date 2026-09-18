@@ -22,8 +22,8 @@ Clipboard := [].{
 	ClipboardErr : [AcquireClipboardErr(Reason), ReadClipboardErr(Reason), WriteClipboardErr(Reason)]
 
 	## Acquire the clipboard authority granted by the host.
-	acquire! : () => Try(Handle, ClipboardErr)
-	acquire! = || Host.clipboard_acquire!().map_ok(|handle| Handle.(handle)).map_err(|raw| AcquireClipboardErr(decode_reason(raw.code)))
+	acquire! : Resource.Access => Try(Handle, ClipboardErr)
+	acquire! = |_access| Host.clipboard_acquire!().map_ok(|handle| Handle.(handle)).map_err(|raw| AcquireClipboardErr(decode_reason(raw.code)))
 
 	decode_reason = |code| match code {
 		0 => AccessDenied

@@ -165,8 +165,8 @@ Assets := [].{
 	## `ContentHashMismatch` are the four comparisons that can disagree.
 	## `InvalidExpectation` is an expectation this host cannot use, such as a
 	## `Sha256` string that is not 64 hexadecimal characters.
-	open! : StoreConfig => Try(Store, AssetErr)
-	open! = |config| Host.assets_open!(encode_config(config)).map_ok(|handle| Store.(handle)).map_err(|code| OpenStoreErr(decode_reason(code)))
+	open! : Resource.Access, StoreConfig => Try(Store, AssetErr)
+	open! = |_access, config| Host.assets_open!(encode_config(config)).map_ok(|handle| Store.(handle)).map_err(|code| OpenStoreErr(decode_reason(code)))
 
 	encode_config : StoreConfig -> { root_kind : U8, root : Str, manifest_required : Bool, asset_set : Str, schema : U32, content_version : U32, content_mode : U8, content_hash : Str }
 	encode_config = |config| {

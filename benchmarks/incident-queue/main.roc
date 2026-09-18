@@ -189,7 +189,7 @@ render = |_state| Elem.keyed_col(render_row, { label: "Incident queue", padding:
 
 main : Program(State)
 main = Program.run({
-	init: create_queue(100, 1),
+	init: |_access| create_queue(100, 1),
 	render,
 	window: { title: "Incident queue churn", width: 1000, height: 760, background: Gui.rgb(0x101827), foreground: Gui.rgb(0xE8EEF7) },
 })

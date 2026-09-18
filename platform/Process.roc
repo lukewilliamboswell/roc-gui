@@ -44,6 +44,6 @@ Process := [].{
 
 	## Acquire the process authority explicitly granted with
 	## `--host-cap-process=local-shell|test-program`.
-	acquire! : () => Try(Grant, ProcessErr)
-	acquire! = || Host.process_acquire!().map_ok(|grant| Grant.(grant))
+	acquire! : Resource.Access => Try(Grant, ProcessErr)
+	acquire! = |_access| Host.process_acquire!().map_ok(|grant| Grant.(grant))
 }

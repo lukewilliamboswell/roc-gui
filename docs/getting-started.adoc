@@ -45,7 +45,7 @@ render : State -> Elem(State)
 render = |curr_state| Elem.text(curr_state.greeting)
 
 main : Program(State)
-main = Program.run({ init: { greeting: "Hello from Roc" }, render })
+main = Program.run({ init: |_access| { greeting: "Hello from Roc" }, render })
 ----
 
 Choose an executable name explicitly when building your application:

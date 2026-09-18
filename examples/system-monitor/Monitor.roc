@@ -3,6 +3,7 @@
 ## Nothing is read from the machine until a person asks for it. Asking acquires
 ## a sampler, starts a timer, and opens a *session*: the pair of resources that
 ## one run of sampling owns and is responsible for closing. Pausing closes both.
+import pf.Program
 import pf.Action
 import pf.SystemMonitor
 import pf.Timer
@@ -23,8 +24,10 @@ Monitor := [].{
 	capacity : U64
 	capacity = capacity
 
-	init : State
-	init = { filter: "", generation: 0, history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: Idle }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| { access, filter: "", generation: 0, history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: Idle }
 
 	## Begin a session. Acquisition is the whole authority question: if the host
 	## refuses, nothing is opened and nothing is read.
@@ -45,6 +48,7 @@ Session : { sampler : SystemMonitor.Sampler, timer : Timer.Handle }
 RunState : [Paused, Running(Session)]
 Status : [Failed(Str), Idle, Live, Paused, Refused]
 State : {
+	access : Program.Access,
 	filter : Str,
 	generation : U64,
 	history : List(SystemMonitor.Snapshot),
@@ -98,7 +102,7 @@ wait_next = |state, session, generation| Action.task({
 
 start! = |state| {
 	generation = state.generation + 1
-	match SystemMonitor.acquire!() {
+	match SystemMonitor.acquire!(state.access) {
 		Err(err) => Action.update({ ..state, status: acquire_status(err) })
 		Ok(sampler) => match Timer.start!({ interval_ms: 100 }) {
 			Err(_) => {

@@ -40,7 +40,10 @@ render = |state| {
 }
 
 main = Program.run({
-	init: { primary: Workspace.init, secondary: Workspace.init, split: False },
+	init: |access| {
+		start = Workspace.init
+		{ primary: start(access), secondary: start(access), split: False }
+	},
 	render,
 	window: { title: "Terminal Workspace", width: 900, height: 650 },
 })

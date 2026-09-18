@@ -38,6 +38,6 @@ Device := [].{
 	DeviceErr : [AcquireDeviceErr(Reason), ConnectDeviceErr(Reason), DiscoverDeviceErr(Reason), TransactDeviceErr(Reason), CloseDeviceErr(Reason)]
 
 	## Acquire only the HID authority configured by the host.
-	acquire! : () => Try(Grant, DeviceErr)
-	acquire! = || Host.device_acquire!().map_ok(|grant| Grant.(grant))
+	acquire! : Resource.Access => Try(Grant, DeviceErr)
+	acquire! = |_access| Host.device_acquire!().map_ok(|grant| Grant.(grant))
 }

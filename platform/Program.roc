@@ -1,13 +1,26 @@
 import Elem
 import Gui
 import Internal
+import Resource
 
 ## A GUI application with initial state and a pure renderer for that state.
 Program(state) := Config(state).{
 
+	## The authority this application was started with. Every acquisition takes
+	## one, and there is no way to produce one, so an application holds exactly
+	## the authority it was handed and a library holds exactly what it was
+	## passed.
+	##
+	## Keep it in your state if you acquire anything after the first frame; task
+	## closures need it where they run.
+	Access : Resource.Access
+
 	## Initial application data, renderer, and optional native window properties.
+	##
+	## `init` takes the application's authority rather than being a plain value,
+	## because that is the only place it can enter an application from.
 	Config(state) := {
-		init : state,
+		init : Access -> state,
 		render : state -> Elem(state),
 		window : WindowProps ?? {},
 	}
@@ -33,5 +46,8 @@ Program(state) := Config(state).{
 
 	## Mount a program in the native host and begin event dispatch.
 	start! : Program(state) => {}
-	start! = |Program.(Config.(config))| Internal.start!(config.init, config.render, config.window)
+	start! = |Program.(Config.(config))| {
+		init = config.init
+		Internal.start!(init(Resource.mint_access({})), config.render, config.window)
+	}
 }

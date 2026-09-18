@@ -1,3 +1,4 @@
+import pf.Program
 import pf.Action
 import pf.Elem
 import pf.Process
@@ -7,8 +8,10 @@ import "icons/search.svg" as search_icon : List(U8)
 
 Terminal := [].{
 	State : State
-	init : State
-	init = { command: "", generation: 0, lines: [], phase: Idle, query: "", status: "No session", tone: Rest }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| { access, command: "", generation: 0, lines: [], phase: Idle, query: "", status: "No session", tone: Rest }
 	start : State -> Action.Action(State)
 	start = start
 	cancel : State -> Action.Action(State)
@@ -31,7 +34,7 @@ Phase : [Idle, Live({ pty : Process.Pty, reading : Bool }), Starting, Stopped]
 ## the one colour in the palette stops meaning anything.
 Tone : [Rest, Attached, Refused]
 
-State : { command : Str, generation : U64, lines : List(Str), phase : Phase, query : Str, status : Str, tone : Tone }
+State : { access : Program.Access, command : Str, generation : U64, lines : List(Str), phase : Phase, query : Str, status : Str, tone : Tone }
 
 set_command = |state, command| { ..state, command }
 set_query = |state, query| { ..state, query }
@@ -99,7 +102,7 @@ start = |state| {
 	next_generation = state.generation + 1
 	Action.task({
 		pending: { ..state, generation: next_generation, lines: [], phase: Starting, status: "Starting session", tone: Attached },
-		run: || match Process.acquire!() {
+		run: || match Process.acquire!(state.access) {
 			Err(err) => StartFailed(err)
 			Ok(grant) => match grant.spawn!({ columns: 100, rows: 30 }) {
 				Err(err) => StartFailed(err)

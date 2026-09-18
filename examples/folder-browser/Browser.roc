@@ -1,3 +1,4 @@
+import pf.Program
 import pf.Action
 import pf.Elem
 import pf.Files
@@ -8,8 +9,10 @@ import "icons/corner-down-right.svg" as link_icon : List(U8)
 
 Browser := [].{
 	State : State
-	init : State
-	init = { next_request: 1, show_files: True, status: Ready, view: Empty }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| { access, next_request: 1, show_files: True, status: Ready, view: Empty }
 	render : State -> Elem(State)
 	render = render
 	## The window's own ground and ink, so `main.roc` can declare the identity
@@ -34,7 +37,7 @@ Failure : { hint : Str, message : Str, retry : Retry }
 ## looking as though the press did nothing.
 Status : [Busy(U64), Dismissed, Failed(Failure), Ready]
 
-State : { next_request : U64, show_files : Bool, status : Status, view : View }
+State : { access : Program.Access, next_request : U64, show_files : Bool, status : Status, view : View }
 
 ## Deep teal, lit from one direction: the window's ground is the darkest
 ## surface, panels sit one step above it, and rows one step above those. Nothing
@@ -159,7 +162,7 @@ start_pick = |state| {
 	request = begin(state)
 	Action.task({
 		pending: request.pending,
-		run: || match Files.pick_directory!() {
+		run: || match Files.pick_directory!(state.access) {
 			Err(error) => PickFailed({ hint: hint_for(error), message: describe(error) })
 			Ok(Canceled) => PickCanceled
 			Ok(Chosen(selection)) => match selection.directory.list!() {
