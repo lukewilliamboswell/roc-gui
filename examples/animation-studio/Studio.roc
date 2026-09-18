@@ -79,7 +79,15 @@ Studio := [].{
 		Move => match state.drag {
 			Idle => state
 			Moving(move) => {
-				moved = { ..state.document, shapes: state.document.shapes.map(|shape| if shape.id == move.id { ..shape, x: move.origin_x + event.x - move.start_x, y: move.origin_y + event.y - move.start_y } else shape) }
+				x = move.origin_x + event.x - move.start_x
+				y = move.origin_y + event.y - move.start_y
+				placed = { ..state.document, shapes: state.document.shapes.map(|shape| if shape.id == move.id { ..shape, x, y } else shape) }
+				## A keyed shape's position belongs to the frame it is being
+				## moved on, not to the shape, so the movement is recorded there
+				## as it happens. Without this the drag changed the one stored
+				## position, `apply_frame` overwrote it from the keys on the next
+				## scrub, and the move was silently lost.
+				moved = if is_keyed(state.document, move.id) record_key(placed, move.id, state.frame, x, y) else placed
 				## The first movement of a gesture is the edit, so that is where
 				## the snapshot belongs, and it is the document as it stood
 				## before the gesture began.
@@ -127,28 +135,81 @@ Studio := [].{
 		Ok(next) => restore({ ..state, redo: state.redo.drop_last(1), undo: state.undo.append(state.document) }, next, "Redid edit")
 	}
 
+	## One key per shape per frame: recording at a frame that already has one
+	## replaces it rather than leaving two for the frame to choose between.
+	##
+	## Kept in frame order. `apply_frame` reads the keys either side of the
+	## current frame, which are only the neighbouring keys if the list is ordered
+	## by frame; appended in the order a person happened to record them, a key
+	## set at frame 10 after one set at frame 40 would win everywhere past frame
+	## 40.
+	record_key : Document, U64, U32, I32, I32 -> Document
+	record_key = |document, id, frame, x, y| {
+		without = document.keyframes.keep_if(|key| !(key.shape_id == id and key.frame == frame))
+		keyframes = List.sort_with(without.append({ shape_id: id, frame, x, y }), |left, right| if left.frame < right.frame Before else if left.frame > right.frame After else Same)
+		{ ..document, keyframes }
+	}
+
+	## Whether a shape is animated at all. A shape with keys has no single
+	## position left to hold: every frame's position comes from its keys, so a
+	## move has to be recorded against the frame it was made on or it is
+	## discarded by the next scrub. A shape with no keys is a static layout
+	## object, and moving it simply moves it.
+	is_keyed = |document, id| document.keyframes.keep_if(|key| key.shape_id == id).len() > 0
+
 	add_keyframe = |state| match state.selected {
 		None => { ..state, status: "Select a shape before adding a keyframe" }
 		Some(id) => match state.document.shapes.find_first(|shape| shape.id == id) {
 			Err(_) => state
-			Ok(shape) => {
-				without = state.document.keyframes.keep_if(|key| !(key.shape_id == id and key.frame == state.frame))
-				key = { shape_id: id, frame: state.frame, x: shape.x, y: shape.y }
-				## Kept in frame order. `apply_frame` takes the last key at or
-				## before the current frame, which is only the latest key if the
-				## list is ordered by frame; appended in the order a person
-				## happened to record them, a key set at frame 10 after one set
-				## at frame 40 would win everywhere past frame 40.
-				keyframes = List.sort_with(without.append(key), |left, right| if left.frame < right.frame Before else if left.frame > right.frame After else Same)
-				{ ..state, document: { ..state.document, keyframes }, undo: state.undo.append(state.document), redo: [], status: "Keyframe for ${shape.name} at frame ${state.frame.to_str()}" }
+			Ok(shape) => { ..state,
+				document: record_key(state.document, id, state.frame, shape.x, shape.y),
+				undo: state.undo.append(state.document), redo: [],
+				status: "Keyframe for ${shape.name} at frame ${state.frame.to_str()}",
 			}
 		}
 	}
 
+	## Where a key puts a shape at a frame that is not the key's own. Two keys
+	## thirty frames apart describe a movement, and the frames between them are
+	## where that movement happens.
+	between : I32, I32, U32, U32, U32 -> I32
+	between = |from, to, at, start, end| {
+		span = U32.to_i32_wrap(end - start)
+		elapsed = U32.to_i32_wrap(at - start)
+		travelled = (to - from) * elapsed
+		## Rounded to a whole pixel away from zero on a tie, so a movement reads
+		## the same travelled left as travelled right.
+		rounded = if travelled < 0 (travelled - span / 2) / span else (travelled + span / 2) / span
+		from + rounded
+	}
+
+	## A frame is a pure function of the keys and the frame number. Between two
+	## keys a shape is partway through the movement they describe; before the
+	## first and after the last there is nothing to move towards, so that key
+	## holds. A shape with no keys at all stays where it was put.
+	##
+	## Taking only the last key at or before the frame was two defects at once. A
+	## shape held still between its keys and then jumped, which is not the motion
+	## anyone recorded. And before its first key there was no key to take, so the
+	## position was left at whatever the previously applied frame had written into
+	## the document; playback wraps from the last frame to zero, so every loop
+	## started where the previous one ended and the animation drifted.
 	apply_frame = |state| {
-		shapes = state.document.shapes.map(|shape| match state.document.keyframes.keep_if(|key| key.shape_id == shape.id and key.frame <= state.frame).last() {
-			Err(_) => shape
-			Ok(key) => { ..shape, x: key.x, y: key.y }
+		shapes = state.document.shapes.map(|shape| {
+			keys = state.document.keyframes.keep_if(|key| key.shape_id == shape.id)
+			match keys.keep_if(|key| key.frame <= state.frame).last() {
+				Err(_) => match keys.first() {
+					Err(_) => shape
+					Ok(next) => { ..shape, x: next.x, y: next.y }
+				}
+				Ok(previous) => match keys.keep_if(|key| key.frame > state.frame).first() {
+					Err(_) => { ..shape, x: previous.x, y: previous.y }
+					Ok(next) => { ..shape,
+						x: between(previous.x, next.x, state.frame, previous.frame, next.frame),
+						y: between(previous.y, next.y, state.frame, previous.frame, next.frame),
+					}
+				}
+			}
 		})
 		{ ..state, document: { ..state.document, shapes } }
 	}
