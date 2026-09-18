@@ -12,11 +12,11 @@ import sys
 import tempfile
 import threading
 
+from host_build_identity import TARGETS
 from toolchain import replace_platform
 from run_specs import Case, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac"}
 
 
 def check(directory: Path, roc: str) -> None:
