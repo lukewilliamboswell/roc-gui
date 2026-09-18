@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from dependency_archive import write_archive
 from dependency_artifacts import materialize, read_lock, unpack_verified
 from host_notice_payload import NOTICE_FILES, SOURCE_KIND, validate_notices, validate_sources
+from toolchain import app_platform_span, replace_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "lukewilliamboswell/roc-gui"
@@ -192,10 +193,12 @@ def check_candidate(archive, target, roc, root=ROOT, source_companion=None):
         shutil.copytree(root / "examples/counter", app)
         source = app / "main.roc"
         text = source.read_text()
-        marker = 'platform "../../platform/main.roc"'
-        if marker not in text:
+        # The staged app sits one directory shallower than in the checkout, so
+        # its header must be repointed. Parsing the header rather than matching
+        # a literal keeps this honest if the example's formatting changes.
+        if app_platform_span(text) is None:
             raise ValueError("counter platform declaration changed")
-        source.write_text(text.replace(marker, 'platform "../platform/main.roc"', 1))
+        source.write_text(replace_platform(text, "../platform/main.roc"))
         executable = stage / "counter-app"
         subprocess.run([roc, "build", "--no-cache", f"--target={target}", "--opt=dev",
                         f"--output={executable}", str(source)], cwd=stage, check=True, timeout=180)

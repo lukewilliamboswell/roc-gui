@@ -107,10 +107,10 @@ class PublicationTests(unittest.TestCase):
         sha = '1' * 40
         environment = {'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF': 'refs/heads/main',
                        'GITHUB_REPOSITORY': 'lukewilliamboswell/roc-gui', 'GITHUB_SHA': sha}
-        with tempfile.TemporaryDirectory() as temporary, patch('release_windows_system_imports.subprocess.check_output', return_value=sha):
+        with tempfile.TemporaryDirectory() as temporary, patch('release_dependencies.subprocess.check_output', return_value=sha):
             root = Path(temporary)
             (root / 'windows-system-imports-x64mingw.tar').write_bytes(b'unattested')
-            with patch('release_windows_system_imports.verify_archive', side_effect=ValueError('signature rejected')) as verifier, patch('release_windows_system_imports.unpack_verified') as unpack:
+            with patch('release_windows_inputs.verify_archive', side_effect=ValueError('signature rejected')) as verifier, patch('release_windows_inputs.unpack_verified') as unpack:
                 with self.assertRaisesRegex(ValueError, 'signature rejected'):
                     prepare(root, 'deps-windows-system-imports-1', environment)
                 verifier.assert_called_once()
@@ -121,7 +121,7 @@ class PublicationTests(unittest.TestCase):
         sha = '1' * 40
         environment = {'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF': 'refs/heads/main',
                        'GITHUB_REPOSITORY': 'lukewilliamboswell/roc-gui', 'GITHUB_SHA': sha}
-        with tempfile.TemporaryDirectory() as temporary, patch('release_windows_system_imports.subprocess.check_output', return_value=sha), patch('release_windows_system_imports.verify_archive'):
+        with tempfile.TemporaryDirectory() as temporary, patch('release_dependencies.subprocess.check_output', return_value=sha), patch('release_windows_inputs.verify_archive'):
             root = Path(temporary)
             write_archive(root / 'windows-system-imports-x64mingw.tar',
                           {'schema_version': 1, 'name': 'windows-system-imports', 'version': '1', 'target': 'x64mingw', 'source': {}},
