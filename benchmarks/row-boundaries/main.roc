@@ -153,4 +153,4 @@ render = |state| {
 }
 
 main : Program(State)
-main = Program.run({ init: create_rows(0), render })
+main = Program.run({ init: |_access| create_rows(0), render })

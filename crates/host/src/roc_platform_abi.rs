@@ -4499,12 +4499,12 @@ pub enum AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOr
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload {
-    pub acquire_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
-    pub cancel_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
-    pub read_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
-    pub resize_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
-    pub spawn_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
-    pub write_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>,
+    pub acquire_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>,
+    pub cancel_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>,
+    pub read_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>,
+    pub resize_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>,
+    pub spawn_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>,
+    pub write_process_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -4537,8 +4537,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_acquire_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_acquire_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Borrow the `AcquireProcessErr` payload without creating another owner.
@@ -4546,8 +4546,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_acquire_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(&self.payload.acquire_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_acquire_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(&self.payload.acquire_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `AcquireProcessErr` payload out of one owned tag-union shell.
@@ -4555,8 +4555,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_acquire_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn take_payload_acquire_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `AcquireProcessErr` payload out of one owned tag-union shell.
@@ -4564,7 +4564,7 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::AcquireProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_acquire_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    pub unsafe fn take_payload_acquire_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.acquire_process_err) }
     }
 
@@ -4573,8 +4573,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_cancel_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_cancel_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Borrow the `CancelProcessErr` payload without creating another owner.
@@ -4582,8 +4582,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_cancel_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(&self.payload.cancel_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_cancel_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(&self.payload.cancel_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `CancelProcessErr` payload out of one owned tag-union shell.
@@ -4591,8 +4591,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_cancel_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn take_payload_cancel_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `CancelProcessErr` payload out of one owned tag-union shell.
@@ -4600,7 +4600,7 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::CancelProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_cancel_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    pub unsafe fn take_payload_cancel_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.cancel_process_err) }
     }
 
@@ -4609,8 +4609,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_read_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_read_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Borrow the `ReadProcessErr` payload without creating another owner.
@@ -4618,8 +4618,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_read_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(&self.payload.read_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_read_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(&self.payload.read_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `ReadProcessErr` payload out of one owned tag-union shell.
@@ -4627,8 +4627,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_read_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn take_payload_read_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `ReadProcessErr` payload out of one owned tag-union shell.
@@ -4636,7 +4636,7 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ReadProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_read_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    pub unsafe fn take_payload_read_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.read_process_err) }
     }
 
@@ -4645,8 +4645,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_resize_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_resize_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Borrow the `ResizeProcessErr` payload without creating another owner.
@@ -4654,8 +4654,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_resize_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(&self.payload.resize_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_resize_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(&self.payload.resize_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `ResizeProcessErr` payload out of one owned tag-union shell.
@@ -4663,8 +4663,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_resize_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn take_payload_resize_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `ResizeProcessErr` payload out of one owned tag-union shell.
@@ -4672,7 +4672,7 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::ResizeProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_resize_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    pub unsafe fn take_payload_resize_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.resize_process_err) }
     }
 
@@ -4681,8 +4681,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_spawn_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_spawn_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Borrow the `SpawnProcessErr` payload without creating another owner.
@@ -4690,8 +4690,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_spawn_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(&self.payload.spawn_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_spawn_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(&self.payload.spawn_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `SpawnProcessErr` payload out of one owned tag-union shell.
@@ -4699,8 +4699,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_spawn_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn take_payload_spawn_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `SpawnProcessErr` payload out of one owned tag-union shell.
@@ -4708,7 +4708,7 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::SpawnProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_spawn_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    pub unsafe fn take_payload_spawn_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.spawn_process_err) }
     }
 
@@ -4717,8 +4717,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_write_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_write_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Borrow the `WriteProcessErr` payload without creating another owner.
@@ -4726,8 +4726,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_write_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { &*(&self.payload.write_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn borrow_payload_write_process_err_unchecked(&self) -> &AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { &*(&self.payload.write_process_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported> as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `WriteProcessErr` payload out of one owned tag-union shell.
@@ -4735,8 +4735,8 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_write_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported) }
+    pub unsafe fn take_payload_write_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported) }
     }
 
     /// Move the `WriteProcessErr` payload out of one owned tag-union shell.
@@ -4744,7 +4744,7 @@ impl AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpaw
     /// # Safety
     /// `self.tag` must be `AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag::WriteProcessErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_write_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+    pub unsafe fn take_payload_write_process_err_unchecked(&mut self) -> AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.write_process_err) }
     }
 
@@ -4763,10 +4763,10 @@ const _: () = assert!(core::mem::align_of::<AcquireProcessErrOrCancelProcessErrO
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr, tag) == 1, "AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr tag offset mismatch");
 
-/// Tag union: AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported
+/// Tag union: AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+pub enum AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
     AccessDenied = 0,
     Busy = 1,
     Exited = 2,
@@ -4774,17 +4774,18 @@ pub enum AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourc
     InvalidSize = 4,
     Io = 5,
     ResourceLimit = 6,
-    Unsupported = 7,
+    Revoked = 7,
+    Unsupported = 8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported>() == 1, "AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported alignment mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -5636,11 +5637,11 @@ pub enum AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOr
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload {
-    pub acquire_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
-    pub close_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
-    pub connect_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
-    pub discover_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
-    pub transact_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>,
+    pub acquire_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>,
+    pub close_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>,
+    pub connect_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>,
+    pub discover_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>,
+    pub transact_device_err: core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -5673,8 +5674,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Borrow the `AcquireDeviceErr` payload without creating another owner.
@@ -5682,8 +5683,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(&self.payload.acquire_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_acquire_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.acquire_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `AcquireDeviceErr` payload out of one owned tag-union shell.
@@ -5691,8 +5692,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `AcquireDeviceErr` payload out of one owned tag-union shell.
@@ -5700,7 +5701,7 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::AcquireDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    pub unsafe fn take_payload_acquire_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.acquire_device_err) }
     }
 
@@ -5709,8 +5710,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Borrow the `CloseDeviceErr` payload without creating another owner.
@@ -5718,8 +5719,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(&self.payload.close_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_close_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.close_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `CloseDeviceErr` payload out of one owned tag-union shell.
@@ -5727,8 +5728,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `CloseDeviceErr` payload out of one owned tag-union shell.
@@ -5736,7 +5737,7 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::CloseDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    pub unsafe fn take_payload_close_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.close_device_err) }
     }
 
@@ -5745,8 +5746,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Borrow the `ConnectDeviceErr` payload without creating another owner.
@@ -5754,8 +5755,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(&self.payload.connect_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_connect_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.connect_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `ConnectDeviceErr` payload out of one owned tag-union shell.
@@ -5763,8 +5764,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `ConnectDeviceErr` payload out of one owned tag-union shell.
@@ -5772,7 +5773,7 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::ConnectDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    pub unsafe fn take_payload_connect_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.connect_device_err) }
     }
 
@@ -5781,8 +5782,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Borrow the `DiscoverDeviceErr` payload without creating another owner.
@@ -5790,8 +5791,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(&self.payload.discover_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_discover_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.discover_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `DiscoverDeviceErr` payload out of one owned tag-union shell.
@@ -5799,8 +5800,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `DiscoverDeviceErr` payload out of one owned tag-union shell.
@@ -5808,7 +5809,7 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::DiscoverDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    pub unsafe fn take_payload_discover_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.discover_device_err) }
     }
 
@@ -5817,8 +5818,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Borrow the `TransactDeviceErr` payload without creating another owner.
@@ -5826,8 +5827,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { &*(&self.payload.transact_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn borrow_payload_transact_device_err_unchecked(&self) -> &AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { &*(&self.payload.transact_device_err as *const core::mem::ManuallyDrop<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported> as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `TransactDeviceErr` payload out of one owned tag-union shell.
@@ -5835,8 +5836,8 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported) }
+    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported) }
     }
 
     /// Move the `TransactDeviceErr` payload out of one owned tag-union shell.
@@ -5844,7 +5845,7 @@ impl AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTran
     /// # Safety
     /// `self.tag` must be `AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag::TransactDeviceErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+    pub unsafe fn take_payload_transact_device_err_unchecked(&mut self) -> AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.transact_device_err) }
     }
 
@@ -5863,10 +5864,10 @@ const _: () = assert!(core::mem::align_of::<AcquireDeviceErrOrCloseDeviceErrOrCo
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr, tag) == 1, "AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr tag offset mismatch");
 
-/// Tag union: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported
+/// Tag union: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+pub enum AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
     AccessDenied = 0,
     Busy = 1,
     Closed = 2,
@@ -5877,18 +5878,19 @@ pub enum AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidReq
     NotFound = 7,
     Protocol = 8,
     ResourceLimit = 9,
-    Timeout = 10,
-    Unsupported = 11,
+    Revoked = 10,
+    Timeout = 11,
+    Unsupported = 12,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported>() == 1, "AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported alignment mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -7010,7 +7012,7 @@ pub enum HostGlueHttpAcquireResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union HostGlueHttpAcquireResultPayload {
-    pub err: core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>,
+    pub err: core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme>,
     pub ok: core::mem::ManuallyDrop<*mut u64>,
 }
 
@@ -7044,8 +7046,8 @@ impl HostGlueHttpAcquireResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -7053,8 +7055,8 @@ impl HostGlueHttpAcquireResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme> as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme> as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7062,8 +7064,8 @@ impl HostGlueHttpAcquireResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7071,7 +7073,7 @@ impl HostGlueHttpAcquireResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpAcquireResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -7126,10 +7128,10 @@ const _: () = assert!(core::mem::align_of::<HostGlueHttpAcquireResult>() == 4, "
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(HostGlueHttpAcquireResult, tag) == 4, "HostGlueHttpAcquireResult tag offset mismatch");
 
-/// Tag union: AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme
+/// Tag union: AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+pub enum AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
     AccessDenied = 0,
     BodyTooLarge = 1,
     ConnectFailed = 2,
@@ -7138,18 +7140,19 @@ pub enum AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHe
     InvalidRequest = 5,
     InvalidUrl = 6,
     RedirectLimit = 7,
-    Timeout = 8,
-    UnsupportedScheme = 9,
+    Revoked = 8,
+    Timeout = 9,
+    UnsupportedScheme = 10,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme size mismatch");
+const _: () = assert!(core::mem::size_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme>() == 1, "AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme alignment mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -7162,7 +7165,7 @@ pub enum HostGlueHttpSendResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union HostGlueHttpSendResultPayload {
-    pub err: core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme>,
+    pub err: core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme>,
     pub ok: core::mem::ManuallyDrop<AnonStructBe6bcbc15f8a1360>,
 }
 
@@ -7196,8 +7199,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -7205,8 +7208,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme> as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme> as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7214,8 +7217,8 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7223,7 +7226,7 @@ impl HostGlueHttpSendResult {
     /// # Safety
     /// `self.tag` must be `HostGlueHttpSendResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -11128,7 +11131,7 @@ pub struct HostGlueTcpCloseArgs {
 }
 
 /// Arguments for HostGlue.process_spawn!
-/// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11138,7 +11141,7 @@ pub struct HostGlueProcessSpawnArgs {
 }
 
 /// Arguments for HostGlue.process_read!
-/// Roc signature: Resource.Handle([PtyResource]), U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Roc signature: Resource.Handle([PtyResource]), U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11148,7 +11151,7 @@ pub struct HostGlueProcessReadArgs {
 }
 
 /// Arguments for HostGlue.process_write!
-/// Roc signature: Resource.Handle([PtyResource]), List(U8) => Try(U32, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Roc signature: Resource.Handle([PtyResource]), List(U8) => Try(U32, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11158,7 +11161,7 @@ pub struct HostGlueProcessWriteArgs {
 }
 
 /// Arguments for HostGlue.process_resize!
-/// Roc signature: Resource.Handle([PtyResource]), { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Roc signature: Resource.Handle([PtyResource]), { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11168,7 +11171,7 @@ pub struct HostGlueProcessResizeArgs {
 }
 
 /// Arguments for HostGlue.process_cancel!
-/// Roc signature: Resource.Handle([PtyResource]) => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+/// Roc signature: Resource.Handle([PtyResource]) => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11177,7 +11180,7 @@ pub struct HostGlueProcessCancelArgs {
 }
 
 /// Arguments for HostGlue.device_discover!
-/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11186,7 +11189,7 @@ pub struct HostGlueDeviceDiscoverArgs {
 }
 
 /// Arguments for HostGlue.device_connect!
-/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11195,7 +11198,7 @@ pub struct HostGlueDeviceConnectArgs {
 }
 
 /// Arguments for HostGlue.device_transact!
-/// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11205,7 +11208,7 @@ pub struct HostGlueDeviceTransactArgs {
 }
 
 /// Arguments for HostGlue.device_close!
-/// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+/// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11392,7 +11395,7 @@ pub struct HostGlueTimerCancelArgs {
 }
 
 /// Arguments for HostGlue.http_send!
-/// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
+/// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Revoked, Timeout, UnsupportedScheme])
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -11410,7 +11413,7 @@ pub struct HostGlueHttpSendArgs {
 }
 
 /// Arguments for HostGlue.http_send!
-/// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
+/// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Revoked, Timeout, UnsupportedScheme])
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -11597,115 +11600,115 @@ pub type HostGlueTcpCloseResultTag = HostGlueTcpWriteAllResultTag;
 pub type HostGlueProcessAcquireErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 pub type HostGlueProcessAcquireErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 pub type HostGlueProcessAcquireErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
-pub type HostGlueProcessAcquireErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessAcquireErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessAcquireErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessAcquireErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessAcquireErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessAcquireErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessAcquireErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessAcquireErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessAcquireErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessAcquireErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessAcquireErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessAcquireErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
 pub type HostGlueProcessSpawnArg1 = AnonStruct93136bf334c2a2fc;
 pub type HostGlueProcessSpawnErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 pub type HostGlueProcessSpawnErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 pub type HostGlueProcessSpawnErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
-pub type HostGlueProcessSpawnErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessSpawnErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessSpawnErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessSpawnErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessSpawnErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessSpawnErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessSpawnErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessSpawnErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessSpawnErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessSpawnErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessSpawnErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessSpawnErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
 pub type HostGlueProcessReadErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 pub type HostGlueProcessReadErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 pub type HostGlueProcessReadErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
-pub type HostGlueProcessReadErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessReadErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessReadErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessReadErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessReadErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessReadErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessReadErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessReadErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessReadErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessReadErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessReadErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessReadErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
 pub type HostGlueProcessReadOk = CanceledOrDataOrEndOfFile;
 pub type HostGlueProcessReadOkPayload = CanceledOrDataOrEndOfFilePayload;
 pub type HostGlueProcessReadOkTag = CanceledOrDataOrEndOfFileTag;
 pub type HostGlueProcessWriteErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 pub type HostGlueProcessWriteErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 pub type HostGlueProcessWriteErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
-pub type HostGlueProcessWriteErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessWriteErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessWriteErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessWriteErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessWriteErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessWriteErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessWriteErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessWriteErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessWriteErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessWriteErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessWriteErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessWriteErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
 pub type HostGlueProcessResizeArg1 = AnonStruct93136bf334c2a2fc;
 pub type HostGlueProcessResizeErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 pub type HostGlueProcessResizeErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 pub type HostGlueProcessResizeErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
-pub type HostGlueProcessResizeErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessResizeErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessResizeErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessResizeErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessResizeErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessResizeErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessResizeErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessResizeErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessResizeErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessResizeErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessResizeErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessResizeErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
 pub type HostGlueProcessCancelErr = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 pub type HostGlueProcessCancelErrPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 pub type HostGlueProcessCancelErrTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
-pub type HostGlueProcessCancelErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessCancelErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessCancelErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessCancelErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessCancelErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
-pub type HostGlueProcessCancelErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+pub type HostGlueProcessCancelErrAcquireProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessCancelErrCancelProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessCancelErrReadProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessCancelErrResizeProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessCancelErrSpawnProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
+pub type HostGlueProcessCancelErrWriteProcessErr = AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
 pub type HostGlueProcessCancelOk = AlreadyStoppedOrCanceled;
 pub type HostGlueDeviceAcquireErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
 pub type HostGlueDeviceAcquireErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
 pub type HostGlueDeviceAcquireErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
-pub type HostGlueDeviceAcquireErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceAcquireErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceAcquireErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceAcquireErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceAcquireErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceAcquireErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
 pub type HostGlueDeviceDiscoverErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
 pub type HostGlueDeviceDiscoverErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
 pub type HostGlueDeviceDiscoverErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
-pub type HostGlueDeviceDiscoverErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceDiscoverErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceDiscoverErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceDiscoverErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceDiscoverErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceDiscoverErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
 pub type HostGlueDeviceDiscoverOk = AnonStruct27556b2f7cb4f65f;
 pub type HostGlueDeviceConnectErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
 pub type HostGlueDeviceConnectErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
 pub type HostGlueDeviceConnectErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
-pub type HostGlueDeviceConnectErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceConnectErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceConnectErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceConnectErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceConnectErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceConnectErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
 pub type HostGlueDeviceTransactErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
 pub type HostGlueDeviceTransactErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
 pub type HostGlueDeviceTransactErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
-pub type HostGlueDeviceTransactErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceTransactErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceTransactErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceTransactErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceTransactErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceTransactErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
 pub type HostGlueDeviceCloseErr = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
 pub type HostGlueDeviceCloseErrPayload = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrPayload;
 pub type HostGlueDeviceCloseErrTag = AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErrTag;
-pub type HostGlueDeviceCloseErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceCloseErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceCloseErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceCloseErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
-pub type HostGlueDeviceCloseErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrAcquireDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrCloseDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrConnectDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrDiscoverDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
+pub type HostGlueDeviceCloseErrTransactDeviceErr = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
 pub type HostGlueSystemSampleOk = AnonStruct98efc21233c140ff;
 pub type HostGlueSystemSampleOkProcesses = AnonStruct916a0c1ad2ed4712;
 pub type HostGlueSystemCloseResult = HostGlueTcpWriteAllResult;
@@ -11720,10 +11723,10 @@ pub type MountOrNoChangeOrReplaceMount = AnonStruct8ae3ad5a5c0e22dc;
 pub type MountOrNoChangeOrReplaceReplace = AnonStruct8d3c9b3ac95ef074;
 pub type HostGlueHttpSendArg0 = AnonStructE6f574a7975f5cda;
 pub type HostGlueHttpSendArg0Headers = AnonStruct77eaba63dfee299d;
-pub type HostGlueHttpSendErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme;
+pub type HostGlueHttpSendErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme;
 pub type HostGlueHttpSendOk = AnonStructBe6bcbc15f8a1360;
 pub type HostGlueHttpSendOkHeaders = AnonStruct77eaba63dfee299d;
-pub type HostGlueHttpAcquireErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme;
+pub type HostGlueHttpAcquireErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme;
 pub type InternalFilesPickDirectoryErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
 pub type InternalFilesPickDirectoryErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
 pub type InternalFilesPickDirectoryErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
@@ -13202,7 +13205,7 @@ unsafe impl RocRelease<AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResi
     }
 }
 
-impl AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported {
+impl AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -13223,10 +13226,10 @@ impl AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLim
     }
 }
 
-pub struct AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupportedRelease;
+pub struct AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupportedRelease;
 
-unsafe impl RocRelease<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported> for AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupportedRelease {
-    unsafe fn release(value: AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported, roc_host: &RocHost) {
+unsafe impl RocRelease<AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported> for AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupportedRelease {
+    unsafe fn release(value: AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -13691,7 +13694,7 @@ unsafe impl RocRelease<AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDisco
     }
 }
 
-impl AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported {
+impl AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -13712,10 +13715,10 @@ impl AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequest
     }
 }
 
-pub struct AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupportedRelease;
+pub struct AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupportedRelease;
 
-unsafe impl RocRelease<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported> for AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupportedRelease {
-    unsafe fn release(value: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported, roc_host: &RocHost) {
+unsafe impl RocRelease<AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported> for AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupportedRelease {
+    unsafe fn release(value: AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -14397,7 +14400,7 @@ unsafe impl RocRelease<HostGlueHttpAcquireResult> for HostGlueHttpAcquireResultR
     }
 }
 
-impl AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme {
+impl AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -14418,10 +14421,10 @@ impl AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeader
     }
 }
 
-pub struct AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease;
+pub struct AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedSchemeRelease;
 
-unsafe impl RocRelease<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme> for AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedSchemeRelease {
-    unsafe fn release(value: AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrTimeoutOrUnsupportedScheme, roc_host: &RocHost) {
+unsafe impl RocRelease<AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme> for AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedSchemeRelease {
+    unsafe fn release(value: AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -15732,12 +15735,12 @@ unsafe extern "C" {
     pub fn roc_tcp_close(arg0: *mut u64) -> HostGlueTcpWriteAllResult;
 
     /// Hosted symbol for HostGlue.process_acquire!
-    /// Roc signature: {} => Try(Resource.Handle([ProcessGrantResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Roc signature: {} => Try(Resource.Handle([ProcessGrantResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_process_acquire() -> HostGlueProcessAcquireResult;
 
     /// Hosted symbol for HostGlue.process_spawn!
-    /// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Roc signature: Resource.Handle([ProcessGrantResource]), { columns : U16, rows : U16 } => Try(Resource.Handle([PtyResource]), [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15746,7 +15749,7 @@ unsafe extern "C" {
     pub fn roc_process_spawn(arg0: *mut u64, arg1: AnonStruct93136bf334c2a2fc) -> HostGlueProcessSpawnResult;
 
     /// Hosted symbol for HostGlue.process_read!
-    /// Roc signature: Resource.Handle([PtyResource]), U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Roc signature: Resource.Handle([PtyResource]), U32 => Try([Canceled, Data(List(U8)), EndOfFile], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15754,7 +15757,7 @@ unsafe extern "C" {
     pub fn roc_process_read(arg0: *mut u64, arg1: u32) -> HostGlueProcessReadResult;
 
     /// Hosted symbol for HostGlue.process_write!
-    /// Roc signature: Resource.Handle([PtyResource]), List(U8) => Try(U32, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Roc signature: Resource.Handle([PtyResource]), List(U8) => Try(U32, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15762,7 +15765,7 @@ unsafe extern "C" {
     pub fn roc_process_write(arg0: *mut u64, arg1: RocListWith<u8, false>) -> HostGlueProcessWriteResult;
 
     /// Hosted symbol for HostGlue.process_resize!
-    /// Roc signature: Resource.Handle([PtyResource]), { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Roc signature: Resource.Handle([PtyResource]), { columns : U16, rows : U16 } => Try({}, [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15770,19 +15773,19 @@ unsafe extern "C" {
     pub fn roc_process_resize(arg0: *mut u64, arg1: AnonStruct93136bf334c2a2fc) -> HostGlueProcessResizeResult;
 
     /// Hosted symbol for HostGlue.process_cancel!
-    /// Roc signature: Resource.Handle([PtyResource]) => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported])])
+    /// Roc signature: Resource.Handle([PtyResource]) => Try([AlreadyStopped, Canceled], [AcquireProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), CancelProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ReadProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), ResizeProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), SpawnProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]), WriteProcessErr([AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     pub fn roc_process_cancel(arg0: *mut u64) -> HostGlueProcessCancelResult;
 
     /// Hosted symbol for HostGlue.device_acquire!
-    /// Roc signature: {} => Try(Resource.Handle([DeviceGrantResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Roc signature: {} => Try(Resource.Handle([DeviceGrantResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_device_acquire() -> HostGlueDeviceAcquireResult;
 
     /// Hosted symbol for HostGlue.device_discover!
-    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(List({ manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15790,7 +15793,7 @@ unsafe extern "C" {
     pub fn roc_device_discover(arg0: *mut u64) -> HostGlueDeviceDiscoverResult;
 
     /// Hosted symbol for HostGlue.device_connect!
-    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Roc signature: Resource.Handle([DeviceGrantResource]) => Try(Resource.Handle([DeviceConnectionResource]), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15798,7 +15801,7 @@ unsafe extern "C" {
     pub fn roc_device_connect(arg0: *mut u64) -> HostGlueDeviceConnectResult;
 
     /// Hosted symbol for HostGlue.device_transact!
-    /// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Roc signature: Resource.Handle([DeviceConnectionResource]), List(U8) => Try(List(U8), [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15807,7 +15810,7 @@ unsafe extern "C" {
     pub fn roc_device_transact(arg0: *mut u64, arg1: RocListWith<u8, false>) -> HostGlueDeviceTransactResult;
 
     /// Hosted symbol for HostGlue.device_close!
-    /// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported])])
+    /// Roc signature: Resource.Handle([DeviceConnectionResource]) => Try({}, [AcquireDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), CloseDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), ConnectDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), DiscoverDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]), TransactDeviceErr([AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15905,7 +15908,7 @@ unsafe extern "C" {
     pub fn roc_gui_timer_cancel(arg0: *mut u64) -> bool;
 
     /// Hosted symbol for HostGlue.http_send!
-    /// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
+    /// Roc signature: { body : List(U8), client : Resource.Handle([HttpClientResource]), headers : List((Str, Str)), max_redirects : U8, max_response_bytes : U64, method : U8, method_ext : Str, timeout_ms : U64, url : Str } => Try({ body : List(U8), headers : List((Str, Str)), status : U16 }, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Revoked, Timeout, UnsupportedScheme])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -15913,7 +15916,7 @@ unsafe extern "C" {
     pub fn roc_http_send(arg0: HostGlueHttpSendArgs) -> HostGlueHttpSendResult;
 
     /// Hosted symbol for HostGlue.http_acquire!
-    /// Roc signature: {} => Try(Resource.Handle([HttpClientResource]), [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Timeout, UnsupportedScheme])
+    /// Roc signature: {} => Try(Resource.Handle([HttpClientResource]), [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Revoked, Timeout, UnsupportedScheme])
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_http_acquire() -> HostGlueHttpAcquireResult;
 

@@ -184,4 +184,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: { shape: Empty }, render })
+main = Program.run({ init: |_access| { shape: Empty }, render })

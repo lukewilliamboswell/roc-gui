@@ -85,7 +85,7 @@ accept_or_archive = |candidate| if candidate.item.archived {
 
 main : Program(State)
 main = Program.run({
-	init: initial,
+	init: |_access| initial,
 	render,
 	window: { title: "Review queue", width: 500, height: 500 },
 })

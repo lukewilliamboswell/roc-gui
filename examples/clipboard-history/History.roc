@@ -1,3 +1,4 @@
+import pf.Program
 import pf.Action
 import pf.Clipboard
 import pf.Timer
@@ -20,9 +21,11 @@ History := [].{
 	## application cannot tell them apart from `run_state` alone.
 	Grant : [Unasked, Denied, Held]
 
-	State : { entries : List(Entry), search : Str, next_id : U64, last_sequence : U64, private_next : Bool, run_state : RunState, status : Str, tone : Tone, grant : Grant }
-	initial : State
-	initial = { entries: [], search: "", next_id: 1, last_sequence: 0, private_next: False, run_state: Paused, status: "Capture is off", tone: Rest, grant: Unasked }
+	State : { access : Program.Access, entries : List(Entry), search : Str, next_id : U64, last_sequence : U64, private_next : Bool, run_state : RunState, status : Str, tone : Tone, grant : Grant }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	initial : Program.Access -> State
+	initial = |access| { access, entries: [], search: "", next_id: 1, last_sequence: 0, private_next: False, run_state: Paused, status: "Capture is off", tone: Rest, grant: Unasked }
 	set_search = |state, value| { ..state, search: value }
 
 	## Arming the discard is reversible. It was not: once armed, the only way to
@@ -35,7 +38,7 @@ History := [].{
 	cancel_private = |state| { ..state, private_next: False, tone: Live, status: "Capturing clipboard changes" }
 
 	start! : State => Action(State)
-	start! = |state| match Clipboard.acquire!() {
+	start! = |state| match Clipboard.acquire!(state.access) {
 		Err(error) => Action.update({ ..state, grant: Denied, tone: Refused, status: describe(error) })
 		Ok(clipboard) => match Timer.start!({ interval_ms: 25 }) {
 			Err(_) => Action.update({ ..state, tone: Refused, status: "Clipboard timer could not start" })

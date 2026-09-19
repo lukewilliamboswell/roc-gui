@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{files, roc_host, roc_platform_abi::*};
 use rodio::{Decoder, DeviceSinkBuilder, Player, Source, mixer::Mixer};
 use std::{
@@ -65,6 +66,28 @@ pub fn counters() -> ([u64; 7], usize, usize) {
     let guard = store().lock().unwrap();
     (operations, guard.outputs.len(), guard.tracks.len())
 }
+/// What an audio output may do: reach the mixer, and derive the tracks played
+/// through it. It is never read or written itself — a track is.
+const OUTPUT_RIGHTS: Rights = Rights::CONNECT.union(Rights::DERIVE);
+
+/// What a loaded track may do. Status is a read and transport control is a
+/// write; neither is a subset of the output's rights, which is ordinary.
+const TRACK_RIGHTS: Rights = Rights::READ.union(Rights::WRITE);
+
+/// How an output grant arrives. The host flag enables the system device or a
+/// paced null sink; the ordinary mixer service the contract describes is not yet
+/// a person's decision.
+const OUTPUT_ORIGIN: Origin = Origin::Provisioned;
+
+/// A withdrawn grant and an invalid handle are different facts, so they carry
+/// different codes rather than both reporting an invalid capability.
+fn refusal(refusal: grant::Refusal, noun: &'static str) -> (u8, &'static str) {
+    match refusal {
+        grant::Refusal::Revoked => (7, "audio authority was withdrawn"),
+        _ => (1, noun),
+    }
+}
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -78,6 +101,7 @@ fn store() -> &'static Mutex<Store> {
 }
 
 pub fn configure(grant: Grant) {
+    grant::forget_kind(grant::Kind::Audio);
     let mut guard = store().lock().unwrap();
     guard.grant = grant;
     guard.outputs.clear();
@@ -99,7 +123,12 @@ fn allocate(guard: &mut Store, id: u64, track: bool) -> *mut u64 {
     let handle = unsafe { allocate_box(8, 8, false, roc_host()) as *mut u64 };
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(size_of::<isize>()) } as usize;
-    crate::register_resource_allocation(crate::resource_domain::AUDIO, &mut guard.allocations, base, (id, track));
+    crate::register_resource_allocation(
+        crate::resource_domain::AUDIO,
+        &mut guard.allocations,
+        base,
+        (id, track),
+    );
     handle
 }
 
@@ -108,6 +137,7 @@ fn id(handle: *mut u64) -> Option<u64> {
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
+    let mut released = None;
     if let Ok(mut guard) = store().lock()
         && let Some((id, track)) =
             crate::remove_resource_allocation(&mut guard.allocations, base as usize)
@@ -117,6 +147,10 @@ pub fn route_dealloc(base: *mut std::ffi::c_void) {
         } else {
             guard.outputs.remove(&id);
         }
+        released = Some(id);
+    }
+    if let Some(id) = released {
+        grant::release(grant::Kind::Audio, id);
     }
 }
 
@@ -184,6 +218,13 @@ pub extern "C" fn roc_audio_acquire() -> HostGlueAudioAcquireResult {
     let id = guard.next;
     guard.next += 1;
     guard.outputs.insert(id, output);
+    grant::record_root(
+        grant::Kind::Audio,
+        id,
+        OUTPUT_RIGHTS,
+        OUTPUT_ORIGIN,
+        Lifetime::Session,
+    );
     let handle = allocate(&mut guard, id, false);
     HostGlueAudioAcquireResult {
         payload: HostGlueAudioAcquireResultPayload {
@@ -239,6 +280,16 @@ pub extern "C" fn roc_audio_load(
         return fail(4, "audio duration is unavailable");
     };
     let mut guard = store().lock().unwrap();
+    let parent = match output_id
+        .ok_or(grant::Refusal::Unknown)
+        .and_then(|value| grant::accept(grant::Kind::Audio, value, Rights::CONNECT))
+    {
+        Ok(parent) => parent,
+        Err(why) => {
+            let (code, message) = refusal(why, "invalid audio output capability");
+            return fail(code, message);
+        }
+    };
     let Some(output) = output_id.and_then(|value| guard.outputs.get(&value)) else {
         return fail(1, "invalid audio output capability");
     };
@@ -256,6 +307,10 @@ pub extern "C" fn roc_audio_load(
             stopped: false,
         },
     );
+    // A track is the output's child, so losing the output loses everything
+    // playing through it, and a track can never outlive the authority that
+    // opened the device.
+    grant::record_descendant(grant::Kind::Audio, track_id, TRACK_RIGHTS, parent);
     let track = allocate(&mut guard, track_id, true);
     HostGlueAudioLoadResult {
         payload: HostGlueAudioLoadResultPayload {
@@ -276,13 +331,19 @@ fn with_track(
     unsafe {
         decref_box(handle as RocBox, roc_host());
     }
-    let result = store()
-        .lock()
-        .unwrap()
-        .tracks
-        .get_mut(&track_id.unwrap_or(0))
-        .ok_or((1, "invalid audio track capability"))
-        .and_then(f);
+    let accepted = track_id
+        .ok_or(grant::Refusal::Unknown)
+        .and_then(|value| grant::accept(grant::Kind::Audio, value, TRACK_RIGHTS));
+    let result = match accepted {
+        Err(why) => Err(refusal(why, "invalid audio track capability")),
+        Ok(_) => store()
+            .lock()
+            .unwrap()
+            .tracks
+            .get_mut(&track_id.unwrap_or(0))
+            .ok_or((1, "invalid audio track capability"))
+            .and_then(f),
+    };
     match result {
         Ok(()) => HostGlueAudioPlayResult {
             payload: HostGlueAudioPlayResultPayload { ok: [] },
@@ -352,7 +413,14 @@ pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostGlueAudioStatusResul
         decref_box(handle as RocBox, roc_host());
     }
     let guard = store().lock().unwrap();
-    let Some(track) = track_id.and_then(|value| guard.tracks.get(&value)) else {
+    let readable = track_id
+        .ok_or(grant::Refusal::Unknown)
+        .and_then(|value| grant::accept(grant::Kind::Audio, value, Rights::READ));
+    let Some(track) = readable
+        .ok()
+        .and_then(|_| track_id)
+        .and_then(|value| guard.tracks.get(&value))
+    else {
         return HostGlueAudioStatusResult {
             payload: HostGlueAudioStatusResultPayload {
                 err: ManuallyDrop::new(error(1, "invalid audio track capability")),

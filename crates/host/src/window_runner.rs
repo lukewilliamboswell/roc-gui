@@ -753,6 +753,10 @@ async fn run_step(
     ordinal: usize,
     window: WindowHandle<Runtime>,
     options: &Options,
+    // File operation counts are differences from the start of the lifecycle, of
+    // which this runner has exactly one, so the baseline is read once before the
+    // first step rather than re-read here.
+    file_baseline: [u64; 4],
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
     match &step.command {
@@ -1027,6 +1031,20 @@ async fn run_step(
                 }
             })
             .map_err(|_| StepError::WindowClosed)?,
+        Command::ExpectAppAccess(expected) => window
+            .update(cx, |_, _, _| {
+                let open = crate::access_panel::is_open();
+                if open == *expected {
+                    Ok(())
+                } else {
+                    Err(StepError::Geometry(format!(
+                        "expected the App access surface {}, observed {}",
+                        if *expected { "open" } else { "closed" },
+                        if open { "open" } else { "closed" }
+                    )))
+                }
+            })
+            .map_err(|_| StepError::WindowClosed)?,
         Command::ExpectComponentWork(expected) => window
             .update(cx, |_, _, _| {
                 runner::component_work_claim(expected)
@@ -1047,6 +1065,50 @@ async fn run_step(
                     .expect("graph claim is missing an arm")
                     .0
                     .map_err(StepError::Geometry)
+            })
+            .map_err(|_| StepError::WindowClosed)?,
+        // Claims about a process-global resource owner, answered by the same
+        // shared reading the semantic runner uses, so a windowed case can
+        // photograph a granted-authority readout and assert the counter that
+        // produced it in one run. The observatory evidence the claim also
+        // returns belongs to a capture, which this runner does not write.
+        Command::ExpectSubscriptions(_)
+        | Command::ExpectTcpStreams(_)
+        | Command::ExpectProcesses(_)
+        | Command::ExpectClipboardCounters(_)
+        | Command::ExpectSqliteCounters(_)
+        | Command::ExpectHttpCounters(_)
+        | Command::ExpectTcpCounters(_)
+        | Command::ExpectDeviceConnections(_)
+        | Command::ExpectDeviceTransactions(_)
+        | Command::ExpectSystemSamplers(_)
+        | Command::ExpectSystemSamples(_)
+        | Command::ExpectAudioCounters(_)
+        | Command::ExpectFilePicks(_)
+        | Command::ExpectFileLists(_)
+        | Command::ExpectFileOpens(_)
+        | Command::ExpectFileReads(_)
+        | Command::ExpectFileSelectionCounters(_)
+        | Command::ExpectFileLifecycleCounters(_)
+        | Command::ExpectFileAccess(_)
+        | Command::ExpectAssetCounters(_)
+        | Command::ExpectGrants(_)
+        | Command::ExpectGrantCounters(_)
+        | Command::ExpectImageOwnerCounters(_) => window
+            .update(cx, |_, _, _| {
+                runner::resource_claim(&step.command, file_baseline)
+                    .expect("resource claim is missing an arm")
+                    .0
+                    .map_err(StepError::Geometry)
+            })
+            .map_err(|_| StepError::WindowClosed)?,
+        // Revocation acts on the one files registry the host owns. It changes
+        // no graph, so it presents no frame: what the application sees of it is
+        // its next read, which is the next step's business.
+        Command::RevokeFileGrants => window
+            .update(cx, |_, _, _| {
+                crate::files::revoke_all_roots();
+                Ok(())
             })
             .map_err(|_| StepError::WindowClosed)?,
         Command::AwaitTask => await_completion(window, options.timeout, cx).await,
@@ -1516,6 +1578,7 @@ fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rec
 pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &mut App) {
     cx.spawn(async move |cx| {
         crate::watchdog::milestone(crate::watchdog::Milestone::DriverStarted);
+        let file_baseline = crate::files::operation_counts();
         let mut outcome = Outcome {
             spec_name: spec.name.clone(),
             steps: Vec::new(),
@@ -1547,7 +1610,7 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
 
         if !outcome.failed {
             for (ordinal, step) in spec.steps.iter().enumerate() {
-                match run_step(step, ordinal, window, &options, cx).await {
+                match run_step(step, ordinal, window, &options, file_baseline, cx).await {
                     Ok(shot) => {
                         let missing = shot.as_ref().is_some_and(|shot| shot.file.is_none());
                         if missing {

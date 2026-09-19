@@ -67,7 +67,7 @@ render : State -> Elem(State)
 render = |curr_state| Elem.text(curr_state.greeting)
 
 main : Program(State)
-main = Program.run({ init: { greeting: "Hello from Roc" }, render })
+main = Program.run({ init: |_access| { greeting: "Hello from Roc" }, render })
 ----
 
 Choose an executable name explicitly when building your application:
@@ -125,4 +125,4 @@ to run one kind.
 Read <<_building_an_application>> to add interaction and split state into local
 components. Then read <<_testing_your_application>> and add a `.scm` file, so
 behaviour remains executable as the application changes.
-<<_specification_reference>> has the full step vocabulary.
+<<_specification_language_reference>> has the full step vocabulary.

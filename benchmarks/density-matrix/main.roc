@@ -175,7 +175,7 @@ render = |state| {
 
 main : Program(State)
 main = Program.run({
-	init: make_dashboard(low_visual, low_interaction, 1),
+	init: |_access| make_dashboard(low_visual, low_interaction, 1),
 	render,
 	window: { title: "Density matrix", width: 940, height: 720, background: Gui.rgb(0x101820), foreground: Gui.rgb(0xE5EDF7) },
 })

@@ -1,6 +1,7 @@
 import pf.Action
 import pf.Elem
 import pf.Files
+import pf.Program
 import pf.Gui
 import "icons/folder.svg" as folder_icon : List(U8)
 import "icons/file.svg" as file_icon : List(U8)
@@ -8,8 +9,11 @@ import "icons/corner-down-right.svg" as link_icon : List(U8)
 
 Explorer := [].{
 	State : State
-	init : State
-	init = { back: [], dialog: Closed, forward: [], read: Unread, root: None, selection: NoneSelected, status: Ready, view: Empty }
+	## The application's authority arrives here and nowhere else, so it is held
+	## in state: the tasks that acquire a folder run later, and they need it
+	## where they run.
+	init : Program.Access -> State
+	init = |access| { access, back: [], dialog: Closed, forward: [], read: Unread, root: None, selection: NoneSelected, status: Ready, view: Empty }
 	render : State -> Elem(State)
 	render = render
 	## The window's own ground and ink. The explorer mixes every surface it
@@ -39,7 +43,7 @@ Status : [Busy, Dismissed, Failed(Failure), Ready]
 Read : [Unread, ReadOf({ bytes : U64, name : Str, preview : Str })]
 
 Dialog : [Closed, ConfirmClose(Str)]
-State : { back : List(Folder), dialog : Dialog, forward : List(Folder), read : Read, root : [None, Some(Folder)], selection : Selection, status : Status, view : View }
+State : { access : Program.Access, back : List(Folder), dialog : Dialog, forward : List(Folder), read : Read, root : [None, Some(Folder)], selection : Selection, status : Status, view : View }
 
 ## Graphite and amber. The ground is the darkest surface, the chrome sits one
 ## step above it, and a raised row one step above that. Amber is spent on
@@ -151,7 +155,7 @@ read_file = |state, folder, name| Action.task({
 
 choose_directory = |state| Action.task({
 	pending: { ..state, status: Busy },
-	run: || match Files.pick_directory!() {
+	run: || match Files.pick_directory!(state.access) {
 		Err(error) => LoadFailed({ hint: hint_for(error), message: describe(error) })
 		Ok(Canceled) => LoadCanceled
 		Ok(Chosen(selection)) => match selection.directory.list!() {

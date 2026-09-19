@@ -12,33 +12,79 @@ the change lands; do not soften the docs to match the gap.
   syscall, inherited-descriptor, dynamic-library, IPC and dependency escape
   routes; and verify denial outside grants. The audited starting point and
   platform matrix are in `wip/resource-access-inventory.md`.
+
+- [ ] **No grant is enforced, and no trusted surface lists them.**
+  `crates/host/src/grant.rs` is the one model `docs/resource-access.adoc`
+  describes — resource identity, rights, origin, lifetime, parent, root,
+  revocation — with one acceptance point and one revocation linearisation for
+  the whole platform. All twelve resources record their grants in it, and
+  `(expect-grants ...)` states what an application is holding. Two things the
+  contract asks for remain, and neither is something a resource can supply on
+  its own.
+
+  Every grant records `consent-only`. Every chooser reopens the chosen resource
+  with the process's own authority, and every other origin is a command-line
+  flag, so nothing is `brokered` until the confined-process work above lands.
+  The specification vocabulary already distinguishes the two, so the day a grant
+  becomes brokered is a specification change rather than a claim in prose.
+
+  The trusted *App access* surface now exists: the host's own chord opens it, it
+  lists every grant from `grant::enumerate` with the same rendering the evidence
+  uses, and each root carries a control that calls `grant::revoke`. Pressing that
+  control is not yet driven by a specification — the surface has no locator by
+  construction, so a window case cannot name the button — and until it is, the
+  withdrawal path is covered only by `revoke-file-grants` and `expect-grants`.
+  Close that with a way to drive host-owned controls, not by giving the surface
+  a node.
+
+  Adopting the kernel found three things worth keeping in mind for the rest of
+  this work, each recorded in `grant.rs` where it was fixed: rights are not
+  comparable across resource shapes, a handle may be consumed by the very
+  operation that derives from it, and derivation crosses resource kinds — a
+  database snapshot descends from the directory its bytes were read through, and
+  matching a child on its own kind left that snapshot readable after the project
+  was revoked.
+
 - [ ] **Trusted identity, access review, and revocation are absent.** Define
   stable publisher/package identity, remembered-grant storage and migration,
   expiry and a protected App access surface. Files now carry root/child ancestry
   and a host-owned revocation linearization rule; extend that rule to other
   resources and certify cross-process queued/running races and already-returned
   byte policy under confinement.
+
 - [ ] **Trusted file workflows remain incomplete.** Open Project is presented by
-  the operating system on both hosts: the production XDG Desktop Portal on Linux
-  Wayland and the window-owned native directory panel on macOS. Both record
-  session/source/parent lineage, and `--host-cap-dir` remains development
-  provisioning. The macOS panel is a native chooser, not a sandbox powerbox: it
-  grants no authority the unsandboxed process does not already hold, so it is
-  honest consent but not enforcement until the macOS sandbox work below lands.
+  the operating system on both hosts: the XDG Desktop Portal on Linux Wayland and
+  the window-owned native directory panel on macOS. Both record grant origin and
+  parent lineage through `crates/host/src/grant.rs`, and `--host-cap-dir` remains
+  development provisioning.
+
+  Neither host is a powerbox yet, and the entry previously said this only of
+  macOS. `open_selected` (`crates/host/src/files.rs`) is shared by both and
+  reopens the chosen path with `ambient_authority()`: the portal hands back a URI
+  and this host takes the path rather than the descriptor, so on Linux too the
+  grant carries no authority the process did not already hold. Both are recorded
+  as `Enforcement::ConsentOnly`, which is honest consent and a real record of a
+  real decision, but not confinement. Closing that needs the confined-process
+  work above, after which the broker returns a descriptor and the constant
+  becomes `Brokered` with no change to the Roc API.
+
   Add Open
   Document's smallest single-file grant, persistent grants, revocation, edit
   grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
   cancellation and retry semantics.
+
 - [ ] **Portal parenting and protected consent need external certification.**
   GPUI 0.2.2 does not expose an xdg-foreign Wayland surface handle to this host,
   so the portal request cannot yet name its parent window. Export that handle,
   attribute focus, and certify compositor placement, protected portal identity,
   cancellation and accessibility on a packaged confined application. Headless
   semantic specifications cannot supply this evidence.
+
 - [ ] **Platform enforcement remains unverified.** Implement and test the
   complete confinement/broker boundary on Linux Wayland. Define and verify
   macOS sandbox, entitlement, trusted-panel, signing and notarization behavior
   before adding that target; other platforms require equivalent evidence.
+
 - [ ] **Absent native effects have not been proven unreachable.** Audit secure
   randomness, URI opening, webviews, microphone/camera/screen capture,
   drag-and-drop/sharing, file clipboard, global input/automation, accessibility,
@@ -46,28 +92,89 @@ the change lands; do not soften the docs to match the gap.
   dependencies. Add no public API until its complete broker policy and tests
   land.
 
-## Device Configurator follow-on features
+- [ ] **Broker trusted TCP destinations and revocation.** Numeric exact-endpoint
+  provisioning deliberately performs no DNS and serves development and
+  automation. Add named user-approved destinations, revocation that closes
+  owned streams, and lifecycle evidence through a trusted connection broker
+  before applications present a general-purpose Connect UI.
 
-- [ ] Add hot-plug notifications and reconnect policy to the host-owned HID
-  connection lifecycle, preserving stale-completion suppression in the app.
-- [ ] Add persistent named mapping profiles and per-control remapping once the
-  protocol represents those fields; retain atomic acknowledged apply.
-- [ ] Add a signed, integrity-checked firmware-update protocol with explicit
-  cancellable and non-cancellable phases before exposing firmware controls.
-- [ ] Validate physical HID behavior on macOS and Windows and add target-specific
-  `hidapi` backends before advertising those hosts as supported.
+- [ ] **Broker trusted HTTP destinations at runtime.** The provisioned origin
+  grant pins non-literal DNS resolution, disables ambient proxies, rejects
+  credential-bearing URLs, and rechecks redirects against the granted origin.
+  Add user-visible named destination setup and consent backed by an OS
+  credential store. Audit platform-specific resolver behavior and IPv4-mapped
+  IPv6 classification before treating provisioning flags as user consent.
 
-## Terminal workspace follow-on features
+## Platform API gaps
 
-- [ ] Propagate live pane dimensions through the layout owner to
-  `Process.Pty.resize!` and specify the resulting PTY size without exposing a
-  fixed-size product control.
-- [ ] Add ANSI/VT cell parsing, wide and combining glyph layout, selection,
-  clipboard policy, and URL recognition on top of the ordered PTY byte stream.
-- [ ] Add tabs, nested split panes, focus navigation, pane zoom, and persisted
-  workspace layouts using the existing mounted graph and event route.
-- [ ] Add user-configurable shell-profile grants without exposing executable or
-  environment selection as ambient application authority.
+Shapes the platform's own API presents wrongly or cannot present at all,
+independent of any one application.
+
+- [ ] **Audio is the one resource whose operations are not methods on its
+  handle.** Every other host resource is a nominal type carrying its own
+  operations, so a caller writes `store.read!(path)` and `pty.read!(opts)`.
+  `Audio.Output` and `Audio.Track` are still plain aliases of their `Resource`
+  representation with module-level `Audio.load!`, `Audio.play!` and the rest,
+  because the pinned compiler cannot build an application that uses them in
+  nominal form. Making both nominal and leaving the rest of the platform
+  untouched, `roc check` on `examples/music-player` passes and
+  `roc build examples/music-player/main.roc` never terminates -- it was left
+  for fifty-five minutes of CPU against 5.1 seconds for the same example with
+  `Audio` as aliases, with memory still climbing. Making only `Audio.Output`
+  nominal segfaults the compiler outright. Nothing about music-player's own use
+  is unusual: it holds the handles in application state and passes them through
+  `Action.task`, which `image-library` and `file-explorer` also do with
+  `Assets.Store` and `Files.Dir.Read` and which compile in seconds. Closing this
+  needs the compiler defect fixed and reported upstream; the platform change
+  itself is then the same one made for every other resource.
+
+  2026-09-18: with both handles made nominal and every `Audio` operation
+  unwrapping them, compiler `main` `5982c9b2` checks and builds music-player
+  in seconds on both backends, and the pinned compiler's default-backend
+  build now terminates in 49 s rather than hanging. The compiler defect is
+  gone at head; make the nominal platform change after the pin moves.
+
+- [ ] **A resource handle captured by a task closure cannot be stored by its
+  completion.** Writing `Tcp.Stream` back into application state from
+  inside `resolve`, using the handle the surrounding `Action.task` captured,
+  segfaults the process non-deterministically — the capture is released when the
+  task's closure is, so the completion stores a dangling resource. Recovering the
+  same handle from the state the completion is given is safe and is what Redis
+  Explorer now does, but nothing in the API says which of the two is correct, and
+  the wrong one fails as a crash rather than as a type error. Either the capture
+  must keep the resource alive for the completion, or storing one must be
+  rejected at compile time.
+
+- [ ] **No asset root resolves relative to the application itself.** The three
+  roots are the executable's directory, the process working directory, and the
+  host-provisioned content directory. None of them is "the directory this
+  application ships in", which is what `roc app.roc` actually wants: the
+  executable is a build output in a temporary directory, and the working
+  directory is wherever the shell happens to be. `music-player` therefore reads
+  its cover from `working_directory("examples/music-player/assets")`, which is
+  correct when an example is run from the checkout root as the README says and
+  wrong from anywhere else. Closing this needs the application's own location to
+  reach the host, which is packaging identity rather than an asset-surface
+  change.
+
+  It also cost a specification. `specs/cover-art-denied.scm` proved the missing
+  cover state by withholding the content-directory grant; with a root that
+  resolves without provisioning there is no way to make the read fail from a
+  specification, so the case was removed rather than left asserting something it
+  no longer caused. The refused open and refused read are still covered by the
+  asset host's own tests.
+
+- [ ] **A content directory is not an application identity.** A
+  `ContentDirectory` store resolves to whatever `--host-cap-assets` names, which
+  is development and packaging provisioning, not a stable per-application
+  installed location. Until packaging identity exists, two applications run from
+  the same host configuration share one content root, and an installed layout
+  has nothing to resolve against.
+
+- [ ] **Asset stores have no scaling case.** The manifest check is constant-time
+  in the number of assets by construction, and one read is bounded at 64 MiB,
+  but nothing measures an application reading many assets across many tasks.
+  A scaling case belongs with the example that adopts the API.
 
 ## Element appearance
 
@@ -78,12 +185,14 @@ the change lands; do not soften the docs to match the gap.
   concept at all: neither `TextStyle` nor `TextStyleRefinement` carries one, and
   the shaper takes none, so this needs an upstream field before a
   `Gui.Style` letter-spacing field can mean anything.
+
 - [ ] **A border is one colour on all four sides.** Per-side widths have
   landed, and `terminal-workspace` now draws one hairline on the edge that faces
   the next region instead of boxing every region and holding the boxes apart
   with a 1-point seam. Per-side colour is not expressible: GPUI 0.2.2's `Style`
   carries `border_widths` as `Edges` but a single `border_color`, so a side
   cannot have a colour of its own without an upstream change.
+
 - [ ] **A large SVG is rasterized at its own size and then never painted.**
   `gpui` 0.2.2 decodes an SVG through
   `SvgRenderer::render_pixmap(&bytes, SvgSize::ScaleFactor(1.0))`
@@ -98,6 +207,218 @@ the change lands; do not soften the docs to match the gap.
   needs `SvgSize::Size` at the laid-out box upstream, or a host-side SVG
   rasterizer, and should not be worked around by shrinking the fixtures, which
   are deliberately larger than any box they are put in.
+
+- [ ] **An SVG's red and blue channels are exchanged when it is rendered.** A
+  rasterised image is correct; an SVG is not. In `gpui` 0.2.2,
+  `Image::to_image_data` (`platform.rs`) sends every raster format through a
+  helper that converts the decoded RGBA to the BGRA the renderer wants, but the
+  `ImageFormat::Svg` arm wraps `svg_renderer.render_pixmap`'s buffer directly
+  and performs no such conversion. So `hsl(29,55%,35%)`, the warm brown
+  `image-library`'s `collection-01.svg` is authored with, reaches the screen as
+  a blue, and the fixtures authored as browns and an amber-to-violet sky present
+  as blues and greens. PNG, JPEG, WebP, BMP, TIFF and GIF are unaffected.
+  Decoding is GPUI's to own, and pre-rasterising SVG in this host would
+  duplicate the decoder this platform deliberately does not reimplement, so this
+  closes upstream. The vendored example icons are neutral greys, which are
+  invariant under the exchange and therefore honest either way. Verify with a
+  specification that samples a known pixel of a known fixture once a fix lands.
+
+- [ ] **Image decode status is not represented in the mounted graph.** GPUI's
+  image asset decoder owns asynchronous success and failure after mounting, but
+  does not expose that state to the host element. Add an owner callback that
+  records decoded dimensions/frames or a content-free failure category and
+  renders a semantic per-image fallback; do not duplicate GPUI's decoder in the
+  semantic runner.
+
+## Input and accessibility
+
+- [ ] **The multi-line textarea has no selection, IME, or clipboard.** The
+  production textarea accepts ordinary character, Enter, and Backspace input
+  and routes complete controlled values through Roc. Close the desktop-editor
+  gap with GPUI `EntityInputHandler` selection/marked-text ownership, mouse hit
+  testing, copy/cut/paste, and specifications driven through the same route.
+
+- [ ] **The single-line text input has no clipboard or undo history.** It
+  already supports focus, caret motion, selection, keyboard deletion, controlled
+  updates, submission, and IME composition, so this is a narrower gap than the
+  textarea's above. Close by routing platform clipboard
+  operations and a bounded per-editor undo/redo history through the production
+  GPUI input actions, with semantic specifications that never record contents.
+
+- [ ] **Native accessibility roles and names are not exported.** Buttons,
+  checkboxes, and scroll regions have stable semantics in the canonical graph,
+  but the GPUI host does not yet publish them to each operating system's
+  accessibility API. Close with platform accessibility nodes verified by an
+  external accessibility client, while retaining the same semantic names used
+  by specifications.
+
+- [ ] **Composite directory navigation has no roving focus.** A user can reach
+  and activate every folder with Tab and Enter or Space. Close with a semantic
+  list/list-item element whose Up, Down, Home, and End behavior, selected state,
+  scroll-into-view behavior, scaling case, and operating-system accessibility
+  mapping all use the production event path.
+
+## Application feature slices
+
+Each example proves a complete production slice. These are the slices not yet
+built on top of them; none is a defect in what is there.
+
+- [ ] **File Explorer writable powerbox and desktop integration.** The read-only
+  explorer navigates capability-scoped child folders, preserves back/forward
+  history, selects files and folders, reports typed failures, and virtualizes a
+  realistic directory. Add a separately approved writable-directory grant and
+  direct-child create, rename, copy, move, trash, and restore operations with
+  collision policy, partial-result recovery, cancellation, and undo. Add tabs,
+  split views, multi-selection, drag-and-drop, clipboard file operations,
+  previews, metadata, operating-system open/reveal, watching, and durable grant
+  restoration only as complete production slices.
+  Replace development `--host-cap-dir` provisioning with trusted native/portal
+  Open Project selection for interactive use, record grant ancestry, define a
+  revocation linearization point for roots and derived children, and verify
+  denial outside the grant and revocation during queued work through the real
+  GPUI/trusted-chooser boundary.
+
+- [ ] **Music library metadata, persistence, and media integration.** The music
+  player foundation provides explicit folder/output capabilities, Rodio and
+  Symphonia decoding, a bounded playback state machine, queue navigation,
+  seeking, stale-load suppression, corrupt-media isolation, and a virtualized
+  ordinary-use library. Add metadata and artwork extraction, durable roots and
+  playlists, filesystem reconciliation, volume and repeat policy, automatic
+  end-of-track queue advancement, device-loss recovery, and operating-system
+  media controls as complete production slices.
+
+- [ ] **Animation Studio project assets and export.** The editor proves native
+  retained vector painting, captured direct manipulation, state-owned undo/redo,
+  position keyframes, scrubbing, and cancellable playback. Add capability-scoped
+  project save/open, image assets, text, grouping, easing, and deterministic
+  frame-sequence export with cancellation before presenting it as a complete
+  presentation authoring tool.
+
+- [ ] **Clipboard image formats, durable pins, and global activation.** The
+  clipboard-history slice provides explicitly granted, bounded text capture,
+  privacy exclusion, restore, cancellation, stale suppression, virtualization,
+  and content-free semantic evidence. Add bounded image representations,
+  encrypted durable pinned entries, compositor-level change notifications, and
+  a globally activated overlay with focus restoration as complete production
+  slices before presenting it as a full desktop clipboard manager.
+
+- [ ] **Redis mutation, authentication, and cluster operation.** The Redis
+  Explorer foundation exercises an exact-endpoint TCP grant, `roc-redis`,
+  bounded incremental SCAN, native type and TTL discovery, and read-only
+  inspection for strings, lists, sets, hashes, and sorted sets. Add credential
+  capabilities, database selection, cluster redirection policy, optimistic
+  mutation with server confirmation, destructive confirmation, expiry edits,
+  reconnection, and cancellation as complete slices before presenting it as a
+  general Redis administration tool. Credentials must never enter captures or
+  ordinary persisted application state.
+
+- [ ] **SQLite write transactions and parameters.** The database capability is
+  deliberately read-only and executes one statement without bindings. Add a
+  separately granted read-write capability, typed parameters, cancellation,
+  transactions, paging, editable grids, and export with lifecycle and resource
+  counters before presenting the example as a general database administration
+  tool.
+
+- [ ] **System Monitor charts and export.** The system-monitor slice has a real
+  capability-scoped `sysinfo` sampler, explicit unavailable values, bounded
+  history, sorting/filtering/selection, and a virtualized process table. Add
+  canvas time-series charts and a separately granted privacy-safe export whose
+  schema excludes process names and IDs before offering session export.
+
+- [ ] **System Monitor platform breadth.** Validate the sampler and unavailable
+  classifications on macOS and Windows, and add per-disk/per-interface identity
+  only with explicit privacy policy and deterministic evidence.
+
+- [ ] **Image-library trusted Open and capability lineage.** Development and
+  automation provisioning enters the ordinary grant registry, but it is not
+  trusted chooser consent. Add a platform-owned Open broker with ancestry and
+  revocation semantics before describing interactive folder selection as a
+  user grant.
+
+- [ ] **Image-library cancellation and decoded-cache ownership.** Folder scans
+  suppress stale task completions, but bounded Files reads do not yet expose
+  cooperative cancellation and GPUI does not expose decoded-byte eviction.
+  Add those production seams and owner counters before retaining much larger
+  raster collections.
+
+- [ ] **Image-library metadata and editing breadth.** Add EXIF orientation,
+  color-profile and animation metadata plus production zoom, pan, rotate, crop,
+  undo and slideshow primitives. Do not infer these values from filenames or
+  add controls that bypass `ImageProps`.
+
+- [ ] **Image-library export broker.** Add a trusted Save/Export broker with a
+  separately selected writable grant, collision policy and revocation. The
+  existing development directory provision is read-only and must not be used
+  as implicit export authority.
+
+- [ ] **HTTP cancellation and streaming.** The bounded
+  asynchronous HTTP foundation supports explicit scheme, redirect, timeout,
+  header, request-body, and response-body policy, and the workbench suppresses
+  stale completions. Add a typed request handle with cooperative transport
+  cancellation and bounded streamed upload/download progress before
+  applications depend on either.
+
+- [ ] **HTTP Workbench advanced document tools.** Add syntax-highlighted JSON
+  and text response modes, cURL and collection import/export, and resizable
+  split panes through production editor/layout primitives. Preserve request
+  meaning and redact authentication material in every persisted or exported
+  representation.
+
+- [ ] **HTTP Workbench collections and structured validation.** Add bounded
+  non-secret request history and named collections through `AppData`, excluding
+  authorization, cookie, and proxy-authorization values by construction. Add
+  structured JSON validation and multiple header/query rows with field-owned
+  diagnostics before advertising environment or authentication editors.
+
+## Device Configurator follow-on features
+
+- [ ] **A device is granted by a command-line flag, not by choosing one.**
+  The grant now records that honestly — `device.rs` names its origin
+  `Origin::Provisioned` in one constant that says what would change it — but
+  recording it is not fixing it.
+  `--host-cap-device virtual|VID:PID` is the only authority path: `device.rs`
+  reads one `configured` grant at process start and `Device.acquire!()` answers
+  `AccessDenied` forever if there is none. Issue #1's policy row for USB/device
+  services requires trusted device/function selection, and that issue states
+  plainly that a development provisioning flag must not masquerade as an
+  interactive chooser. So the flag is honest only while it is visibly
+  development provisioning, which is what the window now says. Close this with a
+  host-owned device picker whose selection is the grant, naming one device and
+  no more, with ancestry, lifetime until disconnect, explicit remembered access,
+  and revocation — the same broker shape the file entries above describe.
+  Implementing device services is outside issue #1; the policy it states is not.
+
+  Until then a person who launches the example without the flag can only be told
+  what happened. Pressing Discover once is refused, and the control is then
+  withheld rather than left to be pressed for the same answer, because the grant
+  cannot change while the window is open. That is honest, not adequate.
+
+- [ ] Add hot-plug notifications and reconnect policy to the host-owned HID
+  connection lifecycle, preserving stale-completion suppression in the app.
+
+- [ ] Add persistent named mapping profiles and per-control remapping once the
+  protocol represents those fields; retain atomic acknowledged apply.
+
+- [ ] Add a signed, integrity-checked firmware-update protocol with explicit
+  cancellable and non-cancellable phases before exposing firmware controls.
+
+- [ ] Validate physical HID behavior on macOS and Windows and add target-specific
+  `hidapi` backends before advertising those hosts as supported.
+
+## Terminal workspace follow-on features
+
+- [ ] Propagate live pane dimensions through the layout owner to
+  `Process.Pty.resize!` and specify the resulting PTY size without exposing a
+  fixed-size product control.
+
+- [ ] Add ANSI/VT cell parsing, wide and combining glyph layout, selection,
+  clipboard policy, and URL recognition on top of the ordered PTY byte stream.
+
+- [ ] Add tabs, nested split panes, focus navigation, pane zoom, and persisted
+  workspace layouts using the existing mounted graph and event route.
+
+- [ ] Add user-configurable shell-profile grants without exposing executable or
+  environment selection as ambient application authority.
 
 ## Trust: measurements that can mislead a decision
 
@@ -124,6 +445,18 @@ the change lands; do not soften the docs to match the gap.
   lifecycle: `spec::check_runner` refuses benchmark steps there. Add production
   window orchestration for warmups, samples, iterations, and per-sample reset,
   then route those captures through the existing scaling and A/A reports.
+
+- [ ] **The allocation counters are inside the spans they attribute.**
+  `roc_alloc` calls `observatory::note_roc_alloc` before allocating, which loads
+  `ENABLED`, adds to two atomics, then enters a thread-local and takes a
+  `RefCell` borrow (`crates/host/src/observatory.rs:444-560`); `roc_dealloc`
+  pays the same and then its routing. At the 3,008,082 allocation calls the
+  100,000-row sparse update records, that is a per-allocation tax inside the
+  very span whose share of the callback the performance plan reasons from. A/B
+  comparisons survive it because both sides carry it; attribution does not.
+  Size the tax with an `ENABLED`-off run timed externally, and either subtract it
+  from the cost model or move the counters to per-thread cells flushed at span
+  end. Until then, treat owner-span *shares* as diagnostic, not as attribution.
 
 ## Performance findings from the suite
 
@@ -267,135 +600,18 @@ names the evidence so a fix can be verified against the same case.
   preserve boundary ownership and stale-completion suppression, and measure
   queue depth and delay at their production owner before making latency claims.
 
-- [ ] **Generated Roc API pages omit record-field documentation.** Running
-  `roc docs platform/main.roc` renders the `Elem.TranslateConfig` type comment
-  and signature but omits the doc comments on `key`, `get`, `set`, `on_delegate`,
-  and `memo`. The type-level documentation includes the essential contracts so
-  readers can use the generated reference. Track the compiler documentation
-  generator fix and verify the field descriptions in its HTML output.
-
-- [ ] **Resolve the default LLVM backend's CPS runtime corruption.** The
-  temporary workaround is to add `--opt=dev` to the `roc build` commands in
-  the guides and example READMEs. The specification driver defaults to this
-  backend while the compiler issue is open. This is not a platform requirement;
-  remove the driver override after verifying the compiler fix.
-  Selected compiler builds of the counter and review-queue succeed with the
-  default LLVM backend, but those executables expose incorrect initial state
-  and callback reference-count failures. Identical production source built
-  with `--opt=dev` passes all 17 core semantic specifications and all 27 flat
-  and nested hover specifications. The failure also reproduces with an
-  exact-commit Debug compiler and local compiler revision `ee6e57c7`. The
-  successful development-backend evidence does not establish default-backend
-  acceptance. Minimize the compiler-dependent ownership or layout failure,
-  then rebuild and verify both modes before removing this blocker.
-
-  Verified fixed at compiler `main` `5982c9b2` (2026-09-18): counter passes
-  2/2 and review-queue 15/15 with `--roc-opt speed`, and the full semantic
-  suite passes 317/331 — the 14 failures are a *separate* upstream regression
-  in nested-translate refcounting that crashes both backends (see the
-  nightly-upgrade blocker entry below). At 10,000 rows the `speed` build's
-  select callback is 197.4 ms against 721.5 ms for the same source on the
-  same compiler with `--opt=dev`. Move the pin and remove the driver override
-  once that remaining regression is fixed upstream.
-
-- [ ] **The Windows development backend drops relocations past a 16-bit count.**
-  A compile-time-evaluated top-level value is emitted as initialized data with
-  one relocation per pointer it contains. Once one section's relocation count
-  exceeds 65,535, the count wraps instead of switching to the extended COFF
-  form, and the linker applies only `count % 65536` of them. Every relocation
-  the wrap discards leaves its raw addend in place, so a list's element pointer
-  reads as its `0x10` header offset and the first reference-count probe
-  access-violates with Windows status `0xC0000005` (`3221225477`). Linux and
-  macOS builds of the same source are unaffected.
-
-  The boundary is exact and reproducible. An application whose `init` builds an
-  `Index` of `n` entries links correctly at `n = 7650` with 83,280 image base
-  relocations and faults at `n = 7700`, where the count collapses to 18,218 —
-  precisely 65,536 fewer than the expected total. Count an executable's base
-  relocations to observe it; a sudden drop as the baked data grows is the
-  signature.
-
-  `benchmarks/click-grid`, `benchmarks/hover-grid`, and
-  `benchmarks/nested-hover-grid` crossed this boundary by initializing 10,000
-  cells, which baked roughly seven megabytes of pre-evaluated state into each
-  image. They now start at 100 cells and the four specifications that need the
-  dense grid create it explicitly, matching every other case in those suites.
-  That keeps the applications well inside the limit — the largest benchmark now
-  links roughly 20,000 relocations — but it avoids the defect rather than
-  fixing it.
-
-  The compiler fix applies the extended form to `.text`, `.rdata`, and `.pdata`,
-  as the DWARF sections already did. With it, `benchmarks/click-grid` links
-  102,300 relocations instead of 36,676 and its specifications pass. Restore the
-  dense initial grids and remove this entry once a pinned compiler carries that
-  change.
-
-- [ ] **A guarded match over a local tag value segfaults the built
-  application.** Reaching for a chosen-row marker in `examples/music-player`,
-  this shape crashed the built executable with SIGSEGV in
-  `specs/stale-load.scm`, `specs/window-decode-error.scm` and
-  `specs/window-identity.scm`:
-
-  ----
-  match state.chosen {
-      Nothing => sounding
-      At(index) => match sounding {
-          Sounding(active) if active == index => sounding
-          Held(active) if active == index => sounding
-          _ => Waiting(index)
-      }
-  }
-  ----
-
-  The same function rewritten to compare an index instead of re-matching the
-  local tag value passes all nine cases, which is what the example now does. The
-  shape extracted into a module and exercised with `roc test` does **not**
-  reproduce it, so the trigger needs the full application build and is not yet
-  minimized. Minimize it against the pinned compiler, report it, and update the
-  pin when fixed.
-
-  2026-09-18: the shape recorded above, grafted back into today's
-  `active_index`, passes `specs/stale-load.scm` under both the pinned
-  compiler and compiler `main` `5982c9b2`. The un-minimized trigger depended
-  on the example as it stood in September and is no longer reachable from the
-  current tree. If it reappears, capture the whole failing working tree
-  before rewriting the shape; a guard or annotation changing behaviour is an
-  inference bug regardless of the workaround.
-
-- [ ] **An unannotated helper that reads a field of its own result segfaults
-  `roc check`.** Reaching for undo and redo that reconcile a stale selection in
-  `examples/animation-studio`, this shape crashed the compiler itself — not the
-  built application — with SIGSEGV at fault address `0x3f8`, with no diagnostic
-  and no stack trace:
-
-  ----
-  restore = |state, document, status| {
-      settled = apply_frame({ ..state, document, drag: Idle, status })
-      keeps = match settled.selected {
-          None => False
-          Some(id) => match settled.document.shapes.find_first(|shape| shape.id == id) {
-              Ok(_) => True
-              Err(_) => False
-          }
-      }
-      if keeps settled else { ..settled, selected: None }
-  }
-  ----
-
-  Adding the annotation `restore : State, Document, Str -> State` makes it
-  compile, and nothing else about the body has to change, so the trigger is
-  inference over a helper whose parameter and result types are only pinned down
-  by another unannotated helper (`apply_frame`) in the same module block.
-  Reordering the two definitions makes no difference. The example carries the
-  annotation. Minimize it against the pinned compiler, report it, and update the
-  pin when fixed.
-
-  2026-09-18: removing the annotation from today's `restore` (with
-  `apply_frame` still unannotated) no longer crashes `roc check` under either
-  the pinned compiler or compiler `main` `5982c9b2`. The trigger depended on
-  surrounding module state that has since changed; the annotation stays as
-  documentation only. Annotation presence changing compile behaviour is an
-  inference bug in principle — if this reappears, keep the failing tree.
+- [ ] **Every Roc free takes a mutex for each resource kind the application has
+  used.** `roc_dealloc` checks the routing bitmask and then calls each active
+  domain's `route_dealloc` (`crates/host/src/lib.rs:337-380`), and each of those
+  locks its store — `files::route_dealloc` opens with `store().lock()`
+  (`crates/host/src/files.rs:259`) before the empty-map early-out. The bitmask
+  removes the cost only for a domain that has never been used, so an application
+  holding audio, files and assets pays three uncontended lock/unlock pairs and
+  three hash lookups on a path that fires millions of times per full-root frame.
+  Resource handles are a small known population: give them a distinguishable
+  allocation region and range-check the pointer, or one lock-free membership
+  structure, rather than twelve mutexed maps. Measure at the allocator owner
+  before and after; the counters must not change.
 
 - [ ] **Persistent-index maintenance retains a high allocation constant.**
   Bounded route-ID chunks removed the superlinear ownership-list allocation
@@ -493,6 +709,74 @@ names the evidence so a fix can be verified against the same case.
   and native-work counts. Isolate text shaping with a production-owner
   measurement before attributing a whole layout or paint span to shaping.
 
+## Compiler and toolchain defects
+
+Defects outside this repository that this repository has to work around. Each
+names the reproduction so the workaround can be removed when the fix lands.
+
+- [ ] **Resolve the default LLVM backend's CPS runtime corruption.** The
+  temporary workaround is to add `--opt=dev` to the `roc build` commands in
+  the guides and example READMEs. The specification driver defaults to this
+  backend while the compiler issue is open. This is not a platform requirement;
+  remove the driver override after verifying the compiler fix.
+  Selected compiler builds of the counter and review-queue succeed with the
+  default LLVM backend, but those executables expose incorrect initial state
+  and callback reference-count failures. Identical production source built
+  with `--opt=dev` passes all 17 core semantic specifications and all 27 flat
+  and nested hover specifications. The failure also reproduces with an
+  exact-commit Debug compiler and local compiler revision `ee6e57c7`. The
+  successful development-backend evidence does not establish default-backend
+  acceptance. Minimize the compiler-dependent ownership or layout failure,
+  then rebuild and verify both modes before removing this blocker.
+
+  Verified fixed at compiler `main` `5982c9b2` (2026-09-18): counter passes
+  2/2 and review-queue 15/15 with `--roc-opt speed`, and the full semantic
+  suite passes 317/331 — the 14 failures are a *separate* upstream regression
+  in nested-translate refcounting that crashes both backends (see the
+  nightly-upgrade blocker entry below). At 10,000 rows the `speed` build's
+  select callback is 197.4 ms against 721.5 ms for the same source on the
+  same compiler with `--opt=dev`. Move the pin and remove the driver override
+  once that remaining regression is fixed upstream.
+
+- [ ] **The Windows development backend drops relocations past a 16-bit count.**
+  A compile-time-evaluated top-level value is emitted as initialized data with
+  one relocation per pointer it contains. Once one section's relocation count
+  exceeds 65,535, the count wraps instead of switching to the extended COFF
+  form, and the linker applies only `count % 65536` of them. Every relocation
+  the wrap discards leaves its raw addend in place, so a list's element pointer
+  reads as its `0x10` header offset and the first reference-count probe
+  access-violates with Windows status `0xC0000005` (`3221225477`). Linux and
+  macOS builds of the same source are unaffected.
+
+  The boundary is exact and reproducible. An application whose `init` builds an
+  `Index` of `n` entries links correctly at `n = 7650` with 83,280 image base
+  relocations and faults at `n = 7700`, where the count collapses to 18,218 —
+  precisely 65,536 fewer than the expected total. Count an executable's base
+  relocations to observe it; a sudden drop as the baked data grows is the
+  signature.
+
+  `benchmarks/click-grid`, `benchmarks/hover-grid`, and
+  `benchmarks/nested-hover-grid` crossed this boundary by initializing 10,000
+  cells, which baked roughly seven megabytes of pre-evaluated state into each
+  image. They now start at 100 cells and the four specifications that need the
+  dense grid create it explicitly, matching every other case in those suites.
+  That keeps the applications well inside the limit — the largest benchmark now
+  links roughly 20,000 relocations — but it avoids the defect rather than
+  fixing it.
+
+  The compiler fix applies the extended form to `.text`, `.rdata`, and `.pdata`,
+  as the DWARF sections already did. With it, `benchmarks/click-grid` links
+  102,300 relocations instead of 36,676 and its specifications pass. Restore the
+  dense initial grids and remove this entry once a pinned compiler carries that
+  change.
+
+- [ ] **Generated Roc API pages omit record-field documentation.** Running
+  `roc docs platform/main.roc` renders the `Elem.TranslateConfig` type comment
+  and signature but omits the doc comments on `key`, `get`, `set`, `on_delegate`,
+  and `memo`. The type-level documentation includes the essential contracts so
+  readers can use the generated reference. Track the compiler documentation
+  generator fix and verify the field descriptions in its HTML output.
+
 ## Runner: test what we fly
 
 - [ ] **Native frame focus work still scans unaffected controls.**
@@ -525,6 +809,7 @@ names the evidence so a fix can be verified against the same case.
   button and wheel events to exercise dispatch order, unrelated occlusion,
   press/release continuity, and wheel routing. This seam does not test
   operating-system pointer delivery or compositor sampling.
+
 - [ ] **A window specification cannot run while the screen is locked.** A
   locked macOS session presents no frame, so every window case reaches
   `driver-started` and waits for one that never arrives until the watchdog
@@ -533,276 +818,6 @@ names the evidence so a fix can be verified against the same case.
   apparent defect in the host, but the constraint stands: window evidence needs
   an unlocked session. This is why continuous integration needs the headless
   compositor lane below rather than a desktop session.
-
-- [ ] **Shared steps the window runner does not implement.** `drag`,
-  `replace-text`, `submit`, `revoke-file-grants`, and the owner counter
-  assertions are still classified semantic-only because the window runner
-  refuses them, not because they would be dishonest there.
-
-  The value and ordering assertions have since landed and are no longer on this
-  list. They cost almost nothing, because each is answered from the mounted
-  graph alone: `runner::graph_claim` now holds the only implementation and both
-  runners call it, so the five words cannot come to mean two things. The four
-  that remain are each a different problem rather than four of the same one.
-  `drag` and `submit` want a pointer and a submit route the window runner
-  reaches only by simulation, which is the entry above; `replace-text` sets a
-  value directly, which in a window would bypass the editing path `type`
-  exists to exercise, so it needs a decision about whether that is worth
-  offering at all. `revoke-file-grants` and the owner counters read
-  process-global state that is already reachable from the window runner — they
-  are held back only by the per-counter plumbing, and are the cheapest next
-  step.
-
-  `clipboard-text` and `await-ticks` have since landed in the window runner and
-  are no longer on this list. They are worth reading before the next one is
-  attempted, because each needed a different answer than settling: a clipboard
-  watcher rearms its read inside the completion that delivers the last one, so
-  one task is outstanding at every instant and quiescence never arrives, and
-  `await-ticks` therefore counts timer *fires* rather than completions, since a
-  fire can only be one that started after the step did.
-- [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
-  headless compositor such as sway or cage. For Sway this requires a headless
-  wlroots output, software rendering on workers without a GPU, and pointer
-  movement plus press/release over its IPC or virtual-pointer protocol. The job
-  must prove that GPUI receives the real Wayland event before benchmark captures
-  are accepted; merely opening a window is insufficient.
-- [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
-  and make the scaling and compare views refuse `semantic-headless` captures.
-  Strictly after window sample orchestration and compositor verification:
-  the automated benchmark matrix uses `semantic-headless`, while individual
-  window captures already measure native work. Preserve the explicit backend
-  distinction until the sampled native matrix replaces it.
-
-- [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
-  screen rectangle, so anything drawn over the window lands in the evidence; a
-  1280x800 window on a display with the dock visible photographs the dock. A
-  window-targeted capture (`screencapture -l<windowid>`, which reads the
-  window's own contents) would be immune, at the cost of cropping in process
-  from the returned image rather than in the request. The `image` crate is
-  already a dependency; the missing piece is the window id, which GPUI does not
-  expose and which would need the pid-to-window mapping the capture currently
-  avoids needing.
-- [ ] **Wayland window specifications in continuous integration.** The window
-  runner is platform-neutral and `grim` is wired for wlroots, but no Linux
-  runner has a compositor. This needs the headless lane (`sway --headless`,
-  `WLR_BACKENDS=headless`, software rendering) described above.
-- [ ] **Golden-image comparison.** Window specifications photograph state but
-  never compare images. Comparison needs a storage, review, and update story of
-  its own, and should not be bolted onto the capture step.
-- [ ] **Multi-display screenshots.** `gpui` 0.2.2 hard-zeroes the macOS display
-  origin (`platform/mac/display.rs`) and computes window bounds relative to the
-  window's own `NSScreen`, so a window on a secondary display has no recoverable
-  global coordinates. Capture reports `unavailable` rather than guessing.
-
-## Release infrastructure
-
-- [x] **Native macOS GPUI smoke shutdown.** The real-window smoke no longer
-  blocks: it renders and quits in ~2.3 s across repeated runs on Apple Silicon.
-  A block is now a failure inside the host itself rather than only in the driver
-  — `crates/host/src/watchdog.rs` arms a native thread before `Application::run`
-  that reports the last startup milestone reached (`app-run-entered`,
-  `window-opened`, `first-render`, `driver-started`) and exits 101 when the
-  deadline passes.
-- [ ] **Adopt roc-gui-owned content-addressed releases.** Run the dependency and
-  host producer workflows from reviewed repository revisions, publish their
-  attested archives, and replace the bootstrap `roc-signals` entries in
-  `dependencies.lock.json` with the exact roc-gui release identities before the
-  first platform release.
-
-## Input and accessibility
-
-- [ ] **File Explorer writable powerbox and desktop integration.** The read-only
-  explorer navigates capability-scoped child folders, preserves back/forward
-  history, selects files and folders, reports typed failures, and virtualizes a
-  realistic directory. Add a separately approved writable-directory grant and
-  direct-child create, rename, copy, move, trash, and restore operations with
-  collision policy, partial-result recovery, cancellation, and undo. Add tabs,
-  split views, multi-selection, drag-and-drop, clipboard file operations,
-  previews, metadata, operating-system open/reveal, watching, and durable grant
-  restoration only as complete production slices.
-  Replace development `--host-cap-dir` provisioning with trusted native/portal
-  Open Project selection for interactive use, record grant ancestry, define a
-  revocation linearization point for roots and derived children, and verify
-  denial outside the grant and revocation during queued work through the real
-  GPUI/trusted-chooser boundary.
-
-- [ ] **Music library metadata, persistence, and media integration.** The music
-  player foundation provides explicit folder/output capabilities, Rodio and
-  Symphonia decoding, a bounded playback state machine, queue navigation,
-  seeking, stale-load suppression, corrupt-media isolation, and a virtualized
-  ordinary-use library. Add metadata and artwork extraction, durable roots and
-  playlists, filesystem reconciliation, volume and repeat policy, automatic
-  end-of-track queue advancement, device-loss recovery, and operating-system
-  media controls as complete production slices.
-
-- [ ] **Animation Studio project assets and export.** The editor proves native
-  retained vector painting, captured direct manipulation, state-owned undo/redo,
-  position keyframes, scrubbing, and cancellable playback. Add capability-scoped
-  project save/open, image assets, text, grouping, easing, and deterministic
-  frame-sequence export with cancellation before presenting it as a complete
-  presentation authoring tool.
-
-- [ ] **Clipboard image formats, durable pins, and global activation.** The
-  clipboard-history slice provides explicitly granted, bounded text capture,
-  privacy exclusion, restore, cancellation, stale suppression, virtualization,
-  and content-free semantic evidence. Add bounded image representations,
-  encrypted durable pinned entries, compositor-level change notifications, and
-  a globally activated overlay with focus restoration as complete production
-  slices before presenting it as a full desktop clipboard manager.
-
-- [ ] **Redis mutation, authentication, and cluster operation.** The Redis
-  Explorer foundation exercises an exact-endpoint TCP grant, `roc-redis`,
-  bounded incremental SCAN, native type and TTL discovery, and read-only
-  inspection for strings, lists, sets, hashes, and sorted sets. Add credential
-  capabilities, database selection, cluster redirection policy, optimistic
-  mutation with server confirmation, destructive confirmation, expiry edits,
-  reconnection, and cancellation as complete slices before presenting it as a
-  general Redis administration tool. Credentials must never enter captures or
-  ordinary persisted application state.
-
-- [ ] **Broker trusted TCP destinations and revocation.** Numeric exact-endpoint
-  provisioning deliberately performs no DNS and serves development and
-  automation. Add named user-approved destinations, revocation that closes
-  owned streams, and lifecycle evidence through a trusted connection broker
-  before applications present a general-purpose Connect UI.
-
-- [ ] **SQLite write transactions and parameters.** The database capability is
-  deliberately read-only and executes one statement without bindings. Add a
-  separately granted read-write capability, typed parameters, cancellation,
-  transactions, paging, editable grids, and export with lifecycle and resource
-  counters before presenting the example as a general database administration
-  tool.
-
-- [ ] **System Monitor charts and export.** The system-monitor slice has a real
-  capability-scoped `sysinfo` sampler, explicit unavailable values, bounded
-  history, sorting/filtering/selection, and a virtualized process table. Add
-  canvas time-series charts and a separately granted privacy-safe export whose
-  schema excludes process names and IDs before offering session export.
-- [ ] **System Monitor platform breadth.** Validate the sampler and unavailable
-  classifications on macOS and Windows, and add per-disk/per-interface identity
-  only with explicit privacy policy and deterministic evidence.
-
-- [ ] **Image decode status is not represented in the mounted graph.** GPUI's
-  image asset decoder owns asynchronous success and failure after mounting, but
-  does not expose that state to the host element. Add an owner callback that
-  records decoded dimensions/frames or a content-free failure category and
-  renders a semantic per-image fallback; do not duplicate GPUI's decoder in the
-  semantic runner.
-- [ ] **Image-library trusted Open and capability lineage.** Development and
-  automation provisioning enters the ordinary grant registry, but it is not
-  trusted chooser consent. Add a platform-owned Open broker with ancestry and
-  revocation semantics before describing interactive folder selection as a
-  user grant.
-- [ ] **Image-library cancellation and decoded-cache ownership.** Folder scans
-  suppress stale task completions, but bounded Files reads do not yet expose
-  cooperative cancellation and GPUI does not expose decoded-byte eviction.
-  Add those production seams and owner counters before retaining much larger
-  raster collections.
-- [ ] **Image-library metadata and editing breadth.** Add EXIF orientation,
-  color-profile and animation metadata plus production zoom, pan, rotate, crop,
-  undo and slideshow primitives. Do not infer these values from filenames or
-  add controls that bypass `ImageProps`.
-- [ ] **Image-library export broker.** Add a trusted Save/Export broker with a
-  separately selected writable grant, collision policy and revocation. The
-  existing development directory provision is read-only and must not be used
-  as implicit export authority.
-
-- [ ] **Textarea selection, IME composition, and clipboard commands.** The
-  production textarea accepts ordinary character, Enter, and Backspace input
-  and routes complete controlled values through Roc. Close the desktop-editor
-  gap with GPUI `EntityInputHandler` selection/marked-text ownership, mouse hit
-  testing, copy/cut/paste, and specifications driven through the same route.
-- [ ] **Text editing has no clipboard or undo history.** The native text input
-  supports focus, caret motion, selection, keyboard deletion, controlled
-  updates, submission, and IME composition. Close by routing platform clipboard
-  operations and a bounded per-editor undo/redo history through the production
-  GPUI input actions, with semantic specifications that never record contents.
-
-- [ ] **HTTP cancellation and streaming.** The bounded
-  asynchronous HTTP foundation supports explicit scheme, redirect, timeout,
-  header, request-body, and response-body policy, and the workbench suppresses
-  stale completions. Add a typed request handle with cooperative transport
-  cancellation and bounded streamed upload/download progress before
-  applications depend on either.
-
-- [ ] **HTTP Workbench advanced document tools.** Add syntax-highlighted JSON
-  and text response modes, cURL and collection import/export, and resizable
-  split panes through production editor/layout primitives. Preserve request
-  meaning and redact authentication material in every persisted or exported
-  representation.
-
-- [ ] **HTTP Workbench collections and structured validation.** Add bounded
-  non-secret request history and named collections through `AppData`, excluding
-  authorization, cookie, and proxy-authorization values by construction. Add
-  structured JSON validation and multiple header/query rows with field-owned
-  diagnostics before advertising environment or authentication editors.
-
-- [ ] **Broker trusted HTTP destinations at runtime.** The provisioned origin
-  grant pins non-literal DNS resolution, disables ambient proxies, rejects
-  credential-bearing URLs, and rechecks redirects against the granted origin.
-  Add user-visible named destination setup and consent backed by an OS
-  credential store. Audit platform-specific resolver behavior and IPv4-mapped
-  IPv6 classification before treating provisioning flags as user consent.
-
-- [ ] **Native accessibility roles and names are not exported.** Buttons,
-  checkboxes, and scroll regions have stable semantics in the canonical graph,
-  but the GPUI host does not yet publish them to each operating system's
-  accessibility API. Close with platform accessibility nodes verified by an
-  external accessibility client, while retaining the same semantic names used
-  by specifications.
-- [ ] **Composite directory navigation has no roving focus.** A user can reach
-  and activate every folder with Tab and Enter or Space. Close with a semantic
-  list/list-item element whose Up, Down, Home, and End behavior, selected state,
-  scroll-into-view behavior, scaling case, and operating-system accessibility
-  mapping all use the production event path.
-
-- [x] **Redis Explorer serializes nothing on its single stream.** Closed. The
-  stream is no longer a field the whole application can reach: `Explorer.Link`
-  holds it inside the in-flight request (`Busy`) and nowhere else, so the render
-  function has no handle to hand a second request and cannot start one. A
-  RESP connection is one ordered conversation, and ownership now says so in the
-  type rather than in a flag someone must remember to check. Controls stay in
-  place and go dead while a request owns the stream, and a completion hands the
-  stream back from the state it was borrowed from, never from the task closure's
-  captured copy. `examples/redis-explorer/specs/stream-ownership.scm` is the
-  superseded-scan specification this entry said could not be written: it presses
-  Refresh three times inside one scan and asserts the newest keyspace arrives
-  with no error and exactly one scan's worth of traffic on the wire.
-
-- [ ] **Audio is the one resource whose operations are not methods on its
-  handle.** Every other host resource is a nominal type carrying its own
-  operations, so a caller writes `store.read!(path)` and `pty.read!(opts)`.
-  `Audio.Output` and `Audio.Track` are still plain aliases of their `Resource`
-  representation with module-level `Audio.load!`, `Audio.play!` and the rest,
-  because the pinned compiler cannot build an application that uses them in
-  nominal form. Making both nominal and leaving the rest of the platform
-  untouched, `roc check` on `examples/music-player` passes and
-  `roc build examples/music-player/main.roc` never terminates -- it was left
-  for fifty-five minutes of CPU against 5.1 seconds for the same example with
-  `Audio` as aliases, with memory still climbing. Making only `Audio.Output`
-  nominal segfaults the compiler outright. Nothing about music-player's own use
-  is unusual: it holds the handles in application state and passes them through
-  `Action.task`, which `image-library` and `file-explorer` also do with
-  `Assets.Store` and `Files.Dir.Read` and which compile in seconds. Closing this
-  needs the compiler defect fixed and reported upstream; the platform change
-  itself is then the same one made for every other resource.
-
-  2026-09-18: with both handles made nominal and every `Audio` operation
-  unwrapping them, compiler `main` `5982c9b2` checks and builds music-player
-  in seconds on both backends, and the pinned compiler's default-backend
-  build now terminates in 49 s rather than hanging. The compiler defect is
-  gone at head; make the nominal platform change after the pin moves.
-
-- [ ] **A resource handle captured by a task closure cannot be stored by its
-  completion.** Writing `Tcp.Stream` back into application state from
-  inside `resolve`, using the handle the surrounding `Action.task` captured,
-  segfaults the process non-deterministically — the capture is released when the
-  task's closure is, so the completion stores a dangling resource. Recovering the
-  same handle from the state the completion is given is safe and is what Redis
-  Explorer now does, but nothing in the API says which of the two is correct, and
-  the wrong one fails as a crash rather than as a type error. Either the capture
-  must keep the resource alive for the completion, or storing one must be
-  rejected at compile time.
 
 - [ ] **A window specification cannot wait for an HTTP request.** In the window
   runner `await-task` is `settle 2`, and a real `Http.Client.send!` over loopback does
@@ -829,87 +844,80 @@ names the evidence so a fix can be verified against the same case.
   Suppression there is therefore covered only by the final state and the file
   counters, which are identical with and without the guard. An ordered or
   request-selective wait step would close it.
-- [x] **Device Configurator has two unreachable status messages.** Closed. Both
-  branches are gone, and they are gone in the stronger of the two available
-  ways: `apply` and `disconnect` now take the connection -- and `apply` the
-  configuration -- that they operate on, so there is no state in which either
-  can be called without one. An unreachable message is not a safety net; it is
-  a claim the type system should have been making, and now does.
 
-  The half of the entry that asked for controls that explain themselves is
-  honoured where a person is actually looking. Connect and Disconnect live on
-  the device card and are never both offered, so before discovery neither
-  exists rather than existing uselessly; Apply is the one control that is ever
-  disabled, and the footer beside it says "The device has everything shown
-  here" when it is. `connect-before-discovery.scm` and `reconnect.scm` now
-  assert the absence of the control rather than the inertness of pressing it,
-  which is the stronger claim.
+- [ ] **Shared steps the window runner does not implement.** `drag`,
+  `replace-text`, and `submit` are still classified semantic-only because the
+  window runner refuses them, not because they would be dishonest there.
 
-  One thing this entry did not anticipate: the same reasoning found a real
-  defect next door. Discovery empties the device list, and the open connection
-  was reachable only from a card in that list, so discovering again while
-  connected stranded the handle. Discovery is now withheld while a connection
-  is open and says why, asserted by `discover-while-connected.scm`.
+  The value and ordering assertions have since landed and are no longer on this
+  list. They cost almost nothing, because each is answered from the mounted
+  graph alone: `runner::graph_claim` now holds the only implementation and both
+  runners call it, so the five words cannot come to mean two things.
+  `revoke-file-grants` and the owner counter assertions have since landed the
+  same way: `runner::resource_claim` is the only reading of the host's one files
+  registry, clipboard, audio device table and the rest, and both runners call
+  it, so `examples/file-explorer/specs/window-listing.scm` now photographs the
+  listing and asserts the picks, lists and reads that produced it in the same
+  run. File operation counts are differences from the start of a lifecycle, of
+  which the window runner has exactly one.
 
-- [x] **Asset stores have no behaviour specification.** Closed. `music-player`
-  adopts the API: it ships `assets/` with a `roc-assets.manifest`, reads
-  `art/nocturne-cover.jpg` through `Assets.content_directory` with
-  `with_manifest`, and draws it in the sleeve beside NOW PLAYING. Both paths are
-  specified -- `specs/cover-art.scm` grants a content directory and asserts
-  `(expect-asset-counters 1 0 1 1 0 142534)` alongside
-  `(expect-image-bytes (role image :name "Cover art") 142534)`, and
-  `specs/cover-art-denied.scm` withholds the grant and asserts the refusal,
-  `(expect-asset-counters 0 1 0 0 0 0)`, with the quiet line the sleeve shows
-  instead. The route from Roc through the ABI is now exercised end to end.
+  The two that remain are each a different problem rather than two of the same
+  one. `drag` and `submit` want a pointer and a submit route the window runner
+  reaches only by simulation, which is the entry above; `replace-text` sets a
+  value directly, which in a window would bypass the editing path `type`
+  exists to exercise, so it needs a decision about whether that is worth
+  offering at all.
 
-  One thing this entry did not anticipate: the grant vocabulary had no way to
-  provision a content directory, so `--host-cap-assets` was reachable from a
-  command line but not from a specification. `(assets "PATH")` was added to
-  `spec::Grant` and to `docs/specifications.adoc`, and `expect-asset-counters`
-  was added to the assertion reference, where it had been documented only in
-  `docs/development.adoc`.
+  `clipboard-text` and `await-ticks` have since landed in the window runner and
+  are no longer on this list. They are worth reading before the next one is
+  attempted, because each needed a different answer than settling: a clipboard
+  watcher rearms its read inside the completion that delivers the last one, so
+  one task is outstanding at every instant and quiescence never arrives, and
+  `await-ticks` therefore counts timer *fires* rather than completions, since a
+  fire can only be one that started after the step did.
 
-- [ ] **No asset root resolves relative to the application itself.** The three
-  roots are the executable's directory, the process working directory, and the
-  host-provisioned content directory. None of them is "the directory this
-  application ships in", which is what `roc app.roc` actually wants: the
-  executable is a build output in a temporary directory, and the working
-  directory is wherever the shell happens to be. `music-player` therefore reads
-  its cover from `working_directory("examples/music-player/assets")`, which is
-  correct when an example is run from the checkout root as the README says and
-  wrong from anywhere else. Closing this needs the application's own location to
-  reach the host, which is packaging identity rather than an asset-surface
-  change.
+- [ ] **CI compositor.** Benchmark jobs run the real Wayland backend under a
+  headless compositor such as sway or cage. For Sway this requires a headless
+  wlroots output, software rendering on workers without a GPU, and pointer
+  movement plus press/release over its IPC or virtual-pointer protocol. The job
+  must prove that GPUI receives the real Wayland event before benchmark captures
+  are accepted; merely opening a window is insufficient.
 
-  It also cost a specification. `specs/cover-art-denied.scm` proved the missing
-  cover state by withholding the content-directory grant; with a root that
-  resolves without provisioning there is no way to make the read fail from a
-  specification, so the case was removed rather than left asserting something it
-  no longer caused. The refused open and refused read are still covered by the
-  asset host's own tests.
+- [ ] **Demote the headless runner to smoke.** Remove benchmark policy from it
+  and make the scaling and compare views refuse `semantic-headless` captures.
+  Strictly after window sample orchestration and compositor verification:
+  the automated benchmark matrix uses `semantic-headless`, while individual
+  window captures already measure native work. Preserve the explicit backend
+  distinction until the sampled native matrix replaces it.
 
-- [ ] **A content directory is not an application identity.** A
-  `ContentDirectory` store resolves to whatever `--host-cap-assets` names, which
-  is development and packaging provisioning, not a stable per-application
-  installed location. Until packaging identity exists, two applications run from
-  the same host configuration share one content root, and an installed layout
-  has nothing to resolve against.
+- [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
+  screen rectangle, so anything drawn over the window lands in the evidence; a
+  1280x800 window on a display with the dock visible photographs the dock. A
+  window-targeted capture (`screencapture -l<windowid>`, which reads the
+  window's own contents) would be immune, at the cost of cropping in process
+  from the returned image rather than in the request. The `image` crate is
+  already a dependency; the missing piece is the window id, which GPUI does not
+  expose and which would need the pid-to-window mapping the capture currently
+  avoids needing.
 
-- [ ] **Asset stores have no scaling case.** The manifest check is constant-time
-  in the number of assets by construction, and one read is bounded at 64 MiB,
-  but nothing measures an application reading many assets across many tasks.
-  A scaling case belongs with the example that adopts the API.
-- [ ] **An SVG's red and blue channels are exchanged when it is rendered.** A
-  rasterised image is correct; an SVG is not. In `gpui` 0.2.2,
-  `Image::to_image_data` (`platform.rs`) sends every raster format through a
-  helper that converts the decoded RGBA to the BGRA the renderer wants, but the
-  `ImageFormat::Svg` arm wraps `svg_renderer.render_pixmap`'s buffer directly
-  and performs no such conversion. So `hsl(29,55%,35%)`, the warm brown
-  `image-library`'s `collection-01.svg` is authored with, reaches the screen as
-  a blue, and the fixtures authored as browns and an amber-to-violet sky present
-  as blues and greens. PNG, JPEG, WebP, BMP, TIFF and GIF are unaffected.
-  Decoding is GPUI's to own, and pre-rasterising SVG in this host would
-  duplicate the decoder this platform deliberately does not reimplement, so this
-  closes upstream. The vendored example icons are neutral greys, which are
-  invariant under the exchange and therefore honest either way. Verify with a
-  specification that samples a known pixel of a known fixture once a fix lands.
+- [ ] **Wayland window specifications in continuous integration.** The window
+  runner is platform-neutral and `grim` is wired for wlroots, but no Linux
+  runner has a compositor. This needs the headless lane (`sway --headless`,
+  `WLR_BACKENDS=headless`, software rendering) described above.
+
+- [ ] **Golden-image comparison.** Window specifications photograph state but
+  never compare images. Comparison needs a storage, review, and update story of
+  its own, and should not be bolted onto the capture step.
+
+- [ ] **Multi-display screenshots.** `gpui` 0.2.2 hard-zeroes the macOS display
+  origin (`platform/mac/display.rs`) and computes window bounds relative to the
+  window's own `NSScreen`, so a window on a secondary display has no recoverable
+  global coordinates. Capture reports `unavailable` rather than guessing.
+
+## Release infrastructure
+
+- [ ] **Adopt roc-gui-owned content-addressed releases.** Run the dependency and
+  host producer workflows from reviewed repository revisions, publish their
+  attested archives, and replace the bootstrap `roc-signals` entries in
+  `dependencies.lock.json` with the exact roc-gui release identities before the
+  first platform release.

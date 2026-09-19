@@ -32,4 +32,4 @@ render = |state| {
 }
 
 main : Program(State)
-main = Program.run({ init: { checked: 10000, count: 10000 }, render })
+main = Program.run({ init: |_access| { checked: 10000, count: 10000 }, render })

@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
@@ -47,6 +48,15 @@ static ACQUIRED: AtomicU64 = AtomicU64::new(0);
 static SAMPLED: AtomicU64 = AtomicU64::new(0);
 static CLOSED: AtomicU64 = AtomicU64::new(0);
 
+/// What a sampler may do. Reading the host's own processes is observing something
+/// the person did not direct at this application, which is capture and not read.
+const SAMPLER_RIGHTS: Rights = Rights::CAPTURE;
+
+/// How a sampler grant arrives. The host flag chooses a real `sysinfo` sampler or
+/// a deterministic source; either way it is development provisioning, not a
+/// person's decision.
+const SAMPLER_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -58,6 +68,7 @@ fn store() -> &'static Mutex<Store> {
     })
 }
 pub fn configure(grant: Grant) {
+    grant::forget_kind(grant::Kind::SystemMonitor);
     store().lock().expect("system monitor store poisoned").grant = grant;
 }
 pub fn counters() -> (u64, u64, u64) {
@@ -78,8 +89,13 @@ pub fn active_count() -> usize {
 }
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("system monitor store poisoned");
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
+    let released = crate::remove_resource_allocation(&mut guard.allocations, base as usize);
+    if let Some(id) = released {
         guard.samplers.remove(&id);
+    }
+    drop(guard);
+    if let Some(id) = released {
+        grant::release(grant::Kind::SystemMonitor, id);
     }
 }
 
@@ -105,12 +121,42 @@ fn capability(source: Source) -> *mut u64 {
             sampling: Mutex::new(false),
         }),
     );
-    crate::register_resource_allocation(crate::resource_domain::SYSTEM_MONITOR, &mut guard.allocations, base, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::SYSTEM_MONITOR,
+        &mut guard.allocations,
+        base,
+        id,
+    );
+    drop(guard);
+    grant::record_root(
+        grant::Kind::SystemMonitor,
+        id,
+        SAMPLER_RIGHTS,
+        SAMPLER_ORIGIN,
+        Lifetime::Session,
+    );
     handle
 }
-fn lookup(handle: *mut u64) -> Option<Arc<Sampler>> {
-    let id = unsafe { handle.as_ref().copied()? };
-    store().lock().ok()?.samplers.get(&id).cloned()
+/// A sampler, or the code saying why it is not usable. A withdrawn grant and an
+/// invalid handle are different facts and are reported as different codes.
+fn lookup(handle: *mut u64) -> Result<Arc<Sampler>, u8> {
+    let id = unsafe { handle.as_ref().copied() }.ok_or(INVALID_CAPABILITY)?;
+    grant::accept(grant::Kind::SystemMonitor, id, Rights::CAPTURE).map_err(refusal)?;
+    store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.samplers.get(&id).cloned())
+        .ok_or(INVALID_CAPABILITY)
+}
+
+const INVALID_CAPABILITY: u8 = 3;
+const REVOKED: u8 = 6;
+
+fn refusal(refusal: grant::Refusal) -> u8 {
+    match refusal {
+        grant::Refusal::Revoked => REVOKED,
+        grant::Refusal::Unknown | grant::Refusal::Rights => INVALID_CAPABILITY,
+    }
 }
 
 fn acquire_err(code: u8) -> HostGlueSystemAcquireResult {
@@ -285,8 +331,9 @@ fn sample_err(code: u8) -> HostGlueSystemSampleResult {
 pub extern "C" fn roc_system_sample(handle: *mut u64) -> HostGlueSystemSampleResult {
     let sampler = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(sampler) = sampler else {
-        return sample_err(3);
+    let sampler = match sampler {
+        Ok(sampler) => sampler,
+        Err(code) => return sample_err(code),
     };
     if *sampler
         .closed
@@ -330,8 +377,9 @@ fn unit_err(code: u8) -> HostGlueSystemCloseResult {
 pub extern "C" fn roc_system_close(handle: *mut u64) -> HostGlueSystemCloseResult {
     let sampler = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(sampler) = sampler else {
-        return unit_err(3);
+    let sampler = match sampler {
+        Ok(sampler) => sampler,
+        Err(code) => return unit_err(code),
     };
     let mut closed = sampler
         .closed

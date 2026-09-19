@@ -9,6 +9,7 @@
 ## ever read is not a safety net, it is a claim the type system should have been
 ## making. The explanation a person actually needs is in the window, beside the
 ## control that will not move.
+import pf.Program
 import pf.Action
 import pf.Device
 import Protocol
@@ -30,8 +31,10 @@ Configurator := [].{
 	sensitivity_step : U16
 	sensitivity_step = sensitivity_step
 
-	init : State
-	init = { config: None, connected: None, devices: [], dirty: False, generation: 0, status: Ready }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| { access, config: None, connected: None, devices: [], dirty: False, generation: 0, status: Ready }
 
 	discover : State -> Action.Action(State)
 	discover = discover
@@ -71,6 +74,7 @@ Status : [
 ]
 
 State : {
+	access : Program.Access,
 	config : [None, Some(Protocol.Config)],
 	connected : [None, Some(Device.Connection)],
 	devices : List(Device.Info),
@@ -103,7 +107,7 @@ discover = |state| {
 	next = state.generation + 1
 	Action.task({
 		pending: { ..state, generation: next, devices: [], status: Discovering },
-		run: || match Device.acquire!() {
+		run: || match Device.acquire!(state.access) {
 			Err(err) => DiscoveryFailed(err)
 			Ok(grant) => match grant.discover!() {
 				Err(err) => DiscoveryFailed(err)
@@ -121,7 +125,7 @@ connect = |state| {
 	next = state.generation + 1
 	Action.task({
 		pending: { ..state, generation: next, status: Connecting },
-		run: || match Device.acquire!() {
+		run: || match Device.acquire!(state.access) {
 			Err(err) => ConnectFailed(err)
 			Ok(grant) => match grant.connect!() {
 				Err(err) => ConnectFailed(err)

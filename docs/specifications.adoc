@@ -266,6 +266,26 @@ match for `SECOND` in mounted-tree order.
 Require the asset owner's six totals, in that order: opens, refused opens,
 manifest checks, reads, refused reads, and bytes read. No asset path, file name,
 or content becomes evidence.
+`(expect-app-access open|closed)`:: Require the trusted App access surface to be
+showing, or not. Window-only, and satisfied only once the surface has actually
+drawn: it is not a mounted node — an application must not be able to find it,
+style it, or notice it is open — so no locator names it and a claim about the
+application would be true whether or not it drew.
+`(expect-grant-counters RECORDED RELEASED REVOKED DENIED)`:: Require the grant
+registry's four totals, in that order. Released and revoked are counted apart
+because they are different facts: an application that stopped holding a handle
+did not have its authority taken away.
+`(expect-grants DESCRIPTION...)`:: Require exactly these grants, in registry
+order, each written as `KIND ORIGIN/ENFORCEMENT LINEAGE RIGHTS` with ` revoked`
+appended once its authority has been taken away — for example
+`"directory provisioned/consent-only root read,list,derive"`. `ORIGIN` is
+`trusted-selection`, `provisioned`, or `automatic`; `ENFORCEMENT` is `brokered`
+when the broker returned authority the process could not obtain for itself and
+`consent-only` when a person chose in a trusted surface but nothing outside the
+process enforces the scope. `LINEAGE` is `root` or `derived`. No step means the
+application holds no authority at all. Identifiers are deliberately not part of
+a description: they are allocation order, which is a fact about the run rather
+than about the authority.
 `(expect-canvas-primitives LOCATOR N)`:: Require one canvas owner to report
 exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.
@@ -388,9 +408,8 @@ them silently:
 
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount. Also every step the
-window runner does not implement: `drag`, `replace-text`, `submit`, the
-live-resource and capability counter assertions, and the repository fixture steps the
-Contributing chapter describes.
+window runner does not implement: `drag`, `replace-text`, `submit`, and the
+repository fixture steps the Contributing chapter describes.
 
 `window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
 `expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
@@ -408,6 +427,14 @@ case could not put a single item into a clipboard-driven application, and so
 could not photograph one. The value and ordering assertions read the mounted
 graph, which both runners hold, and both call the same code to answer them, so
 one window case can assert a semantic truth and photograph it in the same run.
+
+Also `revoke-file-grants` and the live-resource and capability counter
+assertions. The host owns one files registry, one clipboard, one audio device
+table; both runners read them through the same shared implementation, and
+revocation acts on that one registry. A windowed case can therefore photograph a
+granted-authority readout and assert the counters that produced it in the same
+run. File operation counts are differences from the start of the run's
+lifecycle, of which the window runner has exactly one.
 
 A step is classified by what a runner actually does, so a specification is
 refused before the window opens rather than part-way through a run.

@@ -2,9 +2,9 @@ use crate::roc_platform_abi::{
     MountOrNoChangeOrReplace, MountOrNoChangeOrReplaceTag, RocErasedCallable,
 };
 use std::collections::{HashMap, HashSet, hash_map::Entry};
-use std::sync::Arc;
 use std::hash::{BuildHasherDefault, Hasher};
 use std::iter::FusedIterator;
+use std::sync::Arc;
 use std::time::Instant;
 
 // A realistic row can lower to several host nodes. Keep a finite corruption /
@@ -1430,7 +1430,9 @@ impl MountedGraph {
             };
             let occurrence = match child_node.kind.sibling_name() {
                 Some(name) => {
-                    let slot = seen.entry((child_node.kind.tag(), name.into_owned())).or_default();
+                    let slot = seen
+                        .entry((child_node.kind.tag(), name.into_owned()))
+                        .or_default();
                     let occurrence = *slot;
                     *slot += 1;
                     occurrence
@@ -2679,10 +2681,7 @@ impl ComponentRegistry {
             }
         } else {
             let name: Arc<str> = Arc::from(label);
-            let occurrence = parent
-                .occurrences
-                .entry((tag, name.clone()))
-                .or_default();
+            let occurrence = parent.occurrences.entry((tag, name.clone())).or_default();
             let segment = IdentitySegment::Named {
                 tag,
                 name,

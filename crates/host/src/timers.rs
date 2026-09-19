@@ -72,7 +72,12 @@ pub fn start(interval_ms: u64) -> *mut u64 {
     };
     unsafe { handle.write(id) };
     let allocation = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) } as usize;
-    crate::register_resource_allocation(crate::resource_domain::TIMERS, &mut guard.allocations, allocation, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::TIMERS,
+        &mut guard.allocations,
+        allocation,
+        id,
+    );
     handle
 }
 pub fn next(handle: *mut u64) -> bool {

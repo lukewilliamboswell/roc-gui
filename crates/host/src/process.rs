@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
@@ -54,6 +55,18 @@ static READ_BYTES: AtomicU64 = AtomicU64::new(0);
 static WRITTEN_BYTES: AtomicU64 = AtomicU64::new(0);
 static CANCELED: AtomicU64 = AtomicU64::new(0);
 
+/// What a process grant may do: spawn a session, and derive that session from
+/// itself. It never reads or writes — the PTY does.
+const GRANT_RIGHTS: Rights = Rights::CONNECT.union(Rights::DERIVE);
+
+/// What an open PTY may do.
+const PTY_RIGHTS: Rights = Rights::READ.union(Rights::WRITE);
+
+/// How a process grant arrives. The host chooses a fixed profile; nothing about
+/// it is a person's decision, and the contract requires that be visible rather
+/// than assumed.
+const GRANT_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -69,6 +82,7 @@ fn store() -> &'static Mutex<Store> {
 
 pub fn configure(profile: Option<GrantedProfile>) {
     store().lock().expect("process store poisoned").configured = profile;
+    grant::forget_kind(grant::Kind::Process);
 }
 
 fn allocate_handle(id: u64) -> (*mut u64, usize) {
@@ -95,7 +109,7 @@ fn next_id(guard: &mut Store) -> u64 {
 }
 
 type Reason =
-    AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrUnsupported;
+    AccessDeniedOrBusyOrExitedOrInvalidCapabilityOrInvalidSizeOrIoOrResourceLimitOrRevokedOrUnsupported;
 type Error = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErr;
 type ErrorPayload = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrPayload;
 type ErrorTag = AcquireProcessErrOrCancelProcessErrOrReadProcessErrOrResizeProcessErrOrSpawnProcessErrOrWriteProcessErrTag;
@@ -128,14 +142,37 @@ fn valid_size(columns: u16, rows: u16) -> bool {
     (1..=4096).contains(&columns) && (1..=4096).contains(&rows)
 }
 
-fn grant_profile(handle: *mut u64) -> Option<GrantedProfile> {
-    let id = unsafe { handle.as_ref().copied()? };
-    store().lock().ok()?.grants.get(&id).copied()
+/// The profile and the grant it was accepted against. `spawn` decrefs the grant
+/// handle before the session exists, so the PTY is derived from the grant
+/// accepted here rather than from a second lookup that would find nothing.
+fn grant_profile(handle: *mut u64) -> Result<(GrantedProfile, grant::Grant), Reason> {
+    let id = unsafe { handle.as_ref().copied() }.ok_or(Reason::InvalidCapability)?;
+    let entry = grant::accept(grant::Kind::Process, id, Rights::CONNECT).map_err(refusal)?;
+    let profile = store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.grants.get(&id).copied())
+        .ok_or(Reason::InvalidCapability)?;
+    Ok((profile, entry))
 }
 
-fn lookup(handle: *mut u64) -> Option<Arc<Pty>> {
-    let id = unsafe { handle.as_ref().copied()? };
-    store().lock().ok()?.ptys.get(&id).cloned()
+/// A withdrawn grant and an invalid handle are different facts about the
+/// application, so they are different reasons rather than one.
+fn refusal(refusal: grant::Refusal) -> Reason {
+    match refusal {
+        grant::Refusal::Revoked => Reason::Revoked,
+        grant::Refusal::Unknown | grant::Refusal::Rights => Reason::InvalidCapability,
+    }
+}
+
+fn lookup(handle: *mut u64) -> Result<Arc<Pty>, Reason> {
+    let id = unsafe { handle.as_ref().copied() }.ok_or(Reason::InvalidCapability)?;
+    grant::accept(grant::Kind::Process, id, PTY_RIGHTS).map_err(refusal)?;
+    store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.ptys.get(&id).cloned())
+        .ok_or(Reason::InvalidCapability)
 }
 
 #[unsafe(no_mangle)]
@@ -152,7 +189,20 @@ pub extern "C" fn roc_process_acquire() -> HostGlueProcessAcquireResult {
     let id = next_id(&mut guard);
     let (handle, base) = allocate_handle(id);
     guard.grants.insert(id, profile);
-    crate::register_resource_allocation(crate::resource_domain::PROCESS, &mut guard.grant_allocations, base, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::PROCESS,
+        &mut guard.grant_allocations,
+        base,
+        id,
+    );
+    drop(guard);
+    grant::record_root(
+        grant::Kind::Process,
+        id,
+        GRANT_RIGHTS,
+        GRANT_ORIGIN,
+        Lifetime::Session,
+    );
     HostGlueProcessAcquireResult {
         payload: HostGlueProcessAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
@@ -166,10 +216,10 @@ pub extern "C" fn roc_process_spawn(
     grant: *mut u64,
     config: AnonStruct93136bf334c2a2fc,
 ) -> HostGlueProcessSpawnResult {
-    let granted = grant_profile(grant);
+    let accepted = grant_profile(grant);
     unsafe { decref_box(grant as RocBox, roc_host()) };
-    let failure = if granted.is_none() {
-        Some(Reason::InvalidCapability)
+    let failure = if let Err(reason) = accepted {
+        Some(reason)
     } else if !valid_size(config.columns, config.rows) {
         Some(Reason::InvalidSize)
     } else if active_count() >= MAX_ACTIVE {
@@ -181,7 +231,7 @@ pub extern "C" fn roc_process_spawn(
         sys::Terminal::spawn(
             config.columns,
             config.rows,
-            granted.expect("validated process grant"),
+            accepted.expect("validated process grant").0,
         )
         .map(|terminal| Pty {
             terminal,
@@ -203,7 +253,16 @@ pub extern "C" fn roc_process_spawn(
             let id = next_id(&mut guard);
             let (handle, base) = allocate_handle(id);
             guard.ptys.insert(id, Arc::new(pty));
-            crate::register_resource_allocation(crate::resource_domain::PROCESS, &mut guard.pty_allocations, base, id);
+            crate::register_resource_allocation(
+                crate::resource_domain::PROCESS,
+                &mut guard.pty_allocations,
+                base,
+                id,
+            );
+            drop(guard);
+            if let Ok((_, parent)) = accepted {
+                grant::record_descendant(grant::Kind::Process, id, PTY_RIGHTS, parent);
+            }
             SPAWNED.fetch_add(1, Ordering::Relaxed);
             HostGlueProcessSpawnResult {
                 payload: HostGlueProcessSpawnResultPayload {
@@ -231,8 +290,9 @@ fn data(collected: &[u8]) -> HostGlueProcessReadResult {
 pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostGlueProcessReadResult {
     let pty = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(pty) = pty else {
-        return read_err(Reason::InvalidCapability);
+    let pty = match pty {
+        Ok(pty) => pty,
+        Err(reason) => return read_err(reason),
     };
     if max_bytes == 0 || max_bytes as usize > MAX_IO_BYTES {
         return read_err(Reason::ResourceLimit);
@@ -322,12 +382,12 @@ pub extern "C" fn roc_process_write(
     let pty = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let result = match pty {
-        None => Err(Reason::InvalidCapability),
-        Some(_) if owned.len() > MAX_IO_BYTES => Err(Reason::ResourceLimit),
-        Some(pty) if pty.canceled.load(Ordering::Acquire) || pty.exited.load(Ordering::Acquire) => {
+        Err(reason) => Err(reason),
+        Ok(_) if owned.len() > MAX_IO_BYTES => Err(Reason::ResourceLimit),
+        Ok(pty) if pty.canceled.load(Ordering::Acquire) || pty.exited.load(Ordering::Acquire) => {
             Err(Reason::Exited)
         }
-        Some(pty) => pty
+        Ok(pty) => pty
             .terminal
             .write(&owned)
             .map(|n| n as u32)
@@ -360,10 +420,10 @@ pub extern "C" fn roc_process_resize(
     let pty = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let result = match pty {
-        None => Err(Reason::InvalidCapability),
-        Some(_) if !valid_size(size.columns, size.rows) => Err(Reason::InvalidSize),
-        Some(pty) if pty.canceled.load(Ordering::Acquire) => Err(Reason::Exited),
-        Some(pty) => pty
+        Err(reason) => Err(reason),
+        Ok(_) if !valid_size(size.columns, size.rows) => Err(Reason::InvalidSize),
+        Ok(pty) if pty.canceled.load(Ordering::Acquire) => Err(Reason::Exited),
+        Ok(pty) => pty
             .terminal
             .resize(size.columns, size.rows)
             .map_err(|_| Reason::Io),
@@ -386,16 +446,16 @@ pub extern "C" fn roc_process_resize(
 pub extern "C" fn roc_process_cancel(handle: *mut u64) -> HostGlueProcessCancelResult {
     let pty = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(pty) = pty else {
-        return HostGlueProcessCancelResult {
-            payload: HostGlueProcessCancelResultPayload {
-                err: ManuallyDrop::new(error(
-                    ErrorTag::CancelProcessErr,
-                    Reason::InvalidCapability,
-                )),
-            },
-            tag: HostGlueProcessCancelResultTag::Err,
-        };
+    let pty = match pty {
+        Ok(pty) => pty,
+        Err(reason) => {
+            return HostGlueProcessCancelResult {
+                payload: HostGlueProcessCancelResultPayload {
+                    err: ManuallyDrop::new(error(ErrorTag::CancelProcessErr, reason)),
+                },
+                tag: HostGlueProcessCancelResultTag::Err,
+            };
+        }
     };
     let changed = !pty.exited.load(Ordering::Acquire) && !pty.canceled.swap(true, Ordering::AcqRel);
     if changed {
@@ -415,15 +475,22 @@ pub extern "C" fn roc_process_cancel(handle: *mut u64) -> HostGlueProcessCancelR
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
+    let mut released = Vec::new();
     let pty = {
         let mut guard = store().lock().expect("process store poisoned");
         let key = base as usize;
         if let Some(id) = crate::remove_resource_allocation(&mut guard.grant_allocations, key) {
             guard.grants.remove(&id);
+            released.push(id);
         }
-        crate::remove_resource_allocation(&mut guard.pty_allocations, key)
-            .and_then(|id| guard.ptys.remove(&id))
+        crate::remove_resource_allocation(&mut guard.pty_allocations, key).and_then(|id| {
+            released.push(id);
+            guard.ptys.remove(&id)
+        })
     };
+    for id in released {
+        grant::release(grant::Kind::Process, id);
+    }
     if let Some(pty) = pty {
         pty.canceled.store(true, Ordering::Release);
         pty.terminal.kill();

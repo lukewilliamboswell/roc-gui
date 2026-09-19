@@ -55,7 +55,7 @@ render = |state| Elem.col(
 
 main : Program(State)
 main = Program.run({
-	init: { body: "", memoized: True, loaded: False },
+	init: |_access| { body: "", memoized: True, loaded: False },
 	render,
 	window: { title: "Textarea benchmark", width: 900, height: 650 },
 })

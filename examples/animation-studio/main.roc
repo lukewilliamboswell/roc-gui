@@ -6,4 +6,4 @@ import Render
 
 State : Studio.State
 main : Program(State)
-main = Program.run({ init: Studio.initial, render: Render.render, window: { title: "Animation Studio", width: 1280, height: 720 } })
+main = Program.run({ init: |_access| Studio.initial, render: Render.render, window: { title: "Animation Studio", width: 1280, height: 720 } })

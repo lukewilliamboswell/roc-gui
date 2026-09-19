@@ -24,14 +24,14 @@ Tcp := [].{
 	}
 
 	## A stable, portable category for a stream failure.
-	Reason : [AccessDenied, Closed, ConnectionFailed, InvalidCapability, InvalidRequest, ResourceLimit, Timeout]
+	Reason : [AccessDenied, Closed, ConnectionFailed, InvalidCapability, InvalidRequest, ResourceLimit, Revoked, Timeout]
 
 	## A stream failure. The tag identifies the operation that failed.
 	TcpErr : [CloseTcpErr(Reason), ConnectTcpErr(Reason), ReadTcpErr(Reason), WriteTcpErr(Reason)]
 
 	## Connect to the exact endpoint supplied with `--host-cap-tcp`.
-	connect! : () => Try(Stream, TcpErr)
-	connect! = || Host.tcp_connect!().map_ok(|stream| Stream.(stream)).map_err(|code| ConnectTcpErr(decode_reason(code)))
+	connect! : Resource.Access => Try(Stream, TcpErr)
+	connect! = |_access| Host.tcp_connect!().map_ok(|stream| Stream.(stream)).map_err(|code| ConnectTcpErr(decode_reason(code)))
 
 	decode_reason = |code| match code {
 		0 => AccessDenied
@@ -41,6 +41,7 @@ Tcp := [].{
 		4 => InvalidRequest
 		5 => ResourceLimit
 		6 => Timeout
+		7 => Revoked
 		_ => ConnectionFailed
 	}
 }

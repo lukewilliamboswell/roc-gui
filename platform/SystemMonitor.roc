@@ -28,14 +28,14 @@ SystemMonitor := [].{
 		network : Value({ received_bytes : U64, transmitted_bytes : U64 }),
 		processes : Value(List(Process)),
 	}
-	Reason : [AccessDenied, Busy, Closed, InvalidCapability, Io, ResourceLimit, Unavailable]
+	Reason : [AccessDenied, Busy, Closed, InvalidCapability, Io, ResourceLimit, Revoked, Unavailable]
 	SystemErr : [AcquireSystemErr(Reason), CloseSystemErr(Reason), SampleSystemErr(Reason)]
 
 	## Acquire the system-observation authority granted by the host.
-	acquire! : () => Try(Sampler, SystemErr)
-	acquire! = || Host.system_acquire!().map_ok(|sampler| Sampler.(sampler)).map_err(|code| AcquireSystemErr(decode_reason(code)))
+	acquire! : Resource.Access => Try(Sampler, SystemErr)
+	acquire! = |_access| Host.system_acquire!().map_ok(|sampler| Sampler.(sampler)).map_err(|code| AcquireSystemErr(decode_reason(code)))
 
-	decode_reason = |code| match code { 0 => AccessDenied, 1 => Busy, 2 => Closed, 3 => InvalidCapability, 4 => Io, 5 => ResourceLimit, _ => Unavailable }
+	decode_reason = |code| match code { 0 => AccessDenied, 1 => Busy, 2 => Closed, 3 => InvalidCapability, 4 => Io, 5 => ResourceLimit, 6 => Revoked, _ => Unavailable }
 	available = |is_available, value| if is_available Value(value) else Unavailable(Unsupported)
 	decode_snapshot = |raw| {
 		sequence: raw.sequence,

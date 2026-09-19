@@ -1,6 +1,7 @@
 ## The explorer's state, the authority it holds over one TCP endpoint, and the
 ## asynchronous transitions between them. The mounted presentation lives in
 ## `View.roc`.
+import pf.Program
 import pf.Action
 import pf.Tcp
 import redis.Bytes
@@ -34,14 +35,18 @@ Link : [
 ## that said no. Only a refusal is a statement about authority.
 Trouble : { message : Str, remedy : Str, denied : Bool }
 
-State : { keys : List(Key), link : Link, next_request : U64, pattern : Str, selection : [None, Some(Selection)], trouble : [None, Some(Trouble)] }
+State : {
+	access : Program.Access, keys : List(Key), link : Link, next_request : U64, pattern : Str, selection : [None, Some(Selection)], trouble : [None, Some(Trouble)] }
 
 Explorer := [].{
 	Link : Link
 	State : State
 	Trouble : Trouble
-	init : State
-	init = { keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	init : Program.Access -> State
+	init = |access| {
+		access, keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
 	connect : State -> Action(State)
 	connect = connect
 	disconnect : State, Tcp.Stream -> Action(State)
@@ -73,7 +78,7 @@ connect = |state| {
 	Action.task({
 		pending: { ..state, next_request: id + 1, link: Opening(id), trouble: None },
 		run: || {
-			stream = Tcp.connect!() ? |error| ConnectFailed(tcp_trouble(error))
+			stream = Tcp.connect!(state.access) ? |error| ConnectFailed(tcp_trouble(error))
 			pong = connection(stream).request!(Commands.Session.ping()) ? |error| ConnectFailed(redis_trouble(error))
 			if pong == Bytes.from_str("PONG") {
 				Ok(stream)
@@ -239,6 +244,7 @@ tcp_reason = |reason| match reason {
 	ConnectionFailed => { message: "The granted Redis endpoint is unavailable", remedy: "The grant stands; nothing is listening there. Start the server and connect again.", denied: False }
 	InvalidCapability => { message: "The Redis connection was no longer valid", remedy: "The stream has been closed underneath the explorer. Connect again.", denied: True }
 	InvalidRequest => { message: "The Redis transport request was invalid", remedy: "A read or write asked for a size outside the transport's bounds.", denied: False }
+	Revoked => { message: "Redis connection authority was withdrawn", remedy: "Someone took this endpoint back. The stream is closed and will not reopen.", denied: True }
 	ResourceLimit => { message: "The Redis transport exceeded its resource limit", remedy: "The reply was larger than one bounded read may carry.", denied: False }
 	Timeout => { message: "The Redis endpoint timed out", remedy: "The grant stands; the endpoint accepted the connection and never replied.", denied: False }
 }

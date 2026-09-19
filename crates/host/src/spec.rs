@@ -211,6 +211,17 @@ pub enum Command {
     /// refused reads, and bytes read. All six are numeric; no path, file name,
     /// or asset content ever becomes evidence.
     ExpectAssetCounters([u64; 6]),
+    /// Every live grant, each rendered by `grant::Grant::describe`, in registry
+    /// order. The claim a person most wants to make about authority is not a
+    /// number but a list: this is what this application is holding, and nothing
+    /// else.
+    ExpectGrants(Vec<String>),
+    ExpectGrantCounters([u64; 4]),
+    /// Whether the trusted App access surface is showing. The surface is not a
+    /// mounted node — an application must not be able to find it, style it, or
+    /// notice it is open — so no locator names it and this is how a
+    /// specification asks.
+    ExpectAppAccess(bool),
     /// Counts from the most recently committed production action turn.
     ExpectComponentWork([Option<u64>; crate::observatory::COMPONENT_WORK_NAMES.len()]),
     Submit(Locator),
@@ -241,7 +252,7 @@ pub enum Command {
     Screenshot(Screenshot),
     /// Type text one real keystroke at a time into the focused element.
     Type(String),
-    /// Send one real key chord, such as "cmd-a", through the keymap.
+    /// Send one real key chord, such as "secondary-a", through the keymap.
     Key(String),
     /// Resize the production window, so a layout can be proved at a size other
     /// than the one `main.roc` asks for.
@@ -271,7 +282,15 @@ pub enum ScrollMotion {
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
-const CHORD_MODIFIERS: [&str; 6] = ["ctrl", "alt", "shift", "cmd", "super", "fn"];
+const CHORD_MODIFIERS: [&str; 7] = [
+    "ctrl",
+    "alt",
+    "shift",
+    "cmd",
+    "super",
+    "fn",
+    "secondary",
+];
 
 /// Check a chord's shape without reimplementing GPUI's parser.
 ///
@@ -387,6 +406,9 @@ impl Command {
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
+            Self::ExpectGrants(_) => "expect-grants",
+            Self::ExpectGrantCounters(_) => "expect-grant-counters",
+            Self::ExpectAppAccess(_) => "expect-app-access",
             Self::ExpectComponentWork(_) => "expect-component-work",
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
@@ -424,6 +446,8 @@ impl Command {
             Self::ExpectPatch(_) | Self::MarkMetrics => Capability::Semantic,
             // Settling on presented frames has no meaning without a window.
             Self::Settle { .. }
+            // The surface only exists where there is a window to draw it on.
+            | Self::ExpectAppAccess(_)
             | Self::MarkNativeWork
             | Self::ExpectNativeWork { .. }
             | Self::ExpectOnScreen(_)
@@ -465,15 +489,14 @@ impl Command {
             | Self::ExpectImageBytes(_, _)
             | Self::ExpectComponentWork(_)
             | Self::ExpectBefore(_, _)
-            | Self::ExpectBackground(_, _) => Capability::Both,
-            // Semantic-only because the window runner does not implement them.
-            // They are honest claims, made by one runner rather than two; the
-            // alternative of accepting a specification and then refusing a step
-            // mid-run would report a failure that is about the harness rather
-            // than about the application.
-            Self::Drag(..)
-            | Self::ReplaceText(_, _)
-            | Self::Submit(_)
+            | Self::ExpectBackground(_, _)
+            // Answered from a process-global resource owner, of which the host
+            // has exactly one. A window run reads the same files registry, the
+            // same clipboard and the same audio device table the semantic run
+            // reads, through the same shared implementation, so a windowed case
+            // can photograph a granted-authority readout and assert the counter
+            // that produced it in the same run. Revoking grants likewise acts on
+            // the one registry; what the application then sees is its next read.
             | Self::RevokeFileGrants
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
@@ -495,7 +518,17 @@ impl Command {
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
             | Self::ExpectImageOwnerCounters(_)
-            | Self::ExpectAssetCounters(_) => Capability::Semantic,
+            | Self::ExpectAssetCounters(_)
+            | Self::ExpectGrants(_)
+            | Self::ExpectGrantCounters(_) => Capability::Both,
+            // Semantic-only because the window runner does not implement them.
+            // They are honest claims, made by one runner rather than two; the
+            // alternative of accepting a specification and then refusing a step
+            // mid-run would report a failure that is about the harness rather
+            // than about the application.
+            Self::Drag(..)
+            | Self::ReplaceText(_, _)
+            | Self::Submit(_) => Capability::Semantic,
         }
     }
 
@@ -1145,7 +1178,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             if !valid_chord(chord) {
                 return Err(error(
                     &values[1],
-                    "key requires a chord such as \"cmd-a\" or \"ctrl-shift-k\"",
+                    "key requires a chord such as \"secondary-a\" or \"ctrl-shift-k\"",
                 ));
             }
             Command::Key(chord.to_owned())
@@ -1453,6 +1486,34 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectImageOwnerCounters(expected)
         }
+        // No arity bound: the claim is the whole list, so an application
+        // holding no authority at all is `(expect-grants)` and says so exactly.
+        "expect-grants" => {
+            let mut expected = Vec::new();
+            for value in &values[1..] {
+                expected.push(
+                    value
+                        .string()
+                        .ok_or_else(|| error(value, "expect-grants takes quoted grant descriptions"))?
+                        .to_owned(),
+                );
+            }
+            Command::ExpectGrants(expected)
+        }
+        "expect-app-access" if values.len() == 2 => {
+            match values[1].atom() {
+                Some("open") => Command::ExpectAppAccess(true),
+                Some("closed") => Command::ExpectAppAccess(false),
+                _ => return Err(error(&values[1], "expect-app-access takes open or closed")),
+            }
+        }
+        "expect-grant-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-grant-counters")? as u64;
+            }
+            Command::ExpectGrantCounters(expected)
+        }
         "expect-asset-counters" if values.len() == 7 => {
             let mut expected = [0u64; 6];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1721,6 +1782,11 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "revoke-file-grants"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
+        // `expect-grants` is deliberately absent: it takes any number of
+        // descriptions, so it can never be the known-step-wrong-arity case this
+        // list exists to report.
+        | "expect-grant-counters"
+        | "expect-app-access"
         | "expect-component-work"
         | "expect-visible"
         | "expect-not-visible"
@@ -2885,9 +2951,15 @@ mod tests {
     #[test]
     fn typing_and_chords_parse() {
         let spec =
-            parse(r#"(test "s" (steps (type "hello") (key "cmd-a") (key "escape")))"#).unwrap();
+            parse(
+                r#"(test "s" (steps (type "hello") (key "secondary-a") (key "escape")))"#,
+            )
+            .unwrap();
         assert_eq!(spec.steps[0].command, Command::Type("hello".to_owned()));
-        assert_eq!(spec.steps[1].command, Command::Key("cmd-a".to_owned()));
+        assert_eq!(
+            spec.steps[1].command,
+            Command::Key("secondary-a".to_owned())
+        );
         assert_eq!(spec.steps[2].command, Command::Key("escape".to_owned()));
     }
 

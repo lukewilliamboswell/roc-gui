@@ -26,4 +26,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: { rows: [] }, render })
+main = Program.run({ init: |_access| { rows: [] }, render })

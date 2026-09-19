@@ -36,4 +36,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: { bytes: [] }, render, window: { title: "Image benchmark", width: 1000, height: 700 } })
+main = Program.run({ init: |_access| { bytes: [] }, render, window: { title: "Image benchmark", width: 1000, height: 700 } })

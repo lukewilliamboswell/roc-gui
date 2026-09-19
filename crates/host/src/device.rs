@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use std::{
     collections::HashMap,
@@ -49,6 +50,23 @@ static CONNECTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::n
 static TRANSACTIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static CLOSED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+/// What an acquired device grant may do: open a connection, and derive that
+/// connection as a child of itself. Never read or write — those are the
+/// connection's rights, and a grant that is not connected can do neither.
+const GRANT_RIGHTS: Rights = Rights::CONNECT.union(Rights::DERIVE);
+
+/// What an open connection may do. Reading and writing a device is one framed
+/// transaction, so both rights travel together.
+const CONNECTION_RIGHTS: Rights = Rights::READ.union(Rights::WRITE);
+
+/// How a device grant arrives. `--host-cap-device` is the only source there is,
+/// and `docs/resource-access.adoc` requires that a flag be visibly identified as
+/// development authority rather than represented as a person's decision. The
+/// trusted device chooser this should one day be is an open backlog entry; when
+/// it lands this becomes a `TrustedSelection` at the point of selection, and
+/// nothing else here changes.
+const GRANT_ORIGIN: Origin = Origin::Provisioned;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -64,6 +82,9 @@ fn store() -> &'static Mutex<Store> {
 
 pub fn configure(device: Option<GrantedDevice>) {
     store().lock().expect("device store poisoned").configured = device;
+    // Provisioning is being replaced; grants naming the previous configuration
+    // cease to exist rather than having their authority taken away.
+    grant::forget_kind(grant::Kind::Device);
 }
 
 fn allocate_handle(id: u64) -> (*mut u64, usize) {
@@ -89,11 +110,17 @@ fn next_id(store: &mut Store) -> u64 {
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
     let mut guard = store().lock().expect("device store poisoned");
     let key = base as usize;
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.grant_allocations, key) {
+    let grant_id = crate::remove_resource_allocation(&mut guard.grant_allocations, key);
+    if let Some(id) = grant_id {
         guard.grants.remove(&id);
     }
-    if let Some(id) = crate::remove_resource_allocation(&mut guard.connection_allocations, key) {
+    let connection_id = crate::remove_resource_allocation(&mut guard.connection_allocations, key);
+    if let Some(id) = connection_id {
         guard.connections.remove(&id);
+    }
+    drop(guard);
+    for id in grant_id.into_iter().chain(connection_id) {
+        grant::release(grant::Kind::Device, id);
     }
 }
 
@@ -121,7 +148,7 @@ pub fn counters() -> (u64, u64, u64, u64) {
     )
 }
 
-type Reason = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrTimeoutOrUnsupported;
+type Reason = AccessDeniedOrBusyOrClosedOrDisconnectedOrInvalidCapabilityOrInvalidRequestOrIoOrNotFoundOrProtocolOrResourceLimitOrRevokedOrTimeoutOrUnsupported;
 type Error =
     AcquireDeviceErrOrCloseDeviceErrOrConnectDeviceErrOrDiscoverDeviceErrOrTransactDeviceErr;
 type ErrorPayload =
@@ -150,14 +177,50 @@ fn error(tag: ErrorTag, reason: Reason) -> Error {
     Error { payload, tag }
 }
 
+/// A device grant, if this handle still names a live one. Every operation that
+/// needs the grant passes through here, so the kernel's acceptance point is this
+/// resource's acceptance point too, and a revoked device refuses to connect
+/// without device code carrying a revocation rule of its own.
 fn grant(handle: *mut u64) -> Option<GrantedDevice> {
-    let id = unsafe { handle.as_ref().copied()? };
-    store().lock().ok()?.grants.get(&id).copied()
+    accepted(handle).ok().map(|(device, _)| device)
 }
 
-fn connection(handle: *mut u64) -> Option<Arc<Connection>> {
-    let id = unsafe { handle.as_ref().copied()? };
-    store().lock().ok()?.connections.get(&id).cloned()
+/// The granted device and the grant it was accepted against. `connect` decrefs
+/// the grant handle before the connection exists — Roc's `grant.connect!`
+/// consumes it — so the connection is derived from the grant accepted here
+/// rather than from a second lookup that would find nothing.
+fn accepted(handle: *mut u64) -> Result<(GrantedDevice, grant::Grant), Reason> {
+    let id = grant_id(handle).ok_or(Reason::InvalidCapability)?;
+    let entry = grant::accept(grant::Kind::Device, id, Rights::CONNECT).map_err(refusal)?;
+    let device = store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.grants.get(&id).copied())
+        .ok_or(Reason::InvalidCapability)?;
+    Ok((device, entry))
+}
+
+/// A withdrawn grant and an invalid handle are different facts about the
+/// application, so they are different reasons rather than one.
+fn refusal(refusal: grant::Refusal) -> Reason {
+    match refusal {
+        grant::Refusal::Revoked => Reason::Revoked,
+        grant::Refusal::Unknown | grant::Refusal::Rights => Reason::InvalidCapability,
+    }
+}
+
+fn connection(handle: *mut u64) -> Result<Arc<Connection>, Reason> {
+    let id = grant_id(handle).ok_or(Reason::InvalidCapability)?;
+    grant::accept(grant::Kind::Device, id, CONNECTION_RIGHTS).map_err(refusal)?;
+    store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.connections.get(&id).cloned())
+        .ok_or(Reason::InvalidCapability)
+}
+
+fn grant_id(handle: *mut u64) -> Option<u64> {
+    unsafe { handle.as_ref().copied() }
 }
 
 fn acquire_err(reason: Reason) -> HostGlueDeviceAcquireResult {
@@ -178,7 +241,20 @@ pub extern "C" fn roc_device_acquire() -> HostGlueDeviceAcquireResult {
     let id = next_id(&mut guard);
     let (handle, base) = allocate_handle(id);
     guard.grants.insert(id, configured);
-    crate::register_resource_allocation(crate::resource_domain::DEVICE, &mut guard.grant_allocations, base, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::DEVICE,
+        &mut guard.grant_allocations,
+        base,
+        id,
+    );
+    drop(guard);
+    grant::record_root(
+        grant::Kind::Device,
+        id,
+        GRANT_RIGHTS,
+        GRANT_ORIGIN,
+        Lifetime::Session,
+    );
     HostGlueDeviceAcquireResult {
         payload: HostGlueDeviceAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
@@ -274,10 +350,11 @@ fn connect_err(reason: Reason) -> HostGlueDeviceConnectResult {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostGlueDeviceConnectResult {
-    let configured = grant(handle);
+    let opened = accepted(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(configured) = configured else {
-        return connect_err(Reason::InvalidCapability);
+    let (configured, parent) = match opened {
+        Ok(opened) => opened,
+        Err(reason) => return connect_err(reason),
     };
     if active_count() >= MAX_ACTIVE {
         return connect_err(Reason::ResourceLimit);
@@ -313,7 +390,17 @@ pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostGlueDeviceConnectR
             closed: Mutex::new(false),
         }),
     );
-    crate::register_resource_allocation(crate::resource_domain::DEVICE, &mut guard.connection_allocations, base, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::DEVICE,
+        &mut guard.connection_allocations,
+        base,
+        id,
+    );
+    drop(guard);
+    // The connection is the grant's child, so revoking the device takes its open
+    // connection with it and a connection can never outlive the authority that
+    // opened it. `grant` accepted the parent just above, so it is live here.
+    grant::record_descendant(grant::Kind::Device, id, CONNECTION_RIGHTS, parent);
     CONNECTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     HostGlueDeviceConnectResult {
         payload: HostGlueDeviceConnectResultPayload {
@@ -380,8 +467,9 @@ pub extern "C" fn roc_device_transact(
     if bytes.is_empty() || bytes.len() > MAX_REPORT {
         return transact_err(Reason::ResourceLimit);
     }
-    let Some(connected) = connected else {
-        return transact_err(Reason::InvalidCapability);
+    let connected = match connected {
+        Ok(connected) => connected,
+        Err(reason) => return transact_err(reason),
     };
     if *connected
         .closed
@@ -443,8 +531,9 @@ fn close_err(reason: Reason) -> HostGlueDeviceCloseResult {
 pub extern "C" fn roc_device_close(handle: *mut u64) -> HostGlueDeviceCloseResult {
     let connected = connection(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
-    let Some(connected) = connected else {
-        return close_err(Reason::InvalidCapability);
+    let connected = match connected {
+        Ok(connected) => connected,
+        Err(reason) => return close_err(reason),
     };
     let mut closed = connected
         .closed

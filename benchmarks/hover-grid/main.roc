@@ -127,7 +127,7 @@ render = |state| {
 
 main : Program(State)
 main = Program.run({
-	init: create_grid(100, 1),
+	init: |_access| create_grid(100, 1),
 	render,
 	window: { title: "Hover trail", width: 800, height: 640, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) },
 })

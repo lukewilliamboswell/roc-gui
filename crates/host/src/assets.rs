@@ -17,6 +17,7 @@
 //! Path resolution, symlink refusal, and the read bound are `files`'s, not a
 //! second implementation.
 
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{
     files::{ChildReadError, open_subdir_nofollow, read_child_bounded, relative_components},
     roc_host,
@@ -63,6 +64,7 @@ pub(crate) enum Failure {
     ContentHashMismatch = 15,
     InvalidExpectation = 16,
     Unavailable = 17,
+    Revoked = 18,
 }
 
 /// Deterministic, content-free evidence owned by this module. Never a path, a
@@ -112,7 +114,18 @@ fn registry() -> &'static Mutex<Registry> {
 
 /// Provision the content directory a `ContentDirectory` root resolves to. The
 /// path comes from the host's own configuration, never from Roc.
+/// What an asset store may do: read the application's own shipped files and
+/// enumerate them. It never derives — an asset path is resolved inside the one
+/// store rather than by handing out a narrower handle.
+const ASSET_RIGHTS: Rights = Rights::READ.union(Rights::LIST);
+
+/// How it arrives. Shipped assets hold no user data and carry no authority
+/// beyond the one directory they are, so the contract provisions them without a
+/// prompt.
+const ASSET_ORIGIN: Origin = Origin::Automatic;
+
 pub fn configure(content_root: Option<&Path>) {
+    grant::forget_kind(grant::Kind::Assets);
     let mut guard = registry().lock().expect("asset registry poisoned");
     guard.content_root = content_root.map(Path::to_path_buf);
     for counter in &COUNTERS {
@@ -138,20 +151,41 @@ fn allocate(directory: Arc<Dir>) -> Result<*mut u64, Failure> {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.stores.insert(id, directory);
-    crate::register_resource_allocation(crate::resource_domain::ASSETS, &mut guard.allocations, base as usize, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::ASSETS,
+        &mut guard.allocations,
+        base as usize,
+        id,
+    );
+    grant::record_root(
+        grant::Kind::Assets,
+        id,
+        ASSET_RIGHTS,
+        ASSET_ORIGIN,
+        Lifetime::Session,
+    );
     Ok(handle)
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
-    if let Ok(mut guard) = registry().lock() {
-        if let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize) {
-            guard.stores.remove(&id);
-        }
+    let mut released = None;
+    if let Ok(mut guard) = registry().lock()
+        && let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize)
+    {
+        guard.stores.remove(&id);
+        released = Some(id);
+    }
+    if let Some(id) = released {
+        grant::release(grant::Kind::Assets, id);
     }
 }
 
 fn lookup(handle: *mut u64) -> Result<Arc<Dir>, Failure> {
     let id = unsafe { handle.as_ref().copied() }.ok_or(Failure::InvalidCapability)?;
+    grant::accept(grant::Kind::Assets, id, Rights::READ).map_err(|refusal| match refusal {
+        grant::Refusal::Revoked => Failure::Revoked,
+        _ => Failure::InvalidCapability,
+    })?;
     let guard = registry().lock().map_err(|_| Failure::Unavailable)?;
     guard
         .stores

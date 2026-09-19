@@ -38,10 +38,13 @@
     (click (role button :name "Scrub forward"))
     (expect-visible (text "Frame 60 of 120"))
     (expect-visible (text "280, 270"))
-    ; And between them, frame 10's pose still holds.
+    ; And between them the shape is partway from frame 10's pose towards frame
+    ; 40's: a third of the thirty frames between the keys, so a third of the
+    ; hundred pixels between the poses. Which key it is moving away from is the
+    ; ordering claim again, made where an out-of-order key would show it.
     (click (role button :name "Scrub backward"))
     (click (role button :name "Scrub backward"))
     (click (role button :name "Scrub backward"))
     (click (role button :name "Scrub backward"))
     (expect-visible (text "Frame 20 of 120"))
-    (expect-visible (text "180, 170"))))
+    (expect-visible (text "213, 203"))))

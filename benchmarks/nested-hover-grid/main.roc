@@ -209,4 +209,4 @@ render = |state| Elem.col(
 )
 
 main : Program(State)
-main = Program.run({ init: create_grid(100, 1), render, window: { title: "Nested hover trail", width: 800, height: 700, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) } })
+main = Program.run({ init: |_access| create_grid(100, 1), render, window: { title: "Nested hover trail", width: 800, height: 700, background: Gui.rgb(0x111827), foreground: Gui.rgb(0xE5EDF7) } })

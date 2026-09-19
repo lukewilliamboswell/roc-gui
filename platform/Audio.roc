@@ -10,11 +10,11 @@ Audio := [].{
 	Playback : [Paused, Playing, Stopped]
 	Status : { duration_ms : U64, position_ms : U64, playback : Playback }
 	LoadedTrack : { duration_ms : U64, track : Track }
-	Reason : [AccessDenied, DecodeFailed, InvalidCapability, InvalidName, OutputUnavailable, ResourceLimit, Unsupported, Unavailable]
+	Reason : [AccessDenied, DecodeFailed, InvalidCapability, InvalidName, OutputUnavailable, ResourceLimit, Revoked, Unsupported, Unavailable]
 	AudioErr : [AcquireAudioErr(Reason), LoadAudioErr(Reason), PauseAudioErr(Reason), PlayAudioErr(Reason), SeekAudioErr(Reason), StatusAudioErr(Reason), StopAudioErr(Reason)]
 
-	acquire! : () => Try(Output, AudioErr)
-	acquire! = || Host.audio_acquire!().map_err(|raw| AcquireAudioErr(decode_reason(raw.code)))
+	acquire! : Resource.Access => Try(Output, AudioErr)
+	acquire! = |_access| Host.audio_acquire!().map_err(|raw| AcquireAudioErr(decode_reason(raw.code)))
 
 	load! : Output, Files.Dir.Read, Str => Try(LoadedTrack, AudioErr)
 	load! = |output, directory, name| Host.audio_load!(output, directory.resource(), name).map_err(|raw| LoadAudioErr(decode_reason(raw.code)))
@@ -43,6 +43,7 @@ Audio := [].{
 		4 => Unsupported
 		5 => DecodeFailed
 		6 => OutputUnavailable
+		7 => Revoked
 		_ => Unavailable
 	}
 }

@@ -123,4 +123,4 @@ render = |state| {
 }
 
 main : Program(State)
-main = Program.run({ init: { next_id: 1, rows: [], selected: 0 }, render })
+main = Program.run({ init: |_access| { next_id: 1, rows: [], selected: 0 }, render })

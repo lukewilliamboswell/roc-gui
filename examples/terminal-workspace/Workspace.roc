@@ -1,12 +1,18 @@
 import pf.Action
+import pf.Program
 import pf.Elem
 import Terminal
 import Theme
 
 Workspace := [].{
 	State : State
-	init : State
-	init = { terminal: Terminal.init }
+	## The pane's authority is the workspace's authority: a workspace owns one
+	## terminal and hands it exactly what it was given.
+	init : Program.Access -> State
+	init = |access| {
+		start = Terminal.init
+		{ terminal: start(access) }
+	}
 	render : State -> Elem.Elem(State)
 	render = render
 }

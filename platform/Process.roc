@@ -37,13 +37,13 @@ Process := [].{
 		cancel! = |Pty.(pty)| Host.process_cancel!(pty)
 	}
 
-	Reason : [AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Unsupported]
+	Reason : [AccessDenied, Busy, Exited, InvalidCapability, InvalidSize, Io, ResourceLimit, Revoked, Unsupported]
 	ProcessErr : [AcquireProcessErr(Reason), CancelProcessErr(Reason), ReadProcessErr(Reason), ResizeProcessErr(Reason), SpawnProcessErr(Reason), WriteProcessErr(Reason)]
 	Read : [Canceled, Data(List(U8)), EndOfFile]
 	Cancel : [AlreadyStopped, Canceled]
 
 	## Acquire the process authority explicitly granted with
 	## `--host-cap-process=local-shell|test-program`.
-	acquire! : () => Try(Grant, ProcessErr)
-	acquire! = || Host.process_acquire!().map_ok(|grant| Grant.(grant))
+	acquire! : Resource.Access => Try(Grant, ProcessErr)
+	acquire! = |_access| Host.process_acquire!().map_ok(|grant| Grant.(grant))
 }

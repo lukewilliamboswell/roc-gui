@@ -34,10 +34,10 @@ Device := [].{
 	}
 
 	Info : { manufacturer : Str, product : Str, product_id : U16, vendor_id : U16 }
-	Reason : [AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Timeout, Unsupported]
+	Reason : [AccessDenied, Busy, Closed, Disconnected, InvalidCapability, InvalidRequest, Io, NotFound, Protocol, ResourceLimit, Revoked, Timeout, Unsupported]
 	DeviceErr : [AcquireDeviceErr(Reason), ConnectDeviceErr(Reason), DiscoverDeviceErr(Reason), TransactDeviceErr(Reason), CloseDeviceErr(Reason)]
 
 	## Acquire only the HID authority configured by the host.
-	acquire! : () => Try(Grant, DeviceErr)
-	acquire! = || Host.device_acquire!().map_ok(|grant| Grant.(grant))
+	acquire! : Resource.Access => Try(Grant, DeviceErr)
+	acquire! = |_access| Host.device_acquire!().map_ok(|grant| Grant.(grant))
 }

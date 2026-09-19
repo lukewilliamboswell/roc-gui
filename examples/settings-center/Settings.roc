@@ -1,4 +1,5 @@
 ## Settings Center state and pure preference operations.
+import pf.Program
 import pf.Action
 import pf.Files
 
@@ -12,6 +13,7 @@ Settings := [].{
 	Setting : { id : U64, category : Str, name : Str, summary : Str }
 
 	State : {
+		access : Program.Access,
 		category : Str,
 		disabled_value : Str,
 		dialog_open : Bool,
@@ -26,8 +28,11 @@ Settings := [].{
 		status : [Applied, Failed(Str), Idle, Loaded, Loading(U64), Saving(U64)],
 	}
 
-	initial : State
-	initial = {
+	## Authority arrives here and nowhere else, so it is held in state: the tasks
+	## that acquire run later and need it where they run.
+	initial : Program.Access -> State
+	initial = |access| {
+			access,
 		category: "",
 		dialog_open: False,
 		disabled_value: "locked",
@@ -108,7 +113,7 @@ Settings := [].{
 		id = state.next_request
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Loading(id) },
-			run: || match Files.app_data!() {
+			run: || match Files.app_data!(state.access) {
 				Err(error) => LoadFailed(preference_error_message(error))
 				Ok(store) => match store.read_utf8!("profile-name") {
 					Err(error) => LoadFailed(preference_error_message(error))
@@ -146,7 +151,7 @@ Settings := [].{
 		notes_to_save = state.draft_notes
 		Action.task({
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
-			run: || match Files.app_data!() {
+			run: || match Files.app_data!(state.access) {
 				Err(error) => SaveFailed(preference_error_message(error))
 				Ok(store) => match store.write_utf8_atomic!("profile-name", name_to_save) {
 					Err(error) => SaveFailed(preference_error_message(error))

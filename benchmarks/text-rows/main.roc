@@ -55,4 +55,4 @@ render = |state| {
 }
 
 main : Program(State)
-main = Program.run({ init: { count: 0, content: Short }, render })
+main = Program.run({ init: |_access| { count: 0, content: Short }, render })

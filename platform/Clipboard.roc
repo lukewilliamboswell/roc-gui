@@ -18,17 +18,18 @@ Clipboard := [].{
 	}
 
 	Snapshot : { sequence : U64, text : Str }
-	Reason : [AccessDenied, ContentTooLarge, InvalidCapability, Unavailable]
+	Reason : [AccessDenied, ContentTooLarge, InvalidCapability, Revoked, Unavailable]
 	ClipboardErr : [AcquireClipboardErr(Reason), ReadClipboardErr(Reason), WriteClipboardErr(Reason)]
 
 	## Acquire the clipboard authority granted by the host.
-	acquire! : () => Try(Handle, ClipboardErr)
-	acquire! = || Host.clipboard_acquire!().map_ok(|handle| Handle.(handle)).map_err(|raw| AcquireClipboardErr(decode_reason(raw.code)))
+	acquire! : Resource.Access => Try(Handle, ClipboardErr)
+	acquire! = |_access| Host.clipboard_acquire!().map_ok(|handle| Handle.(handle)).map_err(|raw| AcquireClipboardErr(decode_reason(raw.code)))
 
 	decode_reason = |code| match code {
 		0 => AccessDenied
 		1 => InvalidCapability
 		2 => ContentTooLarge
+		3 => Revoked
 		_ => Unavailable
 	}
 }

@@ -1,3 +1,4 @@
+use crate::grant::{self, Lifetime, Origin, Rights};
 use crate::{roc_host, roc_platform_abi::*};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
 #[cfg(unix)]
@@ -27,6 +28,15 @@ struct Store {
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
 
+/// What private application storage may do. It is the one read-write directory
+/// this platform hands out, and it never derives: its children are flat keys
+/// rather than nested handles.
+const STORAGE_RIGHTS: Rights = Rights::READ.union(Rights::WRITE).union(Rights::LIST);
+
+/// How it arrives. It carries no user data and no authority beyond itself, so
+/// the contract provisions it automatically rather than prompting for it.
+const STORAGE_ORIGIN: Origin = Origin::Automatic;
+
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
         Mutex::new(Store {
@@ -40,6 +50,7 @@ fn store() -> &'static Mutex<Store> {
 }
 
 pub fn configure(root: Option<&Path>) -> Result<(), String> {
+    grant::forget_kind(grant::Kind::AppData);
     let root = match root {
         Some(path) => {
             std::fs::create_dir_all(path)
@@ -92,15 +103,32 @@ fn allocate_handle(guard: &mut Store, directory: Arc<Dir>) -> *mut u64 {
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
     guard.handles.insert(id, directory);
-    crate::register_resource_allocation(crate::resource_domain::APP_DATA, &mut guard.allocations, base as usize, id);
+    crate::register_resource_allocation(
+        crate::resource_domain::APP_DATA,
+        &mut guard.allocations,
+        base as usize,
+        id,
+    );
+    grant::record_root(
+        grant::Kind::AppData,
+        id,
+        STORAGE_RIGHTS,
+        STORAGE_ORIGIN,
+        Lifetime::Session,
+    );
     handle
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
+    let mut released = None;
     if let Ok(mut guard) = store().lock()
         && let Some(id) = crate::remove_resource_allocation(&mut guard.allocations, base as usize)
     {
         guard.handles.remove(&id);
+        released = Some(id);
+    }
+    if let Some(id) = released {
+        grant::release(grant::Kind::AppData, id);
     }
 }
 
@@ -133,8 +161,18 @@ pub extern "C" fn roc_files_app_data() -> InternalFilesAppDataResult {
     }
 }
 
-fn lookup(cap: *mut u64) -> Result<Arc<Dir>, (u8, &'static str)> {
+fn refusal(why: grant::Refusal) -> (u8, &'static str) {
+    match why {
+        grant::Refusal::Revoked => (6, "application data authority was withdrawn"),
+        grant::Refusal::Unknown | grant::Refusal::Rights => {
+            (1, "invalid application data capability")
+        }
+    }
+}
+
+fn lookup(cap: *mut u64, needs: Rights) -> Result<Arc<Dir>, (u8, &'static str)> {
     let id = unsafe { cap.as_ref().copied() }.ok_or((1, "invalid application data capability"))?;
+    grant::accept(grant::Kind::AppData, id, needs).map_err(refusal)?;
     let guard = store()
         .lock()
         .map_err(|_| (5, "application data store unavailable"))?;
@@ -152,7 +190,7 @@ pub extern "C" fn roc_files_dir_read_utf8(
 ) -> InternalFilesReadUtf8Result {
     let name_owned = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
-    let root = lookup(cap);
+    let root = lookup(cap, Rights::READ);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| {
         let root = root?;
@@ -214,7 +252,7 @@ pub extern "C" fn roc_files_dir_write_utf8_atomic(
         name.decref(roc_host());
         value.decref(roc_host());
     }
-    let root = lookup(cap);
+    let root = lookup(cap, Rights::WRITE);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| {
         let root = root?;
@@ -279,11 +317,24 @@ pub extern "C" fn roc_files_dir_write_utf8_atomic(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn keys_are_bounded_and_flat() {
         assert!(valid_name("profile-v1"));
         assert!(!valid_name("../profile"));
         assert!(!valid_name(""));
         assert!(!valid_name(&"x".repeat(129)));
+    }
+
+    #[test]
+    fn a_withdrawn_grant_is_not_reported_as_an_invalid_handle() {
+        assert_eq!(
+            refusal(grant::Refusal::Revoked),
+            (6, "application data authority was withdrawn")
+        );
+        assert_eq!(
+            refusal(grant::Refusal::Unknown),
+            (1, "invalid application data capability")
+        );
     }
 }
