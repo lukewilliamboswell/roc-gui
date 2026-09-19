@@ -161,10 +161,18 @@ pub extern "C" fn roc_files_app_data() -> InternalFilesAppDataResult {
     }
 }
 
-fn lookup(cap: *mut u64) -> Result<Arc<Dir>, (u8, &'static str)> {
+fn refusal(why: grant::Refusal) -> (u8, &'static str) {
+    match why {
+        grant::Refusal::Revoked => (6, "application data authority was withdrawn"),
+        grant::Refusal::Unknown | grant::Refusal::Rights => {
+            (1, "invalid application data capability")
+        }
+    }
+}
+
+fn lookup(cap: *mut u64, needs: Rights) -> Result<Arc<Dir>, (u8, &'static str)> {
     let id = unsafe { cap.as_ref().copied() }.ok_or((1, "invalid application data capability"))?;
-    grant::accept(grant::Kind::AppData, id, Rights::READ)
-        .map_err(|_| (1, "invalid application data capability"))?;
+    grant::accept(grant::Kind::AppData, id, needs).map_err(refusal)?;
     let guard = store()
         .lock()
         .map_err(|_| (5, "application data store unavailable"))?;
@@ -182,7 +190,7 @@ pub extern "C" fn roc_files_dir_read_utf8(
 ) -> InternalFilesReadUtf8Result {
     let name_owned = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
-    let root = lookup(cap);
+    let root = lookup(cap, Rights::READ);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| {
         let root = root?;
@@ -244,7 +252,7 @@ pub extern "C" fn roc_files_dir_write_utf8_atomic(
         name.decref(roc_host());
         value.decref(roc_host());
     }
-    let root = lookup(cap);
+    let root = lookup(cap, Rights::WRITE);
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| {
         let root = root?;
@@ -309,11 +317,24 @@ pub extern "C" fn roc_files_dir_write_utf8_atomic(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn keys_are_bounded_and_flat() {
         assert!(valid_name("profile-v1"));
         assert!(!valid_name("../profile"));
         assert!(!valid_name(""));
         assert!(!valid_name(&"x".repeat(129)));
+    }
+
+    #[test]
+    fn a_withdrawn_grant_is_not_reported_as_an_invalid_handle() {
+        assert_eq!(
+            refusal(grant::Refusal::Revoked),
+            (6, "application data authority was withdrawn")
+        );
+        assert_eq!(
+            refusal(grant::Refusal::Unknown),
+            (1, "invalid application data capability")
+        );
     }
 }
