@@ -220,7 +220,10 @@ pub fn render(
                                 .into_any_element()
                         } else if row.is_root {
                             div()
-                                .id(("revoke", id as usize))
+                                // Grant identifiers are local to a resource
+                                // kind, so both parts are required for a
+                                // unique GPUI element identity.
+                                .id((kind.name(), id))
                                 .px(px(12.0))
                                 .py(px(4.0))
                                 .rounded(px(6.0))
