@@ -77,8 +77,8 @@ struct Row {
     is_root: bool,
 }
 
-fn rows() -> Vec<Row> {
-    grant::enumerate()
+fn rows(entries: Vec<grant::Grant>) -> Vec<Row> {
+    entries
         .into_iter()
         .map(|entry| Row {
             kind: entry.kind,
@@ -137,8 +137,8 @@ pub fn render(
     // Recorded here, in the one place the surface is actually built, so that
     // "open" means drawn rather than intended.
     DREW.store(true, Ordering::Relaxed);
-    let entries = grant::enumerate();
-    let listed = rows();
+    let listed = rows(grant::enumerate());
+    let count = listed.len();
     let empty = listed.is_empty();
     let entity = runtime_entity.clone();
     let _ = cx;
@@ -174,7 +174,7 @@ pub fn render(
                         } else {
                             format!(
                                 "{} grant(s). Withdrawing one withdraws everything derived from it.",
-                                entries.len()
+                                count
                             )
                         }),
                 )
