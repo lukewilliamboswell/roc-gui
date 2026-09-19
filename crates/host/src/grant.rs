@@ -60,6 +60,28 @@ impl Kind {
     }
 }
 
+/// A grant's complete identity. Handle numbers are local to a resource family,
+/// so a number alone cannot identify authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct GrantId {
+    kind: Kind,
+    number: u64,
+}
+
+impl GrantId {
+    pub const fn new(kind: Kind, number: u64) -> Self {
+        Self { kind, number }
+    }
+
+    pub const fn kind(self) -> Kind {
+        self.kind
+    }
+
+    pub const fn number(self) -> u64 {
+        self.number
+    }
+}
+
 /// What the operating system does if the application ignores the Roc API.
 ///
 /// This is the distinction the platform must never blur, and the reason it is a
@@ -191,13 +213,12 @@ impl Rights {
 /// must be able to say about the grant without knowing what kind it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Grant {
-    pub kind: Kind,
-    pub id: u64,
-    pub rights: Rights,
-    pub origin: Origin,
-    pub lifetime: Lifetime,
+    id: GrantId,
+    rights: Rights,
+    origin: Origin,
+    lifetime: Lifetime,
     /// The grant this one was derived from, absent for a root.
-    pub parent: Option<u64>,
+    parent: Option<GrantId>,
     /// The root this grant descends from, named by kind as well as identifier
     /// because derivation crosses resource kinds: a database snapshot descends
     /// from the directory grant its bytes were read through. Matching a child on
@@ -205,11 +226,31 @@ pub struct Grant {
     /// revoked, which is how this was found. Held directly rather than walked,
     /// so revocation is a comparison and cannot be made quadratic by a deep
     /// derivation chain.
-    pub root: (Kind, u64),
-    pub revoked: bool,
+    root: GrantId,
+    revoked: bool,
 }
 
 impl Grant {
+    pub fn kind(&self) -> Kind {
+        self.id.kind()
+    }
+
+    pub fn number(&self) -> u64 {
+        self.id.number()
+    }
+
+    pub fn origin(&self) -> Origin {
+        self.origin
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.parent.is_none()
+    }
+
+    pub fn is_revoked(&self) -> bool {
+        self.revoked
+    }
+
     /// A grant may act only while neither it nor its root has been revoked.
     /// `root` carries the whole ancestry, so this is the entire rule.
     pub fn is_live(&self) -> bool {
@@ -232,7 +273,7 @@ impl Grant {
     pub fn describe(&self) -> String {
         let mut text = format!(
             "{} {}/{} {} {}",
-            self.kind.name(),
+            self.kind().name(),
             self.origin.name(),
             self.origin.enforcement().name(),
             if self.parent.is_none() {
@@ -251,13 +292,13 @@ impl Grant {
 
 #[derive(Default)]
 struct Registry {
-    grants: HashMap<(Kind, u64), Grant>,
+    grants: HashMap<GrantId, Grant>,
     /// Roots whose authority has been taken away, kept as the durable record of
     /// the revocation rather than only as a flag on the grants that existed at
     /// the time. A grant can be released while its root stays revoked, and a
     /// descendant recorded afterwards must still be refused, so the set outlives
     /// the entries.
-    revoked_roots: HashSet<(Kind, u64)>,
+    revoked_roots: HashSet<GrantId>,
     /// Counted here rather than by each resource so that "a grant was revoked"
     /// means one thing across the platform.
     recorded: u64,
@@ -280,17 +321,17 @@ fn with<T>(act: impl FnOnce(&mut Registry) -> T) -> T {
 /// derived from authority already held.
 pub fn record_root(kind: Kind, id: u64, rights: Rights, origin: Origin, lifetime: Lifetime) {
     with(|registry| {
+        let id = GrantId::new(kind, id);
         registry.recorded += 1;
         registry.grants.insert(
-            (kind, id),
+            id,
             Grant {
-                kind,
                 id,
                 rights,
                 origin,
                 lifetime,
                 parent: None,
-                root: (kind, id),
+                root: id,
                 revoked: false,
             },
         );
@@ -335,6 +376,7 @@ pub fn record_descendant(kind: Kind, id: u64, rights: Rights, parent: Grant) -> 
         return false;
     }
     with(|registry| {
+        let id = GrantId::new(kind, id);
         // Liveness is asked of the root now, not of the copy the caller is
         // holding: that copy was accepted at some earlier instant and says
         // nothing about a revocation since. Asking the root is also what lets a
@@ -345,9 +387,8 @@ pub fn record_descendant(kind: Kind, id: u64, rights: Rights, parent: Grant) -> 
         }
         registry.recorded += 1;
         registry.grants.insert(
-            (kind, id),
+            id,
             Grant {
-                kind,
                 id,
                 rights,
                 origin: parent.origin,
@@ -381,7 +422,7 @@ pub enum Refusal {
 pub fn accept(kind: Kind, id: u64, needs: Rights) -> Result<Grant, Refusal> {
     with(|registry| {
         let revoked_roots = &registry.revoked_roots;
-        let outcome = match registry.grants.get(&(kind, id)) {
+        let outcome = match registry.grants.get(&GrantId::new(kind, id)) {
             None => Err(Refusal::Unknown),
             Some(grant) if !grant.is_live() || revoked_roots.contains(&grant.root) => {
                 Err(Refusal::Revoked)
@@ -405,7 +446,7 @@ pub fn accept(kind: Kind, id: u64, needs: Rights) -> Result<Grant, Refusal> {
 /// Returns how many grants were revoked, which is the count the evidence uses.
 pub fn revoke(kind: Kind, id: u64) -> u64 {
     with(|registry| {
-        let Some(target) = registry.grants.get(&(kind, id)).copied() else {
+        let Some(target) = registry.grants.get(&GrantId::new(kind, id)).copied() else {
             return 0;
         };
         let root = target.root;
@@ -429,16 +470,16 @@ pub fn revoke(kind: Kind, id: u64) -> u64 {
 /// the database they opened from one.
 pub fn revoke_kind(kind: Kind) -> u64 {
     with(|registry| {
-        let roots: Vec<(Kind, u64)> = registry
+        let roots: Vec<GrantId> = registry
             .grants
             .values()
-            .filter(|grant| grant.root.0 == kind)
+            .filter(|grant| grant.root.kind() == kind)
             .map(|grant| grant.root)
             .collect();
         registry.revoked_roots.extend(roots);
         let mut count = 0;
         for grant in registry.grants.values_mut() {
-            if grant.root.0 == kind && !grant.revoked {
+            if grant.root.kind() == kind && !grant.revoked {
                 grant.revoked = true;
                 count += 1;
             }
@@ -453,7 +494,7 @@ pub fn revoke_kind(kind: Kind) -> u64 {
 /// the contract requires the two never be reported as the same event.
 pub fn release(kind: Kind, id: u64) {
     with(|registry| {
-        if registry.grants.remove(&(kind, id)).is_some() {
+        if registry.grants.remove(&GrantId::new(kind, id)).is_some() {
             registry.released += 1;
         }
     });
@@ -465,7 +506,7 @@ pub fn release(kind: Kind, id: u64) {
 pub fn enumerate() -> Vec<Grant> {
     with(|registry| {
         let mut grants: Vec<Grant> = registry.grants.values().copied().collect();
-        grants.sort_by_key(|grant| (grant.kind, grant.id));
+        grants.sort_by_key(|grant| grant.id);
         grants
     })
 }
@@ -492,8 +533,8 @@ pub fn forget_kind(kind: Kind) {
         // anything.
         registry
             .grants
-            .retain(|(held, _), grant| *held != kind && grant.root.0 != kind);
-        registry.revoked_roots.retain(|(held, _)| *held != kind);
+            .retain(|held, grant| held.kind() != kind && grant.root.kind() != kind);
+        registry.revoked_roots.retain(|held| held.kind() != kind);
     });
 }
 
@@ -564,7 +605,7 @@ mod tests {
         let connection = accept(Kind::Device, 2, Rights::WRITE).expect("connection writes");
         assert_eq!(
             connection.root,
-            (Kind::Device, 1),
+            GrantId::new(Kind::Device, 1),
             "and is still bound to its grant"
         );
     }
@@ -587,7 +628,7 @@ mod tests {
             Origin::Provisioned,
             "a flag-provisioned root must not produce children that claim consent"
         );
-        assert_eq!(child.root, (Kind::Directory, 1));
+        assert_eq!(child.root, GrantId::new(Kind::Directory, 1));
     }
 
     #[test]
@@ -690,6 +731,12 @@ mod tests {
         );
         let project = accept(Kind::Directory, 1, Rights::READ).expect("project reads");
         assert!(record_descendant(Kind::Sqlite, 1, Rights::READ, project));
+        let snapshot = accept(Kind::Sqlite, 1, Rights::READ).expect("snapshot reads");
+        assert_eq!(
+            snapshot.parent,
+            Some(GrantId::new(Kind::Directory, 1)),
+            "the parent identity retains its resource kind"
+        );
         assert_eq!(revoke_kind(Kind::Directory), 2);
         assert_eq!(accept(Kind::Sqlite, 1, Rights::READ), Err(Refusal::Revoked));
     }

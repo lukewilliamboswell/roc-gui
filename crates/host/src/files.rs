@@ -156,13 +156,13 @@ pub struct AccessSnapshot {
 pub fn access_snapshot() -> AccessSnapshot {
     let mut snapshot = AccessSnapshot::default();
     for entry in grant::enumerate() {
-        if entry.kind != grant::Kind::Directory || entry.parent.is_some() {
+        if entry.kind() != grant::Kind::Directory || !entry.is_root() {
             continue;
         }
-        if entry.revoked {
+        if entry.is_revoked() {
             snapshot.revoked += 1;
         } else {
-            match entry.origin {
+            match entry.origin() {
                 Origin::TrustedSelection(_) => snapshot.portal_session_read += 1,
                 Origin::Provisioned | Origin::Automatic => snapshot.provisioned_session_read += 1,
             }
@@ -178,7 +178,7 @@ pub fn revoke_all_roots() -> usize {
     let changed = grant::enumerate()
         .iter()
         .filter(|entry| {
-            entry.kind == grant::Kind::Directory && entry.parent.is_none() && !entry.revoked
+            entry.kind() == grant::Kind::Directory && entry.is_root() && !entry.is_revoked()
         })
         .count();
     grant::revoke_kind(grant::Kind::Directory);

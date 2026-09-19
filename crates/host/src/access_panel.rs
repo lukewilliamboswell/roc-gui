@@ -81,12 +81,12 @@ fn rows(entries: Vec<grant::Grant>) -> Vec<Row> {
     entries
         .into_iter()
         .map(|entry| Row {
-            kind: entry.kind,
-            id: entry.id,
-            origin: entry.origin,
+            kind: entry.kind(),
+            id: entry.number(),
+            origin: entry.origin(),
             description: entry.describe(),
-            revoked: entry.revoked,
-            is_root: entry.parent.is_none(),
+            revoked: entry.is_revoked(),
+            is_root: entry.is_root(),
         })
         .collect()
 }
