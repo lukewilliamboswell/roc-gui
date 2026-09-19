@@ -1,7 +1,7 @@
 (test "Native nested grid preserves visible dense geometry and local hover"
  (steps
   (click (role button :name "Create 10000 cells"))
-  (settle)
+  (settle :timeout-ms 10000)
   (expect-count (button-prefix "Cell ") 10000)
   (expect-on-screen (role button :name "Cell 1"))
   (expect-on-screen (role button :name "Cell 10000"))

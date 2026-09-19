@@ -16,6 +16,7 @@ UPSTREAM_REPOSITORY = "https://github.com/zed-industries/zed"
 UPSTREAM_REVISION = "69e2130295c2649963eb639fc70b4f2ee8ea1624"
 LICENSE_SHA256 = "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a"
 TREE_FORMAT = "sha256-path-nul-file-sha256-lf-v1"
+HOST_VERSION = "0.0.1"
 
 
 def manifest_matches(package, relative, root):
@@ -26,7 +27,7 @@ def manifest_matches(package, relative, root):
 def is_own_package(package, root=None):
     root = Path(root or ROOT).resolve()
     return (package.get("source") is None and package.get("name") == "roc-gui-host"
-            and package.get("version") == "0.1.0" and package.get("license") == "UPL-1.0"
+            and package.get("version") == HOST_VERSION and package.get("license") == "UPL-1.0"
             and manifest_matches(package, "crates/host/Cargo.toml", root))
 
 
