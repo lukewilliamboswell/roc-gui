@@ -1,103 +1,296 @@
-## A native color, or the control's platform default. `Rgb` values use the low
-## 24 bits as `0xRRGGBB`.
-Color : [Default, Rgb(U32)]
+import Action
+import Assets
+import Audio
+import Clipboard
+import Device
+import Elem
+import Event
+import Files
+import Http
+import ImageData
+import Index
+import Key
+import KeyedSeq
+import Process
+import Program
+import Sqlite
+import Style
+import SystemMonitor
+import Tcp
+import Timer
 
-## A control dimension: intrinsic size, available space, or fixed pixels.
-Length : [Auto, Fill, Px(U32)]
-
-## How content outside a control's bounds is presented on one axis.
-Overflow : [Visible, Clip, Scroll]
-
-## One side's inset. `Same` takes the element's `padding` scalar.
-Inset : [Same, Px(U32)]
-
-## The typeface family a string is set in. `Default` is the host's own
-## proportional face; `Monospace` is the platform's fixed-pitch face, which is
-## what columnar output and changing digits need.
-FontFace : [Default, Monospace]
-
-## How a string behaves when it is wider than the space it was given. `Wrap`
-## reflows onto further lines, `NoWrap` keeps one line and lets overflow decide
-## what happens to the rest, and `Ellipsis` keeps one line and ends it with a
-## marker so a shortened value never looks complete.
-TextOverflow : [Wrap, NoWrap, Ellipsis]
-
-## Where a container places its children across its layout axis. `Default` keeps
-## the element's own native alignment.
-Align : [Default, Start, Center, End, Baseline, Stretch]
-
-## How a container distributes its children along its layout axis. `Default`
-## keeps the element's own native distribution.
-Justify : [Default, Start, Center, End, Between, Around]
-
-## Native presentation values shared by element property records.
+## The whole application-facing platform under one import. Build a tree with
+## the element constructors and their property records, adjust an element
+## with the modifiers on `Elem`, and answer events with `none`, `update`,
+## `delegate`, or `task`.
 Gui := [].{
-	Align : Align
-	Color : Color
-	FontFace : FontFace
-	Inset : Inset
-	Justify : Justify
-	Length : Length
-	TextOverflow : TextOverflow
-	Overflow : Overflow
 
-	## Common visual properties. A zero value for `font_size` or `font_weight`
-	## selects the native default, and a non-zero `font_weight` is 100 through
-	## 900; `hover_bg` and `active_bg` apply during pointer interaction. A
-	## non-zero `shadow` is the blur radius of a soft drop shadow, offset down
-	## the surface by `shadow_y` and painted in `shadow_color` at
-	## `shadow_alpha` percent; `shadow: 0` paints none.
-	Style := {
-		gap : U32 ?? 8,
-		padding : U32 ?? 0,
-		padding_top : Inset ?? Same,
-		padding_right : Inset ?? Same,
-		padding_bottom : Inset ?? Same,
-		padding_left : Inset ?? Same,
-		width : Length ?? Auto,
-		height : Length ?? Auto,
-		min_width : Length ?? Auto,
-		min_height : Length ?? Auto,
-		max_width : Length ?? Auto,
-		max_height : Length ?? Auto,
-		grow : Bool ?? False,
-		bg : Color ?? Default,
-		hover_bg : Color ?? Default,
-		active_bg : Color ?? Default,
-		disabled_bg : Color ?? Default,
-		disabled_fg : Color ?? Default,
-		focus_color : Color ?? Default,
-		fg : Color ?? Default,
-		border_color : Color ?? Default,
-		border_width : U32 ?? 0,
-		border_top : Inset ?? Same,
-		border_right : Inset ?? Same,
-		border_bottom : Inset ?? Same,
-		border_left : Inset ?? Same,
-		radius : U32 ?? 0,
-		font_size : U32 ?? 0,
-		font_weight : U32 ?? 0,
-		shadow : U32 ?? 0,
-		shadow_y : U32 ?? 0,
-		shadow_color : Color ?? Default,
-		shadow_alpha : U32 ?? 100,
-		font_face : FontFace ?? Default,
-		text_overflow : TextOverflow ?? Wrap,
-		overflow_x : Overflow ?? Visible,
-		overflow_y : Overflow ?? Visible,
-		align : Align ?? Default,
-		justify : Justify ?? Default,
-	}
+	## A declarative UI tree whose event handlers transition application state.
+	Elem(a) : Elem.Elem(a)
 
-	## Construct an RGB color from a `0xRRGGBB` integer.
-	rgb : U32 -> Color
-	rgb = |value| Rgb(value)
+	## What an event handler asks the platform to do next.
+	Action(a) : Action.Action(a)
+
+	## The value an application's `main` provides.
+	Program(state) : Program.Program(state)
+
+	## The capability from which an application acquires host resources.
+	Access : Program.Access
+
+	Key : Key.Key
+	Index(a) : Index.Index(a)
+	KeyedSeq(value) : KeyedSeq.KeyedSeq(value)
+
+	Style : Style.Style
+	Align : Style.Align
+	Color : Style.Color
+	FontFace : Style.FontFace
+	Inset : Style.Inset
+	Justify : Style.Justify
+	Length : Style.Length
+	TextOverflow : Style.TextOverflow
+	Overflow : Style.Overflow
+
+	Assets : Assets.Assets
+	Audio : Audio.Audio
+	Clipboard : Clipboard.Clipboard
+	Device : Device.Device
+	Files : Files.Files
+	Http : Http.Http
+	ImageData : ImageData.ImageData
+	Process : Process.Process
+	Sqlite : Sqlite.Sqlite
+	SystemMonitor : SystemMonitor.SystemMonitor
+	Tcp : Tcp.Tcp
+	Timer : Timer.Timer
+
+	# Types exchanged with `KeyedSeq`.
+	KeyedSeqEdit(value) : KeyedSeq.Edit(value)
+	KeyedSeqPlacement : KeyedSeq.Placement
+	KeyedSeqTransition(value) : KeyedSeq.Transition(value)
+	KeyedSeqError : KeyedSeq.Error
+
+	# Types exchanged with `Assets`.
+	AssetsStore : Assets.Store
+	AssetsRoot : Assets.Root
+	AssetsContent : Assets.Content
+	AssetsManifest : Assets.Manifest
+	AssetsManifestPolicy : Assets.ManifestPolicy
+	AssetsStoreConfig : Assets.StoreConfig
+	AssetsReason : Assets.Reason
+	AssetsAssetErr : Assets.AssetErr
+
+	# Types exchanged with `Audio`.
+	AudioOutput : Audio.Output
+	AudioTrack : Audio.Track
+	AudioPlayback : Audio.Playback
+	AudioStatus : Audio.Status
+	AudioLoadedTrack : Audio.LoadedTrack
+	AudioReason : Audio.Reason
+	AudioAudioErr : Audio.AudioErr
+
+	# Types exchanged with `Clipboard`.
+	ClipboardHandle : Clipboard.Handle
+	ClipboardSnapshot : Clipboard.Snapshot
+	ClipboardReason : Clipboard.Reason
+	ClipboardClipboardErr : Clipboard.ClipboardErr
+
+	# Types exchanged with `Device`.
+	DeviceGrant : Device.Grant
+	DeviceConnection : Device.Connection
+	DeviceInfo : Device.Info
+	DeviceReason : Device.Reason
+	DeviceDeviceErr : Device.DeviceErr
+
+	# Types exchanged with `Event`.
+	EventPress : Event.Press
+	EventHover : Event.Hover
+	EventCheck : Event.Check
+	EventInput : Event.Input
+	EventDismiss : Event.Dismiss
+	EventTextChange : Event.TextChange
+	EventTextSubmit : Event.TextSubmit
+	EventCanvasPointer : Event.CanvasPointer
+
+	# Types exchanged with `Files`.
+	FilesChoice(a) : Files.Choice(a)
+	FilesKind : Files.Kind
+	FilesEntry : Files.Entry
+	FilesReason : Files.Reason
+	FilesFileErr : Files.FileErr
+	FilesDirRead : Files.Dir.Read
+	FilesDirReadWrite : Files.Dir.ReadWrite
+	FilesDirReadUtf8 : Files.Dir.ReadUtf8
+	FilesSelection : Files.Selection
+
+	# Types exchanged with `Http`.
+	HttpClient : Http.Client
+	HttpReason : Http.Reason
+	HttpHttpErr : Http.HttpErr
+	HttpConfig : Http.Config
+
+	# Types exchanged with `ImageData`.
+	ImageDataMetadata : ImageData.Metadata
+	ImageDataReason : ImageData.Reason
+	ImageDataImageErr : ImageData.ImageErr
+
+	# Types exchanged with `Process`.
+	ProcessGrant : Process.Grant
+	ProcessPty : Process.Pty
+	ProcessReason : Process.Reason
+	ProcessProcessErr : Process.ProcessErr
+	ProcessRead : Process.Read
+	ProcessCancel : Process.Cancel
+
+	# Types exchanged with `Sqlite`.
+	SqliteDb : Sqlite.Db
+	SqliteValue : Sqlite.Value
+	SqliteResult : Sqlite.Result
+	SqliteReason : Sqlite.Reason
+	SqliteSqliteErr : Sqlite.SqliteErr
+
+	# Types exchanged with `SystemMonitor`.
+	SystemMonitorSampler : SystemMonitor.Sampler
+	SystemMonitorUnavailableReason : SystemMonitor.UnavailableReason
+	SystemMonitorValue(a) : SystemMonitor.Value(a)
+	SystemMonitorProcess : SystemMonitor.Process
+	SystemMonitorSnapshot : SystemMonitor.Snapshot
+	SystemMonitorReason : SystemMonitor.Reason
+	SystemMonitorSystemErr : SystemMonitor.SystemErr
+
+	# Types exchanged with `Tcp`.
+	TcpStream : Tcp.Stream
+	TcpReason : Tcp.Reason
+	TcpTcpErr : Tcp.TcpErr
+
+	# Types exchanged with `Timer`.
+	TimerHandle : Timer.Handle
+	TimerTick : Timer.Tick
+	TimerCancelResult : Timer.CancelResult
+	TimerTimerErr : Timer.TimerErr
+
+	TranslateConfig(parent, child) : Elem.TranslateConfig(parent, child)
+	TryTranslateConfig(parent, child) : Elem.TryTranslateConfig(parent, child)
+	KeyedColConfig(parent, item) : Elem.KeyedColConfig(parent, item)
+	VirtualListItem(a) : Elem.VirtualListItem(a)
+	ScrollAxis : Elem.ScrollAxis
+	ImageFormat : Elem.ImageFormat
+	ImageFit : Elem.ImageFit
+	CanvasEllipse : Elem.CanvasEllipse
+	CanvasLine : Elem.CanvasLine
+	CanvasRectangle : Elem.CanvasRectangle
+	CanvasPrimitive : Elem.CanvasPrimitive
+
+	## Construct the program value required by the platform's `main` module.
+	run : Program.Config(state) -> Program.Program(state)
+	run = |config| Program.run(config)
+
+	## Leave state as it is.
+	none : Action.Action(a)
+	none = Action.none
+
+	## Install the next state.
+	update : a -> Action.Action(a)
+	update = |value| Action.update(value)
+
+	## Propose the next state to the enclosing boundary's `on_delegate`.
+	delegate : a -> Action.Action(a)
+	delegate = |value| Action.delegate(value)
+
+	## Install `pending`, run effects off the UI thread, then resolve against
+	## the latest state.
+	task : { pending : a, run : (() => result), resolve : (a, result -> Action.Action(a)) } -> Action.Action(a)
+	task = |config| Action.task(config)
 
 	## Construct a fixed per-side inset.
-	inset : U32 -> Inset
+	inset : U32 -> Style.Inset
 	inset = |value| Px(value)
 
 	## Construct a fixed pixel length.
-	px : U32 -> Length
+	px : U32 -> Style.Length
 	px = |value| Px(value)
+
+	## Display literal text. It inherits colour and size from its container.
+	text : Str -> Elem.Elem(a)
+	text = |value| Elem.text(value)
+
+	## Display text in its own colour, size, weight, and face.
+	styled_text : Elem.TextProps -> Elem.Elem(a)
+	styled_text = |props| Elem.styled_text(props)
+
+	## Display a controlled button. `caption` is its visible text and `label` its semantic locator.
+	button : Elem.ButtonProps(a) -> Elem.Elem(a)
+	button = |props| Elem.button(props)
+
+	## Display a controlled checkbox.
+	checkbox : Elem.CheckboxProps(a) -> Elem.Elem(a)
+	checkbox = |props| Elem.checkbox(props)
+
+	## Display a controlled single-line text editor.
+	text_input : Elem.TextInputProps(a) -> Elem.Elem(a)
+	text_input = |props| Elem.text_input(props)
+
+	## Display a controlled multiline text editor.
+	textarea : Elem.TextareaProps(a) -> Elem.Elem(a)
+	textarea = |props| Elem.textarea(props)
+
+	## Render encoded image bytes.
+	image : Elem.ImageProps -> Elem.Elem(a)
+	image = |props| Elem.image(props)
+
+	## Paint keyed vector primitives and receive pointer gestures.
+	canvas : Elem.CanvasProps(a) -> Elem.Elem(a)
+	canvas = |props| Elem.canvas(props)
+
+	## Lay out children horizontally in order.
+	row : Elem.RowProps, List(Elem.Elem(a)) -> Elem.Elem(a)
+	row = |props, children| Elem.row(props, children)
+
+	## Lay out children vertically in order.
+	col : Elem.ColProps, List(Elem.Elem(a)) -> Elem.Elem(a)
+	col = |props, children| Elem.col(props, children)
+
+	## Group children in a labelled, bordered vertical surface.
+	panel : Elem.PanelProps, List(Elem.Elem(a)) -> Elem.Elem(a)
+	panel = |props, children| Elem.panel(props, children)
+
+	## Present one modal surface.
+	dialog : Elem.DialogProps(a), List(Elem.Elem(a)) -> Elem.Elem(a)
+	dialog = |props, children| Elem.dialog(props, children)
+
+	## Constrain content to the available space and allow scrolling.
+	scroll : Elem.ScrollProps(a) -> Elem.Elem(a)
+	scroll = |props| Elem.scroll(props)
+
+	## Present fixed-height rows, materializing only the visible range.
+	virtual_list : Elem.VirtualListProps(a) -> Elem.Elem(a)
+	virtual_list = |props| Elem.virtual_list(props)
+
+	## Embed a renderer over a smaller part of parent state.
+	translate : (child -> Elem.Elem(child)), (parent -> child), (parent, child -> parent) -> Elem.Elem(parent)
+	translate = |render, get, set| Elem.translate(render, get, set)
+
+	## Embed a keyed renderer whose lifetime survives parent renders.
+	translate_with : (child -> Elem.Elem(child)), Elem.TranslateConfig(parent, child) -> Elem.Elem(parent)
+	translate_with = |render, config| Elem.translate_with(render, config)
+
+	## Embed a removable child through fallible adapters.
+	try_translate : (child -> Elem.Elem(child)), Elem.TryTranslateConfig(parent, child) -> Elem.Elem(parent)
+	try_translate = |render, config| Elem.try_translate(render, config)
+
+	## Adapt a persistent keyed sequence into a native column.
+	keyed_col : (item -> Elem.Elem(item)), Elem.ColProps, Elem.KeyedColConfig(parent, item) -> Elem.Elem(parent)
+	keyed_col = |render_item, props, config| Elem.keyed_col(render_item, props, config)
+
+	## A filled, optionally stroked and rounded rectangle on a canvas.
+	rectangle : Elem.CanvasRectangle -> Elem.CanvasPrimitive
+	rectangle = |shape| Elem.rectangle(shape)
+
+	## A filled, optionally stroked ellipse on a canvas.
+	ellipse : Elem.CanvasEllipse -> Elem.CanvasPrimitive
+	ellipse = |shape| Elem.ellipse(shape)
+
+	## A stroked line on a canvas.
+	line : Elem.CanvasLine -> Elem.CanvasPrimitive
+	line = |shape| Elem.line(shape)
 }

@@ -1,9 +1,7 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
 import Counter
-import pf.Elem
 import pf.Gui
-import pf.Program
 
 State : {
 	left : Counter.State,
@@ -11,15 +9,25 @@ State : {
 	right : Counter.State,
 }
 
-paper = Gui.rgb(0xF2EFE6)
+paper : Gui.Color
+paper = 0xF2EFE6
 
-ink = Gui.rgb(0x1F1C17)
+ink : Gui.Color
+ink = 0x1F1C17
 
-muted_ink = Gui.rgb(0x8C8474)
+muted_ink : Gui.Color
+muted_ink = 0x8C8474
 
-render : State -> Elem(State)
-render = |curr_state| Elem.col(
-	Elem.ColProps.{
+## A card owns how it looks; the page owns how much of the row it takes. The
+## cards divide the page's measure between them rather than sitting at a fixed
+## width with the remainder left over: a page that ends in dead space reads as
+## an accident.
+share : Gui.Elem(State) -> Gui.Elem(State)
+share = |card| card.width(Fill).grow(True)
+
+render : State -> Gui.Elem(State)
+render = |curr_state| Gui.col(
+	{
 		label: "Counter page",
 		width: Fill,
 		padding: 40,
@@ -27,28 +35,28 @@ render = |curr_state| Elem.col(
 		font_size: 15,
 	},
 	[
-		Elem.col(
-			Elem.ColProps.{ gap: 6 },
+		Gui.col(
+			{ gap: 6 },
 			[
-				Elem.col(Elem.ColProps.{ gap: 0, font_size: 22 }, [Elem.text(curr_state.title)]),
-				Elem.col(
-					Elem.ColProps.{ gap: 0, fg: muted_ink, font_size: 13 },
-					[Elem.text("Two independent tallies, each its own state boundary")],
+				Gui.col({ gap: 0, font_size: 22 }, [Gui.text(curr_state.title)]),
+				Gui.col(
+					{ gap: 0, fg: muted_ink, font_size: 13 },
+					[Gui.text("Two independent tallies, each its own state boundary")],
 				),
 			],
 		),
-		Elem.row(
-			Elem.RowProps.{ width: Fill, gap: 24 },
+		Gui.row(
+			{ width: Fill, gap: 24 },
 			[
-				Elem.translate(|counter| Counter.render("Left", counter), |parent| parent.left, |parent, counter| { ..parent, left: counter }),
-				Elem.translate(|counter| Counter.render("Right", counter), |parent| parent.right, |parent, counter| { ..parent, right: counter }),
+				share(Gui.translate(|counter| Counter.render("Left", counter), |parent| parent.left, |parent, counter| { ..parent, left: counter })),
+				share(Gui.translate(|counter| Counter.render("Right", counter), |parent| parent.right, |parent, counter| { ..parent, right: counter })),
 			],
 		),
 	],
 )
 
-main : Program(State)
-main = Program.run({
+main : Gui.Program(State)
+main = Gui.run({
 	init: |_access| { left: Counter.init(-1), right: Counter.init(3), title: "Counter" },
 	render,
 	window: { title: "Counter", width: 640, height: 400, background: paper, foreground: ink },

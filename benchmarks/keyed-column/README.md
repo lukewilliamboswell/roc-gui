@@ -1,6 +1,6 @@
 # Keyed column
 
-This application exercises `Elem.keyed_col` with persistent `KeyedSeq` state.
+This application exercises `Gui.keyed_col` with persistent `KeyedSeq` state.
 Its semantic specification proves that local state and task completion follow a
 stable key across reordering, and that removal retires the keyed component and
 its routes.

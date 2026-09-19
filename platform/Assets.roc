@@ -154,6 +154,10 @@ Assets := [].{
 	with_manifest : StoreConfig, Manifest -> StoreConfig
 	with_manifest = |config, expected| { ..config, manifest: RequireManifest(expected) }
 
+	## The resource-free store value, for pure tests. Reads through it fail.
+	stub : Store
+	stub = Store.stub
+
 	## Open the store a config describes, checking its manifest if one was
 	## required. Call it from `Action.task`; it blocks on the disk.
 	##

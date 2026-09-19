@@ -1,11 +1,11 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
-import pf.Action
-import pf.Elem
-import pf.Program
+import pf.Gui
 
 Shape : { id : U64, x : I32, y : I32, color : U32 }
+
 Drag : [Idle, Moving({ id : U64, start_x : I32, start_y : I32, origin_x : I32, origin_y : I32 })]
+
 State : { shapes : List(Shape), drag : Drag }
 
 presentation : U64 -> List(Shape)
@@ -41,13 +41,13 @@ pointer_state = |state, event| match event.phase {
 	End => { ..state, drag: Idle }
 }
 
-render = |state| Elem.canvas(Elem.CanvasProps.{
+render = |state| Gui.canvas({
 	label: "Presentation stage",
-	primitives: state.shapes.map(|shape| Rectangle(Elem.CanvasRectangle.{ key: shape.id, label: "Layer ${shape.id.to_str()}", x: shape.x, y: shape.y, width: 18, height: 14, fill: Rgb(shape.color), radius: 2 })),
-	on_pointer: |current, event| Action.update(pointer_state(current, event)),
+	primitives: state.shapes.map(|shape| Gui.rectangle({ key: shape.id, label: "Layer ${shape.id.to_str()}", x: shape.x, y: shape.y, width: 18, height: 14, fill: Rgb(shape.color), radius: 2 })),
+	on_pointer: |current, event| Gui.update(pointer_state(current, event)),
 	width: Fill,
 	height: Fill,
 })
 
-main : Program(State)
-main = Program.run({ init: |_access| { shapes: presentation(1000), drag: Idle }, render, window: { title: "Large animated presentation", width: 1000, height: 700 } })
+main : Gui.Program(State)
+main = Gui.run({ init: |_access| { shapes: presentation(1000), drag: Idle }, render, window: { title: "Large animated presentation", width: 1000, height: 700 } })

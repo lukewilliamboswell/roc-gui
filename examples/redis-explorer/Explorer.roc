@@ -1,9 +1,7 @@
 ## The explorer's state, the authority it holds over one TCP endpoint, and the
 ## asynchronous transitions between them. The mounted presentation lives in
 ## `View.roc`.
-import pf.Program
-import pf.Action
-import pf.Tcp
+import pf.Gui
 import redis.Bytes
 import redis.Client
 import redis.Commands
@@ -26,8 +24,8 @@ import RedisData exposing [Key, Selection]
 Link : [
 	Offline,
 	Opening(U64),
-	Idle(Tcp.Stream),
-	Busy({ stream : Tcp.Stream, id : U64, doing : Str }),
+	Idle(Gui.TcpStream),
+	Busy({ stream : Gui.TcpStream, id : U64, doing : Str }),
 	Closing(U64),
 ]
 
@@ -35,25 +33,24 @@ Link : [
 ## that said no. Only a refusal is a statement about authority.
 Trouble : { message : Str, remedy : Str, denied : Bool }
 
-State : {
-	access : Program.Access, keys : List(Key), link : Link, next_request : U64, pattern : Str, selection : [None, Some(Selection)], trouble : [None, Some(Trouble)] }
+State : { access : Gui.Access, keys : List(Key), link : Link, next_request : U64, pattern : Str, selection : [None, Some(Selection)], trouble : [None, Some(Trouble)] }
 
 Explorer := [].{
 	Link : Link
 	State : State
 	Trouble : Trouble
+
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	init : Program.Access -> State
-	init = |access| {
-		access, keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
-	connect : State -> Action(State)
+	init : Gui.Access -> State
+	init = |access| { access, keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
+	connect : State -> Gui.Action(State)
 	connect = connect
-	disconnect : State, Tcp.Stream -> Action(State)
+	disconnect : State, Gui.TcpStream -> Gui.Action(State)
 	disconnect = disconnect
-	scan : State, Tcp.Stream -> Action(State)
+	scan : State, Gui.TcpStream -> Gui.Action(State)
 	scan = scan
-	inspect : State, Tcp.Stream, Key -> Action(State)
+	inspect : State, Gui.TcpStream, Key -> Gui.Action(State)
 	inspect = inspect
 	set_pattern : State, Str -> State
 	set_pattern = |state, pattern| { ..state, pattern }
@@ -75,10 +72,10 @@ still_current = |link, id| match link {
 
 connect = |state| {
 	id = state.next_request
-	Action.task({
+	Gui.task({
 		pending: { ..state, next_request: id + 1, link: Opening(id), trouble: None },
 		run: || {
-			stream = Tcp.connect!(state.access) ? |error| ConnectFailed(tcp_trouble(error))
+			stream = state.access.tcp_connect!() ? |error| ConnectFailed(tcp_trouble(error))
 			pong = connection(stream).request!(Commands.Session.ping()) ? |error| ConnectFailed(redis_trouble(error))
 			if pong == Bytes.from_str("PONG") {
 				Ok(stream)
@@ -88,11 +85,11 @@ connect = |state| {
 		},
 		resolve: |latest, outcome| if still_current(latest.link, id) {
 			match outcome {
-				Ok(stream) => Action.update({ ..latest, link: Idle(stream), trouble: None })
-				Err(ConnectFailed(trouble)) => Action.update({ ..latest, link: Offline, trouble: Some(trouble) })
+				Ok(stream) => Gui.update({ ..latest, link: Idle(stream), trouble: None })
+				Err(ConnectFailed(trouble)) => Gui.update({ ..latest, link: Offline, trouble: Some(trouble) })
 			}
 		} else {
-			Action.none
+			Gui.none
 		},
 	})
 }
@@ -101,16 +98,16 @@ connect = |state| {
 ## the explorer never holds a handle it has already asked the host to shut down.
 disconnect = |state, stream| {
 	id = state.next_request
-	Action.task({
+	Gui.task({
 		pending: { ..state, keys: [], next_request: id + 1, selection: None, link: Closing(id), trouble: None },
 		run: || stream.close!(),
 		resolve: |latest, outcome| if still_current(latest.link, id) {
 			match outcome {
-				Ok({}) => Action.update({ ..latest, link: Offline, trouble: None })
-				Err(error) => Action.update({ ..latest, link: Offline, trouble: Some(tcp_trouble(error)) })
+				Ok({}) => Gui.update({ ..latest, link: Offline, trouble: None })
+				Err(error) => Gui.update({ ..latest, link: Offline, trouble: Some(tcp_trouble(error)) })
 			}
 		} else {
-			Action.none
+			Gui.none
 		},
 	})
 }
@@ -135,23 +132,24 @@ scan_pages! = |conn, cursor, pattern, remaining, found| {
 scan = |state, stream| {
 	id = state.next_request
 	pattern = state.pattern
-	Action.task({
+	Gui.task({
 		pending: { ..state, next_request: id + 1, selection: None, link: Busy({ stream, id, doing: "scanning" }), trouble: None },
 		run: || scan_pages!(connection(stream), Bytes.from_str("0"), pattern, 10_000, []),
+
 		## The stream handed back to `Idle` is the one the state is already
 		## holding inside `Busy`, never the copy this closure captured: the
 		## borrow ends where it began.
 		resolve: |latest, outcome| match latest.link {
 			Busy(busy) if busy.id == id => match outcome {
-				Ok(keys) => Action.update({ ..latest, keys, link: Idle(busy.stream), trouble: None })
-				Err(_) => Action.update({
+				Ok(keys) => Gui.update({ ..latest, keys, link: Idle(busy.stream), trouble: None })
+				Err(_) => Gui.update({
 					..latest,
 					keys: [],
 					link: Idle(busy.stream),
 					trouble: Some({ message: "Redis could not scan that key pattern", remedy: "SCAN takes a glob, for example profile:* or catalog:item:*.", denied: False }),
 				})
 			}
-			_ => Action.none
+			_ => Gui.none
 		},
 	})
 }
@@ -184,7 +182,7 @@ inspect_value! = |conn, key, kind| match kind {
 
 inspect = |state, stream, key| {
 	id = state.next_request
-	Action.task({
+	Gui.task({
 		pending: { ..state, next_request: id + 1, link: Busy({ stream, id, doing: "reading ${key.name}" }), trouble: None },
 		run: || {
 			conn = connection(stream)
@@ -210,19 +208,19 @@ inspect = |state, stream, key| {
 		},
 		resolve: |latest, outcome| match latest.link {
 			Busy(busy) if busy.id == id => match outcome {
-				Ok(selection) => Action.update({ ..latest, selection: Some(selection), link: Idle(busy.stream), trouble: None })
-				Err(UnsupportedType) => Action.update({
+				Ok(selection) => Gui.update({ ..latest, selection: Some(selection), link: Idle(busy.stream), trouble: None })
+				Err(UnsupportedType) => Gui.update({
 					..latest,
 					link: Idle(busy.stream),
 					trouble: Some({ message: "This Redis value type is not supported", remedy: "The explorer reads strings, lists, sets, hashes, and sorted sets.", denied: False }),
 				})
-				Err(_) => Action.update({
+				Err(_) => Gui.update({
 					..latest,
 					link: Idle(busy.stream),
 					trouble: Some({ message: "Redis could not read the selected key", remedy: "The key may have expired between the scan and this read.", denied: False }),
 				})
 			}
-			_ => Action.none
+			_ => Gui.none
 		},
 	})
 }

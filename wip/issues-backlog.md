@@ -777,6 +777,73 @@ names the reproduction so the workaround can be removed when the fix lands.
   readers can use the generated reference. Track the compiler documentation
   generator fix and verify the field descriptions in its HTML output.
 
+- [ ] **A type nested in a resource cannot be named through `Gui`.** `Gui`
+  re-exports each resource as an alias, and the compiler resolves a function
+  through that alias (`Gui.Files.pick_directory!`) but not a type
+  (`Gui.Files.Dir.Read` is "not exposed by the module"). `Gui` therefore also
+  carries one flattened alias per nested type, named by dropping the dots:
+  `Gui.FilesDirRead`, `Gui.TimerHandle`, `Gui.EventPress`. Declaring real
+  nested namespaces in `Gui` instead resolves the type paths, but sibling
+  nested types in one file cannot both define `acquire!` without a
+  duplicate-definition warning on every application build. Both behaviours are
+  the same at compiler `main` `0d00cca8`. Report upstream; when a nested type
+  resolves through an alias, delete the flattened aliases and rename their uses
+  mechanically.
+
+- [ ] **A nominal record cannot be constructed through an alias.**
+  `Gui.ColProps.{ ... }` is rejected because the alias is not nominal, so
+  `Gui` does not re-export the property record types at all: applications
+  pass a bare record literal where a property or configuration record with
+  defaults is expected, and lose the name at the construction site. A bare
+  record fills its defaults only where the expected type reaches it directly:
+  `Rectangle({ ... })` written inside a `List.map` closure is a type mismatch
+  in `examples/animation-studio` and a compiler segmentation fault in
+  `benchmarks/animation-canvas`, which is why `Gui.rectangle`, `Gui.ellipse`,
+  and `Gui.line` exist. Report upstream; when it resolves, re-export the
+  property records by name and drop the three shape constructors.
+
+- [ ] **A string literal cannot stand for a text element.** `Elem` could define
+  `from_quote` and `from_interpolation` so a child list reads `["Ready", "Rows:
+  ${count.to_str()}"]` without `Gui.text`, the way `Gui.Color` takes a
+  `0xRRGGBB` literal and `Gui.Key` a quoted one. It works where the element
+  type is already fixed, and crashes the compiler where it is still generic:
+  an unannotated local or helper holding such a list segfaults `roc check`
+  intermittently or `roc build` outright on the pin, and a debug compiler at
+  `main` `70624e3f6f` reports `active Monotype TypeId requested for an
+  unresolved instantiation graph node` from `lowerQuoteExpr`. It reached
+  `examples/animation-studio`, `examples/device-configurator`,
+  `examples/review-queue`, and `benchmarks/text-rows`, with nothing at check
+  time to say where. `Elem` therefore defines neither method. Reduce and report
+  upstream; add both methods and drop `Gui.text` around literals once a pinned
+  compiler carries the fix.
+
+- [ ] **A record builder only finds `map2` on a module's own type.**
+  `{ ... }.Builder` works when `Builder` is imported as a module and fails with
+  "does not implement map2" through a `Gui` alias or as a nominal nested in
+  `Gui`, on the pin and at compiler `main` `0d00cca8`. Nothing in the platform
+  is a record builder today, so this blocks nothing; it decides where one would
+  have to live if joining independent tasks into one record is ever offered.
+  Report upstream.
+
+- [ ] **An unannotated helper that attaches a handler through a modifier
+  crashes the compiler.** A record update inside a closure passed to a method
+  call, `Gui.button(caption).on_press(|current, _| Gui.update({ ..current, n }))`,
+  from an unannotated and so generalized function checks cleanly and then
+  violates the postcheck invariant `instantiation widened a closed record`
+  when the function is specialized at the application's state. A record update
+  types its base as a `record_unbound`, which Monotype instantiation gives a
+  fresh unshared row that defaults to the empty record, and the dispatch-call
+  path relates the expression to the requested type after that row has closed.
+  Release compilers segfault in `roc build` or grow `roc check` past 18 GB
+  until the kernel kills it, on the pin, on `nightly-2026-09-18-1d982dc`, and
+  at compiler `main` `70624e3f6f`. A handler given in a property record does
+  not take this path, which is how every application in the tree is written,
+  so nothing in the tree needs a workaround; an application that attaches a
+  handler with a modifier inside an unannotated helper does, and annotating
+  the helper's type avoids it. Reported upstream as roc-lang/roc#11463, a
+  remaining path to the closed roc-lang/roc#10871; remove this entry when a
+  pinned compiler carries the fix.
+
 ## Runner: test what we fly
 
 - [ ] **Native frame focus work still scans unaffected controls.**

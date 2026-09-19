@@ -7,32 +7,30 @@ independently, then keys and memoization when their additional guarantees help.
 
 == State, render, and actions
 
-An application exports a state type and `main : Program(State)`:
+An application exports a state type and `main : Gui.Program(State)`. The whole platform arrives through one import:
 
 [source,roc]
 ----
-import pf.Action
-import pf.Elem
-import pf.Program
+import pf.Gui
 
 State : { count : I64 }
 
-render : State -> Elem(State)
-render = |curr_state| Elem.col({}, [
-    Elem.text("Count: ${curr_state.count.to_str()}"),
-    Elem.button({
+render : State -> Gui.Elem(State)
+render = |curr_state| Gui.col({}, [
+    Gui.text("Count: ${curr_state.count.to_str()}"),
+    Gui.button({
         caption: "Add one",
         label: "Increment count",
         on_press: |prev_state, _event|
-            Action.update({ count: prev_state.count + 1.I64 }),
+            Gui.update({ count: prev_state.count + 1.I64 }),
     }),
 ])
 
-main : Program(State)
-main = Program.run({ init: |_access| { count: 0 }, render })
+main : Gui.Program(State)
+main = Gui.run({ init: |_access| { count: 0 }, render })
 ----
 
-`init` takes the application's authority — a `Program.Access` — and returns the
+`init` takes the application's authority — a `Gui.Access` — and returns the
 first state. It is the only place authority enters an application, and there is
 no way to produce one, so an application holds exactly what it was handed and a
 library holds exactly what it was passed. An application that acquires nothing
@@ -40,13 +38,21 @@ ignores it, as this one does. One that acquires later keeps it in its state,
 because the task that acquires runs after `init` has returned. The Resource
 access chapter explains why the platform is built this way.
 
-`render` is pure: it reads state and returns an `Elem(State)`. A button handler
-receives the state associated with its render boundary and an `Event.Press`.
+Every acquisition is a question asked of that value, from inside a task:
+`access.pick_directory!()`, `access.app_data!()`, `access.assets!(config)`,
+`access.audio!()`, `access.clipboard!()`, `access.device!()`, `access.http!()`,
+`access.process!()`, `access.system_monitor!()`, and `access.tcp_connect!()`.
+Each answers with a handle only for what the host has granted, and the handle
+carries its own operations. Code that was never handed the authority has
+nothing to ask.
+
+`render` is pure: it reads state and returns a `Gui.Elem(State)`. A button handler
+receives the state associated with its render boundary and an `Gui.EventPress`.
 It returns an action:
 
-`Action.update(next_state)`:: Propose the next state and update the required
+`Gui.update(next_state)`:: Propose the next state and update the required
 render scope, subject to the component's memoization policy.
-`Action.none`:: Keep the existing state and element tree unchanged.
+`Gui.none`:: Keep the existing state and element tree unchanged.
 
 The names in the example distinguish two moments. `curr_state` describes the
 UI being rendered. The handler's `prev_state` is the state immediately before
@@ -64,9 +70,9 @@ Using the handler argument also matters when handlers are retained across
 updates: it supplies the latest state, whereas a captured render snapshot
 still describes the earlier render.
 
-Use `Action.none` when an event is valid but has no effect, such as pressing a
+Use `Gui.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
-returning an unchanged state with `Action.update`.
+returning an unchanged state with `Gui.update`.
 
 An action is a value describing a transition, not a transition performed.
 Constructing one changes nothing; returning it from a handler is what asks the
@@ -77,19 +83,19 @@ architecture chapter records that origin and the reasoning behind it.
 
 === Pure application assembly
 
-`Program.run({ init, render, window })` describes an application with ordinary
+`Gui.run({ init, render, window })` describes an application with ordinary
 initial state and a pure renderer. `window` is optional. Resource acquisition
 and window-dependent interactions belong in actions.
 
 Reusable modules export ordinary render functions such as
-`Workspace.render : Workspace.State -> Elem(Workspace.State)`. A parent
-composes them through `Elem.translate` or `Elem.translate_with`; no setup-time
+`Workspace.render : Workspace.State -> Gui.Elem(Workspace.State)`. A parent
+composes them through `Gui.translate` or `Gui.translate_with`; no setup-time
 registration is needed. The host assigns each mounted boundary its lifetime.
-The module does not import `Program` or choose the application's window.
+The module does not call `Gui.run` or choose the application's window.
 
 == Asynchronous actions
 
-Use `Action.task({ pending, run, resolve })` when an event needs to wait for
+Use `Gui.task({ pending, run, resolve })` when an event needs to wait for
 external work. `pending` describes the UI while that work runs, such as a loading
 indicator. After accepting that state, the platform runs `run` on its bounded
 worker pool and passes the result to `resolve` on the UI thread.
@@ -107,9 +113,9 @@ survive a child closing.
 
 === Timers and subscriptions
 
-`Timer.start!({ interval_ms })` creates an opaque `Timer.Handle` for intervals
+`Gui.Timer.start!({ interval_ms })` creates an opaque `Gui.TimerHandle` for intervals
 from 1 through 60,000 milliseconds. `handle.next!()` waits for one tick
-and belongs inside `Action.task`; the next wait is started only after the
+and belongs inside `Gui.task`; the next wait is started only after the
 previous completion has been applied. This pull contract bounds backpressure
 at one in-flight wait and does not accumulate missed ticks.
 
@@ -120,22 +126,20 @@ whether a `Fired` result schedules another wait.
 
 == Elements and layout
 
-`Elem.text(value)`:: Display a string, inheriting colour and size from its
+`Gui.text(value)`:: Display a string, inheriting colour and size from its
 container.
-`Elem.action_button(Elem.ActionButtonProps.{ ... })`:: Display a controlled,
+`Gui.button({ ... })`:: Display a controlled,
 styled action button. `caption` is visible text, `label` is its stable semantic
-name, and `enabled` defaults to `True`. Enabled buttons participate in keyboard
+name, as in every other control, and `enabled` defaults to `True`. Enabled
+buttons participate in keyboard
 tab order and activate with Enter or Space. Disabled buttons remain visible
 with a subdued appearance and accept neither pointer nor keyboard activation.
 Props include padding, sizing, growth, foreground and interaction colours,
-border, radius, font size, font weight, and overflow.
-`Elem.button({ caption, label, on_press })`:: Concise text-button constructor
-over the same native action-button node. `caption` is the visible text and
-`label` is the stable semantic name, as in every other control; use
-`Elem.action_button` for styling.
-Both button constructors accept `on_hover_enter` and `on_hover_exit` as optional
-`Some(|prev_state, event| Action.update(...))` callbacks. Their defaults are `None`:
-unconfigured buttons allocate no hover routes. `Event.Hover` carries no fields.
+border, radius, font size, font weight, and overflow. A call that gives only
+`caption`, `label`, and `on_press` is the concise text button.
+A button accepts `on_hover_enter` and `on_hover_exit` as optional
+`Some(|prev_state, event| Gui.update(...))` callbacks. Their defaults are `None`:
+unconfigured buttons allocate no hover routes. `Gui.EventHover` carries no fields.
 Hover callbacks receive current state and return ordinary actions, including
 cell-owned tasks. Native hover transitions follow GPUI pointer movement with no
 mouse button held; repeated movement inside a button emits no additional enter.
@@ -149,31 +153,31 @@ color, as in `benchmarks/hover-grid`.
 
 [source,roc]
 ----
-Elem.button({
+Gui.button({
     caption: "Preview",
     label: "Preview item",
-    on_press: |_, _| Action.none,
-    on_hover_enter: Some(|prev_state, _| Action.update({ ..prev_state, preview: True })),
-    on_hover_exit: Some(|prev_state, _| Action.update({ ..prev_state, preview: False })),
+    on_press: |_, _| Gui.none,
+    on_hover_enter: Some(|prev_state, _| Gui.update({ ..prev_state, preview: True })),
+    on_hover_exit: Some(|prev_state, _| Gui.update({ ..prev_state, preview: False })),
 })
 ----
 
-`Elem.checkbox(Elem.CheckboxProps.{ ... })`:: Display a semantic checkbox and
-handle `Event.Check`. `box_bg`, `box_checked_bg`, `box_border`, and
+`Gui.checkbox({ ... })`:: Display a semantic checkbox and
+handle `Gui.EventCheck`. `box_bg`, `box_checked_bg`, `box_border`, and
 `mark_color` colour the indicator itself, which `fg` does not reach; each
 defaults to the host's own value. Props include enabled state, gap, padding, sizing, growth,
 foreground and interaction colours, border, radius, font size, font weight,
 and overflow.
 Enabled checkboxes participate in keyboard tab order and toggle with Space;
 disabled checkboxes do not accept focus or activation.
-`Elem.textarea(Elem.TextareaProps.{ ... })`:: Display a controlled multiline
-text editor and handle `Event.Input`, which carries the complete requested
+`Gui.textarea({ ... })`:: Display a controlled multiline
+text editor and handle `Gui.EventInput`, which carries the complete requested
 value.
 `label` is the stable semantic name; `placeholder`, `enabled`, and `read_only`
 control editing behaviour. A read-only textarea retains multiline layout and
 scrolling for response and log views. Textareas share the native style fields
 and default to a 160-logical-pixel editing viewport.
-`Elem.image(Elem.ImageProps.{ label, bytes, format, ... })`:: Decode and render
+`Gui.image({ label, bytes, format, ... })`:: Decode and render
 capability-safe in-memory image bytes through GPUI. The explicit format is one
 of `Png`, `Jpeg`, `Webp`, `Gif`, `Svg`, `Bmp`, or `Tiff`; fit defaults to
 `Contain` and also supports `Cover`, `Fill`, `ScaleDown`, and `None`.
@@ -182,30 +186,30 @@ authoritative: `width`, `height`, and the minimum and maximum fields size the
 element, and `fit` is the rule that maps the decoded pixels into that box. Image
 sources are values, never ambient filesystem paths or URLs, and `label` is the
 stable semantic name.
-`Elem.text_input(Elem.TextInputProps.{ ... })`:: Display a controlled,
+`Gui.text_input({ ... })`:: Display a controlled,
 single-line native editor. `label` is its stable semantic name, `value` is the
 authoritative application value, and `placeholder` is shown only while empty.
-Committed edits deliver the complete value in `Event.TextChange`; Enter delivers
-`Event.TextSubmit`. The host retains focus, caret, selection, and an active IME
+Committed edits deliver the complete value in `Gui.EventTextChange`; Enter delivers
+`Gui.EventTextSubmit`. The host retains focus, caret, selection, and an active IME
 composition across controlled rerenders. Disabled fields accept neither edits
 nor submission. Text values are bounded to one MiB of UTF-8.
 Text-input labels are non-empty and unique within their component instance
 scope because they also preserve native editor identity across controlled
 rerenders. Distinct keyed instances can reuse the same local input label.
-`Elem.styled_text(Elem.TextProps.{ value, fg, font_size, font_weight, font_face })`::
-Display a string in its own colour, size, weight, and face. Plain `Elem.text`
+`Gui.styled_text({ value, fg, font_size, font_weight, font_face })`::
+Display a string in its own colour, size, weight, and face. Plain `Gui.text`
 inherits all four from its container, so every typographic step otherwise costs a
 one-child row or column that exists for no other reason; a wordmark, an eyebrow
 label, and a status line are each a string, not a layout.
-`Elem.scroll(Elem.ScrollProps.{ label, content, axis, ... })`:: Constrain content
+`Gui.scroll({ label, content, axis, ... })`:: Constrain content
 to available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `label` is the stable semantic identity. A
 scroll region shares the native `Gui.Style` fields, so it carries its own size,
 ground, inset, and corner rather than needing a column or panel wrapped around
 it to supply them.
-`Elem.virtual_list(Elem.VirtualListProps.{ label, row_height, items })`:: Present
+`Gui.virtual_list({ label, row_height, items })`:: Present
 stable-keyed rows at one fixed logical height. Each item is an
-`Elem.VirtualListItem.{ key, content }`; keys must be unique within the list.
+`{ key, content }` record; keys must be unique within the list.
 The complete item graph remains available to semantic inspection and event
 routing, while GPUI materialises only the current viewport range.
 A virtual list shares the native `Gui.Style` fields as well, and `row_gap` holds
@@ -214,17 +218,17 @@ rows read as separate surfaces while the list's scrolling arithmetic stays
 exactly one `row_height` per row. Without them a list has no ground, inset,
 corner, or spacing of its own, and each row has to repaint the surface the list
 is sitting on.
-`Elem.row(Elem.RowProps.{ ... }, children)`:: Lay out children horizontally.
-`Elem.col(Elem.ColProps.{ ... }, children)`:: Lay out children vertically.
-`Elem.keyed_col(render_item, Elem.ColProps.{ ... }, Elem.KeyedColConfig.{ key, get, set, on_delegate })`::
-Lay out a `KeyedSeq` vertically while preserving each item's component lifetime
-by its complete `Key`. Inserts, moves, removals, and replacements are applied as
+`Gui.row({ ... }, children)`:: Lay out children horizontally.
+`Gui.col({ ... }, children)`:: Lay out children vertically.
+`Gui.keyed_col(render_item, { ... }, { key, get, set, on_delegate })`::
+Lay out a `Gui.KeyedSeq` vertically while preserving each item's component lifetime
+by its complete `Gui.Key`. Inserts, moves, removals, and replacements are applied as
 one mounted-graph transaction and one native keyed transaction. Construct a
-sequence with `KeyedSeq.empty` and update it with `insert_before`, `remove`,
+sequence with `Gui.KeyedSeq.empty` and update it with `insert_before`, `remove`,
 `move_before`, `set`, or one atomic `apply_all`; `Before(anchor)` and `End`
 describe placement. Duplicate inserted keys, missing targets, and missing
 anchors reject the operation without publishing a partial revision.
-`on_delegate : parent, Key -> Action(parent)`
+`on_delegate : parent, Gui.Key -> Gui.Action(parent)`
 receives the complete key of the delegating item. Item actions project through
 their key, so a move
 does not retarget an action and a removed item cannot be recreated by a late
@@ -233,7 +237,7 @@ it reconciles the full ordered snapshot while retaining every surviving key.
 An exact journal renders only inserted and set items; a move preserves the
 existing item component and a removal retires it, its routes, and its pending
 task delivery. The full snapshot is materialised only for stale recovery.
-`Elem.panel(Elem.PanelProps.{ ... }, children)`:: Group children vertically in
+`Gui.panel({ ... }, children)`:: Group children vertically in
 a labelled surface that is padded, bordered, and rounded by default. `heading`
 is the panel's own visible heading, painted above its children in
 `heading_size`, `heading_weight`, and `heading_color`; each zero or `Default`
@@ -241,18 +245,24 @@ keeps the panel's own type. It is distinct from `label`, which remains the
 semantic locator and is never painted, so a panel named for what a
 specification calls it can still say something else to a reader. An empty
 heading, the default, paints none.
-`Elem.dialog(Elem.DialogProps.{ label, on_dismiss, ... }, children)`:: Present
+`Gui.dialog({ label, on_dismiss, ... }, children)`:: Present
 one modal surface above an input-blocking scrim. The first enabled control gains
 focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and
 closing the dialog restores its opener by stable semantic identity. Render at
 most one dialog at a time.
 
-Row, column, panel, dialog, scroll, virtual-list, and action-button props share
+Row, column, panel, dialog, scroll, virtual-list, and button props share
 the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
 radius, shadow, font size, font weight, per-axis overflow, and the two axis
 placements.
 `font_weight` is zero for the native default, or 100 through 900; 700 is bold.
+
+A colour is written as a `0xRRGGBB` literal wherever a `Gui.Color` is expected,
+as in `bg: 0x24404b`, and a value above `0xffffff` is rejected when the
+application is compiled. A colour held in a name is annotated, `ink : Gui.Color`
+then `ink = 0x1f1c17`, and one computed at run time is `Rgb(value)`. `Default`
+keeps the control's native colour.
 
 `padding` is the shorthand for all four sides. `padding_top`, `padding_right`,
 `padding_bottom`, and `padding_left` each override one side with `Px(n)` and
@@ -306,15 +316,15 @@ spacer element, and a grown empty-state column with `align: Center` and
 provides a stable semantic locator, such as
 `(role panel :name "Directory view")`; it does not add visible text.
 
-Rows and columns accept a `List(Elem(State))`, which makes ordinary list
+Rows and columns accept a `List(Gui.Elem(State))`, which makes ordinary list
 transformations useful for repeated UI:
 
 [source,roc]
 ----
-render_names : List(Str) -> Elem(State)
-render_names = |names| Elem.col(
-    Elem.ColProps.{ width: Fill, gap: 6 },
-    names.map(|name| Elem.text(name)),
+render_names : List(Str) -> Gui.Elem(State)
+render_names = |names| Gui.col(
+    { width: Fill, gap: 6 },
+    names.map(|name| Gui.text(name)),
 )
 ----
 
@@ -328,7 +338,7 @@ buttons, checkboxes, and text inputs in rendered child order, so application
 layout order is also the default keyboard order. Keep labels concise and
 semantic names stable across state updates.
 
-`Program.run` also accepts a `window` record with an initial logical `width`,
+`Gui.run` also accepts a `window` record with an initial logical `width`,
 `height`, and titlebar `title`. Defaults allow an `init`/`render`-only configuration;
 windows remain resizable and layout elements using `Fill` follow the available
 viewport.
@@ -339,6 +349,42 @@ including its rounded corners and the edge above the root element, which a
 grown root element cannot cover. Both default to the host's own ground, so an
 application that says nothing keeps it.
 
+=== Modifiers
+
+A property record is how an element is written. The code that builds an
+element knows what it is, so it states the element's presentation in one place.
+A caller that receives an element something else built, such as a themed
+component or a translated child, adjusts it with modifier methods instead.
+
+Every presentation field is also a method on an element: `width`, `grow`,
+`padding`, `gap`, `bg`, `fg`, `radius`, `font_size`, `align`, `justify`, the
+per-side `padding_top` and `border_bottom`, and so on for each shared style
+field, together with `label`. Control-specific fields such as `enabled`,
+`placeholder`, `read_only`, `axis`, `row_gap`, `fit`, `grayscale`, and `heading`
+follow the same rule, as do the handlers `on_press`, `on_hover_enter`,
+`on_hover_exit`, `on_check`, `on_change`, `on_submit`, `on_input`,
+`on_dismiss`, and `on_pointer`. A modifier that does not apply to an element
+leaves it unchanged. A typographic modifier on `Gui.text` styles that string,
+and a modifier on a translated component applies to the root that component
+renders.
+
+In `examples/counter`, `Counter.render` owns how a card looks and the page
+decides how much of the row each translated card takes:
+
+[source,roc]
+----
+share : Gui.Elem(State) -> Gui.Elem(State)
+share = |card| card.width(Fill).grow(True)
+
+cards = Gui.row({ width: Fill, gap: 24 }, [
+    share(Gui.translate(|counter| Counter.render("Left", counter), |parent| parent.left, |parent, counter| { ..parent, left: counter })),
+    share(Gui.translate(|counter| Counter.render("Right", counter), |parent| parent.right, |parent, counter| { ..parent, right: counter })),
+])
+----
+
+The component stays reusable at any width because it never chose one, and the
+page states its division of space without reaching into the component.
+
 == Translations and local state
 
 Begin by splitting a large render function into ordinary helper functions.
@@ -346,22 +392,22 @@ Introduce a translation when a part of the UI should work with its own smaller
 state and update independently. For example, each counter can own its counting
 logic while the page holds two counter states.
 
-`Elem.translate(render, get, set)` introduces a local rendering, delegation,
+`Gui.translate(render, get, set)` introduces a local rendering, delegation,
 and task-ownership boundary. `get` reads the child's state from the parent;
 `set` puts an updated child back while preserving the rest of the parent:
 
 [source,roc]
 ----
-render = |curr_state| Elem.col({}, [
-    Elem.text(curr_state.title),
-    Elem.translate(
+render = |curr_state| Gui.col({}, [
+    Gui.text(curr_state.title),
+    Gui.translate(
         |counter| Counter.render("Left", counter),
         |parent| parent.left,
         |parent, counter| { ..parent, left: counter },
     ),
 ])
 
-main = Program.run({ init, render })
+main = Gui.run({ init, render })
 ----
 
 An unkeyed translation has a fresh lifetime whenever its parent reconstructs
@@ -370,13 +416,13 @@ data survives reconstruction unless an action changes it.
 
 === Preserve a component across parent renders
 
-Use `Elem.translate_with(render, config)` when a component should keep its
+Use `Gui.translate_with(render, config)` when a component should keep its
 lifetime across parent rebuilds or reordering. A stable key lets an in-flight
 task still reach that same component after the parent renders:
 
 [source,roc]
 ----
-Elem.translate_with(
+Gui.translate_with(
     |counter| Counter.render("Left", counter),
     {
         key: "left",
@@ -387,11 +433,11 @@ Elem.translate_with(
 ----
 
 The required configuration fields are `key`, `get`, and `set`.
-`on_delegate : parent -> Action(parent)` defaults to `Action.update`.
+`on_delegate : parent -> Gui.Action(parent)` defaults to `Gui.update`.
 `memo` defaults to `None`; `Some(|prev_state, curr_state| prev_state == curr_state)` opts into
 comparison of child inputs.
 
-`Elem.try_translate(render, config)` has the same configuration but its getter
+`Gui.try_translate(render, config)` has the same configuration but its getter
 returns `Try(child, [Removed])` and its setter returns `Try(parent, [Removed])`.
 Use it for removable collection entries. Resolve a stable application identity
 against the latest state; do not capture a render-time row index. Adapters do
@@ -404,9 +450,9 @@ Emitting a boundary whose getter returns
 
 === Keys identify instances within a scope
 
-Use a string literal for a fixed component, `Key.from_str` for a computed name,
-or `Key.id(U64)` for a numeric application identifier. The string `"7"` and
-`Key.id(7)` are distinct keys. Compute dynamic keys when creating model entries
+Use a string literal for a fixed component, `Gui.Key.from_str` for a computed name,
+or `Gui.Key.id(U64)` for a numeric application identifier. The string `"7"` and
+`Gui.Key.id(7)` are distinct keys. Compute dynamic keys when creating model entries
 and reuse them during rendering.
 
 Keys must be unique within their owner and native-container scope. A container's
@@ -429,15 +475,15 @@ an old state can force the list to be copied. An index limits how much shared
 storage each update needs to copy; it does not eliminate copying.
 
 `Index(value)` is a persistent map keyed by application `U64` identifiers.
-`Index.empty`, `Index.get(index, id)`, `Index.set(index, id, value)`, and
-`Index.remove(index, id)` provide lookup, insertion/replacement, and removal.
+`Gui.Index.empty`, `Gui.Index.get(index, id)`, `Gui.Index.set(index, id, value)`, and
+`Gui.Index.remove(index, id)` provide lookup, insertion/replacement, and removal.
 Lookup returns `Try(value, [Missing])`. Updating an index preserves older
 snapshots and copies at most sixteen radix branches, rather than an entire
 collection. Numeric storage identifiers are separate from mounted-instance IDs
-and from the full-digest `Key` used by translations.
+and from the full-digest `Gui.Key` used by translations.
 
 Store dynamic keys alongside their model entries. A removable collection can
-keep its display order separately, project entries through `Index.get`, and
+keep its display order separately, project entries through `Gui.Index.get`, and
 translate `Missing` into `Removed`. This lets a local action replace one entry
 without copying an unrelated flat list. The row-boundaries application uses
 the same persistent index as the platform's production route registry.
@@ -448,24 +494,24 @@ Sometimes a child change also affects its parent: a counter may contribute to
 a page total, or a review decision may need approval from the queue. Choose
 delegation when the parent must participate in the change.
 
-`Action.update(next_child)` commits through the adapters and renders only its
+`Gui.update(next_child)` commits through the adapters and renders only its
 originating boundary. Parent and sibling renderers and comparators are not
 visited. A parent summary responds through explicit delegation or composition
 inside the same render boundary; reading child state does not establish a
 tracked dependency.
 
-`Elem.lift(element, get, set)` adapts a prebuilt element without adding a render
+`element.lift(get, set)` adapts a prebuilt element without adding a render
 boundary, lifetime, or memoization. It does not consume delegation. Its
 non-fallible adapters must remain valid for the existing owner's lifetime.
 
-`Action.delegate(next_child)` constructs a candidate parent through the nearest
+`Gui.delegate(next_child)` constructs a candidate parent through the nearest
 translation, then calls `on_delegate(candidate)`. That handler may:
 
-* return `Action.update(candidate)` to accept;
+* return `Gui.update(candidate)` to accept;
 * return an update with revised parent data;
-* return `Action.none` to veto the entire candidate;
-* return `Action.task` to start parent-owned work; or
-* return `Action.delegate` to continue to the next parent policy.
+* return `Gui.none` to veto the entire candidate;
+* return `Gui.task` to start parent-owned work; or
+* return `Gui.delegate` to continue to the next parent policy.
 
 Delegation reaching the root becomes a root update. Handlers receive current
 state. Veto commits none of the candidate, including its child changes.
@@ -518,11 +564,11 @@ for keyed resource-bearing panes.
 
 == Directory capabilities and tasks
 
-`Files.pick_directory!(access)` requests a trusted host-owned Open Project
+`access.pick_directory!()` requests a trusted host-owned Open Project
 selection.
 The selected project grants read authority, while cancellation is a normal
 `Canceled` result and denial is `PickDirectoryErr(AccessDenied)`. The returned
-`Files.Dir.Read` is an opaque, reference-counted handle: it may be stored in
+`Gui.FilesDirRead` is an opaque, reference-counted handle: it may be stored in
 state or captured by tasks, but applications cannot forge it or recover an
 ambient path. Internally it uses the platform-wide typed `Resource.Handle`
 representation, leaving the same ABI shape available to future resource APIs.
@@ -556,13 +602,13 @@ directory without following the final symlink; names containing traversal or
 multiple path components are rejected. `directory.read!(name)` reads
 one direct ordinary file as a bounded `List(U8)` without following links. The
 64 MiB bound returns `ResourceLimit` instead of constructing an unbounded
-application value. Run filesystem operations inside `Action.task`, as
+application value. Run filesystem operations inside `Gui.task`, as
 `examples/folder-browser/main.roc` shows.
 
-Filesystem failures use the `Files.FileErr` tag union. Its
+Filesystem failures use the `Gui.FilesFileErr` tag union. Its
 `ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, and
 `ReadFileErr` tags identify the failed operation directly; each carries a
-portable `Files.Reason` value.
+portable `Gui.FilesReason` value.
 
 `Revoked` is distinct from an invalid handle. Each directory operation resolves
 the opaque handle and its immutable root lineage while holding the broker
@@ -584,7 +630,7 @@ to asynchronous work so a superseded completion cannot replace a newer view.
 
 == Encoded image data
 
-`ImageData.inspect!(bytes, format)` validates bounded encoded bytes already
+`Gui.ImageData.inspect!(bytes, format)` validates bounded encoded bytes already
 obtained through application data or an explicit capability and reports pixel
 dimensions. It accepts neither paths nor URLs. Raster inspection uses the
 maintained `image` decoder and SVG inspection uses `usvg`; inputs above 64 MiB,
@@ -592,7 +638,7 @@ dimensions above 32,768, and images above 200 million pixels are rejected.
 
 Failures carry the operation tag `InspectImageErr` and one of `Corrupt`,
 `InvalidDimensions`, `ResourceLimit`, or `Unsupported`. Image presentation
-continues to use byte-based `Elem.ImageProps`. `ImageData` owns metadata and
+continues to use the byte-based `Gui.image` properties. `Gui.ImageData` owns metadata and
 integrity inspection only; it does not duplicate layout or rendering props.
 
 The native image-data owner counts staged image nodes, staged encoded bytes,
@@ -607,55 +653,55 @@ application's own read-only content, so it is provisioned automatically and
 prompts nobody, and it belongs to a surface of its own.
 
 Small artwork needs no surface at all. A compile-time file import places the
-bytes in the executable and `Elem.image` renders them:
+bytes in the executable and `Gui.image` renders them:
 
 [source,roc]
 ----
 import "icons/folder.png" as folder : List(U8)
 
-icon = Elem.image(Elem.ImageProps.{ label: "Folder", bytes: folder, format: Png })
+icon = Gui.image({ label: "Folder", bytes: folder, format: Png })
 ----
 
 `Assets` is for the larger asset -- a background banner, a photograph -- that
 should not be paid for in executable size. An application opens a store once
-and reads a file when it wants it; the bytes flow into that same `Elem.image`.
+and reads a file when it wants it; the bytes flow into that same `Gui.image`.
 
 A store is anchored to a named root, not to an ambient path. Three roots exist
 because moving an executable, changing the working directory, and installing
 content apart from the program are three separate events, and none may silently
 change what another means:
 
-`Assets.beside_executable(path)`:: A directory beneath the executable's own
+`Gui.Assets.beside_executable(path)`:: A directory beneath the executable's own
 directory. The artwork travels with the program, so the store resolves the same
 way however the program was launched.
-`Assets.working_directory(path)`:: A directory beneath the process working
+`Gui.Assets.working_directory(path)`:: A directory beneath the process working
 directory. The root follows the shell, which is what running from a project
 checkout wants.
-`Assets.content_directory`:: The content directory the host provisioned for
+`Gui.Assets.content_directory`:: The content directory the host provisioned for
 this application. The application names no path here, so an asset store is
 never a route to a directory the host did not hand it.
 
-`Assets.open!` returns an opaque `Assets.Store`; `store.read!(path)`
+`access.assets!(config)` returns an opaque `Gui.AssetsStore`; `store.read!(path)`
 returns the bytes of one asset beneath it. Both touch the disk, so both belong
-inside `Action.task`, which runs them on the bounded worker pool and resolves on
+inside `Gui.task`, which runs them on the bounded worker pool and resolves on
 the UI thread:
 
 [source,roc]
 ----
-Action.task({
+Gui.task({
     pending: { ..state, banner: Loading },
     run: || {
-        store = Assets.open!(Assets.beside_executable("assets"))?
+        store = state.access.assets!(Gui.Assets.beside_executable("assets"))?
         store.read!("banners/hero.png")
     },
     resolve: |latest, result| match result {
-        Ok(bytes) => Action.update({ ..latest, banner: Loaded(bytes) })
-        Err(_) => Action.update({ ..latest, banner: Failed })
+        Ok(bytes) => Gui.update({ ..latest, banner: Loaded(bytes) })
+        Err(_) => Gui.update({ ..latest, banner: Failed })
     },
 })
 ----
 
-`Assets.Store.stub` is the resource-free store value. An application that keeps a
+`Gui.Assets.stub` is the resource-free store value. An application that keeps a
 store in its state needs one to write that state down in a pure `expect`; reads
 through it fail, and it proves nothing about asset resolution.
 
@@ -673,7 +719,7 @@ content_version = 7
 sha256 = 3b1f...c90a
 ....
 
-`Assets.with_manifest(config, expectation)` makes the open check that file, so
+`Gui.Assets.with_manifest(config, expectation)` makes the open check that file, so
 a half-updated or mismatched asset set is reported at startup rather than
 surfacing much later as one image that will not draw. The four comparisons are
 reported separately: `AssetSetMismatch`, `SchemaMismatch`,
@@ -705,7 +751,7 @@ evidence.
 
 == Process and pseudo-terminal capabilities
 
-`Process.acquire!` returns an opaque process grant only when the application is
+`access.process!()` returns an opaque process grant only when the application is
 launched with `--host-cap-process=local-shell` or
 `--host-cap-process=test-program`. The grant fixes the only profile that may be
 started. `grant.spawn!` accepts only terminal dimensions;
@@ -714,9 +760,9 @@ variables, or command lines to the host.
 
 `Grant.spawn!` creates a real pseudo-terminal with an explicitly bounded row
 and column size. `read!`, `write!`, `resize!`, and
-`cancel!` are methods on its typed `Process.Pty` handle. Reads and writes are
+`cancel!` are methods on its typed `Gui.ProcessPty` handle. Reads and writes are
 capped at 65,536 bytes per call, one read may wait on a PTY, and cancellation
-wakes that wait. Blocking operations belong in `Action.task`, whose completion
+wakes that wait. Blocking operations belong in `Gui.task`, whose completion
 is reconciled with the latest state on the ordinary event route.
 
 Failures carry their operation in the tag, such as
@@ -726,7 +772,7 @@ kinds.
 
 == HID device capabilities
 
-`Device.acquire!` returns an opaque grant only when the host has authorised one
+`access.device!()` returns an opaque grant only when the host has authorised one
 exact virtual device or physical USB vendor/product identity. Applications
 cannot request arbitrary hardware, inspect operating-system device paths, or
 read serial numbers. `grant.discover!()` lists only comparison-safe identity
@@ -736,7 +782,7 @@ Connections are typed `Box(U64)` resources. `connection.transact!` exchanges one
 bounded byte request and response; device-specific framing and values belong in
 an application or protocol package rather than the platform. Physical HID and
 deterministic virtual transports enter this same operation. Blocking discovery,
-connection, and transactions run through `Action.task`.
+connection, and transactions run through `Gui.task`.
 
 Failures retain their operation in tags such as
 `DiscoverDeviceErr(NotFound)` and `TransactDeviceErr(Protocol)`. Connection and
@@ -744,7 +790,7 @@ transaction lifecycle counts are recorded by the host that owns those events.
 
 == System observation capabilities
 
-`SystemMonitor.acquire!` returns an opaque typed sampler only when the host has
+`access.system_monitor!()` returns an opaque typed sampler only when the host has
 granted read-only system observation. `sampler.sample!()` refreshes CPU,
 memory, aggregate process disk I/O, network I/O, and a bounded process list on a
 task worker. `sampler.close!()` is idempotent. Applications cannot request
@@ -763,37 +809,37 @@ environment, hostname, and machine identity do not.
 
 == Durable application data
 
-`Files.app_data!(access)` acquires the application's private read-write directory
+`access.app_data!()` acquires the application's private read-write directory
 granted by `--host-cap-app-data PATH`. The result is an opaque typed
-`Files.Dir.ReadWrite` handle; applications cannot recover the host path.
+`Gui.FilesDirReadWrite` handle; applications cannot recover the host path.
 
 `directory.read_utf8!(name)` distinguishes `Missing` from
 `Value(Str)`. `directory.write_utf8_atomic!(name, value)`
 synchronises a private temporary file before replacing the direct child in the
 same directory. Names are flat ASCII identifiers of at most 128 bytes, values
-are UTF-8 of at most one MiB, and the ordinary operation-tagged `Files.FileErr`
+are UTF-8 of at most one MiB, and the ordinary operation-tagged `Gui.FilesFileErr`
 surface reports acquisition, read, and write failures.
 
-Run these blocking operations inside `Action.task`, with a monotonic request
+Run these blocking operations inside `Gui.task`, with a monotonic request
 identity when an edit can supersede pending work. The Settings Center uses this
 route and retains a newer draft when an older load completes.
 
 == Audio output capabilities
 
-`Audio.acquire!(access)` acquires an opaque output handle for ordinary mixer
+`access.audio!()` acquires an opaque output handle for ordinary mixer
 output.
 Playing sound through the shared system mixer is an automatically provisioned
 service with no prompt, and the handle lasts for the session; exclusive access
 or unusual routing would be separate scope. Acquisition fails when the machine
-has no usable output device. `Audio.load!(output, directory, name)` loads
-one direct file through an existing `Files.Dir.Read` grant; names with traversal
+has no usable output device. `Gui.Audio.load!(output, directory, name)` loads
+one direct file through an existing `Gui.FilesDirRead` grant; names with traversal
 or multiple components are rejected and encoded input is bounded to 64 MiB.
 The host delegates media decoding and playback to Rodio and Symphonia.
 
-`Audio.Track` is an opaque host resource. `Audio.play!`, `Audio.pause!`,
-`Audio.seek!`, `Audio.status!`, and `Audio.stop!` are bounded operations intended
-for `Action.task`. Status reports the decoder-owned duration, playback position,
-and `Playing`, `Paused`, or `Stopped` state. `Audio.AudioErr` identifies
+`Gui.AudioTrack` is an opaque host resource. `Gui.Audio.play!`, `Gui.Audio.pause!`,
+`Gui.Audio.seek!`, `Gui.Audio.status!`, and `Gui.Audio.stop!` are bounded operations intended
+for `Gui.task`. Status reports the decoder-owned duration, playback position,
+and `Playing`, `Paused`, or `Stopped` state. `Gui.AudioAudioErr` identifies
 the failed operation and carries a portable reason such as `DecodeFailed`,
 `OutputUnavailable`, or `InvalidCapability`.
 
@@ -803,8 +849,8 @@ it changes only the final device sink.
 
 == Clipboard capabilities
 
-`Clipboard.acquire!(access)` acquires text clipboard authority only when the host
-was launched with `--host-cap-clipboard`. Its opaque `Clipboard.Handle` uses
+`access.clipboard!()` acquires text clipboard authority only when the host
+was launched with `--host-cap-clipboard`. Its opaque `Gui.ClipboardHandle` uses
 the common typed `Box(U64)` representation and cannot be manufactured or
 confused with another resource family.
 
@@ -812,10 +858,10 @@ confused with another resource family.
 monotonic sequence. Applications compare sequences to suppress stale reads and
 deduplicate repeated content. `handle.write_text!(text)` schedules
 replacement on GPUI's owning UI context. Both directions reject values larger
-than 64 KiB. `Clipboard.ClipboardErr` identifies acquisition, reading, and
+than 64 KiB. `Gui.ClipboardClipboardErr` identifies acquisition, reading, and
 writing with distinct operation tags carrying a portable reason.
 
-Observe changes with one pull-based `Timer` subscription inside `Action.task`.
+Observe changes with one pull-based `Gui.Timer` subscription inside `Gui.task`.
 Pause by cancelling that timer; sensitive values are discarded before they
 enter state. Clipboard content is application data and never enters host
 diagnostics or observatory captures.
@@ -823,7 +869,7 @@ diagnostics or observatory captures.
 == HTTP requests
 
 Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
-values. `Http.acquire!(access)` returns an opaque `Http.Client` only when the host
+values. `access.http!()` returns an opaque `Gui.HttpClient` only when the host
 was launched with `--host-cap-http-origin ORIGIN`. The grant names one exact
 scheme, host, and effective port; requests and redirects cannot leave it.
 Acquire failures are `AcquireHttpErr(reason)` and exchange failures are
@@ -837,14 +883,14 @@ Literal loopback or private addresses remain usable only when named explicitly
 by the provisioned origin.
 
 `client.send!(config, request)` performs one bounded exchange and returns
-the package's canonical `Response`. Call it from `Action.task` so connection,
+the package's canonical `Response`. Call it from `Gui.task` so connection,
 TLS, and response work runs on the native worker pool and its reducer returns
 through the ordinary UI-thread completion dispatcher.
 
 Requests and config make policy explicit: method, URI, headers, body, timeout,
-`max_response_bytes`, and `max_redirects`. `Http.Config` carries a default for
+`max_response_bytes`, and `max_redirects`. `Gui.HttpConfig` carries a default for
 each limit -- a 30 second timeout, a 1 MiB response, and three redirects -- so
-`Http.Config.{ timeout_ms: 2_000 }` states only the limit it moves. URLs must
+`{ timeout_ms: 2_000 }` states only the limit it moves. URLs must
 use `http` or `https`.
 The platform accepts standard methods, at most 64 headers and 32 KiB of header
 data, a request body up to 1 MiB, a timeout from 1 through 60,000 milliseconds,
@@ -855,16 +901,16 @@ capabilities, unsupported schemes, connection and timeout failures, and
 redirect and body limits.
 
 Give each submitted request a monotonically increasing identity. In the task
-resolver, compare that identity with the latest state and return `Action.none`
+resolver, compare that identity with the latest state and return `Gui.none`
 for an obsolete result. This prevents a slow earlier response from replacing a
 newer response without creating a second completion route.
 
 == Read-only SQLite capabilities
 
-`Sqlite.open_read!(directory, name)` opens one direct ordinary child of a
+`Gui.Sqlite.open_read!(directory, name)` opens one direct ordinary child of a
 granted directory as a read-only database capability. The operation rejects
 path traversal and symlinks and never exposes an ambient path. Database bytes
-are bounded to 64 MiB and the returned `Sqlite.Db` is an opaque, reference-
+are bounded to 64 MiB and the returned `Gui.SqliteDb` is an opaque, reference-
 counted `Box(U64)` handle whose final release closes the native connection.
 
 `database.query!(sql)` prepares and executes one read-only statement.
@@ -874,17 +920,17 @@ and 16 MiB of returned text and blob bytes. Limit violations and invalid,
 corrupt, busy, inaccessible, or non-database resources are typed errors.
 Failures use `OpenDatabaseErr(reason)` and `QueryDatabaseErr(reason)`, so callers
 can distinguish the failed operation before matching the portable reason.
-Every reason retains SQLite's bounded diagnostic string; `Sqlite.detail`
+Every reason retains SQLite's bounded diagnostic string; `Gui.Sqlite.detail`
 extracts it for user-facing status without flattening the public error type.
 
 Open and query calls are blocking capability operations. Run them inside
-`Action.task`, retain the last successful view while work is pending, and use a
+`Gui.task`, retain the last successful view while work is pending, and use a
 monotonic request identity in the resolver so an older completion cannot
 replace a newer result. `examples/database-browser` demonstrates this pattern.
 
 == TCP endpoint capabilities
 
-`Tcp.connect!()` opens an ordered byte stream to the single numeric
+`access.tcp_connect!()` opens an ordered byte stream to the single numeric
 `IP:PORT` endpoint granted with `--host-cap-tcp`. Without that host grant it
 returns `ConnectTcpErr(AccessDenied)`. The application cannot select or derive a
 different destination from the opaque handle, and releasing its final
@@ -895,7 +941,7 @@ one-MiB requested maximum; an empty list means orderly end of stream.
 `stream.write_all!(bytes)` writes the complete value or fails and
 accepts at most 16 MiB. `stream.close!()` is idempotent. Connections,
 reads, and writes have finite native timeouts, and failures use the
-operation-tagged `Tcp.TcpErr` union: `ConnectTcpErr`, `ReadTcpErr`,
+operation-tagged `Gui.TcpTcpErr` union: `ConnectTcpErr`, `ReadTcpErr`,
 `WriteTcpErr`, or `CloseTcpErr` wraps a portable reason.
 
 The numeric endpoint has no DNS resolution or ambient destination selection.
@@ -903,7 +949,7 @@ The command-line grant provisions development and automation authority; a
 user-facing client obtains trusted connection authority through a named,
 revocable destination broker rather than treating that flag as user consent.
 
-TCP operations block and belong inside `Action.task`. Protocol packages build
+TCP operations block and belong inside `Gui.task`. Protocol packages build
 on the byte transport rather than being reimplemented by the platform. The
 Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
 command encoding, bounded RESP2 decoding, typed commands, and exchange policy
@@ -911,8 +957,8 @@ remain the responsibility of the established platform-independent package.
 
 == Retained canvas
 
-`Elem.canvas` paints an ordered list of keyed `Rectangle`, `Ellipse`, and
-`Line` primitives in native GPUI. A canvas and every primitive have stable
+`Gui.canvas` paints an ordered list of keyed primitives in native GPUI, built
+with `Gui.rectangle({ ... })`, `Gui.ellipse({ ... })`, and `Gui.line({ ... })`. A canvas and every primitive have stable
 semantic labels. Primitive keys are non-zero and unique within the canvas;
 they preserve direct-manipulation identity independently of list position.
 

@@ -1,33 +1,35 @@
 import Action
 import Event
-import Gui
 import Host
 import Key
 import KeyedSeq
+import Style
 import Work
 
 ## A declarative UI tree whose event handlers transition application state `a`.
-## Use `text`, `action_button`, `checkbox`, `row`, `col`, and `panel` to build a tree, and
-## `translate` or `lift` to embed UI over smaller component state.
+## Use `text`, `button`, `checkbox`, `row`, `col`, and `panel` to build a tree from
+## property records, adjust an element afterwards with modifiers such as `padding`, and
+## use `translate` or `lift` to embed UI over smaller component state.
 Elem(a) :: [
 	Component(BoundComponent(a)),
-	ActionButton(ActionButtonProps(a)),
-	Checkbox(CheckboxProps(a)),
-	Textarea(TextareaProps(a)),
-	Image(ImageProps),
-	Canvas(CanvasProps(a)),
-	Column({ children : List(Elem(a)), props : ColProps }),
-	KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
-	Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
-	Panel({ children : List(Elem(a)), props : PanelProps }),
-	Row({ children : List(Elem(a)), props : RowProps }),
-	Scroll(ScrollProps(a)),
-	VirtualList(VirtualListProps(a)),
-	TextInput(TextInputProps(a)),
-	StyledText(TextProps),
+	ActionButton(ButtonNode(a)),
+	Checkbox(CheckboxNode(a)),
+	Textarea(TextareaNode(a)),
+	Image(ImageNode),
+	Canvas(CanvasNode(a)),
+	Column({ children : List(Elem(a)), props : Frame }),
+	KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : Frame, revision : U64 }),
+	Dialog({ children : List(Elem(a)), props : DialogNode(a) }),
+	Panel({ children : List(Elem(a)), props : PanelNode }),
+	Row({ children : List(Elem(a)), props : Frame }),
+	Scroll(ScrollNode(a)),
+	VirtualList(VirtualListNode(a)),
+	TextInput(TextInputNode(a)),
+	StyledText(TextNode),
 	Text(Str),
 ].{
 	KeyedOperation : [KeyedInsert(Key, KeyedSeq.Placement), KeyedMove(Key, KeyedSeq.Placement), KeyedRemove(Key), KeyedSet(Key)]
+
 	## Adapt a persistent keyed sequence into a native column. Every item is a
 	## component boundary owned by its complete Key; item actions project by key,
 	## so reordering never changes their target and removal cannot recreate one.
@@ -144,23 +146,134 @@ Elem(a) :: [
 			)
 		}
 		render_boundary = |parent, done| project(
-				parent,
-				|result| match result {
-					Err(Removed) => crash "render emitted a removed component"
-					Ok(child) => done(lift_with(render(child), project, set, adapt))
-				},
+			parent,
+			|result| match result {
+				Err(Removed) => crash "render emitted a removed component"
+				Ok(child) => done(lift_with(render(child), project, set, adapt))
+			},
 		)
 		exists = |parent, done| project(
-				parent,
-				|result| done(
-						match result {
-							Ok(_) => True
-							Err(Removed) => False
-						},
-				),
+			parent,
+			|result| done(
+				match result {
+					Ok(_) => True
+					Err(Removed) => False
+				},
+			),
 		)
 		Component(BoundComponent.{ key, render: render_boundary, exists: exists, remember })
 	}
+
+	## The semantic locator and presentation shared by `row`, `col`, and
+	## `keyed_col`.
+	Frame := { label : Str, style : Style }
+
+	## Platform representation of a modal dialog.
+	DialogNode(a) := { label : Str, style : Style, on_dismiss : (a, Event.Dismiss => Action(a)) }
+
+	## Platform representation of a headed surface.
+	PanelNode := { label : Str, style : Style, heading : Str, heading_size : U32, heading_weight : U32, heading_color : Style.Color }
+
+	## Platform representation of a button. `caption` is its visible text and
+	## `label` is its stable semantic locator.
+	ButtonNode(a) := {
+		caption : Str,
+		label : Str,
+		enabled : Bool,
+		on_press : (a, Event.Press => Action(a)),
+		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))],
+		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))],
+		style : Style,
+	}
+
+	## Platform representation of a single-line text editor.
+	TextInputNode(a) := {
+		label : Str,
+		value : Str,
+		placeholder : Str,
+		enabled : Bool,
+		on_change : (a, Event.TextChange => Action(a)),
+		on_submit : (a, Event.TextSubmit => Action(a)),
+		style : Style,
+	}
+
+	## The axes a scroll region moves along.
+	ScrollAxis : [Both, Horizontal, Vertical]
+
+	## Platform representation of a scrollable region.
+	ScrollNode(a) := { axis : ScrollAxis, content : Elem(a), label : Str, style : Style }
+
+	## One stable row in a virtual list. `key` identifies the row independently
+	## of its current index, while `content` is an ordinary element tree.
+	VirtualListItem(a) := { content : Elem(a), key : U64 }
+
+	## Platform representation of a viewport-driven, fixed-height list.
+	VirtualListNode(a) := { items : List(VirtualListItem(a)), label : Str, row_height : U32, row_gap : U32, style : Style }
+
+	## Platform representation of a checkbox.
+	CheckboxNode(a) := {
+		label : Str,
+		checked : Bool,
+		enabled : Bool,
+		on_change : (a, Event.Check => Action(a)),
+		box_bg : Style.Color,
+		box_checked_bg : Style.Color,
+		box_border : Style.Color,
+		mark_color : Style.Color,
+		style : Style,
+	}
+
+	## Platform representation of a multiline text editor.
+	TextareaNode(a) := {
+		label : Str,
+		value : Str,
+		placeholder : Str,
+		enabled : Bool,
+		read_only : Bool,
+		on_input : (a, Event.Input => Action(a)),
+		style : Style,
+	}
+
+	## Encoded image formats accepted by the native image decoder.
+	ImageFormat : [Bmp, Gif, Jpeg, Png, Svg, Tiff, Webp]
+
+	## How decoded pixels fit the image's styled bounds.
+	ImageFit : [Contain, Cover, Fill, None, ScaleDown]
+
+	## Platform representation of an encoded in-memory image.
+	ImageNode := { label : Str, bytes : List(U8), format : ImageFormat, fit : ImageFit, grayscale : Bool, style : Style }
+
+	## A retained drawing primitive. Keys must be non-zero and unique within a
+	## canvas. Primitives are painted in list order and hit-tested in reverse.
+	CanvasEllipse := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Style.Color, stroke : Style.Color ?? Default, stroke_width : U32 ?? 0 }
+	CanvasLine := { key : U64, label : Str, x1 : I32, y1 : I32, x2 : I32, y2 : I32, stroke : Style.Color, stroke_width : U32 ?? 1 }
+	CanvasRectangle := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Style.Color, stroke : Style.Color ?? Default, stroke_width : U32 ?? 0, radius : U32 ?? 0 }
+	CanvasPrimitive : [
+		Ellipse(CanvasEllipse),
+		Line(CanvasLine),
+		Rectangle(CanvasRectangle),
+	]
+
+	## A filled, optionally stroked and rounded rectangle on a canvas.
+	rectangle : CanvasRectangle -> CanvasPrimitive
+	rectangle = |shape| Rectangle(shape)
+
+	## A filled, optionally stroked ellipse on a canvas.
+	ellipse : CanvasEllipse -> CanvasPrimitive
+	ellipse = |shape| Ellipse(shape)
+
+	## A stroked line on a canvas.
+	line : CanvasLine -> CanvasPrimitive
+	line = |shape| Line(shape)
+
+	## Platform representation of a native retained canvas. Coordinates are
+	## integer logical pixels, which makes semantic gestures and deterministic
+	## rendering agree.
+	CanvasNode(a) := { label : Str, primitives : List(CanvasPrimitive), on_pointer : (a, Event.CanvasPointer => Action(a)), style : Style }
+
+	## Platform representation of text set in its own colour, size, weight, and
+	## face. Only the typographic fields of `style` apply to a string.
+	TextNode := { value : Str, style : Style }
 
 	## Properties for `col`. `label` is an optional stable semantic locator.
 	## The remaining fields control the column's native layout and presentation.
@@ -168,43 +281,43 @@ Elem(a) :: [
 		label : Str ?? "",
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Default,
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for `row`. `label` is an optional stable semantic locator.
@@ -213,43 +326,43 @@ Elem(a) :: [
 		label : Str ?? "",
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Default,
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for a modal dialog. `label` is its stable semantic name and
@@ -259,43 +372,43 @@ Elem(a) :: [
 		on_dismiss : (a, Event.Dismiss => Action(a)),
 		gap : U32 ?? 16,
 		padding : U32 ?? 24,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Px(520),
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Px(520),
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Rgb(0x212f37),
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Rgb(0xeeeeea),
-		border_color : Gui.Color ?? Rgb(0x48666b),
+		bg : Style.Color ?? Rgb(0x212f37),
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Rgb(0xeeeeea),
+		border_color : Style.Color ?? Rgb(0x48666b),
 		border_width : U32 ?? 1,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for `panel`. Panels are padded, bordered, rounded vertical
@@ -310,53 +423,53 @@ Elem(a) :: [
 		heading : Str ?? "",
 		heading_size : U32 ?? 0,
 		heading_weight : U32 ?? 0,
-		heading_color : Gui.Color ?? Default,
+		heading_color : Style.Color ?? Default,
 		gap : U32 ?? 8,
 		padding : U32 ?? 16,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Default,
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Rgb(0x48666b),
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Rgb(0x48666b),
 		border_width : U32 ?? 1,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 8,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for `action_button`. `caption` is visible text and `label` is
 	## its stable semantic name. Disabled buttons remain visible but cannot be
 	## focused or dispatch presses. Visual fields use the same native style
 	## vocabulary as layout controls.
-	ActionButtonProps(a) := {
+	ButtonProps(a) := {
 		caption : Str,
 		label : Str,
 		enabled : Bool ?? True,
@@ -367,43 +480,43 @@ Elem(a) :: [
 		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))] ?? None,
 		gap : U32 ?? 8,
 		padding : U32 ?? 8,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Rgb(0x315469),
-		hover_bg : Gui.Color ?? Rgb(0x3e6a83),
-		active_bg : Gui.Color ?? Rgb(0x274453),
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Rgb(0x315469),
+		hover_bg : Style.Color ?? Rgb(0x3e6a83),
+		active_bg : Style.Color ?? Rgb(0x274453),
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for a controlled single-line text field. `label` is its stable
@@ -419,96 +532,89 @@ Elem(a) :: [
 		on_submit : (a, Event.TextSubmit => Action(a)),
 		gap : U32 ?? 8,
 		padding : U32 ?? 8,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Px(38),
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Px(38),
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Rgb(0x162a33),
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Rgb(0x48666b),
+		bg : Style.Color ?? Rgb(0x162a33),
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Rgb(0x48666b),
 		border_width : U32 ?? 1,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 6,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Clip,
-		overflow_y : Gui.Overflow ?? Clip,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Clip,
+		overflow_y : Style.Overflow ?? Clip,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
-	## Properties for a vertically scrollable region. `name` is its stable
-	## semantic identity for specifications and accessibility.
-	ScrollAxis : [Both, Horizontal, Vertical]
 	ScrollProps(a) := {
 		axis : ScrollAxis ?? Vertical,
 		content : Elem(a),
 		label : Str,
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Default,
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
-
-	## One stable row in a virtual list. `key` identifies the row independently
-	## of its current index, while `content` is an ordinary element tree.
-	VirtualListItem(a) := { content : Elem(a), key : U64 }
 
 	## Properties for a viewport-driven, fixed-height list. Only rows intersecting
 	## the native viewport are materialized as GPUI elements.
@@ -522,48 +628,48 @@ Elem(a) :: [
 		row_gap : U32 ?? 0,
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Default,
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for `checkbox`. `label` is both visible text and the stable
 	## semantic name used by specifications. `on_change` receives the requested
-	## checked state. The common visual fields mirror `Gui.Style`; defaults let a
+	## checked state. The common visual fields mirror `Style.Style`; defaults let a
 	## record literal name only the properties it changes.
 	CheckboxProps(a) := {
 		label : Str,
@@ -574,49 +680,49 @@ Elem(a) :: [
 		## The indicator's own colours. `fg` reaches the caption; these reach the
 		## box and its mark, which otherwise keep host values chosen for a dark
 		## ground. Each defaults to the host's own.
-		box_bg : Gui.Color ?? Default,
-		box_checked_bg : Gui.Color ?? Default,
-		box_border : Gui.Color ?? Default,
-		mark_color : Gui.Color ?? Default,
+		box_bg : Style.Color ?? Default,
+		box_checked_bg : Style.Color ?? Default,
+		box_border : Style.Color ?? Default,
+		mark_color : Style.Color ?? Default,
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Default,
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Visible,
-		overflow_y : Gui.Overflow ?? Visible,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for a controlled multiline editor. `label` is its stable
@@ -632,50 +738,44 @@ Elem(a) :: [
 		on_input : (a, Event.Input => Action(a)),
 		gap : U32 ?? 8,
 		padding : U32 ?? 8,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Fill,
-		height : Gui.Length ?? Px(160),
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Fill,
+		height : Style.Length ?? Px(160),
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Rgb(0x10252b),
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Rgb(0x48666b),
+		bg : Style.Color ?? Rgb(0x10252b),
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Rgb(0x48666b),
 		border_width : U32 ?? 1,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 6,
 		font_size : U32 ?? 15,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Scroll,
-		overflow_y : Gui.Overflow ?? Scroll,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Scroll,
+		overflow_y : Style.Overflow ?? Scroll,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
-
-	## Encoded image formats accepted by the native image decoder.
-	ImageFormat : [Bmp, Gif, Jpeg, Png, Svg, Tiff, Webp]
-
-	## How decoded pixels fit the image's styled bounds.
-	ImageFit : [Contain, Cover, Fill, None, ScaleDown]
 
 	## Properties for an encoded in-memory image. Bytes come from explicit
 	## application data or a capability operation; the host never resolves a
@@ -688,55 +788,44 @@ Elem(a) :: [
 		grayscale : Bool ?? False,
 		gap : U32 ?? 0,
 		padding : U32 ?? 0,
-		padding_top : Gui.Inset ?? Same,
-		padding_right : Gui.Inset ?? Same,
-		padding_bottom : Gui.Inset ?? Same,
-		padding_left : Gui.Inset ?? Same,
-		width : Gui.Length ?? Auto,
-		height : Gui.Length ?? Auto,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Default,
-		hover_bg : Gui.Color ?? Default,
-		active_bg : Gui.Color ?? Default,
-		disabled_bg : Gui.Color ?? Default,
-		disabled_fg : Gui.Color ?? Default,
-		focus_color : Gui.Color ?? Default,
-		fg : Gui.Color ?? Default,
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
 		shadow_y : U32 ?? 0,
-		shadow_color : Gui.Color ?? Default,
+		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
-		font_face : Gui.FontFace ?? Default,
-		text_overflow : Gui.TextOverflow ?? Wrap,
-		overflow_x : Gui.Overflow ?? Clip,
-		overflow_y : Gui.Overflow ?? Clip,
-		align : Gui.Align ?? Default,
-		justify : Gui.Justify ?? Default,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Clip,
+		overflow_y : Style.Overflow ?? Clip,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
-
-	## A retained drawing primitive. Keys must be non-zero and unique within a
-	## canvas. Primitives are painted in list order and hit-tested in reverse.
-	CanvasEllipse := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Gui.Color, stroke : Gui.Color ?? Default, stroke_width : U32 ?? 0 }
-	CanvasLine := { key : U64, label : Str, x1 : I32, y1 : I32, x2 : I32, y2 : I32, stroke : Gui.Color, stroke_width : U32 ?? 1 }
-	CanvasRectangle := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Gui.Color, stroke : Gui.Color ?? Default, stroke_width : U32 ?? 0, radius : U32 ?? 0 }
-	CanvasPrimitive : [
-		Ellipse(CanvasEllipse),
-		Line(CanvasLine),
-		Rectangle(CanvasRectangle),
-	]
 
 	## Properties for a native retained canvas. Coordinates are integer logical
 	## pixels, which makes semantic gestures and deterministic rendering agree.
@@ -744,20 +833,20 @@ Elem(a) :: [
 		label : Str,
 		primitives : List(CanvasPrimitive),
 		on_pointer : (a, Event.CanvasPointer => Action(a)),
-		width : Gui.Length ?? Fill,
-		height : Gui.Length ?? Fill,
-		min_width : Gui.Length ?? Auto,
-		min_height : Gui.Length ?? Auto,
-		max_width : Gui.Length ?? Auto,
-		max_height : Gui.Length ?? Auto,
+		width : Style.Length ?? Fill,
+		height : Style.Length ?? Fill,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
 		grow : Bool ?? False,
-		bg : Gui.Color ?? Rgb(0xffffff),
-		border_color : Gui.Color ?? Default,
+		bg : Style.Color ?? Rgb(0xffffff),
+		border_color : Style.Color ?? Default,
 		border_width : U32 ?? 0,
-		border_top : Gui.Inset ?? Same,
-		border_right : Gui.Inset ?? Same,
-		border_bottom : Gui.Inset ?? Same,
-		border_left : Gui.Inset ?? Same,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 0,
 	}
 
@@ -766,10 +855,53 @@ Elem(a) :: [
 	## costs no container, and none of a container's layout is implied.
 	TextProps := {
 		value : Str,
-		fg : Gui.Color ?? Default,
+		fg : Style.Color ?? Default,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
-		font_face : Gui.FontFace ?? Default,
+		font_face : Style.FontFace ?? Default,
+	}
+
+	# The presentation fields every element property record shares.
+	style_of = |props| Style.{
+		gap: props.gap,
+		padding: props.padding,
+		padding_top: props.padding_top,
+		padding_right: props.padding_right,
+		padding_bottom: props.padding_bottom,
+		padding_left: props.padding_left,
+		width: props.width,
+		height: props.height,
+		min_width: props.min_width,
+		min_height: props.min_height,
+		max_width: props.max_width,
+		max_height: props.max_height,
+		grow: props.grow,
+		bg: props.bg,
+		hover_bg: props.hover_bg,
+		active_bg: props.active_bg,
+		disabled_bg: props.disabled_bg,
+		disabled_fg: props.disabled_fg,
+		focus_color: props.focus_color,
+		fg: props.fg,
+		border_color: props.border_color,
+		border_width: props.border_width,
+		border_top: props.border_top,
+		border_right: props.border_right,
+		border_bottom: props.border_bottom,
+		border_left: props.border_left,
+		radius: props.radius,
+		font_size: props.font_size,
+		font_weight: props.font_weight,
+		shadow: props.shadow,
+		shadow_y: props.shadow_y,
+		shadow_color: props.shadow_color,
+		shadow_alpha: props.shadow_alpha,
+		font_face: props.font_face,
+		text_overflow: props.text_overflow,
+		overflow_x: props.overflow_x,
+		overflow_y: props.overflow_y,
+		align: props.align,
+		justify: props.justify,
 	}
 
 	## Display literal text. It inherits colour and size from its container.
@@ -779,117 +911,521 @@ Elem(a) :: [
 	## Display text in its own colour, size, weight, and face, without a
 	## container element that exists only to carry them.
 	styled_text : TextProps -> Elem(a)
-	styled_text = |props| StyledText(props)
+	styled_text = |props| StyledText({ value: props.value, style: Style.{ fg: props.fg, font_size: props.font_size, font_weight: props.font_weight, font_face: props.font_face } })
 
-	## Display a named text button and handle presses. `caption` is its visible
-	## text and `label` is its stable semantic locator, the same two names the
-	## styled `action_button` and every other control use.
-	ButtonProps(a) := {
-		caption : Str,
-		label : Str,
-		on_press : a, Event.Press => Action(a),
-		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))] ?? None,
-		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))] ?? None,
-	}
-
+	## Display a controlled button. `caption` is its visible text and `label`
+	## is its stable semantic locator.
 	button : ButtonProps(a) -> Elem(a)
-	button = |props| ActionButton(ActionButtonProps.{ caption: props.caption, label: props.label, on_press: props.on_press, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit })
-
-	## Display a controlled, styled action button.
-	action_button : ActionButtonProps(a) -> Elem(a)
-	action_button = |props| ActionButton(props)
+	button = |props| ActionButton({ caption: props.caption, label: props.label, enabled: props.enabled, on_press: props.on_press, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, style: style_of(props) })
 
 	## Display a controlled checkbox. A handler must return the state containing
 	## the next `checked` value for the visual state to change.
 	checkbox : CheckboxProps(a) -> Elem(a)
-	checkbox = |props| Checkbox(props)
+	checkbox = |props| Checkbox({
+		label: props.label,
+		checked: props.checked,
+		enabled: props.enabled,
+		on_change: props.on_change,
+		box_bg: props.box_bg,
+		box_checked_bg: props.box_checked_bg,
+		box_border: props.box_border,
+		mark_color: props.mark_color,
+		style: style_of(props),
+	})
 
 	## Edit controlled multiline text. The application installs the next value
 	## returned by `on_input`; use `read_only: True` for response viewers.
 	textarea : TextareaProps(a) -> Elem(a)
-	textarea = |props| Textarea(props)
+	textarea = |props| Textarea({ label: props.label, value: props.value, placeholder: props.placeholder, enabled: props.enabled, read_only: props.read_only, on_input: props.on_input, style: style_of(props) })
 
 	## Render encoded image bytes without granting the host ambient I/O.
 	image : ImageProps -> Elem(a)
-	image = |props| Image(props)
+	image = |props| Image({ label: props.label, bytes: props.bytes, format: props.format, fit: props.fit, grayscale: props.grayscale, style: style_of(props) })
 
 	## Paint keyed vector primitives and receive pointer gestures through one
 	## captured direct-manipulation route.
 	canvas : CanvasProps(a) -> Elem(a)
-	canvas = |props| Canvas(props)
+	canvas = |props| Canvas({
+		label: props.label,
+		primitives: props.primitives,
+		on_pointer: props.on_pointer,
+		style: Style.{
+			width: props.width,
+			height: props.height,
+			min_width: props.min_width,
+			min_height: props.min_height,
+			max_width: props.max_width,
+			max_height: props.max_height,
+			grow: props.grow,
+			bg: props.bg,
+			border_color: props.border_color,
+			border_width: props.border_width,
+			border_top: props.border_top,
+			border_right: props.border_right,
+			border_bottom: props.border_bottom,
+			border_left: props.border_left,
+			radius: props.radius,
+		},
+	})
 
 	## Display a controlled native single-line text editor.
 	text_input : TextInputProps(a) -> Elem(a)
-	text_input = |props| TextInput(props)
+	text_input = |props| TextInput({ label: props.label, value: props.value, placeholder: props.placeholder, enabled: props.enabled, on_change: props.on_change, on_submit: props.on_submit, style: style_of(props) })
 
 	## Lay out children horizontally in order.
 	row : RowProps, List(Elem(a)) -> Elem(a)
-	row = |props, children| Row({ children, props })
+	row = |props, children| Row({ children, props: { label: props.label, style: style_of(props) } })
 
 	## Lay out children vertically in order.
 	col : ColProps, List(Elem(a)) -> Elem(a)
-	col = |props, children| Column({ children, props })
+	col = |props, children| Column({ children, props: { label: props.label, style: style_of(props) } })
+
+	## Apply a presentation change to an element. Literal text becomes styled
+	## text, and a component boundary passes the change to the root it renders.
+	with_style : Elem(a), (Style -> Style) -> Elem(a)
+	with_style = |elem, change| match elem {
+		Text(value) => StyledText({ value, style: change(Style.{}) })
+		StyledText(value) => StyledText({ ..value, style: change(value.style) })
+		Row(value) => Row({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		Column(value) => Column({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		Dialog(value) => Dialog({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		Panel(value) => Panel({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		ActionButton(value) => ActionButton({ ..value, style: change(value.style) })
+		Checkbox(value) => Checkbox({ ..value, style: change(value.style) })
+		Textarea(value) => Textarea({ ..value, style: change(value.style) })
+		Image(value) => Image({ ..value, style: change(value.style) })
+		Canvas(value) => Canvas({ ..value, style: change(value.style) })
+		Scroll(value) => Scroll({ ..value, style: change(value.style) })
+		VirtualList(value) => VirtualList({ ..value, style: change(value.style) })
+		TextInput(value) => TextInput({ ..value, style: change(value.style) })
+		Component(bound) => through_boundary(bound, |rendered| with_style(rendered, change))
+	}
+
+	# A modifier on a boundary applies to whatever that boundary renders.
+	through_boundary : BoundComponent(a), (Elem(a) -> Elem(a)) -> Elem(a)
+	through_boundary = |bound, change| {
+		child_render = bound.render
+		Component({ ..bound, render: |state, done| child_render(state, |rendered| done(change(rendered))) })
+	}
+
+	## Name an element with a stable semantic locator for specifications and
+	## accessibility. Literal text has none.
+	label : Elem(a), Str -> Elem(a)
+	label = |elem, name| match elem {
+		Row(value) => Row({ ..value, props: { ..value.props, label: name } })
+		Column(value) => Column({ ..value, props: { ..value.props, label: name } })
+		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, label: name } })
+		Dialog(value) => Dialog({ ..value, props: { ..value.props, label: name } })
+		Panel(value) => Panel({ ..value, props: { ..value.props, label: name } })
+		ActionButton(value) => ActionButton({ ..value, label: name })
+		Checkbox(value) => Checkbox({ ..value, label: name })
+		Textarea(value) => Textarea({ ..value, label: name })
+		Image(value) => Image({ ..value, label: name })
+		Canvas(value) => Canvas({ ..value, label: name })
+		Scroll(value) => Scroll({ ..value, label: name })
+		VirtualList(value) => VirtualList({ ..value, label: name })
+		TextInput(value) => TextInput({ ..value, label: name })
+		Component(bound) => through_boundary(bound, |rendered| label(rendered, name))
+		_ => elem
+	}
+
+	## Space between a container's children.
+	gap : Elem(a), U32 -> Elem(a)
+	gap = |elem, value| with_style(elem, |style| { ..style, gap: value })
+
+	## Inset on every side that has no side of its own.
+	padding : Elem(a), U32 -> Elem(a)
+	padding = |elem, value| with_style(elem, |style| { ..style, padding: value })
+
+	padding_top : Elem(a), Style.Inset -> Elem(a)
+	padding_top = |elem, value| with_style(elem, |style| { ..style, padding_top: value })
+
+	padding_right : Elem(a), Style.Inset -> Elem(a)
+	padding_right = |elem, value| with_style(elem, |style| { ..style, padding_right: value })
+
+	padding_bottom : Elem(a), Style.Inset -> Elem(a)
+	padding_bottom = |elem, value| with_style(elem, |style| { ..style, padding_bottom: value })
+
+	padding_left : Elem(a), Style.Inset -> Elem(a)
+	padding_left = |elem, value| with_style(elem, |style| { ..style, padding_left: value })
+
+	## The element's width.
+	width : Elem(a), Style.Length -> Elem(a)
+	width = |elem, value| with_style(elem, |style| { ..style, width: value })
+
+	## The element's height.
+	height : Elem(a), Style.Length -> Elem(a)
+	height = |elem, value| with_style(elem, |style| { ..style, height: value })
+
+	min_width : Elem(a), Style.Length -> Elem(a)
+	min_width = |elem, value| with_style(elem, |style| { ..style, min_width: value })
+
+	min_height : Elem(a), Style.Length -> Elem(a)
+	min_height = |elem, value| with_style(elem, |style| { ..style, min_height: value })
+
+	max_width : Elem(a), Style.Length -> Elem(a)
+	max_width = |elem, value| with_style(elem, |style| { ..style, max_width: value })
+
+	max_height : Elem(a), Style.Length -> Elem(a)
+	max_height = |elem, value| with_style(elem, |style| { ..style, max_height: value })
+
+	## Take the space left over along the parent's layout axis.
+	grow : Elem(a), Bool -> Elem(a)
+	grow = |elem, value| with_style(elem, |style| { ..style, grow: value })
+
+	## The background colour.
+	bg : Elem(a), Style.Color -> Elem(a)
+	bg = |elem, value| with_style(elem, |style| { ..style, bg: value })
+
+	## The background while the pointer is over the element.
+	hover_bg : Elem(a), Style.Color -> Elem(a)
+	hover_bg = |elem, value| with_style(elem, |style| { ..style, hover_bg: value })
+
+	## The background while the element is pressed.
+	active_bg : Elem(a), Style.Color -> Elem(a)
+	active_bg = |elem, value| with_style(elem, |style| { ..style, active_bg: value })
+
+	disabled_bg : Elem(a), Style.Color -> Elem(a)
+	disabled_bg = |elem, value| with_style(elem, |style| { ..style, disabled_bg: value })
+
+	disabled_fg : Elem(a), Style.Color -> Elem(a)
+	disabled_fg = |elem, value| with_style(elem, |style| { ..style, disabled_fg: value })
+
+	focus_color : Elem(a), Style.Color -> Elem(a)
+	focus_color = |elem, value| with_style(elem, |style| { ..style, focus_color: value })
+
+	## The text colour.
+	fg : Elem(a), Style.Color -> Elem(a)
+	fg = |elem, value| with_style(elem, |style| { ..style, fg: value })
+
+	border_color : Elem(a), Style.Color -> Elem(a)
+	border_color = |elem, value| with_style(elem, |style| { ..style, border_color: value })
+
+	border_width : Elem(a), U32 -> Elem(a)
+	border_width = |elem, value| with_style(elem, |style| { ..style, border_width: value })
+
+	border_top : Elem(a), Style.Inset -> Elem(a)
+	border_top = |elem, value| with_style(elem, |style| { ..style, border_top: value })
+
+	border_right : Elem(a), Style.Inset -> Elem(a)
+	border_right = |elem, value| with_style(elem, |style| { ..style, border_right: value })
+
+	border_bottom : Elem(a), Style.Inset -> Elem(a)
+	border_bottom = |elem, value| with_style(elem, |style| { ..style, border_bottom: value })
+
+	border_left : Elem(a), Style.Inset -> Elem(a)
+	border_left = |elem, value| with_style(elem, |style| { ..style, border_left: value })
+
+	## The corner radius.
+	radius : Elem(a), U32 -> Elem(a)
+	radius = |elem, value| with_style(elem, |style| { ..style, radius: value })
+
+	## The text size; zero selects the native default.
+	font_size : Elem(a), U32 -> Elem(a)
+	font_size = |elem, value| with_style(elem, |style| { ..style, font_size: value })
+
+	## The text weight, 100 through 900; zero selects the native default.
+	font_weight : Elem(a), U32 -> Elem(a)
+	font_weight = |elem, value| with_style(elem, |style| { ..style, font_weight: value })
+
+	## The blur radius of a soft drop shadow; zero paints none.
+	shadow : Elem(a), U32 -> Elem(a)
+	shadow = |elem, value| with_style(elem, |style| { ..style, shadow: value })
+
+	shadow_y : Elem(a), U32 -> Elem(a)
+	shadow_y = |elem, value| with_style(elem, |style| { ..style, shadow_y: value })
+
+	shadow_color : Elem(a), Style.Color -> Elem(a)
+	shadow_color = |elem, value| with_style(elem, |style| { ..style, shadow_color: value })
+
+	shadow_alpha : Elem(a), U32 -> Elem(a)
+	shadow_alpha = |elem, value| with_style(elem, |style| { ..style, shadow_alpha: value })
+
+	font_face : Elem(a), Style.FontFace -> Elem(a)
+	font_face = |elem, value| with_style(elem, |style| { ..style, font_face: value })
+
+	text_overflow : Elem(a), Style.TextOverflow -> Elem(a)
+	text_overflow = |elem, value| with_style(elem, |style| { ..style, text_overflow: value })
+
+	overflow_x : Elem(a), Style.Overflow -> Elem(a)
+	overflow_x = |elem, value| with_style(elem, |style| { ..style, overflow_x: value })
+
+	overflow_y : Elem(a), Style.Overflow -> Elem(a)
+	overflow_y = |elem, value| with_style(elem, |style| { ..style, overflow_y: value })
+
+	## Where a container places its children across its layout axis.
+	align : Elem(a), Style.Align -> Elem(a)
+	align = |elem, value| with_style(elem, |style| { ..style, align: value })
+
+	## How a container distributes its children along its layout axis.
+	justify : Elem(a), Style.Justify -> Elem(a)
+	justify = |elem, value| with_style(elem, |style| { ..style, justify: value })
+
+	## Whether a button, checkbox, text input, or textarea accepts interaction.
+	enabled : Elem(a), Bool -> Elem(a)
+	enabled = |elem, value| match elem {
+		ActionButton(props) => ActionButton({ ..props, enabled: value })
+		Checkbox(props) => Checkbox({ ..props, enabled: value })
+		TextInput(props) => TextInput({ ..props, enabled: value })
+		Textarea(props) => Textarea({ ..props, enabled: value })
+		Component(bound) => through_boundary(bound, |rendered| enabled(rendered, value))
+		_ => elem
+	}
+
+	## Text shown by an empty text input or textarea.
+	placeholder : Elem(a), Str -> Elem(a)
+	placeholder = |elem, value| match elem {
+		TextInput(props) => TextInput({ ..props, placeholder: value })
+		Textarea(props) => Textarea({ ..props, placeholder: value })
+		Component(bound) => through_boundary(bound, |rendered| placeholder(rendered, value))
+		_ => elem
+	}
+
+	## Let a textarea be selected and scrolled but not edited.
+	read_only : Elem(a), Bool -> Elem(a)
+	read_only = |elem, value| match elem {
+		Textarea(props) => Textarea({ ..props, read_only: value })
+		Component(bound) => through_boundary(bound, |rendered| read_only(rendered, value))
+		_ => elem
+	}
+
+	## The axes a scroll region moves along.
+	axis : Elem(a), ScrollAxis -> Elem(a)
+	axis = |elem, value| match elem {
+		Scroll(props) => Scroll({ ..props, axis: value })
+		Component(bound) => through_boundary(bound, |rendered| axis(rendered, value))
+		_ => elem
+	}
+
+	## Space held clear at the bottom of each virtual list row inside its row height.
+	row_gap : Elem(a), U32 -> Elem(a)
+	row_gap = |elem, value| match elem {
+		VirtualList(props) => VirtualList({ ..props, row_gap: value })
+		Component(bound) => through_boundary(bound, |rendered| row_gap(rendered, value))
+		_ => elem
+	}
+
+	## How an image's decoded pixels fit its styled bounds.
+	fit : Elem(a), ImageFit -> Elem(a)
+	fit = |elem, value| match elem {
+		Image(props) => Image({ ..props, fit: value })
+		Component(bound) => through_boundary(bound, |rendered| fit(rendered, value))
+		_ => elem
+	}
+
+	## Paint an image without colour.
+	grayscale : Elem(a), Bool -> Elem(a)
+	grayscale = |elem, value| match elem {
+		Image(props) => Image({ ..props, grayscale: value })
+		Component(bound) => through_boundary(bound, |rendered| grayscale(rendered, value))
+		_ => elem
+	}
+
+	## A checkbox's unchecked box colour.
+	box_bg : Elem(a), Style.Color -> Elem(a)
+	box_bg = |elem, value| match elem {
+		Checkbox(props) => Checkbox({ ..props, box_bg: value })
+		Component(bound) => through_boundary(bound, |rendered| box_bg(rendered, value))
+		_ => elem
+	}
+
+	## A checkbox's checked box colour.
+	box_checked_bg : Elem(a), Style.Color -> Elem(a)
+	box_checked_bg = |elem, value| match elem {
+		Checkbox(props) => Checkbox({ ..props, box_checked_bg: value })
+		Component(bound) => through_boundary(bound, |rendered| box_checked_bg(rendered, value))
+		_ => elem
+	}
+
+	## A checkbox's box border colour.
+	box_border : Elem(a), Style.Color -> Elem(a)
+	box_border = |elem, value| match elem {
+		Checkbox(props) => Checkbox({ ..props, box_border: value })
+		Component(bound) => through_boundary(bound, |rendered| box_border(rendered, value))
+		_ => elem
+	}
+
+	## A checkbox's check mark colour.
+	mark_color : Elem(a), Style.Color -> Elem(a)
+	mark_color = |elem, value| match elem {
+		Checkbox(props) => Checkbox({ ..props, mark_color: value })
+		Component(bound) => through_boundary(bound, |rendered| mark_color(rendered, value))
+		_ => elem
+	}
+
+	## A panel's visible heading.
+	heading : Elem(a), Str -> Elem(a)
+	heading = |elem, value| match elem {
+		Panel(panel_value) => Panel({ ..panel_value, props: { ..panel_value.props, heading: value } })
+		Component(bound) => through_boundary(bound, |rendered| heading(rendered, value))
+		_ => elem
+	}
+
+	## A panel heading's text size.
+	heading_size : Elem(a), U32 -> Elem(a)
+	heading_size = |elem, value| match elem {
+		Panel(panel_value) => Panel({ ..panel_value, props: { ..panel_value.props, heading_size: value } })
+		Component(bound) => through_boundary(bound, |rendered| heading_size(rendered, value))
+		_ => elem
+	}
+
+	## A panel heading's text weight.
+	heading_weight : Elem(a), U32 -> Elem(a)
+	heading_weight = |elem, value| match elem {
+		Panel(panel_value) => Panel({ ..panel_value, props: { ..panel_value.props, heading_weight: value } })
+		Component(bound) => through_boundary(bound, |rendered| heading_weight(rendered, value))
+		_ => elem
+	}
+
+	## A panel heading's colour.
+	heading_color : Elem(a), Style.Color -> Elem(a)
+	heading_color = |elem, value| match elem {
+		Panel(panel_value) => Panel({ ..panel_value, props: { ..panel_value.props, heading_color: value } })
+		Component(bound) => through_boundary(bound, |rendered| heading_color(rendered, value))
+		_ => elem
+	}
+
+	## Handle a button press.
+	on_press : Elem(a), (a, Event.Press => Action(a)) -> Elem(a)
+	on_press = |elem, handler!| match elem {
+		ActionButton(value) => ActionButton({ ..value, on_press: handler! })
+		_ => elem
+	}
+
+	## Handle the pointer entering a button.
+	on_hover_enter : Elem(a), (a, Event.Hover => Action(a)) -> Elem(a)
+	on_hover_enter = |elem, handler!| match elem {
+		ActionButton(value) => ActionButton({ ..value, on_hover_enter: Some(handler!) })
+		_ => elem
+	}
+
+	## Handle the pointer leaving a button.
+	on_hover_exit : Elem(a), (a, Event.Hover => Action(a)) -> Elem(a)
+	on_hover_exit = |elem, handler!| match elem {
+		ActionButton(value) => ActionButton({ ..value, on_hover_exit: Some(handler!) })
+		_ => elem
+	}
+
+	## Handle a checkbox being toggled.
+	on_check : Elem(a), (a, Event.Check => Action(a)) -> Elem(a)
+	on_check = |elem, handler!| match elem {
+		Checkbox(value) => Checkbox({ ..value, on_change: handler! })
+		_ => elem
+	}
+
+	## Handle an edit to a text input.
+	on_change : Elem(a), (a, Event.TextChange => Action(a)) -> Elem(a)
+	on_change = |elem, handler!| match elem {
+		TextInput(value) => TextInput({ ..value, on_change: handler! })
+		_ => elem
+	}
+
+	## Handle a text input being submitted.
+	on_submit : Elem(a), (a, Event.TextSubmit => Action(a)) -> Elem(a)
+	on_submit = |elem, handler!| match elem {
+		TextInput(value) => TextInput({ ..value, on_submit: handler! })
+		_ => elem
+	}
+
+	## Handle an edit to a textarea.
+	on_input : Elem(a), (a, Event.Input => Action(a)) -> Elem(a)
+	on_input = |elem, handler!| match elem {
+		Textarea(value) => Textarea({ ..value, on_input: handler! })
+		_ => elem
+	}
+
+	## Handle a dialog being dismissed.
+	on_dismiss : Elem(a), (a, Event.Dismiss => Action(a)) -> Elem(a)
+	on_dismiss = |elem, handler!| match elem {
+		Dialog(value) => Dialog({ ..value, props: { ..value.props, on_dismiss: handler! } })
+		_ => elem
+	}
+
+	## Handle a pointer gesture on a canvas.
+	on_pointer : Elem(a), (a, Event.CanvasPointer => Action(a)) -> Elem(a)
+	on_pointer = |elem, handler!| match elem {
+		Canvas(value) => Canvas({ ..value, on_pointer: handler! })
+		_ => elem
+	}
 
 	keyed_col : (item -> Elem(item)), ColProps, KeyedColConfig(parent, item) -> Elem(parent)
-	keyed_col = |render_item, props, KeyedColConfig.(config)| Component(BoundComponent.{
-		key: Some(config.key),
-		render: |parent, done!| {
-			sequence = (config.get)(parent)
-			transition = KeyedSeq.last_transition(sequence)
-			item_elem = |key| {
-				get_item = |latest| match KeyedSeq.get((config.get)(latest), key) { Ok(item) => Ok(item) Err(_) => Err(Removed) }
-				set_item = |latest, item| match KeyedSeq.set_local((config.get)(latest), key, item) { Ok(next) => Ok((config.set)(latest, next)) Err(_) => Err(Removed) }
-				try_translate(render_item, { key, get: get_item, set: set_item, on_delegate: |candidate| (config.on_delegate)(candidate, key) })
-			}
-			var $operations = []
-			var $children = []
-			var $keys = []
-			for edit in transition.edits {
-				match edit {
-					InsertBefore(key, _value, placement) => {
-						$operations = $operations.append(KeyedInsert(key, placement))
-						$keys = $keys.append(key)
-						$children = $children.append(item_elem(key))
+	keyed_col = |render_item, props, KeyedColConfig.(config)| Component(
+		BoundComponent.{
+			key: Some(config.key),
+			render: |parent, done!| {
+				sequence = (config.get)(parent)
+				transition = KeyedSeq.last_transition(sequence)
+				item_elem = |key| {
+					get_item = |latest| match KeyedSeq.get((config.get)(latest), key) {
+						Ok(item) => Ok(item)
+						Err(_) => Err(Removed)
 					}
-					MoveBefore(key, placement) => { $operations = $operations.append(KeyedMove(key, placement)) }
-					Remove(key) => { $operations = $operations.append(KeyedRemove(key)) }
-					Set(key, _value) => {
-						$operations = $operations.append(KeyedSet(key))
-						$keys = $keys.append(key)
-						$children = $children.append(item_elem(key))
+					set_item = |latest, item| match KeyedSeq.set_local((config.get)(latest), key, item) {
+						Ok(next) => Ok((config.set)(latest, next))
+						Err(_) => Err(Removed)
+					}
+					try_translate(render_item, { key, get: get_item, set: set_item, on_delegate: |candidate| (config.on_delegate)(candidate, key) })
+				}
+				var $operations = []
+				var $children = []
+				var $keys = []
+				for edit in transition.edits {
+					match edit {
+						InsertBefore(key, _value, placement) => {
+							$operations = $operations.append(KeyedInsert(key, placement))
+							$keys = $keys.append(key)
+							$children = $children.append(item_elem(key))
+						}
+						MoveBefore(key, placement) => {
+							$operations = $operations.append(KeyedMove(key, placement))
+						}
+						Remove(key) => {
+							$operations = $operations.append(KeyedRemove(key))
+						}
+						Set(key, _value) => {
+							$operations = $operations.append(KeyedSet(key))
+							$keys = $keys.append(key)
+							$children = $children.append(item_elem(key))
+						}
 					}
 				}
-			}
-			full = Box.box(|{}| {
-				entries = KeyedSeq.to_list(sequence)
-				Host.component_work!(10, entries.len())
-				{ children: entries.map(|entry| item_elem(entry.key)), keys: entries.map(|entry| entry.key) }
-			})
-			Work.next(|| done!(KeyedColumn({ base_revision: transition.base_revision, children: $children, full, keys: $keys, operations: $operations, props, revision: transition.revision })))
+				full = Box.box(
+					|{}| {
+						entries = KeyedSeq.to_list(sequence)
+						Host.component_work!(10, entries.len())
+						{ children: entries.map(|entry| item_elem(entry.key)), keys: entries.map(|entry| entry.key) }
+					},
+				)
+				Work.next(|| done!(KeyedColumn({ base_revision: transition.base_revision, children: $children, full, keys: $keys, operations: $operations, props: { label: props.label, style: style_of(props) }, revision: transition.revision })))
+			},
+			exists: |_parent, done!| Work.next(|| done!(True)),
+			remember: None,
 		},
-		exists: |_parent, done!| Work.next(|| done!(True)),
-		remember: None,
-	})
+	)
 
 	## Present one modal surface, focus its first enabled control, trap keyboard
 	## traversal inside it, and restore its opener after dismissal.
 	dialog : DialogProps(a), List(Elem(a)) -> Elem(a)
-	dialog = |props, children| Dialog({ children, props })
+	dialog = |props, children| Dialog({ children, props: { label: props.label, on_dismiss: props.on_dismiss, style: style_of(props) } })
 
 	## Group children in a labelled padded, bordered, rounded vertical surface.
 	panel : PanelProps, List(Elem(a)) -> Elem(a)
-	panel = |props, children| Panel({ children, props })
+	panel = |props, children| Panel({
+		children,
+		props: { label: props.label, heading: props.heading, heading_size: props.heading_size, heading_weight: props.heading_weight, heading_color: props.heading_color, style: style_of(props) },
+	})
 
-	## Constrain `child` to the available height and allow vertical scrolling.
+	## Constrain `content` to the available space and allow scrolling.
 	scroll : ScrollProps(a) -> Elem(a)
-	scroll = |props| Scroll(props)
+	scroll = |props| Scroll({ axis: props.axis, content: props.content, label: props.label, style: style_of(props) })
 
 	## Present fixed-height rows while materializing only the visible native range.
 	virtual_list : VirtualListProps(a) -> Elem(a)
 	virtual_list = |props| if props.row_height == 0 or props.row_height > 16384 {
 		crash "Gui virtual row height must be between 1 and 16384"
 	} else {
-		VirtualList(props)
+		VirtualList({ items: props.items, label: props.label, row_height: props.row_height, row_gap: props.row_gap, style: style_of(props) })
 	}
 
 	## Adapt an already-built child tree to parent state.
@@ -986,111 +1522,23 @@ Elem(a) :: [
 		Dialog(value) => {
 			child_handler = value.props.on_dismiss
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
-			Dialog({
-				children: [],
-				props: DialogProps.{ label: value.props.label, on_dismiss: parent_handler!, gap: value.props.gap, padding: value.props.padding, padding_top: value.props.padding_top, padding_right: value.props.padding_right, padding_bottom: value.props.padding_bottom, padding_left: value.props.padding_left, width: value.props.width, height: value.props.height, min_width: value.props.min_width, min_height: value.props.min_height, max_width: value.props.max_width, max_height: value.props.max_height, grow: value.props.grow, bg: value.props.bg, hover_bg: value.props.hover_bg, active_bg: value.props.active_bg, disabled_bg: value.props.disabled_bg, disabled_fg: value.props.disabled_fg, focus_color: value.props.focus_color, fg: value.props.fg, border_color: value.props.border_color, border_width: value.props.border_width, border_top: value.props.border_top, border_right: value.props.border_right, border_bottom: value.props.border_bottom, border_left: value.props.border_left, radius: value.props.radius, font_size: value.props.font_size, font_weight: value.props.font_weight, shadow: value.props.shadow, shadow_y: value.props.shadow_y, shadow_color: value.props.shadow_color, shadow_alpha: value.props.shadow_alpha, font_face: value.props.font_face, text_overflow: value.props.text_overflow, overflow_x: value.props.overflow_x, overflow_y: value.props.overflow_y, align: value.props.align, justify: value.props.justify },
-			})
+			Dialog({ children: [], props: { label: value.props.label, style: value.props.style, on_dismiss: parent_handler! } })
 		}
 		Panel(value) => Panel({ props: value.props, children: [] })
-		Scroll(scroll_value) => Scroll(
-			ScrollProps.{
-				axis: scroll_value.axis,
-				content: Text(""),
-				label: scroll_value.label,
-				gap: scroll_value.gap,
-				padding: scroll_value.padding,
-				padding_top: scroll_value.padding_top,
-				padding_right: scroll_value.padding_right,
-				padding_bottom: scroll_value.padding_bottom,
-				padding_left: scroll_value.padding_left,
-				width: scroll_value.width,
-				height: scroll_value.height,
-				min_width: scroll_value.min_width,
-				min_height: scroll_value.min_height,
-				max_width: scroll_value.max_width,
-				max_height: scroll_value.max_height,
-				grow: scroll_value.grow,
-				bg: scroll_value.bg,
-				hover_bg: scroll_value.hover_bg,
-				active_bg: scroll_value.active_bg,
-				disabled_bg: scroll_value.disabled_bg,
-				disabled_fg: scroll_value.disabled_fg,
-				focus_color: scroll_value.focus_color,
-				fg: scroll_value.fg,
-				border_color: scroll_value.border_color,
-				border_width: scroll_value.border_width,
-				border_top: scroll_value.border_top,
-				border_right: scroll_value.border_right,
-				border_bottom: scroll_value.border_bottom,
-				border_left: scroll_value.border_left,
-				radius: scroll_value.radius,
-				font_size: scroll_value.font_size,
-				font_weight: scroll_value.font_weight,
-				shadow: scroll_value.shadow,
-				shadow_y: scroll_value.shadow_y,
-				shadow_color: scroll_value.shadow_color,
-				shadow_alpha: scroll_value.shadow_alpha,
-				font_face: scroll_value.font_face,
-				text_overflow: scroll_value.text_overflow,
-				overflow_x: scroll_value.overflow_x,
-				overflow_y: scroll_value.overflow_y,
-				align: scroll_value.align,
-				justify: scroll_value.justify,
-			},
-		)
-		VirtualList(list_value) => VirtualList(
-			VirtualListProps.{
-				label: list_value.label,
-				row_height: list_value.row_height,
-				items: list_value.items.map(|item| { key: item.key, content: Text("") }),
-				row_gap: list_value.row_gap,
-				gap: list_value.gap,
-				padding: list_value.padding,
-				padding_top: list_value.padding_top,
-				padding_right: list_value.padding_right,
-				padding_bottom: list_value.padding_bottom,
-				padding_left: list_value.padding_left,
-				width: list_value.width,
-				height: list_value.height,
-				min_width: list_value.min_width,
-				min_height: list_value.min_height,
-				max_width: list_value.max_width,
-				max_height: list_value.max_height,
-				grow: list_value.grow,
-				bg: list_value.bg,
-				hover_bg: list_value.hover_bg,
-				active_bg: list_value.active_bg,
-				disabled_bg: list_value.disabled_bg,
-				disabled_fg: list_value.disabled_fg,
-				focus_color: list_value.focus_color,
-				fg: list_value.fg,
-				border_color: list_value.border_color,
-				border_width: list_value.border_width,
-				border_top: list_value.border_top,
-				border_right: list_value.border_right,
-				border_bottom: list_value.border_bottom,
-				border_left: list_value.border_left,
-				radius: list_value.radius,
-				font_size: list_value.font_size,
-				font_weight: list_value.font_weight,
-				shadow: list_value.shadow,
-				shadow_y: list_value.shadow_y,
-				shadow_color: list_value.shadow_color,
-				shadow_alpha: list_value.shadow_alpha,
-				font_face: list_value.font_face,
-				text_overflow: list_value.text_overflow,
-				overflow_x: list_value.overflow_x,
-				overflow_y: list_value.overflow_y,
-				align: list_value.align,
-				justify: list_value.justify,
-			},
-		)
+		Scroll(scroll_value) => Scroll({ axis: scroll_value.axis, content: Text(""), label: scroll_value.label, style: scroll_value.style })
+		VirtualList(list_value) => VirtualList({
+			label: list_value.label,
+			row_height: list_value.row_height,
+			items: list_value.items.map(|item| { key: item.key, content: Text("") }),
+			row_gap: list_value.row_gap,
+			style: list_value.style,
+		})
 		TextInput(input_value) => {
 			child_change = input_value.on_change
 			child_submit = input_value.on_submit
 			parent_change! = |parent, event| adapt_event(child_change, parent, event, project, adapt_action)
 			parent_submit! = |parent, event| adapt_event(child_submit, parent, event, project, adapt_action)
-			TextInput(TextInputProps.{ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, gap: input_value.gap, padding: input_value.padding, padding_top: input_value.padding_top, padding_right: input_value.padding_right, padding_bottom: input_value.padding_bottom, padding_left: input_value.padding_left, width: input_value.width, height: input_value.height, min_width: input_value.min_width, min_height: input_value.min_height, max_width: input_value.max_width, max_height: input_value.max_height, grow: input_value.grow, bg: input_value.bg, hover_bg: input_value.hover_bg, active_bg: input_value.active_bg, disabled_bg: input_value.disabled_bg, disabled_fg: input_value.disabled_fg, focus_color: input_value.focus_color, fg: input_value.fg, border_color: input_value.border_color, border_width: input_value.border_width, border_top: input_value.border_top, border_right: input_value.border_right, border_bottom: input_value.border_bottom, border_left: input_value.border_left, radius: input_value.radius, font_size: input_value.font_size, font_weight: input_value.font_weight, shadow: input_value.shadow, shadow_y: input_value.shadow_y, shadow_color: input_value.shadow_color, shadow_alpha: input_value.shadow_alpha, font_face: input_value.font_face, text_overflow: input_value.text_overflow, overflow_x: input_value.overflow_x, overflow_y: input_value.overflow_y, align: input_value.align, justify: input_value.justify })
+			TextInput({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, on_change: parent_change!, on_submit: parent_submit!, style: input_value.style })
 		}
 		ActionButton(button_value) => {
 			child_handler = button_value.on_press
@@ -1103,121 +1551,33 @@ Elem(a) :: [
 				None => None
 				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
 			}
-			ActionButton(
-				ActionButtonProps.{
-					caption: button_value.caption,
-					label: button_value.label,
-					enabled: button_value.enabled,
-					on_press: parent_handler!,
-					on_hover_enter: hover_enter,
-					on_hover_exit: hover_exit,
-					gap: button_value.gap,
-					padding: button_value.padding,
-					padding_top: button_value.padding_top,
-					padding_right: button_value.padding_right,
-					padding_bottom: button_value.padding_bottom,
-					padding_left: button_value.padding_left,
-					width: button_value.width,
-					height: button_value.height,
-					min_width: button_value.min_width,
-					min_height: button_value.min_height,
-					max_width: button_value.max_width,
-					max_height: button_value.max_height,
-					grow: button_value.grow,
-					bg: button_value.bg,
-					hover_bg: button_value.hover_bg,
-					active_bg: button_value.active_bg,
-					disabled_bg: button_value.disabled_bg,
-					disabled_fg: button_value.disabled_fg,
-					focus_color: button_value.focus_color,
-					fg: button_value.fg,
-					border_color: button_value.border_color,
-					border_width: button_value.border_width,
-					border_top: button_value.border_top,
-					border_right: button_value.border_right,
-					border_bottom: button_value.border_bottom,
-					border_left: button_value.border_left,
-					radius: button_value.radius,
-					font_size: button_value.font_size,
-					font_weight: button_value.font_weight,
-					shadow: button_value.shadow,
-					shadow_y: button_value.shadow_y,
-					shadow_color: button_value.shadow_color,
-					shadow_alpha: button_value.shadow_alpha,
-					font_face: button_value.font_face,
-					text_overflow: button_value.text_overflow,
-					overflow_x: button_value.overflow_x,
-					overflow_y: button_value.overflow_y,
-					align: button_value.align,
-					justify: button_value.justify,
-				},
-			)
+			ActionButton({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, on_press: parent_handler!, on_hover_enter: hover_enter, on_hover_exit: hover_exit, style: button_value.style })
 		}
 		Checkbox(checkbox_value) => {
 			child_handler = checkbox_value.on_change
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
-			Checkbox(
-				CheckboxProps.{
-					label: checkbox_value.label,
-					checked: checkbox_value.checked,
-					enabled: checkbox_value.enabled,
-					box_bg: checkbox_value.box_bg,
-					box_checked_bg: checkbox_value.box_checked_bg,
-					box_border: checkbox_value.box_border,
-					mark_color: checkbox_value.mark_color,
-					on_change: parent_handler!,
-					gap: checkbox_value.gap,
-					padding: checkbox_value.padding,
-					padding_top: checkbox_value.padding_top,
-					padding_right: checkbox_value.padding_right,
-					padding_bottom: checkbox_value.padding_bottom,
-					padding_left: checkbox_value.padding_left,
-					width: checkbox_value.width,
-					height: checkbox_value.height,
-					min_width: checkbox_value.min_width,
-					min_height: checkbox_value.min_height,
-					max_width: checkbox_value.max_width,
-					max_height: checkbox_value.max_height,
-					grow: checkbox_value.grow,
-					bg: checkbox_value.bg,
-					hover_bg: checkbox_value.hover_bg,
-					active_bg: checkbox_value.active_bg,
-					disabled_bg: checkbox_value.disabled_bg,
-					disabled_fg: checkbox_value.disabled_fg,
-					focus_color: checkbox_value.focus_color,
-					fg: checkbox_value.fg,
-					border_color: checkbox_value.border_color,
-					border_width: checkbox_value.border_width,
-					border_top: checkbox_value.border_top,
-					border_right: checkbox_value.border_right,
-					border_bottom: checkbox_value.border_bottom,
-					border_left: checkbox_value.border_left,
-					radius: checkbox_value.radius,
-					font_size: checkbox_value.font_size,
-					font_weight: checkbox_value.font_weight,
-					shadow: checkbox_value.shadow,
-					shadow_y: checkbox_value.shadow_y,
-					shadow_color: checkbox_value.shadow_color,
-					shadow_alpha: checkbox_value.shadow_alpha,
-					font_face: checkbox_value.font_face,
-					text_overflow: checkbox_value.text_overflow,
-					overflow_x: checkbox_value.overflow_x,
-					overflow_y: checkbox_value.overflow_y,
-					align: checkbox_value.align,
-					justify: checkbox_value.justify,
-				},
-			)
+			Checkbox({
+				label: checkbox_value.label,
+				checked: checkbox_value.checked,
+				enabled: checkbox_value.enabled,
+				box_bg: checkbox_value.box_bg,
+				box_checked_bg: checkbox_value.box_checked_bg,
+				box_border: checkbox_value.box_border,
+				mark_color: checkbox_value.mark_color,
+				on_change: parent_handler!,
+				style: checkbox_value.style,
+			})
 		}
 		Textarea(textarea_value) => {
 			child_handler = textarea_value.on_input
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
-			Textarea(TextareaProps.{ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, gap: textarea_value.gap, padding: textarea_value.padding, padding_top: textarea_value.padding_top, padding_right: textarea_value.padding_right, padding_bottom: textarea_value.padding_bottom, padding_left: textarea_value.padding_left, width: textarea_value.width, height: textarea_value.height, min_width: textarea_value.min_width, min_height: textarea_value.min_height, max_width: textarea_value.max_width, max_height: textarea_value.max_height, grow: textarea_value.grow, bg: textarea_value.bg, hover_bg: textarea_value.hover_bg, active_bg: textarea_value.active_bg, disabled_bg: textarea_value.disabled_bg, disabled_fg: textarea_value.disabled_fg, focus_color: textarea_value.focus_color, fg: textarea_value.fg, border_color: textarea_value.border_color, border_width: textarea_value.border_width, border_top: textarea_value.border_top, border_right: textarea_value.border_right, border_bottom: textarea_value.border_bottom, border_left: textarea_value.border_left, radius: textarea_value.radius, font_size: textarea_value.font_size, font_weight: textarea_value.font_weight, shadow: textarea_value.shadow, shadow_y: textarea_value.shadow_y, shadow_color: textarea_value.shadow_color, shadow_alpha: textarea_value.shadow_alpha, font_face: textarea_value.font_face, text_overflow: textarea_value.text_overflow, overflow_x: textarea_value.overflow_x, overflow_y: textarea_value.overflow_y, align: textarea_value.align, justify: textarea_value.justify })
+			Textarea({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, style: textarea_value.style })
 		}
 		Image(image_value) => Image(image_value)
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
-			Canvas(CanvasProps.{ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, width: canvas_value.width, height: canvas_value.height, min_width: canvas_value.min_width, min_height: canvas_value.min_height, max_width: canvas_value.max_width, max_height: canvas_value.max_height, grow: canvas_value.grow, bg: canvas_value.bg, border_color: canvas_value.border_color, border_width: canvas_value.border_width, border_top: canvas_value.border_top, border_right: canvas_value.border_right, border_bottom: canvas_value.border_bottom, border_left: canvas_value.border_left, radius: canvas_value.radius })
+			Canvas({ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, style: canvas_value.style })
 		}
 		Component(bound) => {
 			child_render = bound.render
@@ -1308,20 +1668,20 @@ Elem(a) :: [
 	## libraries that transform element trees.
 	inspect : Elem(a) -> [
 		Component(BoundComponent(a)),
-		ActionButton(ActionButtonProps(a)),
-		Checkbox(CheckboxProps(a)),
-		Textarea(TextareaProps(a)),
-		Image(ImageProps),
-		Canvas(CanvasProps(a)),
-		Column({ children : List(Elem(a)), props : ColProps }),
-		KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : ColProps, revision : U64 }),
-		Dialog({ children : List(Elem(a)), props : DialogProps(a) }),
-		Panel({ children : List(Elem(a)), props : PanelProps }),
-		Row({ children : List(Elem(a)), props : RowProps }),
-		Scroll(ScrollProps(a)),
-		VirtualList(VirtualListProps(a)),
-		TextInput(TextInputProps(a)),
-		StyledText(TextProps),
+		ActionButton(ButtonNode(a)),
+		Checkbox(CheckboxNode(a)),
+		Textarea(TextareaNode(a)),
+		Image(ImageNode),
+		Canvas(CanvasNode(a)),
+		Column({ children : List(Elem(a)), props : Frame }),
+		KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : Frame, revision : U64 }),
+		Dialog({ children : List(Elem(a)), props : DialogNode(a) }),
+		Panel({ children : List(Elem(a)), props : PanelNode }),
+		Row({ children : List(Elem(a)), props : Frame }),
+		Scroll(ScrollNode(a)),
+		VirtualList(VirtualListNode(a)),
+		TextInput(TextInputNode(a)),
+		StyledText(TextNode),
 		Text(Str),
 	]
 	inspect = |value| match value {

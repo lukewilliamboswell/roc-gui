@@ -1,25 +1,23 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
-import pf.Program
-import pf.Action
-import pf.Elem
+import pf.Gui
 import Workspace
 
 State : { primary : Workspace.State, secondary : Workspace.State, split : Bool }
 
-render : State -> Elem(State)
+render : State -> Gui.Elem(State)
 render = |state| {
-	primary = Elem.col(
+	primary = Gui.col(
 		{ label: "Primary workspace", width: Fill, height: Fill, grow: True },
 		[
-			Elem.translate_with(Workspace.render, { key: "primary", get: |parent| parent.primary, set: |parent, next| { ..parent, primary: next } }),
+			Gui.translate_with(Workspace.render, { key: "primary", get: |parent| parent.primary, set: |parent, next| { ..parent, primary: next } }),
 		],
 	)
 	panes = if state.split [
 		primary,
-		Elem.col(
+		Gui.col(
 			{ label: "Secondary workspace", width: Fill, height: Fill, grow: True },
 			[
-				Elem.try_translate(
+				Gui.try_translate(
 					Workspace.render,
 					{
 						key: "secondary",
@@ -30,16 +28,16 @@ render = |state| {
 			],
 		),
 	] else [primary]
-	Elem.col(
+	Gui.col(
 		{ width: Fill, height: Fill },
 		[
-			Elem.action_button({ caption: "Split workspace", label: "Split workspace", on_press: |latest, _| Action.update({ ..latest, split: True }) }),
-			Elem.row({ width: Fill, height: Fill, grow: True }, panes),
+			Gui.button({ caption: "Split workspace", label: "Split workspace", on_press: |latest, _| Gui.update({ ..latest, split: True }) }),
+			Gui.row({ width: Fill, height: Fill, grow: True }, panes),
 		],
 	)
 }
 
-main = Program.run({
+main = Gui.run({
 	init: |access| {
 		start = Workspace.init
 		{ primary: start(access), secondary: start(access), split: False }

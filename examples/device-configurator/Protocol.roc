@@ -12,6 +12,7 @@ Protocol := [].{
 }
 
 byte = |bytes, index| bytes.get(index) ?? 0
+
 word = |low, high| U8.to_u16(low) + U8.to_u16(high) * 256
 
 apply_request = |config| [0xa5, 1, 2, U16.to_u8_wrap(config.sensitivity), U16.to_u8_wrap(config.sensitivity / 256), if config.lighting 1 else 0, config.profile]

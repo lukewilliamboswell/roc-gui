@@ -35,7 +35,16 @@ SystemMonitor := [].{
 	acquire! : Resource.Access => Try(Sampler, SystemErr)
 	acquire! = |_access| Host.system_acquire!().map_ok(|sampler| Sampler.(sampler)).map_err(|code| AcquireSystemErr(decode_reason(code)))
 
-	decode_reason = |code| match code { 0 => AccessDenied, 1 => Busy, 2 => Closed, 3 => InvalidCapability, 4 => Io, 5 => ResourceLimit, 6 => Revoked, _ => Unavailable }
+	decode_reason = |code| match code {
+		0 => AccessDenied
+		1 => Busy
+		2 => Closed
+		3 => InvalidCapability
+		4 => Io
+		5 => ResourceLimit
+		6 => Revoked
+		_ => Unavailable
+	}
 	available = |is_available, value| if is_available Value(value) else Unavailable(Unsupported)
 	decode_snapshot = |raw| {
 		sequence: raw.sequence,

@@ -62,13 +62,13 @@ Resource access chapter describes that boundary.
 
 === The application renders a value
 
-`Program.run` supplies pure initial state, a pure renderer, and optional
+`Gui.run` supplies pure initial state, a pure renderer, and optional
 resizable-window metadata. Calling the renderer produces an immutable
-`Elem(State)` description. Composition stays in Roc: styled and semantically
-named `Elem.row`, `Elem.col`, `Elem.panel`, `Elem.text`, `Elem.action_button`, and
-named `Elem.scroll` regions build the tree. `Elem.translate` introduces a local
-boundary with ordinary state adapters; `Elem.translate_with` and
-`Elem.try_translate` add explicit keys and optional policies. They are pure
+`Gui.Elem(State)` description. Composition stays in Roc: styled and semantically
+named `Gui.row`, `Gui.col`, `Gui.panel`, `Gui.text`, `Gui.button`, and
+named `Gui.scroll` regions build the tree. `Gui.translate` introduces a local
+boundary with ordinary state adapters; `Gui.translate_with` and
+`Gui.try_translate` add explicit keys and optional policies. They are pure
 descriptors, with no setup-time registration or function-identity comparison.
 A translation adds no layout surface.
 
@@ -124,8 +124,8 @@ routes in the application.
 Application keys retain all 256 SHA-256 digest bits. String keys hash a byte
 `0` followed by UTF-8 bytes; numeric keys hash a byte `1` followed by eight
 little-endian bytes. This separates numeric and string identities without a
-short-name limit or truncation. String literals use `Key.from_quote` at
-compilation; computed strings use `Key.from_str` at runtime.
+short-name limit or truncation. String literals use `Gui.Key.from_quote` at
+compilation; computed strings use `Gui.Key.from_str` at runtime.
 
 Lowering resolves a keyed boundary using its surviving owner, native-container
 scope, and full SHA-256 key digest. The host validates the 32-byte digest and
@@ -318,24 +318,24 @@ callback from an old route cannot address a new handler in that same instance.
 
 == Boundaries determine update scope
 
-`Elem.translate(render, get, set)` relates child state to parent state and
+`Gui.translate(render, get, set)` relates child state to parent state and
 creates a rendering, delegation, and task-ownership boundary. The application
-renderer is the root boundary. `Elem.translate_with` supplies a key and optional
-policies; `Elem.try_translate` uses fallible getters and setters for removable
-state. Adapters operate on state rather than decoding keys. `Elem.lift` only
+renderer is the root boundary. `Gui.translate_with` supplies a key and optional
+policies; `Gui.try_translate` uses fallible getters and setters for removable
+state. Adapters operate on state rather than decoding keys. The `lift` method only
 adapts a prebuilt element's handlers: it adds no lifetime or boundary and does
 not consume delegation.
 
-`Action.update` commits through the adapters and renders only the originating
+`Gui.update` commits through the adapters and renders only the originating
 boundary. It neither renders nor compares unrelated siblings. Parent summaries
 respond through explicit delegation or composition within one render boundary.
 The platform does not infer dependencies by tracking state reads.
 
-`Action.delegate(next_child)` constructs a candidate parent and passes it to the
+`Gui.delegate(next_child)` constructs a candidate parent and passes it to the
 nearest translation's `on_delegate` callback. Its parent action accepts,
-revises, vetoes, starts parent-owned work, or delegates further. `Action.none`
+revises, vetoes, starts parent-owned work, or delegates further. `Gui.none`
 vetoes the entire candidate. Delegation reaching the root becomes a root
-update; the default callback accepts with `Action.update`.
+update; the default callback accepts with `Gui.update`.
 
 A key promises a stable logical component and state projection for its mounted
 lifetime. Rebinding either requires a different key. Removal, a changed key or
@@ -377,7 +377,7 @@ unique ownership of lists, strings, resources, or indexed registry nodes.
 
 == Asynchronous action turns
 
-An `Action.task` proposes its pending state and a boxed worker. After graph
+A `Gui.task` proposes its pending state and a boxed worker. After graph
 acceptance, the host queues the worker on the native pool. The worker runs its
 continuations and hands a boxed reducer to the host completion slot. The UI
 thread delivers that reducer through
@@ -401,12 +401,12 @@ not imply a latest-request-wins policy. Roc values cross threads only as owned
 erased callables; generic state and actions remain boxed across the ABI.
 
 Periodic subscriptions use the same route. A timer has at most one waiting
-`Timer.Handle.next!` task. Its wait parks on a worker and returns a normal boxed
+`Gui.TimerHandle` `next!` task. Its wait parks on a worker and returns a normal boxed
 reducer; the UI thread applies that reducer through the installed session.
 Cancellation wakes the waiter, and cadence advances from the completion of the
 preceding pull, so a slow consumer cannot create an unbounded event backlog.
 
-HTTP requests also use `Action.task` and the canonical worker/completion route.
+HTTP requests also use `Gui.task` and the canonical worker/completion route.
 An opaque `Box(U64)` client names a host registry entry for one explicitly
 granted origin. The initial URL and every redirect retain its scheme, host, and
 effective port.
@@ -471,7 +471,7 @@ That write-up proposes a user interface API for Roc in which a renderer is a
 pure function from state to an `Elem` value, event handlers return an `Action`
 rather than a message, and a translation function relates a component's state to
 its parent's state while marking the unit of re-rendering. roc-gui is an
-development of that design. `Action.update`, `Action.none`, the shared `state`
+development of that design. `Gui.update`, `Gui.none`, the shared `state`
 type variable on `Elem` and `Action`, and adapting child renderers through
 getters and setters follow its central idea: state ownership can identify the
 subtree an action needs to update. Pure translations express that boundary;
@@ -485,7 +485,7 @@ calling it twice with the same state yields the same description and calling it
 is never a way to make something happen. Everything that can make something
 happen is an `Action` returned from a handler, and an `Action` is a value: it
 describes a transition rather than performing one. Constructing
-`Action.update(next)` changes nothing. The platform changes state only when it
+`Gui.update(next)` changes nothing. The platform changes state only when it
 receives that value back from a handler and accepts its graph transaction.
 
 That division is what makes the concurrency tractable. Application state lives
@@ -498,7 +498,7 @@ always receives the state that precedes it rather than a snapshot captured when
 the tree was rendered. A handler's first argument is therefore the state to
 build the next state from.
 
-`Action.task` extends the same discipline to work that must not block the
+`Gui.task` extends the same discipline to work that must not block the
 interface. It commits its `pending` state before handing the effect body
 to a worker thread, which returns a reducer rather than a state value. The UI
 thread applies that reducer to whatever the latest state is by then, so events
@@ -513,10 +513,10 @@ surface syntax. Pure descriptions leave execution to the platform. Delegation
 lets the parent decide whether to accept a child's proposal. Fallible state
 projections make removal explicit. Deferred rendering enables memoized
 subtrees. roc-gui gives those ideas one coherent ownership model through
-pure translations, `Action.delegate`, host-owned keyed lifetimes, and explicit
+pure translations, `Gui.delegate`, host-owned keyed lifetimes, and explicit
 memo equivalence.
 
-Periodic work uses `Action.task` around a timer handle in application state,
+Periodic work uses `Gui.task` around a timer handle in application state,
 with explicit cadence and cancellation. There is no string-keyed global effect
 tracker. Instance liveness answers whether an owner still exists; application
 request identity answers whether a result remains relevant to that live owner.

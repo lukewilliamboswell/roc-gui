@@ -1,5 +1,6 @@
 ## Shaping the few numbers this application shows.
 Format := [].{
+
 	## A USB identifier as four hexadecimal digits. Vendor and product ids are
 	## published, quoted, and searched for in hexadecimal, so printing them in
 	## decimal would make a device harder to recognise than not printing them.

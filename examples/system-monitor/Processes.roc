@@ -5,13 +5,13 @@
 ## fixed-pitch face and a fixed number of characters per field. The widths live
 ## here beside the heading that uses them, because a heading that disagrees with
 ## its rows is worse than no heading.
-import pf.SystemMonitor
+import pf.Gui
 import Format
 
 Processes := [].{
 	Sort : [ByCpu, ByMemory]
 
-	filter_sort : List(SystemMonitor.Process), Str, Sort -> List(SystemMonitor.Process)
+	filter_sort : List(Gui.SystemMonitorProcess), Str, Sort -> List(Gui.SystemMonitorProcess)
 	filter_sort = filter_sort
 
 	## The column heading, built from the same widths the rows are.
@@ -19,20 +19,22 @@ Processes := [].{
 	heading = heading
 
 	## One row of the table.
-	row_text : SystemMonitor.Process -> Str
+	row_text : Gui.SystemMonitorProcess -> Str
 	row_text = row_text
 
 	## The process a selected pid now refers to, if it is still in the sample. A
 	## selection outliving the process it named is ordinary, and saying so is
 	## better than showing a number with nothing behind it.
-	find : List(SystemMonitor.Process), U64 -> [None, Some(SystemMonitor.Process)]
+	find : List(Gui.SystemMonitorProcess), U64 -> [None, Some(Gui.SystemMonitorProcess)]
 	find = find
 }
 
 heading = columns("PROCESS", "CPU", "MEMORY")
 
 name_width = 22.U64
+
 cpu_width = 7.U64
+
 memory_width = 10.U64
 
 columns = |name, cpu, memory| "${Format.pad_right(name, name_width)} ${Format.pad_left(cpu, cpu_width)} ${Format.pad_left(memory, memory_width)}"

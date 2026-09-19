@@ -6,9 +6,9 @@ thumbnail and a name for each image it can decode, and a glyph with a reason
 for each entry it cannot. Choosing a row shows the picture at full size with
 its pixel dimensions and encoded byte count.
 
-It exercises capability-scoped directory reading through `Files.pick_directory!`
+It exercises capability-scoped directory reading through `access.pick_directory!()`
 and `directory.read!`, image inspection through `ImageData.inspect!`, and the
-`Elem.image` renderer: fit, fill, actual size and a grayscale toggle are
+`Gui.image` renderer: fit, fill, actual size and a grayscale toggle are
 properties of the image element, and the host never resolves a path or a URL of
 its own.
 

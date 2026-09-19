@@ -5,14 +5,15 @@
 ## - Behaviour and scaling specifications: `specs/`
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
-import pf.Program
+import pf.Gui
 import Render
 import Settings
 
 State : Settings.State
 
-main : Program(State)
-main = Program.run({
-	init: Settings.initial, render: Render.render,
+main : Gui.Program(State)
+main = Gui.run({
+	init: Settings.initial,
+	render: Render.render,
 	window: { title: "Settings Center", width: 1040, height: 760 },
 })

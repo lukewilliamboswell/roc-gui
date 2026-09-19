@@ -112,11 +112,11 @@ one button:
 
 [source,roc]
 ----
-greet = |_, _| Action.update({ message: "Hello from Roc" })
+greet = |_, _| Gui.update({ message: "Hello from Roc" })
 
-Elem.col({}, [
-    Elem.text(state.message),
-    Elem.button({ caption: "Greet", label: "Greet", on_press: greet }),
+Gui.col({}, [
+    Gui.text(state.message),
+    Gui.button({ caption: "Greet", label: "Greet", on_press: greet }),
 ])
 ----
 

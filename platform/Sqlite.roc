@@ -5,6 +5,7 @@ import Host
 import Resource
 
 Sqlite := [].{
+
 	## An open read-only connection to one database file.
 	Db := Resource.SqliteRead.{
 
@@ -21,6 +22,7 @@ Sqlite := [].{
 
 	Value : [Bytes(List(U8)), Integer(I64), Null, Real(F64), String(Str)]
 	Result : { columns : List(Str), rows : List(List(Value)) }
+
 	## Portable failure categories with the native SQLite diagnostic retained.
 	Reason : [AccessDenied(Str), Busy(Str), Corrupt(Str), InvalidCapability(Str), InvalidName(Str), InvalidQuery(Str), Io(Str), NotDatabase(Str), ResourceLimit(Str), Revoked(Str), Unsupported(Str)]
 	SqliteErr : [OpenDatabaseErr(Reason), QueryDatabaseErr(Reason)]

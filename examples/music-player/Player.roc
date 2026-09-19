@@ -1,18 +1,13 @@
-import pf.Program
-import pf.Action
-import pf.Assets
-import pf.Audio
-import pf.Elem
-import pf.Files
 import pf.Gui
 
 Player := [].{
 	State : State
+
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	init : Program.Access -> State
+	init : Gui.Access -> State
 	init = |access| { access, alarm: False, art: NoArt, chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
-	render : State -> Elem(State)
+	render : State -> Gui.Elem(State)
 	render = render
 }
 
@@ -20,8 +15,10 @@ Player := [].{
 ## person reads. They differ because a file extension is a fact about storage,
 ## not about music, and a queue that shows one reads like a directory listing.
 Track : { name : Str, title : Str }
-Library : [Empty, Loaded({ directory : Files.Dir.Read, output : Audio.Output, tracks : List(Track) })]
-Playback : [Idle, Active({ index : U64, paused : Bool, track : Audio.Track }), Stopped]
+
+Library : [Empty, Loaded({ directory : Gui.FilesDirRead, output : Gui.AudioOutput, tracks : List(Track) })]
+
+Playback : [Idle, Active({ index : U64, paused : Bool, track : Gui.AudioTrack }), Stopped]
 
 ## The cover the sleeve shows. A photograph is too large to pay for in
 ## executable size, so it is not a compile-time file import: it lives in the
@@ -32,15 +29,17 @@ Art : [NoArt, Cover(List(U8)), NoCover]
 ## chosen the moment it is clicked and only starts once it has loaded, and a
 ## track that fails to decode stays chosen so the failure has a place to sit.
 Chosen : [Nothing, At(U64)]
+
 ## `alarm` is the kind of the message in `status`, not a second message: a
 ## report or a failure. Carrying the kind beside the text is what lets a failure
 ## look like one. A decode error rendered in the same quiet grey as "Paused" is
 ## a designed state only by accident.
-State : { access : Program.Access, alarm : Bool, art : Art, chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
+State : { access : Gui.Access, alarm : Bool, art : Art, chosen : Chosen, generation : U64, library : Library, playback : Playback, status : Str }
 
 ## The two ways of saying something. Every transition goes through one of them,
 ## so no path can leave a stale alarm colouring the next ordinary message.
 report = |state, message| { ..state, alarm: False, status: message }
+
 alarmed = |state, message| { ..state, alarm: True, status: message }
 
 ## The asset set this application ships with. The expectation is compared with
@@ -65,8 +64,8 @@ art_manifest = { asset_set: "nocturne-art", schema: 1.U32, content_version: 1.U3
 ## do differently about a manifest that disagrees and about a directory that is
 ## not where the application was started from. The reason is not lost: the asset
 ## owner's counters separate a refused open from a refused read.
-read_cover! : Program.Access => Art
-read_cover! = |access| match Assets.open!(access, Assets.with_manifest(Assets.working_directory("examples/music-player/assets"), art_manifest)) {
+read_cover! : Gui.Access => Art
+read_cover! = |access| match access.assets!(Gui.Assets.with_manifest(Gui.Assets.working_directory("examples/music-player/assets"), art_manifest)) {
 	Err(_) => NoCover
 	Ok(store) => match store.read!("art/nocturne-cover.jpg") {
 		Err(_) => NoCover
@@ -104,22 +103,30 @@ audio_error = |err| match err {
 	StopAudioErr(_) => "Stop failed"
 }
 
-scan = |state| Action.task({
+scan = |state| Gui.task({
 	pending: report(state, "Scanning…"),
 	run: || {
+
 		## The cover is read whatever the chooser goes on to answer. A folder a
 		## person declined to pick is not a reason for the sleeve to stay bare.
 		art = read_cover!(state.access)
-		outcome = match Files.pick_directory!(state.access) {
+		outcome = match state.access.pick_directory!() {
 			Err(PickDirectoryErr(Unavailable)) => ScanFailed("This system offers no folder chooser")
 			Err(_) => ScanFailed("Music folder access was denied")
 			Ok(Canceled) => ScanCanceled
-			Ok(Chosen(selection)) => match Audio.acquire!(state.access) {
+			Ok(Chosen(selection)) => match state.access.audio!() {
 				Err(err) => ScanFailed(audio_error(err))
 				Ok(output) => match selection.directory.list!() {
 					Err(_) => ScanFailed("Music folder could not be read")
 					Ok(entries) => {
-						tracks = List.keep_oks(entries, |entry| if entry.kind == File and is_audio(entry.name) { Ok({ name: entry.name, title: track_title(entry.name) }) } else { Err({}) })
+						tracks = List.keep_oks(
+							entries,
+							|entry| if entry.kind == File and is_audio(entry.name) {
+								Ok({ name: entry.name, title: track_title(entry.name) })
+							} else {
+								Err({})
+							},
+						)
 						Scanned({ directory: selection.directory, output, tracks })
 					}
 				}
@@ -130,37 +137,52 @@ scan = |state| Action.task({
 	resolve: |latest, result| {
 		dressed = { ..latest, art: result.art }
 		match result.outcome {
-			ScanFailed(message) => Action.update(alarmed(dressed, message))
-			ScanCanceled => Action.update(report(dressed, "Folder choice canceled"))
-			Scanned(library) => Action.update(report({ ..dressed, chosen: Nothing, library: Loaded(library), playback: Idle }, "${U64.to_str(List.len(library.tracks))} tracks"))
+			ScanFailed(message) => Gui.update(alarmed(dressed, message))
+			ScanCanceled => Gui.update(report(dressed, "Folder choice canceled"))
+			Scanned(library) => Gui.update(report({ ..dressed, chosen: Nothing, library: Loaded(library), playback: Idle }, "${U64.to_str(List.len(library.tracks))} tracks"))
 		}
 	},
 })
 
 play_index = |state, library, index| match library.tracks.get(index) {
-	Err(_) => Action.update(state)
+	Err(_) => Gui.update(state)
 	Ok(item) => {
 		generation = state.generation + 1
-		Action.task({
-		pending: report({ ..state, chosen: At(index), generation }, "Loading…"),
-		run: || match Audio.load!(library.output, library.directory, item.name) {
-			Err(err) => PlayFailed(generation, audio_error(err))
-			Ok(loaded) => match Audio.play!(loaded.track) {
+		Gui.task({
+			pending: report({ ..state, chosen: At(index), generation }, "Loading…"),
+			run: || match Gui.Audio.load!(library.output, library.directory, item.name) {
 				Err(err) => PlayFailed(generation, audio_error(err))
-				Ok(_) => PlayStarted(generation, index, loaded.track)
-			}
-		},
-		resolve: |latest, result| match result {
-			PlayFailed(request, message) => if request == latest.generation { Action.update(alarmed(latest, message)) } else { Action.update(latest) }
-			PlayStarted(request, started_index, track) => if request == latest.generation { Action.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing")) } else { Action.task({ pending: latest, run: || Audio.stop!(track), resolve: |current, _| Action.update(current) }) }
-		},
-	}) }
+				Ok(loaded) => match Gui.Audio.play!(loaded.track) {
+					Err(err) => PlayFailed(generation, audio_error(err))
+					Ok(_) => PlayStarted(generation, index, loaded.track)
+				}
+			},
+			resolve: |latest, result| match result {
+				PlayFailed(request, message) => if request == latest.generation {
+					Gui.update(alarmed(latest, message))
+				} else {
+					Gui.update(latest)
+				}
+				PlayStarted(request, started_index, track) => if request == latest.generation {
+					Gui.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing"))
+				} else {
+					Gui.task({ pending: latest, run: || Gui.Audio.stop!(track), resolve: |current, _| Gui.update(current) })
+				}
+			},
+		})
+	}
 }
 
 stop = |state| match state.playback {
-	Active(current) => Action.task({ pending: report({ ..state, generation: state.generation + 1 }, "Stopping…"), run: || Audio.stop!(current.track), resolve: |latest, result| match result { Ok(_) => Action.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
-		Err(_) => Action.update(alarmed(latest, "Stop failed")) } })
-	_ => Action.update(state)
+	Active(current) => Gui.task({
+		pending: report({ ..state, generation: state.generation + 1 }, "Stopping…"),
+		run: || Gui.Audio.stop!(current.track),
+		resolve: |latest, result| match result {
+			Ok(_) => Gui.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
+			Err(_) => Gui.update(alarmed(latest, "Stop failed"))
+		},
+	})
+	_ => Gui.update(state)
 }
 
 ## How far a skip moves. Five seconds is a musical distance rather than a
@@ -172,30 +194,36 @@ skip_ahead_ms = 5000
 ## with an offset that quietly seeks to a fixed millisecond is a lie the first
 ## press hides and the second press exposes.
 skip_forward = |state| match state.playback {
-	Active(current) => Action.task({
+	Active(current) => Gui.task({
 		pending: report(state, "Skipping…"),
-		run: || match Audio.status!(current.track) {
+		run: || match Gui.Audio.status!(current.track) {
 			Err(err) => SkipFailed(audio_error(err))
 			Ok(status) => {
 				target = status.position_ms + skip_ahead_ms
-				match Audio.seek!(current.track, target) {
+				match Gui.Audio.seek!(current.track, target) {
 					Err(err) => SkipFailed(audio_error(err))
 					Ok(_) => Skipped(target)
 				}
 			}
 		},
 		resolve: |latest, result| match result {
-			SkipFailed(message) => Action.update(alarmed(latest, message))
-			Skipped(position) => Action.update(report(latest, "Position ${U64.to_str(position)} ms"))
+			SkipFailed(message) => Gui.update(alarmed(latest, message))
+			Skipped(position) => Gui.update(report(latest, "Position ${U64.to_str(position)} ms"))
 		},
 	})
-	_ => Action.update(state)
+	_ => Gui.update(state)
 }
 
 show_position = |state| match state.playback {
-	Active(current) => Action.task({ pending: state, run: || Audio.status!(current.track), resolve: |latest, result| match result { Ok(status) => Action.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
-		Err(err) => Action.update(alarmed(latest, audio_error(err))) } })
-	_ => Action.update(state)
+	Active(current) => Gui.task({
+		pending: state,
+		run: || Gui.Audio.status!(current.track),
+		resolve: |latest, result| match result {
+			Ok(status) => Gui.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
+			Err(err) => Gui.update(alarmed(latest, audio_error(err)))
+		},
+	})
+	_ => Gui.update(state)
 }
 
 ## The title of a row, for the messages that name it. A transport whose Resume
@@ -211,19 +239,27 @@ row_title = |state, index| match state.library {
 
 toggle = |state| match state.playback {
 	Idle | Stopped => match state.library {
-		Empty => Action.update(state)
+		Empty => Gui.update(state)
 		Loaded(library) => play_index(state, library, 0)
 	}
 	Active(current) => if current.paused {
-		Action.task({ pending: report(state, "Resuming…"), run: || Audio.play!(current.track), resolve: |latest, result| match result {
-			Ok(_) => Action.update(report({ ..latest, playback: Active({ ..current, paused: False }) }, "Playing"))
-			Err(_) => Action.update(alarmed(latest, "Resume failed"))
-		} })
+		Gui.task({
+			pending: report(state, "Resuming…"),
+			run: || Gui.Audio.play!(current.track),
+			resolve: |latest, result| match result {
+				Ok(_) => Gui.update(report({ ..latest, playback: Active({ ..current, paused: False }) }, "Playing"))
+				Err(_) => Gui.update(alarmed(latest, "Resume failed"))
+			},
+		})
 	} else {
-		Action.task({ pending: report(state, "Pausing…"), run: || Audio.pause!(current.track), resolve: |latest, result| match result {
-			Ok(_) => Action.update(report({ ..latest, playback: Active({ ..current, paused: True }) }, "Paused"))
-			Err(_) => Action.update(alarmed(latest, "Pause failed"))
-		} })
+		Gui.task({
+			pending: report(state, "Pausing…"),
+			run: || Gui.Audio.pause!(current.track),
+			resolve: |latest, result| match result {
+				Ok(_) => Gui.update(report({ ..latest, playback: Active({ ..current, paused: True }) }, "Paused"))
+				Err(_) => Gui.update(alarmed(latest, "Pause failed"))
+			},
+		})
 	}
 }
 
@@ -238,18 +274,30 @@ step_origin = |state| match state.playback {
 
 ## Step from the origin without running off either end of the queue.
 step_target = |origin, len, delta| match origin {
-	Nothing => if delta < 0 { len - 1 } else { 0 }
+	Nothing => if delta < 0 {
+		len - 1
+	} else {
+		0
+	}
 	At(index) => if delta < 0 {
-		if index == 0 { 0 } else { index - 1 }
-	} else if index + 1 >= len { index } else { index + 1 }
+		if index == 0 {
+			0
+		} else {
+			index - 1
+		}
+	} else if index + 1 >= len {
+		index
+	} else {
+		index + 1
+	}
 }
 
 step = |state, delta| match state.library {
-	Empty => Action.update(state)
+	Empty => Gui.update(state)
 	Loaded(library) => {
 		len = List.len(library.tracks)
 		if len == 0 {
-			Action.update(state)
+			Gui.update(state)
 		} else {
 			next = step_target(step_origin(state), len, delta)
 			match state.playback {
@@ -260,48 +308,83 @@ step = |state, delta| match state.library {
 	}
 }
 
-stop_then_play = |state, track, next| Action.task({
+stop_then_play = |state, track, next| Gui.task({
 	pending: report({ ..state, generation: state.generation + 1 }, "Changing track…"),
-	run: || Audio.stop!(track),
+	run: || Gui.Audio.stop!(track),
 	resolve: |latest, result| match result {
-		Err(err) => Action.update(alarmed(latest, audio_error(err)))
+		Err(err) => Gui.update(alarmed(latest, audio_error(err)))
+
 		## The old track really has stopped, so the transport stops believing it
 		## is sounding. Otherwise a load that then fails leaves a phantom Active
 		## row, and the next step walks away from that instead of from the row
 		## the person is standing on.
 		Ok(_) => match latest.library {
-			Empty => Action.update({ ..latest, playback: Stopped })
+			Empty => Gui.update({ ..latest, playback: Stopped })
 			Loaded(latest_library) => play_index({ ..latest, playback: Stopped }, latest_library, next)
 		}
 	},
 })
 
-
 ## High-contrast night. A near-black ground, one vivid ember accent reserved
 ## for the primary transport and the track that is sounding, and pill controls
 ## whose hover and press colours are always a visible step apart.
-ground = Gui.rgb(0x08080b)
-surface = Gui.rgb(0x0b0b10)
-row_rest = Gui.rgb(0x15151d)
-row_hover = Gui.rgb(0x23232f)
-row_press = Gui.rgb(0x32323f)
-hairline = Gui.rgb(0x20202b)
-ink = Gui.rgb(0xf2efec)
-muted = Gui.rgb(0x8b8798)
-accent = Gui.rgb(0xff4b12)
-accent_hot = Gui.rgb(0xff7040)
-accent_deep = Gui.rgb(0xc2360b)
-accent_tint = Gui.rgb(0x2b1109)
-accent_tint_hot = Gui.rgb(0x3a1710)
-accent_tint_press = Gui.rgb(0x4a1d13)
+ground : Gui.Color
+ground = 0x08080b
+
+surface : Gui.Color
+surface = 0x0b0b10
+
+row_rest : Gui.Color
+row_rest = 0x15151d
+
+row_hover : Gui.Color
+row_hover = 0x23232f
+
+row_press : Gui.Color
+row_press = 0x32323f
+
+hairline : Gui.Color
+hairline = 0x20202b
+
+ink : Gui.Color
+ink = 0xf2efec
+
+muted : Gui.Color
+muted = 0x8b8798
+
+accent : Gui.Color
+accent = 0xff4b12
+
+accent_hot : Gui.Color
+accent_hot = 0xff7040
+
+accent_deep : Gui.Color
+accent_deep = 0xc2360b
+
+accent_tint : Gui.Color
+accent_tint = 0x2b1109
+
+accent_tint_hot : Gui.Color
+accent_tint_hot = 0x3a1710
+
+accent_tint_press : Gui.Color
+accent_tint_press = 0x4a1d13
+
 ## Failure is not the accent in a darker shade: the ember means "this is the
 ## music", so a message that borrowed it would say the opposite of what it
 ## means. A cooler red sits far enough from the orange to be told apart at a
 ## glance on a near-black ground.
-alarm = Gui.rgb(0xff8ba0)
-alarm_deep = Gui.rgb(0x8d2d40)
-alarm_tint = Gui.rgb(0x2a1118)
-on_accent = Gui.rgb(0x0a0a0c)
+alarm : Gui.Color
+alarm = 0xff8ba0
+
+alarm_deep : Gui.Color
+alarm_deep = 0x8d2d40
+
+alarm_tint : Gui.Color
+alarm_tint = 0x2a1118
+
+on_accent : Gui.Color
+on_accent = 0x0a0a0c
 
 ## A chosen row that is not yet the sounding one is Waiting, which is what makes
 ## a click visible while the next track loads or after one failed to decode.
@@ -311,6 +394,7 @@ active_index = |state| {
 		_ => { index: Nothing, paused: False }
 	}
 	mark = |index| if live.paused Held(index) else Sounding(index)
+
 	## A chosen row that never started is either still loading or has failed,
 	## and those are not the same state to stand in front of.
 	chosen_mark = |index| if state.alarm Failed(index) else Waiting(index)
@@ -327,6 +411,7 @@ track_row = |library, index, track, marker| {
 	tone = match marker {
 		Sounding(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: accent, border_color: accent, border_width: 1 }
 		Held(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: accent_hot, border_color: accent_deep, border_width: 1 }
+
 		## The row a person pressed whose track refused to load. It keeps its
 		## place in the queue and wears the failure, so the message in the
 		## status panel has something on screen to be about.
@@ -334,12 +419,13 @@ track_row = |library, index, track, marker| {
 		Waiting(active) if active == index => { bg: accent_tint, hover_bg: accent_tint_hot, active_bg: accent_tint_press, fg: muted, border_color: hairline, border_width: 1 }
 		_ => { bg: row_rest, hover_bg: row_hover, active_bg: row_press, fg: ink, border_color: hairline, border_width: 0 }
 	}
-	Elem.action_button(Elem.ActionButtonProps.{
+	Gui.button({
 		caption: track.title,
 		label: "Play ${track.title}",
 		on_press: |current, _| play_index(current, library, index),
 		width: Fill,
 		height: Fill,
+
 		## A queue reads down its left edge. Centred rows make a person's eye
 		## hunt for the start of every title.
 		justify: Start,
@@ -362,13 +448,13 @@ track_items = |state, library| {
 	var $items = []
 	for track in library.tracks {
 		index = $index
-		$items = $items.append(Elem.VirtualListItem.{ key: index, content: track_row(library, index, track, marker) })
+		$items = $items.append({ key: index, content: track_row(library, index, track, marker) })
 		$index = index + 1
 	}
 	$items
 }
 
-transport = |caption, name, press| Elem.action_button(Elem.ActionButtonProps.{
+transport = |caption, name, press| Gui.button({
 	caption,
 	label: name,
 	on_press: press,
@@ -377,15 +463,15 @@ transport = |caption, name, press| Elem.action_button(Elem.ActionButtonProps.{
 	padding_bottom: Px(10),
 	radius: 24,
 	font_size: 15,
-	bg: Gui.rgb(0x15151d),
-	hover_bg: Gui.rgb(0x23232f),
-	active_bg: Gui.rgb(0x32323f),
+	bg: 0x15151d,
+	hover_bg: 0x23232f,
+	active_bg: 0x32323f,
 	fg: ink,
 	border_color: hairline,
 	border_width: 1,
 })
 
-primary_transport = |caption| Elem.action_button(Elem.ActionButtonProps.{
+primary_transport = |caption| Gui.button({
 	caption,
 	label: "Toggle playback",
 	on_press: |current, _| toggle(current),
@@ -407,17 +493,18 @@ primary_transport = |caption| Elem.action_button(Elem.ActionButtonProps.{
 ## rests on; it never takes the accent, which belongs to the sounding track and
 ## the primary transport alone.
 sleeve_size = 76.U32
-empty_sleeve = Elem.row(Elem.RowProps.{ label: "Sleeve", width: Px(sleeve_size), height: Px(sleeve_size), min_width: Px(sleeve_size), min_height: Px(sleeve_size), padding: 0, gap: 0, bg: row_rest, border_color: hairline, border_width: 1, radius: 12 }, [])
+
+empty_sleeve = Gui.row({ label: "Sleeve", width: Px(sleeve_size), height: Px(sleeve_size), min_width: Px(sleeve_size), min_height: Px(sleeve_size), padding: 0, gap: 0, bg: row_rest, border_color: hairline, border_width: 1, radius: 12 }, [])
 
 sleeve = |art| match art {
-	Cover(bytes) => Elem.image(Elem.ImageProps.{ label: "Cover art", bytes, format: Jpeg, fit: Cover, width: Px(sleeve_size), height: Px(sleeve_size), min_width: Px(sleeve_size), min_height: Px(sleeve_size), radius: 12 })
+	Cover(bytes) => Gui.image({ label: "Cover art", bytes, format: Jpeg, fit: Cover, width: Px(sleeve_size), height: Px(sleeve_size), min_width: Px(sleeve_size), min_height: Px(sleeve_size), radius: 12 })
 	NoArt | NoCover => empty_sleeve
 }
 
 ## A missing cover is said once, quietly, and only after the read was tried.
 ## An empty square with no explanation is a defect a person cannot report.
 sleeve_caption = |art| match art {
-	NoCover => [Elem.styled_text(Elem.TextProps.{ value: "Cover art unavailable", fg: muted, font_size: 13, font_weight: 400 })]
+	NoCover => [Gui.styled_text({ value: "Cover art unavailable", fg: muted, font_size: 13, font_weight: 400 })]
 	NoArt | Cover(_) => []
 }
 
@@ -436,18 +523,22 @@ now_playing_title = |state| match active_index(state) {
 	Silent => "Nothing playing"
 }
 
-render : State -> Elem(State)
+render : State -> Gui.Elem(State)
 render = |state| {
 	library_view = match state.library {
-		Empty => Elem.panel(Elem.PanelProps.{ label: "Music library", grow: True, width: Fill, padding: 28, bg: surface, border_color: hairline, radius: 16, fg: muted, font_size: 15 }, [
-			Elem.text("No folder chosen yet."),
-			Elem.text("Grant a music folder to build the queue."),
-		])
+		Empty => Gui.panel(
+			{ label: "Music library", grow: True, width: Fill, padding: 28, bg: surface, border_color: hairline, radius: 16, fg: muted, font_size: 15 },
+			[
+				Gui.text("No folder chosen yet."),
+				Gui.text("Grant a music folder to build the queue."),
+			],
+		)
+
 		## The queue is its own surface. It carries the dark ground, the inset,
 		## the corner, and the space between rows itself, so there is no padded
 		## panel wrapped around it whose only job was to be the thing the list
 		## is sitting on.
-		Loaded(library) => Elem.virtual_list(Elem.VirtualListProps.{
+		Loaded(library) => Gui.virtual_list({
 			label: "Tracks",
 			row_height: 44,
 			row_gap: 6,
@@ -461,46 +552,61 @@ render = |state| {
 			radius: 16,
 		})
 	}
-	Elem.col(Elem.ColProps.{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 }, [
-		Elem.row(Elem.RowProps.{ label: "Header", width: Fill, gap: 16 }, [
-			Elem.styled_text(Elem.TextProps.{ value: "NOCTURNE", fg: accent, font_size: 28, font_weight: 700 }),
-			Elem.action_button(Elem.ActionButtonProps.{
-				caption: "Choose folder",
-				label: "Choose music folder",
-				on_press: |current, _| scan(current),
-				height: Px(40),
-				padding: 18,
-				radius: 20,
-				font_size: 14,
-				bg: ground,
-				hover_bg: accent_tint,
-				active_bg: accent_tint_press,
-				fg: accent,
-				border_color: accent_deep,
-				border_width: 1,
-			}),
-		]),
-		Elem.panel(Elem.PanelProps.{ label: "Playback status", width: Fill, padding: 18, gap: 18, radius: 16, bg: surface, border_color: hairline, fg: muted, font_size: 13, font_weight: 600 }, [
-			Elem.row(Elem.RowProps.{ label: "Now playing", width: Fill, gap: 18, padding: 0, align: Center }, [
-				sleeve(state.art),
-				Elem.col(
-					Elem.ColProps.{ label: "Now playing text", grow: True, gap: 6, padding: 0 },
-					[
-						Elem.text("NOW PLAYING"),
-						Elem.styled_text(Elem.TextProps.{ value: now_playing_title(state), fg: ink, font_size: 19, font_weight: 400 }),
-						Elem.styled_text(Elem.TextProps.{ value: state.status, fg: if state.alarm alarm else muted, font_size: 13, font_weight: 400 }),
-					].concat(sleeve_caption(state.art)),
-				),
-			]),
-		]),
-		library_view,
-		Elem.row(Elem.RowProps.{ label: "Playback controls", width: Fill, gap: 12 }, [
-			transport("Previous", "Previous track", |current, _| step(current, -1)),
-			primary_transport(toggle_caption(state)),
-			transport("Next", "Next track", |current, _| step(current, 1)),
-			transport("Stop", "Stop playback", |current, _| stop(current)),
-			transport("Skip 5 s", "Skip forward five seconds", |current, _| skip_forward(current)),
-			transport("Position", "Show playback position", |current, _| show_position(current)),
-		]),
-	])
+	Gui.col(
+		{ label: "Music player", width: Fill, height: Fill, grow: True, padding: 26, gap: 18, bg: ground, fg: ink, font_size: 15 },
+		[
+			Gui.row(
+				{ label: "Header", width: Fill, gap: 16 },
+				[
+					Gui.styled_text({ value: "NOCTURNE", fg: accent, font_size: 28, font_weight: 700 }),
+					Gui.button({
+						caption: "Choose folder",
+						label: "Choose music folder",
+						on_press: |current, _| scan(current),
+						height: Px(40),
+						padding: 18,
+						radius: 20,
+						font_size: 14,
+						bg: ground,
+						hover_bg: accent_tint,
+						active_bg: accent_tint_press,
+						fg: accent,
+						border_color: accent_deep,
+						border_width: 1,
+					}),
+				],
+			),
+			Gui.panel(
+				{ label: "Playback status", width: Fill, padding: 18, gap: 18, radius: 16, bg: surface, border_color: hairline, fg: muted, font_size: 13, font_weight: 600 },
+				[
+					Gui.row(
+						{ label: "Now playing", width: Fill, gap: 18, padding: 0, align: Center },
+						[
+							sleeve(state.art),
+							Gui.col(
+								{ label: "Now playing text", grow: True, gap: 6, padding: 0 },
+								[
+									Gui.text("NOW PLAYING"),
+									Gui.styled_text({ value: now_playing_title(state), fg: ink, font_size: 19, font_weight: 400 }),
+									Gui.styled_text({ value: state.status, fg: if state.alarm alarm else muted, font_size: 13, font_weight: 400 }),
+								].concat(sleeve_caption(state.art)),
+							),
+						],
+					),
+				],
+			),
+			library_view,
+			Gui.row(
+				{ label: "Playback controls", width: Fill, gap: 12 },
+				[
+					transport("Previous", "Previous track", |current, _| step(current, -1)),
+					primary_transport(toggle_caption(state)),
+					transport("Next", "Next track", |current, _| step(current, 1)),
+					transport("Stop", "Stop playback", |current, _| stop(current)),
+					transport("Skip 5 s", "Skip forward five seconds", |current, _| skip_forward(current)),
+					transport("Position", "Show playback position", |current, _| show_position(current)),
+				],
+			),
+		],
+	)
 }
