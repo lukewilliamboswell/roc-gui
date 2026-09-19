@@ -55,7 +55,7 @@ jobs:
           rustup component add llvm-tools-preview
           python3 scripts/audit_macos_archive.py platform/targets/arm64mac/libhost.a --output "$RUNNER_TEMP/host-imports.json"
       - name: Final-link and run every maintained semantic specification
-        run: python3 scripts/run_specs.py --skip-host-build --jobs 1
+        run: python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300
       - name: Exercise a real GPUI window
         run: |
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc

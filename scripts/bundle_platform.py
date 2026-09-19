@@ -2,29 +2,28 @@
 """Assemble and bundle the platform from exact locked release artifacts."""
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 
-from dependency_artifacts import materialize, read_lock
+from dependency_artifacts import materialize, read_lock, sha256
 from gui_host_artifacts import validate_host, validate_publication_notices
-from host_build_identity import source_fingerprint
+from host_build_identity import HOST_FILES, source_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTERNAL = (
     "alsa-x64glibc", "freetype-x64glibc", "glibc-x64glibc", "unwind-x64glibc",
     "xkbcommon-x64glibc", "macos-interfaces-macos-sysroot",
+    "windows-gnu-runtime-x64mingw", "windows-imports-x64win",
+    "windows-system-imports-x64mingw",
 )
-HOSTS = ("gui-host-x64glibc", "gui-host-arm64mac")
-HOST_SOURCES = ("gui-host-sources-x64glibc", "gui-host-sources-arm64mac")
-
-
-def sha256(path: Path) -> str:
-    with path.open("rb") as source:
-        return hashlib.file_digest(source, "sha256").hexdigest()
+HOSTS = ("gui-host-x64glibc", "gui-host-arm64mac", "gui-host-x64mingw")
+HOST_SOURCES = (
+    "gui-host-sources-x64glibc", "gui-host-sources-arm64mac",
+    "gui-host-sources-x64mingw",
+)
 
 
 def assemble(output: Path, roc: str, dependency_lock: Path, host_lock: Path, cache: Path) -> Path:
@@ -67,9 +66,12 @@ def assemble(output: Path, roc: str, dependency_lock: Path, host_lock: Path, cac
                     shutil.copytree(source, notices / identity / category)
         for identity in HOSTS:
             target = hosts_lock["artifacts"][identity]["target"]
-            destination = targets / target / "libhost.a"
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(hosts / identity / "targets" / target / "libhost.a", destination)
+            # A released host is every file the target links, not just the
+            # archive: Windows also carries its manifest resource.
+            for name in HOST_FILES[target]:
+                destination = targets / target / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(hosts / identity / "targets" / target / name, destination)
             shutil.copytree(hosts / identity / "licenses", notices / identity / "licenses")
         shutil.copyfile(ROOT / "THIRD_PARTY_LICENSES.md", platform / "THIRD_PARTY_LICENSES.md")
         (platform / "dependencies.lock.json").write_text(json.dumps(external_lock, indent=2) + "\n")
@@ -95,7 +97,7 @@ def assemble(output: Path, roc: str, dependency_lock: Path, host_lock: Path, cac
         "schema_version": 1,
         "bundle": {"name": bundle.name, "sha256": sha256(bundle), "size": bundle.stat().st_size},
         "compiler": subprocess.check_output([roc, "version"], text=True).strip(),
-        "targets": ["x64glibc", "arm64mac"],
+        "targets": [hosts_lock["artifacts"][identity]["target"] for identity in HOSTS],
         "external_inputs": {name: external_lock["artifacts"][name] for name in EXTERNAL},
         "host_inputs": {name: hosts_lock["artifacts"][name] for name in (*HOSTS, *HOST_SOURCES)},
     }

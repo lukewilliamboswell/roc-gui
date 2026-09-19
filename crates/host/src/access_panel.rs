@@ -130,7 +130,10 @@ fn arrival(origin: grant::Origin) -> &'static str {
     }
 }
 
-pub fn render(runtime_entity: &gpui::Entity<crate::Runtime>, cx: &mut Context<crate::Runtime>) -> impl IntoElement {
+pub fn render(
+    runtime_entity: &gpui::Entity<crate::Runtime>,
+    cx: &mut Context<crate::Runtime>,
+) -> impl IntoElement {
     // Recorded here, in the one place the surface is actually built, so that
     // "open" means drawn rather than intended.
     DREW.store(true, Ordering::Relaxed);

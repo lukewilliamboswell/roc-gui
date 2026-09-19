@@ -7,10 +7,10 @@ from pathlib import Path
 import subprocess
 import sys
 
+from host_build_identity import TARGETS
 from prepare_dependencies import cargo_environment
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac", ("Windows", "AMD64"): "x64mingw"}
 
 target = TARGETS.get((platform.system(), platform.machine()))
 if target is None:

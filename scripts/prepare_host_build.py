@@ -10,12 +10,10 @@ import shutil
 import tempfile
 
 from cargo_build_evidence import capture
-from host_build_identity import record_outputs, source_fingerprint
+from host_build_identity import TARGETS, record_outputs, source_fingerprint
 from normalize_host_archive import normalize
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac",
-           ("Windows", "AMD64"): "x64mingw"}
 
 
 def main() -> None:

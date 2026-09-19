@@ -7763,7 +7763,12 @@ mod host_keymap_tests {
     fn the_app_access_chord_resolves_however_it_is_spelled() {
         // `secondary` is cmd on macOS and ctrl elsewhere, and a person's
         // keyboard produces the modifiers in whichever order it likes.
-        for chord in ["cmd-shift-a", "shift-cmd-a"] {
+        #[cfg(target_os = "macos")]
+        let chords = ["cmd-shift-a", "shift-cmd-a"];
+        #[cfg(not(target_os = "macos"))]
+        let chords = ["ctrl-shift-a", "shift-ctrl-a"];
+
+        for chord in chords {
             assert!(resolves(chord), "{chord} must open the App access surface");
         }
     }

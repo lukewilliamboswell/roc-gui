@@ -1,9 +1,31 @@
 = Getting started
 
-== Prerequisites
+Roc GUI runs on Linux x86-64, macOS on Apple silicon, and Windows x86-64.
 
-Install the Roc nightly named in the application's `app` header and Rust with
-Cargo. Run the commands from the repository root on Linux x86_64 under Wayland.
+== Use a published platform
+
+An application names a released platform by its URL and needs nothing else. The
+release page carries that URL and the exact Roc nightly it was built with:
+
+[source,roc]
+----
+app [State, main] { pf: platform "https://github.com/lukewilliamboswell/roc-gui/releases/download/v0.0.1/<bundle>.tar.zst", roc: "nightly-2026-09-12-220fd47" }
+----
+
+[source,sh]
+----
+roc build --opt=dev --output=my-app main.roc
+./my-app
+----
+
+Every release also publishes an archive of the examples with their headers
+already pointing at that platform, so they build without a checkout.
+
+== Work from a checkout instead
+
+Contributors, and anyone changing the host, build the platform locally. Install
+the Roc nightly named in the application's `app` header and Rust with Cargo, then
+run the commands from the repository root.
 
 The host archive is part of every Roc GUI executable. Build it first:
 
@@ -12,14 +34,14 @@ The host archive is part of every Roc GUI executable. Build it first:
 python3 build.py
 ----
 
-The result is `platform/targets/x64glibc/libhost.a`. Re-run `build.py` after a
-host change.
+The result is `platform/targets/<target>/libhost.a`, where `<target>` is
+`x64glibc`, `arm64mac`, or `x64mingw`. Re-run `build.py` after a host change.
 
 == Build and run the example
 
 [source,sh]
 ----
-roc build --output=counter examples/counter/main.roc
+roc build --opt=dev --output=counter examples/counter/main.roc
 ./counter
 ----
 
@@ -52,7 +74,7 @@ Choose an executable name explicitly when building your application:
 
 [source,sh]
 ----
-roc build --output=my-app path/to/main.roc
+roc build --opt=dev --output=my-app path/to/main.roc
 ./my-app
 ----
 
@@ -68,7 +90,7 @@ terminal workspace needs a local interactive shell profile:
 
 [source,sh]
 ----
-roc build --output=terminal-workspace examples/terminal-workspace/main.roc
+roc build --opt=dev --output=terminal-workspace examples/terminal-workspace/main.roc
 ./terminal-workspace --host-cap-process local-shell
 ----
 

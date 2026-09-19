@@ -738,18 +738,37 @@ names the reproduction so the workaround can be removed when the fix lands.
   same compiler with `--opt=dev`. Move the pin and remove the driver override
   once that remaining regression is fixed upstream.
 
-- [ ] **Dense hover applications access-violate on the Windows development
-  backend.** Every semantic case for `benchmarks/hover-grid` and
-  `benchmarks/nested-hover-grid` exits with Windows status `0xC0000005`
-  (`3221225477`) while the same executables and cases pass on Linux and macOS.
-  The failure is present with boxed and inline `WorkStack` and `RouteIds`
-  representations, so those recursive layouts are not its cause. Both
-  applications initialize 10,000 cells before a specification step runs;
-  reproduce with `python scripts/run_specs.py
-  benchmarks/hover-grid/specs/enter-100.scm --only semantic --jobs 1
-  --fail-fast` on Windows and capture the first fault under a native debugger.
-  CI runs `35182881640`, `35186539776`, `35189199235`, and `35192621661`
-  show the same failure signature.
+- [ ] **The Windows development backend drops relocations past a 16-bit count.**
+  A compile-time-evaluated top-level value is emitted as initialized data with
+  one relocation per pointer it contains. Once one section's relocation count
+  exceeds 65,535, the count wraps instead of switching to the extended COFF
+  form, and the linker applies only `count % 65536` of them. Every relocation
+  the wrap discards leaves its raw addend in place, so a list's element pointer
+  reads as its `0x10` header offset and the first reference-count probe
+  access-violates with Windows status `0xC0000005` (`3221225477`). Linux and
+  macOS builds of the same source are unaffected.
+
+  The boundary is exact and reproducible. An application whose `init` builds an
+  `Index` of `n` entries links correctly at `n = 7650` with 83,280 image base
+  relocations and faults at `n = 7700`, where the count collapses to 18,218 —
+  precisely 65,536 fewer than the expected total. Count an executable's base
+  relocations to observe it; a sudden drop as the baked data grows is the
+  signature.
+
+  `benchmarks/click-grid`, `benchmarks/hover-grid`, and
+  `benchmarks/nested-hover-grid` crossed this boundary by initializing 10,000
+  cells, which baked roughly seven megabytes of pre-evaluated state into each
+  image. They now start at 100 cells and the four specifications that need the
+  dense grid create it explicitly, matching every other case in those suites.
+  That keeps the applications well inside the limit — the largest benchmark now
+  links roughly 20,000 relocations — but it avoids the defect rather than
+  fixing it.
+
+  The compiler fix applies the extended form to `.text`, `.rdata`, and `.pdata`,
+  as the DWARF sections already did. With it, `benchmarks/click-grid` links
+  102,300 relocations instead of 36,676 and its specifications pass. Restore the
+  dense initial grids and remove this entry once a pinned compiler carries that
+  change.
 
 - [ ] **Generated Roc API pages omit record-field documentation.** Running
   `roc docs platform/main.roc` renders the `Elem.TranslateConfig` type comment

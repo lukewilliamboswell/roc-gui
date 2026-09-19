@@ -20,7 +20,7 @@ def run(*command: str, **kwargs: object) -> None:
     subprocess.run(command, cwd=ROOT, check=True, **kwargs)
 
 
-def build_inside_container(output: Path, want_pdf: bool) -> None:
+def build_inside_container(output: Path, want_pdf: bool, docs_version: str) -> None:
     site = output / "site"
     if site.exists():
         shutil.rmtree(site)
@@ -43,9 +43,10 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
         "-a", f"mermaid-config={DOCS / 'theme' / 'mermaid-config.json'}",
         "-a", "mermaid-puppeteer-config=/documents/.github/mermaid-puppeteer.json",
     ]
+    version = ["-a", f"docs-version={docs_version}"]
     for source in sorted(DOCS.glob("*.adoc")):
         run(
-            "asciidoctor", *diagram, *theme, "-a", "source-highlighter=rouge",
+            "asciidoctor", *diagram, *theme, *version, "-a", "source-highlighter=rouge",
             "-a", "toc=left", "-a", "sectanchors", "-D", str(site), str(source),
         )
 
@@ -77,7 +78,7 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
     if want_pdf:
         manual = output / "roc-gui.pdf"
         run(
-            "asciidoctor-pdf", *diagram[:-2],
+            "asciidoctor-pdf", *diagram[:-2], *version,
             "-a", "source-highlighter=rouge",
             "-a", "rouge-style=rocgui",
             "-a", f"pdf-themesdir={theme_dir}",
@@ -99,15 +100,36 @@ def build_inside_container(output: Path, want_pdf: bool) -> None:
         print(f"Manual: {manual}")
 
 
+def build_api_reference(site: Path, roc: str) -> None:
+    """Generate the platform's API reference beside the manual.
+
+    The compiler is the only authority on the exposed modules and their
+    signatures, so the reference is generated rather than transcribed, and
+    generated here so prose and signatures ship as one site. It runs outside
+    the container because the compiler is not part of the Asciidoctor image.
+    """
+    if shutil.which(roc) is None:
+        raise SystemExit(f"{roc} is required to generate the platform API reference")
+    api = site / "api"
+    if api.exists():
+        shutil.rmtree(api)
+    run(roc, "docs", "platform/main.roc", f"--output={api}")
+    if not (api / "index.html").is_file():
+        raise SystemExit("platform API reference was not generated")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdf", action="store_true", help="also build the standalone PDF manual")
+    parser.add_argument("--roc", default="roc", help="compiler that generates the API reference")
+    parser.add_argument("--docs-version", default="unreleased",
+                        help="platform version this manual documents")
     parser.add_argument("--inside-container", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     output = Path(os.environ.get("DOCS_OUT", DEFAULT_OUT)).resolve()
 
     if args.inside_container:
-        build_inside_container(output, args.pdf)
+        build_inside_container(output, args.pdf, args.docs_version)
         return
 
     if shutil.which("docker") is None:
@@ -119,9 +141,13 @@ def main() -> None:
         "--volume", f"{ROOT}:/documents", "--workdir", "/documents", IMAGE,
         "python3", "scripts/build_docs.py", "--inside-container",
     ]
+    command += ["--docs-version", args.docs_version]
     if args.pdf:
         command.append("--pdf")
     run(*command)
+    # After the container, so the generated reference is not removed with the
+    # site tree the container rebuilds from scratch.
+    build_api_reference(output / "site", args.roc)
 
 
 if __name__ == "__main__":

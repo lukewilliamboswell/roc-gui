@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import platform
 from pathlib import Path
@@ -11,13 +10,13 @@ import shutil
 import tempfile
 
 from gui_host_artifacts import lock_matches_sources, verified_hosts
-from host_build_identity import HOST_FILES
+from host_build_identity import HOST_FILES, TARGETS
 from host_notice_payload import notice_json
+from windows_gnu_coff import inventory_digest
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_LOCK = ROOT / "host.lock.json"
 CACHE = Path.home() / ".cache/roc-gui/dependencies"
-TARGETS = {("Linux", "x86_64"): "x64glibc", ("Darwin", "arm64"): "arm64mac", ("Windows", "AMD64"): "x64mingw"}
 
 
 def native_target() -> str:
@@ -25,11 +24,6 @@ def native_target() -> str:
         return TARGETS[(platform.system(), platform.machine())]
     except KeyError as error:
         raise ValueError(f"unsupported native host: {platform.system()} {platform.machine()}") from error
-
-
-def inventory_digest(inventory) -> str:
-    """Identify a DLL inventory the way the archive separation recorded it."""
-    return hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
 
 
 def recorded_inventory_digest(host_tree: Path) -> str | None:

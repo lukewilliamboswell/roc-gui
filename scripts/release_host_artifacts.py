@@ -5,12 +5,10 @@ import argparse
 import json
 import os
 from pathlib import Path
-import re
-import subprocess
 import tempfile
 
 from dependency_artifacts import sha256, unpack_verified, verify_archive, read_lock
-from release_dependencies import REPOSITORY, publish_assets
+from release_dependencies import REPOSITORY, publish_assets, tested_source
 
 POLICY = {"targets": ("x64glibc", "arm64mac", "x64mingw"),
                  "files_by_target": {
@@ -31,16 +29,7 @@ def prepare(directory, tag, environment, targets=None):
                                 or not set(targets) <= set(policy["targets"])):
         raise ValueError("explicit targets must select eligible GUI host targets exactly once")
     selected = tuple(targets) if targets is not None else policy["targets"]
-    if (environment.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
-            or environment.get("GITHUB_REF") != "refs/heads/main"
-            or environment.get("GITHUB_REPOSITORY") != REPOSITORY):
-        raise ValueError("dependency publication requires an explicit main dispatch in the producer repository")
-    source = environment.get("GITHUB_SHA", "")
-    if not re.fullmatch(r"[0-9a-f]{40}", source) or not re.fullmatch(rf"deps-{kind}-[0-9][A-Za-z0-9.-]*", tag):
-        raise ValueError("invalid dependency release identity")
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    if head != source:
-        raise ValueError("dependency release checkout differs from tested source")
+    source = tested_source(environment, tag, rf"deps-{kind}-[0-9][A-Za-z0-9.-]*", "host")
     expected = {f"{kind}-{target}.tar" for target in selected}
     expected.update(f"gui-host-sources-{target}.tar" for target in selected)
     if {path.name for path in directory.glob("*.tar")} != expected:

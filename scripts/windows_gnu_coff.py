@@ -5,9 +5,21 @@ import-descriptor/thunk sections, their exact relocations, and linker symbols.
 No archive-member name or private hash allowlist authorizes removal.
 """
 import hashlib
+import json
 from pathlib import Path
 import struct
 import subprocess
+
+
+def inventory_digest(inventory):
+    """Identify a DLL inventory exactly as the separation receipt records it.
+
+    The consumer re-derives this to decide whether a released host was
+    separated against the inventory it is about to be linked with, so both
+    sides must serialize identically or every host silently falls back to a
+    source build.
+    """
+    return hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
 
 
 def identity(data):
@@ -203,9 +215,8 @@ def separate(source, output, inventory, zig):
 
 def normalize(source, output, inventory, zig):
     """Record the structural transformation and actual indexing tool identity."""
-    import json
     separation = separate(source, output, inventory, zig)
-    separation['inventory_sha256'] = hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
+    separation['inventory_sha256'] = inventory_digest(inventory)
     separation['transformer'] = identity(Path(__file__).read_bytes())
     return {
         'schema_version': 1, 'target': 'x64mingw',

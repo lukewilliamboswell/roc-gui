@@ -102,18 +102,33 @@ def release_files(kind, policy):
     return policy["files"]
 
 
-def prepare(directory, tag, environment, kind="musl"):
-    policy = KINDS[kind]
+def require_main_dispatch(environment, subject="dependency"):
+    """Admit only an explicit dispatch on the producer repository's own main.
+
+    A fork, a pull request, or any other ref can build candidates but must never
+    reach a publication path, so this is checked before any external call.
+    """
     if (environment.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
             or environment.get("GITHUB_REF") != "refs/heads/main"
             or environment.get("GITHUB_REPOSITORY") != REPOSITORY):
-        raise ValueError("dependency publication requires an explicit main dispatch in the producer repository")
+        raise ValueError(f"{subject} publication requires an explicit main dispatch in the producer repository")
+
+
+def tested_source(environment, tag, tag_pattern, subject="dependency"):
+    """Bind the release identity to the commit this checkout actually tested."""
+    require_main_dispatch(environment, subject)
     source = environment.get("GITHUB_SHA", "")
-    if not re.fullmatch(r"[0-9a-f]{40}", source) or not re.fullmatch(rf"deps-{kind}-[0-9][A-Za-z0-9.-]*", tag):
-        raise ValueError("invalid dependency release identity")
+    if not re.fullmatch(r"[0-9a-f]{40}", source) or not re.fullmatch(tag_pattern, tag):
+        raise ValueError(f"invalid {subject} release identity")
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if head != source:
-        raise ValueError("dependency release checkout differs from tested source")
+        raise ValueError(f"{subject} release checkout differs from tested source")
+    return source
+
+
+def prepare(directory, tag, environment, kind="musl"):
+    policy = KINDS[kind]
+    source = tested_source(environment, tag, rf"deps-{kind}-[0-9][A-Za-z0-9.-]*")
     expected = {f"{kind}-{target}.tar" for target in policy["targets"]}
     if {path.name for path in directory.glob("*.tar")} != expected:
         raise ValueError(policy["inventory_error"])
@@ -169,15 +184,20 @@ def release_by_tag(tag):
     raise ValueError("created dependency draft release is missing or ambiguous")
 
 
-def publish_assets(directory, tag, kind, source, assets, validation, scope):
-    """Publish already admitted artifacts without importing producer-specific code."""
+def refuse_existing_tag(tag, subject="dependency"):
+    """Refuse to republish over a tag that already names a tested publication."""
     # The CLI refuses an existing release. Check tags too: --target alone does
     # not require a pre-existing tag to refer to the tested source.
     tags = json.loads(subprocess.check_output([
         "gh", "api", f"repos/{REPOSITORY}/git/matching-refs/tags/{tag}",
     ], text=True))
     if any(item["ref"] == "refs/tags/" + tag for item in tags):
-        raise ValueError("dependency tag already exists; inspect and recover the original publication")
+        raise ValueError(f"{subject} tag already exists; inspect and recover the original publication")
+
+
+def publish_assets(directory, tag, kind, source, assets, validation, scope):
+    """Publish already admitted artifacts without importing producer-specific code."""
+    refuse_existing_tag(tag)
     notes = directory / "release-notes.md"
     notes.write_text(
         f"Dependency inputs built and tested from platform repository commit `{source}`.\n\n"
