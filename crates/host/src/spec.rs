@@ -252,7 +252,7 @@ pub enum Command {
     Screenshot(Screenshot),
     /// Type text one real keystroke at a time into the focused element.
     Type(String),
-    /// Send one real key chord, such as "cmd-a", through the keymap.
+    /// Send one real key chord, such as "secondary-a", through the keymap.
     Key(String),
     /// Resize the production window, so a layout can be proved at a size other
     /// than the one `main.roc` asks for.
@@ -282,7 +282,15 @@ pub enum ScrollMotion {
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
-const CHORD_MODIFIERS: [&str; 6] = ["ctrl", "alt", "shift", "cmd", "super", "fn"];
+const CHORD_MODIFIERS: [&str; 7] = [
+    "ctrl",
+    "alt",
+    "shift",
+    "cmd",
+    "super",
+    "fn",
+    "secondary",
+];
 
 /// Check a chord's shape without reimplementing GPUI's parser.
 ///
@@ -1170,7 +1178,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             if !valid_chord(chord) {
                 return Err(error(
                     &values[1],
-                    "key requires a chord such as \"cmd-a\" or \"ctrl-shift-k\"",
+                    "key requires a chord such as \"secondary-a\" or \"ctrl-shift-k\"",
                 ));
             }
             Command::Key(chord.to_owned())
@@ -2943,9 +2951,15 @@ mod tests {
     #[test]
     fn typing_and_chords_parse() {
         let spec =
-            parse(r#"(test "s" (steps (type "hello") (key "cmd-a") (key "escape")))"#).unwrap();
+            parse(
+                r#"(test "s" (steps (type "hello") (key "secondary-a") (key "escape")))"#,
+            )
+            .unwrap();
         assert_eq!(spec.steps[0].command, Command::Type("hello".to_owned()));
-        assert_eq!(spec.steps[1].command, Command::Key("cmd-a".to_owned()));
+        assert_eq!(
+            spec.steps[1].command,
+            Command::Key("secondary-a".to_owned())
+        );
         assert_eq!(spec.steps[2].command, Command::Key("escape".to_owned()));
     }
 

@@ -27,7 +27,7 @@
     ; Opened through the production keymap, with nothing in the application
     ; focused first: a host chord must not depend on where an application
     ; happens to have put focus.
-    (key "cmd-shift-a")
+    (key "secondary-shift-a")
     (settle)
     (expect-app-access open)
     (screenshot "app-access")
@@ -37,7 +37,7 @@
     (expect-grants
       "directory provisioned/consent-only root read,list,derive")
     ; And the same chord closes it, leaving the window as it was.
-    (key "cmd-shift-a")
+    (key "secondary-shift-a")
     (settle)
     (expect-app-access closed)
     (expect-on-screen (role row :name "Directory toolbar"))))
