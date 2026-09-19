@@ -1,8 +1,6 @@
 ## Request document state, the authority the bench currently holds, and the
 ## asynchronous HTTP transitions between them.
-import pf.Program
-import pf.Action
-import pf.Http
+import pf.Gui
 import http.Request
 import http.Response
 
@@ -18,9 +16,10 @@ Authority : [Unexercised, Granted(Str), Refused(Str)]
 Workbench := [].{
 	Authority : Authority
 	State : State
+
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	init : Program.Access -> State
+	init : Gui.Access -> State
 	init = |access| {
 		access,
 		method: "POST",
@@ -57,14 +56,14 @@ Workbench := [].{
 	origin_of = origin_of
 
 	## Submit with explicitly acquired authority; obsolete generations do no UI work.
-	send : State -> Action(State)
+	send : State -> Gui.Action(State)
 	send = |state| match state.method {
 		"GET" => send_method(state, GET)
 		"DELETE" => send_method(state, DELETE)
 		"PATCH" => send_method(state, PATCH)
 		"POST" => send_method(state, POST)
 		"PUT" => send_method(state, PUT)
-		_ => Action.update({
+		_ => Gui.update({
 			..state,
 			error: "Unsupported HTTP method",
 			remedy: "The bench sends GET, POST, PUT, PATCH, and DELETE.",
@@ -72,9 +71,9 @@ Workbench := [].{
 		})
 	}
 
-	cancel : State -> Action(State)
+	cancel : State -> Gui.Action(State)
 	cancel = |state| if state.sending {
-		Action.update({
+		Gui.update({
 			..state,
 			active_id: state.next_id,
 			next_id: state.next_id + 1,
@@ -83,12 +82,12 @@ Workbench := [].{
 			remedy: "The request is still in flight; its reply will be ignored.",
 		})
 	} else {
-		Action.none
+		Gui.none
 	}
 }
 
 State : {
-	access : Program.Access,
+	access : Gui.Access,
 	method : Str,
 	url : Str,
 	query : Str,
@@ -130,47 +129,48 @@ send_method = |state, method| {
 	url = if state.query.is_empty() state.url else "${state.url}?${state.query}"
 	base_request = Request.from_method(method).with_uri(url).with_body(Str.to_utf8(state.request))
 	request = if state.header_name.is_empty() base_request else base_request.add_header(state.header_name, state.header_value)
-	Action.task({
+	Gui.task({
 		pending: { ..state, next_id: id + 1, active_id: id, sending: True, error: "", remedy: "" },
 		run: || {
-			client = Http.acquire!(state.access)?
-			client.send!(Http.Config.{ timeout_ms: 2_000, max_response_bytes: 262_144 }, request)
+			client : Gui.HttpClient
+			client = state.access.http!()?
+			client.send!({ timeout_ms: 2_000, max_response_bytes: 262_144 }, request)
 		},
-		resolve: |latest, result| if latest.active_id != id Action.none else match result {
+		resolve: |latest, result| if latest.active_id != id Gui.none else match result {
 			Ok(response) => {
 				bytes = Response.body(response)
 				headers = Response.headers(response)
 				status_line = "Status ${Response.status(response).to_str()}"
 				match Str.from_utf8(bytes) {
-				Ok(body) => Action.update({
-					..latest,
-					response_status: status_line,
-					response_header_count: headers.len(),
-					response_headers: Str.join_with(headers.map(|header| "${header.name}: ${header.value}"), "\n"),
-					response: body,
-					response_bytes: bytes.len(),
-					authority: Granted(origin),
-					error: "",
-					remedy: "",
-					sending: False,
-				})
-				Err(_) => Action.update({
-					..latest,
-					response: "",
-					response_bytes: 0,
-					response_status: "No response",
-					response_header_count: 0,
-					response_headers: "",
-					authority: Granted(origin),
-					error: "Response body was not UTF-8",
-					remedy: "The bench presents text. This reply is not decodable as UTF-8.",
-					sending: False,
-				})
+					Ok(body) => Gui.update({
+						..latest,
+						response_status: status_line,
+						response_header_count: headers.len(),
+						response_headers: Str.join_with(headers.map(|header| "${header.name}: ${header.value}"), "\n"),
+						response: body,
+						response_bytes: bytes.len(),
+						authority: Granted(origin),
+						error: "",
+						remedy: "",
+						sending: False,
+					})
+					Err(_) => Gui.update({
+						..latest,
+						response: "",
+						response_bytes: 0,
+						response_status: "No response",
+						response_header_count: 0,
+						response_headers: "",
+						authority: Granted(origin),
+						error: "Response body was not UTF-8",
+						remedy: "The bench presents text. This reply is not decodable as UTF-8.",
+						sending: False,
+					})
 				}
 			}
 			Err(error) => {
 				failure = describe(error, origin)
-				Action.update({
+				Gui.update({
 					..latest,
 					response: "",
 					response_bytes: 0,

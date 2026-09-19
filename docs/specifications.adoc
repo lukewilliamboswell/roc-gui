@@ -102,7 +102,7 @@ identifier.
 opaque capability operations as an interactive grant.
 `(directory canceled)`:: A directory chooser the person dismisses without
 choosing. The chooser opens and the acquisition call runs, but no authority is
-produced and `Files.pick_directory!` answers `Ok(Canceled)`. Cancelling is not a
+produced and `access.pick_directory!()` answers `Ok(Canceled)`. Cancelling is not a
 failure, so this is its own provisioning rather than an absent grant, and it is
 how a case shows that an application returns to rest instead of accusing the
 person of a denial. It cannot be combined with `(directory "PATH")`.
@@ -137,7 +137,7 @@ with `prefix`. This locator supports deterministic primitive counts in scaling
 specifications.
 `(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
 `(role button :name "name")`:: A button with the semantic `name` passed to
-`Elem.button` or `Elem.action_button`.
+`Gui.button`.
 `(role canvas :name "name")`:: A retained drawing surface identified by its
 stable semantic name.
 `(role canvas-item :name "name")`:: A keyed canvas primitive identified by its
@@ -250,11 +250,11 @@ route.
 checkbox, through the normal Roc event route.
 `(replace-text LOCATOR "value")`:: Replace the complete controlled value of one
 editable text input or textarea through its production Roc input route. A text
-input delivers `Event.TextChange`; a textarea delivers `Event.Input`. A
+input delivers `Gui.EventTextChange`; a textarea delivers `Gui.EventInput`. A
 disabled text input consumes no edit and dispatches nothing. A disabled or
 read-only textarea fails as non-editable.
 `(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
-`Event.TextSubmit` through the normal Roc event route.
+`Gui.EventTextSubmit` through the normal Roc event route.
 
 == Assertions
 

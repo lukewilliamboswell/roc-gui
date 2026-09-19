@@ -1,44 +1,43 @@
-import pf.Action
-import pf.Program
-import pf.Elem
+import pf.Gui
 import Terminal
 import Theme
 
 Workspace := [].{
 	State : State
+
 	## The pane's authority is the workspace's authority: a workspace owns one
 	## terminal and hands it exactly what it was given.
-	init : Program.Access -> State
+	init : Gui.Access -> State
 	init = |access| {
 		start = Terminal.init
 		{ terminal: start(access) }
 	}
-	render : State -> Elem.Elem(State)
+	render : State -> Gui.Elem(State)
 	render = render
 }
 
 State : { terminal : Terminal.State }
 
-divider = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.line, font_size: Theme.meta },
-	[Elem.text(caption)],
+divider = |caption| Gui.row(
+	{ padding: 0, gap: 0, fg: Theme.line, font_size: Theme.meta },
+	[Gui.text(caption)],
 )
 
-meta = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
-	[Elem.text(caption)],
+meta = |caption| Gui.row(
+	{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
+	[Gui.text(caption)],
 )
 
 ## The last readout in an instrument header sits at the far edge, which is what
 ## a status field does. It grows into the space left over and justifies its own
 ## text to the end, so no spacer element exists only to push.
-trailing_meta = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta },
-	[Elem.text(caption)],
+trailing_meta = |caption| Gui.row(
+	{ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta },
+	[Gui.text(caption)],
 )
 
-header = Elem.row(
-	Elem.RowProps.{
+header = Gui.row(
+	{
 		label: "Workspace header",
 		width: Fill,
 		padding: Theme.inset,
@@ -51,7 +50,7 @@ header = Elem.row(
 		font_size: Theme.meta,
 	},
 	[
-		Elem.text("TERMINAL WORKSPACE"),
+		Gui.text("TERMINAL WORKSPACE"),
 		divider("|"),
 		meta("pty 100x30"),
 		divider("|"),
@@ -59,9 +58,9 @@ header = Elem.row(
 	],
 )
 
-render : State -> Elem.Elem(State)
-render = |_state| Elem.col(
-	Elem.ColProps.{
+render : State -> Gui.Elem(State)
+render = |_state| Gui.col(
+	{
 		label: "Terminal workspace",
 		width: Fill,
 		height: Fill,
@@ -74,6 +73,6 @@ render = |_state| Elem.col(
 	},
 	[
 		header,
-		Elem.translate_with(Terminal.render, { key: "terminal", get: |state| state.terminal, set: |state, terminal| { ..state, terminal } }),
+		Gui.translate_with(Terminal.render, { key: "terminal", get: |state| state.terminal, set: |state, terminal| { ..state, terminal } }),
 	],
 )

@@ -1,7 +1,8 @@
 import Elem
-import Gui
+import Style
 import Internal
 import Resource
+import Access
 
 ## A GUI application with initial state and a pure renderer for that state.
 Program(state) := Config(state).{
@@ -13,7 +14,7 @@ Program(state) := Config(state).{
 	##
 	## Keep it in your state if you acquire anything after the first frame; task
 	## closures need it where they run.
-	Access : Resource.Access
+	Access : Access.Access
 
 	## Initial application data, renderer, and optional native window properties.
 	##
@@ -34,10 +35,10 @@ Program(state) := Config(state).{
 
 		## The colour behind the root element, painted across the whole window
 		## including its rounded corners. `Default` keeps the host's own ground.
-		background : Gui.Color ?? Default,
+		background : Style.Color ?? Default,
 
 		## Ink for text that inherits no colour of its own.
-		foreground : Gui.Color ?? Default,
+		foreground : Style.Color ?? Default,
 	}
 
 	## Construct the program value required by the platform's `main` module.
@@ -48,6 +49,6 @@ Program(state) := Config(state).{
 	start! : Program(state) => {}
 	start! = |Program.(Config.(config))| {
 		init = config.init
-		Internal.start!(init(Resource.mint_access({})), config.render, config.window)
+		Internal.start!(init(Access.mint(Resource.mint_access({}))), config.render, config.window)
 	}
 }

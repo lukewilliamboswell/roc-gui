@@ -34,7 +34,7 @@ The host rejects unknown arguments.
 
 == A click locator is missing or ambiguous
 
-Check the `label` field passed to `Elem.button`. A role locator uses this
+Check the `label` field passed to `Gui.button`. A role locator uses this
 semantic name, not the visible text. Names must be unique among the buttons
 present at that step. If a preceding click replaced a boundary, locate
 the new button by name rather than retaining an old host node identity.

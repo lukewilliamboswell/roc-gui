@@ -10,9 +10,6 @@
 ## discovered, discovery refused, discovered but closed, open, and lost each get
 ## their own surface, their own colour, and their own sentence about what to do
 ## next.
-import pf.Action
-import pf.Device
-import pf.Elem
 import pf.Gui
 import Configurator
 import Format
@@ -22,13 +19,16 @@ import "icons/triangle-alert.svg" as alert_icon : List(U8)
 import "icons/usb.svg" as usb_icon : List(U8)
 
 View := [].{
-	render : Configurator.State -> Elem.Elem(Configurator.State)
+	render : Configurator.State -> Gui.Elem(Configurator.State)
 	render = render
 }
 
 devices_width = 340.U32
+
 strip_height = 66.U32
+
 range_width = 288.U32
+
 range_height = 10.U32
 
 ## The exact sentence each state puts at the top of the window, and the line
@@ -78,6 +78,7 @@ copy = |status| match status {
 		headline: "Disconnected",
 		note: "The handle is released. Any unapplied edit went with it; connecting again reads the device's own settings.",
 	}
+
 	## A refusal here is not a prompt that was declined and could be offered
 	## again: the grant is fixed when the application starts, so this answer is
 	## the same for as long as this window is open. Saying "press Discover
@@ -125,12 +126,12 @@ refused = |status| match status {
 	_ => False
 }
 
-mark = |bytes, name, size| Elem.image(
-	Elem.ImageProps.{ label: name, bytes, format: Svg, width: Px(size), height: Px(size) },
+mark = |bytes, name, size| Gui.image(
+	{ label: name, bytes, format: Svg, width: Px(size), height: Px(size) },
 )
 
-pill = |status| Elem.row(
-	Elem.RowProps.{
+pill = |status| Gui.row(
+	{
 		label: "Link state",
 		min_width: Px(128),
 		height: Px(36),
@@ -145,15 +146,15 @@ pill = |status| Elem.row(
 	[Theme.dot(link_colour(status)), Theme.figure(link_word(status), 13, link_colour(status))],
 )
 
-header = |state| Elem.row(
-	Elem.RowProps.{ label: "Header", width: Fill, padding: 0, gap: 16, align: Center },
+header = |state| Gui.row(
+	{ label: "Header", width: Fill, padding: 0, gap: 16, align: Center },
 	[
-		Elem.col(
-			Elem.ColProps.{ label: "Wordmark", grow: True, padding: 0, gap: 4 },
+		Gui.col(
+			{ label: "Wordmark", grow: True, padding: 0, gap: 4 },
 			[
-				Elem.row(
-					Elem.RowProps.{ padding: 0, gap: 0, font_size: 20, font_weight: 700, fg: Theme.ink },
-					[Elem.text("Device Configurator")],
+				Gui.row(
+					{ padding: 0, gap: 0, font_size: 20, font_weight: 700, fg: Theme.ink },
+					[Gui.text("Device Configurator")],
 				),
 				Theme.note("One granted peripheral, its settings read from it and written back"),
 			],
@@ -165,8 +166,8 @@ header = |state| Elem.row(
 status_strip = |state| {
 	said = copy(state.status)
 	troubled = alarmed(state.status)
-	Elem.row(
-		Elem.RowProps.{
+	Gui.row(
+		{
 			label: "Status",
 			width: Fill,
 			height: Px(strip_height),
@@ -180,30 +181,28 @@ status_strip = |state| {
 			border_color: if troubled Theme.alarm_edge else Theme.hairline,
 			border_width: 1,
 		},
-		(if troubled [mark(alert_icon, "Attention mark", 18)] else []).concat(
-			[
-				Elem.col(
-					Elem.ColProps.{ label: "Status detail", grow: True, padding: 0, gap: 3 },
-					[
-						Elem.row(
-							Elem.RowProps.{
-								padding: 0,
-								gap: 0,
-								font_size: 14,
-								font_weight: 600,
-								fg: if troubled Theme.alarm else Theme.ink,
-								text_overflow: Ellipsis,
-							},
-							[Elem.text(said.headline)],
-						),
-						Elem.row(
-							Elem.RowProps.{ padding: 0, gap: 0, font_size: 12, fg: Theme.muted, text_overflow: Ellipsis },
-							[Elem.text(said.note)],
-						),
-					],
-				),
-			],
-		),
+		(if troubled [mark(alert_icon, "Attention mark", 18)] else []).concat([
+			Gui.col(
+				{ label: "Status detail", grow: True, padding: 0, gap: 3 },
+				[
+					Gui.row(
+						{
+							padding: 0,
+							gap: 0,
+							font_size: 14,
+							font_weight: 600,
+							fg: if troubled Theme.alarm else Theme.ink,
+							text_overflow: Ellipsis,
+						},
+						[Gui.text(said.headline)],
+					),
+					Gui.row(
+						{ padding: 0, gap: 0, font_size: 12, fg: Theme.muted, text_overflow: Ellipsis },
+						[Gui.text(said.note)],
+					),
+				],
+			),
+		]),
 	)
 }
 
@@ -213,8 +212,8 @@ status_strip = |state| {
 ## it is a button whose only possible outcome is an apology.
 device_card = |state, index, device| {
 	open = state.connected != None
-	Elem.col(
-		Elem.ColProps.{
+	Gui.col(
+		{
 			label: "Device ${index.to_str()}",
 			width: Fill,
 			padding: 12,
@@ -225,23 +224,23 @@ device_card = |state, index, device| {
 			border_width: 1,
 		},
 		[
-			Elem.row(
-				Elem.RowProps.{ width: Fill, padding: 0, gap: 8, align: Center },
+			Gui.row(
+				{ width: Fill, padding: 0, gap: 8, align: Center },
 				[
 					mark(usb_icon, "Device mark", 16),
-					Elem.col(
-						Elem.ColProps.{ grow: True, padding: 0, gap: 0, font_size: 14, fg: Theme.ink, text_overflow: Ellipsis },
-						[Elem.text("Device ${index.to_str()}: ${device.manufacturer} ${device.product}")],
+					Gui.col(
+						{ grow: True, padding: 0, gap: 0, font_size: 14, fg: Theme.ink, text_overflow: Ellipsis },
+						[Gui.text("Device ${index.to_str()}: ${device.manufacturer} ${device.product}")],
 					),
 				],
 			),
 			Theme.figure("USB ${Format.hex4(device.vendor_id)}:${Format.hex4(device.product_id)}", 11, Theme.absent),
 			match state.connected {
-				Some(connection) => Elem.row(
-					Elem.RowProps.{ width: Fill, padding: 0, gap: 10, align: Center },
+				Some(connection) => Gui.row(
+					{ width: Fill, padding: 0, gap: 10, align: Center },
 					[
 						Theme.dot(Theme.link),
-						Elem.col(Elem.ColProps.{ grow: True, padding: 0, gap: 0, font_size: 12, fg: Theme.link }, [Elem.text("Open")]),
+						Gui.col({ grow: True, padding: 0, gap: 0, font_size: 12, fg: Theme.link }, [Gui.text("Open")]),
 						Theme.secondary("Disconnect", "Disconnect device", True, |current, _| Configurator.disconnect(current, connection)),
 					],
 				)
@@ -253,8 +252,8 @@ device_card = |state, index, device| {
 
 ## Nothing discovered is a state with a shape, not an empty box. It says what
 ## discovery will and will not do, which is the part a person cannot guess.
-nothing_found = |state| Elem.col(
-	Elem.ColProps.{
+nothing_found = |state| Gui.col(
+	{
 		label: "No devices",
 		width: Fill,
 		padding: 18,
@@ -268,9 +267,9 @@ nothing_found = |state| Elem.col(
 	[
 		mark(usb_icon, "Device mark", 28),
 		Theme.note(if alarmed(state.status) "Nothing was searched for." else "No device discovered yet."),
-		Elem.col(
-			Elem.ColProps.{ width: Fill, padding: 0, gap: 0, font_size: 11, fg: Theme.absent, align: Center },
-			[Elem.text("Access is granted one device at a time, outside this window.")],
+		Gui.col(
+			{ width: Fill, padding: 0, gap: 0, font_size: 11, fg: Theme.absent, align: Center },
+			[Gui.text("Access is granted one device at a time, outside this window.")],
 		),
 	],
 )
@@ -283,8 +282,8 @@ devices_panel = |state| Theme.panel(
 		if state.devices.is_empty() {
 			nothing_found(state)
 		} else {
-			Elem.col(
-				Elem.ColProps.{ label: "Discovered devices", width: Fill, padding: 0, gap: 10 },
+			Gui.col(
+				{ label: "Discovered devices", width: Fill, padding: 0, gap: 10 },
 				state.devices.map_with_index(|device, index| device_card(state, index, device)),
 			)
 		},
@@ -295,6 +294,7 @@ devices_panel = |state| Theme.panel(
 			|current, _| Configurator.discover(current),
 		),
 	].concat(
+
 		## Searching again empties the list, and the open connection lives on the
 		## card in that list. Offering the search while a handle is open would let
 		## a person strand it with one press, so it is withheld and the reason is
@@ -319,67 +319,63 @@ devices_panel = |state| Theme.panel(
 range = |sensitivity| {
 	span = Configurator.sensitivity_ceiling - Configurator.sensitivity_floor
 	filled = U16.to_u32(sensitivity - Configurator.sensitivity_floor) * range_width / U16.to_u32(span)
-	Elem.canvas(
-		Elem.CanvasProps.{
-			label: "Sensitivity range",
-			primitives: [
-				Rectangle(
-					Elem.CanvasRectangle.{ key: 1, label: "Range track", x: 0, y: 0, width: range_width, height: range_height, fill: Gui.rgb(0x151b1f), radius: 5 },
-				),
-				Rectangle(
-					Elem.CanvasRectangle.{ key: 2, label: "Range fill", x: 0, y: 0, width: if filled < 4 4 else filled, height: range_height, fill: Theme.link_deep, radius: 5 },
-				),
-			],
-			on_pointer: |_, _| Action.none,
-			width: Px(range_width),
-			height: Px(range_height),
-			min_width: Px(range_width),
-			min_height: Px(range_height),
-			bg: Gui.rgb(0x151b1f),
-			radius: 5,
-		},
-	)
+	Gui.canvas({
+		label: "Sensitivity range",
+		primitives: [
+			Gui.rectangle(
+				{ key: 1, label: "Range track", x: 0, y: 0, width: range_width, height: range_height, fill: 0x151b1f, radius: 5 },
+			),
+			Gui.rectangle(
+				{ key: 2, label: "Range fill", x: 0, y: 0, width: if filled < 4 4 else filled, height: range_height, fill: Theme.link_deep, radius: 5 },
+			),
+		],
+		on_pointer: |_, _| Gui.none,
+		width: Px(range_width),
+		height: Px(range_height),
+		min_width: Px(range_width),
+		min_height: Px(range_height),
+		bg: 0x151b1f,
+		radius: 5,
+	})
 }
 
-step_button = |caption, label, press| Elem.action_button(
-	Elem.ActionButtonProps.{
-		caption,
-		label,
-		on_press: press,
-		width: Px(38),
-		height: Px(38),
-		padding: 0,
-		radius: 19,
-		font_size: 18,
-		font_weight: 600,
-		bg: Theme.raised,
-		hover_bg: Gui.rgb(0x303a41),
-		active_bg: Gui.rgb(0x1e262b),
-		fg: Theme.ink,
-		border_color: Theme.hairline,
-		border_width: 1,
-	},
-)
+step_button = |caption, label, press| Gui.button({
+	caption,
+	label,
+	on_press: press,
+	width: Px(38),
+	height: Px(38),
+	padding: 0,
+	radius: 19,
+	font_size: 18,
+	font_weight: 600,
+	bg: Theme.raised,
+	hover_bg: 0x303a41,
+	active_bg: 0x1e262b,
+	fg: Theme.ink,
+	border_color: Theme.hairline,
+	border_width: 1,
+})
 
-sensitivity_field = |config| Elem.col(
-	Elem.ColProps.{ label: "Sensitivity", width: Fill, padding: 0, gap: 10 },
+sensitivity_field = |config| Gui.col(
+	{ label: "Sensitivity", width: Fill, padding: 0, gap: 10 },
 	[
 		Theme.caption("SENSITIVITY"),
-		Elem.row(
-			Elem.RowProps.{ width: Fill, padding: 0, gap: 16, align: Center },
+		Gui.row(
+			{ width: Fill, padding: 0, gap: 16, align: Center },
 			[
-				Elem.row(
-					Elem.RowProps.{ padding: 0, gap: 6, align: Baseline, min_width: Px(120) },
+				Gui.row(
+					{ padding: 0, gap: 6, align: Baseline, min_width: Px(120) },
 					[
 						Theme.figure(config.sensitivity.to_str(), 30, Theme.ink),
-						Elem.row(
-							Elem.RowProps.{ padding: 0, gap: 0, font_size: 12, font_weight: 700, fg: Theme.muted },
-							[Elem.text("DPI")],
+						Gui.row(
+							{ padding: 0, gap: 0, font_size: 12, font_weight: 700, fg: Theme.muted },
+							[Gui.text("DPI")],
 						),
 					],
 				),
-				step_button("−", "Decrease sensitivity", |current, _| Action.update(Configurator.change_sensitivity(current, False))),
-				step_button("+", "Increase sensitivity", |current, _| Action.update(Configurator.change_sensitivity(current, True))),
+				step_button("−", "Decrease sensitivity", |current, _| Gui.update(Configurator.change_sensitivity(current, False))),
+				step_button("+", "Increase sensitivity", |current, _| Gui.update(Configurator.change_sensitivity(current, True))),
 			],
 		),
 		range(config.sensitivity),
@@ -389,34 +385,32 @@ sensitivity_field = |config| Elem.col(
 	],
 )
 
-profile_button = |profile, active| Elem.action_button(
-	Elem.ActionButtonProps.{
-		caption: profile.to_str(),
-		label: "Select profile ${profile.to_str()}",
-		on_press: |current, _| Action.update(Configurator.select_profile(current, profile)),
-		width: Px(44),
-		height: Px(34),
-		padding: 0,
-		radius: 8,
-		font_size: 14,
-		font_weight: 600,
-		bg: if active Theme.link_tint else Theme.raised,
-		hover_bg: if active Theme.link_tint else Gui.rgb(0x303a41),
-		active_bg: Gui.rgb(0x1e262b),
-		fg: if active Theme.link else Theme.muted,
-		border_color: if active Theme.link_deep else Theme.hairline,
-		border_width: 1,
-	},
-)
+profile_button = |profile, active| Gui.button({
+	caption: profile.to_str(),
+	label: "Select profile ${profile.to_str()}",
+	on_press: |current, _| Gui.update(Configurator.select_profile(current, profile)),
+	width: Px(44),
+	height: Px(34),
+	padding: 0,
+	radius: 8,
+	font_size: 14,
+	font_weight: 600,
+	bg: if active Theme.link_tint else Theme.raised,
+	hover_bg: if active Theme.link_tint else 0x303a41,
+	active_bg: 0x1e262b,
+	fg: if active Theme.link else Theme.muted,
+	border_color: if active Theme.link_deep else Theme.hairline,
+	border_width: 1,
+})
 
 ## A device with five profiles and no sign of which one is chosen makes a person
 ## count presses. The selected one is lit, and the caption says which it is.
-profile_field = |config| Elem.col(
-	Elem.ColProps.{ label: "Profile", width: Fill, padding: 0, gap: 8 },
+profile_field = |config| Gui.col(
+	{ label: "Profile", width: Fill, padding: 0, gap: 8 },
 	[
 		Theme.caption("PROFILE ${config.profile.to_str()} OF 5"),
-		Elem.row(
-			Elem.RowProps.{ label: "Profile controls", padding: 0, gap: 8 },
+		Gui.row(
+			{ label: "Profile controls", padding: 0, gap: 8 },
 			[1, 2, 3, 4, 5].map(|profile| profile_button(profile, profile == config.profile)),
 		),
 	],
@@ -427,12 +421,10 @@ control_items = |count| {
 	var $index = 0
 	while $index < U16.to_u64(count) {
 		key = $index
-		$items = $items.append(
-			Elem.VirtualListItem.{
-				key,
-				content: Theme.figure("Control ${($index + 1).to_str()}: Primary action", 12, Theme.muted),
-			},
-		)
+		$items = $items.append({
+			key,
+			content: Theme.figure("Control ${($index + 1).to_str()}: Primary action", 12, Theme.muted),
+		})
 		$index = $index + 1
 	}
 	$items
@@ -441,8 +433,8 @@ control_items = |count| {
 ## The apply footer says why it cannot be pressed when it cannot. A disabled
 ## control with no explanation is the defect; a message in a status field nobody
 ## can reach was only ever the symptom.
-apply_footer = |state, connection, config| Elem.row(
-	Elem.RowProps.{
+apply_footer = |state, connection, config| Gui.row(
+	{
 		label: "Apply",
 		width: Fill,
 		padding: 12,
@@ -454,12 +446,12 @@ apply_footer = |state, connection, config| Elem.row(
 		border_width: 1,
 	},
 	[
-		Elem.col(
-			Elem.ColProps.{ grow: True, padding: 0, gap: 2 },
+		Gui.col(
+			{ grow: True, padding: 0, gap: 2 },
 			[
-				Elem.row(
-					Elem.RowProps.{ padding: 0, gap: 0, font_size: 13, fg: if state.dirty Theme.pending else Theme.muted },
-					[Elem.text(if state.dirty "Held here, not on the device" else "The device has everything shown here")],
+				Gui.row(
+					{ padding: 0, gap: 0, font_size: 13, fg: if state.dirty Theme.pending else Theme.muted },
+					[Gui.text(if state.dirty "Held here, not on the device" else "The device has everything shown here")],
 				),
 				Theme.aside("Apply sends the whole configuration as one transaction the device must acknowledge."),
 			],
@@ -474,24 +466,22 @@ settings_panel = |state| Theme.panel(
 	match { config: state.config, connection: state.connected } {
 		{ config: Some(config), connection: Some(connection) } => [
 			sensitivity_field(config),
-			Elem.checkbox(
-				Elem.CheckboxProps.{
-					label: "Device lighting",
-					checked: config.lighting,
-					on_change: |current, event| Action.update(Configurator.toggle_lighting(current, event.checked)),
-					font_size: 14,
-					fg: Theme.ink,
-					box_checked_bg: Theme.link_deep,
-					box_border: Theme.hairline,
-				},
-			),
+			Gui.checkbox({
+				label: "Device lighting",
+				checked: config.lighting,
+				on_change: |current, event| Gui.update(Configurator.toggle_lighting(current, event.checked)),
+				font_size: 14,
+				fg: Theme.ink,
+				box_checked_bg: Theme.link_deep,
+				box_border: Theme.hairline,
+			}),
 			profile_field(config),
-			Elem.col(
-				Elem.ColProps.{ label: "Controls", width: Fill, height: Fill, grow: True, padding: 0, gap: 8, overflow_y: Clip },
+			Gui.col(
+				{ label: "Controls", width: Fill, height: Fill, grow: True, padding: 0, gap: 8, overflow_y: Clip },
 				[
 					Theme.caption("CONTROLS ON THIS DEVICE"),
-					Elem.virtual_list(
-						Elem.VirtualListProps.{ label: "Device controls", row_height: 22, items: control_items(config.controls) },
+					Gui.virtual_list(
+						{ label: "Device controls", row_height: 22, items: control_items(config.controls) },
 					),
 				],
 			),
@@ -499,8 +489,8 @@ settings_panel = |state| Theme.panel(
 		]
 		_ => [
 			Theme.caption("CONFIGURATION"),
-			Elem.col(
-				Elem.ColProps.{
+			Gui.col(
+				{
 					label: "No configuration",
 					width: Fill,
 					height: Fill,
@@ -512,9 +502,9 @@ settings_panel = |state| Theme.panel(
 				},
 				[
 					Theme.note("Connect to inspect configuration"),
-					Elem.col(
-						Elem.ColProps.{ padding: 0, gap: 0, font_size: 11, fg: Theme.absent, align: Center, max_width: Px(320) },
-						[Elem.text("Sensitivity, lighting, profile, and the control inventory are read from the device itself, so there is nothing to show until one is open.")],
+					Gui.col(
+						{ padding: 0, gap: 0, font_size: 11, fg: Theme.absent, align: Center, max_width: Px(320) },
+						[Gui.text("Sensitivity, lighting, profile, and the control inventory are read from the device itself, so there is nothing to show until one is open.")],
 					),
 				],
 			),
@@ -522,8 +512,8 @@ settings_panel = |state| Theme.panel(
 	},
 )
 
-render = |state| Elem.col(
-	Elem.ColProps.{
+render = |state| Gui.col(
+	{
 		label: "Device Configurator",
 		width: Fill,
 		height: Fill,
@@ -537,8 +527,8 @@ render = |state| Elem.col(
 	[
 		header(state),
 		status_strip(state),
-		Elem.row(
-			Elem.RowProps.{ label: "Body", width: Fill, height: Fill, grow: True, padding: 0, gap: 16, align: Stretch },
+		Gui.row(
+			{ label: "Body", width: Fill, height: Fill, grow: True, padding: 0, gap: 16, align: Stretch },
 			[devices_panel(state), settings_panel(state)],
 		),
 	],

@@ -1,7 +1,6 @@
 ## The mounted ledger: a header, a standing readout of the folder authority, the
 ## granted folder's files, the opened database's tables, and the query bench.
-import pf.Action
-import pf.Elem
+import pf.Gui
 import Browser
 import Query
 import Theme
@@ -10,52 +9,50 @@ import "icons/folder-check.svg" as folder_check_icon : List(U8)
 import "icons/folder-x.svg" as folder_x_icon : List(U8)
 
 View := [].{
-	render : Browser.State -> Elem(Browser.State)
+	render : Browser.State -> Gui.Elem(Browser.State)
 	render = render
 }
 
-meta = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
-	[Elem.text(caption)],
+meta = |caption| Gui.row(
+	{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
+	[Gui.text(caption)],
 )
 
-divider = Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.edge, font_size: Theme.meta },
-	[Elem.text("|")],
+divider = Gui.row(
+	{ padding: 0, gap: 0, fg: Theme.edge, font_size: Theme.meta },
+	[Gui.text("|")],
 )
 
-trailing_meta = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
-	[Elem.text(caption)],
+trailing_meta = |caption| Gui.row(
+	{ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
+	[Gui.text(caption)],
 )
 
 ## A note in place of content: an empty column, an unopened database. Set in the
 ## same quiet type as a label, because it is a statement of fact and not an
 ## alarm about one.
-note = |caption| Elem.row(
-	Elem.RowProps.{ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta },
-	[Elem.text(caption)],
+note = |caption| Gui.row(
+	{ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta },
+	[Gui.text(caption)],
 )
 
-quiet_key = |props| Elem.action_button(
-	Elem.ActionButtonProps.{
-		caption: props.caption,
-		label: props.label,
-		on_press: props.on_press,
-		width: props.width,
-		padding: 6,
-		font_size: Theme.body,
-		font_face: Theme.face,
-		radius: Theme.radius,
-		bg: Theme.quiet,
-		hover_bg: Theme.quiet_hover,
-		active_bg: Theme.quiet_active,
-		fg: Theme.ink,
-		border_color: Theme.line,
-		border_width: 1,
-		text_overflow: Ellipsis,
-	},
-)
+quiet_key = |props| Gui.button({
+	caption: props.caption,
+	label: props.label,
+	on_press: props.on_press,
+	width: props.width,
+	padding: 6,
+	font_size: Theme.body,
+	font_face: Theme.face,
+	radius: Theme.radius,
+	bg: Theme.quiet,
+	hover_bg: Theme.quiet_hover,
+	active_bg: Theme.quiet_active,
+	fg: Theme.ink,
+	border_color: Theme.line,
+	border_width: 1,
+	text_overflow: Ellipsis,
+})
 
 ## The browser holds read authority over exactly one folder, handed to it by a
 ## person at the host's picker. The bar says which folder that is, or which of
@@ -67,8 +64,8 @@ authority_bar = |state| {
 		Granted(folder) => { icon: folder_check_icon, name: "Folder granted", held: folder, verdict: "read-only, this folder only", ink: Theme.ink }
 		Refused => { icon: folder_x_icon, name: "Folder grant refused", held: "no folder granted", verdict: "the host refused a folder", ink: Theme.alarm_ink }
 	}
-	Elem.row(
-		Elem.RowProps.{
+	Gui.row(
+		{
 			label: "Authority bar",
 			width: Fill,
 			padding: Theme.inset,
@@ -81,16 +78,16 @@ authority_bar = |state| {
 			font_size: Theme.meta,
 		},
 		[
-			Elem.image(Elem.ImageProps.{ label: reading.name, bytes: reading.icon, format: Svg, width: Px(14), height: Px(14) }),
+			Gui.image({ label: reading.name, bytes: reading.icon, format: Svg, width: Px(14), height: Px(14) }),
 			meta("FOLDER"),
-			Elem.row(
-				Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.meta, font_face: Theme.face, max_width: Px(320), text_overflow: Ellipsis },
-				[Elem.text(reading.held)],
+			Gui.row(
+				{ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.meta, font_face: Theme.face, max_width: Px(320), text_overflow: Ellipsis },
+				[Gui.text(reading.held)],
 			),
 			divider,
-			Elem.row(
-				Elem.RowProps.{ label: "Folder verdict", padding: 0, gap: 0, grow: True, justify: End, fg: reading.ink, font_size: Theme.meta },
-				[Elem.text(reading.verdict)],
+			Gui.row(
+				{ label: "Folder verdict", padding: 0, gap: 0, grow: True, justify: End, fg: reading.ink, font_size: Theme.meta },
+				[Gui.text(reading.verdict)],
 			),
 			quiet_key({ caption: "Choose folder…", label: "Choose database folder", on_press: |current, _| Browser.choose(current), width: Auto }),
 		],
@@ -98,8 +95,8 @@ authority_bar = |state| {
 }
 
 error_band = |state| match state.status {
-	Failed(problem) => Elem.panel(
-		Elem.PanelProps.{
+	Failed(problem) => Gui.panel(
+		{
 			label: "Database error",
 			width: Fill,
 			padding: Theme.inset,
@@ -112,11 +109,11 @@ error_band = |state| match state.status {
 			radius: 0,
 		},
 		[
-			Elem.row(Elem.RowProps.{ padding: 0, gap: 0, font_size: Theme.body }, [Elem.text(problem.message)]),
-			Elem.row(Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Elem.text(problem.remedy)]),
+			Gui.row({ padding: 0, gap: 0, font_size: Theme.body }, [Gui.text(problem.message)]),
+			Gui.row({ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Gui.text(problem.remedy)]),
 		],
 	)
-	_ => Elem.row(Elem.RowProps.{ padding: 0, gap: 0, height: Px(0) }, [])
+	_ => Gui.row({ padding: 0, gap: 0, height: Px(0) }, [])
 }
 
 files_column = |state| {
@@ -138,8 +135,8 @@ files_column = |state| {
 			}
 		}
 	}
-	Elem.col(
-		Elem.ColProps.{
+	Gui.col(
+		{
 			label: "Database files",
 			width: Px(Theme.files_width),
 			height: Fill,
@@ -159,14 +156,14 @@ schema_column = |state| {
 		[note("Open a file to read its tables.")]
 	} else {
 		state.schema.map(
-			|name| Elem.row(
-				Elem.RowProps.{ width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis },
-				[Elem.text("Table: ${name}")],
+			|name| Gui.row(
+				{ width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis },
+				[Gui.text("Table: ${name}")],
 			),
 		)
 	}
-	Elem.col(
-		Elem.ColProps.{
+	Gui.col(
+		{
 			label: "Database schema",
 			width: Px(Theme.schema_width),
 			height: Fill,
@@ -184,8 +181,8 @@ schema_column = |state| {
 ## One cell of the result table. Every column takes an equal share of the width
 ## and clips rather than wraps, so a row is always one line tall and the columns
 ## stay on the same vertical rules from the header down.
-cell = |text, ink, size, justify| Elem.row(
-	Elem.RowProps.{
+cell = |text, ink, size, justify| Gui.row(
+	{
 		width: Fill,
 		grow: True,
 		padding: 0,
@@ -198,7 +195,7 @@ cell = |text, ink, size, justify| Elem.row(
 		align: Center,
 		justify,
 	},
-	[Elem.text(text)],
+	[Gui.text(text)],
 )
 
 ## A ledger aligns its numbers on the right so the decimal points stack and a
@@ -216,15 +213,15 @@ alignments = |result| match result.rows.first() {
 	Err(_) => result.columns.map(|_| Start)
 }
 
-gutter = |text| Elem.row(
-	Elem.RowProps.{ width: Px(Theme.gutter), padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face, text_overflow: Ellipsis, align: Center },
-	[Elem.text(text)],
+gutter = |text| Gui.row(
+	{ width: Px(Theme.gutter), padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face, text_overflow: Ellipsis, align: Center },
+	[Gui.text(text)],
 )
 
 result_table = |result| {
 	columns_justify = alignments(result)
-	header = Elem.row(
-		Elem.RowProps.{
+	header = Gui.row(
+		{
 			label: "Result columns",
 			width: Fill,
 			height: Px(Theme.row_height),
@@ -239,10 +236,10 @@ result_table = |result| {
 		[gutter("ROW")].concat(result.columns.map_with_index(|name, index| cell(name, Theme.dim, Theme.meta, columns_justify.get(index) ?? Start))),
 	)
 	rows = result.rows.map_with_index(
-		|row, index| Elem.VirtualListItem.{
+		|row, index| {
 			key: index,
-			content: Elem.row(
-				Elem.RowProps.{
+			content: Gui.row(
+				{
 					width: Fill,
 					height: Px(Theme.row_height),
 					padding: 0,
@@ -256,9 +253,9 @@ result_table = |result| {
 			),
 		},
 	)
-	Elem.col(
-		Elem.ColProps.{ label: "Result table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
-		[header, Elem.virtual_list(Elem.VirtualListProps.{ label: "Query rows", row_height: Theme.row_height, items: rows })],
+	Gui.col(
+		{ label: "Result table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+		[header, Gui.virtual_list({ label: "Query rows", row_height: Theme.row_height, items: rows })],
 	)
 }
 
@@ -266,41 +263,37 @@ query_bench = |state| {
 	editor = match state.database {
 		None => [note("Open a database from the folder to write a query against it.")]
 		Some(database) => [
-			Elem.textarea(
-				Elem.TextareaProps.{
-					label: "SQL query",
-					value: state.query,
-					placeholder: "SELECT * FROM books LIMIT 100",
-					on_input: |current, event| Action.update(Browser.set_query(current, event.value)),
-					width: Fill,
-					height: Px(76),
-					padding: Theme.inset,
-					font_size: Theme.body,
-					font_face: Theme.face,
-					bg: Theme.card,
-					fg: Theme.ink,
-					border_color: Theme.edge,
-					border_width: 1,
-					radius: Theme.radius,
-				},
-			),
-			Elem.row(
-				Elem.RowProps.{ label: "Query controls", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+			Gui.textarea({
+				label: "SQL query",
+				value: state.query,
+				placeholder: "SELECT * FROM books LIMIT 100",
+				on_input: |current, event| Gui.update(Browser.set_query(current, event.value)),
+				width: Fill,
+				height: Px(76),
+				padding: Theme.inset,
+				font_size: Theme.body,
+				font_face: Theme.face,
+				bg: Theme.card,
+				fg: Theme.ink,
+				border_color: Theme.edge,
+				border_width: 1,
+				radius: Theme.radius,
+			}),
+			Gui.row(
+				{ label: "Query controls", width: Fill, padding: 0, gap: Theme.inset, align: Center },
 				[
-					Elem.action_button(
-						Elem.ActionButtonProps.{
-							caption: "Run query",
-							label: "Run query",
-							on_press: |current, _| Browser.run_query(current, database, current.query),
-							padding: 6,
-							font_size: Theme.body,
-							radius: Theme.radius,
-							bg: Theme.accent,
-							hover_bg: Theme.accent_hover,
-							active_bg: Theme.accent_active,
-							fg: Theme.on_accent,
-						},
-					),
+					Gui.button({
+						caption: "Run query",
+						label: "Run query",
+						on_press: |current, _| Browser.run_query(current, database, current.query),
+						padding: 6,
+						font_size: Theme.body,
+						radius: Theme.radius,
+						bg: Theme.accent,
+						hover_bg: Theme.accent_hover,
+						active_bg: Theme.accent_active,
+						fg: Theme.on_accent,
+					}),
 					trailing_meta(
 						match state.status {
 							Busy(_) => "running…"
@@ -313,24 +306,24 @@ query_bench = |state| {
 	}
 	result = match state.result {
 		None => [
-			Elem.row(Elem.RowProps.{ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body }, [Elem.text("Run a query to inspect rows")]),
+			Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body }, [Gui.text("Run a query to inspect rows")]),
 		]
 		Some(value) => [
-			Elem.row(
-				Elem.RowProps.{ label: "Result summary", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+			Gui.row(
+				{ label: "Result summary", width: Fill, padding: 0, gap: Theme.inset, align: Center },
 				[meta("Columns: ${Str.join_with(value.columns, ", ")}"), trailing_meta("Rows: ${value.rows.len().to_str()}")],
 			),
 			result_table(value),
 		]
 	}
-	Elem.col(
-		Elem.ColProps.{ label: "Query bench", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },
+	Gui.col(
+		{ label: "Query bench", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },
 		[meta("SQL")].concat(editor).concat(result),
 	)
 }
 
-header = |state| Elem.row(
-	Elem.RowProps.{
+header = |state| Gui.row(
+	{
 		label: "Browser header",
 		width: Fill,
 		padding: Theme.inset,
@@ -344,7 +337,7 @@ header = |state| Elem.row(
 		font_size: Theme.meta,
 	},
 	[
-		Elem.text("DATABASE BROWSER"),
+		Gui.text("DATABASE BROWSER"),
 		divider,
 		meta("sqlite, read only"),
 		divider,
@@ -352,9 +345,9 @@ header = |state| Elem.row(
 	],
 )
 
-render : Browser.State -> Elem(Browser.State)
-render = |state| Elem.col(
-	Elem.ColProps.{
+render : Browser.State -> Gui.Elem(Browser.State)
+render = |state| Gui.col(
+	{
 		label: "Database browser",
 		width: Fill,
 		height: Fill,
@@ -369,8 +362,8 @@ render = |state| Elem.col(
 		header(state),
 		authority_bar(state),
 		error_band(state),
-		Elem.row(
-			Elem.RowProps.{ label: "Ledger", width: Fill, height: Fill, grow: True, padding: 0, gap: 0 },
+		Gui.row(
+			{ label: "Ledger", width: Fill, height: Fill, grow: True, padding: 0, gap: 0 },
 			[files_column(state), schema_column(state), query_bench(state)],
 		),
 	],

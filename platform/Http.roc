@@ -5,6 +5,7 @@ import http.Request
 import http.Response
 
 Http := [].{
+
 	## Opaque authority to reach exactly the granted origin.
 	Client := Resource.HttpClient.{
 
@@ -14,6 +15,7 @@ Http := [].{
 	}
 	Reason : [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Revoked, Timeout, UnsupportedScheme]
 	HttpErr : [AcquireHttpErr(Reason), SendHttpErr(Reason)]
+
 	## The finite limits one exchange runs under. Every field has a default, so
 	## a caller states only the limits it actually wants to move.
 	Config := {

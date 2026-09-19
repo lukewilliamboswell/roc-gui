@@ -7,10 +7,11 @@
 ## unreported metric gets its own level, its own dash where the figure goes, its
 ## own grey, and a sentence naming the one metric that is missing. A shared
 ## "unavailable" would tell a person four things are wrong when one is.
-import pf.SystemMonitor
+import pf.Gui
 import Format
 
 Summary := [].{
+
 	## What a reading is, rather than what it says. `Pending` is before the first
 	## sample; `Missing` is the sampler declining to report; `Elevated` and
 	## `Critical` are a measured figure over a threshold.
@@ -21,19 +22,19 @@ Summary := [].{
 	Tile : { caption : Str, detail : Str, level : Level, unit : Str, value : Str }
 
 	## The four readings, in the order they are read.
-	tiles : [None, Some(SystemMonitor.Snapshot)] -> List(Tile)
+	tiles : [None, Some(Gui.SystemMonitorSnapshot)] -> List(Tile)
 	tiles = tiles
 
 	## One line of the observation log: every channel of one sample, in fixed
 	## columns, each figure carrying the unit that tells it apart from its
 	## neighbour.
-	history_line : SystemMonitor.Snapshot -> Str
+	history_line : Gui.SystemMonitorSnapshot -> Str
 	history_line = history_line
 
 	## CPU load for the chart, in tenths of a percent, or nothing when the
 	## sample carried no CPU reading. A gap in the chart is the honest drawing of
 	## a gap in the data.
-	cpu_load : SystemMonitor.Snapshot -> [None, Some(U64)]
+	cpu_load : Gui.SystemMonitorSnapshot -> [None, Some(U64)]
 	cpu_load = cpu_load
 }
 

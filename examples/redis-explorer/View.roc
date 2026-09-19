@@ -1,7 +1,6 @@
 ## The mounted console: a header, a standing readout of the one stream the
 ## explorer may hold, the scan bar, the keyspace, and the value inspector.
-import pf.Action
-import pf.Elem
+import pf.Gui
 import Explorer
 import RedisData
 import Theme
@@ -10,48 +9,46 @@ import "icons/plug-zap.svg" as online_icon : List(U8)
 import "icons/shield-off.svg" as refused_icon : List(U8)
 
 View := [].{
-	render : Explorer.State -> Elem(Explorer.State)
+	render : Explorer.State -> Gui.Elem(Explorer.State)
 	render = render
 }
 
-meta = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
-	[Elem.text(caption)],
+meta = |caption| Gui.row(
+	{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
+	[Gui.text(caption)],
 )
 
-divider = Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.line, font_size: Theme.meta },
-	[Elem.text("|")],
+divider = Gui.row(
+	{ padding: 0, gap: 0, fg: Theme.line, font_size: Theme.meta },
+	[Gui.text("|")],
 )
 
-trailing_meta = |caption| Elem.row(
-	Elem.RowProps.{ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
-	[Elem.text(caption)],
+trailing_meta = |caption| Gui.row(
+	{ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
+	[Gui.text(caption)],
 )
 
-note = |caption| Elem.row(
-	Elem.RowProps.{ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body, font_face: Theme.face },
-	[Elem.text(caption)],
+note = |caption| Gui.row(
+	{ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body, font_face: Theme.face },
+	[Gui.text(caption)],
 )
 
-key_cap = |props| Elem.action_button(
-	Elem.ActionButtonProps.{
-		caption: props.caption,
-		label: props.label,
-		enabled: props.enabled,
-		on_press: props.on_press,
-		padding: 5,
-		font_size: Theme.meta,
-		font_face: Theme.face,
-		radius: Theme.radius,
-		bg: Theme.key,
-		hover_bg: Theme.key_hover,
-		active_bg: Theme.key_active,
-		fg: Theme.text,
-		border_color: Theme.edge,
-		border_width: 1,
-	},
-)
+key_cap = |props| Gui.button({
+	caption: props.caption,
+	label: props.label,
+	enabled: props.enabled,
+	on_press: props.on_press,
+	padding: 5,
+	font_size: Theme.meta,
+	font_face: Theme.face,
+	radius: Theme.radius,
+	bg: Theme.key,
+	hover_bg: Theme.key_hover,
+	active_bg: Theme.key_active,
+	fg: Theme.text,
+	border_color: Theme.edge,
+	border_width: 1,
+})
 
 ## How the explorer reads its own connection. The three icons are the three
 ## things it can be, and the signal colour appears only while a stream is
@@ -78,8 +75,8 @@ endpoint_bar = |state| {
 		Busy(busy) => key_cap({ caption: "Disconnect", label: "Disconnect from Redis", enabled: False, on_press: |current, _| Explorer.disconnect(current, busy.stream) })
 		_ => key_cap({ caption: "Connect", label: "Connect to Redis", enabled: True, on_press: |current, _| Explorer.connect(current) })
 	}
-	Elem.row(
-		Elem.RowProps.{
+	Gui.row(
+		{
 			label: "Endpoint bar",
 			width: Fill,
 			padding: Theme.inset,
@@ -92,16 +89,16 @@ endpoint_bar = |state| {
 			font_size: Theme.meta,
 		},
 		[
-			Elem.image(Elem.ImageProps.{ label: reading.name, bytes: reading.icon, format: Svg, width: Px(13), height: Px(13) }),
+			Gui.image({ label: reading.name, bytes: reading.icon, format: Svg, width: Px(13), height: Px(13) }),
 			meta("ENDPOINT"),
-			Elem.row(
-				Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.text, font_size: Theme.meta, font_face: Theme.face },
-				[Elem.text("one address, fixed by the host at launch")],
+			Gui.row(
+				{ padding: 0, gap: 0, fg: Theme.text, font_size: Theme.meta, font_face: Theme.face },
+				[Gui.text("one address, fixed by the host at launch")],
 			),
 			divider,
-			Elem.row(
-				Elem.RowProps.{ label: "Endpoint verdict", padding: 0, gap: 0, grow: True, justify: End, fg: reading.ink, font_size: Theme.meta, font_face: Theme.face },
-				[Elem.text(reading.verdict)],
+			Gui.row(
+				{ label: "Endpoint verdict", padding: 0, gap: 0, grow: True, justify: End, fg: reading.ink, font_size: Theme.meta, font_face: Theme.face },
+				[Gui.text(reading.verdict)],
 			),
 			control,
 		],
@@ -109,8 +106,8 @@ endpoint_bar = |state| {
 }
 
 error_band = |state| match state.trouble {
-	Some(trouble) => Elem.panel(
-		Elem.PanelProps.{
+	Some(trouble) => Gui.panel(
+		{
 			label: "Redis error",
 			width: Fill,
 			padding: Theme.inset,
@@ -123,11 +120,11 @@ error_band = |state| match state.trouble {
 			radius: 0,
 		},
 		[
-			Elem.row(Elem.RowProps.{ padding: 0, gap: 0, font_size: Theme.body }, [Elem.text(trouble.message)]),
-			Elem.row(Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Elem.text(trouble.remedy)]),
+			Gui.row({ padding: 0, gap: 0, font_size: Theme.body }, [Gui.text(trouble.message)]),
+			Gui.row({ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.text(trouble.remedy)]),
 		],
 	)
-	None => Elem.row(Elem.RowProps.{ padding: 0, gap: 0, height: Px(0) }, [])
+	None => Gui.row({ padding: 0, gap: 0, height: Px(0) }, [])
 }
 
 ## The scan bar exists only while a stream does. While a request owns the
@@ -140,9 +137,9 @@ scan_bar = |state| {
 		_ => None
 	}
 	match held {
-		None => Elem.row(Elem.RowProps.{ padding: 0, gap: 0, height: Px(0) }, [])
-		Some(link) => Elem.row(
-			Elem.RowProps.{
+		None => Gui.row({ padding: 0, gap: 0, height: Px(0) }, [])
+		Some(link) => Gui.row(
+			{
 				label: "Scan bar",
 				width: Fill,
 				padding: Theme.inset,
@@ -155,27 +152,25 @@ scan_bar = |state| {
 			},
 			[
 				meta("SCAN"),
-				Elem.text_input(
-					Elem.TextInputProps.{
-						label: "Key pattern",
-						value: state.pattern,
-						placeholder: "a glob, for example profile:*",
-						enabled: link.ready,
-						on_change: |current, event| Action.update(Explorer.set_pattern(current, event.value)),
-						on_submit: |current, _| Explorer.scan(current, link.stream),
-						width: Fill,
-						grow: True,
-						height: Px(Theme.field_height),
-						padding: Theme.inset,
-						font_size: Theme.body,
-						font_face: Theme.face,
-						bg: Theme.well,
-						fg: Theme.text,
-						border_color: Theme.edge,
-						border_width: 1,
-						radius: Theme.radius,
-					},
-				),
+				Gui.text_input({
+					label: "Key pattern",
+					value: state.pattern,
+					placeholder: "a glob, for example profile:*",
+					enabled: link.ready,
+					on_change: |current, event| Gui.update(Explorer.set_pattern(current, event.value)),
+					on_submit: |current, _| Explorer.scan(current, link.stream),
+					width: Fill,
+					grow: True,
+					height: Px(Theme.field_height),
+					padding: Theme.inset,
+					font_size: Theme.body,
+					font_face: Theme.face,
+					bg: Theme.well,
+					fg: Theme.text,
+					border_color: Theme.edge,
+					border_width: 1,
+					radius: Theme.radius,
+				}),
 				key_cap({ caption: "Refresh", label: "Refresh Redis keys", enabled: link.ready, on_press: |current, _| Explorer.scan(current, link.stream) }),
 			],
 		)
@@ -189,27 +184,25 @@ key_row = |state, key, stream, ready| {
 		Some(selection) => selection.key.name == key.name
 		None => False
 	}
-	Elem.action_button(
-		Elem.ActionButtonProps.{
-			caption: key.name,
-			label: "Inspect Redis key ${key.name}",
-			enabled: ready,
-			on_press: |current, _| Explorer.inspect(current, stream, key),
-			width: Fill,
-			height: Px(Theme.row_height),
-			padding: 0,
-			padding_left: Px(Theme.inset),
-			font_size: Theme.body,
-			font_face: Theme.face,
-			radius: 0,
-			bg: if selected Theme.selected else Theme.well,
-			hover_bg: Theme.key_hover,
-			active_bg: Theme.key_active,
-			fg: if selected Theme.text else Theme.dim,
-			text_overflow: Ellipsis,
-			justify: Start,
-		},
-	)
+	Gui.button({
+		caption: key.name,
+		label: "Inspect Redis key ${key.name}",
+		enabled: ready,
+		on_press: |current, _| Explorer.inspect(current, stream, key),
+		width: Fill,
+		height: Px(Theme.row_height),
+		padding: 0,
+		padding_left: Px(Theme.inset),
+		font_size: Theme.body,
+		font_face: Theme.face,
+		radius: 0,
+		bg: if selected Theme.selected else Theme.well,
+		hover_bg: Theme.key_hover,
+		active_bg: Theme.key_active,
+		fg: if selected Theme.text else Theme.dim,
+		text_overflow: Ellipsis,
+		justify: Start,
+	})
 }
 
 keyspace = |state| {
@@ -219,13 +212,13 @@ keyspace = |state| {
 		_ => None
 	}
 	items = match held {
-		None => state.keys.map_with_index(|key, index| Elem.VirtualListItem.{ key: index, content: note(key.name) })
-		Some(link) => state.keys.map_with_index(|key, index| Elem.VirtualListItem.{ key: index, content: key_row(state, key, link.stream, link.ready) })
+		None => state.keys.map_with_index(|key, index| { key: index, content: note(key.name) })
+		Some(link) => state.keys.map_with_index(|key, index| { key: index, content: key_row(state, key, link.stream, link.ready) })
 	}
 	body = if state.keys.is_empty() {
 		[
-			Elem.col(
-				Elem.ColProps.{ width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: 0 },
+			Gui.col(
+				{ width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: 0 },
 				[
 					note(
 						match state.link {
@@ -239,10 +232,10 @@ keyspace = |state| {
 			),
 		]
 	} else {
-		[Elem.virtual_list(Elem.VirtualListProps.{ label: "Redis keys", row_height: Theme.row_height, items })]
+		[Gui.virtual_list({ label: "Redis keys", row_height: Theme.row_height, items })]
 	}
-	Elem.col(
-		Elem.ColProps.{
+	Gui.col(
+		{
 			label: "Keyspace",
 			width: Px(Theme.keys_width),
 			height: Fill,
@@ -255,8 +248,8 @@ keyspace = |state| {
 			overflow_y: Clip,
 		},
 		[
-			Elem.row(
-				Elem.RowProps.{ width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+			Gui.row(
+				{ width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 				[meta("KEYS"), trailing_meta("Keys: ${state.keys.len().to_str()}")],
 			),
 		].concat(body),
@@ -264,9 +257,9 @@ keyspace = |state| {
 }
 
 value_lines = |selected| RedisData.lines(selected.value).map_with_index(
-	|line, index| Elem.row(
-		Elem.RowProps.{ width: Fill, padding: 0, gap: 0, fg: Theme.text, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis },
-		[Elem.text("Value ${index.to_str()}: ${line}")],
+	|line, index| Gui.row(
+		{ width: Fill, padding: 0, gap: 0, fg: Theme.text, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis },
+		[Gui.text("Value ${index.to_str()}: ${line}")],
 	),
 )
 
@@ -274,31 +267,31 @@ inspector = |state| {
 	body = match state.selection {
 		None => [note("Select a key to inspect its value")]
 		Some(selected) => [
-			Elem.row(
-				Elem.RowProps.{ label: "Selected key", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+			Gui.row(
+				{ label: "Selected key", width: Fill, padding: 0, gap: Theme.inset, align: Center },
 				[
-					Elem.row(
-						Elem.RowProps.{ padding: 0, gap: 0, fg: Theme.text, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis },
-						[Elem.text("Key: ${selected.key.name}")],
+					Gui.row(
+						{ padding: 0, gap: 0, fg: Theme.text, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis },
+						[Gui.text("Key: ${selected.key.name}")],
 					),
 					trailing_meta(RedisData.ttl_text(selected.ttl_ms)),
 				],
 			),
 			meta("Type: ${RedisData.kind_name(selected.kind)}"),
-			Elem.col(
-				Elem.ColProps.{ label: "Value", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: 2, bg: Theme.well, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+			Gui.col(
+				{ label: "Value", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: 2, bg: Theme.well, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 				value_lines(selected),
 			),
 		]
 	}
-	Elem.panel(
-		Elem.PanelProps.{ label: "Value inspector", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.ground, border_width: 0, radius: 0 },
+	Gui.panel(
+		{ label: "Value inspector", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.ground, border_width: 0, radius: 0 },
 		body,
 	)
 }
 
-header = |state| Elem.row(
-	Elem.RowProps.{
+header = |state| Gui.row(
+	{
 		label: "Explorer header",
 		width: Fill,
 		padding: Theme.inset,
@@ -312,7 +305,7 @@ header = |state| Elem.row(
 		font_size: Theme.meta,
 	},
 	[
-		Elem.text("REDIS EXPLORER"),
+		Gui.text("REDIS EXPLORER"),
 		divider,
 		meta("resp, read only"),
 		divider,
@@ -320,9 +313,9 @@ header = |state| Elem.row(
 	],
 )
 
-render : Explorer.State -> Elem(Explorer.State)
-render = |state| Elem.col(
-	Elem.ColProps.{
+render : Explorer.State -> Gui.Elem(Explorer.State)
+render = |state| Gui.col(
+	{
 		label: "Redis Explorer",
 		width: Fill,
 		height: Fill,
@@ -338,8 +331,8 @@ render = |state| Elem.col(
 		endpoint_bar(state),
 		error_band(state),
 		scan_bar(state),
-		Elem.row(
-			Elem.RowProps.{ label: "Console", width: Fill, height: Fill, grow: True, padding: 0, gap: 0 },
+		Gui.row(
+			{ label: "Console", width: Fill, height: Fill, grow: True, padding: 0, gap: 0 },
 			[keyspace(state), inspector(state)],
 		),
 	],

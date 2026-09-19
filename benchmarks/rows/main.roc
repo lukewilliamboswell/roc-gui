@@ -1,8 +1,6 @@
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
-import pf.Action
-import pf.Elem
-import pf.Program
+import pf.Gui
 
 RowState : { id : U64, value : U64 }
 
@@ -69,58 +67,58 @@ swap_rows = |state, left, right| {
 	{ ..state, rows: b }
 }
 
-render_row : RowState -> Elem(State)
-render_row = |row| Elem.row(
+render_row : RowState -> Gui.Elem(State)
+render_row = |row| Gui.row(
 	{},
 	[
-		Elem.text("Row ${row.id.to_str()}: ${row.value.to_str()}"),
-		Elem.button({
+		Gui.text("Row ${row.id.to_str()}: ${row.value.to_str()}"),
+		Gui.button({
 			caption: "Select",
 			label: "Select row ${row.id.to_str()}",
 			on_press: |state, _| if state.selected == row.id {
-				Action.none
+				Gui.none
 			} else {
-				Action.update({ ..state, selected: row.id })
+				Gui.update({ ..state, selected: row.id })
 			},
 		}),
-		Elem.button({
+		Gui.button({
 			caption: "Delete",
 			label: "Delete row ${row.id.to_str()}",
-			on_press: |state, _| Action.update(delete_row(state, row.id)),
+			on_press: |state, _| Gui.update(delete_row(state, row.id)),
 		}),
 	],
 )
 
-render : State -> Elem(State)
+render : State -> Gui.Elem(State)
 render = |state| {
 	var $rendered = []
 	for row in state.rows {
 		$rendered = $rendered.append(render_row(row))
 	}
-	Elem.col(
+	Gui.col(
 		{},
 		[
-			Elem.row(
+			Gui.row(
 				{},
 				[
-					Elem.button({ caption: "Create 100", label: "Create 100 rows", on_press: |_, _| Action.update(create(100)) }),
-					Elem.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |_, _| Action.update(create(1000)) }),
-					Elem.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |_, _| Action.update(create(10000)) }),
-					Elem.button({ caption: "Create 100,000", label: "Create 100,000 rows", on_press: |_, _| Action.update(create(100000)) }),
-					Elem.button({ caption: "Append 1,000", label: "Append 1,000 rows", on_press: |value, _| Action.update(append_rows(value, 1000)) }),
-					Elem.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Action.update(update_every_tenth(value)) }),
-					Elem.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Action.update(swap_rows(value, 1, 998)) }),
-					Elem.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Action.update(swap_rows(value, 1, 98)) }),
-					Elem.button({ caption: "Swap far", label: "Swap rows 2 and 9999", on_press: |value, _| Action.update(swap_rows(value, 1, 9998)) }),
-					Elem.button({ caption: "Clear", label: "Clear rows", on_press: |value, _| Action.update({ ..value, rows: [], selected: 0 }) }),
+					Gui.button({ caption: "Create 100", label: "Create 100 rows", on_press: |_, _| Gui.update(create(100)) }),
+					Gui.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |_, _| Gui.update(create(1000)) }),
+					Gui.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |_, _| Gui.update(create(10000)) }),
+					Gui.button({ caption: "Create 100,000", label: "Create 100,000 rows", on_press: |_, _| Gui.update(create(100000)) }),
+					Gui.button({ caption: "Append 1,000", label: "Append 1,000 rows", on_press: |value, _| Gui.update(append_rows(value, 1000)) }),
+					Gui.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Gui.update(update_every_tenth(value)) }),
+					Gui.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Gui.update(swap_rows(value, 1, 998)) }),
+					Gui.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Gui.update(swap_rows(value, 1, 98)) }),
+					Gui.button({ caption: "Swap far", label: "Swap rows 2 and 9999", on_press: |value, _| Gui.update(swap_rows(value, 1, 9998)) }),
+					Gui.button({ caption: "Clear", label: "Clear rows", on_press: |value, _| Gui.update({ ..value, rows: [], selected: 0 }) }),
 				],
 			),
-			Elem.text("Rows: ${state.rows.len().to_str()}"),
-			Elem.text("Selection: ${state.selected.to_str()}"),
-			Elem.col({}, $rendered),
+			Gui.text("Rows: ${state.rows.len().to_str()}"),
+			Gui.text("Selection: ${state.selected.to_str()}"),
+			Gui.col({}, $rendered),
 		],
 	)
 }
 
-main : Program(State)
-main = Program.run({ init: |_access| { next_id: 1, rows: [], selected: 0 }, render })
+main : Gui.Program(State)
+main = Gui.run({ init: |_access| { next_id: 1, rows: [], selected: 0 }, render })

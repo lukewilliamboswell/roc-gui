@@ -298,7 +298,9 @@ rows_order_path_visits = |order, index, allow_end| {
 	var $done = False
 	while !$done {
 		match rows_order_table_get(order.parents, $node) ?? crash "KeyedSeq path parent missing" {
-			OrderRoot => { $done = True }
+			OrderRoot => {
+				$done = True
+			}
 			OrderParent({ node: parent_node, .. }) => {
 				$node = parent_node
 				$visits = $visits + 1
@@ -653,7 +655,9 @@ key_slot_limb = |key, limb| {
 	for byte_index in [0, 1, 2, 3, 4, 5, 6, 7] {
 		byte = bytes.get($offset) ?? crash "Key digest was not 32 bytes"
 		$value = $value + U8.to_u64(byte) * $factor
-		if byte_index < 7 { $factor = $factor * 256 }
+		if byte_index < 7 {
+			$factor = $factor * 256
+		}
 		$offset = $offset + 1
 	}
 	$value
@@ -699,7 +703,9 @@ key_slots_remove = |slots, key| {
 }
 
 KeyedSeqPlacement : [Before(Key), End]
+
 KeyedSeqEdit(value) : [InsertBefore(Key, value, KeyedSeqPlacement), MoveBefore(Key, KeyedSeqPlacement), Remove(Key), Set(Key, value)]
+
 KeyedSeqTransition(value) : { base_revision : U64, revision : U64, edits : List(KeyedSeqEdit(value)) }
 
 ## A persistent ordered collection keyed by the platform's complete Key digest.
@@ -765,17 +771,24 @@ KeyedSeq(value) :: {
 		} else {
 			location = rows_order_locate_node(state.order, state.order.root, rank + 1, False)
 			leaf = rows_order_table_get(state.order.nodes, location.leaf) ?? crash "Rows placement leaf was missing"
-			next_slot = match leaf { OrderLeaf({ slots, .. }) => slots.get(location.offset) ?? crash "Rows placement slot was missing" OrderBranch(_) => crash "Rows placement location was not a leaf" }
+			next_slot = match leaf {
+				OrderLeaf({ slots, .. }) => slots.get(location.offset) ?? crash "Rows placement slot was missing"
+				OrderBranch(_) => crash "Rows placement location was not a leaf"
+			}
 			next = Index.get(state.values, next_slot) ?? crash "Rows placement value was missing"
 			Ok(Before(next.key))
 		}
 	}
 
 	to_list : KeyedSeq(value) -> List({ key : Key, value : value })
-	to_list = |KeyedSeq.(state)| rows_order_fold(state.order, [], |items, slot| {
-		entry = Index.get(state.values, slot) ?? crash "KeyedSeq order named a missing value"
-		items.append(entry)
-	})
+	to_list = |KeyedSeq.(state)| rows_order_fold(
+		state.order,
+		[],
+		|items, slot| {
+			entry = Index.get(state.values, slot) ?? crash "KeyedSeq order named a missing value"
+			items.append(entry)
+		},
+	)
 
 	from_list : List({ key : Key, value : value }) -> Try(KeyedSeq(value), Error)
 	from_list = |entries| {
@@ -806,15 +819,23 @@ KeyedSeq(value) :: {
 				}
 			}
 			slot = state.next_slot
-			rank_visits = match placement { End => 0, Before(_) => rows_order_path_visits(state.order, index, False) }
+			rank_visits = match placement {
+				End => 0
+				Before(_) => rows_order_path_visits(state.order, index, False)
+			}
 			visits = rank_visits + rows_order_path_visits(state.order, index, True)
-			Ok(KeyedSeq.({ ..state,
-				order: rows_order_insert(state.order, index, slot),
-				values: Index.set(state.values, slot, { key, value }),
-				keys: key_slots_set(state.keys, key, slot),
-				next_slot: slot + 1,
-				last_visits: visits,
-			}))
+			Ok(
+				KeyedSeq.(
+					{
+						..state,
+						order: rows_order_insert(state.order, index, slot),
+						values: Index.set(state.values, slot, { key, value }),
+						keys: key_slots_set(state.keys, key, slot),
+						next_slot: slot + 1,
+						last_visits: visits,
+					},
+				),
+			)
 		}
 	}
 
@@ -834,7 +855,10 @@ KeyedSeq(value) :: {
 	}
 
 	remove : KeyedSeq(value), Key -> Try(KeyedSeq(value), Error)
-	remove = |sequence, key| match remove_raw(sequence, key) { Err(error) => Err(error), Ok(changed) => Ok(record(changed, [Remove(key)])) }
+	remove = |sequence, key| match remove_raw(sequence, key) {
+		Err(error) => Err(error)
+		Ok(changed) => Ok(record(changed, [Remove(key)]))
+	}
 
 	set_raw : KeyedSeq(value), Key, value -> Try(KeyedSeq(value), Error)
 	set_raw = |KeyedSeq.(state), key, value| {
@@ -851,7 +875,10 @@ KeyedSeq(value) :: {
 	## Set is item-local (zero structural visits) but remains journaled so a
 	## retained keyed child can receive its replacement value.
 	set : KeyedSeq(value), Key, value -> Try(KeyedSeq(value), Error)
-	set = |sequence, key, value| match set_raw(sequence, key, value) { Err(error) => Err(error), Ok(changed) => Ok(record(changed, [Set(key, value)])) }
+	set = |sequence, key, value| match set_raw(sequence, key, value) {
+		Err(error) => Err(error)
+		Ok(changed) => Ok(record(changed, [Set(key, value)]))
+	}
 
 	move_before_raw : KeyedSeq(value), Key, Placement -> Try(KeyedSeq(value), Error)
 	move_before_raw = |KeyedSeq.(state), key, placement| {
@@ -869,7 +896,10 @@ KeyedSeq(value) :: {
 						rows_order_rank(without, anchor_slot) ?? crash "KeyedSeq move anchor lacked a rank"
 					}
 				}
-				anchor_visits = match placement { End => 0, Before(_) => rows_order_path_visits(without, new_rank, False) }
+				anchor_visits = match placement {
+					End => 0
+					Before(_) => rows_order_path_visits(without, new_rank, False)
+				}
 				insert_visits = rows_order_path_visits(without, new_rank, True)
 				Ok(KeyedSeq.({ ..state, order: rows_order_insert(without, new_rank, slot), last_visits: remove_visits + anchor_visits + insert_visits }))
 			}
@@ -917,7 +947,10 @@ KeyedSeq(value) :: {
 		[] => to_list(working).fold(edits, |journal, entry| journal.append(Remove(entry.key)))
 		[target, .. as rest] => {
 			current = to_list(working)
-			placement = match current { [] => End, [head, ..] => Before(head.key) }
+			placement = match current {
+				[] => End
+				[head, ..] => Before(head.key)
+			}
 			journal_edit = match get(working, target.key) {
 				Err(_) => InsertBefore(target.key, target.value, placement)
 				Ok(_) => match current {
@@ -947,12 +980,18 @@ KeyedSeq(value) :: {
 		var $index = 0
 		for entry in entries {
 			match key_slots_get(state.keys, entry.key) {
-				Err(_) => { $valid = False }
+				Err(_) => {
+					$valid = False
+				}
 				Ok(slot) => {
 					$valid = $valid and rows_order_rank(state.order, slot) == Ok($index)
 					match Index.get(state.values, slot) {
-						Err(_) => { $valid = False }
-						Ok(stored) => { $valid = $valid and stored.key == entry.key }
+						Err(_) => {
+							$valid = False
+						}
+						Ok(stored) => {
+							$valid = $valid and stored.key == entry.key
+						}
 					}
 				}
 			}
@@ -978,9 +1017,18 @@ expect {
 expect {
 	key = Key.id(9)
 	one = KeyedSeq.insert_before(KeyedSeq.empty, key, 1, End) ?? crash "unique"
-	duplicate = match KeyedSeq.insert_before(one, key, 2, End) { Err(DuplicateKey(found)) => found == key, _ => False }
-	missing = match KeyedSeq.remove(one, Key.id(10)) { Err(MissingKey(found)) => found == Key.id(10), _ => False }
-	anchor = match KeyedSeq.move_before(one, key, Before(Key.id(11))) { Err(MissingAnchor(found)) => found == Key.id(11), _ => False }
+	duplicate = match KeyedSeq.insert_before(one, key, 2, End) {
+		Err(DuplicateKey(found)) => found == key
+		_ => False
+	}
+	missing = match KeyedSeq.remove(one, Key.id(10)) {
+		Err(MissingKey(found)) => found == Key.id(10)
+		_ => False
+	}
+	anchor = match KeyedSeq.move_before(one, key, Before(Key.id(11))) {
+		Err(MissingAnchor(found)) => found == Key.id(11)
+		_ => False
+	}
 	duplicate and missing and anchor and KeyedSeq.to_list(one) == [{ key, value: 1 }]
 }
 
@@ -992,9 +1040,17 @@ expect {
 	var $next = 0
 	var $valid = True
 	while $next < 256 {
-		at = if $model.is_empty() { 0 } else { ($next * 37).rem_by($model.len() + 1) }
+		at = if $model.is_empty() {
+			0
+		} else {
+			($next * 37).rem_by($model.len() + 1)
+		}
 		key = Key.id($next)
-		placement = if at == $model.len() { End } else { Before(($model.get(at) ?? crash "model anchor").key) }
+		placement = if at == $model.len() {
+			End
+		} else {
+			Before(($model.get(at) ?? crash "model anchor").key)
+		}
 		$sequence = KeyedSeq.insert_before($sequence, key, $next, placement) ?? crash "model insert"
 		$model = $model.take_first(at).concat([{ key, value: $next }]).concat($model.drop_first(at))
 		$valid = $valid and KeyedSeq.to_list($sequence) == $model and KeyedSeq.debug_valid($sequence)
@@ -1023,10 +1079,10 @@ expect {
 	removed = KeyedSeq.remove(moved, Key.id(2048)) ?? crash "scaling remove"
 	KeyedSeq.debug_valid($sequence)
 		and KeyedSeq.debug_valid(moved)
-		and KeyedSeq.debug_valid(removed)
-		and KeyedSeq.last_visits($sequence) <= 4
-		and KeyedSeq.last_visits(moved) <= 16
-		and KeyedSeq.last_visits(removed) <= 8
+			and KeyedSeq.debug_valid(removed)
+				and KeyedSeq.last_visits($sequence) <= 4
+					and KeyedSeq.last_visits(moved) <= 16
+						and KeyedSeq.last_visits(removed) <= 8
 }
 
 expect {
@@ -1049,13 +1105,13 @@ expect {
 	three_transition = KeyedSeq.last_transition(three)
 	KeyedSeq.revision(one) == 1
 		and one_transition == { base_revision: 0, revision: 1, edits: [InsertBefore(a, "a", End)] }
-		and KeyedSeq.revision(two) == 2
-		and two_transition == { base_revision: 1, revision: 2, edits: [Set(a, "A")] }
-		and KeyedSeq.last_visits(two) == 0
-		and KeyedSeq.revision(three) == 3
-		and three_transition == { base_revision: 2, revision: 3, edits: [InsertBefore(b, "b", Before(a))] }
-		# Earlier snapshots retain their own transition metadata.
-		and KeyedSeq.last_transition(one) == one_transition
+			and KeyedSeq.revision(two) == 2
+				and two_transition == { base_revision: 1, revision: 2, edits: [Set(a, "A")] }
+					and KeyedSeq.last_visits(two) == 0
+						and KeyedSeq.revision(three) == 3
+							and three_transition == { base_revision: 2, revision: 3, edits: [InsertBefore(b, "b", Before(a))] }
+							# Earlier snapshots retain their own transition metadata.
+								and KeyedSeq.last_transition(one) == one_transition
 }
 
 ## A multi-edit transaction is atomic at one revision and retains the exact
@@ -1069,14 +1125,17 @@ expect {
 	updated = KeyedSeq.apply_all(initial, edits) ?? crash "transaction apply"
 	transition = KeyedSeq.last_transition(updated)
 	failed = KeyedSeq.apply_all(initial, [Remove(a), Remove(a)])
-	failure_reported = match failed { Err(MissingKey(found)) => found == a, _ => False }
+	failure_reported = match failed {
+		Err(MissingKey(found)) => found == a
+		_ => False
+	}
 	KeyedSeq.revision(initial) == 1
 		and KeyedSeq.revision(updated) == 2
-		and transition == { base_revision: 1, revision: 2, edits }
-		and KeyedSeq.to_list(updated) == [{ key: b, value: 2 }, { key: a, value: 10 }, { key: c, value: 3 }]
-		and failure_reported
-		and KeyedSeq.to_list(initial) == [{ key: a, value: 1 }, { key: b, value: 2 }]
-		and KeyedSeq.revision(initial) == 1
+			and transition == { base_revision: 1, revision: 2, edits }
+				and KeyedSeq.to_list(updated) == [{ key: b, value: 2 }, { key: a, value: 10 }, { key: c, value: 3 }]
+					and failure_reported
+						and KeyedSeq.to_list(initial) == [{ key: a, value: 1 }, { key: b, value: 2 }]
+							and KeyedSeq.revision(initial) == 1
 }
 
 ## Runtime consumers must present the exact base revision of the retained
@@ -1086,7 +1145,13 @@ expect {
 	sequence = KeyedSeq.insert_before(KeyedSeq.empty, key, 41, End) ?? crash "stale sequence"
 	current = KeyedSeq.transition_from(sequence, 0)
 	stale = KeyedSeq.transition_from(sequence, 9)
-	current_ok = match current { Ok(transition) => transition.revision == 1 and transition.base_revision == 0, _ => False }
-	stale_ok = match stale { Err(StaleRevision({ actual, requested })) => actual == 0 and requested == 9, _ => False }
+	current_ok = match current {
+		Ok(transition) => transition.revision == 1 and transition.base_revision == 0
+		_ => False
+	}
+	stale_ok = match stale {
+		Err(StaleRevision({ actual, requested })) => actual == 0 and requested == 9
+		_ => False
+	}
 	current_ok and stale_ok
 }

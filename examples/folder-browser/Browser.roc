@@ -1,7 +1,3 @@
-import pf.Program
-import pf.Action
-import pf.Elem
-import pf.Files
 import pf.Gui
 import "icons/folder.svg" as folder_icon : List(U8)
 import "icons/file.svg" as file_icon : List(U8)
@@ -9,12 +5,14 @@ import "icons/corner-down-right.svg" as link_icon : List(U8)
 
 Browser := [].{
 	State : State
+
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	init : Program.Access -> State
+	init : Gui.Access -> State
 	init = |access| { access, next_request: 1, show_files: True, status: Ready, view: Empty }
-	render : State -> Elem(State)
+	render : State -> Gui.Elem(State)
 	render = render
+
 	## The window's own ground and ink, so `main.roc` can declare the identity
 	## instead of leaving the space behind the root element to the host.
 	ground : Gui.Color
@@ -23,9 +21,9 @@ Browser := [].{
 	ink = ink
 }
 
-Location : { directory : Files.Dir.Read, name : Str }
+Location : { directory : Gui.FilesDirRead, name : Str }
 
-View : [Empty, Showing({ entries : List(Files.Entry), trail : List(Location) })]
+View : [Empty, Showing({ entries : List(Gui.FilesEntry), trail : List(Location) })]
 
 Retry : [PickAgain, OpenAgain({ name : Str, parent : Location }), ReturnAgain(U64)]
 
@@ -37,29 +35,55 @@ Failure : { hint : Str, message : Str, retry : Retry }
 ## looking as though the press did nothing.
 Status : [Busy(U64), Dismissed, Failed(Failure), Ready]
 
-State : { access : Program.Access, next_request : U64, show_files : Bool, status : Status, view : View }
+State : { access : Gui.Access, next_request : U64, show_files : Bool, status : Status, view : View }
 
 ## Deep teal, lit from one direction: the window's ground is the darkest
 ## surface, panels sit one step above it, and rows one step above those. Nothing
 ## in the browser is brighter than the name of the folder you are looking at.
-ground = Gui.rgb(0x0e1a21)
-surface = Gui.rgb(0x14232b)
-rule = Gui.rgb(0x2a4753)
-row_bg = Gui.rgb(0x17272f)
-row_hover = Gui.rgb(0x27414f)
-link_fg = Gui.rgb(0x9bdcf0)
-ink = Gui.rgb(0xdbe7ed)
-muted_fg = Gui.rgb(0x93a7b2)
-title_fg = Gui.rgb(0xf2f6f8)
-chip_bg = Gui.rgb(0x203944)
+ground : Gui.Color
+ground = 0x0e1a21
+
+surface : Gui.Color
+surface = 0x14232b
+
+rule : Gui.Color
+rule = 0x2a4753
+
+row_bg : Gui.Color
+row_bg = 0x17272f
+
+row_hover : Gui.Color
+row_hover = 0x27414f
+
+link_fg : Gui.Color
+link_fg = 0x9bdcf0
+
+ink : Gui.Color
+ink = 0xdbe7ed
+
+muted_fg : Gui.Color
+muted_fg = 0x93a7b2
+
+title_fg : Gui.Color
+title_fg = 0xf2f6f8
+
+chip_bg : Gui.Color
+chip_bg = 0x203944
 
 ## The one action that asks for authority. It is the only saturated surface in
 ## the window, so the press that a grant begins with is the press that looks
 ## like the point of the screen.
-accent = Gui.rgb(0x2f6f85)
-accent_hover = Gui.rgb(0x3d8aa3)
-accent_active = Gui.rgb(0x265a6d)
-accent_ink = Gui.rgb(0xf2fbff)
+accent : Gui.Color
+accent = 0x2f6f85
+
+accent_hover : Gui.Color
+accent_hover = 0x3d8aa3
+
+accent_active : Gui.Color
+accent_active = 0x265a6d
+
+accent_ink : Gui.Color
+accent_ink = 0xf2fbff
 
 name_limit : U64
 name_limit = 52
@@ -138,17 +162,20 @@ compare_names = |left, right| {
 }
 
 ## Folders first, then names in case-insensitive order.
-ordered = |entries| List.sort_with(entries, |left, right| {
-	left_dir = left.kind == Directory
-	right_dir = right.kind == Directory
-	if left_dir and !right_dir {
-		Before
-	} else if right_dir and !left_dir {
-		After
-	} else {
-		compare_names(left.name, right.name)
-	}
-})
+ordered = |entries| List.sort_with(
+	entries,
+	|left, right| {
+		left_dir = left.kind == Directory
+		right_dir = right.kind == Directory
+		if left_dir and !right_dir {
+			Before
+		} else if right_dir and !left_dir {
+			After
+		} else {
+			compare_names(left.name, right.name)
+		}
+	},
+)
 
 ## The kind marker is drawn, not spelled: a folder, a plain file, and the
 ## turned arrow of a symbolic link each read at a glance in the 20pt gutter.
@@ -160,9 +187,9 @@ marker_art = |kind| match kind {
 
 start_pick = |state| {
 	request = begin(state)
-	Action.task({
+	Gui.task({
 		pending: request.pending,
-		run: || match Files.pick_directory!(state.access) {
+		run: || match state.access.pick_directory!() {
 			Err(error) => PickFailed({ hint: hint_for(error), message: describe(error) })
 			Ok(Canceled) => PickCanceled
 			Ok(Chosen(selection)) => match selection.directory.list!() {
@@ -171,14 +198,15 @@ start_pick = |state| {
 			}
 		},
 		resolve: |latest, result| if !is_current(latest, request.id) {
-			Action.none
+			Gui.none
 		} else {
 			match result {
-				PickFailed(failure) => Action.update({ ..latest, status: Failed({ hint: failure.hint, message: failure.message, retry: PickAgain }) })
+				PickFailed(failure) => Gui.update({ ..latest, status: Failed({ hint: failure.hint, message: failure.message, retry: PickAgain }) })
+
 				## Closing the chooser is an answer. It leaves whatever was open
 				## open, and only the first screen says anything about it.
-				PickCanceled => Action.update({ ..latest, status: Dismissed })
-				Picked(value) => Action.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: [value.location] }) })
+				PickCanceled => Gui.update({ ..latest, status: Dismissed })
+				Picked(value) => Gui.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: [value.location] }) })
 			}
 		},
 	})
@@ -190,7 +218,7 @@ open_child = |state, parent, name| {
 		Showing(value) => value.trail
 		Empty => []
 	}
-	Action.task({
+	Gui.task({
 		pending: request.pending,
 		run: || match parent.directory.open_dir!(name) {
 			Err(error) => OpenFailed({ hint: hint_for(error), message: describe(error) })
@@ -200,34 +228,34 @@ open_child = |state, parent, name| {
 			}
 		},
 		resolve: |latest, result| if !is_current(latest, request.id) {
-			Action.none
+			Gui.none
 		} else {
 			match result {
-				OpenFailed(failure) => Action.update({ ..latest, status: Failed({ hint: failure.hint, message: "${failure.message}: ${name}", retry: OpenAgain({ parent, name }) }) })
-				Opened(value) => Action.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: previous_trail.append(value.location) }) })
+				OpenFailed(failure) => Gui.update({ ..latest, status: Failed({ hint: failure.hint, message: "${failure.message}: ${name}", retry: OpenAgain({ parent, name }) }) })
+				Opened(value) => Gui.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: previous_trail.append(value.location) }) })
 			}
 		},
 	})
 }
 
 go_to = |state, depth| match state.view {
-	Empty => Action.none
+	Empty => Gui.none
 	Showing(view) => {
 		trail = view.trail.take_first(depth + 1)
 		if trail.len() == view.trail.len() {
-			Action.none
+			Gui.none
 		} else {
 			target = trail.last() ?? crash "non-empty breadcrumb trail"
 			request = begin(state)
-			Action.task({
+			Gui.task({
 				pending: request.pending,
 				run: || target.directory.list!(),
 				resolve: |latest, result| if !is_current(latest, request.id) {
-					Action.none
+					Gui.none
 				} else {
 					match result {
-						Err(error) => Action.update({ ..latest, status: Failed({ hint: hint_for(error), message: "${describe(error)}: ${target.name}", retry: ReturnAgain(depth) }) })
-						Ok(entries) => Action.update({ ..latest, status: Ready, view: Showing({ entries, trail }) })
+						Err(error) => Gui.update({ ..latest, status: Failed({ hint: hint_for(error), message: "${describe(error)}: ${target.name}", retry: ReturnAgain(depth) }) })
+						Ok(entries) => Gui.update({ ..latest, status: Ready, view: Showing({ entries, trail }) })
 					}
 				},
 			})
@@ -242,7 +270,7 @@ retry = |state, retry_value| match retry_value {
 }
 
 ## One text run in a chosen colour and size. `Elem.text` inherits both.
-styled_text = |value, color, size| Elem.row(Elem.RowProps.{ fg: color, font_size: size, padding: 0, gap: 0 }, [Elem.text(value)])
+styled_text = |value, color, size| Gui.row({ fg: color, font_size: size, padding: 0, gap: 0 }, [Gui.text(value)])
 
 ## The path as a path: clickable ancestors, a separator, and the folder you are
 ## looking at rendered as emphasised, non-interactive text.
@@ -256,7 +284,7 @@ breadcrumbs = |trail| {
 			$result = $result.append(styled_text(shorten(location.name), title_fg, 15))
 		} else {
 			$result = $result
-				.append(Elem.action_button(Elem.ActionButtonProps.{ caption: shorten(location.name), label: "Breadcrumb ${current_depth.to_str()}", on_press: |current, _| go_to(current, current_depth), padding: 6, font_size: 13, bg: chip_bg, hover_bg: row_hover, fg: link_fg, radius: 4 }))
+				.append(Gui.button({ caption: shorten(location.name), label: "Breadcrumb ${current_depth.to_str()}", on_press: |current, _| go_to(current, current_depth), padding: 6, font_size: 13, bg: chip_bg, hover_bg: row_hover, fg: link_fg, radius: 4 }))
 				.append(styled_text("›", muted_fg, 14))
 		}
 		$depth = current_depth + 1
@@ -268,34 +296,37 @@ breadcrumbs = |trail| {
 ## A folder differs only in that its name is the control that opens it.
 entry_row = |entry, current| {
 	art = marker_art(entry.kind)
-	marker = Elem.row(
-		Elem.RowProps.{ width: Px(20), padding: 0, gap: 0 },
-		[Elem.image(Elem.ImageProps.{ label: "${art.name} marker ${entry.name}", bytes: art.bytes, format: Svg, width: Px(14), height: Px(14) })],
+	marker = Gui.row(
+		{ width: Px(20), padding: 0, gap: 0 },
+		[Gui.image({ label: "${art.name} marker ${entry.name}", bytes: art.bytes, format: Svg, width: Px(14), height: Px(14) })],
 	)
 	name = if entry.kind == Directory {
-		Elem.action_button(Elem.ActionButtonProps.{ caption: shorten(entry.name), label: "Open directory ${entry.name}", on_press: |current_state, _| open_child(current_state, current, entry.name), padding: 4, font_size: 14, bg: row_bg, hover_bg: row_hover, active_bg: chip_bg, fg: link_fg, radius: 4 })
+		Gui.button({ caption: shorten(entry.name), label: "Open directory ${entry.name}", on_press: |current_state, _| open_child(current_state, current, entry.name), padding: 4, font_size: 14, bg: row_bg, hover_bg: row_hover, active_bg: chip_bg, fg: link_fg, radius: 4 })
 	} else {
-		Elem.row(Elem.RowProps.{ padding: 4, gap: 0, font_size: 14 }, [Elem.text(shorten(entry.name))])
+		Gui.row({ padding: 4, gap: 0, font_size: 14 }, [Gui.text(shorten(entry.name))])
 	}
-	Elem.row(Elem.RowProps.{ label: "Entry ${entry.name}", width: Fill, gap: 4, padding: 1, radius: 5, bg: row_bg, overflow_x: Clip }, [marker, name])
+	Gui.row({ label: "Entry ${entry.name}", width: Fill, gap: 4, padding: 1, radius: 5, bg: row_bg, overflow_x: Clip }, [marker, name])
 }
 
 ## A quiet full-width block for a state that has nothing to list.
-notice = |message, detail| Elem.col(Elem.ColProps.{ label: "Directory notice", width: Fill, grow: True, padding: 24, gap: 6, align: Center, justify: Center }, [styled_text(message, Gui.rgb(0xd6e2e8), 16), styled_text(detail, muted_fg, 13)])
+notice = |message, detail| Gui.col({ label: "Directory notice", width: Fill, grow: True, padding: 24, gap: 6, align: Center, justify: Center }, [styled_text(message, 0xd6e2e8, 16), styled_text(detail, muted_fg, 13)])
 
-error_panel = |failure| Elem.panel(
-	Elem.PanelProps.{ label: "Directory error", width: Fill, padding: 12, gap: 8, border_color: Gui.rgb(0xb85c5c), bg: Gui.rgb(0x2a1c1f) },
+error_panel = |failure| Gui.panel(
+	{ label: "Directory error", width: Fill, padding: 12, gap: 8, border_color: 0xb85c5c, bg: 0x2a1c1f },
 	[
-		styled_text(failure.message, Gui.rgb(0xf0c9c9), 15),
+		styled_text(failure.message, 0xf0c9c9, 15),
 		styled_text(failure.hint, muted_fg, 13),
-		Elem.row(Elem.RowProps.{ label: "Directory error actions", gap: 8 }, [
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Retry", label: "Retry", padding: 6, on_press: |current, _| retry(current, failure.retry) }),
-			Elem.action_button(Elem.ActionButtonProps.{ caption: "Choose another directory", label: "Choose another directory", padding: 6, bg: chip_bg, hover_bg: row_hover, fg: link_fg, on_press: |current, _| start_pick(current) }),
-		]),
+		Gui.row(
+			{ label: "Directory error actions", gap: 8 },
+			[
+				Gui.button({ caption: "Retry", label: "Retry", padding: 6, on_press: |current, _| retry(current, failure.retry) }),
+				Gui.button({ caption: "Choose another directory", label: "Choose another directory", padding: 6, bg: chip_bg, hover_bg: row_hover, fg: link_fg, on_press: |current, _| start_pick(current) }),
+			],
+		),
 	],
 )
 
-busy_panel = Elem.panel(Elem.PanelProps.{ label: "Loading status", padding: 10, bg: chip_bg, border_color: rule, fg: muted_fg }, [Elem.text("Loading…")])
+busy_panel = Gui.panel({ label: "Loading status", padding: 10, bg: chip_bg, border_color: rule, fg: muted_fg }, [Gui.text("Loading…")])
 
 status_blocks = |status| match status {
 	Busy(_) => [busy_panel]
@@ -316,58 +347,56 @@ counts = |entries, show_files| {
 	}
 }
 
-render : State -> Elem(State)
+render : State -> Gui.Elem(State)
 render = |state| {
 	is_busy = match state.status {
 		Busy(_) => True
 		_ => False
 	}
-	controls = Elem.row(
+	controls = Gui.row(
+
 		## The action that asks for authority sits at the head of the bar and the
 		## filter that only changes what is already on screen sits at its far
 		## end, so the two are not read as a pair of equal buttons.
-		Elem.RowProps.{ label: "Directory actions", width: Fill, gap: 16, align: Center, justify: Between },
+		{ label: "Directory actions", width: Fill, gap: 16, align: Center, justify: Between },
 		[
-			Elem.action_button(
-				Elem.ActionButtonProps.{
-					caption: "Choose directory",
-					label: "Choose directory",
-					enabled: !is_busy,
-					padding: 10,
-					padding_left: Px(16),
-					padding_right: Px(16),
-					font_size: 14,
-					bg: accent,
-					hover_bg: accent_hover,
-					active_bg: accent_active,
-					fg: accent_ink,
-					radius: 7,
-					on_press: |current, _| start_pick(current),
-				},
-			),
-			Elem.checkbox(
-				Elem.CheckboxProps.{
-					label: "Show files as well as folders",
-					checked: state.show_files,
-					on_change: |current, event| Action.update({ ..current, show_files: event.checked }),
-					padding: 10,
-					font_size: 14,
-					bg: chip_bg,
-					hover_bg: row_hover,
-					fg: ink,
-					border_color: rule,
-					border_width: 1,
-					radius: 7,
-				},
-			),
+			Gui.button({
+				caption: "Choose directory",
+				label: "Choose directory",
+				enabled: !is_busy,
+				padding: 10,
+				padding_left: Px(16),
+				padding_right: Px(16),
+				font_size: 14,
+				bg: accent,
+				hover_bg: accent_hover,
+				active_bg: accent_active,
+				fg: accent_ink,
+				radius: 7,
+				on_press: |current, _| start_pick(current),
+			}),
+			Gui.checkbox({
+				label: "Show files as well as folders",
+				checked: state.show_files,
+				on_change: |current, event| Gui.update({ ..current, show_files: event.checked }),
+				padding: 10,
+				font_size: 14,
+				bg: chip_bg,
+				hover_bg: row_hover,
+				fg: ink,
+				border_color: rule,
+				border_width: 1,
+				radius: 7,
+			}),
 		],
 	)
 	content = match state.view {
-		Empty => Elem.panel(
-			Elem.PanelProps.{ label: "Directory content", width: Fill, grow: True, gap: 12, bg: surface, border_color: rule, overflow_y: Clip },
+		Empty => Gui.panel(
+			{ label: "Directory content", width: Fill, grow: True, gap: 12, bg: surface, border_color: rule, overflow_y: Clip },
 			match state.status {
 				Failed(failure) => [error_panel(failure)]
 				Busy(_) => [busy_panel]
+
 				## A closed chooser is answered, not ignored. Saying so is the
 				## difference between a press that did nothing and a press
 				## whose answer was "not now".
@@ -378,7 +407,7 @@ render = |state| {
 		Showing(view) => {
 			current = view.trail.last() ?? crash "showing view has a location"
 			back = if view.trail.len() > 1 {
-				[Elem.action_button(Elem.ActionButtonProps.{ caption: "‹ Back", label: "Back", on_press: |current_state, _| go_to(current_state, view.trail.len() - 2), padding: 6, font_size: 13, bg: chip_bg, hover_bg: row_hover, fg: link_fg, radius: 4 })]
+				[Gui.button({ caption: "‹ Back", label: "Back", on_press: |current_state, _| go_to(current_state, view.trail.len() - 2), padding: 6, font_size: 13, bg: chip_bg, hover_bg: row_hover, fg: link_fg, radius: 4 })]
 			} else {
 				[]
 			}
@@ -390,12 +419,12 @@ render = |state| {
 					notice("No folders here", "${current.name} holds only files. Tick “Show files as well as folders” to see them.")
 				}
 			} else {
-				Elem.scroll(Elem.ScrollProps.{ label: "Directory contents", content: Elem.col(Elem.ColProps.{ label: "Directory entries", width: Fill, gap: 2 }, shown.map(|entry| entry_row(entry, current))) })
+				Gui.scroll({ label: "Directory contents", content: Gui.col({ label: "Directory entries", width: Fill, gap: 2 }, shown.map(|entry| entry_row(entry, current))) })
 			}
-			Elem.panel(
-				Elem.PanelProps.{ label: "Directory view", width: Fill, grow: True, gap: 8, bg: surface, border_color: rule, overflow_y: Clip },
+			Gui.panel(
+				{ label: "Directory view", width: Fill, grow: True, gap: 8, bg: surface, border_color: rule, overflow_y: Clip },
 				[
-					Elem.row(Elem.RowProps.{ label: "Directory breadcrumbs", width: Fill, gap: 6 }, back.concat(breadcrumbs(view.trail))),
+					Gui.row({ label: "Directory breadcrumbs", width: Fill, gap: 6 }, back.concat(breadcrumbs(view.trail))),
 					styled_text(counts(view.entries, state.show_files), muted_fg, 13),
 				]
 					.concat(status_blocks(state.status))
@@ -403,20 +432,21 @@ render = |state| {
 			)
 		}
 	}
-	Elem.col(
-		Elem.ColProps.{ label: "Folder browser", width: Fill, height: Fill, grow: True, padding: 20, gap: 14, overflow_y: Clip },
+	Gui.col(
+		{ label: "Folder browser", width: Fill, height: Fill, grow: True, padding: 20, gap: 14, overflow_y: Clip },
 		[
+
 			## The subtitle states the bargain the application is made of. It is
 			## the one thing a person needs to know before the first press, and
 			## it stops being worth saying once a folder is on screen.
-			Elem.col(
-				Elem.ColProps.{ label: "Folder browser heading", gap: 4 },
+			Gui.col(
+				{ label: "Folder browser heading", gap: 4 },
 				[
 					styled_text("Folder browser", title_fg, 22),
 					styled_text("Read only the folders you hand it, one at a time", muted_fg, 13),
 				],
 			),
-			Elem.panel(Elem.PanelProps.{ label: "Directory controls", width: Fill, padding: 12, bg: surface, border_color: rule }, [controls]),
+			Gui.panel({ label: "Directory controls", width: Fill, padding: 12, bg: surface, border_color: rule }, [controls]),
 			content,
 		],
 	)

@@ -5,6 +5,7 @@
 ## everywhere, a unit chosen once per magnitude, and padding that puts a column
 ## of figures under its own heading.
 Format := [].{
+
 	## One decimal place from a value that is already scaled by ten. The sampler
 	## reports CPU in tenths of a percent, and percentages derived from bytes are
 	## computed in the same unit, so the application has one rounding rule.
@@ -52,8 +53,11 @@ Format := [].{
 }
 
 kib = 1024.U64
+
 mib = 1048576.U64
+
 gib = 1073741824.U64
+
 tib = 1099511627776.U64
 
 tenths = |value| "${(value / 10).to_str()}.${(value % 10).to_str()}"
