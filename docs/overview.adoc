@@ -18,8 +18,8 @@ flowchart LR
     S[State] -->|render| U[Element tree]
     U -->|native host| W[Window]
     W -->|button press| H[Handler]
-    H -->|Action.update| S
-    H -->|Action.none| N[No UI change]
+    H -->|Gui.update| S
+    H -->|Gui.none| N[No UI change]
 ....
 
 This model keeps application decisions in ordinary Roc values and functions.

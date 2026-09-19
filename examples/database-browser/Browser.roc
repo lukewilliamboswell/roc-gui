@@ -1,10 +1,7 @@
 ## The browser's state, the authority it currently holds over one folder, and
 ## the asynchronous transitions between them. The mounted presentation lives in
 ## `View.roc`.
-import pf.Program
-import pf.Action
-import pf.Files
-import pf.Sqlite
+import pf.Gui
 import Query
 
 ## What the browser holds over the filesystem.
@@ -16,19 +13,19 @@ import Query
 ## call for three different next steps.
 Grant : [Ungranted, Declined, Granted(Str), Refused]
 
-Folder : { name : Str, directory : Files.Dir.Read, entries : List(Files.Entry) }
+Folder : { name : Str, directory : Gui.FilesDirRead, entries : List(Gui.FilesEntry) }
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
 State : {
-	access : Program.Access,
-	database : [None, Some(Sqlite.Db)],
+	access : Gui.Access,
+	database : [None, Some(Gui.SqliteDb)],
 	folder : [None, Some(Folder)],
 	grant : Grant,
 	next_request : U64,
 	open_name : Str,
 	query : Str,
-	result : [None, Some(Sqlite.Result)],
+	result : [None, Some(Gui.SqliteResult)],
 	schema : List(Str),
 	status : Status,
 }
@@ -38,9 +35,10 @@ Browser := [].{
 	Grant : Grant
 	State : State
 	Status : Status
+
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	init : Program.Access -> State
+	init : Gui.Access -> State
 	init = |access| {
 		access,
 		database: None,
@@ -53,11 +51,11 @@ Browser := [].{
 		schema: [],
 		status: Ready,
 	}
-	choose : State -> Action(State)
+	choose : State -> Gui.Action(State)
 	choose = choose
-	open_database : State, Files.Dir.Read, Str -> Action(State)
+	open_database : State, Gui.FilesDirRead, Str -> Gui.Action(State)
 	open_database = open_database
-	run_query : State, Sqlite.Db, Str -> Action(State)
+	run_query : State, Gui.SqliteDb, Str -> Gui.Action(State)
 	run_query = run_query
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
@@ -77,9 +75,9 @@ still_held_or_declined = |grant| match grant {
 ## host that refused to open one at all.
 choose = |state| {
 	id = state.next_request
-	Action.task({
+	Gui.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match Files.pick_directory!(state.access) {
+		run: || match state.access.pick_directory!() {
 			Ok(Chosen(selection)) => match selection.directory.list!() {
 				Ok(entries) => ChosenFolder({ name: selection.name, directory: selection.directory, entries })
 				Err(_) => ChooseFailed
@@ -89,9 +87,9 @@ choose = |state| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				ChosenFolder(folder) => Action.update({ ..latest, folder: Some(folder), grant: Granted(folder.name), status: Ready })
-				ChooseCanceled => Action.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
-				ChooseFailed => Action.update({
+				ChosenFolder(folder) => Gui.update({ ..latest, folder: Some(folder), grant: Granted(folder.name), status: Ready })
+				ChooseCanceled => Gui.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
+				ChooseFailed => Gui.update({
 					..latest,
 					grant: Refused,
 					status: failure(
@@ -100,29 +98,29 @@ choose = |state| {
 					),
 				})
 			}
-			_ => Action.none
+			_ => Gui.none
 		},
 	})
 }
 
 open_database = |state, directory, name| {
 	id = state.next_request
-	Action.task({
+	Gui.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match Sqlite.open_read!(directory, name) {
-			Err(error) => Err(OpenFailed("Could not open SQLite database: ${Sqlite.detail(error)}"))
+		run: || match Gui.Sqlite.open_read!(directory, name) {
+			Err(error) => Err(OpenFailed("Could not open SQLite database: ${Gui.Sqlite.detail(error)}"))
 			Ok(database) => match database.query!("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") {
-				Err(error) => Err(OpenFailed("Could not inspect SQLite schema: ${Sqlite.detail(error)}"))
+				Err(error) => Err(OpenFailed("Could not inspect SQLite schema: ${Gui.Sqlite.detail(error)}"))
 				Ok(result) => Ok({ database, result })
 			}
 		},
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Err(OpenFailed(message)) => Action.update({
+				Err(OpenFailed(message)) => Gui.update({
 					..latest,
 					status: failure(message, "The grant covers this folder, but this file is not a database this browser can read."),
 				})
-				Ok(opened) => Action.update({
+				Ok(opened) => Gui.update({
 					..latest,
 					database: Some(opened.database),
 					open_name: name,
@@ -136,28 +134,28 @@ open_database = |state, directory, name| {
 					status: Ready,
 				})
 			}
-			_ => Action.none
+			_ => Gui.none
 		},
 	})
 }
 
 run_query = |state, database, sql| {
 	id = state.next_request
-	Action.task({
+	Gui.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || database.query!(sql),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(result) => Action.update({ ..latest, result: Some(result), status: Ready })
-				Err(error) => Action.update({
+				Ok(result) => Gui.update({ ..latest, result: Some(result), status: Ready })
+				Err(error) => Gui.update({
 					..latest,
 					status: failure(
-						Sqlite.detail(error),
+						Gui.Sqlite.detail(error),
 						"The browser holds a read-only handle on this file. Read statements only; nothing here can change the database.",
 					),
 				})
 			}
-			_ => Action.none
+			_ => Gui.none
 		},
 	})
 }

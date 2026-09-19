@@ -6,44 +6,60 @@ import pf.Gui
 ## name, a TTL, or a value the server produced. Every surface in the application
 ## names its colours here so the identity stays in one place.
 Theme := [].{
+
 	## The window ground, darkest surface behind every region.
-	ground = Gui.rgb(0x0d0c11)
+	ground : Gui.Color
+	ground = 0x0d0c11
 
 	## A raised control region: the header, the endpoint bar, the scan bar.
-	region = Gui.rgb(0x17161d)
+	region : Gui.Color
+	region = 0x17161d
 
 	## A recessed well: the key list and the value readout.
-	well = Gui.rgb(0x0a090d)
+	well : Gui.Color
+	well = 0x0a090d
 
 	## The hairline that divides one region from the next.
-	line = Gui.rgb(0x252330)
+	line : Gui.Color
+	line = 0x252330
 
 	## A slightly brighter hairline for an editable edge.
-	edge = Gui.rgb(0x35323f)
+	edge : Gui.Color
+	edge = 0x35323f
 
 	## Primary readable text.
-	text = Gui.rgb(0xcfccd6)
+	text : Gui.Color
+	text = 0xcfccd6
 
 	## Secondary labels, counts, types, and TTLs.
-	dim = Gui.rgb(0x77737f)
+	dim : Gui.Color
+	dim = 0x77737f
 
 	## The one signal colour. Reserved for the stream: held, or not. Nothing else
 	## in the application is allowed to use it, so its presence always means the
 	## explorer is holding an open connection to the granted endpoint.
-	signal = Gui.rgb(0x8f7fe0)
+	signal : Gui.Color
+	signal = 0x8f7fe0
 
 	## The selected key's row, and the surface behind it.
-	selected = Gui.rgb(0x1e1b2b)
+	selected : Gui.Color
+	selected = 0x1e1b2b
 
 	## A failure. A tinted band, never an outline.
-	alarm = Gui.rgb(0x241418)
-	alarm_ink = Gui.rgb(0xd98b91)
-	alarm_line = Gui.rgb(0x3b2026)
+	alarm : Gui.Color
+	alarm = 0x241418
+	alarm_ink : Gui.Color
+	alarm_ink = 0xd98b91
+	alarm_line : Gui.Color
+	alarm_line = 0x3b2026
 
 	## Key caps at rest, under the pointer, and while pressed.
-	key = Gui.rgb(0x1d1b24)
-	key_hover = Gui.rgb(0x27242f)
-	key_active = Gui.rgb(0x15131a)
+	key : Gui.Color
+	key = 0x1d1b24
+	key_hover : Gui.Color
+	key_hover = 0x27242f
+	key_active : Gui.Color
+	key_active = 0x15131a
 
 	## Every string on screen came out of Redis or is a glob to match against
 	## one, so the whole console is set at a fixed pitch.

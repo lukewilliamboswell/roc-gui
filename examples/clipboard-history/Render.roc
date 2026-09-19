@@ -1,5 +1,4 @@
-import pf.Action
-import pf.Elem
+import pf.Gui
 import History
 import Theme
 import "icons/pin.svg" as pin_icon : List(U8)
@@ -7,77 +6,73 @@ import "icons/eye-off.svg" as eye_off_icon : List(U8)
 import "icons/search.svg" as search_icon : List(U8)
 
 Render := [].{
-	render : History.State -> Elem.Elem(History.State)
+	render : History.State -> Gui.Elem(History.State)
 	render = render
 }
 
-mark = |bytes, name, size| Elem.image(
-	Elem.ImageProps.{ label: name, bytes, format: Svg, width: Px(size), height: Px(size) },
+mark = |bytes, name, size| Gui.image(
+	{ label: name, bytes, format: Svg, width: Px(size), height: Px(size) },
 )
 
 ## A small control. Nothing in this window is a large control: the loudest thing
 ## on screen should be the captured text, not the buttons around it.
-chip = |caption, label, enabled, fg, on_press| Elem.action_button(
-	Elem.ActionButtonProps.{
-		caption,
-		label,
-		enabled,
-		on_press,
-		padding: 7,
-		font_size: Theme.meta,
-		radius: Theme.chip_radius,
-		bg: Theme.surface,
-		hover_bg: Theme.surface_hover,
-		fg,
-		border_color: Theme.edge,
-		border_width: 1,
-	},
-)
+chip = |caption, label, enabled, fg, on_press| Gui.button({
+	caption,
+	label,
+	enabled,
+	on_press,
+	padding: 7,
+	font_size: Theme.meta,
+	radius: Theme.chip_radius,
+	bg: Theme.surface,
+	hover_bg: Theme.surface_hover,
+	fg,
+	border_color: Theme.edge,
+	border_width: 1,
+})
 
 ## The capture switch. It is filled with `live` exactly while capture is
 ## running, the way a recording indicator is lit while it records, and it is a
 ## quiet outlined control otherwise. Filling the *Start* button green would have
 ## put the colour that means "this window is reading you" on the screen at the
 ## one moment the window is guaranteed not to be.
-switch = |caption, label, running, on_press| Elem.action_button(
-	Elem.ActionButtonProps.{
-		caption,
-		label,
-		on_press,
-		padding: 8,
-		font_size: Theme.meta,
-		radius: Theme.chip_radius,
-		bg: if running {
-			Theme.live
-		} else {
-			Theme.surface
-		},
-		hover_bg: if running {
-			Theme.live
-		} else {
-			Theme.surface_hover
-		},
-		fg: if running {
-			Theme.on_fill
-		} else {
-			Theme.text
-		},
-		border_color: if running {
-			Theme.live
-		} else {
-			Theme.edge
-		},
-		border_width: 1,
+switch = |caption, label, running, on_press| Gui.button({
+	caption,
+	label,
+	on_press,
+	padding: 8,
+	font_size: Theme.meta,
+	radius: Theme.chip_radius,
+	bg: if running {
+		Theme.live
+	} else {
+		Theme.surface
 	},
-)
+	hover_bg: if running {
+		Theme.live
+	} else {
+		Theme.surface_hover
+	},
+	fg: if running {
+		Theme.on_fill
+	} else {
+		Theme.text
+	},
+	border_color: if running {
+		Theme.live
+	} else {
+		Theme.edge
+	},
+	border_width: 1,
+})
 
-line = |size, fg, text| Elem.col(Elem.ColProps.{ font_size: size, fg }, [Elem.text(text)])
+line = |size, fg, text| Gui.col({ font_size: size, fg }, [Gui.text(text)])
 
 ## A band across the full width of the window, under the header. Only ever one
 ## of them is on screen, and only when there is something true to say that the
 ## status line at the bottom is too quiet to carry.
-band = |label, accent, icon, icon_name, headline, detail, actions| Elem.row(
-	Elem.RowProps.{
+band = |label, accent, icon, icon_name, headline, detail, actions| Gui.row(
+	{
 		label,
 		width: Fill,
 		padding: Theme.inset,
@@ -90,8 +85,8 @@ band = |label, accent, icon, icon_name, headline, detail, actions| Elem.row(
 	},
 	[
 		mark(icon, icon_name, 16),
-		Elem.col(
-			Elem.ColProps.{ grow: True, gap: 2 },
+		Gui.col(
+			{ grow: True, gap: 2 },
 			[line(Theme.meta + 1, accent, headline), line(Theme.meta, Theme.dim, detail)],
 		),
 	].concat(actions),
@@ -102,8 +97,8 @@ band = |label, accent, icon, icon_name, headline, detail, actions| Elem.row(
 ## refused states are the ones that matter: this window reads a person's
 ## clipboard, so it has to be able to say plainly that it is not doing so yet,
 ## and why.
-placard = |accent, headline, detail| Elem.col(
-	Elem.ColProps.{
+placard = |accent, headline, detail| Gui.col(
+	{
 		label: "History placard",
 		width: Fill,
 		height: Fill,
@@ -115,9 +110,9 @@ placard = |accent, headline, detail| Elem.col(
 	},
 	[
 		line(Theme.body + 1, accent, headline),
-		Elem.col(
-			Elem.ColProps.{ max_width: Px(460), font_size: Theme.meta + 1, fg: Theme.dim },
-			[Elem.text(detail)],
+		Gui.col(
+			{ max_width: Px(460), font_size: Theme.meta + 1, fg: Theme.dim },
+			[Gui.text(detail)],
 		),
 	],
 )
@@ -159,7 +154,7 @@ empty_history = |state| {
 					"Nothing has been read yet",
 					"This window holds no clipboard authority until you ask for it. Press Start capture to begin watching, and Pause at any time to stop. Captured items live in this window only — they are never written anywhere.",
 				)
-		}
+			}
 	}
 }
 
@@ -169,20 +164,20 @@ empty_history = |state| {
 entry_row = |entry, run_state| {
 	restore = match run_state {
 		Paused =>
-			chip("Restore", "Restore item ${entry.id.to_str()}", False, Theme.dim, |_, _| Action.none)
+			chip("Restore", "Restore item ${entry.id.to_str()}", False, Theme.dim, |_, _| Gui.none)
 		Running(_, clipboard) =>
 			chip("Restore", "Restore item ${entry.id.to_str()}", True, Theme.text, |current, _| History.restore(current, entry, clipboard))
-	}
+		}
 	pin_gutter = if entry.pinned {
-		Elem.col(
-			Elem.ColProps.{ label: "Pinned mark ${entry.id.to_str()}", width: Px(16), align: Center },
+		Gui.col(
+			{ label: "Pinned mark ${entry.id.to_str()}", width: Px(16), align: Center },
 			[mark(pin_icon, "Pinned", 13)],
 		)
 	} else {
-		Elem.col(Elem.ColProps.{ width: Px(16) }, [])
+		Gui.col({ width: Px(16) }, [])
 	}
-	Elem.row(
-		Elem.RowProps.{
+	Gui.row(
+		{
 			label: "Clipboard item ${entry.id.to_str()}",
 			width: Fill,
 			gap: 10,
@@ -199,15 +194,16 @@ entry_row = |entry, run_state| {
 		},
 		[
 			pin_gutter,
+
 			## Captured text stays on one line and ends in an ellipsis rather than
 			## reflowing: a long clipping must never push an entry's own controls
 			## off the end of its row, and a shortened one must never look
 			## complete.
-			Elem.col(
-				Elem.ColProps.{ width: Px(0), grow: True, gap: 3, overflow_x: Clip },
+			Gui.col(
+				{ width: Px(0), grow: True, gap: 3, overflow_x: Clip },
 				[
-					Elem.col(
-						Elem.ColProps.{
+					Gui.col(
+						{
 							width: Fill,
 							height: Px(19),
 							font_size: Theme.body,
@@ -216,7 +212,7 @@ entry_row = |entry, run_state| {
 							overflow_x: Clip,
 							overflow_y: Clip,
 						},
-						[Elem.text(entry.text)],
+						[Gui.text(entry.text)],
 					),
 					line(
 						Theme.meta,
@@ -242,10 +238,10 @@ entry_row = |entry, run_state| {
 				} else {
 					Theme.dim
 				},
-				|current, _| Action.update(History.toggle_pin(current, entry.id)),
+				|current, _| Gui.update(History.toggle_pin(current, entry.id)),
 			),
 			restore,
-			chip("Delete", "Delete item ${entry.id.to_str()}", True, Theme.dim, |current, _| Action.update(History.remove(current, entry.id))),
+			chip("Delete", "Delete item ${entry.id.to_str()}", True, Theme.dim, |current, _| Gui.update(History.remove(current, entry.id))),
 		],
 	)
 }
@@ -262,7 +258,7 @@ render = |state| {
 	visible = state.entries.keep_if(|entry| state.search.is_empty() or entry.text.contains(state.search))
 	pinned_count = state.entries.keep_if(|entry| entry.pinned).len()
 	items = visible.map(
-		|entry| Elem.VirtualListItem.{ key: entry.id, content: entry_row(entry, state.run_state) },
+		|entry| { key: entry.id, content: entry_row(entry, state.run_state) },
 	)
 	status_fg = match state.tone {
 		Live => Theme.live
@@ -274,8 +270,8 @@ render = |state| {
 	## The header states what the window is doing before it states what it is.
 	## A person opening a clipboard history wants the answer to "is it reading
 	## me" first, and the title second.
-	header = Elem.row(
-		Elem.RowProps.{
+	header = Gui.row(
+		{
 			label: "Application header",
 			width: Fill,
 			padding: Theme.inset,
@@ -287,8 +283,8 @@ render = |state| {
 			border_bottom: Px(1),
 		},
 		[
-			Elem.col(
-				Elem.ColProps.{ label: "Application identity", grow: True, gap: 3 },
+			Gui.col(
+				{ label: "Application identity", grow: True, gap: 3 },
 				[
 					line(Theme.title, Theme.text, "Clipboard History"),
 					line(
@@ -323,15 +319,15 @@ render = |state| {
 				"Privacy armed",
 				"The next copied item will be discarded",
 				"It is read to learn that it changed and then dropped. It never enters this window's history, and nothing about its content is recorded.",
-				[chip("Cancel", "Cancel private next", True, Theme.privacy, |current, _| Action.update(History.cancel_private(current)))],
+				[chip("Cancel", "Cancel private next", True, Theme.privacy, |current, _| Gui.update(History.cancel_private(current)))],
 			),
 		]
 	} else {
 		[]
 	}
 
-	toolbar = Elem.row(
-		Elem.RowProps.{
+	toolbar = Gui.row(
+		{
 			label: "History toolbar",
 			width: Fill,
 			padding: Theme.inset,
@@ -344,25 +340,24 @@ render = |state| {
 		},
 		[
 			mark(search_icon, "Search history", 14),
-			Elem.text_input(
-				Elem.TextInputProps.{
-					label: "Search history",
-					value: state.search,
-					placeholder: "Search captured text",
-					grow: True,
-					width: Px(0),
-					height: Px(30),
-					padding: 8,
-					font_size: Theme.meta + 1,
-					bg: Theme.well,
-					fg: Theme.text,
-					border_color: Theme.edge,
-					border_width: 1,
-					radius: Theme.chip_radius,
-					on_change: |current, event| Action.update(History.set_search(current, event.value)),
-					on_submit: |_, _| Action.none,
-				},
-			),
+			Gui.text_input({
+				label: "Search history",
+				value: state.search,
+				placeholder: "Search captured text",
+				grow: True,
+				width: Px(0),
+				height: Px(30),
+				padding: 8,
+				font_size: Theme.meta + 1,
+				bg: Theme.well,
+				fg: Theme.text,
+				border_color: Theme.edge,
+				border_width: 1,
+				radius: Theme.chip_radius,
+				on_change: |current, event| Gui.update(History.set_search(current, event.value)),
+				on_submit: |_, _| Gui.none,
+			}),
+
 			## Arming the discard needs a running capture to mean anything, and
 			## clearing needs something to clear. Offering either when it cannot
 			## act would be offering a promise the window cannot keep.
@@ -371,22 +366,22 @@ render = |state| {
 				"Discard next clipboard item",
 				running and !state.private_next,
 				Theme.privacy,
-				|current, _| Action.update(History.mark_private(current)),
+				|current, _| Gui.update(History.mark_private(current)),
 			),
 			chip(
 				"Clear unpinned",
 				"Clear unpinned history",
 				state.entries.len() > pinned_count,
 				Theme.dim,
-				|current, _| Action.update(History.clear_unpinned(current)),
+				|current, _| Gui.update(History.clear_unpinned(current)),
 			),
 		],
 	)
 
 	## The footer is a readout, not a paragraph: the status sentence in its tone
 	## on the left, and the two counts a person checks against on the right.
-	footer = Elem.row(
-		Elem.RowProps.{
+	footer = Gui.row(
+		{
 			label: "History footer",
 			width: Fill,
 			padding: Theme.inset,
@@ -398,9 +393,9 @@ render = |state| {
 			border_top: Px(1),
 		},
 		[
-			Elem.row(
-				Elem.RowProps.{ label: "Capture status", grow: True, gap: 0, fg: status_fg, font_size: Theme.meta + 1 },
-				[Elem.text(state.status)],
+			Gui.row(
+				{ label: "Capture status", grow: True, gap: 0, fg: status_fg, font_size: Theme.meta + 1 },
+				[Gui.text(state.status)],
 			),
 			line(Theme.meta, Theme.faint, "${visible.len().to_str()} matching items"),
 			line(Theme.meta, Theme.faint, "·"),
@@ -408,8 +403,8 @@ render = |state| {
 		],
 	)
 
-	Elem.col(
-		Elem.ColProps.{
+	Gui.col(
+		{
 			label: "Clipboard history",
 			width: Fill,
 			height: Fill,
@@ -419,32 +414,30 @@ render = |state| {
 			fg: Theme.text,
 			font_size: Theme.body,
 		},
-		[header].concat(bands).concat(
-			[
-				toolbar,
-				Elem.col(
-					Elem.ColProps.{
-						label: "Captured items",
-						width: Fill,
-						height: Fill,
-						grow: True,
-						gap: 0,
-						padding: Theme.gap,
-						bg: Theme.well,
-						overflow_y: Clip,
+		[header].concat(bands).concat([
+			toolbar,
+			Gui.col(
+				{
+					label: "Captured items",
+					width: Fill,
+					height: Fill,
+					grow: True,
+					gap: 0,
+					padding: Theme.gap,
+					bg: Theme.well,
+					overflow_y: Clip,
+				},
+				[
+					if items.len() == 0 {
+						empty_history(state)
+					} else {
+						Gui.virtual_list(
+							{ label: "Clipboard items", row_height: Theme.row_height, items },
+						)
 					},
-					[
-						if items.len() == 0 {
-							empty_history(state)
-						} else {
-							Elem.virtual_list(
-								Elem.VirtualListProps.{ label: "Clipboard items", row_height: Theme.row_height, items },
-							)
-						},
-					],
-				),
-				footer,
-			],
-		),
+				],
+			),
+			footer,
+		]),
 	)
 }

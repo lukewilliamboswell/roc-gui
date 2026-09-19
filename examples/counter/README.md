@@ -6,7 +6,7 @@ page that holds them owns no counting logic at all.
 The example exists to make one claim legible: a component can be written
 against its own small state and embedded in a larger one without either knowing
 about the other. `Counter.roc` renders `{ count : I64 }`; `main.roc` holds two
-of them and composes two local boundaries through `Elem.translate`. Neither
+of them and composes two local boundaries through `Gui.translate`. Neither
 card needs equality or memoization. Pressing a control
 on one card cannot move the other, and that is asserted rather than assumed.
 

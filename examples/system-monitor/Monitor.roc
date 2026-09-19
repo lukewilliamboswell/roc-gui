@@ -3,10 +3,7 @@
 ## Nothing is read from the machine until a person asks for it. Asking acquires
 ## a sampler, starts a timer, and opens a *session*: the pair of resources that
 ## one run of sampling owns and is responsible for closing. Pausing closes both.
-import pf.Program
-import pf.Action
-import pf.SystemMonitor
-import pf.Timer
+import pf.Gui
 import Processes
 
 Monitor := [].{
@@ -26,16 +23,16 @@ Monitor := [].{
 
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	init : Program.Access -> State
+	init : Gui.Access -> State
 	init = |access| { access, filter: "", generation: 0, history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: Idle }
 
 	## Begin a session. Acquisition is the whole authority question: if the host
 	## refuses, nothing is opened and nothing is read.
-	start! : State => Action.Action(State)
+	start! : State => Gui.Action(State)
 	start! = start!
 
 	## End a session, closing both resources it owns and retiring its generation.
-	pause! : State, Session => Action.Action(State)
+	pause! : State, Session => Gui.Action(State)
 	pause! = pause!
 
 	Session : Session
@@ -44,15 +41,18 @@ Monitor := [].{
 
 capacity = 120.U64
 
-Session : { sampler : SystemMonitor.Sampler, timer : Timer.Handle }
+Session : { sampler : Gui.SystemMonitorSampler, timer : Gui.TimerHandle }
+
 RunState : [Paused, Running(Session)]
+
 Status : [Failed(Str), Idle, Live, Paused, Refused]
+
 State : {
-	access : Program.Access,
+	access : Gui.Access,
 	filter : Str,
 	generation : U64,
-	history : List(SystemMonitor.Snapshot),
-	latest : [None, Some(SystemMonitor.Snapshot)],
+	history : List(Gui.SystemMonitorSnapshot),
+	latest : [None, Some(Gui.SystemMonitorSnapshot)],
 	run_state : RunState,
 	selected : [None, Some(U64)],
 	sort : Processes.Sort,
@@ -77,7 +77,7 @@ sample_status = |err| match err {
 
 ## A session owns its generation, so a cancelled one cannot pause, fail, or
 ## extend the session that replaced it.
-wait_next = |state, session, generation| Action.task({
+wait_next = |state, session, generation| Gui.task({
 	pending: { ..state, run_state: Running(session), status: Live },
 	run: || match session.timer.next!() {
 		Canceled => Stopped
@@ -86,11 +86,11 @@ wait_next = |state, session, generation| Action.task({
 			Err(err) => SampleFailed(err)
 		}
 	},
-	resolve: |latest, result| if latest.generation != generation Action.none else match result {
-		Stopped => Action.update({ ..latest, run_state: Paused, status: Paused })
-		SampleFailed(err) => Action.update({ ..latest, run_state: Paused, status: sample_status(err) })
+	resolve: |latest, result| if latest.generation != generation Gui.none else match result {
+		Stopped => Gui.update({ ..latest, run_state: Paused, status: Paused })
+		SampleFailed(err) => Gui.update({ ..latest, run_state: Paused, status: sample_status(err) })
 		Sampled(snapshot) => match latest.run_state {
-			Paused => Action.update(latest)
+			Paused => Gui.update(latest)
 			Running(_) => {
 				next = latest.history.append(snapshot)
 				bounded = if next.len() > capacity next.drop_first(next.len() - capacity) else next
@@ -102,12 +102,12 @@ wait_next = |state, session, generation| Action.task({
 
 start! = |state| {
 	generation = state.generation + 1
-	match SystemMonitor.acquire!(state.access) {
-		Err(err) => Action.update({ ..state, status: acquire_status(err) })
-		Ok(sampler) => match Timer.start!({ interval_ms: 100 }) {
+	match state.access.system_monitor!() {
+		Err(err) => Gui.update({ ..state, status: acquire_status(err) })
+		Ok(sampler) => match Gui.Timer.start!({ interval_ms: 100 }) {
 			Err(_) => {
 				_ = sampler.close!()
-				Action.update({ ..state, status: Failed("The sampling timer was rejected by the host") })
+				Gui.update({ ..state, status: Failed("The sampling timer was rejected by the host") })
 			}
 			Ok(timer) => wait_next({ ..state, generation }, { sampler, timer }, generation)
 		}
@@ -117,5 +117,5 @@ start! = |state| {
 pause! = |state, session| {
 	_ = session.timer.cancel!()
 	_ = session.sampler.close!()
-	Action.update({ ..state, generation: state.generation + 1, run_state: Paused, status: Paused })
+	Gui.update({ ..state, generation: state.generation + 1, run_state: Paused, status: Paused })
 }

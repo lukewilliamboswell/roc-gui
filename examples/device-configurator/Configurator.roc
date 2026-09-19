@@ -9,9 +9,7 @@
 ## ever read is not a safety net, it is a claim the type system should have been
 ## making. The explanation a person actually needs is in the window, beside the
 ## control that will not move.
-import pf.Program
-import pf.Action
-import pf.Device
+import pf.Gui
 import Protocol
 
 Configurator := [].{
@@ -33,21 +31,21 @@ Configurator := [].{
 
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	init : Program.Access -> State
+	init : Gui.Access -> State
 	init = |access| { access, config: None, connected: None, devices: [], dirty: False, generation: 0, status: Ready }
 
-	discover : State -> Action.Action(State)
+	discover : State -> Gui.Action(State)
 	discover = discover
 
-	connect : State -> Action.Action(State)
+	connect : State -> Gui.Action(State)
 	connect = connect
 
 	## One transaction carrying the whole configuration, which the device must
 	## acknowledge before the application believes anything changed.
-	apply : State, Device.Connection, Protocol.Config -> Action.Action(State)
+	apply : State, Gui.DeviceConnection, Protocol.Config -> Gui.Action(State)
 	apply = apply
 
-	disconnect : State, Device.Connection -> Action.Action(State)
+	disconnect : State, Gui.DeviceConnection -> Gui.Action(State)
 	disconnect = disconnect
 
 	change_sensitivity : State, Bool -> State
@@ -74,17 +72,19 @@ Status : [
 ]
 
 State : {
-	access : Program.Access,
+	access : Gui.Access,
 	config : [None, Some(Protocol.Config)],
-	connected : [None, Some(Device.Connection)],
-	devices : List(Device.Info),
+	connected : [None, Some(Gui.DeviceConnection)],
+	devices : List(Gui.DeviceInfo),
 	dirty : Bool,
 	generation : U64,
 	status : Status,
 }
 
 sensitivity_floor = 100.U16
+
 sensitivity_ceiling = 3200.U16
+
 sensitivity_step = 100.U16
 
 message = |err| match err {
@@ -105,27 +105,27 @@ refusal = |err| match err {
 
 discover = |state| {
 	next = state.generation + 1
-	Action.task({
+	Gui.task({
 		pending: { ..state, generation: next, devices: [], status: Discovering },
-		run: || match Device.acquire!(state.access) {
+		run: || match state.access.device!() {
 			Err(err) => DiscoveryFailed(err)
 			Ok(grant) => match grant.discover!() {
 				Err(err) => DiscoveryFailed(err)
 				Ok(devices) => Discovered(devices)
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Action.none else match result {
-			DiscoveryFailed(err) => Action.update({ ..latest, status: refusal(err) })
-			Discovered(devices) => Action.update({ ..latest, devices, status: Discovered(List.len(devices)) })
+		resolve: |latest, result| if latest.generation != next Gui.none else match result {
+			DiscoveryFailed(err) => Gui.update({ ..latest, status: refusal(err) })
+			Discovered(devices) => Gui.update({ ..latest, devices, status: Discovered(List.len(devices)) })
 		},
 	})
 }
 
 connect = |state| {
 	next = state.generation + 1
-	Action.task({
+	Gui.task({
 		pending: { ..state, generation: next, status: Connecting },
-		run: || match Device.acquire!(state.access) {
+		run: || match state.access.device!() {
 			Err(err) => ConnectFailed(err)
 			Ok(grant) => match grant.connect!() {
 				Err(err) => ConnectFailed(err)
@@ -138,10 +138,10 @@ connect = |state| {
 				}
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Action.none else match result {
-			ConnectFailed(err) => Action.update({ ..latest, status: refusal(err) })
-			ProtocolFailed => Action.update({ ..latest, status: Lost("Unsupported device protocol") })
-			Connected(value) => Action.update({
+		resolve: |latest, result| if latest.generation != next Gui.none else match result {
+			ConnectFailed(err) => Gui.update({ ..latest, status: refusal(err) })
+			ProtocolFailed => Gui.update({ ..latest, status: Lost("Unsupported device protocol") })
+			Connected(value) => Gui.update({
 				..latest,
 				config: Some(value.config),
 				connected: Some(value.connection),
@@ -155,7 +155,7 @@ connect = |state| {
 ## A transaction that fails because the device went away leaves a handle that
 ## refers to nothing. Keeping it would offer Disconnect and Apply for hardware
 ## that is no longer there, so the connection is given up with the error.
-apply = |state, connection, config| Action.task({
+apply = |state, connection, config| Gui.task({
 	pending: { ..state, status: Applying },
 	run: || match connection.transact!(Protocol.apply_request(config)) {
 		Err(err) => ApplyFailed(err)
@@ -165,18 +165,18 @@ apply = |state, connection, config| Action.task({
 		}
 	},
 	resolve: |latest, result| match result {
-		Applied => Action.update({ ..latest, dirty: False, status: Applied })
-		ApplyProtocolFailed => Action.update({ ..latest, status: Lost("The device returned an invalid acknowledgement") })
-		ApplyFailed(err) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
+		Applied => Gui.update({ ..latest, dirty: False, status: Applied })
+		ApplyProtocolFailed => Gui.update({ ..latest, status: Lost("The device returned an invalid acknowledgement") })
+		ApplyFailed(err) => Gui.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
 	},
 })
 
-disconnect = |state, connection| Action.task({
+disconnect = |state, connection| Gui.task({
 	pending: { ..state, status: Disconnecting },
 	run: || connection.close!(),
 	resolve: |latest, result| match result {
-		Err(err) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
-		Ok(_) => Action.update({ ..latest, config: None, connected: None, dirty: False, status: Disconnected })
+		Err(err) => Gui.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
+		Ok(_) => Gui.update({ ..latest, config: None, connected: None, dirty: False, status: Disconnected })
 	},
 })
 

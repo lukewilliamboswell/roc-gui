@@ -58,16 +58,15 @@ repository's `platform/main.roc` and use the same Roc nightly as the platform:
 ----
 app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
-import pf.Elem
-import pf.Program
+import pf.Gui
 
 State : { greeting : Str }
 
-render : State -> Elem(State)
-render = |curr_state| Elem.text(curr_state.greeting)
+render : State -> Gui.Elem(State)
+render = |curr_state| Gui.text(curr_state.greeting)
 
-main : Program(State)
-main = Program.run({ init: |_access| { greeting: "Hello from Roc" }, render })
+main : Gui.Program(State)
+main = Gui.run({ init: |_access| { greeting: "Hello from Roc" }, render })
 ----
 
 Choose an executable name explicitly when building your application:

@@ -15,47 +15,62 @@ import pf.Gui
 ##     safe act, not a failure, so it must not be red.
 ##   - `danger` is red, and is spent only on an operation that actually failed.
 Theme := [].{
+
 	## The window ground.
-	ground = Gui.rgb(0x14181d)
+	ground : Gui.Color
+	ground = 0x14181d
 
 	## A raised surface: the toolbar, a captured entry.
-	surface = Gui.rgb(0x1b2027)
+	surface : Gui.Color
+	surface = 0x1b2027
 
 	## The same surface under the pointer.
-	surface_hover = Gui.rgb(0x222933)
+	surface_hover : Gui.Color
+	surface_hover = 0x222933
 
 	## A recessed well: the list of entries, and editable fields.
-	well = Gui.rgb(0x0f1317)
+	well : Gui.Color
+	well = 0x0f1317
 
 	## The hairline dividing one region from the next.
-	line = Gui.rgb(0x262d35)
+	line : Gui.Color
+	line = 0x262d35
 
 	## A slightly brighter hairline for an editable or interactive edge.
-	edge = Gui.rgb(0x38424c)
+	edge : Gui.Color
+	edge = 0x38424c
 
 	## Primary readable text: captured content.
-	text = Gui.rgb(0xdfe4e8)
+	text : Gui.Color
+	text = 0xdfe4e8
 
 	## Labels, counts, and secondary sentences.
-	dim = Gui.rgb(0x8b97a2)
+	dim : Gui.Color
+	dim = 0x8b97a2
 
 	## The quietest tier: an entry's ordinal, a disabled hint.
-	faint = Gui.rgb(0x626d77)
+	faint : Gui.Color
+	faint = 0x626d77
 
 	## Capture is running and the clipboard is being read.
-	live = Gui.rgb(0x5aa97a)
+	live : Gui.Color
+	live = 0x5aa97a
 
 	## The deliberate-discard path: privacy armed, and an item discarded.
-	privacy = Gui.rgb(0x9b8ad6)
+	privacy : Gui.Color
+	privacy = 0x9b8ad6
 
 	## A pinned entry, which survives a clear.
-	pinned = Gui.rgb(0xd8a657)
+	pinned : Gui.Color
+	pinned = 0xd8a657
 
 	## An operation that failed or a grant that was refused.
-	danger = Gui.rgb(0xd1706a)
+	danger : Gui.Color
+	danger = 0xd1706a
 
 	## Text on top of a filled `live` or `privacy` surface.
-	on_fill = Gui.rgb(0x0f1317)
+	on_fill : Gui.Color
+	on_fill = 0x0f1317
 
 	## Type scale. Captured text is the largest thing on screen because it is the
 	## only thing a person came here to read.

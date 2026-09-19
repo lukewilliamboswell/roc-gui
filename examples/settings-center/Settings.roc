@@ -1,9 +1,8 @@
 ## Settings Center state and pure preference operations.
-import pf.Program
-import pf.Action
-import pf.Files
+import pf.Gui
 
 Settings := [].{
+
 	## A catalogue row is a name, the category that owns it, and one line saying
 	## what the setting actually does. The category used to be glued onto the
 	## front of every name — "Appearance — Color theme" — which repeated the same
@@ -13,7 +12,7 @@ Settings := [].{
 	Setting : { id : U64, category : Str, name : Str, summary : Str }
 
 	State : {
-		access : Program.Access,
+		access : Gui.Access,
 		category : Str,
 		disabled_value : Str,
 		dialog_open : Bool,
@@ -30,9 +29,9 @@ Settings := [].{
 
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
-	initial : Program.Access -> State
+	initial : Gui.Access -> State
 	initial = |access| {
-			access,
+		access,
 		category: "",
 		dialog_open: False,
 		disabled_value: "locked",
@@ -76,9 +75,9 @@ Settings := [].{
 		in_category = category == "" or setting.category == category
 		in_search =
 			search == ""
-			or setting.name.contains(search)
-			or setting.summary.contains(search)
-			or setting.category.contains(search)
+				or setting.name.contains(search)
+					or setting.summary.contains(search)
+						or setting.category.contains(search)
 		in_category and in_search
 	}
 
@@ -111,9 +110,9 @@ Settings := [].{
 
 	load = |state| {
 		id = state.next_request
-		Action.task({
+		Gui.task({
 			pending: { ..state, next_request: id + 1, status: Loading(id) },
-			run: || match Files.app_data!(state.access) {
+			run: || match state.access.app_data!() {
 				Err(error) => LoadFailed(preference_error_message(error))
 				Ok(store) => match store.read_utf8!("profile-name") {
 					Err(error) => LoadFailed(preference_error_message(error))
@@ -135,23 +134,23 @@ Settings := [].{
 			},
 			resolve: |latest, result| match latest.status {
 				Loading(active) if active == id => match result {
-					LoadFailed(message) => Action.update({ ..latest, status: Failed(message) })
-					LoadSucceeded(profile) => Action.update({ ..latest, draft_name: profile.name, saved_name: profile.name, draft_notes: profile.notes, saved_notes: profile.notes, status: Loaded })
+					LoadFailed(message) => Gui.update({ ..latest, status: Failed(message) })
+					LoadSucceeded(profile) => Gui.update({ ..latest, draft_name: profile.name, saved_name: profile.name, draft_notes: profile.notes, saved_notes: profile.notes, status: Loaded })
 				}
-				_ => Action.none
+				_ => Gui.none
 			},
 		})
 	}
 
 	apply_name = |state| if state.draft_name.is_empty() or (state.draft_name == state.saved_name and state.draft_notes == state.saved_notes) {
-		Action.none
+		Gui.none
 	} else {
 		id = state.next_request
 		name_to_save = state.draft_name
 		notes_to_save = state.draft_notes
-		Action.task({
+		Gui.task({
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
-			run: || match Files.app_data!(state.access) {
+			run: || match state.access.app_data!() {
 				Err(error) => SaveFailed(preference_error_message(error))
 				Ok(store) => match store.write_utf8_atomic!("profile-name", name_to_save) {
 					Err(error) => SaveFailed(preference_error_message(error))
@@ -163,10 +162,10 @@ Settings := [].{
 			},
 			resolve: |latest, result| match latest.status {
 				Saving(active) if active == id => match result {
-					SaveFailed(message) => Action.update({ ..latest, status: Failed(message) })
-					SaveSucceeded => Action.update({ ..latest, saved_name: latest.draft_name, saved_notes: latest.draft_notes, status: Applied })
+					SaveFailed(message) => Gui.update({ ..latest, status: Failed(message) })
+					SaveSucceeded => Gui.update({ ..latest, saved_name: latest.draft_name, saved_notes: latest.draft_notes, status: Applied })
 				}
-				_ => Action.none
+				_ => Gui.none
 			},
 		})
 	}

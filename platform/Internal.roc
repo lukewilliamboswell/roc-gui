@@ -3,7 +3,7 @@ import Action
 import Elem
 import Key
 import KeyedSeq
-import Gui
+import Style
 import Session
 import Index
 import RouteIds
@@ -27,7 +27,7 @@ Internal := [].{
 		keyed_container : U64,
 		keyed_revision : U64,
 		keyed_items : KeyedSeq(U64),
-		keyed : [None, Some(Elem.ColProps)],
+		keyed : [None, Some(Elem.Frame)],
 	}
 
 	Lowered(a) : {
@@ -36,7 +36,7 @@ Internal := [].{
 		routes : Index(Route(a)),
 	}
 
-	BuildingOwner(a) : { key : U64, revision : U64, path : List(U64), route_ids : RouteIds, children : List(U64), keyed_container : U64, keyed_revision : U64, keyed_keys : List(Key), keyed : [None, Some(Elem.ColProps)] }
+	BuildingOwner(a) : { key : U64, revision : U64, path : List(U64), route_ids : RouteIds, children : List(U64), keyed_container : U64, keyed_revision : U64, keyed_keys : List(Key), keyed : [None, Some(Elem.Frame)] }
 
 	# Keep active owner metadata compact in the explicit lowering work stack.
 	BuildingOwners(a) : { stored : Index(BoundaryInfo(a)), active : Box(BuildingOwner(a)) }
@@ -213,22 +213,22 @@ Internal := [].{
 
 	# Native container emission is shared by the explicit completion work items.
 	finish_row! = |builder, props| {
-		style = style_args(props)
+		style = style_args(props.style)
 		Host.node_row!({ builder, label: props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 	}
 
 	finish_column! = |builder, props| {
-		style = style_args(props)
+		style = style_args(props.style)
 		Host.node_column!({ builder, label: props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 	}
 
 	finish_dialog! = |builder, props| {
-		style = style_args(props)
+		style = style_args(props.style)
 		Host.node_dialog!({ builder, label: props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 	}
 
 	finish_panel! = |builder, props| {
-		style = style_args(props)
+		style = style_args(props.style)
 		Host.node_panel!({ builder, label: props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 	}
 
@@ -238,7 +238,7 @@ Internal := [].{
 			Horizontal => 1
 			Both => 2
 		}
-		style = style_args(props)
+		style = style_args(props.style)
 		id = Host.node_scroll!({
 			axis,
 			child: child,
@@ -291,7 +291,7 @@ Internal := [].{
 	}
 
 	finish_list! = |builder, props| {
-		style = style_args(props)
+		style = style_args(props.style)
 		id = Host.node_virtual_list!({
 			builder,
 			name: props.label,
@@ -357,13 +357,13 @@ Internal := [].{
 	LowerWork(a) : [
 		Visit(Box(VisitWork(a))),
 		Append(U64),
-		CloseRow(U64, Elem.RowProps),
-		CloseColumn(U64, Elem.ColProps),
-		CloseKeyedColumn(U64, Elem.ColProps, List(Key), U64),
-		CloseDialog(U64, Elem.DialogProps(a)),
-		ClosePanel(U64, Elem.PanelProps),
-		CloseScroll(Elem.ScrollProps(a)),
-		CloseList(U64, Elem.VirtualListProps(a)),
+		CloseRow(U64, Elem.Frame),
+		CloseColumn(U64, Elem.Frame),
+		CloseKeyedColumn(U64, Elem.Frame, List(Key), U64),
+		CloseDialog(U64, Elem.DialogNode(a)),
+		ClosePanel(U64, Elem.PanelNode),
+		CloseScroll(Elem.ScrollNode(a)),
+		CloseList(U64, Elem.VirtualListNode(a)),
 		OpenItem(U64),
 		CloseItem(U64),
 		CloseBoundary(Box(BoundaryWork(a))),
@@ -409,92 +409,92 @@ Internal := [].{
 					current = visit.elem
 					child_position = visit.position
 					match Elem.inspect(current) {
-					Row(value) => {
-						Host.scope_enter!(1, value.props.label, child_position)
-						builder = Host.children_begin!()
-						$work = queue_children($work.push(CloseRow(builder, value.props)), value.children, builder)
-					}
-					Column(value) => {
-						Host.scope_enter!(2, value.props.label, child_position)
-						builder = Host.children_begin!()
-						$work = queue_children($work.push(CloseColumn(builder, value.props)), value.children, builder)
-					}
-					KeyedColumn(value) => {
-						active = Box.unbox($boundaries.active)
-						$boundaries = { stored: $boundaries.stored, active: Box.box({ ..active, keyed: Some(value.props) }) }
-						Host.scope_enter!(2, value.props.label, child_position)
-						builder = Host.children_begin!()
-						full = (Box.unbox(value.full))({})
-						$work = queue_children($work.push(CloseKeyedColumn(builder, value.props, full.keys, value.revision)), full.children, builder)
-					}
-					Dialog(value) => {
-						Host.scope_enter!(4, value.props.label, child_position)
-						builder = Host.children_begin!()
-						$work = queue_children($work.push(CloseDialog(builder, value.props)), value.children, builder)
-					}
-					Panel(value) => {
-						Host.scope_enter!(3, value.props.label, child_position)
-						builder = Host.children_begin!()
-						if value.props.heading != "" {
-							if value.props.heading_size > max_style_value {
-								crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
-							}
-							if value.props.heading_weight != 0 and (value.props.heading_weight < 100 or value.props.heading_weight > 900) {
-								crash "Gui font_weight is 0 for the native default, or 100 through 900"
-							}
-							heading = Host.node_styled_text!({ value: value.props.heading, fg: color(value.props.heading_color), font_size: value.props.heading_size, font_weight: value.props.heading_weight, font_face: 0 })
-							Host.children_push!(builder, heading)
+						Row(value) => {
+							Host.scope_enter!(1, value.props.label, child_position)
+							builder = Host.children_begin!()
+							$work = queue_children($work.push(CloseRow(builder, value.props)), value.children, builder)
 						}
-						$work = queue_children($work.push(ClosePanel(builder, value.props)), value.children, builder)
-					}
-					Scroll(value) => {
-						Host.scope_enter!(5, value.label, child_position)
-						$work = $work.push(CloseScroll({ ..value, content: Elem.text("") })).push(Visit(Box.box({ elem: value.content, position: 0 })))
-					}
-					VirtualList(value) => {
-						Host.scope_enter!(6, value.label, child_position)
-						builder = Host.children_begin!()
-						$work = $work.push(CloseList(builder, { ..value, items: [] }))
-						var $index = value.items.len()
-						while $index > 0 {
-							$index = $index - 1
-							row = value.items.get($index) ?? crash "missing virtual row"
-							$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(Box.box({ elem: row.content, position: 0 }))).push(OpenItem(row.key))
+						Column(value) => {
+							Host.scope_enter!(2, value.props.label, child_position)
+							builder = Host.children_begin!()
+							$work = queue_children($work.push(CloseColumn(builder, value.props)), value.children, builder)
 						}
-					}
-					Component(bound) => {
-						remaining = $work
-						saved_routes = $routes
-						saved_boundaries = $boundaries
-						parent_key = $active_boundary
-						$pending = Some(
-							prepare_component!(
-								bound,
-								state,
-								parent_key,
-								saved_routes,
-								saved_boundaries,
-								|decision| match decision {
-									Retained(built) => Work.next(|| lower_work!(remaining, state, parent_key, built.routes, built.boundaries, built.root, done!))
-									Descend(owner, parent) => Work.next(
-										|| {
-											Host.component_enter!(owner.key)
-											prepare_rebuild!(owner, state, saved_routes, saved_boundaries.stored, |prepared| Work.next(|| lower_work!(remaining.push(CloseBoundary(Box.box({ owner, cleared: prepared.cleared, parent }))).push(Visit(Box.box({ elem: prepared.rendered, position: 0 }))), state, owner.key, prepared.routes, prepared.prepared, 0, done!)))
-										},
-									)
-								},
-							),
-						)
-					}
-					_ => {
-						# Keep the opaque descriptor across this helper boundary. Passing the
-						# already-inspected structural union avoids a second inspection but
-						# copies the large union and is slower with the pinned dev backend.
-						built = lower_leaf!(current, $active_boundary, $routes, $boundaries)
-						$root = built.root
-						$routes = built.routes
-						$boundaries = built.boundaries
-					}
+						KeyedColumn(value) => {
+							active = Box.unbox($boundaries.active)
+							$boundaries = { stored: $boundaries.stored, active: Box.box({ ..active, keyed: Some(value.props) }) }
+							Host.scope_enter!(2, value.props.label, child_position)
+							builder = Host.children_begin!()
+							full = (Box.unbox(value.full))({})
+							$work = queue_children($work.push(CloseKeyedColumn(builder, value.props, full.keys, value.revision)), full.children, builder)
+						}
+						Dialog(value) => {
+							Host.scope_enter!(4, value.props.label, child_position)
+							builder = Host.children_begin!()
+							$work = queue_children($work.push(CloseDialog(builder, value.props)), value.children, builder)
+						}
+						Panel(value) => {
+							Host.scope_enter!(3, value.props.label, child_position)
+							builder = Host.children_begin!()
+							if value.props.heading != "" {
+								if value.props.heading_size > max_style_value {
+									crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
+								}
+								if value.props.heading_weight != 0 and (value.props.heading_weight < 100 or value.props.heading_weight > 900) {
+									crash "Gui font_weight is 0 for the native default, or 100 through 900"
+								}
+								heading = Host.node_styled_text!({ value: value.props.heading, fg: color(value.props.heading_color), font_size: value.props.heading_size, font_weight: value.props.heading_weight, font_face: 0 })
+								Host.children_push!(builder, heading)
+							}
+							$work = queue_children($work.push(ClosePanel(builder, value.props)), value.children, builder)
+						}
+						Scroll(value) => {
+							Host.scope_enter!(5, value.label, child_position)
+							$work = $work.push(CloseScroll({ ..value, content: Elem.text("") })).push(Visit(Box.box({ elem: value.content, position: 0 })))
+						}
+						VirtualList(value) => {
+							Host.scope_enter!(6, value.label, child_position)
+							builder = Host.children_begin!()
+							$work = $work.push(CloseList(builder, { ..value, items: [] }))
+							var $index = value.items.len()
+							while $index > 0 {
+								$index = $index - 1
+								row = value.items.get($index) ?? crash "missing virtual row"
+								$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(Box.box({ elem: row.content, position: 0 }))).push(OpenItem(row.key))
+							}
+						}
+						Component(bound) => {
+							remaining = $work
+							saved_routes = $routes
+							saved_boundaries = $boundaries
+							parent_key = $active_boundary
+							$pending = Some(
+								prepare_component!(
+									bound,
+									state,
+									parent_key,
+									saved_routes,
+									saved_boundaries,
+									|decision| match decision {
+										Retained(built) => Work.next(|| lower_work!(remaining, state, parent_key, built.routes, built.boundaries, built.root, done!))
+										Descend(owner, parent) => Work.next(
+											|| {
+												Host.component_enter!(owner.key)
+												prepare_rebuild!(owner, state, saved_routes, saved_boundaries.stored, |prepared| Work.next(|| lower_work!(remaining.push(CloseBoundary(Box.box({ owner, cleared: prepared.cleared, parent }))).push(Visit(Box.box({ elem: prepared.rendered, position: 0 }))), state, owner.key, prepared.routes, prepared.prepared, 0, done!)))
+											},
+										)
+									},
+								),
+							)
+						}
+						_ => {
+							# Keep the opaque descriptor across this helper boundary. Passing the
+							# already-inspected structural union avoids a second inspection but
+							# copies the large union and is slower with the pinned dev backend.
+							built = lower_leaf!(current, $active_boundary, $routes, $boundaries)
+							$root = built.root
+							$routes = built.routes
+							$boundaries = built.boundaries
+						}
 					}
 				}
 				CloseBoundary(boxed_boundary) => {
@@ -586,17 +586,17 @@ Internal := [].{
 			{ root: id, routes, boundaries }
 		}
 		StyledText(value) => {
-			if value.font_size > max_style_value {
+			if value.style.font_size > max_style_value {
 				crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
 			}
-			if value.font_weight != 0 and (value.font_weight < 100 or value.font_weight > 900) {
+			if value.style.font_weight != 0 and (value.style.font_weight < 100 or value.style.font_weight > 900) {
 				crash "Gui font_weight is 0 for the native default, or 100 through 900"
 			}
-			id = Host.node_styled_text!({ value: value.value, fg: color(value.fg), font_size: value.font_size, font_weight: value.font_weight, font_face: font_face(value.font_face) })
+			id = Host.node_styled_text!({ value: value.value, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face) })
 			{ root: id, routes, boundaries }
 		}
 		ActionButton(button_value) => {
-			style = style_args(button_value)
+			style = style_args(button_value.style)
 			hover_enter = match button_value.on_hover_enter {
 				None => False
 				Some(_) => True
@@ -639,7 +639,7 @@ Internal := [].{
 			{ root: ids.id, routes: $routes, boundaries: $boundaries }
 		}
 		Checkbox(checkbox_value) => {
-			style = style_args(checkbox_value)
+			style = style_args(checkbox_value.style)
 			id = Host.node_checkbox!({
 				label: checkbox_value.label,
 				checked: checkbox_value.checked,
@@ -705,7 +705,7 @@ Internal := [].{
 			{ root: id, routes: Index.set(routes, route.id, route), boundaries: record_route(boundaries, active_boundary, route.id) }
 		}
 		Textarea(textarea_value) => {
-			style = style_args(textarea_value)
+			style = style_args(textarea_value.style)
 			id = Host.node_textarea!({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = {
 				id,
@@ -720,7 +720,7 @@ Internal := [].{
 			{ root: id, routes: Index.set(routes, route.id, route), boundaries: record_route(boundaries, active_boundary, route.id) }
 		}
 		Image(image_value) => {
-			style = style_args(image_value)
+			style = style_args(image_value.style)
 			format = match image_value.format {
 				Bmp => 0
 				Gif => 1
@@ -741,8 +741,8 @@ Internal := [].{
 			{ root: id, routes, boundaries }
 		}
 		Canvas(canvas_value) => {
-			width = length(canvas_value.width)
-			height = length(canvas_value.height)
+			width = length(canvas_value.style.width)
+			height = length(canvas_value.style.height)
 			primitives = canvas_value.primitives.map(
 				|primitive| match primitive {
 					Ellipse(shape) => { kind: 0, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0 }
@@ -750,7 +750,7 @@ Internal := [].{
 					Rectangle(shape) => { kind: 2, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: shape.radius }
 				},
 			)
-			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.grow, bg: color(canvas_value.bg), border_color: color(canvas_value.border_color), border_width: canvas_value.border_width, radius: canvas_value.radius })
+			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.style.grow, bg: color(canvas_value.style.bg), border_color: color(canvas_value.style.border_color), border_width: canvas_value.style.border_width, radius: canvas_value.style.radius })
 			route = {
 				id,
 				boundary: active_boundary,
@@ -773,7 +773,7 @@ Internal := [].{
 			{ root: id, routes: Index.set(routes, route.id, route), boundaries: record_route(boundaries, active_boundary, route.id) }
 		}
 		TextInput(input_value) => {
-			style = style_args(input_value)
+			style = style_args(input_value.style)
 			ids = Host.node_text_input!({ label: input_value.label, value: input_value.value, placeholder: input_value.placeholder, enabled: input_value.enabled, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			change_route : Route(a)
 			change_route = {
@@ -938,7 +938,10 @@ Internal := [].{
 	}
 
 	keyed_instance = |items, wanted| {
-		match KeyedSeq.get(items, wanted) { Ok(instance) => Some(instance) Err(_) => None }
+		match KeyedSeq.get(items, wanted) {
+			Ok(instance) => Some(instance)
+			Err(_) => None
+		}
 	}
 
 	keyed_without! = |items, unwanted| {
@@ -1056,22 +1059,32 @@ Internal := [].{
 				KeyedInsert(key, placement) => {
 					child = children.get($child_index) ?? crash "keyed insert child missing"
 					expected = keys.get($child_index) ?? crash "keyed insert key missing"
-					if expected != key { crash "keyed insert child key mismatch" }
+					if expected != key {
+						crash "keyed insert child key mismatch"
+					}
 					$steps = $steps.append(KeyedInsert(key, Box.box(child), placement))
 					$child_index = $child_index + 1
 				}
 				KeyedSet(key) => {
 					child = children.get($child_index) ?? crash "keyed set child missing"
 					expected = keys.get($child_index) ?? crash "keyed set key missing"
-					if expected != key { crash "keyed set child key mismatch" }
+					if expected != key {
+						crash "keyed set child key mismatch"
+					}
 					$steps = $steps.append(KeyedSet(key, Box.box(child)))
 					$child_index = $child_index + 1
 				}
-				KeyedMove(key, placement) => { $steps = $steps.append(KeyedMove(key, placement)) }
-				KeyedRemove(key) => { $steps = $steps.append(KeyedRemove(key)) }
+				KeyedMove(key, placement) => {
+					$steps = $steps.append(KeyedMove(key, placement))
+				}
+				KeyedRemove(key) => {
+					$steps = $steps.append(KeyedRemove(key))
+				}
 			}
 		}
-		if $child_index != children.len() { crash "unused keyed descriptor children" }
+		if $child_index != children.len() {
+			crash "unused keyed descriptor children"
+		}
 		$steps
 	}
 
@@ -1103,10 +1116,18 @@ Internal := [].{
 		for old in KeyedSeq.to_list(old_items) {
 			var $present = False
 			entries = Index.get($survivors, key_bucket(old.key)) ?? []
-			for key in entries { if key == old.key { $present = True } }
-			if !$present { $steps = $steps.append(KeyedRemove(old.key)) }
+			for key in entries {
+				if key == old.key {
+					$present = True
+				}
+			}
+			if !$present {
+				$steps = $steps.append(KeyedRemove(old.key))
+			}
 		}
-		if keys.len() != children.len() { crash "keyed fallback key count differs from children" }
+		if keys.len() != children.len() {
+			crash "keyed fallback key count differs from children"
+		}
 		var $index = keys.len()
 		var $placement = End
 		while $index > 0 {
@@ -1118,62 +1139,69 @@ Internal := [].{
 					$steps = $steps.append(KeyedMove(key, $placement))
 					$steps = $steps.append(KeyedSet(key, Box.box(child)))
 				}
-				None => { $steps = $steps.append(KeyedInsert(key, Box.box(child), $placement)) }
+				None => {
+					$steps = $steps.append(KeyedInsert(key, Box.box(child), $placement))
+				}
 			}
 			$placement = Before(key)
 		}
 		$steps
 	}
 
-	update_keyed! : BoundaryInfo(a), Elem.ColProps, a, [None, Some(Box(Action.Worker(a)))], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_keyed! : BoundaryInfo(a), Elem.Frame, a, [None, Some(Box(Action.Worker(a)))], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
 	update_keyed! = |owner, props, state, task, task_owner, render, routes, boundaries| {
 		Host.work_start!(2)
 		Host.component_work!(0, 1)
 		render! = owner.render
-		render!(state, |rendered| Work.next(|| {
-		Host.work_end!(2)
-		Host.work_start!(3)
-		descriptor = match Elem.inspect(rendered) {
-			KeyedColumn(value) => value
-			_ => crash "keyed boundary rendered a non-keyed element"
-		}
-		planned = if descriptor.base_revision == owner.keyed_revision {
-			{ base: descriptor.base_revision, revision: descriptor.revision, steps: keyed_descriptor_steps(descriptor.operations, descriptor.keys, descriptor.children) }
-		} else {
-			full = (Box.unbox(descriptor.full))({})
-			{ base: owner.keyed_revision, revision: descriptor.revision, steps: keyed_fallback_steps(owner.keyed_items, full.keys, full.children) }
-		}
-		Host.begin_render!(owner.key)
-		keyed_edit_begin!(owner.keyed_container, planned.base, planned.revision)
-		# Match the native column scope used by the initial mount so keyed item
-		# digests resolve to their existing boundary instances after moves.
-		Host.scope_enter!(2, props.label, 0)
-		keyed_steps!(
-			planned.steps,
-			owner,
+		render!(
 			state,
-			routes,
-			boundaries,
-			owner.keyed_items,
-			[],
-			|built| Work.flush(
+			|rendered| Work.next(
 				|| {
-					Host.work_end!(3)
-					Host.work_start!(0)
-					Host.scope_exit!()
-					keyed_edit_commit!()
-					updated = { ..owner, children: [], keyed_revision: planned.revision, keyed_items: built.items, memo: Unknown }
-					match task {
-						None => {}
-						Some(worker) => enqueue_work!(task_owner, worker)
+					Host.work_end!(2)
+					Host.work_start!(3)
+					descriptor = match Elem.inspect(rendered) {
+						KeyedColumn(value) => value
+						_ => crash "keyed boundary rendered a non-keyed element"
 					}
-					Host.work_end!(0)
-					install!(state, render, built.routes, Index.set(built.boundaries, owner.key, updated))
-					Work.done
+					planned = if descriptor.base_revision == owner.keyed_revision {
+						{ base: descriptor.base_revision, revision: descriptor.revision, steps: keyed_descriptor_steps(descriptor.operations, descriptor.keys, descriptor.children) }
+					} else {
+						full = (Box.unbox(descriptor.full))({})
+						{ base: owner.keyed_revision, revision: descriptor.revision, steps: keyed_fallback_steps(owner.keyed_items, full.keys, full.children) }
+					}
+					Host.begin_render!(owner.key)
+					keyed_edit_begin!(owner.keyed_container, planned.base, planned.revision)
+					# Match the native column scope used by the initial mount so keyed item
+					# digests resolve to their existing boundary instances after moves.
+					Host.scope_enter!(2, props.label, 0)
+					keyed_steps!(
+						planned.steps,
+						owner,
+						state,
+						routes,
+						boundaries,
+						owner.keyed_items,
+						[],
+						|built| Work.flush(
+							|| {
+								Host.work_end!(3)
+								Host.work_start!(0)
+								Host.scope_exit!()
+								keyed_edit_commit!()
+								updated = { ..owner, children: [], keyed_revision: planned.revision, keyed_items: built.items, memo: Unknown }
+								match task {
+									None => {}
+									Some(worker) => enqueue_work!(task_owner, worker)
+								}
+								Host.work_end!(0)
+								install!(state, render, built.routes, Index.set(built.boundaries, owner.key, updated))
+								Work.done
+							},
+						),
+					)
 				},
 			),
 		)
-		}))
 	}
 
 	rebuild! : BoundaryInfo(a), a, Index(Route(a)), Index(BoundaryInfo(a)), (Lowered(a) -> Work) => Work
@@ -1491,7 +1519,7 @@ Internal := [].{
 		Host.set_dispatch!(Box.box(dispatch!))
 	}
 
-	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Gui.Color, foreground : Gui.Color } => {}
+	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Style.Color, foreground : Style.Color } => {}
 	start! = |initial, render, window| {
 		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
 		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty, keyed: None }

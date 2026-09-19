@@ -32,7 +32,7 @@ application, and the way they give it to you is by *choosing the thing*.
 
 [source,roc]
 ----
-Files.pick_directory!(access)
+access.pick_directory!()
 ----
 
 This opens the operating system's own folder chooser. If the person picks a
@@ -56,15 +56,15 @@ to functions, and store it in a record:
 
 [source,roc]
 ----
-State : { project : [None, Some(Files.Dir.Read)] }
+State : { project : [None, Some(Gui.FilesDirRead)] }
 ----
 
 Three things are true of it, and between them they are the reason this works.
 
-*You cannot make one up.* There is no constructor. A `Files.Dir.Read` exists
+*You cannot make one up.* There is no constructor. A `Gui.FilesDirRead` exists
 because someone handed you one.
 
-*Its type says what it is for.* A `Files.Dir.Read` reads a directory. There is
+*Its type says what it is for.* A `Gui.FilesDirRead` reads a directory. There is
 no permission list to consult alongside it, because the type you are holding is
 the permission, and at every call site you can see exactly what you are handing
 over.

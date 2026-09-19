@@ -20,15 +20,15 @@ Resource := [].{
 	SystemSampler : Handle([SystemSamplerResource])
 	AssetStore : Handle([AssetStoreResource])
 
-	## The authority an application is handed at startup, and the only thing any
-	## acquisition will accept. It carries nothing: its whole job is to be
-	## impossible to produce without having been given one, so that a function
-	## which needs it cannot be called by code that was never handed it.
+	## The authority behind every acquisition. It carries nothing: its whole job
+	## is to be impossible to produce without having been given one, so that a
+	## function which needs it cannot be called by code that was never handed it.
 	##
 	## This module is private to the platform, so `mint_access` is unreachable
-	## from an application or from a package. `Program.Access` is the public name
-	## for the type, which lets an application write it down in a signature
-	## without being able to construct one.
+	## from an application or from a package. An application holds it only inside
+	## the opaque `Access` it is handed at startup, and reaches a resource by
+	## asking that value, which lets it write the type down in a signature
+	## without being able to construct or unwrap one.
 	Access :: {}
 
 	## Called once, by `Internal.start!`, at the root of the application.
