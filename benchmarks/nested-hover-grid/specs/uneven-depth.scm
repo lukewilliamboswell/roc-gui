@@ -1,5 +1,6 @@
 (test "Uneven quadrant depths preserve local updates and task resolution"
  (steps
+  (click (role button :name "Create 10000 cells"))
   (hover-enter (role button :name "Cell 1"))
   (expect-component-work :rendered 1 :compared 0 :ancestor-invalidations 7 :projection-gets 22 :projection-sets 8)
   (hover-exit (role button :name "Cell 1"))

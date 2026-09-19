@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tarfile
 import tempfile
+import tomllib
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -56,7 +57,7 @@ class VendoredGpuiTests(unittest.TestCase):
         self.policy_path.write_text(json.dumps(self.policy, indent=2) + "\n")
 
     def build_inputs(self):
-        host = {"id": "host-local", "name": "roc-gui-host", "version": "0.1.0", "source": None,
+        host = {"id": "host-local", "name": "roc-gui-host", "version": "0.0.1", "source": None,
                 "license": "UPL-1.0", "manifest_path": "$WORKSPACE/crates/host/Cargo.toml"}
         metadata = {"packages": [host, self.package], "workspace_members": [host["id"], self.package["id"]],
                     "resolve": {"nodes": [
@@ -69,7 +70,7 @@ class VendoredGpuiTests(unittest.TestCase):
              "profile": {"test": False, "opt_level": "3"}, "filenames": ["/output/libhost.a"]},
             {"reason": "build-finished", "success": True},
         ]
-        lock = b'[[package]]\nname="roc-gui-host"\nversion="0.1.0"\n[[package]]\nname="gpui"\nversion="0.2.2"\n'
+        lock = b'[[package]]\nname="roc-gui-host"\nversion="0.0.1"\n[[package]]\nname="gpui"\nversion="0.2.2"\n'
         return json.dumps(metadata).encode(), b"\n".join(json.dumps(m).encode() for m in messages), lock
 
     def test_build_and_notice_selection_preserve_local_source_and_original_license(self):
@@ -88,7 +89,7 @@ class VendoredGpuiTests(unittest.TestCase):
         collected = rust_license_inventory.collect(about, locked, self.root, output,
                                                     include_sources=True, include_embedded=True, source_root=self.root)
         self.assertEqual(collected["schema_version"], 2)
-        self.assertEqual(collected["workspace_packages"], [{"name": "roc-gui-host", "version": "0.1.0"}])
+        self.assertEqual(collected["workspace_packages"], [{"name": "roc-gui-host", "version": "0.0.1"}])
         self.assertEqual(len(collected["packages"]), 1)
         package = collected["packages"][0]
         self.assertEqual(package["vendored_source"], compiled["vendored_source"])
@@ -110,6 +111,18 @@ class VendoredGpuiTests(unittest.TestCase):
         self.assertEqual(proof["tree_sha256"], vendored_gpui.tree_digest(files))
         self.assertEqual(proof["source_archive_sha256"], hashlib.sha256(archive).hexdigest())
         self.assertTrue({"src/app.rs", "src/window.rs", "src/elements/div.rs"}.issubset(files))
+
+    def test_host_identity_matches_the_checked_in_manifest(self):
+        manifest = tomllib.loads((vendored_gpui.ROOT / "crates/host/Cargo.toml").read_text())["package"]
+        package = {
+            "name": manifest["name"],
+            "version": manifest["version"],
+            "license": manifest["license"],
+            "source": None,
+            "manifest_path": "$WORKSPACE/crates/host/Cargo.toml",
+        }
+        self.assertEqual(manifest["version"], vendored_gpui.HOST_VERSION)
+        self.assertTrue(vendored_gpui.is_own_package(package))
 
     def test_unreviewed_tree_and_missing_policy_are_rejected(self):
         (self.source / "src/app.rs").write_bytes(b"unreviewed source")

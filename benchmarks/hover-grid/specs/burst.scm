@@ -1,6 +1,7 @@
 (test "A 32-cell burst settles every delayed owner without assuming completion order"
   (benchmark :warmups 1 :samples 3 :iterations 1 :scale 10000 :initial-size 10000 :change-size 32)
   (steps
+    (click (role button :name "Create 10000 cells"))
     (expect-count (button-prefix "Cell ") 10000)
     (mark-metrics)
     (hover-enter (role button :name "Cell 1"))

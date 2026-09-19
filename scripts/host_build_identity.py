@@ -14,6 +14,15 @@ HOST_FILES = {
     # Windows host is incomplete without it.
     "x64mingw": ("libhost.a", "roc-gui.res"),
 }
+# The host target each supported runner builds and links natively. Keyed by
+# `(platform.system(), platform.machine())` so callers resolve their own host
+# without repeating the mapping. A consumer that supports fewer targets than
+# this states that subset explicitly rather than trimming this table.
+TARGETS = {
+    ("Linux", "x86_64"): "x64glibc",
+    ("Darwin", "arm64"): "arm64mac",
+    ("Windows", "AMD64"): "x64mingw",
+}
 SOURCE_PATHS = (
     "crates/host", "vendor/gpui", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
     "dependencies/gui-host-notices",

@@ -10,6 +10,7 @@ on:
       - scripts/build_windows_gnu_runtime.py
       - scripts/windows_runtime_validation.py
       - scripts/release_windows_gnu_runtime.py
+      - scripts/release_windows_inputs.py
       - scripts/test_windows_gnu_runtime.py
       - scripts/test_windows_gnu_runtime_artifact.py
       - scripts/audit_windows_archive.py

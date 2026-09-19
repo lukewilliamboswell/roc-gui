@@ -34,6 +34,33 @@ class Case:
     capture: Path
 
 
+# Windows refuses a command line beyond 32767 characters, and POSIX bounds it
+# by ARG_MAX. Describing the whole suite in one call once fit and silently grew
+# past the Windows limit from a deeper checkout, so batches are budgeted by
+# length rather than a count that would drift with path depth.
+ARGV_BUDGET = 24_000
+
+
+def argv_batches(arguments: list[str], reserved: int, budget: int = ARGV_BUDGET) -> list[list[str]]:
+    """Group arguments into command lines the operating system will accept."""
+    batches: list[list[str]] = []
+    current: list[str] = []
+    length = reserved
+    for argument in arguments:
+        extra = len(argument) + 1
+        if current and length + extra > budget:
+            batches.append(current)
+            current = []
+            length = reserved
+        if not current and reserved + extra > budget:
+            raise RuntimeError("a single specification path exceeds the command-line budget")
+        current.append(argument)
+        length += extra
+    if current:
+        batches.append(current)
+    return batches
+
+
 def describe(cases: list[Case]) -> dict[Path, dict]:
     """Ask the host what each specification needs.
 
@@ -41,26 +68,32 @@ def describe(cases: list[Case]) -> dict[Path, dict]:
     the runner a case needs and the very capability flags its declared grants
     become. Duplicating that vocabulary here would be a second source of truth
     that could drift.
+
+    Each record is keyed by its own path, so answering in several batches is
+    the same answer as one call.
     """
     executable = next((case.executable for case in cases if case.executable.is_file()), None)
     if executable is None:
         raise RuntimeError("no built executable available to describe specifications")
-    completed = subprocess.run(
-        [str(executable), "--host-describe-specs", *[str(case.spec) for case in cases]],
-        cwd=ROOT,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if completed.returncode != 0:
-        diagnostic = completed.stderr.decode(errors="replace").strip()
-        raise RuntimeError(f"specification description failed: {diagnostic}")
+    flag = "--host-describe-specs"
     described: dict[Path, dict] = {}
-    for line in completed.stdout.decode(errors="replace").splitlines():
-        if not line.strip():
-            continue
-        record = json.loads(line)
-        described[Path(record["path"])] = record
+    batches = argv_batches([str(case.spec) for case in cases], len(str(executable)) + len(flag) + 2)
+    for batch in batches:
+        completed = subprocess.run(
+            [str(executable), flag, *batch],
+            cwd=ROOT,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if completed.returncode != 0:
+            diagnostic = completed.stderr.decode(errors="replace").strip()
+            raise RuntimeError(f"specification description failed: {diagnostic}")
+        for line in completed.stdout.decode(errors="replace").splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            described[Path(record["path"])] = record
     missing = [case.spec for case in cases if case.spec not in described]
     if missing:
         raise RuntimeError(f"host did not describe {len(missing)} specification(s)")

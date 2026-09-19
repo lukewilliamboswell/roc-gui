@@ -47,8 +47,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The generated API reference comes from the platform's own pinned
+      # compiler, so the manual documents the signatures it ships with.
+      - uses: ./.github/actions/setup-roc
+      # This site tracks the branch, not a release, and says so on its title
+      # page rather than claiming the last published version.
       - name: Build and check HTML and PDF documentation
-        run: python3 scripts/build_docs.py --pdf
+        run: python3 scripts/build_docs.py --pdf --docs-version main
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: example-gallery

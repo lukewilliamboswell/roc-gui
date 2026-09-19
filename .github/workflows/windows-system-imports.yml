@@ -11,6 +11,7 @@ on:
       - scripts/build_windows_system_imports.py
       - scripts/windows_system_imports.py
       - scripts/release_windows_system_imports.py
+      - scripts/release_windows_inputs.py
       - scripts/test_windows_system_imports.py
       - scripts/test_windows_system_import_artifact.py
       - scripts/audit_windows_archive.py
