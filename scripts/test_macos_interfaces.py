@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
@@ -18,6 +19,14 @@ class MacosInterfaceTests(unittest.TestCase):
             "System/Library/Frameworks/CoreAudio.framework/CoreAudio.tbd",
         } <= paths)
         self.assertEqual(sum(len(library["symbols"]) for library in catalog["libraries"]), 576)
+
+    def test_platform_links_every_published_interface(self):
+        platform = (Path(__file__).resolve().parents[1] / "platform/main.roc").read_text()
+        match = re.search(r'arm64mac: \{ inputs: \[(.*?)\] \}', platform)
+        self.assertIsNotNone(match)
+        declared = set(re.findall(r'"([^"]+\.tbd)"', match.group(1)))
+        expected = {"macos-sysroot/" + path for path in build_macos_interfaces.interface_files()}
+        self.assertEqual(declared, expected)
 
     def test_generation_binds_exact_host_bytes_without_reading_system_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:

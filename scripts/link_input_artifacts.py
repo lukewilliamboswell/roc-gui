@@ -70,9 +70,9 @@ def _unified_path(path, name, component_target, target):
     prefix = f"targets/{component_target}/"
     if path.startswith(prefix):
         if target == "arm64mac":
-            macos_prefix = "targets/macos-sysroot/usr/lib/"
+            macos_prefix = "targets/macos-sysroot/"
             if path.startswith(macos_prefix) and path.endswith(".tbd"):
-                return "targets/arm64mac/" + Path(path).name
+                return "targets/arm64mac/macos-sysroot/" + path[len(macos_prefix):]
             return "sources/link-inputs/macos/" + path
         return f"targets/{target}/" + path[len(prefix):]
     if path.startswith(f"licenses/{name}/"):
@@ -186,12 +186,22 @@ def install(target, destination, lock_path=LOCK, cache=CACHE):
         destination.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=destination, prefix=".link-inputs-") as staged_name:
             staged = Path(staged_name)
-            for path in source.iterdir():
+            for path in source.rglob("*"):
+                if path.is_dir() and not path.is_symlink():
+                    continue
                 if not path.is_file() or path.is_symlink():
                     raise ValueError("linker-input payload must contain ordinary files")
-                shutil.copyfile(path, staged / path.name)
+                relative = path.relative_to(source)
+                (staged / relative).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(path, staged / relative)
             for path in staged.iterdir():
-                path.replace(destination / path.name)
+                target_path = destination / path.name
+                if target_path.exists():
+                    if target_path.is_dir():
+                        shutil.rmtree(target_path)
+                    else:
+                        target_path.unlink()
+                path.replace(target_path)
     return lock
 
 

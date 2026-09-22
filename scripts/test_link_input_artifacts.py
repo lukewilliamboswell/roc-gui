@@ -46,6 +46,13 @@ class LinkInputArtifactsTests(unittest.TestCase):
             unpack_verified(archive, {"name": "link-inputs", "target": "x64mingw"}, extracted)
             self.assertEqual((extracted / "targets/x64mingw/roc-gui.res").read_bytes(), b"resource")
             self.assertTrue((extracted / "licenses/link-inputs/windows-gnu-runtime/LICENSE").is_file())
+            mac = root / "mac"
+            unpack_verified(root / "release/link-inputs-arm64mac.tar",
+                            {"name": "link-inputs", "target": "arm64mac"}, mac)
+            self.assertEqual(
+                (mac / "targets/arm64mac/macos-sysroot/usr/lib/libSystem.tbd").read_bytes(),
+                b"system",
+            )
 
     def test_lock_requires_all_targets_and_current_fingerprint(self):
         with tempfile.TemporaryDirectory() as temporary:

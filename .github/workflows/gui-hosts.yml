@@ -114,7 +114,7 @@ jobs:
             PYTHONPATH=scripts python3 -c 'from pathlib import Path; from link_input_artifacts import install; install("arm64mac", Path("platform/targets/arm64mac"))'
           else
             python3 scripts/build_macos_stubs.py --archives platform/targets/arm64mac --output "$RUNNER_TEMP/macos-sysroot"
-            cp "$RUNNER_TEMP/macos-sysroot/usr/lib/"*.tbd platform/targets/arm64mac/
+            cp -R "$RUNNER_TEMP/macos-sysroot" platform/targets/arm64mac/macos-sysroot
           fi
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"

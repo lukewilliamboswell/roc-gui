@@ -40,8 +40,7 @@ def stage_external_inputs(target: str, destination: Path, profile: str) -> dict:
         generated = destination.parent / "macos-sysroot"
         manifest = generate(ROOT / "target" / profile, generated)
         destination.mkdir(parents=True)
-        for name in ("libSystem.tbd", "libobjc.tbd", "libc++.tbd"):
-            shutil.copyfile(generated / "usr/lib" / name, destination / name)
+        shutil.copytree(generated, destination / "macos-sysroot")
         return {"schema_version": 1, "bootstrap": manifest}
     destination.mkdir(parents=True)
     artifacts = {}

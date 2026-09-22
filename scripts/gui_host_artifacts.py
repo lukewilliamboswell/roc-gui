@@ -137,22 +137,42 @@ def verified_hosts(lock_path, cache, root=ROOT, targets=None):
 
 
 def stage_candidate_dependencies(target, destination, root=ROOT):
-    """Fetch independently verified link inputs into an empty candidate target."""
+    """Stage the link inputs used by the production platform for admission.
+
+    Once the unified lock exists this is exactly the ordinary installation
+    path. The builders below exist only to admit the host in the PR that
+    introduces the first lock; they can be removed with that bootstrap path.
+    """
+    link_lock = root / "link-inputs.lock.json"
+    if link_lock.is_file():
+        from link_input_artifacts import install
+        return install(target, destination, link_lock)
+
     from prepare_dependencies import (
         install_alsa, install_freetype, install_glibc, install_unwind, install_windows_gnu, install_xkbcommon,
     )
 
     installers = {"x64glibc": (install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon),
                   "x64mingw": (install_windows_gnu,)}
+    destination.mkdir(parents=True, exist_ok=True)
+    if target == "arm64mac":
+        from build_macos_stubs import generate
+        sysroot = destination.parent / "macos-sysroot"
+        generate(destination, sysroot)
+        shutil.copytree(sysroot, destination / "macos-sysroot")
+        return None
     if target not in installers:
         raise ValueError("candidate target has no independent dependency release policy")
-    destination.mkdir(parents=True, exist_ok=False)
     artifacts = {}
     for install in installers[target]:
         receipt = install(destination, lock=root / "dependencies.lock.json")
         if artifacts.keys() & receipt["artifacts"].keys():
             raise ValueError("candidate dependency receipts overlap")
         artifacts.update(receipt["artifacts"])
+    if target == "x64mingw":
+        from build_windows_resource import build
+        resource = build(destination.parent / "windows-resource")
+        shutil.copyfile(resource, destination / "roc-gui.res")
     (destination / "dependencies.lock.json").write_text(json.dumps({
         "schema_version": 1, "artifacts": artifacts}, indent=2) + "\n")
 
@@ -180,15 +200,14 @@ def check_candidate(archive, target, roc, root=ROOT, source_companion=None):
             validate_publication_notices(extracted, sources, root)
         platform = stage / "platform"
         shutil.copytree(root / "platform", platform, ignore=shutil.ignore_patterns("targets"))
-        if target == "arm64mac":
-            (platform / "targets" / target).mkdir(parents=True)
-        else:
-            stage_candidate_dependencies(target, platform / "targets" / target, root)
+        target_directory = platform / "targets" / target
+        target_directory.mkdir(parents=True)
         for name in HOST_FILES[target]:
-            shutil.copyfile(extracted / "targets" / target / name, platform / "targets" / target / name)
-        if target == "arm64mac":
-            from build_macos_stubs import generate
-            generate(platform / "targets" / target, platform / "targets/macos-sysroot")
+            shutil.copyfile(extracted / "targets" / target / name, target_directory / name)
+        # macOS interface generation inventories the actual host archive, and
+        # the unified installer must coexist with it just as it does in the
+        # production target directory.
+        stage_candidate_dependencies(target, target_directory, root)
         app = stage / "counter"
         shutil.copytree(root / "examples/counter", app)
         source = app / "main.roc"
