@@ -18,6 +18,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/roc-gui/link-inputs
+          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
+          restore-keys: link-inputs-${{ runner.os }}-
       - uses: ./.github/actions/setup-native-test
       - name: Repository policy and artifact tests
         run: |
@@ -59,6 +64,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/roc-gui/link-inputs
+          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
+          restore-keys: link-inputs-${{ runner.os }}-
       - uses: ./.github/actions/setup-native-test
       - name: Run ordinary application specifications
         run: >-
@@ -100,6 +110,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/roc-gui/link-inputs
+          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
+          restore-keys: link-inputs-${{ runner.os }}-
       - uses: ./.github/actions/setup-native-test
       - name: Run scaling specifications serially
         run: >-
@@ -141,6 +156,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/roc-gui/link-inputs
+          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
+          restore-keys: link-inputs-${{ runner.os }}-
       - uses: ./.github/actions/setup-native-test
       - name: Build and exercise a real GPUI window
         run: |
@@ -177,6 +197,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/roc-gui/link-inputs
+          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
+          restore-keys: link-inputs-${{ runner.os }}-
       - uses: ./.github/actions/setup-native-test
       - name: Run real GPUI window specifications
         run: >-

@@ -1,0 +1,173 @@
+name: Native linker-input release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_candidate:
+        description: Build and attest bytes for the trusted publisher
+        type: boolean
+        default: false
+        required: true
+      expected_sha:
+        description: Exact branch commit requested by the trusted publisher
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: link-inputs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: Build Linux inputs twice
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
+      - name: Install interface provider and ELF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev binutils
+      - name: Build every Linux component twice
+        run: |
+          for script in build_alsa_interface build_freetype build_glibc build_unwind build_xkbcommon; do
+            python3 "scripts/$script.py" --output "$RUNNER_TEMP/candidate"
+            python3 "scripts/$script.py" --output "$RUNNER_TEMP/rebuild"
+          done
+          for archive in "$RUNNER_TEMP/candidate"/*.tar; do
+            cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: link-input-components-linux
+          path: ${{ runner.temp }}/candidate/*.tar
+          retention-days: 30
+
+  macos:
+    name: Build and validate macOS interfaces
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Generate the reviewed interfaces twice
+        run: |
+          python3 scripts/build_macos_interfaces.py --output "$RUNNER_TEMP/candidate"
+          python3 scripts/build_macos_interfaces.py --output "$RUNNER_TEMP/rebuild"
+          cmp "$RUNNER_TEMP/candidate/macos-interfaces-macos-sysroot.tar" "$RUNNER_TEMP/rebuild/macos-interfaces-macos-sysroot.tar"
+      - uses: ./.github/actions/setup-toolchain
+      - name: Final-link and run the production platform
+        run: |
+          ./build.py
+          python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300
+          roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
+          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: link-input-components-macos
+          path: ${{ runner.temp }}/candidate/*.tar
+          retention-days: 30
+
+  windows-validate:
+    name: Execute exact Windows runtime and import candidates
+    needs: windows-build
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
+          use-cache: false
+      - uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
+        with:
+          version: nightly-new-compiler
+          nightly-tag: nightly-2026-09-04-c125b82
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: link-input-components-windows
+          path: ${{ runner.temp }}/candidate
+      - name: Execute the exact runtime and system imports
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --target x86_64-pc-windows-gnullvm
+          python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/candidate/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/runtime-evidence'
+          python scripts/test_windows_system_import_artifact.py '${{ runner.temp }}/candidate/windows-system-imports-x64mingw.tar' --require-native
+
+  windows-build:
+    name: Build Windows inputs twice
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
+      - name: Build the runtime, system imports, and resource twice
+        run: |
+          for output in candidate rebuild; do
+            python3 scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/$output" --cache "$RUNNER_TEMP/downloads"
+            python3 scripts/build_windows_system_imports.py --output "$RUNNER_TEMP/$output" --cache "$RUNNER_TEMP/downloads"
+            python3 scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-$output"
+          done
+          for archive in "$RUNNER_TEMP/candidate"/*.tar; do
+            cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
+          done
+          cmp "$RUNNER_TEMP/resource-candidate/roc-gui.res" "$RUNNER_TEMP/resource-rebuild/roc-gui.res"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: link-input-components-windows
+          path: |
+            ${{ runner.temp }}/candidate/*.tar
+            ${{ runner.temp }}/resource-candidate/roc-gui.res
+          retention-days: 30
+
+  assemble:
+    name: Assemble and attest exact target archives
+    needs: [linux, macos, windows-build, windows-validate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Admit the publisher's exact requested commit
+        if: inputs.release_candidate
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: test -n "$EXPECTED_SHA" && test "$EXPECTED_SHA" = "$GITHUB_SHA"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: link-input-components-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/components
+      - name: Compose the independently releasable set
+        run: python3 scripts/prepare_link_input_release.py --components "$RUNNER_TEMP/components" --resource "$RUNNER_TEMP/components/roc-gui.res" --output "$RUNNER_TEMP/release"
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        if: inputs.release_candidate
+        with:
+          subject-path: ${{ runner.temp }}/release/*
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: link-input-release
+          path: ${{ runner.temp }}/release/*
+          retention-days: 30

@@ -10,9 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST_FILES = {
     "x64glibc": ("libhost.a",),
     "arm64mac": ("libhost.a",),
-    # Roc links the Windows manifest resource beside the archive, so a released
-    # Windows host is incomplete without it.
-    "x64mingw": ("libhost.a", "roc-gui.res"),
+    "x64mingw": ("libhost.a",),
 }
 # The host target each supported runner builds and links natively. Keyed by
 # `(platform.system(), platform.machine())` so callers resolve their own host

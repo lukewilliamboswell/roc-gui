@@ -983,8 +983,8 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Release infrastructure
 
-- [ ] **Adopt roc-gui-owned content-addressed releases.** Run the dependency and
-  host producer workflows from reviewed repository revisions, publish their
-  attested archives, and replace the bootstrap `roc-signals` entries in
-  `dependencies.lock.json` with the exact roc-gui release identities before the
-  first platform release.
+- [ ] **Bootstrap the first unified linker-input lock.** After the infrastructure
+  publisher reaches the default branch, open the adoption pull request and
+  dispatch it by number. Its GitHub-signed lock-only commit supplies
+  `link-inputs.lock.json`; remove the superseded component lock, migration
+  fallback, and legacy publication helpers after that commit lands.

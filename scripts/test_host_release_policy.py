@@ -32,26 +32,8 @@ class HostReleasePolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "captured build receipt"):
             validate_outputs(receipt, "x64glibc", "f" * 64, cargo, {"libhost.a": b"replacement"})
 
-    def test_released_windows_host_names_the_inventory_it_was_separated_against(self):
-        import install_released_host
-
-        digest = install_released_host.inventory_digest({"b": ["two"], "a": 1})
-        self.assertEqual(
-            digest,
-            host_notice_payload.digest(json.dumps({"b": ["two"], "a": 1}, sort_keys=True).encode()),
-            "the guard must identify an inventory exactly as the separation recorded it",
-        )
-        receipt = {"archives": {"libhost.a": {"separation": {"inventory_sha256": digest}}}}
-        with tempfile.TemporaryDirectory() as temporary:
-            tree = Path(temporary)
-            notices = tree / "licenses/gui-host"
-            notices.mkdir(parents=True)
-            # A host with no notice archive records no separation to compare.
-            self.assertIsNone(install_released_host.recorded_inventory_digest(tree))
-            (notices / "third-party-notices.tar.xz").write_bytes(
-                host_notice_payload.pack_notices({"normalization.json": json.dumps(receipt).encode()})
-            )
-            self.assertEqual(install_released_host.recorded_inventory_digest(tree), digest)
+    def test_windows_resource_is_not_a_host_release_output(self):
+        self.assertEqual(HOST_FILES["x64mingw"], ("libhost.a",))
 
     def test_notice_archive_rejects_missing_or_changed_index(self):
         packed = host_notice_payload.pack_notices({"LICENSE": b"terms"})

@@ -40,9 +40,9 @@ jobs:
       - name: Verify locked artifact attestations
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/verify_release_attestations.py dependencies.lock.json host.lock.json --cache "$RUNNER_TEMP/cache"
+        run: python3 scripts/verify_release_attestations.py link-inputs.lock.json host.lock.json --cache "$RUNNER_TEMP/cache"
       - name: Bundle exact locked bytes once
-        run: python3 scripts/bundle_platform.py --output "$RUNNER_TEMP/release" --cache "$RUNNER_TEMP/cache"
+        run: python3 scripts/bundle_platform.py --link-inputs link-inputs.lock.json --output "$RUNNER_TEMP/release" --cache "$RUNNER_TEMP/cache"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: platform-release

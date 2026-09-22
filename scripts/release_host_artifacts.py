@@ -14,7 +14,7 @@ POLICY = {"targets": ("x64glibc", "arm64mac", "x64mingw"),
                  "files_by_target": {
                      "x64glibc": ("libhost.a",),
                      "arm64mac": ("libhost.a",),
-                     "x64mingw": ("libhost.a", "roc-gui.res"),
+                     "x64mingw": ("libhost.a",),
                  },
                  "licenses": ("LICENSE", "LICENSE-GPUI", "NOTICE.md", "NOTICE.json", "third-party-notices.tar.xz"),
                  "workflow": "gui-hosts.yml",
