@@ -2001,7 +2001,7 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
         element = element.max_h(px(value as f32));
     }
     if style.grow {
-        element = element.flex_grow();
+        element = element.flex_grow(1.0);
     }
     if let Some(value) = style.bg {
         element = element.bg(rgb(value));
@@ -2052,6 +2052,7 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
             offset: gpui::point(px(0.0), px(style.shadow_y as f32)),
             blur_radius: px(style.shadow as f32),
             spread_radius: px(0.0),
+            inset: false,
         }]);
     }
     element = match style.text_overflow {
@@ -2200,7 +2201,7 @@ fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
     .then_some((width, height))
 }
 
-fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
+fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyElement {
     let node = view.read(cx);
     observatory::note_native_view_element(if node.keyed_children.is_some() {
         observatory::KEYED_CONTAINER_NATIVE_KIND
@@ -2240,13 +2241,12 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
             // Mounted children own their data and notifications. Bounds,
             // clipping and inherited text are tracked by GPUI's cache key;
             // the host does not expose implicit group-hover style contexts.
-            if independent_children {
-                view.cached_with_independent_children(layout.style().clone())
-            } else {
-                view.cached(layout.style().clone())
-            }
+            // Upstream GPUI has no independent-child cache policy. Retain its
+            // conservative cache until that local patch is reviewed.
+            let _ = independent_children;
+            view.cached(layout.style().clone()).into_any_element()
         }
-        None => view,
+        None => view.into_any_element(),
     }
 }
 
@@ -2439,7 +2439,7 @@ impl Render for NodeView {
                 element = apply_style(element.flex().flex_row().items_center(), style);
             }
             NodeKind::Scroll { axis, style, .. } => {
-                element = apply_style(element.flex().flex_col().flex_grow(), style)
+                element = apply_style(element.flex().flex_col().flex_grow(1.0), style)
                     .scrollbar_width(px(8.0));
                 // Tracking hands GPUI the view's own offset cell in place of
                 // the one it would keep in per-element state. The wheel handler
@@ -2472,7 +2472,7 @@ impl Render for NodeView {
                 let runtime = self.runtime.clone();
                 let height = *row_height;
                 let gap = *row_gap;
-                element = apply_style(element.flex().flex_col().flex_grow(), style)
+                element = apply_style(element.flex().flex_col().flex_grow(1.0), style)
                     .min_h_0()
                     .max_h_full()
                     .child({
@@ -2485,7 +2485,7 @@ impl Render for NodeView {
                         })
                         .size_full();
                         match &self.scroll {
-                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle.clone()),
+                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle),
                             _ => list,
                         }
                     });
@@ -2766,7 +2766,7 @@ impl Render for NodeView {
                     element = element.max_h(px(value as f32));
                 }
                 if style.grow {
-                    element = element.flex_grow();
+                    element = element.flex_grow(1.0);
                 }
                 if let Some(value) = style.bg {
                     element = element.bg(rgb(value));
@@ -2855,6 +2855,11 @@ impl Render for NodeView {
 }
 
 struct Runtime {
+    /// Keeps the process-visible chooser route owned by this GPUI application.
+    /// Dropping the runtime closes its request task on the same scheduler that
+    /// created it, even when another test application has already taken over
+    /// the process route.
+    _chooser: files::ChooserRegistration,
     /// The host root's own focus handle.
     ///
     /// GPUI resolves a key event against the dispatch path of whatever holds
@@ -2946,7 +2951,11 @@ struct KeyedNativeApply {
 
 impl Runtime {
     fn new(initial: InitialMount, cx: &mut Context<Self>) -> Self {
+        let (chooser_requests, chooser_pending) =
+            async_channel::unbounded::<files::ChooserRequest>();
+        let chooser = files::install_chooser(chooser_requests);
         let mut runtime = Self {
+            _chooser: chooser,
             root_focus: cx.focus_handle(),
             graph: MountedGraph::default(),
             generation: 0,
@@ -3010,9 +3019,6 @@ impl Runtime {
         // who presses Open waits for the panel, and every millisecond between
         // the press and the panel is time the application looks unresponsive
         // for no reason.
-        let (chooser_requests, chooser_pending) =
-            async_channel::unbounded::<files::ChooserRequest>();
-        files::install_chooser(chooser_requests);
         cx.spawn(async move |_, cx| {
             while let Ok(request) = chooser_pending.recv().await {
                 let prompt = cx.update(|cx| {
@@ -3023,7 +3029,6 @@ impl Runtime {
                         prompt: Some("Open".into()),
                     })
                 });
-                let Ok(prompt) = prompt else { break };
                 let chosen = match prompt.await {
                     Ok(Ok(Some(paths))) => paths.into_iter().next(),
                     _ => None,
@@ -3036,19 +3041,12 @@ impl Runtime {
         cx.spawn(async move |_, cx| {
             loop {
                 executor.timer(std::time::Duration::from_millis(100)).await;
-                if cx
-                    .update(|cx| {
-                        clipboard::observe_system(
-                            cx.read_from_clipboard().and_then(|item| item.text()),
-                        );
-                        if let Some(text) = clipboard::take_system_write() {
-                            cx.write_to_clipboard(ClipboardItem::new_string(text));
-                        }
-                    })
-                    .is_err()
-                {
-                    break;
-                }
+                cx.update(|cx| {
+                    clipboard::observe_system(cx.read_from_clipboard().and_then(|item| item.text()));
+                    if let Some(text) = clipboard::take_system_write() {
+                        cx.write_to_clipboard(ClipboardItem::new_string(text));
+                    }
+                });
             }
         })
         .detach();
@@ -4454,7 +4452,7 @@ impl Render for Runtime {
         // Only when nothing else holds it: this exists to give host chords a
         // dispatch path, never to take focus away from the application.
         if window.focused(_cx).is_none() {
-            self.root_focus.focus(window);
+            self.root_focus.focus(window, _cx);
         }
         // What this frame is drawing, so a painted read can tell whether the
         // window has caught up with the graph it is being asked about.
@@ -4462,7 +4460,7 @@ impl Render for Runtime {
         if let Some(target) = self.focus_after_render.take()
             && let Some(handle) = self.focus_handles.get(&target)
         {
-            handle.focus(window);
+            handle.focus(window, _cx);
         }
         let focused_now = self
             .focus_handles
@@ -4487,8 +4485,8 @@ impl Render for Runtime {
             div()
                 .id("roc-gui-root")
                 .track_focus(&self.root_focus)
-                .on_action(|_: &FocusNext, window, _| window.focus_next())
-                .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
+                .on_action(|_: &FocusNext, window, cx| window.focus_next(cx))
+                .on_action(|_: &FocusPrevious, window, cx| window.focus_prev(cx))
                 // A plain closure, like its neighbours. A `cx.listener` here
                 // leases the runtime entity while GPUI is dispatching, and the
                 // surface's state is host-owned precisely so this handler does
@@ -5350,11 +5348,11 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         );
     }
 
-    Application::new().run(move |cx| {
+    gpui_platform::application().run(move |cx| {
         watchdog::milestone(watchdog::Milestone::AppRunEntered);
         input::bind_keys(cx);
         cx.bind_keys(host_bindings());
-        cx.on_window_closed(|cx| {
+        cx.on_window_closed(|cx, _window_id| {
             if cx.windows().is_empty() {
                 cx.quit();
             }
@@ -5379,8 +5377,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                     }),
                     ..Default::default()
                 },
-                move |window, cx| {
-                    window.observe_frame_work(observatory::gpui_frame_work);
+                move |_window, cx| {
                     cx.new(|cx| Runtime::new(initial, cx))
                 },
             )
@@ -5432,7 +5429,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                 assert!(renders > 0, "no GPUI views rendered");
                 eprintln!("PASS: GPUI mounted and rendered {renders} frame(s)");
                 watchdog::disarm();
-                cx.update(|cx| cx.quit()).unwrap();
+                cx.update(|cx| cx.quit());
             })
             .detach();
         }

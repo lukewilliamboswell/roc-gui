@@ -1073,6 +1073,23 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Release infrastructure
 
+- [ ] **Complete the GPUI HEAD migration from the reproducible upstream baseline.**
+  The migration worktree pins Zed commit
+  `7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff` and compiles the production host
+  against the split `gpui`/`gpui_platform` crates. Review the former vendored
+  changes separately: accessed-entity scope composition; routed hover, press,
+  and window-exit dispatch; deterministic frame-work observation; independent
+  child caching plus replay relocation; and privacy-safe Metal debug paths.
+  Until those reviews land, GPUI-owned frame work is unavailable and mounted
+  fixed-size views use upstream's conservative cache.
+
+- [ ] **Teach GUI-host source companions to admit immutable Git Cargo sources.**
+  Current build evidence rejects GPUI HEAD because Cargo.lock correctly gives
+  an exact Git revision but no registry archive checksum. Define a bounded
+  source-archive and notice contract for the compiled files at each locked Git
+  revision, then make host release composition reproduce and verify it. Do not
+  treat a Git revision as an archive digest or omit its corresponding source.
+
 - [ ] **Bootstrap the first unified linker-input lock.** After the infrastructure
   publisher reaches the default branch, open the adoption pull request and
   dispatch it by number. Its GitHub-signed lock-only commit supplies

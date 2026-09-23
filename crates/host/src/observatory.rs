@@ -946,28 +946,6 @@ pub fn gpui_frame(
     );
 }
 
-/// Record the completed GPUI-owned work snapshot. GPUI invokes this observer
-/// after `Frame::finish`, so no unfinished frame is published.
-pub fn gpui_frame_work(work: gpui::FrameWork) {
-    let counts = work.counts();
-    GPUI_WORK_MARK.with(|mark| {
-        if let Some(observation) = mark.borrow_mut().as_mut() {
-            observation.frames += 1;
-            for (maximum, count) in observation.max_counts.iter_mut().zip(counts) {
-                *maximum = (*maximum).max(count);
-            }
-        }
-    });
-    if !active() {
-        return;
-    }
-    let ordinal = GPUI_FRAME_ORDINAL
-        .load(Ordering::Relaxed)
-        .checked_sub(1)
-        .expect("GPUI frame work arrived before its host frame");
-    submit(Event::GpuiFrameWork { ordinal, counts }, false);
-}
-
 pub fn virtual_list_frame(
     list_id: u64,
     visible_items: u64,

@@ -268,7 +268,7 @@ impl TextInput {
             return;
         }
         self.selecting = true;
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         let index = self.index_at(event.position);
         if event.modifiers.shift {
             self.select_to(index, cx)
@@ -722,7 +722,14 @@ impl Element for TextElement {
             window.paint_quad(selection);
         }
         let line = state.borrow_mut().take().unwrap();
-        line.paint(bounds.origin, bounds.size.height, window, cx)
+        line.paint(
+            bounds.origin,
+            bounds.size.height,
+            gpui::TextAlign::Left,
+            None,
+            window,
+            cx,
+        )
             .unwrap();
         if focus.is_focused(window)
             && let Some(cursor) = prepaint.cursor.take()

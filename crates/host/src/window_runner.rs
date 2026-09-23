@@ -860,7 +860,7 @@ async fn run_step(
                         // `type` would go to whatever held focus before.
                         let handle = runtime.focus_handles.get(&id).cloned();
                         match handle {
-                            Some(handle) => handle.focus(window),
+                            Some(handle) => handle.focus(window, cx),
                             None => {
                                 return Err(StepError::Geometry(format!(
                                     "{} accepts pointer focus but has no focus handle",
@@ -885,9 +885,9 @@ async fn run_step(
                 .update(cx, |runtime, _, _| resolve(runtime, locator))
                 .map_err(|_| StepError::WindowClosed)??;
             let focused = window
-                .update(cx, |runtime, window, _| {
+                .update(cx, |runtime, window, cx| {
                     runtime.focus_handles.get(&id).map(|handle| {
-                        handle.focus(window);
+                        handle.focus(window, cx);
                     })
                 })
                 .map_err(|_| StepError::WindowClosed)?;
