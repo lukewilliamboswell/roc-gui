@@ -435,8 +435,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   one long interactive-session capture at 10k and 100k cycles, which needs a
   real recorded session driven through the ordinary window path as its fixture.
   The photographs `window-tour.scm` takes have not been reviewed against the
-  wireframes, because no Linux screenshot backend was available (see the
-  `grim` entry under "Runner: test what we fly").
+  wireframes.
 
 - [ ] **A single capture file cannot be opened (P9).** Access offers only a
   directory chooser. Add a type-filtered single-file chooser, dropping files onto
@@ -1053,7 +1052,10 @@ names the reproduction so the workaround can be removed when the fix lands.
   window captures already measure native work. Preserve the explicit backend
   distinction until the sampled native matrix replaces it.
 
-- [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
+- [ ] **Capture the window, not the screen region, on macOS.** Linux reads back
+  the presented frame from the Blade renderer and Windows uses `PrintWindow`;
+  the equivalent on macOS is a readback from the Metal renderer's drawable,
+  which the vendored GPUI does not yet offer. `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a
   1280x800 window on a display with the dock visible photographs the dock. A
   window-targeted capture (`screencapture -l<windowid>`, which reads the
@@ -1064,8 +1066,8 @@ names the reproduction so the workaround can be removed when the fix lands.
   avoids needing.
 
 - [ ] **Wayland window specifications in continuous integration.** The window
-  runner is platform-neutral and `grim` is wired for wlroots, but no Linux
-  runner has a compositor. This needs the headless lane (`sway --headless`,
+  runner is platform-neutral and screenshots read back the host's own frame,
+  but no Linux runner has a compositor. This needs the headless lane (`sway --headless`,
   `WLR_BACKENDS=headless`, software rendering) described above.
 
 - [ ] **Golden-image comparison.** Window specifications photograph state but

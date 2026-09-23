@@ -517,11 +517,14 @@ letters, digits, and hyphens. Files are written as `NN-NAME.png`, numbered by
 step, and indexed in the report's `screenshots` array. A `:region` locator that
 does not match exactly one node fails the step, as `click` does.
 
-The host asks the platform's capture tool for a screen rectangle, which it can
-compute because it knows its own window origin and where each node was laid
-out. Cropping is therefore part of the request rather than a post-processing
-step. On macOS this is `screencapture`; under a wlroots compositor it is
-`grim`.
+The host knows where each node was laid out, so it computes the crop itself,
+relative to the content area. On Linux the renderer reads back the next frame it
+presents and the host crops those pixels: the image is the frame the
+application flew, whatever the compositor or desktop, with no capture tool or
+permission involved and nothing drawn over the window in the picture. On
+Windows the window renders itself into a bitmap with `PrintWindow`. On macOS
+the host adds its window origin and asks `screencapture` for that screen
+rectangle, so cropping is part of the request.
 
 Capture is honest about not happening. A missing tool, a denied Screen
 Recording permission, or a region with no area on screen is reported as

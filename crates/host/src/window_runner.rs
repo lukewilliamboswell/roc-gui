@@ -763,7 +763,7 @@ async fn run_step(
         Command::Screenshot(request) => {
             // A photograph is the most painted question there is.
             await_painted(window, options.timeout, cx).await?;
-            return take_screenshot(request, ordinal, window, options, cx);
+            return take_screenshot(request, ordinal, window, options, cx).await;
         }
         Command::MarkNativeWork => window
             .update(cx, |_, _, _| {
@@ -1468,14 +1468,14 @@ fn region_rect(
 /// A capture that cannot happen is reported as `unavailable` with a reason
 /// rather than failing the run, unless the run required screenshots. Either way
 /// it never reports a pass it did not earn.
-fn take_screenshot(
+async fn take_screenshot(
     request: &Screenshot,
     ordinal: usize,
     window: WindowHandle<Runtime>,
     options: &Options,
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
-    let (geometry, native) = window
+    let (client, screen, scale, native, readback) = window
         .update(cx, |runtime, window, _| {
             let size = window.viewport_size();
             let viewport = Rect {
@@ -1485,47 +1485,91 @@ fn take_screenshot(
                 bottom: f32::from(size.height),
             };
             let region = region_rect(runtime, &request.region, viewport)?;
-            // Windows photographs the client area itself, so the region stays
-            // relative to it; elsewhere the capture tool takes screen space.
-            #[cfg(windows)]
-            let frame = (0.0, 0.0, viewport.right, viewport.bottom);
-            #[cfg(not(windows))]
-            let frame = {
-                let frame = window.bounds();
+            let content = (viewport.right, viewport.bottom);
+            let pad = request.pad as f32;
+            // A frame the host renders itself is cropped relative to its
+            // content area; a capture tool takes screen space.
+            let client = screenshot::screen_rect(
+                (0.0, 0.0, viewport.right, viewport.bottom),
+                content,
+                region,
+                pad,
+            );
+            let frame = window.bounds();
+            let screen = screenshot::screen_rect(
                 (
                     f32::from(frame.origin.x),
                     f32::from(frame.origin.y),
                     f32::from(frame.size.width),
                     f32::from(frame.size.height),
-                )
-            };
-            Ok::<_, StepError>((
-                screenshot::screen_rect(
-                    frame,
-                    (viewport.right, viewport.bottom),
-                    region,
-                    request.pad as f32,
                 ),
+                content,
+                region,
+                pad,
+            );
+            let readback = client.is_some() && window.request_frame_capture();
+            Ok::<_, StepError>((
+                client,
+                screen,
+                window.scale_factor(),
                 native_window(window),
+                readback,
             ))
         })
         .map_err(|_| StepError::WindowClosed)??;
 
     let file_name = format!("{ordinal:02}-{}.png", request.name);
     let destination = options.shot_dir.join(&file_name);
-    // Windows captures by asking the window to render, which is a message the
-    // window's own thread answers. This step runs on that thread; driving it
-    // from the background executor would wait for a pump that may never come.
-    let result = match (geometry, native) {
-        (None, _) => Err(screenshot::ShotError::DegenerateRegion),
-        #[cfg(windows)]
-        (Some(geometry), Some((hwnd, scale))) => {
-            screenshot::capture_window(hwnd, scale, geometry, &destination)
+    let result = if readback {
+        // The renderer copies out the next frame it presents. Ask for frames
+        // the way settling does until one has been presented and read.
+        let mut captured = None;
+        for _ in 0..READBACK_FRAMES {
+            next_frame(window, cx).await?;
+            captured = window
+                .update(cx, |_, window, _| window.take_captured_frame())
+                .map_err(|_| StepError::WindowClosed)?;
+            if captured.is_some() {
+                break;
+            }
         }
+        match (captured, client) {
+            (Some(frame), Some(client)) => screenshot::save_client_region(
+                screenshot::READBACK,
+                frame.width,
+                frame.height,
+                &frame.rgba,
+                scale,
+                client,
+                &destination,
+            ),
+            _ => Err(ShotError::ToolFailed {
+                tool: screenshot::READBACK,
+                status: None,
+                detail: format!("no frame was presented within {READBACK_FRAMES} frames"),
+            }),
+        }
+    } else {
+        // Windows captures by asking the window to render, which is a message
+        // the window's own thread answers. This step runs on that thread;
+        // driving it from the background executor would wait for a pump that
+        // may never come.
         #[cfg(windows)]
-        (Some(_), None) => Err(screenshot::ShotError::UnsupportedPlatform),
-        #[cfg(not(windows))]
-        (Some(geometry), ()) => screenshot::capture(geometry, &destination),
+        let _ = screen;
+        match native {
+            #[cfg(windows)]
+            Some((hwnd, scale)) => match client {
+                Some(client) => screenshot::capture_window(hwnd, scale, client, &destination),
+                None => Err(ShotError::DegenerateRegion),
+            },
+            #[cfg(windows)]
+            None => Err(ShotError::UnsupportedPlatform),
+            #[cfg(not(windows))]
+            () => match screen {
+                Some(screen) => screenshot::capture(screen, &destination),
+                None => Err(ShotError::DegenerateRegion),
+            },
+        }
     };
     match result {
         Ok(bytes) => Ok(Some(ShotRecord {
@@ -1545,6 +1589,11 @@ fn take_screenshot(
         })),
     }
 }
+
+/// Frames to wait for a requested readback before calling it failed. The
+/// frame after the request is the one read; the rest absorb a compositor that
+/// withholds a frame callback.
+const READBACK_FRAMES: usize = 8;
 
 /// The native window and its scale factor, which a Windows capture needs.
 #[cfg(windows)]

@@ -202,17 +202,18 @@ not mean what its name says.
 The specification reference has the full step vocabulary and describes what
 geometry recording cannot see.
 
-== Screenshots need a capture tool
+== Where screenshots come from
 
-Screenshots are taken by the platform's own capture tool: `screencapture` on
-macOS, `grim` under a wlroots-based Wayland compositor. Elsewhere, and on a
-window that is not on the primary display, capture reports `unavailable` with a
-reason rather than guessing. On macOS the tool needs Screen Recording
-permission for whatever launched your application; without it the run reports
-`unavailable` and names the permission.
+On Linux the host photographs its own frame: the renderer reads back the frame
+it presents, under any compositor, and nothing drawn over the window appears in
+the picture. Windows asks the window to render itself into a bitmap.
 
-A screenshot is a photograph of that region of the screen, not of the window's
-own buffer, so anything drawn over your window is in the picture: the dock, a
+On macOS screenshots are taken by `screencapture`, which needs Screen
+Recording permission for whatever launched your application; without it the
+run reports `unavailable` and names the permission. A window that is not on the
+primary display also reports `unavailable` rather than guessing. That
+screenshot is a photograph of a region of the screen, not of the window's own
+buffer, so anything drawn over your window is in the picture: the dock, a
 notification, another application's window. Keep the window unobstructed while
 a specification runs, and treat a shot containing something you did not expect
 as evidence about the screen rather than about your application.
