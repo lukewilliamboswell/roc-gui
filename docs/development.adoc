@@ -167,6 +167,8 @@ Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
 must never fall back to a local build. Developers may explicitly select a native
 source build when an artifact is absent or its source fingerprint is stale.
+`./build.py --source-inputs` makes that choice; the linker-input producer uses
+it to final-link the inputs it is about to publish.
 Final platform releases accept only locked, released, and attested inputs.
 
 Change a linker input through its owning recipe and tests, then dispatch the

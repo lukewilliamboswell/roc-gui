@@ -67,7 +67,7 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
       - name: Final-link and run the production platform
         run: |
-          ./build.py
+          ./build.py --source-inputs
           python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"

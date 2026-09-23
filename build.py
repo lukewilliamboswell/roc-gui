@@ -28,12 +28,12 @@ def native_target() -> str:
     except KeyError as error:
         raise SystemExit(f"Unsupported native host: {platform.system()} {platform.machine()}") from error
 
-def stage_external_inputs(target: str, destination: Path, profile: str) -> dict:
+def stage_external_inputs(target: str, destination: Path, profile: str, source: bool = False) -> dict:
     from scripts.link_input_artifacts import install
-    if (ROOT / "link-inputs.lock.json").is_file():
+    if not source and (ROOT / "link-inputs.lock.json").is_file():
         return install(target, destination)
-    # The migration PR must remain testable until the trusted publisher adds
-    # the first signed lock-only commit to this branch.
+    # Built from their recipes only when asked: a linker-input producer must
+    # final-link the inputs it changes before a publisher can lock them.
     from scripts.prepare_dependencies import install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon
     if target == "arm64mac":
         from scripts.build_macos_stubs import generate
@@ -89,6 +89,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--debug", action="store_true", help="build the Cargo development profile")
     parser.add_argument("--skip-inputs", action="store_true", help="reuse already staged external inputs")
+    parser.add_argument("--source-inputs", action="store_true",
+                        help="build external inputs from their recipes instead of the locked release")
     args = parser.parse_args()
     target = native_target()
     if target == "x64mingw":
@@ -112,7 +114,7 @@ def main() -> None:
         with tempfile.TemporaryDirectory(dir=platform_targets, prefix=".stage-") as temporary:
             staged_targets = Path(temporary) / "targets"
             staged_target = staged_targets / target
-            receipt = stage_external_inputs(target, staged_target, profile)
+            receipt = stage_external_inputs(target, staged_target, profile, args.source_inputs)
             staged_target.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / f"target/{profile}/libhost.a", staged_target / "libhost.a")
             (staged_target / "link-inputs.json").write_text(json.dumps(receipt, indent=2) + "\n")
