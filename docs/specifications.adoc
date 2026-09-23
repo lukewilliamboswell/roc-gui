@@ -326,7 +326,9 @@ by the preceding click. `KIND` is `mount`, `replace`, or `no_change`.
 `(expect-processes N)`:: Require exactly `N` live host-owned PTY child
 processes.
 `(expect-sqlite-counters LIVE OPEN QUERY)`:: Require the owner-recorded live
-connection count and attempted SQLite operations.
+connection count and attempted SQLite operations. `QUERY` counts every
+statement the host was asked to run, whether whole, with parameters, or as
+one page.
 `(expect-subscriptions N)`:: Require exactly `N` active host timer handles. This
 assertion reads the timer registry that owns cancellation state.
 `(expect-system-samplers N)`:: Require exactly `N` active host-owned system

@@ -581,7 +581,7 @@ HostGlue := [].{
 		justify : U8,
 	} => { change : U64, id : U64, submit : U64 }
 	sqlite_open_read! : Resource.DirRead, Str => Try(Resource.SqliteRead, { code : U8, message : Str })
-	sqlite_query! : Resource.SqliteRead, Str => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
+	sqlite_query! : Resource.SqliteRead, { sql : Str, params : List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str }), page_rows : U64 } => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })), more : Bool }, { code : U8, message : Str })
 	clipboard_acquire! : () => Try(Resource.Clipboard, { code : U8, message : Str })
 	clipboard_read_text! : Resource.Clipboard => Try({ sequence : U64, text : Str }, { code : U8, message : Str })
 	clipboard_write_text! : Resource.Clipboard, Str => Try({}, { code : U8, message : Str })

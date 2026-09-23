@@ -146,6 +146,7 @@ Gui := [].{
 	SqliteDb : Sqlite.Db
 	SqliteValue : Sqlite.Value
 	SqliteResult : Sqlite.Result
+	SqlitePage : Sqlite.Page
 	SqliteReason : Sqlite.Reason
 	SqliteSqliteErr : Sqlite.SqliteErr
 

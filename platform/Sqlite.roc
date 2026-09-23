@@ -10,28 +10,62 @@ Sqlite := [].{
 	Db := Resource.SqliteRead.{
 
 		## Execute one read-only statement and return typed cells. Query text,
-		## result dimensions, and aggregate value bytes are bounded by the host.
+		## result dimensions, and aggregate value bytes are bounded by the host;
+		## a result longer than the row limit is a `ResourceLimit`.
 		query! : Db, Str => Try(Result, SqliteErr)
-		query! = |Db.(database), query| Host.sqlite_query!(database, query).map_ok(
-			|raw| {
-				columns: raw.columns,
-				rows: raw.rows.map(|row| row.map(decode_value)),
-			},
-		).map_err(|raw| QueryDatabaseErr(decode_reason(raw)))
+		query! = |db, sql| db.query_with!(sql, [])
+
+		## Execute one read-only statement with its `?` placeholders bound, in
+		## order, to `params`. Values are bound, never spliced into the text, and
+		## the count must match the statement's placeholders.
+		query_with! : Db, Str, List(Value) => Try(Result, SqliteErr)
+		query_with! = |Db.(database), sql, params| run!(database, sql, params, 0).map_ok(|page| { columns: page.columns, rows: page.rows })
+
+		## Execute one read-only statement with bound parameters and return at
+		## most `rows` rows, from 1 to the row limit. `more` reports whether the
+		## result continues past the page; the next page is asked for with a
+		## keyset or `LIMIT`/`OFFSET` bound as parameters.
+		page! : Db, { sql : Str, params : List(Value), rows : U64 } => Try(Page, SqliteErr)
+		page! = |Db.(database), request| if request.rows == 0 {
+			Err(QueryDatabaseErr(ResourceLimit("a page holds at least one row")))
+		} else {
+			run!(database, request.sql, request.params, request.rows)
+		}
 	}
 
 	Value : [Bytes(List(U8)), Integer(I64), Null, Real(F64), String(Str)]
 	Result : { columns : List(Str), rows : List(List(Value)) }
+	Page : { columns : List(Str), rows : List(List(Value)), more : Bool }
 
 	## Portable failure categories with the native SQLite diagnostic retained.
 	Reason : [AccessDenied(Str), Busy(Str), Corrupt(Str), InvalidCapability(Str), InvalidName(Str), InvalidQuery(Str), Io(Str), NotDatabase(Str), ResourceLimit(Str), Revoked(Str), Unsupported(Str)]
 	SqliteErr : [OpenDatabaseErr(Reason), QueryDatabaseErr(Reason)]
 
-	## Open a direct child database as an immutable, in-memory read-only
-	## connection. The directory authority is consumed normally and may be
-	## retained by application state through Roc reference counting.
+	## Open a direct child database in place as a read-only connection. The
+	## connection reads the file where it lies, including a write-ahead log a
+	## writer is still appending to. The directory authority is consumed
+	## normally and may be retained by application state through Roc reference
+	## counting.
 	open_read! : Files.Dir.Read, Str => Try(Db, SqliteErr)
 	open_read! = |directory, name| Host.sqlite_open_read!(directory.resource(), name).map_ok(|database| Db.(database)).map_err(|raw| OpenDatabaseErr(decode_reason(raw)))
+
+	run! : Resource.SqliteRead, Str, List(Value), U64 => Try(Page, SqliteErr)
+	run! = |database, sql, params, page_rows| Host.sqlite_query!(database, { sql, params: params.map(encode_value), page_rows }).map_ok(
+		|raw| {
+			columns: raw.columns,
+			rows: raw.rows.map(|row| row.map(decode_value)),
+			more: raw.more,
+		},
+	).map_err(|raw| QueryDatabaseErr(decode_reason(raw)))
+
+	encode_value : Value -> { bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str }
+	encode_value = |value| match value {
+		Null => { bytes: [], integer: 0, kind: 0, real: 0, text: "" }
+		Integer(number) => { bytes: [], integer: number, kind: 1, real: 0, text: "" }
+		Real(number) => { bytes: [], integer: 0, kind: 2, real: number, text: "" }
+		String(text) => { bytes: [], integer: 0, kind: 3, real: 0, text }
+		Bytes(bytes) => { bytes, integer: 0, kind: 4, real: 0, text: "" }
+	}
 
 	decode_value = |raw| match raw.kind {
 		0 => Null

@@ -909,19 +909,51 @@ newer response without creating a second completion route.
 
 `Gui.Sqlite.open_read!(directory, name)` opens one direct ordinary child of a
 granted directory as a read-only database capability. The operation rejects
-path traversal and symlinks and never exposes an ambient path. Database bytes
-are bounded to 64 MiB and the returned `Gui.SqliteDb` is an opaque, reference-
-counted `Box(U64)` handle whose final release closes the native connection.
+path traversal and symlinks and never exposes an ambient path. The database is
+read in place, so its size is not bounded by memory, and the file SQLite opens
+is checked to be the one the directory grant names. The returned
+`Gui.SqliteDb` is an opaque, reference-counted `Box(U64)` handle whose final
+release closes the native connection. The connection is derived from the
+directory grant, so withdrawing the folder withdraws the database with it.
+
+The connection is read-only and cannot attach another database. It is not
+opened as immutable: a database in write-ahead-log mode is read through its log,
+so every query sees the writes another process has committed, including a
+writer that is still running. SQLite keeps a write-ahead-logged database's
+shared index files beside it; the database file itself is never written.
 
 `database.query!(sql)` prepares and executes one read-only statement.
+`database.query_with!(sql, params)` binds a `List(Gui.SqliteValue)` to the
+statement's `?` placeholders in order. Values are bound, never spliced into the
+statement text, and the number of values must match the placeholders.
 Results preserve SQLite's `Null`, `Integer`, `Real`, `String`, and `Bytes`
-value kinds. Queries are bounded to 64 KiB of SQL, 256 columns, 10,000 rows,
-and 16 MiB of returned text and blob bytes. Limit violations and invalid,
+value kinds. Queries are bounded to 64 KiB of SQL, 256 columns, 256
+parameters, 10,000 rows, and 16 MiB of returned text and blob bytes; the same
+16 MiB bounds the bytes of the parameters. Limit violations and invalid,
 corrupt, busy, inaccessible, or non-database resources are typed errors.
 Failures use `OpenDatabaseErr(reason)` and `QueryDatabaseErr(reason)`, so callers
 can distinguish the failed operation before matching the portable reason.
 Every reason retains SQLite's bounded diagnostic string; `Gui.Sqlite.detail`
 extracts it for user-facing status without flattening the public error type.
+
+A result longer than the row limit is read in pages.
+`database.page!({ sql, params, rows })` returns a `Gui.SqlitePage` holding at
+most `rows` rows, from one to the row limit, and `more`, which is `True`
+when the result continues past the page. The next page is a further call whose
+parameters carry the position: a keyset such as `WHERE id > ? ORDER BY id`
+bound to the last key seen, or `LIMIT -1 OFFSET ?` bound to the rows already
+read. A keyset page costs the same at any depth; an offset page costs more the
+deeper it lies. Each page is one statement, so no read transaction is held
+between pages and a writer is never blocked by a reader turning pages.
+
+[source,roc]
+----
+next = database.page!({
+    sql: "SELECT id, title FROM books WHERE id > ? ORDER BY id",
+    params: [Integer(last_id)],
+    rows: 1000,
+})
+----
 
 Open and query calls are blocking capability operations. Run them inside
 `Gui.task`, retain the last successful view while work is pending, and use a
