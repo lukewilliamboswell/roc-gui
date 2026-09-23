@@ -137,7 +137,7 @@ pass_origin = |mark| match (mark.origin, mark.frame, mark.cycle) {
 
 readout : Timeline.Window, Hit -> Str
 readout = |window, hit| match hit {
-	OnCycle(mark) => "cycle ${cycle_name(mark.cycle)} · ${mark.cycle.trigger} · ${mark.cycle.patch_kind} · ${Format.ms(mark.end - mark.start)} at ${Format.ms(mark.start - window.first)}${more(mark.cycles, "cycles")}"
+	OnCycle(mark) => "cycle ${cycle_name(mark.cycle)} · ${mark.cycle.trigger} · ${Capture.target_caption(mark.cycle)} · ${mark.cycle.patch_kind} · ${Format.ms(mark.end - mark.start)} at ${Format.ms(mark.start - window.first)}${more(mark.cycles, "cycles")}"
 	OnFrame(mark) => {
 		drew = if mark.causes > 0 "first to draw ${mark.causes.to_str()} cycle(s)" else "cause not recorded"
 		"frame ${frame_name(mark.bar)} · host stages ${Format.ms(mark.bar.layout + mark.bar.prepaint + mark.bar.paint)} · ${drew} at ${Format.ms(mark.start - window.first)}${more(mark.frames, "frames")}"

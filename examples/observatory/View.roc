@@ -950,6 +950,7 @@ cycle_row = |chosen, cycle, slowest, timing| {
 				],
 			),
 			cell(cycle.trigger, 150, Theme.ink),
+			cell(Capture.target_caption(cycle), 190, Theme.dim),
 			cell(cycle.patch_kind, 90, Theme.dim),
 			match timing {
 				Timed => figure_cell(Format.ms(cycle.duration), 110)
@@ -1032,7 +1033,7 @@ cycles_section = |state, opened| {
 			Gui.col(
 				{ label: "Cycle table", width: Fill, height: Px(Theme.row_height * 9), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 				[
-					table_head("Cycle columns", [head_cell("cycle", 100), head_cell("trigger", 150), head_cell("patch", 90), head_figure("duration", 110), head_rest("callback · validate · apply · unattributed")]),
+					table_head("Cycle columns", [head_cell("cycle", 100), head_cell("trigger", 150), head_cell("target", 190), head_cell("patch", 90), head_figure("duration", 110), head_rest("callback · validate · apply · unattributed")]),
 					Gui.virtual_rows({
 						label: "Cycles",
 						row_height: Theme.row_height,
@@ -1285,7 +1286,7 @@ inspector = |state, opened| match state.inspected {
 		[
 			Gui.col(
 				{ label: "Cycle inspector", width: Fill, padding: Theme.inset, gap: 6, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
-				[title]
+				[title, Gui.row({ label: "Cycle target", width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body, font_face: Theme.face }, [Gui.text("TARGET ${Capture.target_caption(cycle)}")])]
 					.concat(CompareView.cycle_line(CompareView.mode(state), opened, cycle))
 					.append(waterfall_heading)
 					.concat(timing)

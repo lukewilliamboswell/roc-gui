@@ -629,11 +629,10 @@ ideal and the repository. P- and E-numbers refer to that document.
   A specification step that presses a canvas primitive by its semantic label
   would let a specification press any mark.
 
-- [ ] **Interactive cycles do not identify their target or components (E4,
-  E5).** A cycle records only its trigger, and component work is a per-cycle
-  total. Define a stable, non-textual node and component identity that satisfies
-  the capture privacy rules, then record the target of each interactive cycle
-  and per-component work.
+- [ ] **Component work is not attributed to components (E5).** Component work
+  is a per-cycle total. Define a stable, non-textual component identity that
+  satisfies the capture privacy rules, as `cycles.target_identity` does for a
+  cycle's target, and record work per component.
 
 ## Trust: measurements that can mislead a decision
 
@@ -660,7 +659,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   counts those rows among `visible_items` but has no column saying how many of
   them were blank, so a capture cannot show how often a fast scroll outran the
   list. Add an owner-populated column at the next schema version, together with
-  the Observatory and `analyze_stats.py`, which gate on schema 22.
+  the Observatory and `analyze_stats.py`, which gate on schema 23.
 
 - [ ] **Window benchmark warmup and sample orchestration.** Real-window
   hover-grid runs can record schema-14 captures containing native frames and

@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 22;
+pub const SCHEMA_VERSION: u32 = 23;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -358,6 +358,15 @@ pub struct Config {
     pub patch_expected: bool,
 }
 
+/// The node an interactive cycle's event reached: its kind, and a hash of its
+/// structural path in the mounted graph. Neither holds application text.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CycleTarget {
+    pub kind: &'static str,
+    /// Sixteen lowercase hexadecimal digits.
+    pub identity: String,
+}
+
 #[derive(Clone, Debug)]
 pub struct Cycle {
     pub run_id: i64,
@@ -365,6 +374,8 @@ pub struct Cycle {
     pub step_ordinal: Option<usize>,
     pub measurement_phase: &'static str,
     pub trigger: &'static str,
+    /// Absent for a cycle no element caused: initialization, a task, a timer.
+    pub target: Option<CycleTarget>,
     pub patch_kind: &'static str,
     pub start_ns: u64,
     pub end_ns: u64,
@@ -1686,8 +1697,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
         },
         Event::Cycle(cycle) => {
             connection.execute(
-                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,start_ns,end_ns,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits,keyed_graph_visits,keyed_original_reads,keyed_first_touches,keyed_native_edits,keyed_item_entities_created,keyed_item_entities_retired,keyed_item_entities_moved) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29)",
-                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.start_ns), as_i64(cycle.end_ns), as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits), as_i64(cycle.keyed_graph_visits), as_i64(cycle.keyed_original_reads), as_i64(cycle.keyed_first_touches), as_i64(cycle.keyed_native_edits), as_i64(cycle.keyed_item_entities_created), as_i64(cycle.keyed_item_entities_retired), as_i64(cycle.keyed_item_entities_moved)],
+                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,start_ns,end_ns,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits,keyed_graph_visits,keyed_original_reads,keyed_first_touches,keyed_native_edits,keyed_item_entities_created,keyed_item_entities_retired,keyed_item_entities_moved,target_kind,target_identity) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31)",
+                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.start_ns), as_i64(cycle.end_ns), as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits), as_i64(cycle.keyed_graph_visits), as_i64(cycle.keyed_original_reads), as_i64(cycle.keyed_first_touches), as_i64(cycle.keyed_native_edits), as_i64(cycle.keyed_item_entities_created), as_i64(cycle.keyed_item_entities_retired), as_i64(cycle.keyed_item_entities_moved), cycle.target.as_ref().map(|target| target.kind), cycle.target.as_ref().map(|target| target.identity.as_str())],
             )
             .map_err(|error| format!("cannot write cycle row: {error}"))?;
             let cycle_id = connection.last_insert_rowid();
@@ -1891,7 +1902,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=22;
+PRAGMA user_version=23;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -2020,6 +2031,9 @@ CREATE TABLE cycles(
     keyed_item_entities_moved INTEGER NOT NULL,
     roc_work_valid INTEGER NOT NULL CHECK(roc_work_valid IN (0,1)),
     component_work_recorded INTEGER NOT NULL CHECK(component_work_recorded IN (0,1)),
+    target_kind TEXT CHECK(target_kind IN ('boundary','button','canvas','checkbox','column','dialog','image','panel','popover','region','row','scroll','text','text_input','textarea','virtual_item','virtual_list')),
+    target_identity TEXT CHECK(length(target_identity) = 16 AND target_identity NOT GLOB '*[^0-9a-f]*'),
+    CHECK((target_kind IS NULL) = (target_identity IS NULL)),
     UNIQUE(run_id,ordinal),
     FOREIGN KEY(run_id,step_ordinal) REFERENCES steps(run_id,ordinal)
 );
@@ -2227,6 +2241,10 @@ mod tests {
             step_ordinal: None,
             measurement_phase: phase,
             trigger: "click",
+            target: Some(CycleTarget {
+                kind: "button",
+                identity: format!("{ordinal:016x}"),
+            }),
             patch_kind,
             start_ns: 1_000 * ordinal,
             end_ns: 1_000 * ordinal + 100,

@@ -38,7 +38,7 @@ Compare := [].{
 
 	## The gate, in words, exactly as `sheet` applies it.
 	rule : Str
-	rule = "Comparable when both captures are schema 22, finalised, and shut down cleanly, and they agree on every other key. A key absent or unavailable in either capture fails: missing identity is never guessed."
+	rule = "Comparable when both captures are schema 23, finalised, and shut down cleanly, and they agree on every other key. A key absent or unavailable in either capture fails: missing identity is never guessed."
 
 	## The A/A rule, in words, exactly as `accept_noise` applies it.
 	noise_rule : Str

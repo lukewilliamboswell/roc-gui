@@ -146,7 +146,14 @@ Cycle : {
 	callback : I64,
 	validate : I64,
 	apply : I64,
+	target : Target,
 }
+
+## The element an interactive cycle reached (E4): its node kind and a hash of
+## its place in the mounted graph. Neither names application text. `None` is a
+## cycle no element caused, such as a task completion, or one whose target the
+## recorder did not see.
+Target : [None, Some({ kind : Str, identity : Str })]
 
 ## One `roc_work_spans` row: a span's time and the allocations made inside it.
 Span : {
@@ -284,6 +291,7 @@ Capture := [].{
 	Progress : Progress
 	Opened : Opened
 	Cycle : Cycle
+	Target : Target
 	Span : Span
 	Work : Work
 	Counter : Counter
@@ -292,15 +300,24 @@ Capture := [].{
 	TriggerAlloc : TriggerAlloc
 	Resources : Resources
 
+	## A cycle's target from its two columns at `index`, as `decode_cycle`
+	## reads it.
+	target_at : List(Gui.SqliteValue), U64 -> Target
+	target_at = target_at
+
+	## A cycle's target as every view names it.
+	target_caption : Cycle -> Str
+	target_caption = target_caption
+
 	## The one schema this application reads.
 	supported_schema : Str
-	supported_schema = "22"
+	supported_schema = "23"
 
 	## Read enough of one file to list it: identity and a verdict.
 	summarize! : Gui.FilesDirRead, Str => Listing
 	summarize! = summarize!
 
-	## Open one capture, refuse it unless it is schema 22, and read every table
+	## Open one capture, refuse it unless it is schema 23, and read every table
 	## the views present.
 	open! : Gui.FilesDirRead, Str => Try(Opened, Str)
 	open! = open!
@@ -526,7 +543,7 @@ decompose = |inspected| {
 ## outside the callback, validate, and apply, and that remainder is explicit.
 sample_inspected : Inspected
 sample_inspected = {
-	cycle: { id: 1, run_id: 1, ordinal: 0, step_ordinal: None, phase: "interactive", trigger: "init", patch_kind: "mount", duration: 47776342, callback: 521128, validate: 17894, apply: 39546 },
+	cycle: { id: 1, run_id: 1, ordinal: 0, step_ordinal: None, phase: "interactive", trigger: "init", patch_kind: "mount", duration: 47776342, callback: 521128, validate: 17894, apply: 39546, target: None },
 	graph_apply: 7555,
 	gpui_apply: Some(31991),
 	roc_work_valid: True,
@@ -547,12 +564,12 @@ expect work_count(sample_inspected, 2) == Some(0)
 expect work_count({ ..sample_inspected, component_work_recorded: False }, 0) == None
 
 schema_gate : Str -> Try({}, Str)
-schema_gate = |version| if version == "22" {
+schema_gate = |version| if version == "23" {
 	Ok({})
 } else if Str.is_empty(version) {
-	Err("This file records no schema version; Observatory reads schema 22")
+	Err("This file records no schema version; Observatory reads schema 23")
 } else {
-	Err("Schema ${version} is not supported; Observatory reads schema 22")
+	Err("Schema ${version} is not supported; Observatory reads schema 23")
 }
 
 metadata : Opened, Str -> Str
@@ -605,10 +622,10 @@ expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalize
 expect judge({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Withheld("capture not yet finalised")
 expect judge({ final_state: "complete", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("unclean shutdown")
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "timing_environment", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Partial("partial families: timing_environment")
-expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 22")
-expect schema_gate("21") == Err("Schema 21 is not supported; Observatory reads schema 22")
+expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 23")
+expect schema_gate("22") == Err("Schema 22 is not supported; Observatory reads schema 23")
 
-## Cells. Every column read through these is declared by schema 22; a nullable
+## Cells. Every column read through these is declared by schema 23; a nullable
 ## column is read as an option so an absent value never becomes zero.
 text_at : List(Gui.SqliteValue), U64 -> Str
 text_at = |row, index| match row.get(index) {
@@ -692,7 +709,7 @@ frame_native_sql = "SELECT metric, kind, count FROM gpui_native_work WHERE frame
 frame_work_sql = "SELECT metric, count FROM gpui_frame_work WHERE frame_id = ? ORDER BY metric"
 
 ## Only the recorded link says which cycles a frame drew.
-frame_causes_sql = "SELECT c.id, c.run_id, c.ordinal, c.step_ordinal, c.measurement_phase, c.trigger, c.patch_kind, c.duration_ns, c.roc_callback_ns, c.validate_ns, c.apply_ns FROM gpui_frame_cycles l JOIN cycles c ON c.id = l.cycle_id WHERE l.frame_id = ? ORDER BY c.run_id, c.ordinal"
+frame_causes_sql = "SELECT c.id, c.run_id, c.ordinal, c.step_ordinal, c.measurement_phase, c.trigger, c.patch_kind, c.duration_ns, c.roc_callback_ns, c.validate_ns, c.apply_ns, c.target_kind, c.target_identity FROM gpui_frame_cycles l JOIN cycles c ON c.id = l.cycle_id WHERE l.frame_id = ? ORDER BY c.run_id, c.ordinal"
 
 lists_sql = "WITH l AS (SELECT list_id, count(*) AS n, max(id) AS last, max(materialized_entities) AS most FROM virtual_list_frames GROUP BY list_id) SELECT l.list_id, l.n, v.visible_items, v.materialized_entities, v.recycled_entities, v.live_entities, l.most FROM l JOIN virtual_list_frames v ON v.id = l.last ORDER BY l.list_id"
 
@@ -793,11 +810,11 @@ buckets_sql = "SELECT measurement_phase, trigger, patch_kind, ${bucket_expressio
 
 ## Warmups are excluded, as in every cycle statistic. Ties in duration order
 ## by id, so a page boundary never repeats or skips a cycle.
-cycle_columns = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns FROM cycles WHERE measurement_phase = ? AND run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')"
+cycle_columns = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns, target_kind, target_identity FROM cycles WHERE measurement_phase = ? AND run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')"
 
 cycles_sql = "${cycle_columns} ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
 
-cycle_at_sql = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns FROM cycles WHERE run_id = ? AND ordinal = ?"
+cycle_at_sql = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns, target_kind, target_identity FROM cycles WHERE run_id = ? AND ordinal = ?"
 
 trigger_cycles_sql = "${cycle_columns} AND trigger = ? AND patch_kind = ? ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
 
@@ -856,7 +873,29 @@ decode_cycle = |row| {
 	callback: int_at(row, 8),
 	validate: int_at(row, 9),
 	apply: int_at(row, 10),
+	target: target_at(row, 11),
 }
+
+## A cycle's target from its two nullable columns, which the schema requires
+## to be present or absent together.
+target_at : List(Gui.SqliteValue), U64 -> Target
+target_at = |row, index| match (row.get(index), row.get(index + 1)) {
+	(Ok(String(kind)), Ok(String(identity))) => Some({ kind, identity })
+	_ => None
+}
+
+## How a list, the inspector, and the Timeline name a cycle's target.
+## Initialization and task completions are caused by no element, so they have
+## no target rather than an unrecorded one.
+target_caption : Cycle -> Str
+target_caption = |cycle| match cycle.target {
+	Some(found) => "${found.kind} ${found.identity}"
+	None => if cycle.trigger == "init" or cycle.trigger == "task" "no target" else "target not recorded"
+}
+
+expect target_caption({ ..sample_inspected.cycle, trigger: "click", target: Some({ kind: "button", identity: "00ff00ff00ff00ff" }) }) == "button 00ff00ff00ff00ff"
+expect target_caption({ ..sample_inspected.cycle, trigger: "click" }) == "target not recorded"
+expect target_caption(sample_inspected.cycle) == "no target"
 
 counters : List(Gui.SqliteValue), U64, List(Str) -> List(Counter)
 counters = |row, start, names| names.map_with_index(|name, index| { name, value: int_at(row, start + index) })

@@ -16,6 +16,6 @@
     (expect-count (within (role column :name "Measurement families") (text "unavailable")) 3)
     (expect-visible (within (role column :name "Recording gaps") (text "none")))
     (expect-visible (within (role panel :name "Recorder health") (text-prefix "omitted events 0 · writer ok · output limit not reached")))
-    (expect-visible (within (role panel :name "Identity") (text "schema_version = 22")))
+    (expect-visible (within (role panel :name "Identity") (text "schema_version = 23")))
     (expect-visible (within (role panel :name "Identity") (text "app_name = counter")))
     (expect-visible (within (role column :name "Unavailable sources") (text "gpu_timing")))))

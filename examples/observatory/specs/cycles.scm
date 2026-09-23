@@ -14,6 +14,10 @@
     (expect-count (within (role virtual-list :name "Cycles") (button-prefix "Cycle r")) 6)
     (expect-count (within (role virtual-list :name "Cycles") (text "task")) 3)
     (expect-count (within (role virtual-list :name "Cycles") (text "click")) 3)
+    ; each click names the button it reached by kind and structural identity,
+    ; never by its label; a task completion reached no element
+    (expect-count (within (role virtual-list :name "Cycles") (text-prefix "button ")) 3)
+    (expect-count (within (role virtual-list :name "Cycles") (text "no target")) 3)
     (expect-before
       (role row :name "Cycle row r4 #7")
       (role row :name "Cycle row r4 #6"))

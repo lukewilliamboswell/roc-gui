@@ -1,3 +1,4 @@
+pub use crate::observatory::CycleTarget;
 use crate::roc_platform_abi::{
     MountOrNoChangeOrReplace, MountOrNoChangeOrReplaceTag, RocErasedCallable,
 };
@@ -911,6 +912,31 @@ impl NodeKind {
         )
     }
 
+    /// Which kind this is, as a capture names the target of a cycle. A
+    /// popover with no surface of its own is a region: it anchors hover or
+    /// shortcut handlers and presents nothing.
+    pub fn target_kind(&self) -> &'static str {
+        match self {
+            Self::Canvas { .. } => "canvas",
+            Self::Button { .. } => "button",
+            Self::Checkbox { .. } => "checkbox",
+            Self::Textarea { .. } => "textarea",
+            Self::Image { .. } => "image",
+            Self::Column { .. } | Self::KeyedColumn { .. } => "column",
+            Self::Dialog { .. } => "dialog",
+            Self::Panel { .. } => "panel",
+            Self::Row { .. } => "row",
+            Self::Scroll { .. } => "scroll",
+            Self::VirtualItem { .. } => "virtual_item",
+            Self::VirtualList { .. } => "virtual_list",
+            Self::TextInput { .. } => "text_input",
+            Self::Text(_) | Self::StyledText { .. } => "text",
+            Self::Boundary { .. } => "boundary",
+            Self::Popover { label, .. } if label.is_empty() => "region",
+            Self::Popover { .. } => "popover",
+        }
+    }
+
     /// Which kind this is, as a number, for identity comparisons.
     ///
     /// Two nodes are the same element across a patch only if they agree here:
@@ -1549,6 +1575,53 @@ impl MountedGraph {
 
     pub fn parent_location(&self, id: u64) -> Option<ParentLocation> {
         self.nodes.get(&id).and_then(|entry| entry.parent)
+    }
+
+    /// The node an event route reaches, named for a capture without any
+    /// application text: its kind, and a hash of its structural path.
+    ///
+    /// The path is the kind and the display position of every node from the
+    /// root down to the target. It holds no label, name, value, key, or
+    /// component instance, so it can be recorded under the capture privacy
+    /// rules, and it depends only on the shape of the mounted graph, so the
+    /// same control in the same place hashes the same across runs, rebuilds,
+    /// and machines. A keyed or virtual row is named by where it is shown,
+    /// never by its key, which an application derives from its data.
+    pub fn cycle_target(&self, route: u64) -> Option<CycleTarget> {
+        const ROUTE_BITS: u64 =
+            (1 << 63) | HOVER_ENTER_EVENT_BIT | HOVER_EXIT_EVENT_BIT | SHORTCUT_EVENT_BIT;
+        let target = route & !ROUTE_BITS;
+        let kind = self.node(target)?.kind.target_kind();
+        // FNV-1a over (tag, position) pairs from the target up to the root. The
+        // walk order is fixed, so the hash names the same path every time.
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut mix = |value: u64| {
+            for byte in value.to_le_bytes() {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        };
+        let mut id = target;
+        loop {
+            let entry = self.nodes.get(&id)?;
+            mix(u64::from(entry.node.kind.tag()));
+            match entry.parent {
+                Some(ParentLocation::OrdinaryIndex { parent, index }) => {
+                    mix(index as u64);
+                    id = parent;
+                }
+                Some(ParentLocation::Keyed { container, .. }) => {
+                    let position = self.children_of(container).position(|child| child == id)?;
+                    mix(position as u64);
+                    id = container;
+                }
+                None => break,
+            }
+        }
+        Some(CycleTarget {
+            kind,
+            identity: format!("{hash:016x}"),
+        })
     }
 
     pub fn subtree_size(&self, id: u64) -> Option<u64> {
@@ -4190,6 +4263,65 @@ mod tests {
         );
         // The last control removed: focus lands on the new last one.
         assert_eq!(graph.focus_destination(9), Some(7));
+    }
+
+    #[test]
+    fn a_cycle_target_names_a_place_and_no_text() {
+        let button = |id: u64, name: &str| Node {
+            id,
+            kind: NodeKind::Button {
+                caption: name.into(),
+                label: name.into(),
+                enabled: true,
+                hover_enter: false,
+                hover_exit: false,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let row = |id: u64, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Row {
+                label: String::new(),
+                style: Box::default(),
+            },
+            children,
+        };
+        let mounted = |nodes: Vec<Node>| {
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: nodes[0].id,
+                    nodes,
+                })
+                .expect("mount");
+            graph
+        };
+        let first = mounted(vec![
+            row(1, vec![2, 3]),
+            button(2, "Save"),
+            button(3, "Open"),
+        ]);
+        let save = first.cycle_target(2).expect("target");
+        assert_eq!(save.kind, "button");
+        assert_eq!(save.identity.len(), 16);
+        assert!(!save.identity.contains("Save"));
+        // A different run numbers its nodes differently and names its buttons
+        // differently; the same place has the same identity.
+        let renamed = mounted(vec![
+            row(7, vec![8, 9]),
+            button(8, "Speichern"),
+            button(9, "x"),
+        ]);
+        assert_eq!(renamed.cycle_target(8), Some(save.clone()));
+        // Route bits select a handler, not a different node.
+        assert_eq!(
+            first.cycle_target(2 | HOVER_ENTER_EVENT_BIT),
+            Some(save.clone())
+        );
+        // Another place is another identity.
+        assert_ne!(first.cycle_target(3).unwrap().identity, save.identity);
+        assert_eq!(first.cycle_target(99), None);
     }
 
     #[test]

@@ -111,7 +111,7 @@ column_expression = "min((max(start_ns, ?1) - ?1) * ?3 / ?2, ?3 - 1)"
 
 within = "end_ns >= ?1 AND start_ns <= ?1 + ?2"
 
-cycles_sql = "WITH c AS (SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns, start_ns, end_ns, ${column_expression} AS col FROM cycles WHERE ${within}) SELECT col, count(*), max(end_ns - start_ns), id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns, start_ns, end_ns FROM c GROUP BY trigger, col ORDER BY trigger, col"
+cycles_sql = "WITH c AS (SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns, start_ns, end_ns, target_kind, target_identity, ${column_expression} AS col FROM cycles WHERE ${within}) SELECT col, count(*), max(end_ns - start_ns), id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns, start_ns, end_ns, target_kind, target_identity FROM c GROUP BY trigger, col ORDER BY trigger, col"
 
 frames_sql = "WITH f AS (SELECT id, run_id, ordinal, layout_request_ns AS l, prepaint_ns AS p, paint_ns AS q, start_ns, end_ns, (SELECT count(*) FROM gpui_frame_cycles k WHERE k.frame_id = gpui_frames.id) AS n, ${column_expression} AS col FROM gpui_frames WHERE ${within}) SELECT col, count(*), max(l + p + q), id, run_id, ordinal, l, p, q, start_ns, end_ns, n FROM f GROUP BY col ORDER BY col"
 
@@ -133,6 +133,7 @@ decode_cycle = |row| {
 		callback: int_at(row, 11),
 		validate: int_at(row, 12),
 		apply: int_at(row, 13),
+		target: Capture.target_at(row, 16),
 	},
 	start: int_at(row, 14),
 	end: int_at(row, 15),

@@ -51,8 +51,8 @@ CopyView := [].{
 		timed = Capture.complete(opened, "host_cycles")
 		shown = |ns| if timed Format.ms(ns) else "—"
 		{
-			header: ["cycle", "trigger", "patch", "phase", "duration", "callback", "validate", "apply"].concat(evidence_header),
-			rows: rows.map(|cycle| ["r${cycle.run_id.to_str()} #${cycle.ordinal.to_str()}", cycle.trigger, cycle.patch_kind, cycle.phase, shown(cycle.duration), shown(cycle.callback), shown(cycle.validate), shown(cycle.apply)].concat(evidence(opened, "host_cycles"))),
+			header: ["cycle", "trigger", "target", "patch", "phase", "duration", "callback", "validate", "apply"].concat(evidence_header),
+			rows: rows.map(|cycle| ["r${cycle.run_id.to_str()} #${cycle.ordinal.to_str()}", cycle.trigger, Capture.target_caption(cycle), cycle.patch_kind, cycle.phase, shown(cycle.duration), shown(cycle.callback), shown(cycle.validate), shown(cycle.apply)].concat(evidence(opened, "host_cycles"))),
 		}
 	}
 

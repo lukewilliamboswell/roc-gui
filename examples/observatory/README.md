@@ -8,7 +8,7 @@ a health badge, and opens one. Either way the capture is read through the
 platform's ordinary SQLite capability. It queries the capture's tables itself and depends on no other
 tool.
 
-A capture of any schema other than 22 is refused with its reason before a single
+A capture of any schema other than 23 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be
@@ -19,7 +19,8 @@ trusted or is not yet finalised. Nine views follow:
 - **Interactions**: the triggers table, cycles grouped by trigger and patch kind
   within one measurement phase, with count, minimum, median, maximum, and
   interquartile range. Below it, every cycle of the phase, slowest first, each
-  with a bar of callback, validate, apply, and unattributed time; choosing a
+  naming the element it reached by node kind and structural identity, never by
+  its text, and each with a bar of callback, validate, apply, and unattributed time; choosing a
   trigger narrows the list to its cycles, and Slowest and Fastest jump to either
   end. The list builds only the rows near its viewport and reads the capture a
   page of cycles at a time as the viewport reaches them, so a capture of any
@@ -236,7 +237,6 @@ platform, or the host's sources and locks.
 
 - One capture opens at a time; there is no drop target or recent list.
 - The scaling charts have no metric selector.
-- The timeline cannot name the node an interactive cycle targeted (E4).
 - Only six tables have Copy; the Overview tiles, the inspector's work and
   allocation sections, the run lifecycle and process resources, the Frames and
   Timeline tables, and the Compare and Scaling sheets have none.

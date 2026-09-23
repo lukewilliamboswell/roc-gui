@@ -3687,6 +3687,7 @@ impl Runtime {
             runtime.apply_recorded(
                 initial.patch,
                 "init",
+                None,
                 initial.cycle_started,
                 initial.roc_callback_ns,
                 initial.roc_work,
@@ -3927,6 +3928,7 @@ impl Runtime {
         cx: &mut Context<Self>,
     ) {
         if observatory::active() {
+            let target = self.graph.cycle_target(id);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -3936,6 +3938,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 trigger,
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -4115,6 +4118,7 @@ impl Runtime {
             editor.update(cx, |editor, _| editor.begin_acknowledgement(submitted));
         }
         if observatory::active() {
+            let target = self.graph.cycle_target(event_id);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -4124,6 +4128,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 trigger,
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -4151,6 +4156,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 "task",
+                None,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -4165,6 +4171,7 @@ impl Runtime {
 
     fn dispatch_live_event(&mut self, id: u64, trigger: &'static str, cx: &mut Context<Self>) {
         if observatory::active() {
+            let target = self.graph.cycle_target(id);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -4174,6 +4181,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 trigger,
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -4204,6 +4212,7 @@ impl Runtime {
             return;
         }
         if observatory::active() {
+            let target = self.graph.cycle_target(id);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -4213,6 +4222,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 "input",
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -4267,6 +4277,7 @@ impl Runtime {
         // A dialog the shortcut opens returns focus here when it closes.
         self.last_trigger_focus = focused.and_then(|id| self.identities.get(&id).cloned());
         if observatory::active() {
+            let target = self.graph.cycle_target(found.event);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -4276,6 +4287,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 "key",
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -4318,6 +4330,7 @@ impl Runtime {
         &mut self,
         patch: Patch,
         trigger: &'static str,
+        target: Option<observatory::CycleTarget>,
         cycle_started: Instant,
         roc_callback_ns: u64,
         roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
@@ -4347,6 +4360,7 @@ impl Runtime {
             step_ordinal: None,
             measurement_phase: "interactive",
             trigger,
+            target,
             patch_kind: applied.facts.kind,
             start_ns,
             end_ns,
@@ -8248,6 +8262,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rows, 3);
+        // Each phase names the canvas, by one structural identity, and the
+        // init cycle names nothing.
+        let targets: Vec<(String, Option<String>, Option<String>)> = db
+            .prepare("SELECT trigger, target_kind, target_identity FROM cycles ORDER BY ordinal")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let drags: Vec<_> = targets.iter().filter(|row| row.0 == "drag").collect();
+        assert_eq!(drags.len(), 3);
+        assert!(drags.iter().all(|row| row.1.as_deref() == Some("canvas")));
+        assert!(
+            drags
+                .iter()
+                .all(|row| row.2 == drags[0].2 && row.2.as_ref().is_some_and(|id| id.len() == 16))
+        );
+        assert!(
+            targets
+                .iter()
+                .filter(|row| row.0 == "init")
+                .all(|row| row.1.is_none() && row.2.is_none())
+        );
         drop(db);
         std::fs::remove_file(path).unwrap();
     }

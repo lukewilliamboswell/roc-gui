@@ -39,6 +39,7 @@ evidence-status rules remain visible.
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view semantic_health
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view roc_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view component_work
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view cycle_targets
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view host_gpui_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_spans
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view native_work
@@ -59,6 +60,8 @@ how much Roc allocation activity occurred inside each owned span?
 retirements, registry visits, ancestor invalidations, keyed order-tree visits,
 and keyed fallback snapshot items did the component runtime perform in marked
 sample turns?
+`cycle_targets`:: Which element did each cycle reach, by node kind and
+structural identity, how many cycles reached it, and how long was the slowest?
 `host_gpui_work`:: How much time did graph validation, graph application, and
 available GPUI materialisation consume, and how many native nodes were retained
 or visited during structural validation?
@@ -458,6 +461,29 @@ person is. Its verdicts read _capture not yet finalised_ until then.
 carries no machine, user, path, or clock. A reader that sees a file's
 `capture_id` change knows the file was replaced by another capture rather than
 grown, and reads it again from the start.
+
+== Cycle targets
+
+A cycle an element caused records that element in `cycles.target_kind` and
+`cycles.target_identity`. Both are present or both are null: a cycle no element
+caused, such as initialization, a task completion, or a timer tick, has no
+target.
+
+`target_kind` is the node's kind in the mounted graph: `button`, `checkbox`,
+`text_input`, `textarea`, `canvas`, `region` (a hover or shortcut region with
+no surface of its own), `popover`, and the containers. A shortcut's target is
+the region that declares it; a canvas gesture's is the canvas.
+
+`target_identity` is sixteen hexadecimal digits: a 64-bit FNV-1a hash of the
+node's structural path, the kind and display position of each node from the
+root down to the target. The path holds no label, name, text, value, key, or
+component instance, so the identity carries no application text and can be
+recorded in any capture. It depends only on the shape of the mounted graph, so
+the same control in the same place has the same identity in every run, on every
+machine, and across rebuilds that do not move it. A keyed or virtual row is
+named by where it is shown, never by its key, because an application derives
+its keys from its data. An identity is a place, not a promise: a control that
+moves has a new one.
 
 == Comparison identity and privacy
 

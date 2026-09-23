@@ -57,7 +57,7 @@ Unfinished work is tracked in `wip/issues-backlog.md` under "Observatory example
 ## 4. Key questions
 
 Each question maps to the evidence that answers it and the view where the answer lives. Evidence
-names tables and columns of capture schema 22, as defined by the recorder in
+names tables and columns of capture schema 23, as defined by the recorder in
 `crates/host/src/observatory.rs` and described in `docs/observatory.adoc`. Items marked
 **E*n*** need recorder evidence listed in [§8](#8-evidence-requests).
 
@@ -115,7 +115,7 @@ window, so that opening two captures from a pull request takes one gesture.
 **US-5 [shared] Refuse unsupported schemas.** As any user, I want an unsupported capture refused
 with a clear reason, so that I never read numbers through the wrong schema.
 - Opening a capture with a different `schema_version` shows
-  "Schema 4 is not supported; Observatory reads schema 22". Nothing is partially rendered.
+  "Schema 4 is not supported; Observatory reads schema 23". Nothing is partially rendered.
 
 ### J2: Trust
 
@@ -158,7 +158,7 @@ so that I can see which kind of interaction costs the most.
 **US-10 [shared] Slowest cycles.** As an app author, I want the individual slowest cycles listed,
 so that I can open the worst case rather than an average.
 - list "Cycles" is virtualized and ordered by duration by default. Each row shows run, ordinal,
-  trigger, patch kind, duration, and a stacked bar of callback, validate, and apply time.
+  trigger, target, patch kind, duration, and a stacked bar of callback, validate, and apply time.
 - Pressing a row opens the cycle inspector (US-13) without losing the list position.
 
 **US-11 [rgstats] Distribution chart.** As a platform contributor, I want a histogram of cycle
@@ -168,8 +168,10 @@ durations per trigger, so that I can see bimodal behaviour a median hides.
 
 **US-12 [rgstats] What was pressed.** As an app author, I want each interactive cycle to identify
 the element that caused it, so that "click, 180 ms" becomes "this button, 180 ms". *(E4)*
-- The cycle row shows the target's node kind and a stable, non-textual node identity. When the
-  target is not recorded, it shows "target not recorded".
+- The cycle row, the inspector, and the Timeline's hover readout show the target's node kind and
+  a stable, non-textual node identity (`cycles.target_kind`, `cycles.target_identity`). A cycle
+  no element caused, initialization or a task completion, shows "no target"; any other cycle
+  whose target is not recorded shows "target not recorded".
 
 ### J4: Explain a cycle
 
@@ -404,7 +406,7 @@ Serves US-1 to US-5.
 │   ● enter-100.rgstats          nested-hover-grid · enter-100 · headless · ✓ complete     │
 │   ● 1790122330-main.rgstats    database-browser · interactive · gpui-wayland · ✓         │
 │   ○ bench-out/ (folder)        34 captures                                               │
-│   ⚠ old.rgstats                schema 4 is not supported; Observatory reads schema 22    │
+│   ⚠ old.rgstats                schema 4 is not supported; Observatory reads schema 23    │
 │                                                                                          │
 │   CAPTURES in bench-out/                          sort: [time ▾] app spec scale health   │
 │   file                     app               spec        backend    scale  detail  ✓     │
@@ -420,7 +422,7 @@ Serves US-1 to US-5.
 Serves Q1, Q2, US-6. Each tile opens the view that explains it.
 
 ```
-┌ enter-100.rgstats ◆ │ + ─ [headless] [summary] [schema 22] [✓ final] [gaps 0] [isolated] ┐
+┌ enter-100.rgstats ◆ │ + ─ [headless] [summary] [schema 23] [✓ final] [gaps 0] [isolated] ┐
 ├──────────┬──────────────────────────────────────────────────────────┬────────────────────┤
 │▸Overview │ nested-hover-grid · spec enter-100 · release             │ INSPECTOR          │
 │ Interact.│ commit 3d2c7f1 (dirty) · Ryzen 7 9700X ×16 · linux x86_64│                    │

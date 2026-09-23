@@ -919,6 +919,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         None,
         "initialization",
         "init",
+        None,
         cycle_started,
         roc_ns,
         roc_work,
@@ -1020,6 +1021,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         }
                         let route = graph.hover_transition(target, entered);
                         if let Some(route) = route {
+                            let hover_target = graph.cycle_target(route);
                             let cycle_started = Instant::now();
                             observatory::reset_roc_work();
                             let roc_started = Instant::now();
@@ -1034,6 +1036,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 Some(ordinal),
                                 if marked { "measured" } else { "setup" },
                                 if entered { "hover-enter" } else { "hover-exit" },
+                                hover_target,
                                 cycle_started,
                                 roc_ns,
                                 roc_work,
@@ -1074,6 +1077,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let opener = graph
                         .node(matches[0])
                         .and_then(|node| node.kind.focus_identity());
+                    let click_target = graph.cycle_target(matches[0]);
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
@@ -1101,6 +1105,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "click",
+                        click_target,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1129,6 +1134,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         let id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
                             format!("line {}: canvas disappeared during drag", step.line)
                         })?;
+                        let drag_target = graph.cycle_target(id);
                         let cycle_started = Instant::now();
                         observatory::reset_roc_work();
                         let roc_started = Instant::now();
@@ -1153,6 +1159,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             Some(ordinal),
                             if marked { "measured" } else { "setup" },
                             "drag",
+                            drag_target,
                             cycle_started,
                             roc_ns,
                             roc_work,
@@ -1264,6 +1271,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         match event {
                             None => Ok(()),
                             Some((trigger, event)) => {
+                                let canvas_target = graph.cycle_target(id);
                                 let cycle_started = Instant::now();
                                 observatory::reset_roc_work();
                                 let roc_started = Instant::now();
@@ -1278,6 +1286,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                     Some(ordinal),
                                     if marked { "measured" } else { "setup" },
                                     trigger,
+                                    canvas_target,
                                     cycle_started,
                                     roc_ns,
                                     roc_work,
@@ -1325,6 +1334,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     } else {
                         "input"
                     };
+                    let input_target = graph.cycle_target(node_id);
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
@@ -1339,6 +1349,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         trigger,
+                        input_target,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1385,6 +1396,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let node_id = found[0];
                     let event_id = node_id | SUBMIT_EVENT_BIT;
                     let previous_dialog = graph.active_dialog();
+                    let submit_target = graph.cycle_target(event_id);
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
@@ -1405,6 +1417,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "text_submit",
+                        submit_target,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1501,6 +1514,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             ))
                         } else {
                             let opener = graph.node(id).and_then(|node| node.kind.focus_identity());
+                            let key_target = graph.cycle_target(id);
                             let cycle_started = Instant::now();
                             observatory::reset_roc_work();
                             let roc_started = Instant::now();
@@ -1528,6 +1542,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 Some(ordinal),
                                 if marked { "measured" } else { "setup" },
                                 "keyboard",
+                                key_target,
                                 cycle_started,
                                 roc_ns,
                                 roc_work,
@@ -1568,6 +1583,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             let opener = focused
                                 .and_then(|id| graph.node(id))
                                 .and_then(|node| node.kind.focus_identity());
+                            let shortcut_target = graph.cycle_target(found.event);
                             let cycle_started = Instant::now();
                             observatory::reset_roc_work();
                             let roc_started = Instant::now();
@@ -1594,6 +1610,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 Some(ordinal),
                                 if marked { "measured" } else { "setup" },
                                 "key",
+                                shortcut_target,
                                 cycle_started,
                                 roc_ns,
                                 roc_work,
@@ -1627,6 +1644,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Some(ordinal),
                     if marked { "measured" } else { "setup" },
                     "task",
+                    None,
                     cycle_started,
                     roc_ns,
                     roc_work,
@@ -1678,6 +1696,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "task",
+                        None,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1748,6 +1767,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "task",
+                        None,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1981,6 +2001,7 @@ fn make_cycle(
     step_ordinal: Option<usize>,
     measurement_phase: &'static str,
     trigger: &'static str,
+    target: Option<observatory::CycleTarget>,
     cycle_started: Instant,
     roc_callback_ns: u64,
     roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
@@ -1994,6 +2015,7 @@ fn make_cycle(
         step_ordinal,
         measurement_phase,
         trigger,
+        target,
         patch_kind: facts.kind,
         start_ns,
         end_ns,
