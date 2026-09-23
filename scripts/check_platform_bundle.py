@@ -4,6 +4,7 @@
 import argparse
 from functools import partial
 import http.server
+import os
 from pathlib import Path
 import platform
 import shutil
@@ -26,7 +27,12 @@ def check(directory: Path, roc: str) -> None:
     target = TARGETS.get((platform.system(), platform.machine()))
     if target is None:
         raise ValueError("bundle validation requires a supported native runner")
-    subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/bootstrap.py")],
+        cwd=ROOT,
+        check=True,
+        env={**os.environ, "ROC": roc},
+    )
     handler = partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)

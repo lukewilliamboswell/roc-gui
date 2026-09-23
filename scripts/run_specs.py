@@ -183,7 +183,13 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # or fallback. The Rust host's build profile is independent of this option.
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
     print(f"Roc application build mode: {roc_opt}", flush=True)
-    subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
+    # A generator that runs specifications itself builds with this compiler.
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/bootstrap.py")],
+        cwd=ROOT,
+        check=True,
+        env={**os.environ, "ROC": roc},
+    )
     if not skip_host_build:
         sys.path.insert(0, str(ROOT / "scripts"))
         from install_released_host import install
