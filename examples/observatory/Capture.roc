@@ -286,13 +286,13 @@ Capture := [].{
 
 	## The one schema this application reads.
 	supported_schema : Str
-	supported_schema = "21"
+	supported_schema = "22"
 
 	## Read enough of one file to list it: identity and a verdict.
 	summarize! : Gui.FilesDirRead, Str => Listing
 	summarize! = summarize!
 
-	## Open one capture, refuse it unless it is schema 21, and read every table
+	## Open one capture, refuse it unless it is schema 22, and read every table
 	## the views present.
 	open! : Gui.FilesDirRead, Str => Try(Opened, Str)
 	open! = open!
@@ -510,12 +510,12 @@ expect work_count(sample_inspected, 2) == Some(0)
 expect work_count({ ..sample_inspected, component_work_recorded: False }, 0) == None
 
 schema_gate : Str -> Try({}, Str)
-schema_gate = |version| if version == "21" {
+schema_gate = |version| if version == "22" {
 	Ok({})
 } else if Str.is_empty(version) {
-	Err("This file records no schema version; Observatory reads schema 21")
+	Err("This file records no schema version; Observatory reads schema 22")
 } else {
-	Err("Schema ${version} is not supported; Observatory reads schema 21")
+	Err("Schema ${version} is not supported; Observatory reads schema 22")
 }
 
 metadata : Opened, Str -> Str
@@ -561,10 +561,10 @@ judge = |trust| {
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Complete
 expect judge({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("not finalised (recording); unclean shutdown")
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "timing_environment", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Partial("partial families: timing_environment")
-expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 21")
-expect schema_gate("20") == Err("Schema 20 is not supported; Observatory reads schema 21")
+expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 22")
+expect schema_gate("21") == Err("Schema 21 is not supported; Observatory reads schema 22")
 
-## Cells. Every column read through these is declared by schema 21; a nullable
+## Cells. Every column read through these is declared by schema 22; a nullable
 ## column is read as an option so an absent value never becomes zero.
 text_at : List(Gui.SqliteValue), U64 -> Str
 text_at = |row, index| match row.get(index) {

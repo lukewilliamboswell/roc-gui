@@ -405,12 +405,59 @@ specifications independently of capture recording. When it is enabled,
 recording failure is evidence failure; it
 does not change application behaviour.
 
+== Read a capture while it is recorded
+
+A capture is a write-ahead-logged SQLite database, and the recorder commits
+batches of events as it goes, so a reader may open it while the application is
+still running. Open it read-only and not immutable, as the platform's SQLite
+capability does, and each query sees exactly the transactions committed so
+far. Every transaction leaves every foreign key satisfied: a reader never sees
+a cycle without its run, or a span without its cycle.
+
+What a reader may trust before `metadata.final_state` is `complete`:
+
+`metadata`:: Every key except the finalisation keys below is written once, when
+recording starts, and never changes. `capture_id` among them identifies this
+capture.
+`steps`, `cycles`, `roc_work_spans`, `component_work_counts`, `gpui_frames`, `gpui_native_work`, `gpui_frame_cycles`, and `virtual_list_frames`:: Append-only.
+A committed row is never updated or deleted, and ids only grow, so a reader
+that remembers the largest id it read finds exactly what arrived since with
+`id > ?`. A cycle arrives with its spans and component work, and a frame with
+its native work and the cycles it drew, in one transaction.
+`runs`:: A run's row arrives when it starts, with outcome `running` and every
+end column `NULL`, and is updated once, when it ends.
+`gpui_frame_work`:: Recorded after its frame, possibly in a later transaction,
+so a frame with no work rows yet may still receive them.
+
+What exists only once `final_state` is `complete`, and must not be read as
+evidence before then:
+
+`measurement_status`:: Every family is `unfinalized` until finalisation decides
+its status, reason, and row counts.
+`recorder_health`:: Absent until finalisation writes its one row.
+`recording_gaps`:: Written at finalisation.
+`final_state`, `clean_shutdown`, and the drain keys of `metadata`:: `final_state`
+is `recording` and `clean_shutdown` is `0` until the recorder finalises, then
+`complete` and, as the last write, `1`.
+
+A verdict, a comparison, or a scaling judgement rests on those, so a reader
+withholds it until the capture is finalised. A capture whose recorder died
+reads the same as one still being written; neither has a verdict.
+
+`capture_id` is a random 128-bit identifier drawn when recording starts. It
+carries no machine, user, path, or clock. A reader that sees a file's
+`capture_id` change knows the file was replaced by another capture rather than
+grown, and reads it again from the start.
+
 == Comparison identity and privacy
 
 A capture stores comparison-relevant build, executable, workload, recorder,
 operating-system, architecture, and CPU properties. It never stores usernames,
 home-directory paths, hostnames, environment variables, command lines,
 application text or state, native pointers, or machine identifiers.
+
+The capture identity, `capture_id`, is random and names only the capture; it is
+excluded from every comparison, because two captures are never the same one.
 
 Grant tokens, selected resource names and paths, trusted-dialog contents,
 network destinations, device identifiers, clipboard values, and capture-source

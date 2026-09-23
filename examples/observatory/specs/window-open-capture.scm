@@ -15,6 +15,6 @@
     ; Observatory keeps the database, not the file, so the file handle is
     ; released and only the connection derived from it is held.
     (expect-grants
-      "sqlite provisioned/consent-only derived read")
+      "sqlite provisioned/consent-only derived read,derive")
     (expect-document-counters 1 1 0 0 0 0)
     (screenshot "opened")))

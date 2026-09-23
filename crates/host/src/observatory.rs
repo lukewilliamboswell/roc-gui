@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 21;
+pub const SCHEMA_VERSION: u32 = 22;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -1299,8 +1299,16 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
         .map(|value| value.get().to_string())
         .unwrap_or_else(|_| "unavailable".into());
     let page_size = page_size_bytes();
+    // One capture's identity: random, and nothing else. A reader that sees it
+    // change knows the file was replaced rather than grown. It is drawn from
+    // SQLite's generator, which the operating system's randomness seeds, so it
+    // carries no machine, user, path, or clock.
+    let capture_id: String = connection
+        .query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))
+        .map_err(|error| format!("cannot draw a capture identity: {error}"))?;
     let metadata = [
         ("schema_version", SCHEMA_VERSION.to_string()),
+        ("capture_id", capture_id),
         ("clean_shutdown", "0".into()),
         ("final_state", "recording".into()),
         ("requested_detail", config.detail.as_str().into()),
@@ -1883,7 +1891,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=21;
+PRAGMA user_version=22;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -2442,7 +2450,17 @@ mod tests {
         let draw = current_frame_draw();
         assert_eq!(draw, Some(first.draw));
         gpui_frame(first, 1, 1, 1, NativeWork::default());
-        virtual_list_frame(7, ListPassOrigin::Paint { frame: painted_frame(draw) }, 9, 4, 4, 0, 5);
+        virtual_list_frame(
+            7,
+            ListPassOrigin::Paint {
+                frame: painted_frame(draw),
+            },
+            9,
+            4,
+            4,
+            0,
+            5,
+        );
         gpui_frame(begin_frame_draw(), 1, 1, 1, NativeWork::default());
         cycle(test_cycle("interactive", 2, "replace"));
         note_cycle_applied(2);
@@ -2976,6 +2994,15 @@ mod tests {
                 .unwrap()
                 .is_some()
         );
+        let capture_id: String = db
+            .query_row(
+                "SELECT value FROM metadata WHERE key='capture_id'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(capture_id.len(), 32);
+        assert!(capture_id.chars().all(|c| c.is_ascii_hexdigit()));
         for key in [
             "executable_hash",
             "cpu_model",
