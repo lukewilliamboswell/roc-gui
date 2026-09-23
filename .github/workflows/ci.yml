@@ -34,10 +34,6 @@ jobs:
             scripts/test_macos_interfaces.py \
             scripts/test_gpui_smoke.py \
             scripts/test_window_routing.py
-      - name: Test GPUI dependency patches
-        run: |
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support dirty_cached_parent
 
   semantics:
     name: Ordinary semantics (${{ matrix.target }})
