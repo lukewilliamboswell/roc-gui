@@ -430,9 +430,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   inspector, and Memory. The scaling case opens folders of 10, 100, and 1,000
   real captures, but no case opens one long interactive-session capture at 10k
   and 100k cycles, which needs a real recorded session driven through the
-  ordinary window path as its fixture. The cycle list reads at most 1,000 of
-  the slowest cycles of each trigger and patch kind and builds every row up
-  front; `Gui.virtual_rows` would build only the rows near the viewport.
+  ordinary window path as its fixture.
 
 - [ ] **Two honest-absence paths are reached only by unit expectations.** No
   fixture capture has a cycle with `roc_work_valid = 0` or

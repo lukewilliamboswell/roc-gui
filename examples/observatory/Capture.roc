@@ -167,8 +167,9 @@ Resources : {
 	realloc_bytes : [None, Some(I64)],
 }
 
-## A capture that passed the schema gate. Everything but the steps is read
-## when it opens; steps are read one run at a time through the held connection.
+## A capture that passed the schema gate. Everything but its long tables is
+## read when it opens; steps and cycles are read a page at a time through the
+## held connection, as the lists that show them reach them.
 ## `revision` names one reading of the capture: the request that produced it.
 ## Two readings with the same revision hold the same values, which is what a
 ## memoized view compares instead of the rows themselves.
@@ -181,13 +182,10 @@ Opened : {
 	gaps : List(Gap),
 	health : [None, Some(Health)],
 	runs : List(Run),
-	steps : List(Step),
-	steps_more : Bool,
 	triggers : List(Trigger),
 	medians : List(PhaseMedian),
 	skips : List(SkipRate),
 	frames : Frames,
-	cycles : List(Cycle),
 	allocations : List(TriggerAlloc),
 	resources : List(Resources),
 	verdict : Verdict,
@@ -234,18 +232,21 @@ Capture := [].{
 	open_file! : Gui.FilesFileRead, Str => Try(Opened, Str)
 	open_file! = open_file!
 
-	## The steps of one run, at most `step_page` of them; `more` says the run
-	## continues past the page.
-	run_steps! : Gui.SqliteDb, I64 => Try({ steps : List(Step), more : Bool }, Str)
+	## How many rows one read of a long table returns: several screens of a
+	## list, so scrolling reads again only every few screens.
+	page_rows : U64
+	page_rows = page_rows
+
+	## At most `page_rows` steps of one run, from the step whose ordinal is
+	## `from`. Ordinals number a run's steps from zero, so a step's ordinal is
+	## its row in the run's list.
+	run_steps! : Gui.SqliteDb, I64, U64 => Try(List(Step), Str)
 	run_steps! = run_steps!
 
-	step_page : U64
-	step_page = step_page
-
-	## How many of the slowest cycles of each phase, trigger, and patch kind are
-	## read when a capture opens.
-	cycle_page : I64
-	cycle_page = cycle_page
+	## At most `page_rows` cycles of one phase, slowest first, from the
+	## `offset`th: every trigger's, or one trigger and patch kind's.
+	cycles! : Gui.SqliteDb, { phase : Str, only : [All, Only({ trigger : Str, patch_kind : Str })], offset : U64 } => Try(List(Cycle), Str)
+	cycles! = cycles!
 
 	## Read one cycle's spans, component work, graph work, and step.
 	inspect! : Gui.SqliteDb, Cycle => Try(Inspected, Str)
@@ -475,10 +476,10 @@ health_sql = "SELECT transactions, queue_high_water, output_bytes, omitted_event
 
 runs_sql = "SELECT r.id, r.phase, r.sample_index, r.outcome, coalesce(r.diagnostic, ''), (SELECT count(*) FROM steps s WHERE s.run_id = r.id), (SELECT count(*) FROM steps s WHERE s.run_id = r.id AND s.status = 'fail') FROM runs r ORDER BY r.id"
 
-steps_sql = "SELECT run_id, ordinal, source_line, kind, role, status, duration_ns, expected_count, observed_count, coalesce(expected_patch_kind, ''), coalesce(observed_patch_kind, ''), coalesce(diagnostic, '') FROM steps WHERE run_id = ? ORDER BY ordinal"
+steps_sql = "SELECT run_id, ordinal, source_line, kind, role, status, duration_ns, expected_count, observed_count, coalesce(expected_patch_kind, ''), coalesce(observed_patch_kind, ''), coalesce(diagnostic, '') FROM steps WHERE run_id = ? AND ordinal >= ? ORDER BY ordinal"
 
-step_page : U64
-step_page = 10000
+page_rows : U64
+page_rows = 200
 
 ## Warmup runs exist to be discarded, so every cycle statistic excludes them.
 ## Median by averaging the one or two middle ranks; interquartile range by
@@ -493,11 +494,13 @@ skips_sql = "SELECT c.measurement_phase, coalesce(sum(CASE w.kind WHEN 2 THEN w.
 
 frames_sql = "SELECT count(*), coalesce(sum(CASE WHEN layout_request_ns + prepaint_ns + paint_ns > 16666667 THEN 1 ELSE 0 END), 0) FROM gpui_frames"
 
-cycle_page : I64
-cycle_page = 1000
+## Warmups are excluded, as in every cycle statistic. Ties in duration order
+## by id, so a page boundary never repeats or skips a cycle.
+cycle_columns = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns FROM cycles WHERE measurement_phase = ? AND run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')"
 
-## Warmups are excluded, as in every cycle statistic.
-cycles_sql = "SELECT id, run_id, ordinal, step_ordinal, phase, trigger, patch_kind, d, callback, validate, apply FROM (SELECT id, run_id, ordinal, step_ordinal, measurement_phase AS phase, trigger, patch_kind, duration_ns AS d, roc_callback_ns AS callback, validate_ns AS validate, apply_ns AS apply, row_number() OVER (PARTITION BY measurement_phase, trigger, patch_kind ORDER BY duration_ns DESC, id) AS rank FROM cycles WHERE run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')) WHERE rank <= ? ORDER BY phase, d DESC, id"
+cycles_sql = "${cycle_columns} ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
+
+trigger_cycles_sql = "${cycle_columns} AND trigger = ? AND patch_kind = ? ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
 
 detail_sql = "SELECT graph_apply_ns, gpui_apply_ns, roc_work_valid, component_work_recorded, staged_nodes, removed_nodes, live_nodes, retained_nodes, parent_nodes_scanned, validation_visits, keyed_graph_visits, keyed_original_reads, keyed_first_touches, keyed_native_edits, keyed_item_entities_created, keyed_item_entities_retired, keyed_item_entities_moved, (SELECT s.source_line FROM steps s WHERE s.run_id = c.run_id AND s.ordinal = c.step_ordinal) FROM cycles c WHERE c.id = ?"
 
@@ -519,10 +522,15 @@ bound_rows! = |database, sql, value| match database.query_with!(sql, [Integer(va
 	Err(error) => Err(Gui.Sqlite.detail(error))
 }
 
-read_cycles! : Gui.SqliteDb => Try(List(Cycle), Str)
-read_cycles! = |database| {
-	found = bound_rows!(database, cycles_sql, cycle_page)?
-	Ok(found.map(decode_cycle))
+cycles! : Gui.SqliteDb, { phase : Str, only : [All, Only({ trigger : Str, patch_kind : Str })], offset : U64 } => Try(List(Cycle), Str)
+cycles! = |database, scope| {
+	offset = Integer(scope.offset.to_i64_wrap())
+	request = match scope.only {
+		All => { sql: cycles_sql, params: [String(scope.phase), offset], rows: page_rows }
+		Only(chosen) => { sql: trigger_cycles_sql, params: [String(scope.phase), String(chosen.trigger), String(chosen.patch_kind), offset], rows: page_rows }
+	}
+	page = database.page!(request) ? |error| Gui.Sqlite.detail(error)
+	Ok(page.rows.map(decode_cycle))
 }
 
 decode_cycle : List(Gui.SqliteValue) -> Cycle
@@ -712,10 +720,10 @@ read_runs! = |database| {
 	Ok(found.map(|row| { id: int_at(row, 0), phase: text_at(row, 1), sample: option_at(row, 2), outcome: text_at(row, 3), diagnostic: text_at(row, 4), steps: int_at(row, 5), failed: int_at(row, 6) }))
 }
 
-run_steps! : Gui.SqliteDb, I64 => Try({ steps : List(Step), more : Bool }, Str)
-run_steps! = |database, run_id| {
-	page = database.page!({ sql: steps_sql, params: [Integer(run_id)], rows: step_page }) ? |error| Gui.Sqlite.detail(error)
-	Ok({ steps: decode_steps(page.rows), more: page.more })
+run_steps! : Gui.SqliteDb, I64, U64 => Try(List(Step), Str)
+run_steps! = |database, run_id, from| {
+	page = database.page!({ sql: steps_sql, params: [Integer(run_id), Integer(from.to_i64_wrap())], rows: page_rows }) ? |error| Gui.Sqlite.detail(error)
+	Ok(decode_steps(page.rows))
 }
 
 decode_steps : List(List(Gui.SqliteValue)) -> List(Step)
@@ -786,16 +794,11 @@ read! = |database, name| {
 	gaps = read_gaps!(database)?
 	health = read_health!(database)?
 	runs = read_runs!(database)?
-	first = match runs.first() {
-		Ok(run) => run_steps!(database, run.id)?
-		Err(_) => { steps: [], more: False }
-	}
 	triggers = read_triggers!(database)?
 	medians = read_medians!(database)?
 	skips = read_skips!(database)?
 	frames = read_frames!(database)?
-	cycles = read_cycles!(database)?
 	allocations = read_allocations!(database)?
 	resources = read_resources!(database)?
-	Ok({ revision: 0, name, database, metadata: entries, families, gaps, health, runs, steps: first.steps, steps_more: first.more, triggers, medians, skips, frames, cycles, allocations, resources, verdict: judge(trust) })
+	Ok({ revision: 0, name, database, metadata: entries, families, gaps, health, runs, triggers, medians, skips, frames, allocations, resources, verdict: judge(trust) })
 }

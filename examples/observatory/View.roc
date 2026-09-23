@@ -54,6 +54,11 @@ folder_revision = |folder| match folder {
 same_capture : Observatory.State, Observatory.State -> Bool
 same_capture = |a, b| revision_of(a.capture) == revision_of(b.capture)
 
+## The cycle list compares the read that produced its rows and the row it was
+## last asked to show, not the rows.
+same_cycles : Observatory.State, Observatory.State -> Bool
+same_cycles = |a, b| Observatory.listed_cycles(a).read == Observatory.listed_cycles(b).read and a.cycle_scroll == b.cycle_scroll
+
 inspected_id : Observatory.State -> [None, Some(I64)]
 inspected_id = |state| match state.inspected {
 	Some(inspected) => Some(inspected.cycle.id)
@@ -465,6 +470,19 @@ sorted_captures = |captures, sort| List.sort_with(
 	},
 )
 
+## Only the rows near the viewport are built, so a folder of a thousand
+## captures costs what a screenful does.
+captures_rows : List(Capture.Listing) -> Gui.Elem(Observatory.State)
+captures_rows = |sorted| Gui.virtual_rows({
+	label: "Captures",
+	row_height: Theme.row_height,
+	count: sorted.len(),
+	render_row: |index| match sorted.get(index) {
+		Ok(listing) => capture_row(listing)
+		Err(_) => table_row([])
+	},
+})
+
 capture_list : Observatory.State -> Gui.Elem(Observatory.State)
 capture_list = |state| {
 	body = match state.folder {
@@ -478,11 +496,7 @@ capture_list = |state| {
 					{ label: "Capture table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 					[
 						table_head("Capture columns", capture_heads(state.capture_sort)),
-						Gui.virtual_list({
-							label: "Captures",
-							row_height: Theme.row_height,
-							items: sorted_captures(folder.captures, state.capture_sort).map_with_index(|listing, index| { key: index, content: capture_row(listing) }),
-						}),
+						captures_rows(sorted_captures(folder.captures, state.capture_sort)),
 					],
 				),
 			]
@@ -592,7 +606,7 @@ identity = |opened| {
 overview : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
 overview = |state, opened| {
 	passed = opened.runs.keep_if(|run| run.outcome == "pass").len()
-	outcome = measured(opened, "test_outcome", { value: "${passed.to_str()}/${opened.runs.len().to_str()} runs pass", detail: "${opened.steps.len().to_str()} steps" })
+	outcome = measured(opened, "test_outcome", { value: "${passed.to_str()}/${opened.runs.len().to_str()} runs pass", detail: "${opened.runs.fold(0.I64, |total, run| total + run.steps).to_str()} steps" })
 	phase_triggers = opened.triggers.keep_if(|trigger| trigger.phase == state.phase)
 	slowest_found = List.sort_with(phase_triggers, |left, right| if left.median > right.median Before else if left.median < right.median After else Same).first()
 	slowest = measured(
@@ -657,10 +671,12 @@ overview = |state, opened| {
 phases : List(Str)
 phases = ["initialization", "setup", "measured", "interactive"]
 
-phase_selector : Observatory.State -> Gui.Elem(Observatory.State)
-phase_selector = |state| Gui.row(
+## A view whose phase is its own changes it in place; Interactions asks for the
+## cycles of the phase it chooses to be read.
+phase_selector : Observatory.State, (Observatory.State, Str -> Gui.Action(Observatory.State)) -> Gui.Elem(Observatory.State)
+phase_selector = |state, choose_phase| Gui.row(
 	{ label: "Phase", width: Fill, padding: 0, gap: 6, align: Center },
-	[meta("PHASE")].concat(phases.map(|phase| key({ caption: phase, label: "Phase ${phase}", selected: state.phase == phase, on_press: |current, _| Gui.update(Observatory.set_phase(current, phase)) }))),
+	[meta("PHASE")].concat(phases.map(|phase| key({ caption: phase, label: "Phase ${phase}", selected: state.phase == phase, on_press: |current, _| choose_phase(current, phase) }))),
 )
 
 trigger_columns : List(Column)
@@ -720,7 +736,7 @@ trigger_filter = |state, trigger| {
 			Gui.button({
 				caption: if chosen "✓ only these" else "only these",
 				label: "Filter ${trigger.trigger} ${trigger.patch_kind}",
-				on_press: |current, _| Gui.delegate(Observatory.filter_trigger(current, trigger.trigger, trigger.patch_kind)),
+				on_press: |current, _| Observatory.ask(current, FilterTrigger(trigger.trigger, trigger.patch_kind)),
 				padding: 2,
 				font_size: Theme.meta,
 				font_face: Theme.face,
@@ -847,42 +863,47 @@ legend = Gui.row(
 	[legend_entry("callback", Theme.callback), legend_entry("validate", Theme.validate), legend_entry("apply", Theme.apply), legend_entry("unattributed", Theme.unattributed)],
 )
 
-## How many cycles the list could hold, so a list cut at `cycle_page` per
-## trigger says so.
-phase_total : Observatory.State, Capture.Opened -> I64
-phase_total = |state, opened| match state.filter {
-	All => match opened.medians.find_first(|found| found.phase == state.phase) {
-		Ok(found) => found.count
-		Err(_) => 0
-	}
-	Only(chosen) => opened.triggers
-		.keep_if(|found| found.phase == state.phase and found.trigger == chosen.trigger and found.patch_kind == chosen.patch_kind)
-		.fold(0, |total, found| total + found.count)
-}
+## A row whose cycle has not been read yet. It holds its place, and says so.
+pending_row : U64 -> Gui.Elem(Observatory.State)
+pending_row = |index| labelled_row("Cycle row pending ${(index + 1).to_str()}", [cell("…", 100, Theme.dim), rest_cell("reading", Theme.dim)])
 
+## Rows that are not yet read have keys of their own, apart from every cycle's.
+pending_key : U64 -> U64
+pending_key = |index| index + 9223372036854775808
+
+## Every cycle of the phase, slowest first. Only the rows near the viewport
+## are built, and only the pages near it are read: the list asks for the page
+## a viewport reaches as it reaches it.
 cycles_section : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
 cycles_section = |state, opened| {
 	timed = Capture.complete(opened, "host_cycles")
-	listed = opened.cycles.keep_if(
-		|cycle| cycle.phase == state.phase
-		and (
-			match state.filter {
-				All => True
-				Only(chosen) => cycle.trigger == chosen.trigger and cycle.patch_kind == chosen.patch_kind
-			}
-		),
-	)
-	slowest = match listed.first() {
-		Ok(cycle) => cycle.duration
-		Err(_) => 0
-	}
+	window = Observatory.listed_cycles(state)
+	total = Observatory.cycle_total(state)
+	# The bars share one scale: the slowest cycle of everything listed.
+	slowest = Observatory.listed_triggers(state, opened).fold(0, |most, found| if found.max > most found.max else most)
 	scope = match state.filter {
 		All => "every trigger"
 		Only(chosen) => "${chosen.trigger} · ${chosen.patch_kind}"
 	}
-	total = phase_total(state, opened)
-	cut = if listed.len().to_i64_wrap() < total [note("The slowest ${Capture.cycle_page.to_str()} cycles of each trigger and patch kind are read; ${listed.len().to_str()} of ${total.to_str()} are listed.")] else []
-	body = if listed.is_empty() {
+	render_row : U64 -> Gui.Elem(Observatory.State)
+	render_row = |index| match Observatory.row_at(window, index) {
+		Some(cycle) => cycle_boundary(cycle, slowest, timed)
+		None => pending_row(index)
+	}
+	row_key : U64 -> U64
+	row_key = |index| match Observatory.row_at(window, index) {
+		Some(cycle) => cycle.id.to_u64_wrap()
+		None => pending_key(index)
+	}
+	jumps = if total > 1 {
+		[
+			key({ caption: "Slowest", label: "Scroll to slowest cycle", selected: False, on_press: |current, _| Observatory.ask(current, JumpToCycle(0, Start)) }),
+			key({ caption: "Fastest", label: "Scroll to fastest cycle", selected: False, on_press: |current, _| Observatory.ask(current, JumpToCycle(total - 1, End)) }),
+		]
+	} else {
+		[]
+	}
+	body = if total == 0 {
 		[note("No ${state.phase} cycles to list.")]
 	} else {
 		[
@@ -890,10 +911,19 @@ cycles_section = |state, opened| {
 				{ label: "Cycle table", width: Fill, height: Px(Theme.row_height * 9), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 				[
 					table_head("Cycle columns", [head_cell("cycle", 100), head_cell("trigger", 150), head_cell("patch", 90), head_figure("duration", 110), head_rest("callback · validate · apply · unattributed")]),
-					Gui.virtual_list({
+					Gui.virtual_rows({
 						label: "Cycles",
 						row_height: Theme.row_height,
-						items: listed.map(|cycle| { key: cycle.id.to_u64_wrap(), content: cycle_boundary(cycle, slowest, timed) }),
+						count: total,
+						render_row,
+						row_key,
+						scroll_to: state.cycle_scroll,
+						on_range: Some(
+							|current, visible| match Observatory.cycles_wanted(current, visible) {
+								Some(offset) => Observatory.ask(current, ReadCycles(offset))
+								None => Gui.none
+							},
+						),
 					}),
 				],
 			),
@@ -902,10 +932,11 @@ cycles_section = |state, opened| {
 	[
 		Gui.row(
 			{ width: Fill, padding: 0, padding_top: Px(Theme.inset), gap: Theme.inset, align: Center },
-			[meta("CYCLES · ${state.phase} · ${scope} · slowest first · ${listed.len().to_str()}"), Gui.row({ padding: 0, gap: 0, grow: True, justify: End }, [legend])],
+			[meta("CYCLES · ${state.phase} · ${scope} · slowest first · ${total.to_str()}")]
+				.concat(jumps)
+				.append(Gui.row({ padding: 0, gap: 0, grow: True, justify: End }, [legend])),
 		),
 	]
-		.concat(cut)
 		.concat(body)
 }
 
@@ -1151,7 +1182,7 @@ interactions : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
 interactions = |state, _opened| Gui.col(
 	{ label: "Interactions", width: Fill, padding: Theme.inset, gap: Theme.inset },
 	[
-		phase_selector(state),
+		phase_selector(state, |current, phase| Observatory.ask(current, SetPhase(phase))),
 		part_boundary(
 			"Triggers",
 			|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter,
@@ -1159,7 +1190,7 @@ interactions = |state, _opened| Gui.col(
 		),
 		part_boundary(
 			"Cycles",
-			|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and inspected_id(a) == inspected_id(b),
+			|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and inspected_id(a) == inspected_id(b) and same_cycles(a, b),
 			section(cycles_section),
 		),
 		heading("CYCLE"),
@@ -1326,7 +1357,7 @@ process_resources = |opened| {
 memory : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
 memory = |state, opened| Gui.col(
 	{ label: "Memory", width: Fill, padding: Theme.inset, gap: Theme.inset },
-	[phase_selector(state)]
+	[phase_selector(state, |current, phase| Gui.update(Observatory.set_phase(current, phase)))]
 		.concat(allocations_by_trigger(state, opened))
 		.concat(run_lifecycle(opened))
 		.concat(process_resources(opened)),
@@ -1379,26 +1410,26 @@ spec = |state, opened| {
 			),
 		),
 	)
-	steps = opened.steps
-	more = if opened.steps_more [note("The first ${Capture.step_page.to_str()} steps of this run are shown.")] else []
-	step_rows = steps.map_with_index(
-		|step, index| {
-			key: index,
-			content: family_row(state.step_focus == Some(step.ordinal), [
-				cell("Step line ${step.line.to_str()}", 120, Theme.dim),
-				cell(step.kind, 200, Theme.ink),
-				cell(step.role, 90, Theme.dim),
-				cell(step.status, 50, if step.status == "pass" Theme.good else Theme.alarm_ink),
-				if timed figure_cell(Format.maybe_ms(step.duration), 110) else dash_cell("step_results", 110),
-				rest_cell(step_result(step), if step.status == "pass" Theme.dim else Theme.alarm_ink),
-			]),
-		},
-	)
+	window = state.steps.window
+	count = Observatory.run_step_count(state)
+	# Only the steps near the viewport are built, and only their page is read.
+	step_row : U64 -> Gui.Elem(Observatory.State)
+	step_row = |index| match Observatory.row_at(window, index) {
+		Some(step) => family_row(state.step_focus == Some(step.ordinal), [
+			cell("Step line ${step.line.to_str()}", 120, Theme.dim),
+			cell(step.kind, 200, Theme.ink),
+			cell(step.role, 90, Theme.dim),
+			cell(step.status, 50, if step.status == "pass" Theme.good else Theme.alarm_ink),
+			if timed figure_cell(Format.maybe_ms(step.duration), 110) else dash_cell("step_results", 110),
+			rest_cell(step_result(step), if step.status == "pass" Theme.dim else Theme.alarm_ink),
+		])
+		None => family_row(False, [cell("…", 120, Theme.dim), rest_cell("reading", Theme.dim)])
+	}
 	absence = if timed [] else [absence_note(opened, "step_results")]
 	focus = match state.step_focus {
 		None => []
 		Some(ordinal) => {
-			found = steps.keep_if(|step| step.ordinal == ordinal)
+			found = window.rows.keep_if(|step| step.ordinal == ordinal)
 			[
 				Gui.panel(
 					{ label: "Focused step", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.selected, border_color: Theme.edge, border_width: 1, radius: Theme.radius },
@@ -1413,17 +1444,28 @@ spec = |state, opened| {
 	}
 	Gui.col(
 		{ label: "Spec", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset },
-		[selector, heading("RUNS"), runs, heading("STEPS OF RUN ${state.run.to_str()} · ${steps.len().to_str()}")]
+		[selector, heading("RUNS"), runs, heading("STEPS OF RUN ${state.run.to_str()} · ${count.to_str()}")]
 			.concat(absence)
 			.concat(focus)
-			.concat(more)
 			.concat(
 				[
 					Gui.col(
 						{ label: "Step table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 						[
 							table_head("Step columns", [head_cell("line", 120), head_cell("kind", 200), head_cell("role", 90), head_cell("status", 50), head_figure("duration", 110), head_rest("expected / observed · diagnostic")]),
-							Gui.virtual_list({ label: "Steps", row_height: Theme.row_height, items: step_rows }),
+							Gui.virtual_rows({
+								label: "Steps",
+								row_height: Theme.row_height,
+								count,
+								render_row: step_row,
+								scroll_to: state.step_scroll,
+								on_range: Some(
+									|current, visible| match Observatory.steps_wanted(current, visible) {
+										Some(offset) => Observatory.ask(current, ReadSteps(offset))
+										None => Gui.none
+									},
+								),
+							}),
 						],
 					),
 				],
@@ -1543,10 +1585,10 @@ main_view = |state| match state.view {
 	Overview => view_boundary("Overview", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Overview scroll", overview(s, o))))
 	Interactions => view_boundary(
 		"Interactions",
-		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected,
+		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and same_cycles(a, b),
 		|current| with_capture(current, |s, o| scrolled("Interactions scroll", interactions(s, o))),
 	)
-	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus, |current| with_capture(current, spec))
+	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and a.step_scroll == b.step_scroll, |current| with_capture(current, spec))
 	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
 	Health => view_boundary("Health", |a, b| same_capture(a, b) and a.family_focus == b.family_focus, |current| with_capture(current, |s, o| scrolled("Health scroll", health(s, o))))
 }

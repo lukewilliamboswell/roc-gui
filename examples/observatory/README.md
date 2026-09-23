@@ -18,17 +18,22 @@ trusted. Five views follow:
   trigger, median cycle, frames over budget, skip rate, and verdict.
 - **Interactions**: the triggers table, cycles grouped by trigger and patch kind
   within one measurement phase, with count, minimum, median, maximum, and
-  interquartile range. Below it, the slowest cycles of the phase in a virtual
-  list, each with a bar of callback, validate, apply, and unattributed time;
-  choosing a trigger narrows the list to its cycles. Pressing a cycle opens the
+  interquartile range. Below it, every cycle of the phase, slowest first, each
+  with a bar of callback, validate, apply, and unattributed time; choosing a
+  trigger narrows the list to its cycles, and Slowest and Fastest jump to either
+  end. The list builds only the rows near its viewport and reads the capture a
+  page of cycles at a time as the viewport reaches them, so a capture of any
+  length opens in the time its first page takes. Pressing a cycle opens the
   inspector: a waterfall of the cycle's time through the Roc callback and its
   five work spans, validate, and apply with graph and GPUI apply, where the time
   no owner attributed is shown as `unattributed` and a Σ check proves the parts
   sum to the cycle; the eleven component work kinds; graph and keyed work; and
   the allocations of each span. A cycle driven by a specification step opens
-  the Spec view at that step. Warmup runs are excluded.
+  the Spec view with its step list scrolled to that step. Warmup runs are
+  excluded.
 - **Spec**: the runs, a run selector, and the selected run's steps with their
-  status, duration, and expected and observed values, in a virtual list.
+  status, duration, and expected and observed values, in a list read a page at
+  a time as it scrolls.
 - **Memory**: allocations by trigger and span (calls and bytes, mean, maximum,
   and total), each run's Roc allocation lifecycle, and each run's user and
   system CPU and peak and current RSS, with a bar of peak RSS per run.
@@ -55,14 +60,16 @@ gap; `partial` when any family is partial; otherwise `complete`.
 The capture list, the capture bar, the trust banner, the view rail, and each
 view are keyed, memoized boundaries directly under the root. Inside
 Interactions, the triggers table, the cycle list, each cycle row (keyed by its
-cycle), and the inspector are boundaries of their own. Every boundary compares
-only what it draws: the capture's revision, which names one reading of it, and
-the few fields of navigation it reads. A view that changes only itself, such as
+cycle), and the inspector are boundaries of their own, and every long list
+builds its rows as a boundary of its own. Every boundary compares only what it
+draws: the capture's revision, which names one reading of it, the read that
+produced a list's page of rows, and the few fields of navigation it reads. A view that changes only itself, such as
 sorting a table or choosing a phase, renders only that view. A change a sibling
 must show, such as choosing a trigger, is delegated to the nearest boundary that
 holds both. Work that needs a handle only the root holds, such as reading a
-cycle, is a request the root fulfils, so while it is read the window restages
-only its header and every view is kept.
+cycle or a page of cycles, is a request the root fulfils, so while it is read
+the window restages only its header and every view is kept. A list whose page
+is being read holds the places of its unread rows.
 
 ## Running
 
@@ -94,8 +101,7 @@ platform, or the host's sources and locks.
 - No distribution chart, frames, timeline, scaling, or comparison view.
 - A `—` shows its family's status and reason beside it, not on hover.
 - Steps are listed by line number and kind; the specification source is not
-  shown beside them, and "Show step" marks the step rather than scrolling the
-  list to it.
+  shown beside them.
 
 ## Specifications
 

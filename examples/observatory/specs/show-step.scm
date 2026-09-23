@@ -17,6 +17,7 @@
     (expect-visible (within (role panel :name "Focused step") (text-prefix "line 5 · ")))
     (click (role button :name "Interactions"))
     (click (role button :name "Phase initialization"))
+    (await-task)
     (click (role button :name "Cycle r2 #0"))
     (await-task)
     (expect-visible (text "CYCLE r2 #0 · init · mount · initialization"))

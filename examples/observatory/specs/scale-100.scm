@@ -8,4 +8,6 @@
     (mark-metrics)
     (click (role button :name "Open folder"))
     (await-task)
-    (expect-count (button-prefix "Capture ") 100)))
+    ; only the rows a screen shows, and one screen below, are built
+    (expect-rows (role virtual-list :name "Captures") :count 100 :first 0 :mounted 70)
+    (expect-count (button-prefix "Capture ") 70)))

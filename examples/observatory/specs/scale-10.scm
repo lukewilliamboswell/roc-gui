@@ -8,4 +8,5 @@
     (mark-metrics)
     (click (role button :name "Open folder"))
     (await-task)
+    (expect-rows (role virtual-list :name "Captures") :count 10 :first 0 :mounted 10)
     (expect-count (button-prefix "Capture ") 10)))
