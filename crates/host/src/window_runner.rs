@@ -1536,6 +1536,39 @@ fn region_rect(
         // fold of its scroll region has no pixels down there to photograph, and
         // a rectangle reaching past the window would capture whatever the
         // desktop has behind it.
+        // A canvas is photographed where its picture is painted, the same
+        // surface its primitives and pointer steps are placed on.
+        Region::Locator(locator)
+            if resolve(runtime, locator).is_ok_and(|id| {
+                matches!(
+                    runtime.graph.node(id).map(|node| &node.kind),
+                    Some(crate::bridge::NodeKind::Canvas { .. })
+                )
+            }) =>
+        {
+            let canvas = resolve(runtime, locator)?;
+            let surface = runtime
+                .canvas_surfaces
+                .get(&canvas)
+                .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                .map(Rect::from_gpui)
+                .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+            let frame = runtime.painted().map_err(stale)?;
+            let mut clip = viewport;
+            for ancestor in runtime.graph.scroll_ancestors(canvas) {
+                if let Some(rect) = node_rect(runtime, &frame, ancestor) {
+                    clip = clip.intersect(rect).ok_or(StepError::OffScreen {
+                        locator: describe(locator),
+                        bounds: surface,
+                    })?;
+                }
+            }
+            let bounds = surface.intersect(clip).ok_or(StepError::OffScreen {
+                locator: describe(locator),
+                bounds: surface,
+            })?;
+            Ok((bounds.left, bounds.top, bounds.right, bounds.bottom))
+        }
         Region::Locator(locator) => {
             let bounds = visible_rect(runtime, locator, viewport)?;
             Ok((bounds.left, bounds.top, bounds.right, bounds.bottom))

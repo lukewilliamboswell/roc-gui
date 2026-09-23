@@ -1,6 +1,8 @@
 use crate::{
     SUBMIT_EVENT_BIT, await_task_completion,
-    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind, Patch},
+    bridge::{
+        ApplyFacts, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, MountedGraph, NodeKind, Patch,
+    },
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
@@ -198,6 +200,29 @@ pub(crate) fn graph_claim(
                     ))
                 },
                 Some((*expected as u64, actual as u64)),
+            )
+        }
+        // A canvas text primitive's value is the line it sets.
+        Command::ExpectValue(locator, expected)
+            if matches!(
+                locator.target(),
+                Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+            ) =>
+        {
+            (
+                match canvas_item(graph, locator) {
+                    None => Err(
+                        "expect-value canvas-item locator must match exactly one primitive"
+                            .to_owned(),
+                    ),
+                    Some((_, item)) if item.kind != CanvasPrimitiveKind::Text => {
+                        Err("expect-value on a canvas item requires a text primitive".to_owned())
+                    }
+                    Some((_, item)) if item.text == *expected => Ok(()),
+                    // Application text never enters a diagnostic.
+                    Some(_) => Err("canvas text differed".to_owned()),
+                },
+                None,
             )
         }
         Command::ExpectValue(locator, expected) => (
@@ -826,7 +851,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut last_patch: Option<ApplyFacts> = None;
     let mut focused: Option<u64> = None;
     // The canvas an unpressed pointer is over and the last point delivered.
-    let mut hovering: Option<(u64, (i32, i32))> = None;
+    // Named by its label, which survives the patch a hover itself causes; a
+    // node id does not.
+    let mut hovering: Option<(String, (i32, i32))> = None;
     let mut timer_fired_seen = crate::timers::fired_count();
     let mut dialog_return_focus: Option<(u8, String)> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
@@ -1098,10 +1125,14 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         // The window delivers what its pointer produces: one
                         // move per new point, a leave only after a move, and
                         // the topmost keyed shape under the point.
+                        let canvas = match graph.node(id).map(|node| &node.kind) {
+                            Some(NodeKind::Canvas { label, .. }) => label.clone(),
+                            _ => String::new(),
+                        };
                         let event = match &step.command {
-                            Command::PointerMove(_, x, y) => (hovering != Some((id, (*x, *y))))
-                                .then(|| {
-                                    hovering = Some((id, (*x, *y)));
+                            Command::PointerMove(_, x, y) => {
+                                (hovering != Some((canvas.clone(), (*x, *y)))).then(|| {
+                                    hovering = Some((canvas.clone(), (*x, *y)));
                                     (
                                         "hover",
                                         crate::CanvasEventPayload {
@@ -1114,9 +1145,10 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                                 .unwrap_or(0),
                                         },
                                     )
-                                }),
+                                })
+                            }
                             Command::PointerLeave(_) => match hovering.take() {
-                                Some((hovered, (x, y))) if hovered == id => Some((
+                                Some((hovered, (x, y))) if hovered == canvas => Some((
                                     "hover",
                                     crate::CanvasEventPayload {
                                         phase: crate::CANVAS_HOVER_LEAVE,
@@ -1985,7 +2017,7 @@ mod component_work_tests {
 #[cfg(test)]
 mod locator_tests {
     use super::*;
-    use crate::bridge::{CanvasPrimitiveKind, Node, Style};
+    use crate::bridge::{Node, Style};
 
     fn within(ancestor: Locator, target: Locator) -> Locator {
         Locator::Within(Box::new(ancestor), Box::new(target))

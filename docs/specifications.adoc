@@ -387,7 +387,8 @@ samples.
 `(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Require the complete
 owner-recorded TCP resource and attempted-operation vector.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
-`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value.
+`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value, or the
+exact line a canvas text primitive sets when the locator names a canvas item.
 The value is compared in memory and is not copied into captures or diagnostics.
 `(expect-value-bytes LOCATOR N)`:: Require the text-input or textarea value to contain exactly
 `N` UTF-8 bytes, and record the expected and observed deterministic counts.
