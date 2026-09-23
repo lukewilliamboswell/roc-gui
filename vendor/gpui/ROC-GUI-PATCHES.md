@@ -68,6 +68,10 @@ Local changes:
   copy-source usage only on the first request, so windows that never capture
   keep a presentation-only surface. Other platforms report no support. The host
   uses this for window-specification screenshots on Linux.
+- `src/elements/text.rs`: a text measurement is reused only when its
+  truncation width matches the cached one. Unpatched, single-line text keeps
+  the size of its first (content-width) measurement, so a later, narrower
+  definite width never truncates it and `text_ellipsis` draws no ellipsis.
 - `build.rs`: remaps Metal line-table paths from the host source root to the
   neutral `/workspace` prefix. The production shader archive therefore retains
   useful line information without recording checkout or user identity.
