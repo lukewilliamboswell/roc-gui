@@ -1183,6 +1183,31 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Release infrastructure
 
+- [ ] **Keep Metal shader debug paths free of build-machine identity.**
+  The host pins the GPUI fork at
+  `252b436e332f68c9ac2d6c785dd075fd19b69785`, based on Zed commit
+  `7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff`. Its `gpui_apple` build script
+  compiles a copy of `shaders.metal` staged in Cargo's `OUT_DIR` with
+  `-gline-tables-only`, so the shader library records a path under the build's
+  target directory, which is normally beneath a home directory. The former
+  vendored build remapped the source root to `/workspace` with
+  `-fdebug-prefix-map`. Remap `OUT_DIR` to a neutral prefix in the fork, then
+  verify on macOS that the produced `shaders.metallib` contains no build path.
+
+- [ ] **Read back presented frames on macOS and Windows.**
+  `Window::request_frame_capture` reads back the presented frame through the
+  WGPU renderer on Wayland and X11. The Metal and DirectX windows report no
+  support, so window-specification screenshots on those platforms use their
+  existing fallback. Implement the same presented-frame readback in the fork's
+  Metal and DirectX renderers and verify it on each platform.
+
+- [ ] **Teach GUI-host source companions to admit immutable Git Cargo sources.**
+  Current build evidence rejects GPUI HEAD because Cargo.lock correctly gives
+  an exact Git revision but no registry archive checksum. Define a bounded
+  source-archive and notice contract for the compiled files at each locked Git
+  revision, then make host release composition reproduce and verify it. Do not
+  treat a Git revision as an archive digest or omit its corresponding source.
+
 - [ ] **Bootstrap the first unified linker-input lock.** After the infrastructure
   publisher reaches the default branch, open the adoption pull request and
   dispatch it by number. Its GitHub-signed lock-only commit supplies

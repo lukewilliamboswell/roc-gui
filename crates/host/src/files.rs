@@ -525,21 +525,55 @@ struct ChooserSeam {
     window_thread: std::thread::ThreadId,
 }
 
-static CHOOSER: OnceLock<Mutex<Option<ChooserSeam>>> = OnceLock::new();
+static CHOOSER: OnceLock<Mutex<Option<Arc<ChooserSeam>>>> = OnceLock::new();
 
-fn chooser() -> &'static Mutex<Option<ChooserSeam>> {
+fn chooser() -> &'static Mutex<Option<Arc<ChooserSeam>>> {
     CHOOSER.get_or_init(|| Mutex::new(None))
+}
+
+/// Owns one application's registration with the process-level chooser route.
+///
+/// The route itself must be process-visible because Roc tasks can request a
+/// directory from worker threads. Its channel, however, belongs to the GPUI
+/// application that receives those requests. Keeping a second strong reference
+/// here ensures that installing the next application cannot drop the previous
+/// application's sender, and therefore wake its GPUI task, on the next
+/// application's scheduler thread.
+pub struct ChooserRegistration {
+    seam: Arc<ChooserSeam>,
+}
+
+impl Drop for ChooserRegistration {
+    fn drop(&mut self) {
+        let active = {
+            let mut chooser = chooser().lock().expect("chooser seam poisoned");
+            if chooser
+                .as_ref()
+                .is_some_and(|active| Arc::ptr_eq(active, &self.seam))
+            {
+                chooser.take()
+            } else {
+                None
+            }
+        };
+        // Drop the process route while the application-owned reference still
+        // exists. `self.seam`, and with it the final sender, is then dropped on
+        // the application thread that owns the receiving GPUI task.
+        drop(active);
+    }
 }
 
 /// Register the running window as the owner of the native chooser. Called from
 /// the window thread, whose identity is recorded so a request made from that
 /// same thread reports `Unavailable` instead of waiting for a panel that the
 /// waiting thread is the one responsible for showing.
-pub fn install_chooser(requests: async_channel::Sender<ChooserRequest>) {
-    *chooser().lock().expect("chooser seam poisoned") = Some(ChooserSeam {
+pub fn install_chooser(requests: async_channel::Sender<ChooserRequest>) -> ChooserRegistration {
+    let seam = Arc::new(ChooserSeam {
         requests,
         window_thread: std::thread::current().id(),
     });
+    *chooser().lock().expect("chooser seam poisoned") = Some(seam.clone());
+    ChooserRegistration { seam }
 }
 
 fn open_selected(path: std::path::PathBuf) -> PortalSelection {
@@ -898,7 +932,7 @@ mod tests {
     #[test]
     fn the_native_chooser_answers_a_waiting_task_and_refuses_the_window_thread() {
         let (requests, pending) = async_channel::unbounded();
-        install_chooser(requests);
+        let registration = install_chooser(requests);
         assert!(matches!(native_directory(), PortalSelection::Unavailable));
         assert!(pending.try_recv().is_err());
 
@@ -919,7 +953,23 @@ mod tests {
             task.join().expect("task thread panicked"),
             PortalSelection::Canceled
         ));
-        *chooser().lock().expect("chooser seam poisoned") = None;
+        drop(registration);
+        assert!(chooser().lock().expect("chooser seam poisoned").is_none());
+    }
+
+    #[test]
+    fn replacing_a_chooser_route_does_not_close_the_previous_application_channel() {
+        let (first_requests, first_pending) = async_channel::unbounded();
+        let first = install_chooser(first_requests);
+        let (second_requests, _second_pending) = async_channel::unbounded();
+        let second = install_chooser(second_requests);
+
+        assert!(!first_pending.is_closed());
+        drop(first);
+        assert!(first_pending.is_closed());
+
+        drop(second);
+        assert!(chooser().lock().expect("chooser seam poisoned").is_none());
     }
 
     #[test]

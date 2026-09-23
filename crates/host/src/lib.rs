@@ -2062,7 +2062,7 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
         element = element.max_h(px(value as f32));
     }
     if style.grow {
-        element = element.flex_grow();
+        element = element.flex_grow(1.0);
     }
     if let Some(value) = style.bg {
         element = element.bg(rgb(value));
@@ -2113,6 +2113,7 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
             offset: gpui::point(px(0.0), px(style.shadow_y as f32)),
             blur_radius: px(style.shadow as f32),
             spread_radius: px(0.0),
+            inset: false,
         }]);
     }
     element = match style.text_overflow {
@@ -2261,7 +2262,7 @@ fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
     .then_some((width, height))
 }
 
-fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
+fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyElement {
     let node = view.read(cx);
     observatory::note_native_view_element(if node.keyed_children.is_some() {
         observatory::KEYED_CONTAINER_NATIVE_KIND
@@ -2303,11 +2304,12 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
             // the host does not expose implicit group-hover style contexts.
             if independent_children {
                 view.cached_with_independent_children(layout.style().clone())
+                    .into_any_element()
             } else {
-                view.cached(layout.style().clone())
+                view.cached(layout.style().clone()).into_any_element()
             }
         }
-        None => view,
+        None => view.into_any_element(),
     }
 }
 
@@ -2319,7 +2321,7 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
 /// Wrapping text keeps its floor, the width of its longest word.
 fn single_line_text(element: Stateful<Div>, window: &Window) -> Stateful<Div> {
     if window.text_style().white_space == WhiteSpace::Nowrap {
-        element.min_w_0().flex_shrink().overflow_x_hidden()
+        element.min_w_0().flex_shrink(1.0).overflow_x_hidden()
     } else {
         element
     }
@@ -2514,7 +2516,7 @@ impl Render for NodeView {
                 element = apply_style(element.flex().flex_row().items_center(), style);
             }
             NodeKind::Scroll { axis, style, .. } => {
-                element = apply_style(element.flex().flex_col().flex_grow(), style)
+                element = apply_style(element.flex().flex_col().flex_grow(1.0), style)
                     .scrollbar_width(px(8.0));
                 // Tracking hands GPUI the view's own offset cell in place of
                 // the one it would keep in per-element state. The wheel handler
@@ -2563,7 +2565,7 @@ impl Render for NodeView {
                 let runtime = self.runtime.clone();
                 let height = *row_height;
                 let gap = *row_gap;
-                element = apply_style(element.flex().flex_col().flex_grow(), style)
+                element = apply_style(element.flex().flex_col().flex_grow(1.0), style)
                     .min_h_0()
                     .max_h_full()
                     .child({
@@ -2576,7 +2578,7 @@ impl Render for NodeView {
                         })
                         .size_full();
                         match &self.scroll {
-                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle.clone()),
+                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle),
                             _ => list,
                         }
                     });
@@ -2857,7 +2859,7 @@ impl Render for NodeView {
                     element = element.max_h(px(value as f32));
                 }
                 if style.grow {
-                    element = element.flex_grow();
+                    element = element.flex_grow(1.0);
                 }
                 if let Some(value) = style.bg {
                     element = element.bg(rgb(value));
@@ -2946,6 +2948,11 @@ impl Render for NodeView {
 }
 
 struct Runtime {
+    /// Keeps the process-visible chooser route owned by this GPUI application.
+    /// Dropping the runtime closes its request task on the same scheduler that
+    /// created it, even when another test application has already taken over
+    /// the process route.
+    _chooser: files::ChooserRegistration,
     /// The host root's own focus handle.
     ///
     /// GPUI resolves a key event against the dispatch path of whatever holds
@@ -3049,7 +3056,11 @@ struct KeyedNativeApply {
 
 impl Runtime {
     fn new(initial: InitialMount, cx: &mut Context<Self>) -> Self {
+        let (chooser_requests, chooser_pending) =
+            async_channel::unbounded::<files::ChooserRequest>();
+        let chooser = files::install_chooser(chooser_requests);
         let mut runtime = Self {
+            _chooser: chooser,
             root_focus: cx.focus_handle(),
             graph: MountedGraph::default(),
             generation: 0,
@@ -3114,9 +3125,6 @@ impl Runtime {
         // who presses Open waits for the panel, and every millisecond between
         // the press and the panel is time the application looks unresponsive
         // for no reason.
-        let (chooser_requests, chooser_pending) =
-            async_channel::unbounded::<files::ChooserRequest>();
-        files::install_chooser(chooser_requests);
         cx.spawn(async move |_, cx| {
             while let Ok(request) = chooser_pending.recv().await {
                 let prompt = cx.update(|cx| {
@@ -3127,7 +3135,6 @@ impl Runtime {
                         prompt: Some("Open".into()),
                     })
                 });
-                let Ok(prompt) = prompt else { break };
                 let chosen = match prompt.await {
                     Ok(Ok(Some(paths))) => paths.into_iter().next(),
                     _ => None,
@@ -3140,19 +3147,12 @@ impl Runtime {
         cx.spawn(async move |_, cx| {
             loop {
                 executor.timer(std::time::Duration::from_millis(100)).await;
-                if cx
-                    .update(|cx| {
-                        clipboard::observe_system(
-                            cx.read_from_clipboard().and_then(|item| item.text()),
-                        );
-                        if let Some(text) = clipboard::take_system_write() {
-                            cx.write_to_clipboard(ClipboardItem::new_string(text));
-                        }
-                    })
-                    .is_err()
-                {
-                    break;
-                }
+                cx.update(|cx| {
+                    clipboard::observe_system(cx.read_from_clipboard().and_then(|item| item.text()));
+                    if let Some(text) = clipboard::take_system_write() {
+                        cx.write_to_clipboard(ClipboardItem::new_string(text));
+                    }
+                });
             }
         })
         .detach();
@@ -4640,7 +4640,7 @@ impl Render for Runtime {
         // Only when nothing else holds it: this exists to give host chords a
         // dispatch path, never to take focus away from the application.
         if window.focused(_cx).is_none() {
-            self.root_focus.focus(window);
+            self.root_focus.focus(window, _cx);
         }
         // What this frame is drawing, so a painted read can tell whether the
         // window has caught up with the graph it is being asked about.
@@ -4648,7 +4648,7 @@ impl Render for Runtime {
         if let Some(target) = self.focus_after_render.take()
             && let Some(handle) = self.focus_handles.get(&target)
         {
-            handle.focus(window);
+            handle.focus(window, _cx);
         }
         let focused_now = self
             .focus_handles
@@ -4673,8 +4673,8 @@ impl Render for Runtime {
             div()
                 .id("roc-gui-root")
                 .track_focus(&self.root_focus)
-                .on_action(|_: &FocusNext, window, _| window.focus_next())
-                .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
+                .on_action(|_: &FocusNext, window, cx| window.focus_next(cx))
+                .on_action(|_: &FocusPrevious, window, cx| window.focus_prev(cx))
                 // A plain closure, like its neighbours. A `cx.listener` here
                 // leases the runtime entity while GPUI is dispatching, and the
                 // surface's state is host-owned precisely so this handler does
@@ -5571,11 +5571,11 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         );
     }
 
-    Application::new().run(move |cx| {
+    gpui_platform::application().run(move |cx| {
         watchdog::milestone(watchdog::Milestone::AppRunEntered);
         input::bind_keys(cx);
         cx.bind_keys(host_bindings());
-        cx.on_window_closed(|cx| {
+        cx.on_window_closed(|cx, _window_id| {
             if cx.windows().is_empty() {
                 cx.quit();
             }
@@ -5653,7 +5653,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                 assert!(renders > 0, "no GPUI views rendered");
                 eprintln!("PASS: GPUI mounted and rendered {renders} frame(s)");
                 watchdog::disarm();
-                cx.update(|cx| cx.quit()).unwrap();
+                cx.update(|cx| cx.quit());
             })
             .detach();
         }
@@ -5783,7 +5783,7 @@ mod tests {
     fn native_cache_retains_siblings_and_refreshes_changed_buttons(cx: &mut TestAppContext) {
         let events = recording_dispatcher();
         let nodes = fixed_hover_buttons(1000);
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
         });
         cx.run_until_parked();
@@ -6090,7 +6090,7 @@ mod tests {
             kind: NodeKind::Boundary { instance: 9 },
             children: vec![1000],
         });
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(initial_mount(Patch::Mount { root: 900, nodes }), cx)
         });
         cx.run_until_parked();
@@ -6822,7 +6822,7 @@ mod tests {
 
     #[gpui::test]
     fn keyed_native_move_preserves_entities_and_remove_retires_routes(cx: &mut TestAppContext) {
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1,
@@ -6928,7 +6928,7 @@ mod tests {
 
     #[gpui::test]
     fn keyed_native_move_work_is_independent_of_ten_thousand_items(cx: &mut TestAppContext) {
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1,
@@ -6999,7 +6999,7 @@ mod tests {
     #[gpui::test]
     fn live_task_completion_records_its_own_patch_and_callback(cx: &mut TestAppContext) {
         let _guard = observatory::RECORDER_TEST.lock().unwrap();
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -7157,6 +7157,27 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
+    /// Open a runtime window whose pointer starts outside it.
+    ///
+    /// The test platform reports the pointer at the window origin, and GPUI
+    /// delivers hover to whatever a stationary pointer rests on once it is
+    /// painted. Tests that count hover edges start from a pointer that has
+    /// left the window; the edges of that setup reach a discarding
+    /// dispatcher, and any dispatcher the test installed is restored after.
+    fn open_with_pointer_outside(
+        cx: &mut TestAppContext,
+        build: impl FnOnce(&mut gpui::Window, &mut gpui::Context<Runtime>) -> Runtime,
+    ) -> (gpui::Entity<Runtime>, &mut VisualTestContext) {
+        let installed = super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        install_test_dispatcher(|_| Patch::NoChange);
+        let (runtime, cx) = cx.add_window_view(build);
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        super::TEST_DISPATCHER.with(|slot| *slot.borrow_mut() = installed);
+        (runtime, cx)
+    }
+
     fn recording_dispatcher() -> Rc<RefCell<Vec<u64>>> {
         let clicks: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
         let recorded = clicks.clone();
@@ -7240,7 +7261,7 @@ mod tests {
                 nodes: two_hover_buttons(root),
             }
         });
-        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -7292,7 +7313,7 @@ mod tests {
                 nodes,
             }
         });
-        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -7438,8 +7459,7 @@ mod tests {
     ) {
         let events = recording_dispatcher();
         let (root, nodes) = hover_tree(1000);
-        let (runtime, cx) = cx
-            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
         cx.run_until_parked();
         cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
         cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());

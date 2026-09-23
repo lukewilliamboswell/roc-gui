@@ -192,7 +192,7 @@ pub fn render(
                             div()
                                 .flex()
                                 .flex_col()
-                                .flex_grow()
+                                .flex_grow(1.0)
                                 .child(div().child(plain(row.kind).to_owned()))
                                 .child(
                                     div()
