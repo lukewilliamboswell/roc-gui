@@ -84,7 +84,9 @@ derives an interrupted capture (the metadata a recorder leaves when its process
 dies before finalisation), a capture that names schema 4, and a capture cut
 short to one kilobyte. The scaling folders hold 10, 100, and 1,000 hard links to
 the real captures. Nothing under `fixture/` is committed; `run_specs.py`
-regenerates it when the recorder schema or the generator's inputs change.
+regenerates it when the recorder schema or the contents of any input change: the
+generator, the specifications it runs and the applications they drive, the
+platform, or the host's sources and locks.
 
 ## Not yet built
 

@@ -18,11 +18,14 @@ directory does after repeated runs. Each is a hard link to one of the real
 captures, so the folder costs no extra disk.
 
 Captures are not committed. The output is reused while its stamp matches this
-generator's inputs and the recorder schema.
+generator's inputs: the recorder schema, a digest of this generator, the
+specifications it runs, the applications they drive, the platform, and the
+host's sources and locks.
 """
 
 from contextlib import closing
 from pathlib import Path
+import hashlib
 import os
 import re
 import shutil
@@ -53,10 +56,50 @@ def recorder_schema() -> str:
     return match.group(1) if match else "unknown"
 
 
+# Everything a capture's contents follow from besides the specifications and
+# their applications: the platform, the host that records, and its locks.
+HOST_INPUTS = (
+    "platform",
+    "crates",
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "host.lock.json",
+    "dependencies.lock.json",
+    "scripts/run_specs.py",
+)
+# Generated beside the sources they are generated from, so never an input.
+# Documentation (`.md`) is not an input either.
+IGNORED_PARTS = {"fixture", "targets", "__pycache__"}
+
+
+def input_files() -> list[Path]:
+    """Every file whose contents can change a fixture capture."""
+    roots = [Path(__file__), *(ROOT / path for path in HOST_INPUTS)]
+    roots.extend(ROOT / Path(spec).parent.parent for spec in SOURCES.values())
+    files = set()
+    for root in roots:
+        candidates = [root] if root.is_file() else root.rglob("*")
+        for path in candidates:
+            relative = path.relative_to(ROOT)
+            if path.is_file() and path.suffix != ".md" and not IGNORED_PARTS.intersection(relative.parts):
+                files.add(path)
+    return sorted(files)
+
+
+def input_digest() -> str:
+    digest = hashlib.sha256()
+    for path in input_files():
+        digest.update(path.relative_to(ROOT).as_posix().encode())
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
 def stamp_text() -> str:
     sources = ",".join(f"{name}={spec}" for name, spec in sorted(SOURCES.items()))
     scales = ",".join(str(scale) for scale in SCALES)
-    return f"schema={recorder_schema()};sources={sources};scales={scales}\n"
+    return f"schema={recorder_schema()};sources={sources};scales={scales};inputs={input_digest()}\n"
 
 
 def rewrite_metadata(path: Path, values: dict[str, str]) -> None:

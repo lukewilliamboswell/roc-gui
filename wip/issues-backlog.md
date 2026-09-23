@@ -475,13 +475,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   exercised, so verify macOS and Windows, including a verbatim `\\?\UNC` share,
   which is refused.
 
-- [ ] **The capture fixture is not rebuilt when a source specification
-  changes.** `generate_fixture.py` stamps the schema, the source paths, and the
-  scales, but not the contents of the specifications it runs, so editing
-  `examples/database-browser/specs/scale-100.scm` leaves stale captures in place
-  until the fixture directory is deleted. Stamp a hash of each source
-  specification.
-
 - [ ] **No keyboard shortcuts or focus control (P3).** Only Tab, Enter, Space,
   text editing, and Escape reach an application. Add key events with modifiers,
   window-level shortcuts, and focus control for the command palette and
