@@ -353,3 +353,9 @@ than being reconstructed from diagnostics.
 Compiler and application revisions are represented as unavailable unless they
 are supplied by their owning build process. Missing identity weakens a
 comparison; it is never guessed.
+
+The Observatory example reads this identity from two captures, each through a
+connection of its own, and gates a comparison on it key by key: a key absent or
+unavailable in either capture fails the gate rather than being assumed equal.
+A second run of the same executable, an A/A capture, bounds the noise of every
+difference it shows.

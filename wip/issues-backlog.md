@@ -465,11 +465,13 @@ ideal and the repository. P- and E-numbers refer to that document.
   are exercised only through `--host-cap-file`; certify them with a person
   choosing, as for Open Project.
 
-- [ ] **SQLite cannot compare two databases or cancel a query (P7).** Databases
+- [ ] **SQLite cannot join two databases or cancel a query (P7).** Databases
   open in place, read a live write-ahead log, bind parameters, and page past
-  the row limit. Two-capture comparison still needs a capability-scoped
-  `ATTACH` of a second granted database (plain `ATTACH` is refused, because it
-  names a path), and a long statement cannot be interrupted: add cancellation
+  the row limit. Observatory compares captures through a connection each and
+  joins their rows in Roc, which serves a baseline and a scaling set; a query
+  that must join two captures in one statement still needs a
+  capability-scoped `ATTACH` of a second granted database (plain `ATTACH` is
+  refused, because it names a path). A long statement cannot be interrupted: add cancellation
   through `sqlite3_interrupt` tied to task supersede (P13), with a counter for
   interrupted statements. Opening in place derives the directory's path from
   its descriptor on Linux, macOS, and Windows; only the Linux path has been
@@ -488,6 +490,36 @@ ideal and the repository. P- and E-numbers refer to that document.
 - [ ] **No split panes or tabs (P5).** The shell needs resizable, collapsible
   panes and capture tabs. This is shared with the HTTP Workbench and Terminal
   Workspace entries.
+
+- [ ] **The scaling chart is a bar per scale, not a log-log chart (US-29).**
+  `ScalingView.chart` draws each trigger and metric as one bar per scale
+  against the largest mean of its group. W7 asks for a log-log chart per
+  trigger with a linear reference line and a metric selector, which needs
+  canvas text (P6). `chart` takes the set's members and ratio rows, so the
+  canvas replaces it without changing the gate, checks, or ratios.
+
+- [ ] **A baseline applies to three views, and no chart overlays it (US-32).**
+  The triggers table, the cycle inspector, and Memory's allocations by trigger
+  gain Δ, ratio, and noise. The Overview tiles, the cycle list's bars, the run
+  lifecycle and process resources, and the Spec step durations show no delta,
+  and no chart draws the baseline in a secondary style. Each needs a baseline
+  value joined to its row (runs and steps have no key shared across captures
+  beyond phase and ordinal) and, for charts, P6. The baseline is also one
+  capture beside the open one, named in the baseline bar, rather than a capture
+  tab marked `◆` (P5).
+
+- [ ] **An A/A bound is the spread of one pair.** Compare and Scaling bound
+  noise by how far one A/A capture's value lies from its reference's. A single
+  pair understates the spread about half the time; several A/A captures, or
+  the samples within each, would give a bound with a stated coverage. Timing
+  noise marks therefore vary from run to run, and the specifications assert
+  them only for allocations, which repeat exactly.
+
+- [ ] **The Compare and Scaling views draw with `Widgets.roc`, the other views
+  with View.roc's own copies.** `Widgets.roc` holds the cells, rows, headings,
+  and keys the new views need, drawn identically. Fold View.roc's copies onto
+  it once the Frames view that is being added to View.roc has landed, so the
+  two are not edited concurrently.
 
 - [ ] **Canvas cannot label or explore a chart (P6).** The canvas draws
   rectangles, ellipses, and lines only, reports pointer events only while a

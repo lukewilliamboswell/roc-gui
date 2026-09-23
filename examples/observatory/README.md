@@ -12,7 +12,7 @@ A capture of any schema other than 19 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be
-trusted. Five views follow:
+trusted. Seven views follow:
 
 - **Overview**: identity from `metadata`, and tiles for outcome, slowest
   trigger, median cycle, frames over budget, skip rate, and verdict.
@@ -40,6 +40,22 @@ trusted. Five views follow:
 - **Health**: the verdict and the rule that produced it, every measurement
   family, recording gaps, recorder health, every identity key, and the declared
   unavailable sources.
+- **Compare**: the comparability sheet of the baseline and the open capture,
+  every gate key with both values and whether it passed, and the A/A capture
+  chosen from the folder. Pressing "Set as baseline" makes the open capture the
+  baseline for every other capture opened after it, and a bar under the capture
+  bar names it on every view. While the pair is comparable, the triggers
+  table, the cycle inspector, and Memory show each value's Δ and ratio against
+  the baseline, and the triggers table orders by |Δ|; with an A/A capture, a Δ
+  no larger than the A/A spread of the same value is marked within noise. An
+  incomparable pair shows its failing keys and no delta anywhere.
+- **Scaling**: captures chosen from the folder as a scaling set, the gate that
+  admits or refuses them with the failing key, each capture's count
+  assertions, and every trigger's mean callback, validate, graph apply, and
+  span allocation as an observed ratio from scale to scale against the scale
+  ratio. A verdict of linear, sub-linear, or super-linear is given only when
+  every step has evidence, and an A/A capture at one of the set's scales marks
+  the ratios within its noise band. A bar per scale draws each mean.
 
 Every number belongs to a measurement family. A family whose status is not
 `complete` is shown as `—` with its status and reason, never as zero, and
@@ -57,13 +73,16 @@ gap; `partial` when any family is partial; otherwise `complete`.
 
 ## Component boundaries
 
-The capture list, the capture bar, the trust banner, the view rail, and each
+The capture list, the capture bar, the trust banner, the baseline bar, the view rail, and each
 view are keyed, memoized boundaries directly under the root. Inside
 Interactions, the triggers table, the cycle list, each cycle row (keyed by its
 cycle), and the inspector are boundaries of their own, and every long list
 builds its rows as a boundary of its own. Every boundary compares only what it
 draws: the capture's revision, which names one reading of it, the read that
-produced a list's page of rows, and the few fields of navigation it reads. A view that changes only itself, such as
+produced a list's page of rows, and the few fields of navigation it reads. A
+view that shows deltas also compares the revisions of the baseline and the A/A
+capture, so setting a baseline renders the baseline bar and the views that
+draw a delta, and no other. A view that changes only itself, such as
 sorting a table or choosing a phase, renders only that view. A change a sibling
 must show, such as choosing a trigger, is delegated to the nearest boundary that
 holds both. Work that needs a handle only the root holds, such as reading a
@@ -78,6 +97,7 @@ python3 build.py
 python3 examples/observatory/generate_fixture.py
 roc build --output=observatory examples/observatory/main.roc
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures
+./observatory -- --host-cap-dir examples/observatory/fixture/compare
 ./observatory -- --host-cap-file examples/observatory/fixture/captures/counter-counting.rgstats
 ```
 
@@ -89,7 +109,10 @@ The fixture script runs real specifications of the Counter and Database Browser
 examples through `scripts/run_specs.py` and keeps their captures. From those it
 derives an interrupted capture (the metadata a recorder leaves when its process
 dies before finalisation), a capture that names schema 4, and a capture cut
-short to one kilobyte. The scaling folders hold 10, 100, and 1,000 hard links to
+short to one kilobyte. `compare/` holds the Database Browser's 100, 1,000,
+and 10,000 row benchmarks from one executable, two more runs of the 100 row
+benchmark by that executable (A/A captures), and one run with two jobs, which
+the recorder marks contended. The scaling folders hold 10, 100, and 1,000 hard links to
 the real captures, and `session/` holds one long capture: a Database Browser
 browsing session of exactly 10,000 cycles in one run, written out as a
 specification and recorded at full detail by the Database Browser itself. Nothing under `fixture/` is committed; `run_specs.py`
@@ -100,25 +123,33 @@ platform, or the host's sources and locks.
 ## Not yet built
 
 - One capture opens at a time; there is no drop target or recent list.
-- No distribution chart, frames, timeline, scaling, or comparison view.
+- No distribution chart, frames, or timeline; the scaling chart is a bar per
+  scale, not a log-log chart with a linear reference line.
 - A `—` shows its family's status and reason beside it, not on hover.
 - Steps are listed by line number and kind; the specification source is not
   shown beside them.
 
 ## Specifications
 
-Twenty-four specifications run on the semantic runner. They cover the first
+Twenty-nine specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
 honest tiles, an untrusted capture's banner on every view, the health sheet,
 spec results across runs, the triggers table across phases, sorting by column,
 the cycle list and its trigger filter, the cycle inspector with a dash that
-opens Health, a cycle's step in the Spec view, and the memory view.
+opens Health, a cycle's step in the Spec view, the memory view, the
+comparability sheet of an A/A pair and of a contended run, a baseline's deltas
+in every view and the A/A capture that bounds them, and a scaling set with its
+refusals and its noise band. The comparison and scaling specifications also
+pin how many SQLite connections are live: one each for the open capture, the
+baseline, the A/A capture, and every capture of a scaling set.
 Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
 also pin which boundaries render, and how many nodes the host restages.
 `scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases for a
-folder: each opens a benchmark output folder of that many real captures.
+folder: each opens a benchmark output folder of that many real captures, and
+`scale-compare.scm` compares two of a thousand and chooses a scaling set among
+them.
 `scale-session.scm` is the scaling case for one long capture: it opens the
 10,000-cycle session and jumps from one end of its cycle list to the other, and
 `session-step.scm` opens a step ten thousand steps into its run.
@@ -126,4 +157,6 @@ folder: each opens a benchmark output folder of that many real captures.
 real window and photographs the late step. `window-tour.scm` drives
 the real window through every view and photographs each, and
 `window-open-capture.scm` photographs the start page and a capture opened from
-a single file.
+a single file. `window-compare.scm` photographs the comparability sheet of a
+comparable and an incomparable pair, the triggers table with its deltas, and
+a scaling set's gate, ratios, and chart.
