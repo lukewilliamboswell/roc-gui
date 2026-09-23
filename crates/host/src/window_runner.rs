@@ -892,6 +892,10 @@ async fn run_step(
             let focused = window
                 .update(cx, |runtime, window, cx| {
                     runtime.focus_handles.get(&id).map(|handle| {
+                        // A person moving keyboard focus is at this window, and
+                        // GPUI reports focus entering and leaving a region only
+                        // in the active window. Concurrent cases each open one.
+                        window.activate_window();
                         handle.focus(window, cx);
                     })
                 })

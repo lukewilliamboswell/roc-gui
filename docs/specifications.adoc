@@ -261,7 +261,9 @@ logical pixels in canvas space.
 `(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
 or checkbox. Focus remains valid only while that mounted node is live. Focus
 entering a popover's anchor presents it at once; focus leaving closes it unless
-the pointer rests there.
+the pointer rests there. The window runner activates the window first, as a
+person moving focus there would; focus arriving in a region is reported only in
+the active window.
 `(mark-metrics)`:: Separate benchmark setup from the operation being measured.
 `(press-key Enter)`:: Activate the focused button through the normal Roc event
 route.
