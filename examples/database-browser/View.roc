@@ -89,7 +89,11 @@ authority_bar = |state| {
 				{ label: "Folder verdict", padding: 0, gap: 0, grow: True, justify: End, fg: reading.ink, font_size: Theme.meta },
 				[Gui.text(reading.verdict)],
 			),
-			quiet_key({ caption: "Choose folder…", label: "Choose database folder", on_press: |current, _| Browser.choose(current), width: Auto }),
+			Gui.popover(
+				{ label: "About the folder grant", placement: Below, bg: Theme.card, fg: Theme.ink, border_color: Theme.line, radius: Theme.radius, font_size: Theme.meta, max_width: Px(280) },
+				quiet_key({ caption: "Choose folder…", label: "Choose database folder", on_press: |current, _| Browser.choose(current), width: Auto }),
+				[Gui.text("The browser reads only the one folder you choose, and opens its databases read-only.")],
+			),
 		],
 	)
 }
@@ -198,6 +202,33 @@ cell = |text, ink, size, justify| Gui.row(
 	[Gui.text(text)],
 )
 
+## A result cell clips to its column, so the whole value, the column it sits
+## in, and its SQLite type are one hover away, in a note beside the cell. The
+## cell and its note share one name: the cell is a row, the note a tooltip.
+value_cell = |value, column, row, justify| {
+	name = "${column} in result row ${row.to_str()}"
+	Gui.popover(
+		{
+			label: name,
+			delay_ms: 400,
+			padding: 6,
+			gap: 2,
+			bg: Theme.card,
+			fg: Theme.ink,
+			border_color: Theme.line,
+			radius: Theme.radius,
+			font_size: Theme.body,
+			font_face: Theme.face,
+			max_width: Px(420),
+		},
+		cell(Query.value_text(value), Theme.ink, Theme.body, justify).label(name),
+		[
+			Gui.styled_text({ value: "${column} · ${Query.value_type(value)}", fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }),
+			Gui.text(Query.value_text(value)),
+		],
+	)
+}
+
 ## A ledger aligns its numbers on the right so the decimal points stack and a
 ## column reads down. Text stays on the left. A column's alignment is taken from
 ## the first row's value types and applied to the heading too, so the heading
@@ -249,7 +280,7 @@ result_table = |result, offset, scroll_request| {
 			border_width: 0,
 			border_bottom: Px(1),
 		},
-		[gutter("Result row ${(offset + index).to_str()}")].concat((result.rows.get(index) ?? []).map_with_index(|value, column| cell(Query.value_text(value), Theme.ink, Theme.body, columns_justify.get(column) ?? Start))),
+		[gutter("Result row ${(offset + index).to_str()}")].concat((result.rows.get(index) ?? []).map_with_index(|value, column| value_cell(value, result.columns.get(column) ?? "", offset + index, columns_justify.get(column) ?? Start))),
 	)
 	Gui.col(
 		{ label: "Result table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },

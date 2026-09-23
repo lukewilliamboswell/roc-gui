@@ -23,6 +23,14 @@ A standing bar names the folder held, and distinguishes nothing asked for yet
 from a dismissed chooser from a refusal, because each calls for a different next
 step.
 
+Every result cell clips to its column, so resting the pointer on one opens a
+note with the whole value, its column, and its SQLite storage class; Escape
+dismisses it. The folder key carries a note about the authority it asks for,
+which keyboard focus opens at once. Both are popovers: the host decides when
+they present, so opening one runs no application code, and a ten-thousand-row
+answer mounts a note for each cell it builds and presents only the one under
+the pointer.
+
 ## Running
 
 ```sh
