@@ -41,6 +41,7 @@ python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_spans
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view native_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view virtual_list_materialization
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view timeline
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view process_resources
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view capture_health
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view scaling
@@ -73,6 +74,9 @@ items include rows not yet mounted, which are drawn as blank places and
 materialise no entity. The Roc turns that move such a list's window are
 ordinary cycles with the trigger `viewport`. Semantic-headless captures report
 this family as `not_recorded` because they have no viewport.
+`timeline`:: How many drawn frames record the cycles they were first to draw,
+how many list passes record the frame or cycle that produced them, and what
+span of the capture's clock do cycles, frames, and passes cover?
 `process_resources`:: How did process CPU time, peak RSS, and Roc allocation
 counters change across runs?
 `capture_health`:: Did batching, queue pressure, omissions, limits, or writer
@@ -214,6 +218,60 @@ once for the window from GPUI's own root element, between the host element's
 layout request and its prepaint. Presentation and frame completion are private
 to GPUI; a compositor frame callback would be the seam that owns them.
 
+== Place work on one clock
+
+Every interval in a capture is measured on one process-relative monotonic
+clock, whose origin is fixed when recording starts. `runs.started_ns` and
+`runs.ended_ns`, and the `start_ns` and `end_ns` of `cycles`, `gpui_frames`, and
+`virtual_list_frames`, are nanoseconds on that clock. They order and place work;
+they carry no wall-clock time or machine identity.
+
+Each interval is recorded by the component that performs the work. A cycle's
+interval is its owner's: from the instant it began handling the event or
+completion to the instant its patch was applied, the same reading its
+`duration_ns` is taken from. A frame's interval runs from the start of the host
+element's layout request to the end of its paint. It therefore encloses GPUI's
+layout solve, whose own duration remains unavailable; the interval places the
+frame without attributing that time. A list pass's interval runs from the
+first range GPUI asked of the list in a frame to the moment its entities were
+settled after that frame, or, for a pass performed while a patch was applied
+to native views, across that application.
+
+Causal links are recorded by the owner that knows them, never inferred from the
+clock. Two intervals that touch are not thereby related.
+
+[cols="1,3",options="header"]
+|===
+|Table or column |Link
+|`gpui_frame_cycles(frame_id, cycle_id)`
+|The recorded cycles whose patches reached native views after the previous
+frame began drawing and before this one did: the changes this frame is the
+first to draw. An event loop may coalesce several cycles into one frame, which
+then has several rows. A frame that follows no new cycle, such as one drawn for
+hover or a list's own scrolling, has none. A cycle whose patch changed nothing
+is not linked, because it gave a frame nothing to draw. A frame abandoned before
+paint hands its cycles to the frame that does draw them.
+|`virtual_list_frames.origin`
+|`paint` for a pass settled after GPUI drew the list, `patch` for a pass
+performed while a patch was applied to native views.
+|`virtual_list_frames.frame_id`
+|For a `paint` pass, the drawn frame that asked for the list's rows. `NULL`
+when the frame that asked is not the frame the host recorded as painted.
+|`virtual_list_frames.cycle_id`
+|For a `patch` pass, the recorded cycle whose patch performed it. `NULL` for a
+patch the host applied outside any recorded cycle.
+|===
+
+Two measurement families describe this linkage. `frame_cycle_linkage` is
+complete when every drawn frame carries the cycles its owner handed it; a frame
+with no row is then a recorded "no new cycle", not a missing one.
+`virtual_list_linkage` is complete when every `paint` pass was settled against
+the frame that drew it. Both are `unavailable` when no frame was drawn or no
+list entered a viewport, and `partial` when the recorder omitted events, since
+an omitted cycle or frame has no row to link. Semantic-headless captures report
+both as `not_recorded`: they draw no frame and have no viewport, although their
+cycles still carry intervals.
+
 == Count native rendering work
 
 Schema 18 stores native work in `gpui_native_work`, keyed by
@@ -277,8 +335,9 @@ measure distinct operations. A local Roc update can perform one component
 render while a subsequent frame renders many native views. Native counts
 identify this additional work without estimating it from Roc counters or
 elapsed time. They do not identify GPUI cache hits, layout-solver work,
-presentation, retained memory, or GPU work. Counts are frame-scoped; they do not
-assign a frame to an individual action when the event loop combines updates.
+presentation, retained memory, or GPU work. Counts are frame-scoped. A frame's
+recorded cycles in `gpui_frame_cycles` may be several when the event loop
+combines updates, and a frame's work is never divided among them.
 
 Native subtree reuse follows layout ownership. Non-root rows, columns, and
 panels whose width and height are fixed by matching pixel size, minimum, and

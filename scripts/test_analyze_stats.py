@@ -26,7 +26,7 @@ class ScalingAaBoundTests(unittest.TestCase):
                 INSERT INTO recorder_health VALUES (1, 0, 0, 0);
                 """
             )
-            metadata = {"schema_version": "20", "clean_shutdown": "1", "final_state": "complete",
+            metadata = {"schema_version": "21", "clean_shutdown": "1", "final_state": "complete",
                         "spec_name": "case", "benchmark_scale": "100",
                         "benchmark_initial_size": "0", "benchmark_change_size": "100",
                         "app_name": "app", "executable_hash": "same-executable",
@@ -211,7 +211,7 @@ class NativeWorkReportTests(unittest.TestCase):
                     kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 17),
                     count INTEGER NOT NULL CHECK(count>0),
                     PRIMARY KEY(frame_id,metric,kind));
-                INSERT INTO metadata VALUES ('schema_version','20');
+                INSERT INTO metadata VALUES ('schema_version','21');
             """)
             database.execute("INSERT INTO measurement_status VALUES ('gpui_native_work',?,?)",
                              (status, "native owner observation"))
@@ -293,7 +293,7 @@ class GpuiFrameWorkReportTests(unittest.TestCase):
                     CREATE TABLE gpui_frames(id INTEGER PRIMARY KEY);
                     CREATE TABLE gpui_frame_work(frame_id INTEGER, metric INTEGER, count INTEGER,
                                                  PRIMARY KEY(frame_id,metric));
-                    INSERT INTO metadata VALUES ('schema_version','20');
+                    INSERT INTO metadata VALUES ('schema_version','21');
                     INSERT INTO measurement_status VALUES
                         ('gpui_frame_work','complete','GPUI owner observation');
                     INSERT INTO gpui_frames VALUES (1),(2);
@@ -310,6 +310,55 @@ class GpuiFrameWorkReportTests(unittest.TestCase):
             }
             self.assertEqual(rows["replayed_scene_operations"]["total_count"], "19999")
             self.assertEqual(rows["fresh_hitboxes"]["max_per_frame"], "4")
+
+
+class TimelineReportTests(unittest.TestCase):
+    def capture(self, directory: Path, frame_status: str) -> Path:
+        path = directory / "timeline.rgstats"
+        with sqlite3.connect(path) as database:
+            database.executescript("""
+                CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT);
+                CREATE TABLE measurement_status(name TEXT PRIMARY KEY, status TEXT, reason TEXT);
+                CREATE TABLE cycles(id INTEGER PRIMARY KEY, start_ns INTEGER, end_ns INTEGER);
+                CREATE TABLE gpui_frames(id INTEGER PRIMARY KEY, start_ns INTEGER, end_ns INTEGER);
+                CREATE TABLE gpui_frame_cycles(frame_id INTEGER, cycle_id INTEGER);
+                CREATE TABLE virtual_list_frames(id INTEGER PRIMARY KEY, start_ns INTEGER,
+                    end_ns INTEGER, origin TEXT, frame_id INTEGER, cycle_id INTEGER);
+                INSERT INTO metadata VALUES ('schema_version','21');
+                INSERT INTO measurement_status VALUES
+                    ('virtual_list_linkage','complete','every list pass records its origin');
+                INSERT INTO cycles VALUES (1,10,20),(2,30,40);
+                INSERT INTO gpui_frames VALUES (1,50,60),(2,70,80),(3,90,95);
+                INSERT INTO gpui_frame_cycles VALUES (1,1),(1,2);
+                INSERT INTO virtual_list_frames VALUES (1,35,39,'patch',NULL,2),
+                    (2,61,62,'paint',1,NULL),(3,96,99,'patch',NULL,NULL);
+            """)
+            database.execute("INSERT INTO measurement_status VALUES ('frame_cycle_linkage',?,?)",
+                             (frame_status, "frame owner linkage"))
+        return path
+
+    def row(self, path: Path) -> dict[str, str]:
+        output = analyze_stats.perspective(path, "timeline").splitlines()
+        return dict(zip(output[1].split("\t"), output[2].split("\t")))
+
+    def test_coalesced_cycles_and_list_origins_are_counted_from_recorded_keys(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            row = self.row(self.capture(Path(temporary), "complete"))
+            self.assertEqual(row["frames"], "3")
+            self.assertEqual(row["frames_with_cycles"], "1")
+            self.assertEqual(row["frames_without_new_cycle"], "2")
+            self.assertEqual(row["frame_cycle_links"], "2")
+            self.assertEqual(row["paint_passes_linked"], "1")
+            self.assertEqual(row["patch_passes"], "2")
+            self.assertEqual(row["patch_passes_of_cycles"], "1")
+            self.assertEqual((row["first_ns"], row["last_ns"]), ("10", "99"))
+
+    def test_headless_linkage_is_not_recorded_rather_than_zero(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            row = self.row(self.capture(Path(temporary), "not_recorded"))
+            self.assertEqual(row["evidence_status"], "not_recorded")
+            self.assertEqual(row["frames_with_cycles"], "NULL")
+            self.assertEqual(row["frame_cycle_links"], "NULL")
 
 
 if __name__ == "__main__":

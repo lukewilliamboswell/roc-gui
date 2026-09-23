@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 20
+SUPPORTED_SCHEMA = 21
 
 
 @dataclass(frozen=True)

@@ -3351,6 +3351,8 @@ struct Runtime {
     canvas_surfaces: HashMap<u64, Arc<Mutex<Option<Bounds<Pixels>>>>>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
+    /// The recorded cycle whose patch is being applied to native views.
+    applying_cycle: Option<u64>,
     active_dialog: Option<u64>,
     dialog_return_focus: Option<ElementIdentity>,
     last_trigger_focus: Option<ElementIdentity>,
@@ -3387,6 +3389,9 @@ struct VirtualFrame {
     /// Native entities built for this list during the frame.
     materialized: u64,
     scheduled: bool,
+    /// The draw that asked for these rows, and when it first did.
+    draw: Option<u64>,
+    started_ns: u64,
 }
 
 #[derive(Default)]
@@ -3436,6 +3441,7 @@ impl Runtime {
             canvas_surfaces: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
+            applying_cycle: None,
             active_dialog: None,
             dialog_return_focus: None,
             last_trigger_focus: None,
@@ -4034,8 +4040,16 @@ impl Runtime {
         accept_transaction(&self.graph, &applied);
         let graph_apply_ns = applied.facts.apply_ns;
         let gpui_started = Instant::now();
+        self.applying_cycle = Some(self.cycle_ordinal);
         let keyed_native = self.apply_to_gpui(&applied, cx);
+        self.applying_cycle = None;
         let gpui_apply_ns = elapsed_ns(gpui_started);
+        // A patch that changed native views is drawn by the next frame to
+        // begin; that frame's element takes this ordinal as one of its causes.
+        if applied.facts.kind != "no_change" {
+            observatory::note_cycle_applied(self.cycle_ordinal);
+        }
+        let (start_ns, end_ns) = observatory::interval_since(cycle_started);
         observatory::cycle(observatory::Cycle {
             run_id: 1,
             ordinal: self.cycle_ordinal,
@@ -4043,7 +4057,9 @@ impl Runtime {
             measurement_phase: "interactive",
             trigger,
             patch_kind: applied.facts.kind,
-            duration_ns: elapsed_ns(cycle_started),
+            start_ns,
+            end_ns,
+            duration_ns: end_ns - start_ns,
             roc_callback_ns,
             validate_ns: applied.facts.validate_ns,
             apply_ns: graph_apply_ns.saturating_add(gpui_apply_ns),
@@ -4085,6 +4101,14 @@ impl Runtime {
         if applied.facts.kind == "keyed" {
             return self.apply_keyed_to_gpui(applied, cx);
         }
+        let pass_started_ns = if observatory::active() {
+            observatory::now_ns()
+        } else {
+            0
+        };
+        let pass_origin = observatory::ListPassOrigin::Patch {
+            cycle: self.applying_cycle,
+        };
         let retired_identities = applied
             .removed_ids
             .iter()
@@ -4177,7 +4201,15 @@ impl Runtime {
                     // without rebuilding any of its native descendants.
                     self.cache_virtual_row(owner, item, cached);
                 } else {
-                    observatory::virtual_list_frame(old_list, 0, 0, cached.entities, 0);
+                    observatory::virtual_list_frame(
+                        pass_started_ns,
+                        pass_origin,
+                        old_list,
+                        0,
+                        0,
+                        cached.entities,
+                        0,
+                    );
                     self.offer_subtree(cached.view, cx);
                 }
             }
@@ -4239,6 +4271,8 @@ impl Runtime {
                     (summary.rows.len() as u64, summary.entities)
                 });
                 observatory::virtual_list_frame(
+                    pass_started_ns,
+                    pass_origin,
                     list,
                     items,
                     self.virtual_constructions - constructions_before,
@@ -4998,6 +5032,12 @@ impl Runtime {
         frame.materialized += self.virtual_constructions - construction_start;
         if !frame.scheduled {
             frame.scheduled = true;
+            frame.draw = observatory::current_frame_draw();
+            frame.started_ns = if observatory::active() {
+                observatory::now_ns()
+            } else {
+                0
+            };
             let runtime = cx.entity().downgrade();
             cx.defer(move |cx| {
                 let _ = runtime.update(cx, |runtime, cx| runtime.finish_virtual_frame(list_id, cx));
@@ -5103,7 +5143,13 @@ impl Runtime {
             .virtual_lists
             .get(&list_id)
             .map_or(0, |summary| summary.entities);
+        // Settled after GPUI drew the list: the pass belongs to the frame that
+        // asked for these rows, if that frame is the one that was painted.
         observatory::virtual_list_frame(
+            frame.started_ns,
+            observatory::ListPassOrigin::Paint {
+                frame: observatory::painted_frame(frame.draw),
+            },
             list_id,
             frame.range.len() as u64,
             frame.materialized,

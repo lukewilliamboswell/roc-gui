@@ -1797,6 +1797,7 @@ fn make_cycle(
     facts: &ApplyFacts,
     roc_work_valid: bool,
 ) -> Cycle {
+    let (start_ns, end_ns) = observatory::interval_since(cycle_started);
     Cycle {
         run_id,
         ordinal,
@@ -1804,7 +1805,9 @@ fn make_cycle(
         measurement_phase,
         trigger,
         patch_kind: facts.kind,
-        duration_ns: elapsed_ns(cycle_started),
+        start_ns,
+        end_ns,
+        duration_ns: end_ns - start_ns,
         roc_callback_ns,
         validate_ns: facts.validate_ns,
         apply_ns: facts.apply_ns,

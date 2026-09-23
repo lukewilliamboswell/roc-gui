@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 20;
+pub const SCHEMA_VERSION: u32 = 21;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -283,12 +283,30 @@ const TERMINAL_RESERVE_MAX_BYTES: u64 = 1024 * 1024;
 const MAX_DIAGNOSTIC_BYTES: usize = 2048;
 
 pub fn now_ns() -> u64 {
-    CLOCK_ORIGIN
-        .get_or_init(Instant::now)
-        .elapsed()
+    instant_ns(Instant::now())
+}
+
+/// An instant on the capture's one process-relative clock. Every recorded
+/// interval — runs, cycles, frames, and list passes — is measured here.
+pub fn instant_ns(instant: Instant) -> u64 {
+    instant
+        .saturating_duration_since(*CLOCK_ORIGIN.get_or_init(Instant::now))
         .as_nanos()
         .try_into()
         .unwrap_or(u64::MAX)
+}
+
+/// The interval from `started` to now, read once, as (start_ns, end_ns). Its
+/// length is the elapsed time of that one reading.
+pub fn interval_since(started: Instant) -> (u64, u64) {
+    let now = Instant::now();
+    let end = instant_ns(now);
+    let elapsed: u64 = now
+        .saturating_duration_since(started)
+        .as_nanos()
+        .try_into()
+        .unwrap_or(u64::MAX);
+    (end.saturating_sub(elapsed), end)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -348,6 +366,8 @@ pub struct Cycle {
     pub measurement_phase: &'static str,
     pub trigger: &'static str,
     pub patch_kind: &'static str,
+    pub start_ns: u64,
+    pub end_ns: u64,
     pub duration_ns: u64,
     pub roc_callback_ns: u64,
     pub validate_ns: u64,
@@ -499,6 +519,9 @@ enum Event {
     Cycle(Box<Cycle>),
     GpuiFrame {
         ordinal: u64,
+        start_ns: u64,
+        end_ns: u64,
+        cycles: Vec<u64>,
         layout_request_ns: u64,
         prepaint_ns: u64,
         paint_ns: u64,
@@ -509,6 +532,9 @@ enum Event {
         counts: [u64; 19],
     },
     VirtualListFrame {
+        start_ns: u64,
+        end_ns: u64,
+        origin: ListPassOrigin,
         list_id: u64,
         visible_items: u64,
         materialized_entities: u64,
@@ -749,6 +775,8 @@ pub fn start(config: Config) -> Result<(), String> {
     }
     DETAIL.store(config.detail.code(), Ordering::Relaxed);
     GPUI_FRAME_ORDINAL.store(0, Ordering::Relaxed);
+    CLOCK_ORIGIN.get_or_init(Instant::now);
+    FRAME_LINKS.with(|links| *links.borrow_mut() = FrameLinks::default());
     OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -911,10 +939,112 @@ pub fn cycle(cycle: Cycle) {
     } else {
         Detail::Summary
     };
-    if !detail.records_cycle(cycle.measurement_phase) {
+    let ordinal = cycle.ordinal;
+    if detail.records_cycle(cycle.measurement_phase) {
+        submit(Event::Cycle(Box::new(cycle)), false);
+    }
+    let passes = FRAME_LINKS.with(|links| {
+        let mut links = links.borrow_mut();
+        let (passes, waiting) = std::mem::take(&mut links.deferred_passes)
+            .into_iter()
+            .partition::<Vec<_>, _>(|(owner, _)| *owner == ordinal);
+        links.deferred_passes = waiting;
+        passes
+    });
+    for (_, pass) in passes {
+        submit(pass, false);
+    }
+}
+
+/// Where a virtual-list pass came from, as its owner knows it.
+///
+/// A pass settled after GPUI drew a list is a `Paint` pass of that drawn frame;
+/// a pass performed while a patch was applied to native views is a `Patch`
+/// pass of the recorded cycle whose patch it was, if the patch belonged to one.
+/// `None` is the owner saying it does not know, never a guess.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ListPassOrigin {
+    Paint { frame: Option<u64> },
+    Patch { cycle: Option<u64> },
+}
+
+/// One drawn frame in progress, begun by the element that draws it.
+///
+/// `cycles` are the recorded cycles whose patches reached native views after
+/// the previous draw began and before this one did: the changes this frame is
+/// the first to draw. Several cycles may be coalesced into one frame; a frame
+/// that follows no new cycle carries none.
+#[derive(Debug, Default)]
+pub struct FrameDraw {
+    pub draw: u64,
+    pub start_ns: u64,
+    pub cycles: Vec<u64>,
+}
+
+#[derive(Default)]
+struct FrameLinks {
+    applied: Vec<u64>,
+    next_draw: u64,
+    drawing: Option<u64>,
+    last_painted: Option<(u64, u64)>,
+    deferred_passes: Vec<(u64, Event)>,
+}
+
+thread_local! {
+    static FRAME_LINKS: std::cell::RefCell<FrameLinks> = Default::default();
+}
+
+/// The GPUI runtime applied a recorded cycle's patch to its native views.
+pub fn note_cycle_applied(ordinal: u64) {
+    if !active() {
         return;
     }
-    submit(Event::Cycle(Box::new(cycle)), false);
+    FRAME_LINKS.with(|links| links.borrow_mut().applied.push(ordinal));
+}
+
+/// Begin drawing a frame: take the cycles it is the first to draw.
+pub fn begin_frame_draw() -> FrameDraw {
+    let start_ns = now_ns();
+    FRAME_LINKS.with(|links| {
+        let mut links = links.borrow_mut();
+        let draw = links.next_draw;
+        links.next_draw += 1;
+        links.drawing = Some(draw);
+        FrameDraw {
+            draw,
+            start_ns,
+            cycles: std::mem::take(&mut links.applied),
+        }
+    })
+}
+
+/// A begun frame was not painted; its cycles wait for the next frame.
+pub fn abandon_frame_draw(frame: FrameDraw) {
+    FRAME_LINKS.with(|links| {
+        let mut links = links.borrow_mut();
+        if links.drawing == Some(frame.draw) {
+            links.drawing = None;
+        }
+        let later = std::mem::replace(&mut links.applied, frame.cycles);
+        links.applied.extend(later);
+    });
+}
+
+/// The draw now in progress, if a host frame element has begun one.
+pub fn current_frame_draw() -> Option<u64> {
+    FRAME_LINKS.with(|links| links.borrow().drawing)
+}
+
+/// The recorded frame ordinal of `draw`, if that draw was the last painted.
+pub fn painted_frame(draw: Option<u64>) -> Option<u64> {
+    let draw = draw?;
+    FRAME_LINKS.with(|links| {
+        links
+            .borrow()
+            .last_painted
+            .filter(|(painted, _)| *painted == draw)
+            .map(|(_, ordinal)| ordinal)
+    })
 }
 
 /// Record one GPUI frame's host-owned element spans.
@@ -924,7 +1054,10 @@ pub fn cycle(cycle: Cycle) {
 /// `prepaint`, or `paint` call spent on the application subtree. Taffy's layout
 /// solve and window presentation are performed by GPUI outside any host-owned
 /// element and are reported as unavailable rather than derived from these.
+/// The frame's interval runs from the start of its layout request to the end of
+/// its paint, and so encloses GPUI's layout solve without attributing it.
 pub fn gpui_frame(
+    frame: FrameDraw,
     layout_request_ns: u64,
     prepaint_ns: u64,
     paint_ns: u64,
@@ -933,10 +1066,21 @@ pub fn gpui_frame(
     if !active() {
         return;
     }
+    let end_ns = now_ns();
     let ordinal = GPUI_FRAME_ORDINAL.fetch_add(1, Ordering::Relaxed);
+    FRAME_LINKS.with(|links| {
+        let mut links = links.borrow_mut();
+        if links.drawing == Some(frame.draw) {
+            links.drawing = None;
+        }
+        links.last_painted = Some((frame.draw, ordinal));
+    });
     submit(
         Event::GpuiFrame {
             ordinal,
+            start_ns: frame.start_ns.min(end_ns),
+            end_ns,
+            cycles: frame.cycles,
             layout_request_ns,
             prepaint_ns,
             paint_ns,
@@ -968,23 +1112,41 @@ pub fn gpui_frame_work(work: gpui::FrameWork) {
     submit(Event::GpuiFrameWork { ordinal, counts }, false);
 }
 
+/// Record one virtual-list pass that began at `start_ns` and ends now, linked
+/// to its origin. The owner calls this as it finishes the pass.
+///
+/// A patch pass of a recorded cycle is performed before that cycle's own row
+/// is admitted, so it waits here and follows the cycle into the capture.
+// One flat record per owner-measured pass.
+#[allow(clippy::too_many_arguments)]
 pub fn virtual_list_frame(
+    start_ns: u64,
+    origin: ListPassOrigin,
     list_id: u64,
     visible_items: u64,
     materialized_entities: u64,
     recycled_entities: u64,
     live_entities: u64,
 ) {
-    submit(
-        Event::VirtualListFrame {
-            list_id,
-            visible_items,
-            materialized_entities,
-            recycled_entities,
-            live_entities,
-        },
-        false,
-    );
+    if !active() {
+        return;
+    }
+    let end_ns = now_ns();
+    let event = Event::VirtualListFrame {
+        start_ns: start_ns.min(end_ns),
+        end_ns,
+        origin,
+        list_id,
+        visible_items,
+        materialized_entities,
+        recycled_entities,
+        live_entities,
+    };
+    if let ListPassOrigin::Patch { cycle: Some(cycle) } = origin {
+        FRAME_LINKS.with(|links| links.borrow_mut().deferred_passes.push((cycle, event)));
+    } else {
+        submit(event, false);
+    }
 }
 
 pub fn finish(application_outcome: &'static str) -> Result<(), String> {
@@ -1330,6 +1492,34 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             },
         ),
         (
+            "frame_cycle_linkage",
+            "summary",
+            if config.backend.starts_with("gpui-") {
+                "unfinalized"
+            } else {
+                "not_recorded"
+            },
+            if config.backend.starts_with("gpui-") {
+                "capture has not finalized"
+            } else {
+                "semantic headless execution draws no GPUI frame"
+            },
+        ),
+        (
+            "virtual_list_linkage",
+            "summary",
+            if config.backend.starts_with("gpui-") {
+                "unfinalized"
+            } else {
+                "not_recorded"
+            },
+            if config.backend.starts_with("gpui-") {
+                "capture has not finalized"
+            } else {
+                "semantic headless execution has no viewport"
+            },
+        ),
+        (
             "gpui_layout_solve",
             "summary",
             "unavailable",
@@ -1488,8 +1678,8 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
         },
         Event::Cycle(cycle) => {
             connection.execute(
-                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits,keyed_graph_visits,keyed_original_reads,keyed_first_touches,keyed_native_edits,keyed_item_entities_created,keyed_item_entities_retired,keyed_item_entities_moved) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27)",
-                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits), as_i64(cycle.keyed_graph_visits), as_i64(cycle.keyed_original_reads), as_i64(cycle.keyed_first_touches), as_i64(cycle.keyed_native_edits), as_i64(cycle.keyed_item_entities_created), as_i64(cycle.keyed_item_entities_retired), as_i64(cycle.keyed_item_entities_moved)],
+                "INSERT INTO cycles(run_id,ordinal,step_ordinal,measurement_phase,trigger,patch_kind,start_ns,end_ns,duration_ns,roc_callback_ns,validate_ns,apply_ns,graph_apply_ns,gpui_apply_ns,staged_nodes,removed_nodes,live_nodes,parent_nodes_scanned,roc_work_valid,component_work_recorded,retained_nodes,validation_visits,keyed_graph_visits,keyed_original_reads,keyed_first_touches,keyed_native_edits,keyed_item_entities_created,keyed_item_entities_retired,keyed_item_entities_moved) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29)",
+                params![cycle.run_id, as_i64(cycle.ordinal), cycle.step_ordinal.map(|value| value as i64), cycle.measurement_phase, cycle.trigger, cycle.patch_kind, as_i64(cycle.start_ns), as_i64(cycle.end_ns), as_i64(cycle.duration_ns), as_i64(cycle.roc_callback_ns), as_i64(cycle.validate_ns), as_i64(cycle.apply_ns), as_i64(cycle.graph_apply_ns), cycle.gpui_apply_ns.map(as_i64), as_i64(cycle.staged_nodes), as_i64(cycle.removed_nodes), as_i64(cycle.live_nodes), as_i64(cycle.parent_nodes_scanned), i64::from(cycle.roc_work_valid), i64::from(cycle.component_work.is_some()), as_i64(cycle.retained_nodes), as_i64(cycle.validation_visits), as_i64(cycle.keyed_graph_visits), as_i64(cycle.keyed_original_reads), as_i64(cycle.keyed_first_touches), as_i64(cycle.keyed_native_edits), as_i64(cycle.keyed_item_entities_created), as_i64(cycle.keyed_item_entities_retired), as_i64(cycle.keyed_item_entities_moved)],
             )
             .map_err(|error| format!("cannot write cycle row: {error}"))?;
             let cycle_id = connection.last_insert_rowid();
@@ -1512,12 +1702,20 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             }
             Ok(1)
         },
-        Event::GpuiFrame { ordinal, layout_request_ns, prepaint_ns, paint_ns, native_work } => {
+        Event::GpuiFrame { ordinal, start_ns, end_ns, cycles, layout_request_ns, prepaint_ns, paint_ns, native_work } => {
             connection.execute(
-                "INSERT INTO gpui_frames(run_id,ordinal,layout_request_ns,prepaint_ns,paint_ns) VALUES(1,?1,?2,?3,?4)",
-                params![as_i64(ordinal), as_i64(layout_request_ns), as_i64(prepaint_ns), as_i64(paint_ns)],
+                "INSERT INTO gpui_frames(run_id,ordinal,start_ns,end_ns,layout_request_ns,prepaint_ns,paint_ns) VALUES(1,?1,?2,?3,?4,?5,?6)",
+                params![as_i64(ordinal), as_i64(start_ns), as_i64(end_ns), as_i64(layout_request_ns), as_i64(prepaint_ns), as_i64(paint_ns)],
             ).map_err(|error| format!("cannot write GPUI frame: {error}"))?;
             let frame_id = connection.last_insert_rowid();
+            // A cycle the recorder omitted has no row to link; the omission is
+            // already counted and makes the linkage family partial.
+            for cycle in cycles {
+                connection.execute(
+                    "INSERT INTO gpui_frame_cycles(frame_id,cycle_id) SELECT ?1,id FROM cycles WHERE run_id=1 AND ordinal=?2",
+                    params![frame_id, as_i64(cycle)],
+                ).map_err(|error| format!("cannot write frame cycle link: {error}"))?;
+            }
             for (metric, counts) in [native_work.rendered, native_work.view_elements_created].iter().enumerate() {
                 for (kind, count) in counts.iter().enumerate() {
                     if *count > 0 {
@@ -1543,10 +1741,16 @@ fn write_event(connection: &Connection, event: Event) -> Result<(), String> {
             }
             Ok(1)
         },
-        Event::VirtualListFrame { list_id, visible_items, materialized_entities, recycled_entities, live_entities } => connection.execute(
-            "INSERT INTO virtual_list_frames(run_id,list_id,visible_items,materialized_entities,recycled_entities,live_entities) VALUES(1,?1,?2,?3,?4,?5)",
-            params![as_i64(list_id), as_i64(visible_items), as_i64(materialized_entities), as_i64(recycled_entities), as_i64(live_entities)],
-        ),
+        Event::VirtualListFrame { start_ns, end_ns, origin, list_id, visible_items, materialized_entities, recycled_entities, live_entities } => {
+            let (origin, frame, cycle) = match origin {
+                ListPassOrigin::Paint { frame } => ("paint", frame, None),
+                ListPassOrigin::Patch { cycle } => ("patch", None, cycle),
+            };
+            connection.execute(
+                "INSERT INTO virtual_list_frames(run_id,start_ns,end_ns,origin,frame_id,cycle_id,list_id,visible_items,materialized_entities,recycled_entities,live_entities) VALUES(1,?1,?2,?3,(SELECT id FROM gpui_frames WHERE run_id=1 AND ordinal=?4),(SELECT id FROM cycles WHERE run_id=1 AND ordinal=?5),?6,?7,?8,?9,?10)",
+                params![as_i64(start_ns), as_i64(end_ns), origin, frame.map(as_i64), cycle.map(as_i64), as_i64(list_id), as_i64(visible_items), as_i64(materialized_entities), as_i64(recycled_entities), as_i64(live_entities)],
+            )
+        },
         Event::Finish { .. } => return Err("internal recorder finalization ordering error".into()),
     }
     .map(|_| ())
@@ -1604,6 +1808,13 @@ fn finalize(
             "UPDATE measurement_status SET status=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN status WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'unavailable' WHEN name='gpui_frame_work' AND NOT EXISTS(SELECT 1 FROM gpui_frame_work) THEN 'unavailable' WHEN name='gpui_frame_work' AND (SELECT count(*) FROM gpui_frame_work) != 19*(SELECT count(*) FROM gpui_frames) THEN 'partial' WHEN ?1 THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('partial','not_recorded','unavailable') THEN reason WHEN name='virtual_list_materialization' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN name IN ('gpui_frame_spans','gpui_native_work') AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'no GPUI frame was drawn' WHEN name='gpui_frame_work' AND NOT EXISTS(SELECT 1 FROM gpui_frame_work) THEN 'no completed GPUI-owned frame work was recorded' WHEN name='gpui_frame_work' AND (SELECT count(*) FROM gpui_frame_work) != 19*(SELECT count(*) FROM gpui_frames) THEN 'one or more completed frames lack GPUI-owned work' WHEN ?1 THEN 'recorder omitted events' ELSE 'capture finalized without recorded loss' END, omitted_events=?2, rows_recorded=CASE name WHEN 'test_outcome' THEN (SELECT count(*) FROM runs) WHEN 'step_results' THEN (SELECT count(*) FROM steps) WHEN 'host_cycles' THEN (SELECT count(*) FROM cycles) WHEN 'roc_work_spans' THEN (SELECT count(*) FROM roc_work_spans) WHEN 'patch_accounting' THEN (SELECT count(*) FROM cycles) WHEN 'gpui_application' THEN (SELECT count(*) FROM cycles) WHEN 'virtual_list_materialization' THEN (SELECT count(*) FROM virtual_list_frames) WHEN 'gpui_frame_spans' THEN (SELECT count(*) FROM gpui_frames) WHEN 'gpui_native_work' THEN (SELECT count(*) FROM gpui_native_work) WHEN 'gpui_frame_work' THEN (SELECT count(*) FROM gpui_frame_work) WHEN 'process_resources' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'roc_allocations' THEN (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL) WHEN 'scale_verification' THEN (SELECT count(*) FROM steps WHERE expected_count IS NOT NULL AND expected_count=observed_count) WHEN 'patch_verification' THEN (SELECT count(*) FROM steps WHERE expected_patch_kind=observed_patch_kind AND expected_staged_nodes=observed_staged_nodes AND expected_removed_nodes=observed_removed_nodes) ELSE 0 END",
         params![partial, as_i64(omitted)],
     ).map_err(|error| format!("cannot finalize measurement status: {error}"))?;
+    // Linkage is complete when every drawn frame carries the cycles its owner
+    // handed it (a frame with none is a recorded "no new cycle"), and every
+    // paint pass was settled against the frame that drew it.
+    connection.execute(
+        "UPDATE measurement_status SET status=CASE WHEN status IN ('not_recorded','unavailable') THEN status WHEN ?1 THEN 'partial' WHEN name='frame_cycle_linkage' AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'unavailable' WHEN name='virtual_list_linkage' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'unavailable' WHEN name='virtual_list_linkage' AND EXISTS(SELECT 1 FROM virtual_list_frames WHERE origin='paint' AND frame_id IS NULL) THEN 'partial' ELSE 'complete' END, reason=CASE WHEN status IN ('not_recorded','unavailable') THEN reason WHEN ?1 THEN 'recorder omitted events' WHEN name='frame_cycle_linkage' AND NOT EXISTS(SELECT 1 FROM gpui_frames) THEN 'no GPUI frame was drawn' WHEN name='virtual_list_linkage' AND NOT EXISTS(SELECT 1 FROM virtual_list_frames) THEN 'no virtual list entered a viewport' WHEN name='virtual_list_linkage' AND EXISTS(SELECT 1 FROM virtual_list_frames WHERE origin='paint' AND frame_id IS NULL) THEN 'one or more list passes were settled after a frame other than the one that drew them' WHEN name='frame_cycle_linkage' THEN 'every drawn frame records the cycles it was first to draw' ELSE 'every list pass records the frame or cycle that produced it' END, rows_recorded=CASE name WHEN 'frame_cycle_linkage' THEN (SELECT count(*) FROM gpui_frame_cycles) ELSE (SELECT count(*) FROM virtual_list_frames WHERE frame_id IS NOT NULL OR cycle_id IS NOT NULL) END, omitted_events=?2 WHERE name IN ('frame_cycle_linkage','virtual_list_linkage')",
+        params![partial, as_i64(omitted)],
+    ).map_err(|error| format!("cannot finalize linkage status: {error}"))?;
     connection.execute(
         "UPDATE measurement_status SET status=CASE WHEN ?1 THEN 'partial' WHEN NOT EXISTS(SELECT 1 FROM cycles) THEN 'unavailable' WHEN EXISTS(SELECT 1 FROM cycles WHERE roc_work_valid=0) THEN 'partial' WHEN NOT EXISTS(SELECT 1 FROM roc_work_spans) THEN 'unavailable' ELSE 'complete' END, reason=CASE WHEN ?1 THEN 'recorder omitted events' WHEN NOT EXISTS(SELECT 1 FROM cycles) THEN 'no host cycles were recorded' WHEN EXISTS(SELECT 1 FROM cycles WHERE roc_work_valid=0) THEN 'one or more callbacks had invalid or incomplete work spans' WHEN NOT EXISTS(SELECT 1 FROM roc_work_spans) THEN 'no attributed Roc work span occurred' ELSE 'every recorded callback has valid span evidence' END, rows_recorded=(SELECT count(*) FROM roc_work_spans), omitted_events=?2 WHERE name='roc_work_spans'",
         params![partial, as_i64(omitted)],
@@ -1672,7 +1883,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=20;
+PRAGMA user_version=21;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1778,6 +1989,8 @@ CREATE TABLE cycles(
     measurement_phase TEXT NOT NULL CHECK(measurement_phase IN ('initialization','setup','measured','interactive')),
     trigger TEXT NOT NULL,
     patch_kind TEXT NOT NULL CHECK(patch_kind IN ('mount','no_change','replace','keyed')),
+    start_ns INTEGER NOT NULL,
+    end_ns INTEGER NOT NULL CHECK(end_ns >= start_ns),
     duration_ns INTEGER NOT NULL,
     roc_callback_ns INTEGER NOT NULL,
     validate_ns INTEGER NOT NULL,
@@ -1819,6 +2032,8 @@ CREATE TABLE gpui_frames(
     id INTEGER PRIMARY KEY,
     run_id INTEGER NOT NULL REFERENCES runs(id),
     ordinal INTEGER NOT NULL,
+    start_ns INTEGER NOT NULL,
+    end_ns INTEGER NOT NULL CHECK(end_ns >= start_ns),
     layout_request_ns INTEGER NOT NULL,
     prepaint_ns INTEGER NOT NULL,
     paint_ns INTEGER NOT NULL,
@@ -1837,9 +2052,19 @@ CREATE TABLE gpui_frame_work(
     count INTEGER NOT NULL CHECK(count >= 0),
     PRIMARY KEY(frame_id,metric)
 );
+CREATE TABLE gpui_frame_cycles(
+    frame_id INTEGER NOT NULL REFERENCES gpui_frames(id),
+    cycle_id INTEGER NOT NULL REFERENCES cycles(id),
+    PRIMARY KEY(frame_id,cycle_id)
+);
 CREATE TABLE virtual_list_frames(
     id INTEGER PRIMARY KEY,
     run_id INTEGER NOT NULL REFERENCES runs(id),
+    start_ns INTEGER NOT NULL,
+    end_ns INTEGER NOT NULL CHECK(end_ns >= start_ns),
+    origin TEXT NOT NULL CHECK(origin IN ('paint','patch')),
+    frame_id INTEGER REFERENCES gpui_frames(id),
+    cycle_id INTEGER REFERENCES cycles(id),
     list_id INTEGER NOT NULL,
     visible_items INTEGER NOT NULL,
     materialized_entities INTEGER NOT NULL,
@@ -1880,6 +2105,8 @@ CREATE INDEX cycles_by_run_ordinal ON cycles(run_id,ordinal);
 CREATE INDEX roc_work_spans_by_kind ON roc_work_spans(kind,cycle_id);
 CREATE INDEX virtual_list_frames_by_run ON virtual_list_frames(run_id,id);
 CREATE INDEX gpui_frames_by_run_ordinal ON gpui_frames(run_id,ordinal);
+CREATE INDEX gpui_frame_cycles_by_cycle ON gpui_frame_cycles(cycle_id,frame_id);
+CREATE INDEX virtual_list_frames_by_frame ON virtual_list_frames(frame_id);
 "#;
 
 #[cfg(test)]
@@ -1993,6 +2220,8 @@ mod tests {
             measurement_phase: phase,
             trigger: "click",
             patch_kind,
+            start_ns: 1_000 * ordinal,
+            end_ns: 1_000 * ordinal + 100,
             duration_ns: 100,
             roc_callback_ns: 50,
             validate_ns: 10,
@@ -2157,7 +2386,7 @@ mod tests {
         })
         .unwrap();
         run_start(1, "interactive", None, 0, 1);
-        virtual_list_frame(17, 8, 24, 6, 24);
+        virtual_list_frame(10, ListPassOrigin::Paint { frame: None }, 17, 8, 24, 6, 24);
         run_end(1, "pass", 2, None);
         finish("success").unwrap();
         let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
@@ -2172,6 +2401,106 @@ mod tests {
             .unwrap(),
             "complete"
         );
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn frames_record_the_cycles_they_first_draw_and_list_passes_their_origin() {
+        let _guard = RECORDER_TEST.lock().unwrap();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-linkage-{}-{}.rgstats",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        start(Config {
+            path: path.clone(),
+            detail: Detail::Summary,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-wayland",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        run_start(1, "interactive", None, 0, 1);
+        // Two cycles coalesce into the first frame; a patch pass waits for its
+        // cycle's row; a dropped draw hands its cycle to the next frame.
+        cycle(test_cycle("interactive", 0, "mount"));
+        note_cycle_applied(0);
+        virtual_list_frame(5, ListPassOrigin::Patch { cycle: Some(1) }, 9, 1, 1, 0, 1);
+        cycle(test_cycle("interactive", 1, "replace"));
+        note_cycle_applied(1);
+        let first = begin_frame_draw();
+        let draw = current_frame_draw();
+        assert_eq!(draw, Some(first.draw));
+        gpui_frame(first, 1, 1, 1, NativeWork::default());
+        virtual_list_frame(7, ListPassOrigin::Paint { frame: painted_frame(draw) }, 9, 4, 4, 0, 5);
+        gpui_frame(begin_frame_draw(), 1, 1, 1, NativeWork::default());
+        cycle(test_cycle("interactive", 2, "replace"));
+        note_cycle_applied(2);
+        abandon_frame_draw(begin_frame_draw());
+        gpui_frame(begin_frame_draw(), 1, 1, 1, NativeWork::default());
+        run_end(1, "pass", 2, None);
+        finish("success").unwrap();
+        let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let links = db
+            .prepare("SELECT f.ordinal,c.ordinal FROM gpui_frame_cycles l JOIN gpui_frames f ON f.id=l.frame_id JOIN cycles c ON c.id=l.cycle_id ORDER BY 1,2")
+            .unwrap()
+            .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(links, vec![(0, 0), (0, 1), (2, 2)]);
+        let passes = db
+            .prepare("SELECT v.origin,f.ordinal,c.ordinal,v.start_ns,v.end_ns>=v.start_ns FROM virtual_list_frames v LEFT JOIN gpui_frames f ON f.id=v.frame_id LEFT JOIN cycles c ON c.id=v.cycle_id ORDER BY v.id")
+            .unwrap()
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<i64>>(1)?,
+                    row.get::<_, Option<i64>>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, bool>(4)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            passes,
+            vec![
+                ("patch".into(), None, Some(1), 5, true),
+                ("paint".into(), Some(0), None, 7, true)
+            ]
+        );
+        let ordered: bool = db
+            .query_row(
+                "SELECT NOT EXISTS(SELECT 1 FROM gpui_frames WHERE end_ns<start_ns) AND (SELECT start_ns FROM cycles WHERE ordinal=1)=1000",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(ordered);
+        for name in ["frame_cycle_linkage", "virtual_list_linkage"] {
+            assert_eq!(
+                db.query_row(
+                    "SELECT status FROM measurement_status WHERE name=?1",
+                    [name],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                "complete",
+                "{name}"
+            );
+        }
         drop(db);
         std::fs::remove_file(path).unwrap();
     }
@@ -2206,10 +2535,10 @@ mod tests {
         first.rendered[1] = 1;
         first.rendered[15] = 100;
         first.view_elements_created[1] = 100;
-        gpui_frame(400, 900, 1_600, first);
+        gpui_frame(begin_frame_draw(), 400, 900, 1_600, first);
         let mut second = NativeWork::default();
         second.view_elements_created[1] = 100;
-        gpui_frame(410, 910, 1_610, second);
+        gpui_frame(begin_frame_draw(), 410, 910, 1_610, second);
         run_end(1, "pass", 2, None);
         finish("success").unwrap();
         let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
@@ -2323,6 +2652,18 @@ mod tests {
                 "semantic headless execution draws no GPUI frame".to_string()
             )
         );
+        for name in ["frame_cycle_linkage", "virtual_list_linkage"] {
+            assert_eq!(
+                db.query_row(
+                    "SELECT status FROM measurement_status WHERE name=?1",
+                    [name],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                "not_recorded",
+                "{name}"
+            );
+        }
         drop(db);
         std::fs::remove_file(path).unwrap();
     }
