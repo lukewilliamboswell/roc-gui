@@ -1446,15 +1446,29 @@ Internal := [].{
 			# A refresh renders its own boundary again and changes no state, so no
 			# ancestor snapshot is invalidated. Every other action changes state,
 			# which a transparent boundary does not hold: it passes to the nearest
-			# boundary above that does.
+			# boundary above that does. An action's levels count the boundaries it
+			# was delegated through, and a transparent boundary never adapts one,
+			# so levels are counted over the boundaries that hold state: a row of a
+			# list delegates to its owner's parent exactly as if it had been built
+			# in the owner.
 			changes_state = match Action.inspect(action) {
 				Refresh => False
 				_ => True
 			}
+			is_transparent = |offset| transparent(boundaries, source.path.get(offset) ?? crash "missing delegated owner")
 			var $offset = if levels >= source.path.len() 0 else source.path.len() - levels - 1
 			if changes_state {
-				while $offset > 0 and transparent(boundaries, source.path.get($offset) ?? crash "missing delegated owner") {
+				$offset = source.path.len() - 1
+				while $offset > 0 and is_transparent($offset) {
 					$offset = $offset - 1
+				}
+				var $remaining = levels
+				while $remaining > 0 and $offset > 0 {
+					$offset = $offset - 1
+					while $offset > 0 and is_transparent($offset) {
+						$offset = $offset - 1
+					}
+					$remaining = $remaining - 1
 				}
 			}
 			owner = source.path.get($offset) ?? crash "missing delegated owner"
