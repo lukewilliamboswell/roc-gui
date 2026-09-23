@@ -230,6 +230,10 @@ Capture := [].{
 	open! : Gui.FilesDirRead, Str => Try(Opened, Str)
 	open! = open!
 
+	## Open one chosen capture file, with the same refusal and reads as `open!`.
+	open_file! : Gui.FilesFileRead, Str => Try(Opened, Str)
+	open_file! = open_file!
+
 	## The steps of one run, at most `step_page` of them; `more` says the run
 	## continues past the page.
 	run_steps! : Gui.SqliteDb, I64 => Try({ steps : List(Step), more : Bool }, Str)
@@ -764,6 +768,17 @@ read_frames! = |database| {
 open! : Gui.FilesDirRead, Str => Try(Opened, Str)
 open! = |directory, name| {
 	database = Gui.Sqlite.open_read!(directory, name) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
+	read!(database, name)
+}
+
+open_file! : Gui.FilesFileRead, Str => Try(Opened, Str)
+open_file! = |file, name| {
+	database = Gui.Sqlite.open_file_read!(file) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
+	read!(database, name)
+}
+
+read! : Gui.SqliteDb, Str => Try(Opened, Str)
+read! = |database, name| {
 	entries = read_metadata!(database) ? |detail| "${name} is not a capture: ${detail}"
 	schema_gate(lookup(entries, "schema_version"))?
 	trust = read_trust!(database, entries)?

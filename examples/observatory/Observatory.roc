@@ -122,6 +122,9 @@ Observatory := [].{
 	choose : State -> Gui.Action(State)
 	choose = choose
 
+	choose_file : State -> Gui.Action(State)
+	choose_file = choose_file
+
 	set_phase : State, Str -> State
 	set_phase = |state, phase| { ..state, phase, filter: All }
 }
@@ -216,6 +219,42 @@ choose = |state| {
 	})
 }
 
+## The file chooser offers captures only, and the host refuses any other file.
+capture_types : List(Gui.FilesFileType)
+capture_types = [{ label: "roc-gui captures", extensions: ["rgstats"], mime_types: [] }]
+
+unreadable_remedy : Str
+unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 19 captures written by the roc-gui recorder."
+
+## Open one capture the person chooses, without a folder. The folder grant, if
+## any, is kept: a single file is a separate grant beside it.
+choose_file : State -> Gui.Action(State)
+choose_file = |state| {
+	id = state.next_request
+	Gui.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || match state.access.pick_file!(capture_types) {
+			Ok(Chosen(selection)) => OpenedFile(Capture.open_file!(selection.file, selection.name))
+			Ok(Canceled) => FileCanceled
+			Err(PickFileErr(Unsupported)) => FileRefused("Only .rgstats files are captures.")
+			Err(_) => FileRefused("The host granted no file to read. Start Observatory with --host-cap-file <capture>, or choose a .rgstats file this process may read.")
+		},
+		resolve: |latest, result| match latest.status {
+			Busy(active) if active == id => match result {
+				OpenedFile(Ok(opened)) => Gui.update(show(latest, opened, id))
+				OpenedFile(Err(message)) => Gui.update({ ..latest, capture: None, status: failure(message, unreadable_remedy) })
+				FileCanceled => Gui.update({ ..latest, status: Ready })
+				FileRefused(remedy) => Gui.update({ ..latest, status: failure("Could not open the capture file", remedy) })
+			}
+			_ => Gui.none
+		},
+	})
+}
+
+## An opened capture replaces the one on screen, at its overview.
+show : State, Capture.Opened, U64 -> State
+show = |latest, opened, id| { ..latest, capture: Some({ ..opened, revision: id }), view: Overview, phase: default_phase(opened), run: first_run(opened), filter: All, inspected: None, step_focus: None, family_focus: None, status: Ready }
+
 ## An interactive session has no measured phase, so its cycles are shown by
 ## default instead.
 default_phase : Capture.Opened -> Str
@@ -235,12 +274,8 @@ open_capture = |state, directory, name| {
 		run: || Capture.open!(directory, name),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(opened) => Gui.update({ ..latest, capture: Some({ ..opened, revision: id }), view: Overview, phase: default_phase(opened), run: first_run(opened), filter: All, inspected: None, step_focus: None, family_focus: None, status: Ready })
-				Err(message) => Gui.update({
-					..latest,
-					capture: None,
-					status: failure(message, "Nothing from this file is shown. Observatory reads only schema 19 captures written by the roc-gui recorder."),
-				})
+				Ok(opened) => Gui.update(show(latest, opened, id))
+				Err(message) => Gui.update({ ..latest, capture: None, status: failure(message, unreadable_remedy) })
 			}
 			_ => Gui.none
 		},

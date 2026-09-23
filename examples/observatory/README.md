@@ -2,9 +2,10 @@
 
 A read-only explorer for `.rgstats` captures, the SQLite databases the roc-gui
 recorder writes for every specification, benchmark, and recorded session. It
+opens one capture from a single-file grant, offering only `.rgstats` files, or
 takes a directory grant, lists every capture in the folder with its identity and
-a health badge, and opens one through the platform's ordinary SQLite
-capability. It queries the capture's tables itself and depends on no other
+a health badge, and opens one. Either way the capture is read through the
+platform's ordinary SQLite capability. It queries the capture's tables itself and depends on no other
 tool.
 
 A capture of any schema other than 19 is refused with its reason before a single
@@ -70,9 +71,11 @@ python3 build.py
 python3 examples/observatory/generate_fixture.py
 roc build --output=observatory examples/observatory/main.roc
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures
+./observatory -- --host-cap-file examples/observatory/fixture/captures/counter-counting.rgstats
 ```
 
-`--host-cap-dir` provisions the folder the chooser answers with. Any folder of
+`--host-cap-dir` provisions the folder the folder chooser answers with, and
+`--host-cap-file` the file "Open capture…" answers with. Any folder of
 captures works, such as `.test-out/specs/<stamp>/examples/counter/specs`.
 
 The fixture script runs real specifications of the Counter and Database Browser
@@ -85,8 +88,7 @@ regenerates it when the recorder schema or the generator's inputs change.
 
 ## Not yet built
 
-- One capture opens at a time, only from a granted folder; there is no single
-  file chooser, drop target, or recent list.
+- One capture opens at a time; there is no drop target or recent list.
 - No distribution chart, frames, timeline, scaling, or comparison view.
 - A `—` shows its family's status and reason beside it, not on hover.
 - Steps are listed by line number and kind; the specification source is not
@@ -95,8 +97,9 @@ regenerates it when the recorder schema or the generator's inputs change.
 
 ## Specifications
 
-Eighteen specifications run on the semantic runner. They cover the first
-frame, a refused folder grant, the capture list with each health badge, the
+Twenty-two specifications run on the semantic runner. They cover the first
+frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
+a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
 honest tiles, an untrusted capture's banner on every view, the health sheet,
 spec results across runs, the triggers table across phases, sorting by column,
@@ -106,4 +109,6 @@ Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
 also pin which boundaries render, and how many nodes the host restages.
 `scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases: each opens a
 benchmark output folder of that many real captures. `window-tour.scm` drives
-the real window through every view and photographs each.
+the real window through every view and photographs each, and
+`window-open-capture.scm` photographs the start page and a capture opened from
+a single file.

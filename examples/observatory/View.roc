@@ -363,6 +363,7 @@ authority_bar = |state| {
 			meta("FOLDER"),
 			Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.meta, font_face: Theme.face, max_width: Px(320), text_overflow: Ellipsis }, [Gui.text(reading.held)]),
 			Gui.row({ label: "Folder verdict", padding: 0, gap: 0, grow: True, justify: End, fg: reading.ink, font_size: Theme.meta }, [Gui.text(reading.verdict)]),
+			key({ caption: "Open capture…", label: "Open capture", selected: False, on_press: |current, _| Observatory.choose_file(current) }),
 			key({ caption: "Open folder…", label: "Open folder", selected: False, on_press: |current, _| Observatory.choose(current) }),
 		],
 	)
@@ -467,7 +468,7 @@ sorted_captures = |captures, sort| List.sort_with(
 capture_list : Observatory.State -> Gui.Elem(Observatory.State)
 capture_list = |state| {
 	body = match state.folder {
-		None => [note("Choose a folder of .rgstats captures, such as a benchmark output directory.")]
+		None => [note("Open one .rgstats capture, or choose a folder of them, such as a benchmark output directory.")]
 		Some(folder) => if folder.captures.is_empty() {
 			[note("The folder holds no .rgstats captures.")]
 		} else {
