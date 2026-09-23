@@ -155,7 +155,8 @@ with `prefix`. This locator supports deterministic primitive counts in scaling
 specifications.
 `(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
 `(role button :name "name")`:: A button with the semantic `name` passed to
-`Gui.button`.
+`Gui.button`. A tab of a tab strip is a tab, not a button; its close button is
+a button.
 `(role canvas :name "name")`:: A retained drawing surface identified by its
 stable semantic name.
 `(role canvas-item :name "name")`:: A keyed canvas primitive identified by its
@@ -170,6 +171,10 @@ are captured.
 `(role panel :name "label")`:: A panel identified by its semantic label.
 `(role row :name "name")`:: A row identified by its semantic name.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
+`(role separator :name "label")`:: A split's divider, identified by the label
+its split gave it. Nothing in the pane a collapsed split folds away matches any
+locator.
+`(role tab :name "title")`:: One tab of a tab strip, identified by its title.
 `(role tooltip :name "label")`:: A popover's presenting surface, identified by
 its semantic label. A closed popover presents nothing, so neither it nor
 anything in its content matches.
@@ -273,9 +278,14 @@ when that view subsequently reuses its rendered subtree. A missing
 mark or no completed frame fails as unavailable. Choose limits from the
 changed patch frontier and the application's ordinary native controls; these
 assertions belong to controlled interactions without unrelated input or resize.
-`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
-gesture through a canvas's production event route. Coordinates are integer
-logical pixels in canvas space.
+`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Press a canvas or a split's divider
+at one point, move to another with the button held, and release. Coordinates
+are integer logical pixels from the painted canvas's origin, or from the
+divider's. The window runner presses, moves, and releases the window's own
+pointer, and GPUI hit-tests the press; the semantic runner delivers what that
+gesture delivers. A canvas receives its three pointer phases, each a `drag`
+cycle. A divider asks for the size the move measures from the press, one `drag`
+cycle, and nothing when the divider already shows that size.
 `(pointer-move LOCATOR X Y)`:: Move an unpressed pointer to a point of a canvas,
 in canvas coordinates. The window runner moves the window's own pointer to that
 point of the painted surface; the semantic runner delivers the event that
@@ -461,8 +471,12 @@ samples.
 `(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Require the complete
 owner-recorded TCP resource and attempted-operation vector.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
-`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value, or the
-exact line a canvas text primitive sets when the locator names a canvas item.
+`(expect-selected LOCATOR)` and `(expect-not-selected LOCATOR)`:: Require
+exactly one matching tab, and that it is, or is not, its strip's selected tab.
+`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value, the
+exact line a canvas text primitive sets when the locator names a canvas item,
+or a divider's value, its size in logical pixels or `collapsed`, when the
+locator names a separator.
 The value is compared in memory and is not copied into captures or diagnostics.
 `(expect-value-bytes LOCATOR N)`:: Require the text-input or textarea value to contain exactly
 `N` UTF-8 bytes, and record the expected and observed deterministic counts.
@@ -541,7 +555,7 @@ them silently:
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount, and the
 `(file recording)` grant, since only the semantic runner records a capture. Also every step the
-window runner does not implement: `drag`, `replace-text`, `submit`, `await-task-waits`,
+window runner does not implement: `replace-text`, `submit`, `await-task-waits`,
 `expect-task-counters`, and the
 repository fixture steps the Contributing chapter describes.
 
@@ -550,9 +564,10 @@ repository fixture steps the Contributing chapter describes.
 mean anything without a presented frame: without layout there is no fold for
 content to be below, and no size a window could be resized from.
 
-`both`:: `click`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
+`both`:: `click`, `drag`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
 `system-theme`, `expect-theme`, `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
 `expect-count`, `expect-component-work`, and the value and ordering assertions — `expect-value`,
+`expect-selected`, `expect-not-selected`,
 `expect-value-bytes`, `expect-image-bytes`, `expect-before`, `expect-rows`, and
 `expect-canvas-primitives`. The fixture clipboard is one process-wide store, so
 changing the granted source and waiting for the application's own timer to
@@ -681,7 +696,9 @@ not exercised; those belong to the pointer seam this host does not have.
 Pointer steps are simulated at the production handler, but are refused unless
 the control was laid out, is unclipped, is enabled, and is not behind a modal
 dialog, so a `click` a real user could not have performed fails rather than
-passing quietly. `hover-enter` and `hover-exit` dispatch mouse-move events into
+passing quietly. `drag` presses, moves, and releases the window's pointer
+through GPUI's own event dispatch, so the press is hit-tested and the
+production listeners follow the move. `hover-enter` and `hover-exit` dispatch mouse-move events into
 the live GPUI window, exercising hit testing, production views, and the normal
 event route. They do not move the operating-system pointer. GPUI tests also
 verify replacement continuity and disabled or stale routes. The Testing your

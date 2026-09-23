@@ -294,6 +294,8 @@ pub enum Command {
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
+    /// Whether exactly one tab is, or is not, the selected tab of its strip.
+    ExpectSelected(Locator, bool),
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
     ExpectCanvasPrimitives(Locator, usize),
@@ -499,6 +501,8 @@ impl Command {
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
+            Self::ExpectSelected(_, true) => "expect-selected",
+            Self::ExpectSelected(_, false) => "expect-not-selected",
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
             Self::ExpectCanvasPrimitives(_, _) => "expect-canvas-primitives",
@@ -557,6 +561,9 @@ impl Command {
             | Self::PointerMove(..)
             | Self::PointerLeave(_)
             | Self::Wheel(..)
+            // Both runners measure a drag from the press through one shared
+            // rule; a window run presses, moves, and releases its own pointer.
+            | Self::Drag(..)
             | Self::Focus(_)
             | Self::PressKey(_)
             // A semantic run resolves the chord's shortcut through the graph
@@ -586,6 +593,7 @@ impl Command {
             // can therefore assert a semantic truth and photograph it.
             | Self::ExpectCanvasPrimitives(_, _)
             | Self::ExpectValue(_, _)
+            | Self::ExpectSelected(_, _)
             | Self::ExpectValueBytes(_, _)
             | Self::ExpectImageBytes(_, _)
             | Self::ExpectRows(_, _)
@@ -634,8 +642,7 @@ impl Command {
             // alternative of accepting a specification and then refusing a step
             // mid-run would report a failure that is about the harness rather
             // than about the application.
-            Self::Drag(..)
-            | Self::ReplaceText(_, _)
+            Self::ReplaceText(_, _)
             | Self::Submit(_)
             | Self::AwaitTaskWaits(_)
             | Self::ExpectTaskCounters(_) => Capability::Semantic,
@@ -700,6 +707,10 @@ pub enum Locator {
     CanvasItemName(String),
     CanvasItemPrefix(String),
     TextInputName(String),
+    /// A split's divider, by the label its split gave it.
+    SeparatorName(String),
+    /// One tab of a tab strip, by its title.
+    TabName(String),
 }
 
 impl Locator {
@@ -729,6 +740,8 @@ impl fmt::Display for Locator {
             Self::ColumnName(value) => ("(role column :name", value),
             Self::DialogName(value) => ("(role dialog :name", value),
             Self::TooltipName(value) => ("(role tooltip :name", value),
+            Self::SeparatorName(value) => ("(role separator :name", value),
+            Self::TabName(value) => ("(role tab :name", value),
             Self::Shortcut(value) => ("(shortcut", value),
             Self::PanelName(value) => ("(role panel :name", value),
             Self::RowName(value) => ("(role row :name", value),
@@ -1867,6 +1880,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
+        "expect-selected" if values.len() == 2 => {
+            Command::ExpectSelected(parse_locator(&values[1])?, true)
+        }
+        "expect-not-selected" if values.len() == 2 => {
+            Command::ExpectSelected(parse_locator(&values[1])?, false)
+        }
         "expect-not-visible" if values.len() == 2 => {
             Command::ExpectNotVisible(parse_locator(&values[1])?)
         }
@@ -2063,6 +2082,8 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click"
+        | "expect-selected"
+        | "expect-not-selected"
         | "drag"
         | "pointer-move"
         | "pointer-leave"
@@ -2237,6 +2258,26 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role")
             if values.len() == 4
+                && values[1].atom() == Some("separator")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::SeparatorName(value.to_owned()))
+                .ok_or_else(|| error(node, "separator name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("tab")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::TabName(value.to_owned()))
+                .ok_or_else(|| error(node, "tab name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
                 && values[1].atom() == Some("tooltip")
                 && values[2].atom() == Some(":name") =>
         {
@@ -2347,7 +2388,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, canvas, canvas-item, checkbox, column, dialog, image, panel, row, scroll, textarea, textbox, and virtual-list",
+            "supported roles are button, canvas, canvas-item, checkbox, column, dialog, image, panel, row, scroll, separator, tab, textarea, textbox, tooltip, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -3276,6 +3317,32 @@ mod tests {
         assert!(
             matches!(&spec.steps[1].command, Command::ExpectVisible(Locator::CanvasItemName(name)) if name == "Card")
         );
+    }
+
+    #[test]
+    fn parses_separators_tabs_and_selection_for_both_runners() {
+        let spec = parse(
+            r#"(test "shell" (steps
+            (drag (role separator :name "Divider") 3 200 -97 200)
+            (expect-value (role separator :name "Divider") "540")
+            (expect-selected (role tab :name "One"))
+            (expect-not-selected (role tab :name "Two"))))"#,
+        )
+        .unwrap();
+        assert!(
+            matches!(&spec.steps[0].command, Command::Drag(Locator::SeparatorName(name), 3, 200, -97, 200) if name == "Divider")
+        );
+        assert!(
+            matches!(&spec.steps[2].command, Command::ExpectSelected(Locator::TabName(name), true) if name == "One")
+        );
+        assert_eq!(spec.steps[3].command.kind(), "expect-not-selected");
+        assert_eq!(
+            Locator::SeparatorName("Divider".into()).to_string(),
+            "(role separator :name \"Divider\")"
+        );
+        // A drag, a divider's value, and a tab's selection are both runners'.
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
     }
 
     #[test]

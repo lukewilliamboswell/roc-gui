@@ -192,7 +192,8 @@ again later.
 Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
 and columns become flex containers, panels become styled surfaces, dialogs
 become centred modal layers with input-blocking scrims, popovers become an
-anchor wrapper with a floating surface, text becomes a text
+anchor wrapper with a floating surface, splits become two pane holders either
+side of a focusable divider, text becomes a text
 child, and enabled action buttons add focus, keyboard, and pointer
 listeners. A boundary marker materialises as a transparent single-child view,
 not a synthetic row, column, or styled surface. Retained marker subtrees retain
@@ -297,6 +298,15 @@ pointer neither closes the surface nor sees a second enter. A newly mounted
 dialog retires background popover state as it does background hover state.
 Opening and closing a surface runs no Roc: it is presentation, owned by the
 host, and counted by the graph that decides it.
+
+A split mounts both of its panes, and the graph decides which it presents: a
+collapsed split's sized pane stays mounted, with its component lifetime and its
+tasks, but it is neither drawn nor presented to locators. The host measures a
+drag of the divider from the press, against the bounds the split carries, in
+one rule both runners call, and asks Roc only for a size the divider does not
+already show. The divider's keys are shortcuts of the split, live only while
+the divider itself holds focus, so they reach Roc through the same shortcut
+route every region uses.
 
 Shortcuts are declared by elements, so the graph knows every live one and the
 component that owns it. GPUI offers a keystroke to its keymap's actions along

@@ -191,7 +191,9 @@ and presentation are unavailable.
 phase and task completion has its own cycle, including steps that await several completions.
 A canvas pointer phase records a `drag` cycle, a delivered canvas hover a
 `hover` cycle, and a canvas wheel scroll a `wheel` cycle, whether a
-specification or a person in the interactive window drives it.
+specification or a person in the interactive window drives it. Each size a
+split's divider asks for while it is dragged records a `drag` cycle, and each
+of its keys a `key` cycle.
 Waiting for workers and applying graph patches are outside the callback span.
 The enclosing cycle duration includes the wait.
 
@@ -323,6 +325,7 @@ completed frame is unavailable rather than zero.
 |15 |Boundary
 |16 |Keyed container
 |17 |Popover
+|18 |Split divider
 |===
 
 Schema 20 adds kind 17. A popover's view renders when its surface opens or
@@ -330,6 +333,9 @@ closes as well as when the popover itself changes; its anchor and content are
 counted under their own kinds. The region that carries hover handlers,
 shortcuts, or a focus request for an element is a popover with no content, and
 is counted here too.
+
+Schema 24 adds kind 18. A split's divider renders when the size it carries
+changes; the panes beside it are columns, counted under kind 5.
 
 Rows contain positive counts. A missing metric/kind row means measured zero
 only within a recorded frame with complete native-work evidence. A capture
@@ -471,8 +477,9 @@ target.
 
 `target_kind` is the node's kind in the mounted graph: `button`, `checkbox`,
 `text_input`, `textarea`, `canvas`, `region` (a hover or shortcut region with
-no surface of its own), `popover`, and the containers. A shortcut's target is
-the region that declares it; a canvas gesture's is the canvas.
+no surface of its own), `popover`, `split`, and the containers. A shortcut's
+target is the region that declares it; a canvas gesture's is the canvas; a
+divider's drag, and its keys, target its split. Schema 24 admits `split`.
 
 `target_identity` is sixteen hexadecimal digits: a 64-bit FNV-1a hash of the
 node's structural path, the kind and display position of each node from the

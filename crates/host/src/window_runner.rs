@@ -66,6 +66,8 @@ pub enum StepError {
     /// canvas takes coordinates through its pointer route, so a `click` step
     /// would otherwise report success having dispatched nothing.
     NoClickRoute(String),
+    /// A `drag` step named something a pointer cannot drag.
+    NotDraggable(String),
     /// A modal dialog is capturing interaction.
     BehindDialog(String),
     /// A `scroll` step named something that does not scroll.
@@ -121,8 +123,11 @@ impl StepError {
                 format!("{locator} has no hover handler and no popover anchors it")
             }
             Self::NoClickRoute(locator) => format!(
-                "{locator} takes pointer coordinates, not a click; press it with a `drag` step under --host-run-spec"
+                "{locator} takes pointer coordinates, not a click; press it with a `drag` step"
             ),
+            Self::NotDraggable(locator) => {
+                format!("{locator} is neither a canvas nor a separator, so it cannot be dragged")
+            }
             Self::BehindDialog(locator) => {
                 format!("{locator} is behind an active dialog and cannot be clicked")
             }
@@ -932,6 +937,69 @@ async fn run_step(
             .map_err(|_| StepError::WindowClosed)?;
             await_painted(window, options.timeout, cx).await
         }
+        Command::Drag(locator, from_x, from_y, to_x, to_y) => {
+            // The window's own pointer presses at one point of the element,
+            // moves with the button held, and releases: GPUI hit-tests the
+            // press and the production listeners follow the rest.
+            await_painted(window, options.timeout, cx).await?;
+            let viewport = viewport_rect(window, cx)?;
+            let origin = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    if runtime
+                        .graph
+                        .active_dialog()
+                        .is_some_and(|dialog| !runtime.graph.is_descendant_of(id, dialog))
+                    {
+                        return Err(StepError::BehindDialog(describe(locator)));
+                    }
+                    match runtime.graph.node(id).map(|node| &node.kind) {
+                        Some(crate::bridge::NodeKind::Canvas { .. }) => runtime
+                            .canvas_surfaces
+                            .get(&id)
+                            .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                            .map(|surface| surface.origin)
+                            .ok_or_else(|| StepError::NotPainted(describe(locator))),
+                        Some(crate::bridge::NodeKind::Split { .. }) => {
+                            let bounds = visible_rect(runtime, locator, viewport)?;
+                            Ok(point(px(bounds.left), px(bounds.top)))
+                        }
+                        _ => Err(StepError::NotDraggable(describe(locator))),
+                    }
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            let from = point(origin.x + px(*from_x as f32), origin.y + px(*from_y as f32));
+            let to = point(origin.x + px(*to_x as f32), origin.y + px(*to_y as f32));
+            let gesture = [
+                gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
+                    button: gpui::MouseButton::Left,
+                    position: from,
+                    modifiers: Default::default(),
+                    click_count: 1,
+                    first_mouse: false,
+                }),
+                gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                    position: to,
+                    pressed_button: Some(gpui::MouseButton::Left),
+                    modifiers: Default::default(),
+                }),
+                gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
+                    button: gpui::MouseButton::Left,
+                    position: to,
+                    modifiers: Default::default(),
+                    click_count: 1,
+                }),
+            ];
+            for input in gesture {
+                // Release the Runtime borrow before GPUI delivers callbacks
+                // into it, and let each event land before the next.
+                cx.update_window(window.into(), |_, window, cx| {
+                    window.dispatch_event(input, cx);
+                })
+                .map_err(|_| StepError::WindowClosed)?;
+            }
+            await_painted(window, options.timeout, cx).await
+        }
         Command::Click(locator) => {
             // Only a drawn control can be pressed, and a completion the
             // previous step accounted for may not have been drawn yet.
@@ -1152,6 +1220,7 @@ async fn run_step(
         // same code the semantic runner calls, so the word means one thing.
         Command::ExpectCanvasPrimitives(_, _)
         | Command::ExpectValue(_, _)
+        | Command::ExpectSelected(_, _)
         | Command::ExpectValueBytes(_, _)
         | Command::ExpectImageBytes(_, _)
         | Command::ExpectRows(_, _)

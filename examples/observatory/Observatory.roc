@@ -829,7 +829,7 @@ capture_types : List(Gui.FilesFileType)
 capture_types = [{ label: "roc-gui captures", extensions: ["rgstats"], mime_types: [] }]
 
 unreadable_remedy : Str
-unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 23 captures written by the roc-gui recorder."
+unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 24 captures written by the roc-gui recorder."
 
 idle : Live
 idle = { generation: 0, progress: { cycles: 0, frames: 0, steps: 0, ended: 0, final_state: "", capture_id: "" } }

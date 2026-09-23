@@ -44,6 +44,8 @@ platform ""
 		"roc_gui_node_canvas": Host.node_canvas!,
 		"roc_gui_canvas_event": Host.canvas_event!,
 		"roc_gui_shortcut_event": Host.shortcut_event!,
+		"roc_gui_node_split": Host.node_split!,
+		"roc_gui_resize_event": Host.resize_event!,
 		"roc_gui_virtual_window": Host.virtual_window!,
 		"roc_gui_virtual_rows_event": Host.virtual_rows_event!,
 		"roc_gui_input_value": Host.input_value!,

@@ -157,6 +157,7 @@ mod tests {
     #[test]
     fn the_focused_control_takes_its_own_keys_first() {
         let button = NodeKind::Button {
+            role: crate::bridge::ButtonRole::Button,
             caption: "Go".into(),
             label: "Go".into(),
             enabled: true,

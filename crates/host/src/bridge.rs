@@ -661,6 +661,8 @@ pub enum NodeKind {
     Button {
         caption: String,
         label: String,
+        /// A plain button, or one tab of a tab strip.
+        role: ButtonRole,
         enabled: bool,
         hover_enter: bool,
         hover_exit: bool,
@@ -754,6 +756,25 @@ pub enum NodeKind {
         enabled: bool,
         style: Box<Style>,
     },
+    /// Two panes, its children, and the divider between them. It carries the
+    /// sized pane's extent and bounds so a drag becomes a size without asking
+    /// Roc, and the keys the divider answers while it holds keyboard focus. A
+    /// collapsed pane stays mounted but is neither drawn nor presented.
+    Split {
+        label: String,
+        axis: SplitAxis,
+        side: SplitSide,
+        size: u32,
+        min: u32,
+        max: u32,
+        collapsible: bool,
+        collapsed: bool,
+        thickness: u32,
+        /// The divider's keys, in the order declared.
+        shortcuts: Vec<Shortcut>,
+        /// The divider's colours; its size fields size the split.
+        style: Box<Style>,
+    },
     /// Text that carries its own type: colour, size, weight, and face, with no
     /// container element to hold them. `runs` is empty for text of one style;
     /// otherwise the runs cover `value` exactly, in order, and each restyles
@@ -842,6 +863,82 @@ pub struct ShortcutMatch {
     pub event: u64,
     pub index: u64,
     pub keys: String,
+}
+
+/// What a pressable control is to a person and to a locator.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ButtonRole {
+    #[default]
+    Button,
+    Tab {
+        selected: bool,
+    },
+}
+
+/// The direction a split lays out its panes: side by side, or stacked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SplitAxis {
+    Horizontal,
+    Vertical,
+}
+
+/// Which of a split's panes its size belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SplitSide {
+    Start,
+    End,
+}
+
+/// A split's requested extent: what `Event.Resize` carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Resize {
+    pub size: u32,
+    pub collapsed: bool,
+}
+
+/// A divider as it was when a pointer pressed it. A drag is measured from
+/// the press, so every move asks for a size against these bounds rather than
+/// against a size an earlier move of the same drag already changed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SplitterGrip {
+    axis: SplitAxis,
+    side: SplitSide,
+    /// The sized pane's extent under the pointer: zero while collapsed.
+    start: u32,
+    /// The size a collapse keeps to return to.
+    size: u32,
+    min: u32,
+    max: u32,
+    collapsible: bool,
+}
+
+impl SplitterGrip {
+    /// The size a pointer `(dx, dy)` logical pixels from where it pressed asks
+    /// for. Movement across the divider's axis is ignored; movement towards
+    /// the sized pane shrinks it. A collapsible pane dragged below half its
+    /// minimum asks to collapse, keeping the size it had.
+    pub fn resize(&self, dx: f32, dy: f32) -> Resize {
+        let along = match self.axis {
+            SplitAxis::Horizontal => dx,
+            SplitAxis::Vertical => dy,
+        };
+        let signed = match self.side {
+            SplitSide::Start => along,
+            SplitSide::End => -along,
+        };
+        let raw = self.start as f32 + signed;
+        if self.collapsible && self.min > 0 && raw < self.min as f32 / 2.0 {
+            return Resize {
+                size: self.size,
+                collapsed: true,
+            };
+        }
+        let clamped = raw.round().clamp(self.min as f32, self.max as f32) as u32;
+        Resize {
+            size: clamped,
+            collapsed: false,
+        }
+    }
 }
 
 /// Which side of its anchor a popover surface is placed on.
@@ -934,6 +1031,7 @@ impl NodeKind {
             Self::Boundary { .. } => "boundary",
             Self::Popover { label, .. } if label.is_empty() => "region",
             Self::Popover { .. } => "popover",
+            Self::Split { .. } => "split",
         }
     }
 
@@ -961,6 +1059,7 @@ impl NodeKind {
             Self::StyledText { .. } => 14,
             Self::Boundary { .. } => 15,
             Self::Popover { .. } => 17,
+            Self::Split { .. } => 18,
         }
     }
 
@@ -984,6 +1083,7 @@ impl NodeKind {
             | Self::Popover { label, .. }
             | Self::Panel { label, .. }
             | Self::Row { label, .. }
+            | Self::Split { label, .. }
             | Self::TextInput { label, .. } => label.as_str().into(),
             Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.as_str().into(),
             Self::VirtualItem { key } => key.to_string().into(),
@@ -1015,6 +1115,61 @@ impl NodeKind {
                 enabled: true,
                 ..
             } => Some((3, label.clone())),
+            Self::Split { label, .. } => Some((4, label.clone())),
+            _ => None,
+        }
+    }
+
+    /// A divider's grip for a drag starting now, or `None` for anything else.
+    pub fn splitter_grip(&self) -> Option<SplitterGrip> {
+        match self {
+            Self::Split {
+                axis,
+                side,
+                size,
+                min,
+                max,
+                collapsible,
+                collapsed,
+                ..
+            } => Some(SplitterGrip {
+                axis: *axis,
+                side: *side,
+                start: if *collapsed { 0 } else { *size },
+                size: *size,
+                min: *min,
+                max: *max,
+                collapsible: *collapsible,
+            }),
+            _ => None,
+        }
+    }
+
+    /// Which child of a split its collapse hides, if it is collapsed.
+    pub fn hidden_pane(&self) -> Option<usize> {
+        match self {
+            Self::Split {
+                side,
+                collapsible: true,
+                collapsed: true,
+                ..
+            } => Some(match side {
+                SplitSide::Start => 0,
+                SplitSide::End => 1,
+            }),
+            _ => None,
+        }
+    }
+
+    /// What a divider shows now, which a drag need not ask for again.
+    pub fn splitter_value(&self) -> Option<Resize> {
+        match self {
+            Self::Split {
+                size, collapsed, ..
+            } => Some(Resize {
+                size: *size,
+                collapsed: *collapsed,
+            }),
             _ => None,
         }
     }
@@ -1697,6 +1852,15 @@ impl MountedGraph {
             ordered.push(node);
             if matches!(node.kind, NodeKind::Popover { .. }) && !self.popovers.open.contains(&id) {
                 pending.extend(node.children.first().copied());
+            } else if let Some(hidden) = node.kind.hidden_pane() {
+                pending.extend(
+                    node.children
+                        .iter()
+                        .enumerate()
+                        .rev()
+                        .filter(|(index, _)| *index != hidden)
+                        .map(|(_, child)| *child),
+                );
             } else {
                 pending.extend(self.children_of(id).rev());
             }
@@ -2019,11 +2183,19 @@ impl MountedGraph {
     }
 
     /// Whether a person can perceive `id`: nothing above it is the content of
-    /// a closed popover.
+    /// a closed popover or the pane of a collapsed split.
     fn is_presented(&self, id: u64) -> bool {
         let mut current = id;
         while let Some(location) = self.parent_location(current) {
             let parent = location.parent();
+            if let ParentLocation::OrdinaryIndex { index, .. } = location
+                && self
+                    .node(parent)
+                    .and_then(|node| node.kind.hidden_pane())
+                    .is_some_and(|hidden| hidden == index)
+            {
+                return false;
+            }
             if !matches!(location, ParentLocation::OrdinaryIndex { index: 0, .. })
                 && matches!(
                     self.node(parent).map(|node| &node.kind),
@@ -2128,15 +2300,19 @@ impl MountedGraph {
             if !self.region_live(*region) {
                 continue;
             }
-            if let Some(NodeKind::Popover { shortcuts, .. }) =
-                self.node(*region).map(|node| &node.kind)
-            {
-                for (index, shortcut) in shortcuts.iter().enumerate() {
-                    compared += 1;
-                    if matches(&shortcut.keys) {
-                        found = Some((*region, index, shortcut.keys.clone()));
-                        break 'enclosing;
-                    }
+            let declared = match self.node(*region).map(|node| &node.kind) {
+                Some(NodeKind::Popover { shortcuts, .. }) => shortcuts.as_slice(),
+                // A split's region is its divider, not the panes beside it.
+                Some(NodeKind::Split { shortcuts, .. }) if focused == Some(*region) => {
+                    shortcuts.as_slice()
+                }
+                _ => &[],
+            };
+            for (index, shortcut) in declared.iter().enumerate() {
+                compared += 1;
+                if matches(&shortcut.keys) {
+                    found = Some((*region, index, shortcut.keys.clone()));
+                    break 'enclosing;
                 }
             }
         }
@@ -2205,6 +2381,16 @@ impl MountedGraph {
             }
             if matches!(node.kind, NodeKind::Popover { .. }) && !self.popovers.open.contains(&id) {
                 pending.extend(node.children.first().copied());
+            } else if let Some(hidden) = node.kind.hidden_pane() {
+                let shown = node
+                    .children
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .filter(|(index, _)| *index != hidden)
+                    .map(|(_, child)| *child)
+                    .collect::<Vec<_>>();
+                pending.extend(shown);
             } else {
                 pending.extend(self.children_of(id).rev());
             }
@@ -3269,6 +3455,10 @@ impl MountedGraph {
                         self.keyboard.staged_requests.push(node.id);
                     }
                 }
+                // A divider's keys are live only while it holds focus itself.
+                NodeKind::Split { shortcuts, .. } if !shortcuts.is_empty() => {
+                    self.keyboard.regions.insert(node.id);
+                }
                 _ => {}
             }
             let segment = IdentitySegment::of(&node, 0, 0);
@@ -4124,6 +4314,15 @@ fn validate_fragment<'a>(
                     node.id
                 ));
             }
+            NodeKind::Split { .. } if node.children.len() != 2 => {
+                return Err(format!("split node {} must have two panes", node.id));
+            }
+            NodeKind::Split { size, min, max, .. } if !(min <= size && size <= max) => {
+                return Err(format!(
+                    "split node {} holds a size outside its bounds",
+                    node.id
+                ));
+            }
             NodeKind::VirtualItem { .. } if node.children.len() != 1 => {
                 return Err(format!(
                     "virtual item node {} must have one content child",
@@ -4218,6 +4417,7 @@ mod tests {
         let button = |id: u64, name: &str| Node {
             id,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: name.into(),
                 label: name.into(),
                 enabled: true,
@@ -4270,6 +4470,7 @@ mod tests {
         let button = |id: u64, name: &str| Node {
             id,
             kind: NodeKind::Button {
+                role: ButtonRole::Button,
                 caption: name.into(),
                 label: name.into(),
                 enabled: true,
@@ -4679,6 +4880,7 @@ mod tests {
             Node {
                 id: root + 1,
                 kind: NodeKind::Button {
+                    role: crate::bridge::ButtonRole::Button,
                     caption: label.into(),
                     label: label.into(),
                     enabled: true,
@@ -5225,6 +5427,7 @@ mod tests {
 
     fn button(label: &str, enabled: bool) -> NodeKind {
         NodeKind::Button {
+            role: crate::bridge::ButtonRole::Button,
             caption: label.into(),
             label: label.into(),
             enabled,
@@ -6979,6 +7182,7 @@ mod tests {
         Node {
             id,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: "Cell".into(),
                 label: "Cell".into(),
                 enabled,
@@ -7536,6 +7740,119 @@ mod tests {
             popover(base + 3, "Note", delay_ms, false, vec![base + 1, base + 2]),
             column(base + 10, vec![base + 3]),
         ]
+    }
+
+    /// A split 5 of button 1 and button 2, sizing its end pane, collapsible,
+    /// whose divider answers `left` and `enter`, inside column 10.
+    fn split_tree(base: u64, collapsed: bool) -> Vec<Node> {
+        vec![
+            button_node(base + 1, "Main"),
+            button_node(base + 2, "Aside"),
+            Node {
+                id: base + 5,
+                kind: NodeKind::Split {
+                    label: "Divider".into(),
+                    axis: SplitAxis::Horizontal,
+                    side: SplitSide::End,
+                    size: 300,
+                    min: 200,
+                    max: 600,
+                    collapsible: true,
+                    collapsed,
+                    thickness: 6,
+                    shortcuts: ["left", "enter"]
+                        .iter()
+                        .map(|keys| Shortcut {
+                            keys: (*keys).into(),
+                            scope: ShortcutScope::Focus,
+                        })
+                        .collect(),
+                    style: Box::default(),
+                },
+                children: vec![base + 1, base + 2],
+            },
+            column(base + 10, vec![base + 5]),
+        ]
+    }
+
+    #[test]
+    fn a_drag_asks_for_a_size_measured_from_the_press_within_the_bounds() {
+        let kind = split_tree(0, false)
+            .into_iter()
+            .find(|node| node.id == 5)
+            .unwrap()
+            .kind;
+        let grip = kind.splitter_grip().unwrap();
+        let ask = |size, collapsed| Resize { size, collapsed };
+        // The sized pane is after the divider, so moving towards the start
+        // widens it and moving towards the end narrows it.
+        assert_eq!(grip.resize(-40.0, 13.0), ask(340, false));
+        assert_eq!(grip.resize(40.4, 0.0), ask(260, false));
+        // Movement across the axis is not movement along it.
+        assert_eq!(grip.resize(0.0, 500.0), ask(300, false));
+        assert_eq!(grip.resize(-900.0, 0.0), ask(600, false));
+        // Below the minimum it holds the minimum, until past half of it,
+        // where a collapsible pane asks to fold and keeps its size.
+        assert_eq!(grip.resize(150.0, 0.0), ask(200, false));
+        assert_eq!(grip.resize(201.0, 0.0), ask(300, true));
+        assert_eq!(kind.splitter_value(), Some(ask(300, false)));
+        // A folded pane is dragged out from nothing.
+        let folded = split_tree(0, true)
+            .into_iter()
+            .find(|node| node.id == 5)
+            .unwrap()
+            .kind;
+        assert_eq!(folded.hidden_pane(), Some(1));
+        assert_eq!(
+            folded.splitter_grip().unwrap().resize(-250.0, 0.0),
+            ask(250, false)
+        );
+        assert_eq!(kind.hidden_pane(), None);
+    }
+
+    #[test]
+    fn a_collapsed_split_keeps_its_pane_mounted_but_not_presented() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: split_tree(0, true),
+            })
+            .unwrap();
+        let presented = graph
+            .presented_preorder()
+            .iter()
+            .map(|node| node.id)
+            .collect::<Vec<_>>();
+        assert_eq!(presented, vec![10, 5, 1]);
+        assert!(graph.node(2).is_some(), "the folded pane stays mounted");
+        assert!(!graph.is_presented(2));
+        assert!(graph.is_presented(1));
+        assert!(validate_tree(10, &split_tree(0, false)).is_ok());
+        let mut crowded = split_tree(0, false);
+        crowded[2].children.push(3);
+        crowded.push(button_node(3, "Third"));
+        assert!(
+            validate_tree(10, &crowded)
+                .unwrap_err()
+                .contains("must have two panes")
+        );
+    }
+
+    #[test]
+    fn a_dividers_keys_answer_only_while_it_holds_focus() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: split_tree(0, false),
+            })
+            .unwrap();
+        assert_eq!(resolve(&mut graph, Some(5), "left"), Some((5, 0)));
+        assert_eq!(resolve(&mut graph, Some(5), "enter"), Some((5, 1)));
+        // Focus in a pane is inside the split, but not on its divider.
+        assert_eq!(resolve(&mut graph, Some(1), "left"), None);
+        assert_eq!(resolve(&mut graph, None, "left"), None);
     }
 
     #[test]

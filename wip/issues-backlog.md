@@ -685,7 +685,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   counts those rows among `visible_items` but has no column saying how many of
   them were blank, so a capture cannot show how often a fast scroll outran the
   list. Add an owner-populated column at the next schema version, together with
-  the Observatory and `analyze_stats.py`, which gate on schema 23.
+  the Observatory and `analyze_stats.py`, which gate on schema 24.
 
 - [ ] **Window benchmark warmup and sample orchestration.** Real-window
   hover-grid runs can record schema-14 captures containing native frames and

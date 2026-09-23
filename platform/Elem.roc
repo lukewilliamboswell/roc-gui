@@ -26,6 +26,7 @@ Elem(a) :: [
 	Scroll(ScrollNode(a)),
 	VirtualList(VirtualListNode(a)),
 	TextInput(TextInputNode(a)),
+	Split({ children : List(Elem(a)), props : SplitNode(a) }),
 	StyledText(TextNode),
 	Text(Str),
 ].{
@@ -213,12 +214,50 @@ Elem(a) :: [
 	ButtonNode(a) := {
 		caption : Str,
 		label : Str,
+		role : ButtonRole,
 		enabled : Bool,
 		on_press : (a, Event.Press => Action(a)),
 		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))],
 		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))],
 		style : Style,
 	}
+
+	## What a pressable control is to a person and to a locator: a button, or
+	## one tab of a tab strip, selected or not.
+	ButtonRole : [Button, Tab, SelectedTab]
+
+	## The direction a split lays its two panes out in. `Horizontal` puts them
+	## side by side with an upright divider between; `Vertical` stacks them.
+	SplitAxis : [Horizontal, Vertical]
+
+	## Which of a split's two panes its size belongs to: the first, or the
+	## second. The other pane takes the space that is left.
+	SplitSide : [Start, End]
+
+	## Platform representation of a split: its two panes are its children, and
+	## it draws the divider between them. It carries the sized pane's extent,
+	## its bounds, and whether it may and does collapse, so the host can turn a
+	## drag into the size it asks for, and the keys its divider answers while
+	## the divider holds keyboard focus. `style` dresses the divider: `bg` and
+	## its hover, pressed, and focus colours; its size fields size the split.
+	SplitNode(a) := {
+		label : Str,
+		axis : SplitAxis,
+		side : SplitSide,
+		size : U32,
+		min : U32,
+		max : U32,
+		collapsible : Bool,
+		collapsed : Bool,
+		thickness : U32,
+		on_resize : (a, Event.Resize => Action(a)),
+		keys : List(Shortcut(a)),
+		style : Style,
+	}
+
+	## One tab of a tab strip: the key its events carry, the caption it shows,
+	## which also names it, and whether it offers a close button.
+	TabItem : { key : Str, title : Str, closable : Bool }
 
 	## Platform representation of a single-line text editor.
 	TextInputNode(a) := {
@@ -619,6 +658,62 @@ Elem(a) :: [
 		overflow_y : Style.Overflow ?? Visible,
 		align : Style.Align ?? Default,
 		justify : Style.Justify ?? Default,
+	}
+
+	## Properties for `split`. `label` names the divider, its locator as a
+	## separator. `size` is the extent in logical pixels of the pane on `side`,
+	## held by the application and kept within `min` and `max`; the other pane
+	## takes the rest. Dragging the divider, or the arrow keys while it has
+	## keyboard focus, ask for a new size through `on_resize`, `step` pixels a
+	## key. Home and End ask for the bounds. A `collapsible` pane is hidden
+	## while `collapsed`, and stays mounted with its state: Enter on the
+	## divider toggles it, and a drag that leaves less than half of `min` asks
+	## for it.
+	SplitProps(a) := {
+		label : Str,
+		axis : SplitAxis ?? Horizontal,
+		side : SplitSide ?? Start,
+		size : U32,
+		min : U32 ?? 0,
+		max : U32 ?? 16384,
+		step : U32 ?? 16,
+		collapsible : Bool ?? False,
+		collapsed : Bool ?? False,
+		on_resize : (a, Event.Resize => Action(a)),
+		thickness : U32 ?? 6,
+		color : Style.Color ?? Rgb(0x2a3a40),
+		hover_color : Style.Color ?? Rgb(0x48666b),
+		active_color : Style.Color ?? Rgb(0x5fb3a1),
+		focus_color : Style.Color ?? Default,
+		width : Style.Length ?? Fill,
+		height : Style.Length ?? Fill,
+		grow : Bool ?? True,
+	}
+
+	## Properties for `tabs`. `label` names the strip. Each tab is a control
+	## named by its title; `selected` is the key of the tab shown as chosen.
+	## Pressing a tab, or Left, Right, Home, and End while keyboard focus is in
+	## the strip, choose one through `on_select`; a closable tab's close
+	## button, or Delete, ask to close it through `on_close`.
+	TabsProps(a) := {
+		label : Str,
+		tabs : List(TabItem),
+		selected : Str,
+		on_select : (a, Event.Tab => Action(a)),
+		on_close : (a, Event.Tab => Action(a)),
+		width : Style.Length ?? Fill,
+		gap : U32 ?? 2,
+		font_size : U32 ?? 13,
+		font_face : Style.FontFace ?? Default,
+		max_tab_width : U32 ?? 220,
+		fg : Style.Color ?? Rgb(0x9fb0ad),
+		selected_fg : Style.Color ?? Rgb(0xeeeeea),
+		bg : Style.Color ?? Default,
+		selected_bg : Style.Color ?? Rgb(0x1b2a30),
+		hover_bg : Style.Color ?? Rgb(0x16242a),
+		accent : Style.Color ?? Rgb(0x5fb3a1),
+		border_color : Style.Color ?? Rgb(0x2a3a40),
+		focus_color : Style.Color ?? Default,
 	}
 
 	## Properties for `action_button`. `caption` is visible text and `label` is
@@ -1158,7 +1253,7 @@ Elem(a) :: [
 	## Display a controlled button. `caption` is its visible text and `label`
 	## is its stable semantic locator.
 	button : ButtonProps(a) -> Elem(a)
-	button = |props| ActionButton({ caption: props.caption, label: props.label, enabled: props.enabled, on_press: props.on_press, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, style: style_of(props) })
+	button = |props| ActionButton({ caption: props.caption, label: props.label, role: Button, enabled: props.enabled, on_press: props.on_press, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, style: style_of(props) })
 
 	## Display a controlled checkbox. A handler must return the state containing
 	## the next `checked` value for the visual state to change.
@@ -1244,6 +1339,7 @@ Elem(a) :: [
 		Scroll(value) => Scroll({ ..value, style: change(value.style) })
 		VirtualList(value) => VirtualList({ ..value, style: change(value.style) })
 		TextInput(value) => TextInput({ ..value, style: change(value.style) })
+		Split(value) => Split({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Component(bound) => through_boundary(bound, |rendered| with_style(rendered, change))
 	}
 
@@ -1280,6 +1376,7 @@ Elem(a) :: [
 		Scroll(value) => Scroll({ ..value, label: name })
 		VirtualList(value) => VirtualList({ ..value, label: name })
 		TextInput(value) => TextInput({ ..value, label: name })
+		Split(value) => Split({ ..value, props: { ..value.props, label: name } })
 		Component(bound) => through_boundary(bound, |rendered| label(rendered, name))
 		_ => elem
 	}
@@ -1716,6 +1813,140 @@ Elem(a) :: [
 	tooltip : Elem(a), Str -> Elem(a)
 	tooltip = |anchor, value| popover({ label: value }, anchor, [Text(value)])
 
+	## Lay two panes out side by side, or one above the other, with a divider
+	## between them that a person drags, or moves with the arrow keys while it
+	## has keyboard focus. The size is the application's: `on_resize` asks for
+	## one, and the split shows whatever `size` it is given next.
+	split : SplitProps(a), Elem(a), Elem(a) -> Elem(a)
+	split = |props, start, end| {
+		if props.min > props.max {
+			crash "Gui split min is at most its max"
+		}
+		if props.max > max_split_size or props.step > max_split_size or props.thickness > max_split_size {
+			crash "Gui split sizes, steps, and thickness are at most 16384 logical pixels"
+		}
+		size = split_clamp(props.size, props.min, props.max)
+		horizontal = match props.axis {
+			Horizontal => True
+			Vertical => False
+		}
+		sized_first = match props.side {
+			Start => True
+			End => False
+		}
+		collapsed = props.collapsible and props.collapsed
+		bigger = split_clamp(size + props.step, props.min, props.max)
+		smaller = split_clamp(if size > props.step size - props.step else 0, props.min, props.max)
+		resize = |next| |state, _| (props.on_resize)(state, { size: next, collapsed: False })
+		toggle! = |state, _| (props.on_resize)(state, { size, collapsed: !collapsed })
+		moves = [
+			{ keys: if horizontal "left" else "up", on_press: resize(if sized_first smaller else bigger) },
+			{ keys: if horizontal "right" else "down", on_press: resize(if sized_first bigger else smaller) },
+			{ keys: "home", on_press: resize(if sized_first props.min else props.max) },
+			{ keys: "end", on_press: resize(if sized_first props.max else props.min) },
+		]
+		Split({
+			children: [start, end],
+			props: {
+				label: props.label,
+				axis: props.axis,
+				side: props.side,
+				size,
+				min: props.min,
+				max: props.max,
+				collapsible: props.collapsible,
+				collapsed,
+				thickness: props.thickness,
+				on_resize: props.on_resize,
+				keys: if props.collapsible moves.append({ keys: "enter", on_press: toggle! }) else moves,
+				style: Style.{ gap: 0, width: props.width, height: props.height, grow: props.grow, bg: props.color, hover_bg: props.hover_color, active_bg: props.active_color, focus_color: props.focus_color },
+			},
+		})
+	}
+
+	max_split_size : U32
+	max_split_size = 16384
+
+	split_clamp : U32, U32, U32 -> U32
+	split_clamp = |value, low, high| if value < low low else if value > high high else value
+
+	## A strip of tabs, one of them selected, each with an optional close!
+	## button. Selecting or closing one asks the application, which owns the
+	## list and the selection.
+	tabs : TabsProps(a) -> Elem(a)
+	tabs = |props| {
+		count = props.tabs.len()
+		current = match props.tabs.find_first_index(|tab| tab.key == props.selected) {
+			Ok(index) => Some(index)
+			Err(_) => None
+		}
+		select_at! = |state, index| match props.tabs.get(index) {
+			Ok(tab) => (props.on_select)(state, { key: tab.key })
+			Err(_) => Action.none
+		}
+		previous! = |state, _| match current {
+			Some(index) => if index > 0 select_at!(state, index - 1) else Action.none
+			None => select_at!(state, 0)
+		}
+		next! = |state, _| match current {
+			Some(index) => select_at!(state, index + 1)
+			None => select_at!(state, 0)
+		}
+		first! = |state, _| select_at!(state, 0)
+		last! = |state, _| if count == 0 Action.none else select_at!(state, count - 1)
+		close! = |state, _| match current {
+			Some(index) => match props.tabs.get(index) {
+				Ok(tab) => if tab.closable (props.on_close)(state, { key: tab.key }) else Action.none
+				Err(_) => Action.none
+			}
+			None => Action.none
+		}
+		strip = Row({
+			children: props.tabs.map(|tab| tab_unit(props, tab)),
+			props: { label: props.label, style: Style.{ gap: props.gap, padding: 0, width: props.width, min_width: Px(0), overflow_x: Clip, border_color: props.border_color, border_bottom: Px(1) } },
+		})
+		focus_shortcuts(
+			strip,
+			[
+				{ keys: "left", on_press: previous! },
+				{ keys: "right", on_press: next! },
+				{ keys: "home", on_press: first! },
+				{ keys: "end", on_press: last! },
+				{ keys: "delete", on_press: close! },
+			],
+		)
+	}
+
+	tab_unit : TabsProps(a), TabItem -> Elem(a)
+	tab_unit = |props, tab| {
+		chosen = tab.key == props.selected
+		tab_key = tab.key
+		caption = ActionButton({
+			caption: tab.title,
+			label: tab.title,
+			role: if chosen SelectedTab else Tab,
+			enabled: True,
+			on_press: |state, _| (props.on_select)(state, { key: tab_key }),
+			on_hover_enter: None,
+			on_hover_exit: None,
+			style: Style.{ gap: 0, padding: 6, padding_left: Px(10), padding_right: Px(if tab.closable 4 else 10), fg: if chosen props.selected_fg else props.fg, hover_bg: props.hover_bg, focus_color: props.focus_color, font_size: props.font_size, font_face: props.font_face, max_width: Px(props.max_tab_width), text_overflow: Ellipsis },
+		})
+		dismiss = ActionButton({
+			caption: "×",
+			label: "Close ${tab.title}",
+			role: Button,
+			enabled: True,
+			on_press: |state, _| (props.on_close)(state, { key: tab_key }),
+			on_hover_enter: None,
+			on_hover_exit: None,
+			style: Style.{ gap: 0, padding: 4, padding_right: Px(8), fg: props.fg, hover_bg: props.hover_bg, focus_color: props.focus_color, font_size: props.font_size },
+		})
+		Row({
+			children: if tab.closable [caption, dismiss] else [caption],
+			props: { label: "", style: Style.{ gap: 0, padding: 0, bg: if chosen props.selected_bg else props.bg, border_color: props.accent, border_bottom: Px(if chosen 2 else 0), padding_bottom: Px(if chosen 0 else 2) } },
+		})
+	}
+
 	## Group children in a labelled padded, bordered, rounded vertical surface.
 	panel : PanelProps, List(Elem(a)) -> Elem(a)
 	panel = |props, children| Panel({
@@ -1769,10 +2000,10 @@ Elem(a) :: [
 			$pending = $pending.drop_last(1)
 			match work {
 				Visit(current) => {
-					split = lift_split(current)
-					shell = lift_shell(split.shell, project, set_child, adapt_action)
-					$pending = $pending.append(Finish(shell, split.children.len()))
-					for child in lift_reverse(split.children) {
+					parts = lift_split(current)
+					shell = lift_shell(parts.shell, project, set_child, adapt_action)
+					$pending = $pending.append(Finish(shell, parts.children.len()))
+					for child in lift_reverse(parts.children) {
 						$pending = $pending.append(Visit(child))
 					}
 				}
@@ -1809,6 +2040,7 @@ Elem(a) :: [
 		Column(value) => { shell: Column({ ..value, children: [] }), children: value.children }
 		Dialog(value) => { shell: Dialog({ ..value, children: [] }), children: value.children }
 		Popover(value) => { shell: Popover({ ..value, children: [] }), children: value.children }
+		Split(value) => { shell: Split({ ..value, children: [] }), children: value.children }
 		Panel(value) => { shell: Panel({ ..value, children: [] }), children: value.children }
 		Scroll(value) => { shell: Scroll({ ..value, content: Text("") }), children: [value.content] }
 		VirtualList(value) => {
@@ -1824,6 +2056,7 @@ Elem(a) :: [
 		Column(value) => Column({ ..value, children })
 		Dialog(value) => Dialog({ ..value, children })
 		Popover(value) => Popover({ ..value, children })
+		Split(value) => Split({ ..value, children })
 		Panel(value) => Panel({ ..value, children })
 		Scroll(value) => Scroll({ ..value, content: children.first() ?? crash "missing lifted scroll content" })
 		VirtualList(value) => {
@@ -1893,7 +2126,7 @@ Elem(a) :: [
 				None => None
 				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
 			}
-			ActionButton({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, on_press: parent_handler!, on_hover_enter: hover_enter, on_hover_exit: hover_exit, style: button_value.style })
+			ActionButton({ caption: button_value.caption, label: button_value.label, role: button_value.role, enabled: button_value.enabled, on_press: parent_handler!, on_hover_enter: hover_enter, on_hover_exit: hover_exit, style: button_value.style })
 		}
 		Checkbox(checkbox_value) => {
 			child_handler = checkbox_value.on_change
@@ -1916,6 +2149,12 @@ Elem(a) :: [
 			Textarea({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, style: textarea_value.style })
 		}
 		Image(image_value) => Image(image_value)
+		Split(value) => {
+			child_handler = value.props.on_resize
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
+			keys = value.props.keys.map(|binding| { keys: binding.keys, on_press: |parent, event| adapt_event(binding.on_press, parent, event, project, adapt_action) })
+			Split({ children: [], props: { label: value.props.label, axis: value.props.axis, side: value.props.side, size: value.props.size, min: value.props.min, max: value.props.max, collapsible: value.props.collapsible, collapsed: value.props.collapsed, thickness: value.props.thickness, on_resize: parent_handler!, keys, style: value.props.style } })
+		}
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
@@ -2046,6 +2285,7 @@ Elem(a) :: [
 		Scroll(ScrollNode(a)),
 		VirtualList(VirtualListNode(a)),
 		TextInput(TextInputNode(a)),
+		Split({ children : List(Elem(a)), props : SplitNode(a) }),
 		StyledText(TextNode),
 		Text(Str),
 	]
@@ -2065,6 +2305,7 @@ Elem(a) :: [
 		Scroll(scroll_value) => Scroll(scroll_value)
 		VirtualList(list_value) => VirtualList(list_value)
 		TextInput(input_value) => TextInput(input_value)
+		Split(split_value) => Split(split_value)
 		StyledText(styled_value) => StyledText(styled_value)
 		Text(text_value) => Text(text_value)
 	}
@@ -2165,6 +2406,48 @@ expect {
 	shown = Elem.rich_text({ spans: [Elem.span({ text: "(click", font_weight: 600 }), Elem.span({ text: " \"左\"", underline: True })] })
 	match Elem.inspect(shown) {
 		StyledText(node) => node.value == "(click \"左\"" and node.spans.map(|part| part.font_weight) == [600, 0] and node.spans.map(|part| part.underline) == [False, True]
+		_ => False
+	}
+}
+
+expect {
+	# A split holds its two panes, clamps the size it is given to its bounds,
+	# and declares the keys its divider answers; Enter only when it can fold.
+	divided : Elem(U64)
+	divided = Elem.split({ label: "Divider", side: End, size: 900, min: 100, max: 400, collapsible: True, collapsed: True, on_resize: |state, _| Action.update(state) }, Elem.text("main"), Elem.text("aside"))
+	match Elem.inspect(divided) {
+		Split(value) => value.children.len() == 2 and value.props.size == 400 and value.props.collapsed and value.props.keys.map(|binding| binding.keys) == ["left", "right", "home", "end", "enter"]
+		_ => False
+	}
+}
+
+expect {
+	# A split that cannot fold ignores a request to be folded.
+	divided : Elem(U64)
+	divided = Elem.split({ label: "Divider", axis: Vertical, size: 50, min: 100, collapsed: True, on_resize: |state, _| Action.update(state) }, Elem.text("top"), Elem.text("bottom"))
+	match Elem.inspect(divided) {
+		Split(value) => value.props.size == 100 and !value.props.collapsed and value.props.keys.map(|binding| binding.keys) == ["up", "down", "home", "end"]
+		_ => False
+	}
+}
+
+expect {
+	# A tab strip is a labelled row inside a region answering its keys while
+	# focus is in it, with one unit per tab.
+	strip : Elem(U64)
+	strip = Elem.tabs({ label: "Tabs", tabs: [{ key: "a", title: "A", closable: True }, { key: "b", title: "B", closable: False }], selected: "b", on_select: |state, _| Action.update(state), on_close: |state, _| Action.update(state) })
+	match Elem.inspect(strip) {
+		Popover(region) => {
+			scopes = region.props.shortcuts.map(|binding| binding.scope)
+			row_ok = match region.children.first() {
+				Ok(first) => match Elem.inspect(first) {
+					Row(value) => value.props.label == "Tabs" and value.children.len() == 2
+					_ => False
+				}
+				Err(_) => False
+			}
+			row_ok and scopes == [Focus, Focus, Focus, Focus, Focus]
+		}
 		_ => False
 	}
 }

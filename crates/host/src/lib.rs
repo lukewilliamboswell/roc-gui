@@ -53,8 +53,9 @@ use roc_platform_abi::{
     HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
     HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
     HostGlueNodePopover, HostGlueNodePopoverArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
-    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueShortcutEvent,
+    HostGlueNodeSplit, HostGlueNodeSplitArgs, HostGlueNodeStyledTextArgs,
+    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
+    HostGlueNodeVirtualListArgs, HostGlueResizeEventRetRecord, HostGlueShortcutEvent,
     HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs, HostGlueVirtualWindowRetRecord,
     MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList, RocListWith, RocStr,
     decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
@@ -277,6 +278,7 @@ thread_local! {
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
     static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
     static SHORTCUT_EVENT: RefCell<Option<(u64, String)>> = const { RefCell::new(None) };
+    static RESIZE_EVENT: RefCell<Option<bridge::Resize>> = const { RefCell::new(None) };
     static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
 }
 
@@ -1186,6 +1188,12 @@ pub extern "C" fn roc_gui_node_action_button(
         NodeKind::Button {
             caption,
             label,
+            role: match args.role {
+                0 => bridge::ButtonRole::Button,
+                1 => bridge::ButtonRole::Tab { selected: false },
+                2 => bridge::ButtonRole::Tab { selected: true },
+                other => panic!("invalid button role {other}"),
+            },
             enabled: args.enabled,
             hover_enter: args.hover_enter,
             hover_exit: args.hover_exit,
@@ -1476,6 +1484,82 @@ pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
         dx: event.dx,
         dy: event.dy,
         target: event.target,
+    }
+}
+
+/// Stage one split: its two panes, already built, and the divider between
+/// them. The divider's size requests use the split's own id as their route and
+/// its keys the region route every shortcut uses.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_split(args: HostGlueNodeSplitArgs) -> HostGlueNodeSplit {
+    let label = args.label.as_str().to_owned();
+    let shortcuts = args
+        .keys
+        .as_slice()
+        .iter()
+        .map(|item| bridge::Shortcut {
+            keys: keyboard::canonical_chord(item.keys.as_str())
+                .unwrap_or_else(|message| panic!("invalid split key: {message}")),
+            scope: bridge::ShortcutScope::Focus,
+        })
+        .collect::<Vec<_>>();
+    unsafe { args.decref(roc_host()) };
+    assert!(!label.is_empty(), "split label must not be empty");
+    for (index, shortcut) in shortcuts.iter().enumerate() {
+        assert!(
+            shortcuts[..index]
+                .iter()
+                .all(|earlier| earlier.keys != shortcut.keys),
+            "invalid split key: one divider declares {} twice",
+            shortcut.keys
+        );
+    }
+    let axis = match args.axis {
+        0 => bridge::SplitAxis::Horizontal,
+        1 => bridge::SplitAxis::Vertical,
+        other => panic!("invalid split axis {other}"),
+    };
+    let side = match args.side {
+        0 => bridge::SplitSide::Start,
+        1 => bridge::SplitSide::End,
+        other => panic!("invalid split side {other}"),
+    };
+    let answers = !shortcuts.is_empty();
+    let id = stage_node(
+        NodeKind::Split {
+            label,
+            axis,
+            side,
+            size: args.size,
+            min: args.min,
+            max: args.max,
+            collapsible: args.collapsible,
+            collapsed: args.collapsed,
+            thickness: args.thickness,
+            shortcuts,
+            style: decode_layout_style!(args),
+        },
+        finish_children(args.builder),
+    );
+    HostGlueNodeSplit {
+        id,
+        shortcut: if answers {
+            id | bridge::SHORTCUT_EVENT_BIT
+        } else {
+            0
+        },
+    }
+}
+
+/// Consume the size installed for a divider's dispatch.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_resize_event() -> HostGlueResizeEventRetRecord {
+    let event = RESIZE_EVENT
+        .with(|slot| slot.borrow_mut().take())
+        .expect("a divider route ran without a requested size");
+    HostGlueResizeEventRetRecord {
+        size: event.size,
+        collapsed: event.collapsed,
     }
 }
 
@@ -1842,6 +1926,20 @@ fn dispatch_canvas(event_id: u64, event: CanvasEventPayload) -> Patch {
     });
     let patch = dispatch(event_id);
     CANVAS_EVENT.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
+fn dispatch_resize(event_id: u64, event: bridge::Resize) -> Patch {
+    RESIZE_EVENT.with(|slot| {
+        assert!(
+            slot.borrow_mut().replace(event).is_none(),
+            "nested divider dispatch"
+        );
+    });
+    let patch = dispatch(event_id);
+    RESIZE_EVENT.with(|slot| {
         slot.borrow_mut().take();
     });
     patch
@@ -2590,6 +2688,7 @@ fn node_style(kind: &NodeKind) -> Option<&Style> {
         | NodeKind::Row { style, .. }
         | NodeKind::Scroll { style, .. }
         | NodeKind::VirtualList { style, .. }
+        | NodeKind::Split { style, .. }
         | NodeKind::TextInput { style, .. } => Some(style),
         NodeKind::Popover { .. }
         | NodeKind::Boundary { .. }
@@ -3316,6 +3415,155 @@ impl Render for NodeView {
                 }
                 element = element.child(picture);
             }
+            NodeKind::Split {
+                axis,
+                size,
+                thickness,
+                style,
+                ..
+            } => {
+                let node_id = self.node.id;
+                let horizontal = *axis == bridge::SplitAxis::Horizontal;
+                let sized_first = matches!(
+                    self.node.kind,
+                    NodeKind::Split {
+                        side: bridge::SplitSide::Start,
+                        ..
+                    }
+                );
+                let hidden = self.node.kind.hidden_pane();
+                // The split's own style sizes it; its colours are the divider's.
+                let frame = Style {
+                    width: style.width,
+                    height: style.height,
+                    min_width: style.min_width,
+                    min_height: style.min_height,
+                    max_width: style.max_width,
+                    max_height: style.max_height,
+                    grow: style.grow,
+                    ..Style::default()
+                };
+                element = apply_style(
+                    if horizontal {
+                        element.flex().flex_row()
+                    } else {
+                        element.flex().flex_col()
+                    },
+                    &frame,
+                )
+                .min_w_0()
+                .min_h_0()
+                .overflow_hidden();
+                let pane = |index: usize, sized: bool| {
+                    let mut holder = div()
+                        .flex()
+                        .flex_col()
+                        .min_w_0()
+                        .min_h_0()
+                        .overflow_hidden();
+                    holder = match (sized, horizontal) {
+                        (true, true) => holder.flex_none().w(px(*size as f32)).h_full(),
+                        (true, false) => holder.flex_none().h(px(*size as f32)).w_full(),
+                        (false, true) => holder.flex_1().h_full(),
+                        (false, false) => holder.flex_1().w_full(),
+                    };
+                    holder.children(
+                        self.children
+                            .get(index)
+                            .cloned()
+                            .map(|view| native_node_view(view, _cx)),
+                    )
+                };
+                let mut divider = div().id("divider").relative().flex_none();
+                divider = if horizontal {
+                    divider
+                        .w(px(*thickness as f32))
+                        .h_full()
+                        .cursor(CursorStyle::ResizeLeftRight)
+                } else {
+                    divider
+                        .h(px(*thickness as f32))
+                        .w_full()
+                        .cursor(CursorStyle::ResizeUpDown)
+                };
+                if let Some(value) = style.bg {
+                    divider = divider.bg(paint(value));
+                }
+                if let Some(value) = style.hover_bg {
+                    divider = divider.hover(move |refinement| refinement.bg(paint(value)));
+                }
+                if let Some(value) = style.active_bg {
+                    divider = divider.active(move |refinement| refinement.bg(paint(value)));
+                }
+                if self.input_enabled {
+                    if let Some(handle) = &self.focus_handle {
+                        divider = divider.track_focus(handle).tab_index(0);
+                    }
+                    let ring = rgb(style.focus_color.map(Paint::resolve).unwrap_or(FOCUS_RING));
+                    let down_runtime = self.runtime.clone();
+                    let paint_runtime = self.runtime.clone();
+                    divider = divider
+                        .focus(move |focused| focused.bg(ring))
+                        .on_mouse_down(MouseButton::Left, move |event, _, cx| {
+                            let _ = down_runtime.update(cx, |runtime, _| {
+                                runtime.splitter_press(node_id, event.position)
+                            });
+                        })
+                        // A drag leaves the divider's few pixels at once, so it
+                        // is followed at the window, as a canvas gesture is.
+                        .child(
+                            canvas(
+                                |_, _, _| {},
+                                move |_, _, window, _| {
+                                    let move_runtime = paint_runtime.clone();
+                                    window.on_mouse_event(
+                                        move |event: &MouseMoveEvent, phase, _, cx| {
+                                            if phase == DispatchPhase::Bubble
+                                                && event.pressed_button == Some(MouseButton::Left)
+                                            {
+                                                let _ = move_runtime.update(cx, |runtime, cx| {
+                                                    runtime.splitter_move(event.position, cx)
+                                                });
+                                            }
+                                        },
+                                    );
+                                    let up_runtime = paint_runtime.clone();
+                                    window.on_mouse_event(
+                                        move |event: &MouseUpEvent, phase, _, cx| {
+                                            if phase == DispatchPhase::Bubble
+                                                && event.button == MouseButton::Left
+                                            {
+                                                let _ = up_runtime.update(cx, |runtime, _| {
+                                                    runtime.splitter_release()
+                                                });
+                                            }
+                                        },
+                                    );
+                                },
+                            )
+                            .absolute()
+                            .size_full(),
+                        );
+                }
+                // The split's recorded bounds are its divider's: that is what
+                // a person presses, and what a specification drags.
+                if probe::enabled() {
+                    divider = divider.child(probe::marker(node_id));
+                }
+                let (first, second) = if sized_first {
+                    (pane(0, true), pane(1, false))
+                } else {
+                    (pane(0, false), pane(1, true))
+                };
+                if hidden != Some(0) {
+                    element = element.child(first);
+                }
+                element = element.child(divider);
+                if hidden != Some(1) {
+                    element = element.child(second);
+                }
+                append_children = false;
+            }
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
                 if !enabled {
@@ -3552,7 +3800,8 @@ impl Render for NodeView {
         // A popover that presents records its surface's bounds instead.
         let presents =
             matches!(self.node.kind, NodeKind::Popover { .. }) && self.children.len() > 1;
-        if probe::enabled() && !presents {
+        let records_own = presents || matches!(self.node.kind, NodeKind::Split { .. });
+        if probe::enabled() && !records_own {
             element = element.child(probe::marker(self.node.id));
         }
         if append_children {
@@ -3637,12 +3886,22 @@ struct Runtime {
     editors: HashMap<ElementIdentity, Entity<input::TextInput>>,
     editor_nodes: HashMap<ElementIdentity, u64>,
     canvas_drag: Option<(ElementIdentity, u64)>,
+    /// The divider a pointer is dragging: its identity, where the pointer
+    /// pressed, the divider as it was then, and the size last asked for.
+    splitter_drag: Option<SplitterDrag>,
     /// A hovered popover's delay, by the native view that asked for it. The
     /// view survives a rebuild of its node, so the timer finds the popover's
     /// current node when it fires. Dropping a task cancels it.
     popover_timers: HashMap<EntityId, Task<()>>,
     /// The canvas the pointer is hovering and the last point delivered to it.
     canvas_hover: Option<(ElementIdentity, (i32, i32))>,
+}
+
+struct SplitterDrag {
+    identity: ElementIdentity,
+    origin: Point<Pixels>,
+    grip: bridge::SplitterGrip,
+    last: Option<bridge::Resize>,
 }
 
 #[derive(Clone)]
@@ -3722,6 +3981,7 @@ impl Runtime {
             editors: HashMap::new(),
             editor_nodes: HashMap::new(),
             canvas_drag: None,
+            splitter_drag: None,
             popover_timers: HashMap::new(),
             canvas_hover: None,
         };
@@ -3877,6 +4137,92 @@ impl Runtime {
         self.dispatch_canvas_event(id, event, "drag", cx);
         if phase == 2 {
             self.canvas_drag = None;
+        }
+    }
+
+    /// A pointer pressed a divider. Nothing is asked of Roc until it moves.
+    fn splitter_press(&mut self, id: u64, position: Point<Pixels>) {
+        if self
+            .active_dialog
+            .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
+        let Some(grip) = self
+            .graph
+            .node(id)
+            .and_then(|node| node.kind.splitter_grip())
+        else {
+            return;
+        };
+        let Some(identity) = self.identities.get(&id).cloned() else {
+            return;
+        };
+        self.splitter_drag = Some(SplitterDrag {
+            identity,
+            origin: position,
+            grip,
+            last: None,
+        });
+    }
+
+    /// A pressed pointer moved while dragging a divider. The size it asks
+    /// for is measured from the press; one `drag` cycle is recorded for each
+    /// size that differs from what the divider shows and from the last one
+    /// asked for.
+    fn splitter_move(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        let Some(drag) = &self.splitter_drag else {
+            return;
+        };
+        let Some(id) = self.find_native_identity(&drag.identity) else {
+            self.splitter_drag = None;
+            return;
+        };
+        let resize = drag.grip.resize(
+            f32::from(position.x - drag.origin.x),
+            f32::from(position.y - drag.origin.y),
+        );
+        let shown = self
+            .graph
+            .node(id)
+            .and_then(|node| node.kind.splitter_value());
+        if drag.last == Some(resize) || shown == Some(resize) {
+            return;
+        }
+        if let Some(drag) = &mut self.splitter_drag {
+            drag.last = Some(resize);
+        }
+        self.dispatch_resize_event(id, resize, cx);
+    }
+
+    fn splitter_release(&mut self) {
+        self.splitter_drag = None;
+    }
+
+    /// Dispatch one requested size through a divider's route, recorded as a
+    /// `drag` cycle when a capture is recording.
+    fn dispatch_resize_event(&mut self, id: u64, resize: bridge::Resize, cx: &mut Context<Self>) {
+        if observatory::active() {
+            let target = self.graph.cycle_target(id);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_resize(id, resize);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "drag",
+                target,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_resize(id, resize);
+            self.apply_unrecorded(patch, cx);
         }
     }
 
@@ -7433,6 +7779,7 @@ mod tests {
                     nodes.push(Node {
                         id: button,
                         kind: NodeKind::Button {
+                            role: crate::bridge::ButtonRole::Button,
                             caption: String::new(),
                             label: format!("Cell {index}"),
                             enabled: true,
@@ -7854,6 +8201,7 @@ mod tests {
                 Node {
                     id: button,
                     kind: NodeKind::Button {
+                        role: crate::bridge::ButtonRole::Button,
                         caption: caption.into(),
                         label: label.into(),
                         enabled: true,
@@ -7947,6 +8295,7 @@ mod tests {
                 Node {
                     id: base + 3,
                     kind: NodeKind::Button {
+                        role: crate::bridge::ButtonRole::Button,
                         caption: "Track seven".into(),
                         label: "Play track seven".into(),
                         enabled: true,
@@ -7995,6 +8344,7 @@ mod tests {
             Node {
                 id: button,
                 kind: NodeKind::Button {
+                    role: crate::bridge::ButtonRole::Button,
                     caption: label.into(),
                     label: label.into(),
                     enabled: true,
@@ -8380,6 +8730,116 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
+    /// A divider dragged in the live window asks for the size measured from
+    /// the press, once for each size it has not already asked for, and each
+    /// request is a `drag` cycle that names the split.
+    #[gpui::test]
+    fn live_divider_drag_asks_each_new_size_once(cx: &mut TestAppContext) {
+        let _guard = observatory::RECORDER_TEST.lock().unwrap();
+        let split = |id: u64| Node {
+            id,
+            kind: NodeKind::Split {
+                label: "Divider".into(),
+                axis: crate::bridge::SplitAxis::Horizontal,
+                side: crate::bridge::SplitSide::End,
+                size: 300,
+                min: 200,
+                max: 600,
+                collapsible: true,
+                collapsed: false,
+                thickness: 6,
+                shortcuts: vec![],
+                style: Box::new(Style::default()),
+            },
+            children: vec![id + 1, id + 2],
+        };
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: vec![
+                        split(1000),
+                        Node {
+                            id: 1001,
+                            kind: NodeKind::Text("main".into()),
+                            children: vec![],
+                        },
+                        Node {
+                            id: 1002,
+                            kind: NodeKind::Text("aside".into()),
+                            children: vec![],
+                        },
+                    ],
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-live-divider-{}-{}.rgstats",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        observatory::start(observatory::Config {
+            path: path.clone(),
+            detail: observatory::Detail::Full,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-test",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        observatory::run_start(1, "interactive", None, 0, 1);
+        let seen: Rc<RefCell<Vec<(u32, bool)>>> = Rc::new(RefCell::new(Vec::new()));
+        let recorded = seen.clone();
+        install_test_dispatcher(move |_| {
+            observatory::start_roc_work(0);
+            let asked = super::RESIZE_EVENT
+                .with(|slot| slot.borrow().map(|event| (event.size, event.collapsed)));
+            recorded.borrow_mut().push(asked.unwrap());
+            observatory::end_roc_work(0);
+            Patch::NoChange
+        });
+        runtime.update(cx, |runtime, cx| {
+            runtime.splitter_press(1000, point(px(500.0), px(40.0)));
+            // The sized pane follows the divider towards the start.
+            runtime.splitter_move(point(px(460.0), px(40.0)), cx);
+            // The same size again, and movement across the axis, ask nothing.
+            runtime.splitter_move(point(px(460.2), px(90.0)), cx);
+            runtime.splitter_move(point(px(459.0), px(40.0)), cx);
+            // Past half the minimum from the press, the pane asks to fold.
+            runtime.splitter_move(point(px(900.0), px(40.0)), cx);
+            runtime.splitter_release();
+            runtime.splitter_move(point(px(300.0), px(40.0)), cx);
+        });
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(
+            *seen.borrow(),
+            vec![(340, false), (341, false), (300, true)]
+        );
+        observatory::run_end(1, "pass", 0, None);
+        observatory::finish("success").unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        let kinds: Vec<Option<String>> = db
+            .prepare("SELECT target_kind FROM cycles WHERE trigger='drag' AND roc_work_valid ORDER BY ordinal")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(kinds, vec![Some("split".to_owned()); 3]);
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
     /// Hover and wheel reach a canvas only through the window's own pointer,
     /// only when the owner handles them, and never while a button is held.
     #[gpui::test]
@@ -8582,6 +9042,7 @@ mod tests {
         let control = |offset, label: &str| Node {
             id: base + offset,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: label.into(),
                 label: label.into(),
                 enabled: true,
@@ -9630,6 +10091,7 @@ mod tests {
         let button = |id, label: &str| Node {
             id,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: label.into(),
                 label: label.into(),
                 enabled: true,
@@ -9680,6 +10142,7 @@ mod tests {
         let button = |id, label: &str, enabled| Node {
             id,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: label.into(),
                 label: label.into(),
                 enabled,

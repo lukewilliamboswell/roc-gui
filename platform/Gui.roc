@@ -123,6 +123,8 @@ Gui := [].{
 	EventCanvasWheel : Event.CanvasWheel
 	EventVisibleRows : Event.VisibleRows
 	EventKey : Event.Key
+	EventResize : Event.Resize
+	EventTab : Event.Tab
 
 	# Types exchanged with `Files`.
 	FilesChoice(a) : Files.Choice(a)
@@ -196,6 +198,9 @@ Gui := [].{
 	ScrollRequest : Elem.ScrollRequest
 	ScrollAxis : Elem.ScrollAxis
 	Placement : Elem.Placement
+	SplitAxis : Elem.SplitAxis
+	SplitSide : Elem.SplitSide
+	TabItem : Elem.TabItem
 	Shortcut(a) : Elem.Shortcut(a)
 	ImageFormat : Elem.ImageFormat
 	ImageFit : Elem.ImageFit
@@ -310,6 +315,15 @@ Gui := [].{
 	## Present one modal surface.
 	dialog : Elem.DialogProps(a), List(Elem.Elem(a)) -> Elem.Elem(a)
 	dialog = |props, children| Elem.dialog(props, children)
+
+	## Lay two panes out beside or above each other, with a divider a person
+	## drags or moves with the arrow keys to resize them.
+	split : Elem.SplitProps(a), Elem.Elem(a), Elem.Elem(a) -> Elem.Elem(a)
+	split = |props, start, end| Elem.split(props, start, end)
+
+	## A strip of selectable tabs, each with an optional close button.
+	tabs : Elem.TabsProps(a) -> Elem.Elem(a)
+	tabs = |props| Elem.tabs(props)
 
 	## Annotate an anchor with a non-modal surface that opens on hover and focus.
 	popover : Elem.PopoverProps(a), Elem.Elem(a), List(Elem.Elem(a)) -> Elem.Elem(a)

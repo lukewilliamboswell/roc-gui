@@ -65,4 +65,12 @@ Event := [].{
 	## range `start` up to but not including `end`. Delivered when that range
 	## changes, so an application can page in the data those rows show.
 	VisibleRows : { start : U64, end : U64 }
+
+	## A split pane's requested extent: the size in logical pixels of the pane
+	## the split sizes, within its minimum and maximum, and whether that pane
+	## is collapsed. A collapsed pane keeps `size` to return to.
+	Resize : { size : U32, collapsed : Bool }
+
+	## A tab chosen or closed in a tab strip, named by the key it was given.
+	Tab : { key : Str }
 }

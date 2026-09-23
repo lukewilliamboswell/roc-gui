@@ -324,6 +324,60 @@ Gui.popover(
 )
 ----
 
+`Gui.split({ label, size, on_resize, ... }, start, end)`:: Lay two panes out
+side by side (`axis: Horizontal`, the default) or one above the other
+(`Vertical`), with a divider between them. `size` is the extent in logical
+pixels of the pane on `side`, `Start` (the default) or `End`; the other pane
+takes whatever space is left, however wide its content would like to be. The
+size is the application's: dragging the divider, or the keys below while the
+divider holds keyboard focus, ask for one through `on_resize` with a
+`Gui.EventResize`, `{ size, collapsed }`, and the split shows whatever `size`
+it is given next, kept within `min` (default 0) and `max` (default 16384).
+A drag is measured from where the pointer pressed, and asks only for a size the
+divider does not already show, so each size it asks for is one `drag` cycle.
+The divider takes part in keyboard tab order; Left and Right (Up and Down for a
+vertical split) move it by `step` (default 16) pixels, and Home and End move it
+to the start or end of its range. These are the divider's own shortcuts: they
+answer only while the divider holds focus, never while focus is in a pane, and
+each is a `key` cycle. A `collapsible` pane is folded away while `collapsed`:
+Enter on the divider asks to toggle it, and a drag that would leave the pane
+less than half of `min` asks to fold it, keeping `size` to return to. A folded
+pane stays mounted, with its component state and tasks, but it is neither
+drawn nor presented, so no locator finds anything in it. `label` names the
+divider as a `separator` for specifications and assistive technology, and its
+value is the size, or `collapsed`. `thickness` (default 6), `color`,
+`hover_color`, `active_color`, and `focus_color` dress the divider; `width`,
+`height`, and `grow` size the split, which fills its container by default.
+`Gui.tabs({ label, tabs, selected, on_select, on_close, ... })`:: A strip of
+tabs, one of them selected. Each `Gui.TabItem` is `{ key, title, closable }`:
+the tab shows `title`, which also names it as a `tab` for specifications, and a
+closable tab has a close button named `Close` and its title. Pressing a tab
+asks for it through `on_select`, and its close button through `on_close`, each
+with a `Gui.EventTab` carrying the tab's `key`; the application owns the list
+and the selection, and the strip shows the tab whose key is `selected` as
+chosen. While keyboard focus is in the strip, Left and Right choose the tab
+before and after the selected one, Home and End the first and last, and Delete
+asks to close the selected tab when it is closable. The strip's colours,
+`font_size`, `font_face`, and `max_tab_width` dress it.
+
+[source,roc]
+----
+Gui.split(
+    {
+        label: "Inspector divider",
+        side: End,
+        size: state.inspector.size,
+        min: 240,
+        max: 1100,
+        collapsible: True,
+        collapsed: state.inspector.collapsed,
+        on_resize: |current, event| Gui.update({ ..current, inspector: { ..current.inspector, size: event.size, collapsed: event.collapsed } }),
+    },
+    main_view,
+    inspector,
+)
+----
+
 `Gui.dialog({ label, on_dismiss, ... }, children)`:: Present
 one modal surface above an input-blocking scrim. The first enabled control gains
 focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and

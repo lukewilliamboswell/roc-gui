@@ -1,7 +1,8 @@
 use crate::{
     SUBMIT_EVENT_BIT, await_task_completion,
     bridge::{
-        ApplyFacts, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, MountedGraph, NodeKind, Patch,
+        ApplyFacts, ButtonRole, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, MountedGraph,
+        NodeKind, Patch,
     },
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
@@ -54,21 +55,27 @@ pub(crate) fn component_work_claim(
             None,
         );
     };
-    for (index, expected) in expected.iter().enumerate() {
-        if let Some(expected) = expected {
-            if *expected != work.0[index] {
-                return (
-                    Err(format!(
+    // Every differing count at once, so one run tells the whole story.
+    let differences = expected
+        .iter()
+        .enumerate()
+        .filter_map(|(index, expected)| {
+            expected
+                .filter(|expected| *expected != work.0[index])
+                .map(|expected| {
+                    format!(
                         "expected component {} count {expected}, observed {}",
                         observatory::COMPONENT_WORK_NAMES[index],
                         work.0[index]
-                    )),
-                    observed,
-                );
-            }
-        }
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+    if differences.is_empty() {
+        (Ok(()), observed)
+    } else {
+        (Err(differences.join("; ")), observed)
     }
-    (Ok(()), observed)
 }
 
 /// The one primitive a canvas-item locator names, and the canvas that owns it.
@@ -240,6 +247,58 @@ pub(crate) fn graph_claim(
                 None,
             )
         }
+        // A divider's value is the size it carries, or `collapsed`.
+        Command::ExpectValue(locator, expected)
+            if matches!(locator.target(), Locator::SeparatorName(_)) =>
+        {
+            (
+                match only(graph, locator)
+                    .map(|id| graph.node(id).and_then(|node| node.kind.splitter_value()))
+                {
+                    Err(count) => Err(format!(
+                        "expect-value locator matched {count} nodes; expected exactly one"
+                    )),
+                    Ok(None) => Err("expect-value on a separator requires a divider".to_owned()),
+                    Ok(Some(value)) => {
+                        let shown = if value.collapsed {
+                            "collapsed".to_owned()
+                        } else {
+                            value.size.to_string()
+                        };
+                        if shown == *expected {
+                            Ok(())
+                        } else {
+                            Err(format!(
+                                "expected divider value {expected}; observed {shown}"
+                            ))
+                        }
+                    }
+                },
+                None,
+            )
+        }
+        Command::ExpectSelected(locator, wanted) => (
+            match only(graph, locator).map(|id| graph.node(id).map(|node| &node.kind)) {
+                Err(count) => Err(format!(
+                    "{} locator matched {count} nodes; expected exactly one",
+                    command.kind()
+                )),
+                Ok(Some(NodeKind::Button {
+                    role: ButtonRole::Tab { selected },
+                    ..
+                })) => {
+                    if selected == wanted {
+                        Ok(())
+                    } else if *wanted {
+                        Err("the tab is not selected".to_owned())
+                    } else {
+                        Err("the tab is selected".to_owned())
+                    }
+                }
+                Ok(_) => Err(format!("{} requires a tab", command.kind())),
+            },
+            None,
+        ),
         Command::ExpectValue(locator, expected) => (
             match only(graph, locator) {
                 Err(count) => Err(format!(
@@ -433,13 +492,32 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Locator::TextPrefix(expected),
                 NodeKind::Text(actual) | NodeKind::StyledText { value: actual, .. },
             ) if actual.starts_with(expected) => Some(node.id),
-            (Locator::ButtonName(expected), NodeKind::Button { label, .. })
+            (
+                Locator::ButtonName(expected),
+                NodeKind::Button {
+                    label,
+                    role: ButtonRole::Button,
+                    ..
+                },
+            ) if expected == label => Some(node.id),
+            (
+                Locator::ButtonPrefix(expected),
+                NodeKind::Button {
+                    label,
+                    role: ButtonRole::Button,
+                    ..
+                },
+            ) if label.starts_with(expected) => Some(node.id),
+            (
+                Locator::TabName(expected),
+                NodeKind::Button {
+                    label,
+                    role: ButtonRole::Tab { .. },
+                    ..
+                },
+            ) if expected == label => Some(node.id),
+            (Locator::SeparatorName(expected), NodeKind::Split { label, .. })
                 if expected == label =>
-            {
-                Some(node.id)
-            }
-            (Locator::ButtonPrefix(expected), NodeKind::Button { label, .. })
-                if label.starts_with(expected) =>
             {
                 Some(node.id)
             }
@@ -1171,8 +1249,49 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     }
                     hovering = None;
                     Ok(())
+                } else if let Some(grip) = graph
+                    .node(found[0])
+                    .and_then(|node| node.kind.splitter_grip())
+                {
+                    // One move from the press to the release, measured by the
+                    // rule the window's pointer handler uses; a size the
+                    // divider already shows asks Roc for nothing.
+                    let resize = grip.resize((*to_x - *from_x) as f32, (*to_y - *from_y) as f32);
+                    let shown = graph
+                        .node(found[0])
+                        .and_then(|node| node.kind.splitter_value());
+                    if shown != Some(resize) {
+                        let resize_target = graph.cycle_target(found[0]);
+                        let cycle_started = Instant::now();
+                        observatory::reset_roc_work();
+                        let roc_started = Instant::now();
+                        let patch = crate::dispatch_resize(found[0], resize);
+                        let roc_ns = elapsed_ns(roc_started);
+                        let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                        let facts = apply_transaction(&mut graph, patch)?;
+                        last_patch = Some(facts);
+                        pending_cycles.push(make_cycle(
+                            run_id,
+                            cycle_ordinal,
+                            Some(ordinal),
+                            if marked { "measured" } else { "setup" },
+                            "drag",
+                            resize_target,
+                            cycle_started,
+                            roc_ns,
+                            roc_work,
+                            &facts,
+                            roc_work_valid,
+                        ));
+                        cycle_ordinal += 1;
+                    }
+                    hovering = None;
+                    Ok(())
                 } else {
-                    Err(format!("line {}: locator is not a canvas", step.line))
+                    Err(format!(
+                        "line {}: drag takes a canvas or a separator",
+                        step.line
+                    ))
                 }
             }
             Command::PointerMove(locator, _, _)
@@ -1455,19 +1574,13 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         "line {}: locator is blocked by the active dialog",
                         step.line
                     ))
-                } else if !matches!(
-                    graph.node(matches[0]).map(|node| &node.kind),
-                    Some(
-                        NodeKind::Button { enabled: true, .. }
-                            | NodeKind::Checkbox { enabled: true, .. }
-                            | NodeKind::Textarea {
-                                enabled: true,
-                                read_only: false,
-                                ..
-                            }
-                            | NodeKind::TextInput { enabled: true, .. }
-                    )
-                ) {
+                } else if graph
+                    .node(matches[0])
+                    .and_then(|node| node.kind.focus_identity())
+                    .is_none()
+                {
+                    // The one definition of what takes focus, which is also
+                    // what the window gives a focus handle.
                     Err(format!("line {}: locator is not focusable", step.line))
                 } else {
                     focused = Some(matches[0]);
@@ -1885,6 +1998,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             // makes the same claims from the same code.
             command @ (Command::ExpectCanvasPrimitives(_, _)
             | Command::ExpectValue(_, _)
+            | Command::ExpectSelected(_, _)
             | Command::ExpectValueBytes(_, _)
             | Command::ExpectImageBytes(_, _)
             | Command::ExpectRows(_, _)
@@ -2134,6 +2248,7 @@ mod controlled_value_tests {
                     nodes: vec![Node {
                         id: 1,
                         kind: NodeKind::Button {
+                            role: crate::bridge::ButtonRole::Button,
                             caption: String::new(),
                             label: "Cell".into(),
                             enabled: true,
