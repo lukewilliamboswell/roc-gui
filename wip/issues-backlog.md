@@ -846,6 +846,61 @@ names the reproduction so the workaround can be removed when the fix lands.
   same compiler with `--opt=dev`. Move the pin and remove the driver override
   once that remaining regression is fixed upstream.
 
+  The released nightlies agree: `examples/observatory` built with
+  `--opt=speed` renders its first frame from zeroed state (empty strings,
+  every tag at its first variant) on `nightly-2026-09-11-793f9d8`, the pin,
+  and `nightly-2026-09-15-fe09c42`, and renders correctly on
+  `nightly-2026-09-18-1d982dc` and later. The fix landed between `fe09c42`
+  and `1d982dc`.
+
+- [ ] **A value used twice in one record literal loses a reference when one
+  use is an argument to a looping effectful call.** On
+  `nightly-2026-09-22-e494788`, and not on `nightly-2026-09-19-d025939` or
+  earlier, this prints `dir=[9, 2, 3]` from `roc build --opt=dev`, because
+  `consume!` receives `selection.dir` as unique and updates it in place;
+  `--opt=speed` prints the correct `dir=[1, 2, 3]`:
+
+  ```roc
+  consume! : List(U8), List(U8) => List(U8)
+  consume! = |bytes, xs| {
+  	var $out = bytes
+  	for x in xs {
+  		$out = match $out.set(0, x) {
+  			Ok(updated) => updated
+  			Err(_) => []
+  		}
+  	}
+  	$out
+  }
+
+  pick! : {} => [Picked({ name : Str, dir : List(U8) }), Nothing]
+  pick! = |{}| Picked({ name: "n", dir: [1, 2, 3] })
+
+  main! = |_args| {
+  	result = match pick!({}) {
+  		Picked(selection) => Some({ name: selection.name, dir: selection.dir, listed: consume!(selection.dir, [9]) })
+  		Nothing => None
+  	}
+  	match result {
+  		Some(r) => echo!("dir=${Str.inspect(r.dir)} listed=${Str.inspect(r.listed)}")
+  		None => {}
+  	}
+  	Ok({})
+  }
+  ```
+
+  Without the loop in `consume!`, or with `selection` bound directly rather
+  than matched out of a tag, both backends are correct. The same shape in
+  Observatory's folder task,
+  `ChosenFolder({ directory: selection.directory, captures: list_captures!(selection.directory, entries) })`,
+  miscompiles in the other backend: under `--opt=speed` on `e494788` the
+  directory capability is released during the listing loop, so every later
+  `open_read!` on the folder fails with "invalid directory capability" and ten
+  of the thirteen Observatory specifications fail, while `--opt=dev` passes.
+  Observatory binds the listing to a name before building the record, which
+  both backends compile correctly. Report upstream with the repro above;
+  inline the listing again once a pinned compiler carries the fix.
+
 - [ ] **The Windows development backend drops relocations past a 16-bit count.**
   A compile-time-evaluated top-level value is emitted as initialized data with
   one relocation per pointer it contains. Once one section's relocation count
