@@ -181,6 +181,7 @@ Gui := [].{
 	RowAlign : Elem.RowAlign
 	ScrollRequest : Elem.ScrollRequest
 	ScrollAxis : Elem.ScrollAxis
+	Placement : Elem.Placement
 	ImageFormat : Elem.ImageFormat
 	ImageFit : Elem.ImageFit
 	CanvasEllipse : Elem.CanvasEllipse
@@ -264,6 +265,14 @@ Gui := [].{
 	## Present one modal surface.
 	dialog : Elem.DialogProps(a), List(Elem.Elem(a)) -> Elem.Elem(a)
 	dialog = |props, children| Elem.dialog(props, children)
+
+	## Annotate an anchor with a non-modal surface that opens on hover and focus.
+	popover : Elem.PopoverProps(a), Elem.Elem(a), List(Elem.Elem(a)) -> Elem.Elem(a)
+	popover = |props, anchor, content| Elem.popover(props, anchor, content)
+
+	## Annotate an element with a short text tooltip, named by that text.
+	tooltip : Elem.Elem(a), Str -> Elem.Elem(a)
+	tooltip = |anchor, value| Elem.tooltip(anchor, value)
 
 	## Constrain content to the available space and allow scrolling.
 	scroll : Elem.ScrollProps(a) -> Elem.Elem(a)

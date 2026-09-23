@@ -4,7 +4,7 @@ Event := [].{
 	## A button press. It carries no additional data.
 	Press : {}
 
-	## A pointer entering or exiting an enabled button.
+	## A pointer entering or exiting an enabled button or a hover region.
 	Hover : {}
 
 	## A checkbox change containing the newly requested checked state.

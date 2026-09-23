@@ -59,6 +59,8 @@ pub enum StepError {
     Untypable(char),
     /// The control does not accept pointer activation.
     NotClickable(String),
+    /// Resting the pointer on this node reaches no hover handler and no popover.
+    NotHoverable(String),
     /// A pointer press on this control reaches no click handler at all. A
     /// canvas takes coordinates through its pointer route, so a `click` step
     /// would otherwise report success having dispatched nothing.
@@ -113,6 +115,9 @@ impl StepError {
             }
             Self::NotClickable(locator) => {
                 format!("{locator} does not accept pointer activation; it may be disabled")
+            }
+            Self::NotHoverable(locator) => {
+                format!("{locator} has no hover handler and no popover anchors it")
             }
             Self::NoClickRoute(locator) => format!(
                 "{locator} takes pointer coordinates, not a click; press it with a `drag` step under --host-run-spec"
@@ -816,11 +821,8 @@ async fn run_step(
             let position = window
                 .update(cx, |runtime, _, _| {
                     let id = resolve(runtime, locator)?;
-                    if !matches!(
-                        runtime.graph.node(id).map(|node| &node.kind),
-                        Some(crate::bridge::NodeKind::Button { .. })
-                    ) {
-                        return Err(StepError::NotClickable(describe(locator)));
+                    if runtime.graph.hover_targets(id).is_empty() {
+                        return Err(StepError::NotHoverable(describe(locator)));
                     }
                     let position = if entered {
                         let bounds = visible_rect(runtime, locator, viewport)?;
@@ -1063,7 +1065,8 @@ async fn run_step(
         | Command::ExpectImageBytes(_, _)
         | Command::ExpectRows(_, _)
         | Command::ExpectBefore(_, _)
-        | Command::ExpectBackground(_, _) => window
+        | Command::ExpectBackground(_, _)
+        | Command::ExpectPopoverCounters(_) => window
             .update(cx, |runtime, _, _| {
                 runner::graph_claim(&runtime.graph, &step.command)
                     .expect("graph claim is missing an arm")

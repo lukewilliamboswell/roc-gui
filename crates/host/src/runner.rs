@@ -143,6 +143,7 @@ pub(crate) fn graph_claim(
                         | NodeKind::Column { style, .. }
                         | NodeKind::KeyedColumn { style, .. }
                         | NodeKind::Dialog { style, .. }
+                        | NodeKind::Popover { style, .. }
                         | NodeKind::Panel { style, .. }
                         | NodeKind::Row { style, .. }
                         | NodeKind::Scroll { style, .. }
@@ -162,6 +163,20 @@ pub(crate) fn graph_claim(
                         ))
                     }
                 }),
+                None,
+            )
+        }
+
+        Command::ExpectPopoverCounters(expected) => {
+            let observed = graph.popover_counters().as_array();
+            (
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected popover counters opened/closed/dismissed {expected:?}; observed {observed:?}"
+                    ))
+                },
                 None,
             )
         }
@@ -353,7 +368,7 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
     }
     if let Locator::CanvasItemPrefix(prefix) = locator {
         return graph
-            .nodes_preorder()
+            .presented_preorder()
             .into_iter()
             .flat_map(|node| match &node.kind {
                 NodeKind::Canvas { primitives, .. } => primitives
@@ -366,7 +381,7 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             .collect();
     }
     graph
-        .nodes_preorder()
+        .presented_preorder()
         .into_iter()
         .filter_map(|node| match (locator, &node.kind) {
             (
@@ -405,6 +420,12 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             }
             (Locator::DialogName(expected), NodeKind::Dialog { label, .. })
                 if expected == label =>
+            {
+                Some(node.id)
+            }
+            // A tooltip is its presenting surface; a closed one is not there.
+            (Locator::TooltipName(expected), NodeKind::Popover { label, .. })
+                if expected == label && graph.popover_open(node.id) =>
             {
                 Some(node.id)
             }
@@ -848,45 +869,58 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             }
             Command::HoverEnter(locator) | Command::HoverExit(locator) => {
                 let found = matches(&graph, locator);
+                let targets = found
+                    .first()
+                    .map(|id| graph.hover_targets(*id))
+                    .unwrap_or_default();
                 if found.len() != 1 {
                     Err(format!(
                         "line {}: hover locator matched {} nodes; expected exactly one",
                         step.line,
                         found.len()
                     ))
-                } else if !matches!(
-                    graph.node(found[0]).map(|node| &node.kind),
-                    Some(NodeKind::Button { .. })
-                ) {
-                    Err(format!("line {}: hover locator is not a button", step.line))
+                } else if targets.is_empty() {
+                    Err(format!(
+                        "line {}: hover locator is neither a hover target nor inside a popover's anchor",
+                        step.line
+                    ))
                 } else {
-                    // The canonical graph owns transition suppression and route liveness,
-                    // shared with the GPUI on_hover callback. No alternate handler table.
+                    // The canonical graph owns transition suppression, popover
+                    // presentation, and route liveness, shared with the GPUI
+                    // on_hover callback. No alternate handler table. A pointer
+                    // resting on the node rests on every region anchoring it;
+                    // a target an earlier handler's rebuild retired is skipped,
+                    // its state having moved to its replacement.
                     let entered = matches!(step.command, Command::HoverEnter(_));
-                    let route = graph.hover_transition(found[0], entered);
                     last_patch = None;
-                    if let Some(route) = route {
-                        let cycle_started = Instant::now();
-                        observatory::reset_roc_work();
-                        let roc_started = Instant::now();
-                        let patch = dispatch(route);
-                        let roc_ns = elapsed_ns(roc_started);
-                        let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                        let facts = apply_transaction(&mut graph, patch)?;
-                        last_patch = Some(facts);
-                        pending_cycles.push(make_cycle(
-                            run_id,
-                            cycle_ordinal,
-                            Some(ordinal),
-                            if marked { "measured" } else { "setup" },
-                            if entered { "hover-enter" } else { "hover-exit" },
-                            cycle_started,
-                            roc_ns,
-                            roc_work,
-                            &facts,
-                            roc_work_valid,
-                        ));
-                        cycle_ordinal += 1;
+                    for target in targets {
+                        if graph.node(target).is_none() {
+                            continue;
+                        }
+                        let route = graph.hover_transition(target, entered);
+                        if let Some(route) = route {
+                            let cycle_started = Instant::now();
+                            observatory::reset_roc_work();
+                            let roc_started = Instant::now();
+                            let patch = dispatch(route);
+                            let roc_ns = elapsed_ns(roc_started);
+                            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                            let facts = apply_transaction(&mut graph, patch)?;
+                            last_patch = Some(facts);
+                            pending_cycles.push(make_cycle(
+                                run_id,
+                                cycle_ordinal,
+                                Some(ordinal),
+                                if marked { "measured" } else { "setup" },
+                                if entered { "hover-enter" } else { "hover-exit" },
+                                cycle_started,
+                                roc_ns,
+                                roc_work,
+                                &facts,
+                                roc_work_valid,
+                            ));
+                            cycle_ordinal += 1;
+                        }
                     }
                     Ok(())
                 }
@@ -1175,6 +1209,21 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Err(format!("line {}: locator is not focusable", step.line))
                 } else {
                     focused = Some(matches[0]);
+                    // Focus entering or leaving a popover's region, as the
+                    // native focus listeners report it.
+                    graph.popover_focus_moved(focused);
+                    Ok(())
+                }
+            }
+            Command::PressKey(ControlKey::Escape) if graph.active_dialog().is_none() => {
+                // Escape that no dialog takes reaches the window root, which
+                // closes every presenting popover.
+                if graph.dismiss_popovers().is_empty() {
+                    Err(format!(
+                        "line {}: Escape requires an active dialog or a presenting popover",
+                        step.line
+                    ))
+                } else {
                     Ok(())
                 }
             }
@@ -1283,6 +1332,15 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let found = matches(&graph, locator).len();
                     if found == *expected {
                         break Ok(());
+                    }
+                    // Without a clock, the one thing a wait can let happen
+                    // without a task is a hovered popover's delay elapsing.
+                    let pending = graph.pending_popovers();
+                    if !pending.is_empty() {
+                        for id in pending {
+                            graph.popover_elapse(id);
+                        }
+                        continue;
                     }
                     if Instant::now() >= deadline {
                         break Err(format!(
@@ -1461,7 +1519,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectImageBytes(_, _)
             | Command::ExpectRows(_, _)
             | Command::ExpectBefore(_, _)
-            | Command::ExpectBackground(_, _)) => {
+            | Command::ExpectBackground(_, _)
+            | Command::ExpectPopoverCounters(_)) => {
                 let (result, counts) =
                     graph_claim(&graph, command).expect("graph claim is missing an arm");
                 count_evidence = counts;

@@ -20,6 +20,7 @@ Elem(a) :: [
 	Column({ children : List(Elem(a)), props : Frame }),
 	KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : Frame, revision : U64 }),
 	Dialog({ children : List(Elem(a)), props : DialogNode(a) }),
+	Popover({ children : List(Elem(a)), props : PopoverNode(a) }),
 	Panel({ children : List(Elem(a)), props : PanelNode }),
 	Row({ children : List(Elem(a)), props : Frame }),
 	Scroll(ScrollNode(a)),
@@ -174,6 +175,24 @@ Elem(a) :: [
 
 	## Platform representation of a modal dialog.
 	DialogNode(a) := { label : Str, style : Style, on_dismiss : (a, Event.Dismiss => Action(a)) }
+
+	## Where a popover's surface sits against its anchor: over it, under it,
+	## before it, or after it. The surface moves to the opposite side when the
+	## window has no room for it on the one asked for.
+	Placement : [Above, Below, Start, End]
+
+	## Platform representation of a popover. Its first child is the anchor and
+	## any others are the surface's content. A popover with no content is a
+	## hover region: it reports the pointer entering and leaving its anchor
+	## and presents nothing.
+	PopoverNode(a) := {
+		label : Str,
+		placement : Placement,
+		delay_ms : U32,
+		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))],
+		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))],
+		style : Style,
+	}
 
 	## Platform representation of a headed surface.
 	PanelNode := { label : Str, style : Style, heading : Str, heading_size : U32, heading_weight : U32, heading_color : Style.Color }
@@ -429,6 +448,61 @@ Elem(a) :: [
 		shadow_y : U32 ?? 0,
 		shadow_color : Style.Color ?? Default,
 		shadow_alpha : U32 ?? 100,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
+	}
+
+	## Properties for `popover`. `label` is the surface's stable semantic name,
+	## its locator as a tooltip. The surface opens `delay_ms` after the pointer
+	## comes to rest on the anchor, and at once when keyboard focus enters the
+	## anchor; it closes when both have left, or on Escape. The style fields
+	## dress the surface, never the anchor.
+	PopoverProps(a) := {
+		label : Str,
+		placement : Placement ?? Below,
+		delay_ms : U32 ?? 500,
+
+		## Optional pointer transitions on the anchor; absent handlers allocate
+		## no event routes.
+		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))] ?? None,
+		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))] ?? None,
+		gap : U32 ?? 4,
+		padding : U32 ?? 8,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Px(360),
+		max_height : Style.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Style.Color ?? Rgb(0x0f1b21),
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Rgb(0xeeeeea),
+		border_color : Style.Color ?? Rgb(0x48666b),
+		border_width : U32 ?? 1,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
+		radius : U32 ?? 6,
+		font_size : U32 ?? 14,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 12,
+		shadow_y : U32 ?? 4,
+		shadow_color : Style.Color ?? Rgb(0x000000),
+		shadow_alpha : U32 ?? 60,
 		font_face : Style.FontFace ?? Default,
 		text_overflow : Style.TextOverflow ?? Wrap,
 		overflow_x : Style.Overflow ?? Visible,
@@ -1081,6 +1155,7 @@ Elem(a) :: [
 		Column(value) => Column({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Dialog(value) => Dialog({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		Popover(value) => Popover({ ..value, children: map_anchor(value.children, |anchor| with_style(anchor, change)) })
 		Panel(value) => Panel({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		ActionButton(value) => ActionButton({ ..value, style: change(value.style) })
 		Checkbox(value) => Checkbox({ ..value, style: change(value.style) })
@@ -1091,6 +1166,14 @@ Elem(a) :: [
 		VirtualList(value) => VirtualList({ ..value, style: change(value.style) })
 		TextInput(value) => TextInput({ ..value, style: change(value.style) })
 		Component(bound) => through_boundary(bound, |rendered| with_style(rendered, change))
+	}
+
+	# A modifier on a popover applies to its anchor, the element it annotates;
+	# the popover itself is configured by its props.
+	map_anchor : List(Elem(a)), (Elem(a) -> Elem(a)) -> List(Elem(a))
+	map_anchor = |children, change| match children.first() {
+		Ok(anchor) => [change(anchor)].concat(children.drop_first(1))
+		Err(_) => children
 	}
 
 	# A modifier on a boundary applies to whatever that boundary renders.
@@ -1108,6 +1191,7 @@ Elem(a) :: [
 		Column(value) => Column({ ..value, props: { ..value.props, label: name } })
 		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, label: name } })
 		Dialog(value) => Dialog({ ..value, props: { ..value.props, label: name } })
+		Popover(value) => Popover({ ..value, children: map_anchor(value.children, |anchor| label(anchor, name)) })
 		Panel(value) => Panel({ ..value, props: { ..value.props, label: name } })
 		ActionButton(value) => ActionButton({ ..value, label: name })
 		Checkbox(value) => Checkbox({ ..value, label: name })
@@ -1384,19 +1468,27 @@ Elem(a) :: [
 		_ => elem
 	}
 
-	## Handle the pointer entering a button.
+	## Handle the pointer entering an element. A button and a popover report
+	## it themselves; any other element is wrapped in a hover region that
+	## reports it and presents nothing.
 	on_hover_enter : Elem(a), (a, Event.Hover => Action(a)) -> Elem(a)
 	on_hover_enter = |elem, handler!| match elem {
 		ActionButton(value) => ActionButton({ ..value, on_hover_enter: Some(handler!) })
-		_ => elem
+		Popover(value) => Popover({ ..value, props: { ..value.props, on_hover_enter: Some(handler!) } })
+		_ => hover_region(elem, Some(handler!), None)
 	}
 
-	## Handle the pointer leaving a button.
+	## Handle the pointer leaving an element, wrapping it in a hover region
+	## exactly as `on_hover_enter` does.
 	on_hover_exit : Elem(a), (a, Event.Hover => Action(a)) -> Elem(a)
 	on_hover_exit = |elem, handler!| match elem {
 		ActionButton(value) => ActionButton({ ..value, on_hover_exit: Some(handler!) })
-		_ => elem
+		Popover(value) => Popover({ ..value, props: { ..value.props, on_hover_exit: Some(handler!) } })
+		_ => hover_region(elem, None, Some(handler!))
 	}
+
+	hover_region : Elem(a), [None, Some((a, Event.Hover => Action(a)))], [None, Some((a, Event.Hover => Action(a)))] -> Elem(a)
+	hover_region = |anchor, enter, exit| Popover({ children: [anchor], props: { label: "", placement: Below, delay_ms: 0, on_hover_enter: enter, on_hover_exit: exit, style: Style.{} } })
 
 	## Handle a checkbox being toggled.
 	on_check : Elem(a), (a, Event.Check => Action(a)) -> Elem(a)
@@ -1501,6 +1593,19 @@ Elem(a) :: [
 	dialog : DialogProps(a), List(Elem(a)) -> Elem(a)
 	dialog = |props, children| Dialog({ children, props: { label: props.label, on_dismiss: props.on_dismiss, style: style_of(props) } })
 
+	## Annotate `anchor` with a surface presenting `content` beside it. The
+	## surface does not block the rest of the window: it opens while the pointer
+	## rests on the anchor or keyboard focus is inside it, and Escape closes it.
+	popover : PopoverProps(a), Elem(a), List(Elem(a)) -> Elem(a)
+	popover = |props, anchor, content| Popover({
+		children: [anchor].concat(content),
+		props: { label: props.label, placement: props.placement, delay_ms: props.delay_ms, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, style: style_of(props) },
+	})
+
+	## Annotate an element with a short text tooltip, named by that text.
+	tooltip : Elem(a), Str -> Elem(a)
+	tooltip = |anchor, value| popover({ label: value }, anchor, [Text(value)])
+
 	## Group children in a labelled padded, bordered, rounded vertical surface.
 	panel : PanelProps, List(Elem(a)) -> Elem(a)
 	panel = |props, children| Panel({
@@ -1593,6 +1698,7 @@ Elem(a) :: [
 		Row(value) => { shell: Row({ ..value, children: [] }), children: value.children }
 		Column(value) => { shell: Column({ ..value, children: [] }), children: value.children }
 		Dialog(value) => { shell: Dialog({ ..value, children: [] }), children: value.children }
+		Popover(value) => { shell: Popover({ ..value, children: [] }), children: value.children }
 		Panel(value) => { shell: Panel({ ..value, children: [] }), children: value.children }
 		Scroll(value) => { shell: Scroll({ ..value, content: Text("") }), children: [value.content] }
 		VirtualList(value) => {
@@ -1607,6 +1713,7 @@ Elem(a) :: [
 		Row(value) => Row({ ..value, children })
 		Column(value) => Column({ ..value, children })
 		Dialog(value) => Dialog({ ..value, children })
+		Popover(value) => Popover({ ..value, children })
 		Panel(value) => Panel({ ..value, children })
 		Scroll(value) => Scroll({ ..value, content: children.first() ?? crash "missing lifted scroll content" })
 		VirtualList(value) => {
@@ -1632,6 +1739,17 @@ Elem(a) :: [
 			child_handler = value.props.on_dismiss
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
 			Dialog({ children: [], props: { label: value.props.label, style: value.props.style, on_dismiss: parent_handler! } })
+		}
+		Popover(value) => {
+			hover_enter = match value.props.on_hover_enter {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			hover_exit = match value.props.on_hover_exit {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			Popover({ children: [], props: { label: value.props.label, placement: value.props.placement, delay_ms: value.props.delay_ms, on_hover_enter: hover_enter, on_hover_exit: hover_exit, style: value.props.style } })
 		}
 		Panel(value) => Panel({ props: value.props, children: [] })
 		Scroll(scroll_value) => Scroll({ axis: scroll_value.axis, content: Text(""), label: scroll_value.label, style: scroll_value.style })
@@ -1803,6 +1921,7 @@ Elem(a) :: [
 		Column({ children : List(Elem(a)), props : Frame }),
 		KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : Frame, revision : U64 }),
 		Dialog({ children : List(Elem(a)), props : DialogNode(a) }),
+		Popover({ children : List(Elem(a)), props : PopoverNode(a) }),
 		Panel({ children : List(Elem(a)), props : PanelNode }),
 		Row({ children : List(Elem(a)), props : Frame }),
 		Scroll(ScrollNode(a)),
@@ -1821,6 +1940,7 @@ Elem(a) :: [
 		Column(children) => Column(children)
 		KeyedColumn(keyed_value) => KeyedColumn(keyed_value)
 		Dialog(dialog_value) => Dialog(dialog_value)
+		Popover(popover_value) => Popover(popover_value)
 		Panel(children) => Panel(children)
 		Row(children) => Row(children)
 		Scroll(scroll_value) => Scroll(scroll_value)
@@ -1865,4 +1985,29 @@ expect {
 	computed = Key.from_str("左 🦆 a long application key without a short-string limit")
 	keys = Dict.single(literal, 42.I64)
 	literal == computed and Dict.get(keys, computed) == Ok(42) and Dict.get(keys, Key.id(42)) == Err(KeyNotFound)
+}
+
+expect {
+	# A hover handler on an element that is not a button wraps it in one hover
+	# region, and a second handler joins that region rather than nesting.
+	entered : Elem(U64)
+	entered = Elem.text("cell").on_hover_enter(|state, _| Action.update(state + 1))
+	both = entered.on_hover_exit(|state, _| Action.update(state - 1))
+	match Elem.inspect(both) {
+		Popover(value) => match (value.props.on_hover_enter, value.props.on_hover_exit, value.children.len()) {
+			(Some(_), Some(_), 1) => value.props.label == ""
+			_ => False
+		}
+		_ => False
+	}
+}
+
+expect {
+	# A modifier on a popover reaches its anchor; the surface keeps its props.
+	noted : Elem(U64)
+	noted = Elem.tooltip(Elem.text("cell"), "About the cell").label("Cell")
+	match Elem.inspect(noted) {
+		Popover(value) => value.props.label == "About the cell" and value.children.len() == 2
+		_ => False
+	}
 }

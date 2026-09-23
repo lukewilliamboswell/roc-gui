@@ -144,6 +144,10 @@ Hover callbacks receive current state and return ordinary actions, including
 cell-owned tasks. Native hover transitions follow GPUI pointer movement with no
 mouse button held; repeated movement inside a button emits no additional enter.
 Disabled buttons emit neither hover callback. Removal does not synthesize exit.
+Any other element takes the same two modifiers, `on_hover_enter` and
+`on_hover_exit`: the element is wrapped in a hover region that reports the
+pointer entering and leaving it and presents nothing. The region takes its
+element's share of the parent's space, so wrapping changes no layout.
 
 Keep button labels and keyed projections stable. Rebuilding a hovered cell to
 change its color preserves its native identity and inside state; it does not
@@ -251,13 +255,41 @@ keeps the panel's own type. It is distinct from `label`, which remains the
 semantic locator and is never painted, so a panel named for what a
 specification calls it can still say something else to a reader. An empty
 heading, the default, paints none.
+`Gui.popover({ label, ... }, anchor, content)`:: Annotate `anchor`, any
+element, with a non-modal surface presenting `content` beside it. The surface
+opens `delay_ms` (default 500, at most 60000) after the pointer comes to rest
+on the anchor, and at once when keyboard focus enters the anchor. It closes
+when both the pointer and focus have left, and Escape that no dialog takes
+closes every presenting popover until the pointer or focus enters it again.
+`placement` is `Below` (the default), `Above`, `Start`, or `End`; a surface the
+window has no room for moves to the opposite side and stays inside the
+window. The surface floats above the rest of the window, outside any scroll
+region's clipping, and blocks nothing: its content is read, not operated.
+`label` names the surface as a `tooltip` for specifications and assistive
+technology; a closed surface is not presented, so nothing in it can be found.
+The style fields dress the surface, and a modifier applied to a popover applies
+to its anchor. `on_hover_enter` and `on_hover_exit` are optional handlers for
+the anchor's pointer edges. The host owns when a surface presents, so opening
+and closing one runs no application code.
+`Gui.tooltip(anchor, text)`:: Annotate an element with a popover presenting
+one line of text, named by that text.
+
+[source,roc]
+----
+Gui.popover(
+    { label: "title in result row 0", delay_ms: 400 },
+    cell,
+    [Gui.text("title · TEXT"), Gui.text(value)],
+)
+----
+
 `Gui.dialog({ label, on_dismiss, ... }, children)`:: Present
 one modal surface above an input-blocking scrim. The first enabled control gains
 focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and
 closing the dialog restores its opener by stable semantic identity. Render at
 most one dialog at a time.
 
-Row, column, panel, dialog, scroll, virtual-list, and button props share
+Row, column, panel, dialog, popover, scroll, virtual-list, and button props share
 the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
 radius, shadow, font size, font weight, per-axis overflow, and the two axis

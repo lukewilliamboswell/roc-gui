@@ -36,8 +36,8 @@ mod window_runner;
 use bridge::{
     Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CheckboxIndicator, ControlKey,
     ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify, Length,
-    MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis, Style, TextOverflow, decode_commit,
-    validate_tree,
+    MountedGraph, Node, NodeKind, Overflow, Patch, Placement, ScrollAxis, Style, TextOverflow,
+    decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -47,12 +47,12 @@ use roc_platform_abi::{
     HostGlueKeyedSeedArgs, HostGlueKeyedSetArgs, HostGlueNodeActionButton,
     HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
     HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs,
-    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
-    HostGlueNodeVirtualListArgs, HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs,
-    HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
-    RocListWith, RocStr, decref_erased_callable, incref_erased_callable, make_roc_host,
-    roc_gui_dispatch, roc_gui_init,
+    HostGlueNodePopover, HostGlueNodePopoverArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
+    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueVirtualRowsEventRetRecord,
+    HostGlueVirtualWindowArgs, HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace,
+    RocErasedCallable, RocHost, RocList, RocListWith, RocStr, decref_erased_callable,
+    incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -924,6 +924,44 @@ pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
         NodeKind::Dialog { label, style },
         finish_children(args.builder),
     )
+}
+
+/// Stage one popover: its anchor, then the surface's content.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_popover(args: HostGlueNodePopoverArgs) -> HostGlueNodePopover {
+    let label = args.label.as_str().to_owned();
+    unsafe { args.label.decref(roc_host()) };
+    let placement = match args.placement {
+        0 => Placement::Below,
+        1 => Placement::Above,
+        2 => Placement::Start,
+        3 => Placement::End,
+        other => panic!("invalid popover placement {other}"),
+    };
+    let id = stage_node(
+        NodeKind::Popover {
+            label,
+            placement,
+            delay_ms: args.delay_ms,
+            hover_enter: args.hover_enter,
+            hover_exit: args.hover_exit,
+            style: decode_layout_style!(args),
+        },
+        finish_children(args.builder),
+    );
+    HostGlueNodePopover {
+        id,
+        hover_enter: if args.hover_enter {
+            id | bridge::HOVER_ENTER_EVENT_BIT
+        } else {
+            0
+        },
+        hover_exit: if args.hover_exit {
+            id | bridge::HOVER_EXIT_EVENT_BIT
+        } else {
+            0
+        },
+    }
 }
 
 /// Stage one styled, semantically labelled panel.
@@ -1934,6 +1972,11 @@ struct NodeView {
     /// and so that a window specification can reach the same offset cell the
     /// production wheel handler writes.
     scroll: Option<ScrollTracker>,
+    /// Whether this popover's surface is presenting, as the graph decided.
+    popover_open: bool,
+    /// A popover's handle on its own region and the subscriptions reporting
+    /// keyboard focus entering and leaving it. Made on first render.
+    popover_focus: Option<(FocusHandle, [Subscription; 2])>,
 }
 
 impl NodeView {
@@ -2262,6 +2305,30 @@ fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
     .then_some((width, height))
 }
 
+/// The layout style a node carries, when it has one.
+fn node_style(kind: &NodeKind) -> Option<&Style> {
+    match kind {
+        NodeKind::Canvas { style, .. }
+        | NodeKind::Button { style, .. }
+        | NodeKind::Checkbox { style, .. }
+        | NodeKind::Textarea { style, .. }
+        | NodeKind::Image { style, .. }
+        | NodeKind::Column { style, .. }
+        | NodeKind::KeyedColumn { style, .. }
+        | NodeKind::Dialog { style, .. }
+        | NodeKind::Panel { style, .. }
+        | NodeKind::Row { style, .. }
+        | NodeKind::Scroll { style, .. }
+        | NodeKind::VirtualList { style, .. }
+        | NodeKind::TextInput { style, .. } => Some(style),
+        NodeKind::Popover { .. }
+        | NodeKind::Boundary { .. }
+        | NodeKind::VirtualItem { .. }
+        | NodeKind::StyledText { .. }
+        | NodeKind::Text(_) => None,
+    }
+}
+
 fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyElement {
     let node = view.read(cx);
     observatory::note_native_view_element(if node.keyed_children.is_some() {
@@ -2510,6 +2577,149 @@ impl Render for NodeView {
                         });
                     })
                     .child(inner);
+                append_children = false;
+            }
+            NodeKind::Popover {
+                placement,
+                hover_enter,
+                hover_exit,
+                style,
+                ..
+            } => {
+                let presents = self.children.len() > 1;
+                // The wrapper stands in for its anchor in the parent's layout,
+                // so it takes the anchor's share of the parent's space.
+                element = element.relative().flex().flex_col();
+                // Through boundaries and nested popovers, which add no box.
+                let mut anchor_view = self.children.first().cloned();
+                while let Some(view) = anchor_view.clone() {
+                    let node = view.read(_cx);
+                    if matches!(
+                        node.node.kind,
+                        NodeKind::Boundary { .. } | NodeKind::Popover { .. }
+                    ) {
+                        anchor_view = node.children.first().cloned();
+                    } else {
+                        break;
+                    }
+                }
+                if let Some(anchor) =
+                    anchor_view.and_then(|view| node_style(&view.read(_cx).node.kind).cloned())
+                {
+                    if anchor.grow {
+                        element = element.flex_grow(1.0);
+                    }
+                    if anchor.width == Length::Fill {
+                        element = element.w_full();
+                    }
+                    if anchor.height == Length::Fill {
+                        element = element.h_full();
+                    }
+                    // An anchor that takes a share of the parent's space sizes
+                    // by that share, not by its content; its wrapper must not
+                    // hold it open at its content's width.
+                    if (anchor.grow || anchor.width == Length::Fill)
+                        && anchor.min_width == Length::Auto
+                    {
+                        element = element.min_w_0();
+                    }
+                    if anchor.height == Length::Fill && anchor.min_height == Length::Auto {
+                        element = element.min_h_0();
+                    }
+                }
+                if presents || *hover_enter || *hover_exit {
+                    let hover_runtime = self.runtime.clone();
+                    let hover_view = _cx.entity().downgrade();
+                    element = element.on_hover(move |entered, _, cx| {
+                        // As for a button: follow this surviving native entity to
+                        // its current node, never a stale id.
+                        let Some(view) = hover_view.upgrade() else {
+                            return;
+                        };
+                        let _ = hover_runtime.update(cx, |runtime, cx| {
+                            runtime.popover_hover_if_live(&view, *entered, cx)
+                        });
+                    });
+                }
+                if presents && self.input_enabled {
+                    if self.popover_focus.is_none() {
+                        let handle = _cx.focus_handle();
+                        let entered = _cx.on_focus_in(&handle, window, |view, _, cx| {
+                            let (id, runtime) = (view.node.id, view.runtime.clone());
+                            cx.defer(move |cx| {
+                                let _ = runtime.update(cx, |runtime, cx| {
+                                    runtime.popover_focus_if_live(id, true, cx)
+                                });
+                            });
+                        });
+                        let left = _cx.on_focus_out(&handle, window, |view, _, _, cx| {
+                            let (id, runtime) = (view.node.id, view.runtime.clone());
+                            cx.defer(move |cx| {
+                                let _ = runtime.update(cx, |runtime, cx| {
+                                    runtime.popover_focus_if_live(id, false, cx)
+                                });
+                            });
+                        });
+                        self.popover_focus = Some((handle, [entered, left]));
+                    }
+                    if let Some((handle, _)) = &self.popover_focus {
+                        // Tracked only to hear focus arrive in the anchor. A
+                        // press on the anchor must not move focus here.
+                        element = element
+                            .track_focus(handle)
+                            .on_mouse_down(MouseButton::Left, |_, window, _| {
+                                window.prevent_default()
+                            });
+                    }
+                }
+                if let Some(anchor) = self.children.first() {
+                    element = element.child(native_node_view(anchor.clone(), _cx));
+                }
+                if presents && self.popover_open {
+                    let mut surface = apply_style(
+                        div().id("popover-surface").relative().flex().flex_col(),
+                        style,
+                    )
+                    .children(
+                        self.children
+                            .iter()
+                            .skip(1)
+                            .cloned()
+                            .map(|view| native_node_view(view, _cx)),
+                    );
+                    // The popover's recorded bounds are its surface's.
+                    if probe::enabled() {
+                        surface = surface.child(probe::marker(self.node.id));
+                    }
+                    let (corner, offset, holder) = match placement {
+                        Placement::Below => (
+                            Anchor::TopLeft,
+                            point(px(0.0), px(4.0)),
+                            div().absolute().top_full().left_0(),
+                        ),
+                        Placement::Above => (
+                            Anchor::BottomLeft,
+                            point(px(0.0), px(-4.0)),
+                            div().absolute().top_0().left_0(),
+                        ),
+                        Placement::Start => (
+                            Anchor::TopRight,
+                            point(px(-4.0), px(0.0)),
+                            div().absolute().top_0().left_0(),
+                        ),
+                        Placement::End => (
+                            Anchor::TopLeft,
+                            point(px(4.0), px(0.0)),
+                            div().absolute().top_0().left_full(),
+                        ),
+                    };
+                    element = element.child(
+                        holder.child(
+                            deferred(anchored().anchor(corner).offset(offset).child(surface))
+                                .with_priority(1),
+                        ),
+                    );
+                }
                 append_children = false;
             }
             NodeKind::Row { style, .. } => {
@@ -2931,7 +3141,10 @@ impl Render for NodeView {
                 }
             }
         }
-        if probe::enabled() {
+        // A popover that presents records its surface's bounds instead.
+        let presents =
+            matches!(self.node.kind, NodeKind::Popover { .. }) && self.children.len() > 1;
+        if probe::enabled() && !presents {
             element = element.child(probe::marker(self.node.id));
         }
         if append_children {
@@ -3014,6 +3227,10 @@ struct Runtime {
     editors: HashMap<ElementIdentity, Entity<input::TextInput>>,
     editor_nodes: HashMap<ElementIdentity, u64>,
     canvas_drag: Option<(ElementIdentity, u64)>,
+    /// A hovered popover's delay, by the native view that asked for it. The
+    /// view survives a rebuild of its node, so the timer finds the popover's
+    /// current node when it fires. Dropping a task cancels it.
+    popover_timers: HashMap<EntityId, Task<()>>,
 }
 
 #[derive(Clone)]
@@ -3089,6 +3306,7 @@ impl Runtime {
             editors: HashMap::new(),
             editor_nodes: HashMap::new(),
             canvas_drag: None,
+            popover_timers: HashMap::new(),
         };
         if observatory::active() {
             runtime.apply_recorded(
@@ -3267,6 +3485,98 @@ impl Runtime {
                 if entered { "hover-enter" } else { "hover-exit" },
                 cx,
             );
+        }
+    }
+
+    /// A pointer edge on a popover or hover region. The graph decides what the
+    /// edge means; this waits out a delay the graph asks for, draws the
+    /// result, and delivers any installed hover handler.
+    fn popover_hover_if_live(
+        &mut self,
+        view: &Entity<NodeView>,
+        entered: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let id = view.read(cx).node.id;
+        let was_open = self.graph.popover_open(id);
+        let route = self.graph.hover_transition(id, entered);
+        let key = view.entity_id();
+        if !entered {
+            self.popover_timers.remove(&key);
+        }
+        if let Some(delay) = self.graph.popover_delay(id)
+            && !self.popover_timers.contains_key(&key)
+        {
+            let waiting = view.downgrade();
+            let task = cx.spawn(async move |runtime, cx| {
+                cx.background_executor()
+                    .timer(Duration::from_millis(u64::from(delay)))
+                    .await;
+                let _ = runtime.update(cx, |runtime, cx| {
+                    runtime.popover_timers.remove(&key);
+                    if let Some(view) = waiting.upgrade() {
+                        let id = view.read(cx).node.id;
+                        if runtime.graph.popover_elapse(id) {
+                            runtime.present_popovers(&[id], cx);
+                        }
+                    }
+                });
+            });
+            self.popover_timers.insert(key, task);
+        }
+        if self.graph.popover_open(id) != was_open {
+            self.present_popovers(&[id], cx);
+        }
+        if let Some(route) = route {
+            self.dispatch_live_event(
+                route,
+                if entered { "hover-enter" } else { "hover-exit" },
+                cx,
+            );
+        }
+    }
+
+    /// Keyboard focus entered or left a popover's region.
+    fn popover_focus_if_live(&mut self, id: u64, within: bool, cx: &mut Context<Self>) {
+        if within
+            && self
+                .active_dialog
+                .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
+        if self.graph.popover_focus(id, within) {
+            self.present_popovers(&[id], cx);
+        }
+    }
+
+    /// Escape, reaching the window root because nothing nearer took it.
+    fn dismiss_popovers(&mut self, cx: &mut Context<Self>) {
+        let closed = self.graph.dismiss_popovers();
+        self.popover_timers.clear();
+        self.present_popovers(&closed, cx);
+    }
+
+    /// Show each popover's surface as the graph now decides. Presentation is
+    /// part of what a frame draws, so it moves the generation a painted read
+    /// compares against, exactly as a patch does.
+    fn present_popovers(&mut self, ids: &[u64], cx: &mut Context<Self>) {
+        let mut changed = false;
+        for id in ids {
+            let open = self.graph.popover_open(*id);
+            if let Some(view) = self.native_view(*id) {
+                view.update(cx, |view, cx| {
+                    if view.popover_open != open {
+                        view.popover_open = open;
+                        changed = true;
+                        cx.notify();
+                    }
+                });
+            }
+        }
+        if changed {
+            self.generation += 1;
+            cx.notify();
         }
     }
 
@@ -4033,6 +4343,7 @@ impl Runtime {
             .and_then(|view| view.read(cx).scroll.clone())
             .or_else(|| ScrollTracker::for_kind(&node.kind));
         let editor = self.editor_for_node(&node, input_enabled, cx);
+        let popover_open = self.graph.popover_open(node.id);
         let focus_handle = if let Some(editor) = &editor {
             Some(editor.read(cx).focus_handle())
         } else if node.kind.focus_identity().is_some() {
@@ -4058,6 +4369,7 @@ impl Runtime {
                     existing.focus_handle = focus_handle;
                     existing.input = editor;
                     existing.scroll = scroll;
+                    existing.popover_open = popover_open;
                     cx.notify();
                 });
                 view
@@ -4077,6 +4389,8 @@ impl Runtime {
                     input: editor,
                     canvas_bounds: Arc::new(Mutex::new(None)),
                     scroll,
+                    popover_open,
+                    popover_focus: None,
                 })
             }
         }
@@ -4675,6 +4989,13 @@ impl Render for Runtime {
                 .track_focus(&self.root_focus)
                 .on_action(|_: &FocusNext, window, cx| window.focus_next(cx))
                 .on_action(|_: &FocusPrevious, window, cx| window.focus_prev(cx))
+                // Escape that nothing nearer handled closes presenting popovers.
+                .on_action({
+                    let runtime = _cx.entity().downgrade();
+                    move |_: &ActivateEscape, _, cx| {
+                        let _ = runtime.update(cx, |runtime, cx| runtime.dismiss_popovers(cx));
+                    }
+                })
                 // A plain closure, like its neighbours. A `cx.listener` here
                 // leases the runtime entity while GPUI is dispatching, and the
                 // surface's state is host-owned precisely so this handler does
@@ -7459,7 +7780,9 @@ mod tests {
     ) {
         let events = recording_dispatcher();
         let (root, nodes) = hover_tree(1000);
-        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx)
+        });
         cx.run_until_parked();
         cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
         cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());
@@ -8153,6 +8476,104 @@ mod tests {
             clicks.borrow().is_empty(),
             "a press on a control that left the tree was handed to its replacement"
         );
+    }
+
+    /// Two fixed controls in a row; the first is the anchor of a popover whose
+    /// surface presents one line of text after `delay_ms`.
+    fn noted_controls(base: u64, delay_ms: u32) -> Vec<Node> {
+        let mut nodes = two_hover_buttons(base);
+        nodes[0].children = vec![base + 3, base + 2];
+        nodes.push(Node {
+            id: base + 3,
+            kind: NodeKind::Popover {
+                label: "Note".into(),
+                placement: crate::bridge::Placement::Below,
+                delay_ms,
+                hover_enter: false,
+                hover_exit: false,
+                style: Box::default(),
+            },
+            children: vec![base + 1, base + 4],
+        });
+        nodes.push(Node {
+            id: base + 4,
+            kind: NodeKind::Text("A note".into()),
+            children: vec![],
+        });
+        nodes
+    }
+
+    #[gpui::test]
+    fn popover_waits_out_its_delay_on_the_window_clock_and_escape_dismisses_it(
+        cx: &mut TestAppContext,
+    ) {
+        let events = recording_dispatcher();
+        let nodes = noted_controls(1000, 400);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        let rendered_before = observatory::native_work_totals().rendered[17];
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        // The anchor's own hover handler fires; the surface waits.
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[1001 | crate::bridge::HOVER_ENTER_EVENT_BIT]
+        );
+        runtime.read_with(cx, |runtime, _| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert_eq!(runtime.graph.popover_delay(1003), Some(400));
+        });
+        cx.executor()
+            .advance_clock(std::time::Duration::from_millis(399));
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| assert!(!runtime.graph.popover_open(1003)));
+        cx.executor()
+            .advance_clock(std::time::Duration::from_millis(1));
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            assert!(runtime.graph.popover_open(1003));
+            assert!(runtime.views[&1003].read(cx).popover_open);
+        });
+        assert!(
+            observatory::native_work_totals().rendered[17] > rendered_before,
+            "presenting renders the popover's own view"
+        );
+        cx.dispatch_action(super::ActivateEscape);
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert!(!runtime.views[&1003].read(cx).popover_open);
+            assert_eq!(runtime.graph.popover_counters().as_array(), [1, 0, 1]);
+        });
+    }
+
+    #[gpui::test]
+    fn popover_opens_to_keyboard_focus_and_closes_when_focus_leaves(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let nodes = noted_controls(1000, 400);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        // Focus events reach an active window only. Activation hit-tests the
+        // pointer afresh, so put it back outside before focusing.
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1001].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| assert!(runtime.graph.popover_open(1003)));
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1002].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert_eq!(runtime.graph.popover_counters().as_array(), [1, 1, 0]);
+        });
     }
 }
 

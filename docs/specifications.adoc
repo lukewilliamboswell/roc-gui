@@ -158,6 +158,9 @@ are captured.
 `(role panel :name "label")`:: A panel identified by its semantic label.
 `(role row :name "name")`:: A row identified by its semantic name.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
+`(role tooltip :name "label")`:: A popover's presenting surface, identified by
+its semantic label. A closed popover presents nothing, so neither it nor
+anything in its content matches.
 `(role textarea :name "name")`:: A multiline editor identified by its semantic
 name. Locator matching never records its value.
 `(role textbox :name "label")`:: A controlled text input identified by its
@@ -198,6 +201,9 @@ terminal's, is chunked by the platform rather than by the application, so a
 specification that counted `await-task` steps would be asserting how an
 operating system flushed a pipe. This waits for what the application shows
 instead, and fails if the graph has not said it before the task budget expires.
+It is also how a specification waits out a popover's delay: the window runner
+presents frames on the window's own clock, and the semantic runner, which has
+no clock, lets every pending delay elapse before it waits for a task.
 Follow it with `expect-count` to assert the same number exactly. On the window
 runner the step ends on a presented frame carrying those nodes, so a following
 `expect-on-screen` asks about something the window has actually drawn.
@@ -221,9 +227,14 @@ same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
-`(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Deliver a button hover
-transition through the canonical mounted graph and normal Roc route. Duplicate
-transitions and disabled controls dispatch nothing. Both runners use the same
+`(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Rest the pointer on, or
+take it off, the located node. The transition goes through the canonical
+mounted graph to every hover target the pointer then rests on: each popover or
+hover region whose anchor contains the node, outermost first, and the node
+itself when it is a button with a hover handler. Installed handlers are
+delivered through the normal Roc route; a popover's surface presents after its
+delay. A node that is no hover target and lies in no anchor is refused.
+Duplicate transitions and disabled controls dispatch nothing. Both runners use the same
 transition owner. The window runner requires an entering target to be painted
 and visible, then dispatches a GPUI mouse-move event at its centre. Exit moves
 the simulated pointer outside the window; GPUI performs hit testing and delivers
@@ -248,11 +259,14 @@ assertions belong to controlled interactions without unrelated input or resize.
 gesture through a canvas's production event route. Coordinates are integer
 logical pixels in canvas space.
 `(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
-or checkbox. Focus remains valid only while that mounted node is live.
+or checkbox. Focus remains valid only while that mounted node is live. Focus
+entering a popover's anchor presents it at once; focus leaving closes it unless
+the pointer rests there.
 `(mark-metrics)`:: Separate benchmark setup from the operation being measured.
 `(press-key Enter)`:: Activate the focused button through the normal Roc event
 route.
 `(press-key Escape)`:: Dismiss the active dialog through its `on_dismiss` route.
+With no dialog, close every presenting popover; with neither, the step fails.
 `(press-key Space)`:: Activate the focused button, or toggle the focused enabled
 checkbox, through the normal Roc event route.
 `(replace-text LOCATOR "value")`:: Replace the complete controlled value of one
@@ -341,6 +355,10 @@ persisting image content.
 `(expect-not-visible LOCATOR)`:: Require no matches.
 `(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced
 by the preceding click. `KIND` is `mount`, `replace`, or `no_change`.
+`(expect-popover-counters OPENED CLOSED DISMISSED)`:: Require the mounted
+graph's popover transitions since the run began: surfaces that began
+presenting, surfaces closed because pointer and focus both left, and surfaces
+closed by Escape. Both runners answer from the same graph.
 `(expect-processes N)`:: Require exactly `N` live host-owned PTY child
 processes.
 `(expect-sqlite-counters LIVE OPEN QUERY)`:: Require the owner-recorded live

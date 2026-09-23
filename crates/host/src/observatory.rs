@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 19;
+pub const SCHEMA_VERSION: u32 = 20;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -29,7 +29,7 @@ pub const ROC_WORK_KINDS: usize = 5;
 
 /// Counts reported by the production native operations, indexed by NodeKind::tag.
 /// These are renders and view-element construction, not inferred cache outcomes.
-pub const NATIVE_NODE_KINDS: usize = 17;
+pub const NATIVE_NODE_KINDS: usize = 18;
 pub const KEYED_CONTAINER_NATIVE_KIND: u8 = 16;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1672,7 +1672,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=19;
+PRAGMA user_version=20;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -1827,7 +1827,7 @@ CREATE TABLE gpui_frames(
 CREATE TABLE gpui_native_work(
     frame_id INTEGER NOT NULL REFERENCES gpui_frames(id),
     metric INTEGER NOT NULL CHECK(metric BETWEEN 0 AND 1),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 16),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 17),
     count INTEGER NOT NULL CHECK(count > 0),
     PRIMARY KEY(frame_id,metric,kind)
 );

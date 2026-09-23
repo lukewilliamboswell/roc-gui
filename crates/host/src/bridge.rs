@@ -699,6 +699,18 @@ pub enum NodeKind {
         label: String,
         style: Box<Style>,
     },
+    /// An anchor, its first child, annotated by a non-modal surface that
+    /// presents the remaining children. With no remaining children it is a
+    /// hover region and presents nothing.
+    Popover {
+        label: String,
+        placement: Placement,
+        delay_ms: u32,
+        hover_enter: bool,
+        hover_exit: bool,
+        /// The surface's style; the anchor keeps its own.
+        style: Box<Style>,
+    },
     Panel {
         label: String,
         style: Box<Style>,
@@ -766,6 +778,15 @@ pub enum CanvasPrimitiveKind {
     Ellipse,
     Line,
     Rectangle,
+}
+
+/// Which side of its anchor a popover surface is placed on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Placement {
+    Below,
+    Above,
+    Start,
+    End,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -850,6 +871,7 @@ impl NodeKind {
             Self::Text(_) => 13,
             Self::StyledText { .. } => 14,
             Self::Boundary { .. } => 15,
+            Self::Popover { .. } => 17,
         }
     }
 
@@ -870,6 +892,7 @@ impl NodeKind {
             | Self::Column { label, .. }
             | Self::KeyedColumn { label, .. }
             | Self::Dialog { label, .. }
+            | Self::Popover { label, .. }
             | Self::Panel { label, .. }
             | Self::Row { label, .. }
             | Self::TextInput { label, .. } => label.as_str().into(),
@@ -1255,6 +1278,71 @@ pub struct MountedGraph {
     input_owners: NodeMap<Option<u64>>,
     dialog: Option<u64>,
     hovered: NodeSet,
+    popovers: PopoverState,
+}
+
+/// Which popovers are presenting, and why. Owned by the graph so the native
+/// window and the semantic runner apply one policy: a surface opens after its
+/// delay while the pointer rests on the anchor, at once while keyboard focus
+/// is inside it, and closes when both have left or on Escape.
+#[derive(Default)]
+struct PopoverState {
+    open: NodeSet,
+    /// Hovered, waiting for the delay to elapse.
+    pending: NodeSet,
+    focus_within: NodeSet,
+    counters: PopoverCounters,
+}
+
+/// Deterministic popover transitions, counted by the graph that decides them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PopoverCounters {
+    /// Surfaces that began presenting.
+    pub opened: u64,
+    /// Surfaces closed because pointer and focus both left.
+    pub closed: u64,
+    /// Surfaces closed by Escape.
+    pub dismissed: u64,
+}
+
+impl PopoverCounters {
+    pub fn as_array(self) -> [u64; 3] {
+        [self.opened, self.closed, self.dismissed]
+    }
+}
+
+/// Interaction state of retired nodes, carried by identity to the nodes that
+/// replace them, so a rebuild under the pointer neither replays nor drops it.
+#[derive(Default)]
+struct InteractionCarry {
+    hovered: HashSet<ElementIdentity>,
+    open: HashSet<ElementIdentity>,
+    pending: HashSet<ElementIdentity>,
+    focus_within: HashSet<ElementIdentity>,
+}
+
+impl InteractionCarry {
+    fn is_empty(&self) -> bool {
+        self.hovered.is_empty()
+            && self.open.is_empty()
+            && self.pending.is_empty()
+            && self.focus_within.is_empty()
+    }
+}
+
+/// Whether the graph tracks pointer edges for this node: an enabled button
+/// with a hover handler, or any popover.
+fn tracks_hover(kind: &NodeKind) -> bool {
+    match kind {
+        NodeKind::Button {
+            enabled: true,
+            hover_enter,
+            hover_exit,
+            ..
+        } => *hover_enter || *hover_exit,
+        NodeKind::Popover { .. } => true,
+        _ => false,
+    }
 }
 
 struct MountedNode {
@@ -1407,6 +1495,24 @@ impl MountedGraph {
         ordered
     }
 
+    /// Nodes a person can currently perceive, in production child order: the
+    /// content of a closed popover is mounted but not presented, so it is
+    /// skipped along with everything below it.
+    pub fn presented_preorder(&self) -> Vec<&Node> {
+        let mut ordered = Vec::with_capacity(self.nodes.len());
+        let mut pending = self.root.into_iter().collect::<Vec<_>>();
+        while let Some(id) = pending.pop() {
+            let node = &self.nodes.get(&id).expect("mounted child is missing").node;
+            ordered.push(node);
+            if matches!(node.kind, NodeKind::Popover { .. }) && !self.popovers.open.contains(&id) {
+                pending.extend(node.children.first().copied());
+            } else {
+                pending.extend(self.children_of(id).rev());
+            }
+        }
+        ordered
+    }
+
     /// Where every mounted node sits, named rather than numbered.
     ///
     /// A mounted node id is deliberately never reused, so it cannot say that
@@ -1512,6 +1618,17 @@ impl MountedGraph {
                     HOVER_EXIT_EVENT_BIT
                 },
             ),
+            NodeKind::Popover {
+                hover_enter,
+                hover_exit,
+                ..
+            } if if entered { *hover_enter } else { *hover_exit } => Some(
+                id | if entered {
+                    HOVER_ENTER_EVENT_BIT
+                } else {
+                    HOVER_EXIT_EVENT_BIT
+                },
+            ),
             _ => None,
         }
     }
@@ -1525,8 +1642,7 @@ impl MountedGraph {
         {
             return None;
         }
-        if !matches!(self.node(id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
-        {
+        if !self.node(id).is_some_and(|node| tracks_hover(&node.kind)) {
             return None;
         }
         let changed = if entered {
@@ -1534,7 +1650,256 @@ impl MountedGraph {
         } else {
             self.hovered.remove(&id)
         };
+        if changed {
+            self.popover_hover_edge(id, entered);
+        }
         changed.then(|| self.hover_route(id, entered)).flatten()
+    }
+
+    /// The nodes a pointer resting on `id` hovers, outermost first: every
+    /// popover whose anchor contains `id`, then `id` itself when it tracks
+    /// hover. A popover's surface floats outside its anchor, so a node in a
+    /// surface hovers nothing above that popover.
+    pub fn hover_targets(&self, id: u64) -> Vec<u64> {
+        let mut targets = Vec::new();
+        if self.node(id).is_some_and(|node| tracks_hover(&node.kind)) {
+            targets.push(id);
+        }
+        let mut current = id;
+        while let Some(location) = self.parent_location(current) {
+            let parent = location.parent();
+            if matches!(
+                self.node(parent).map(|node| &node.kind),
+                Some(NodeKind::Popover { .. })
+            ) {
+                if !matches!(location, ParentLocation::OrdinaryIndex { index: 0, .. }) {
+                    break;
+                }
+                targets.push(parent);
+            }
+            current = parent;
+        }
+        targets.reverse();
+        targets
+    }
+
+    /// A popover with content to present, as opposed to a hover region.
+    fn presents(&self, id: u64) -> bool {
+        self.node(id).is_some_and(|node| {
+            matches!(node.kind, NodeKind::Popover { .. }) && node.children.len() > 1
+        })
+    }
+
+    fn open_popover(&mut self, id: u64) -> bool {
+        self.popovers.pending.remove(&id);
+        let opened = self.popovers.open.insert(id);
+        if opened {
+            self.popovers.counters.opened += 1;
+        }
+        opened
+    }
+
+    fn close_popover(&mut self, id: u64) -> bool {
+        self.popovers.pending.remove(&id);
+        let closed = self.popovers.open.remove(&id);
+        if closed {
+            self.popovers.counters.closed += 1;
+        }
+        closed
+    }
+
+    fn popover_hover_edge(&mut self, id: u64, entered: bool) {
+        if !self.presents(id) {
+            return;
+        }
+        if entered {
+            let delay = match self.node(id).map(|node| &node.kind) {
+                Some(NodeKind::Popover { delay_ms, .. }) => *delay_ms,
+                _ => 0,
+            };
+            if delay == 0 {
+                self.open_popover(id);
+            } else if !self.popovers.open.contains(&id) {
+                self.popovers.pending.insert(id);
+            }
+        } else {
+            self.popovers.pending.remove(&id);
+            if !self.popovers.focus_within.contains(&id) {
+                self.close_popover(id);
+            }
+        }
+    }
+
+    /// The delay a hovered popover is waiting out, when it is waiting.
+    pub fn popover_delay(&self, id: u64) -> Option<u32> {
+        if !self.popovers.pending.contains(&id) {
+            return None;
+        }
+        match self.node(id).map(|node| &node.kind) {
+            Some(NodeKind::Popover { delay_ms, .. }) => Some(*delay_ms),
+            _ => None,
+        }
+    }
+
+    /// The delay has elapsed. Opens the popover only if the pointer is still
+    /// resting on its anchor; reports whether it opened.
+    pub fn popover_elapse(&mut self, id: u64) -> bool {
+        self.popovers.pending.remove(&id) && self.hovered.contains(&id) && self.open_popover(id)
+    }
+
+    /// Every popover waiting out a delay. A runner without a clock elapses
+    /// these when a specification waits.
+    pub fn pending_popovers(&self) -> Vec<u64> {
+        let mut pending = self.popovers.pending.iter().copied().collect::<Vec<_>>();
+        pending.sort_unstable();
+        pending
+    }
+
+    /// Keyboard focus entered or left a popover. Reports whether the popover
+    /// opened or closed.
+    pub fn popover_focus(&mut self, id: u64, within: bool) -> bool {
+        if !self.presents(id) {
+            return false;
+        }
+        if within {
+            self.popovers.focus_within.insert(id);
+            self.open_popover(id)
+        } else {
+            self.popovers.focus_within.remove(&id);
+            !self.hovered.contains(&id) && self.close_popover(id)
+        }
+    }
+
+    /// Focus moved to `focused`, or left every control. Updates each popover
+    /// the move entered or left, and returns those whose presentation changed.
+    pub fn popover_focus_moved(&mut self, focused: Option<u64>) -> Vec<u64> {
+        let mut containing = Vec::new();
+        let mut current = focused;
+        while let Some(id) = current {
+            if self.presents(id) {
+                containing.push(id);
+            }
+            current = self.parent(id).map(|(parent, _)| parent);
+        }
+        let mut left = self
+            .popovers
+            .focus_within
+            .iter()
+            .copied()
+            .filter(|id| !containing.contains(id))
+            .collect::<Vec<_>>();
+        left.sort_unstable();
+        let mut changed = Vec::new();
+        for id in left {
+            if self.popover_focus(id, false) {
+                changed.push(id);
+            }
+        }
+        for id in containing {
+            if !self.popovers.focus_within.contains(&id) && self.popover_focus(id, true) {
+                changed.push(id);
+            }
+        }
+        changed
+    }
+
+    /// Escape closes every presenting popover and cancels every pending one.
+    /// Returns the popovers it closed; each stays closed until the pointer or
+    /// focus enters it again.
+    pub fn dismiss_popovers(&mut self) -> Vec<u64> {
+        let mut closed = self.popovers.open.drain().collect::<Vec<_>>();
+        closed.sort_unstable();
+        self.popovers.pending.clear();
+        self.popovers.focus_within.clear();
+        self.popovers.counters.dismissed += closed.len() as u64;
+        closed
+    }
+
+    pub fn popover_open(&self, id: u64) -> bool {
+        self.popovers.open.contains(&id)
+    }
+
+    pub fn popover_counters(&self) -> PopoverCounters {
+        self.popovers.counters
+    }
+
+    /// Collect the interaction state of nodes about to be retired, by
+    /// identity, while their ancestry is still mounted.
+    fn carry_interaction(&mut self, removed: &[u64]) -> InteractionCarry {
+        let mut carry = InteractionCarry::default();
+        for id in removed {
+            let hovered = self.hovered.remove(id);
+            let open = self.popovers.open.remove(id);
+            let pending = self.popovers.pending.remove(id);
+            let focus = self.popovers.focus_within.remove(id);
+            if hovered || open || pending || focus {
+                let identity = self.identity(*id);
+                if hovered {
+                    carry.hovered.insert(identity.clone());
+                }
+                if open {
+                    carry.open.insert(identity.clone());
+                }
+                if pending {
+                    carry.pending.insert(identity.clone());
+                }
+                if focus {
+                    carry.focus_within.insert(identity);
+                }
+            }
+        }
+        carry
+    }
+
+    /// Give carried interaction state to the staged nodes that took the
+    /// retired nodes' identities.
+    fn restore_interaction(&mut self, staged: &[u64], carry: InteractionCarry) {
+        if carry.is_empty() {
+            return;
+        }
+        for id in staged {
+            let Some(node) = self.node(*id) else {
+                continue;
+            };
+            if !tracks_hover(&node.kind) {
+                continue;
+            }
+            let presents = self.presents(*id);
+            let identity = self.identity(*id);
+            if carry.hovered.contains(&identity) {
+                self.hovered.insert(*id);
+            }
+            if presents {
+                if carry.open.contains(&identity) {
+                    self.popovers.open.insert(*id);
+                }
+                if carry.pending.contains(&identity) {
+                    self.popovers.pending.insert(*id);
+                }
+                if carry.focus_within.contains(&identity) {
+                    self.popovers.focus_within.insert(*id);
+                }
+            }
+        }
+    }
+
+    /// Modal input policy: a newly active dialog retires background pointer
+    /// and popover state without dispatching callbacks.
+    fn retire_behind_dialog(&mut self, dialog: u64) {
+        let blocked = self
+            .hovered
+            .iter()
+            .chain(self.popovers.open.iter())
+            .chain(self.popovers.pending.iter())
+            .chain(self.popovers.focus_within.iter())
+            .copied()
+            .filter(|id| !self.is_descendant_of(*id, dialog))
+            .collect::<Vec<_>>();
+        for id in blocked {
+            self.hovered.remove(&id);
+            self.popovers.focus_within.remove(&id);
+            self.close_popover(id);
+        }
     }
 
     pub fn is_descendant_of(&self, mut id: u64, ancestor: u64) -> bool {
@@ -1559,12 +1924,22 @@ impl MountedGraph {
     /// into view, so deciding visibility means clipping against these.
     pub fn scroll_ancestors(&self, id: u64) -> Vec<u64> {
         let mut found = Vec::new();
+        // A presenting popover's surface, and its content, float above the
+        // window rather than inside any scrolling ancestor.
+        if self.presents(id) {
+            return found;
+        }
         let mut current = self.nodes.get(&id).and_then(|entry| entry.parent);
         while let Some(parent) = current {
             let parent_id = parent.parent();
             let Some(entry) = self.nodes.get(&parent_id) else {
                 break;
             };
+            if matches!(parent, ParentLocation::OrdinaryIndex { index, .. } if index > 0)
+                && matches!(entry.node.kind, NodeKind::Popover { .. })
+            {
+                break;
+            }
             if matches!(
                 entry.node.kind,
                 NodeKind::Scroll { .. } | NodeKind::VirtualList { .. }
@@ -1951,13 +2326,8 @@ impl MountedGraph {
         let apply_started = MEASURE.then(Instant::now);
 
         let old_size = self.nodes[&container].subtree_size;
-        let mut hovered_identities = HashSet::new();
         let mut removed_instances = Vec::new();
-        for id in &removed_ids {
-            if self.hovered.remove(id) {
-                hovered_identities.insert(self.identity(*id));
-            }
-        }
+        let carried = self.carry_interaction(&removed_ids);
         for id in &removed_ids {
             let entry = self.nodes.remove(id).expect("prevalidated retirement");
             match entry.node.kind {
@@ -2012,27 +2382,11 @@ impl MountedGraph {
             .get_mut(&container)
             .expect("validated container")
             .keyed_children = Some(order);
-        if !hovered_identities.is_empty() {
-            for id in &staged_ids {
-                if matches!(self.node(*id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
-                    && hovered_identities.contains(&self.identity(*id))
-                {
-                    self.hovered.insert(*id);
-                }
-            }
-        }
+        self.restore_interaction(&staged_ids, carried);
         if self.dialog != previous_dialog
             && let Some(dialog) = self.dialog
         {
-            let blocked = self
-                .hovered
-                .iter()
-                .copied()
-                .filter(|id| !self.is_descendant_of(*id, dialog))
-                .collect::<Vec<_>>();
-            for id in blocked {
-                self.hovered.remove(&id);
-            }
+            self.retire_behind_dialog(dialog);
         }
         Ok(KeyedGraphApply {
             revision: new_revision,
@@ -2369,12 +2723,7 @@ impl MountedGraph {
             .collect();
         let mut removed_instances = Vec::new();
         let retired_root = old_root == self.root && old_root.is_some() && frontier.is_empty();
-        let mut hovered_identities = HashSet::new();
-        for id in &removed_ids {
-            if self.hovered.remove(id) {
-                hovered_identities.insert(self.identity(*id));
-            }
-        }
+        let carried = self.carry_interaction(&removed_ids);
         for id in &removed_ids {
             let entry = self.nodes.remove(id).expect("validated retirement");
             match entry.node.kind {
@@ -2430,30 +2779,14 @@ impl MountedGraph {
         } else {
             self.root = Some(root);
         }
-        if !hovered_identities.is_empty() {
-            for id in &staged_ids {
-                if matches!(self.node(*id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
-                    && hovered_identities.contains(&self.identity(*id))
-                {
-                    self.hovered.insert(*id);
-                }
-            }
-        }
+        self.restore_interaction(&staged_ids, carried);
         if self.dialog != previous_dialog
             && let Some(dialog) = self.dialog
         {
             // Modal input policy suppresses background exit callbacks. Retire
-            // blocked hover state without dispatching callbacks or walking
-            // unrelated mounted nodes.
-            let blocked = self
-                .hovered
-                .iter()
-                .copied()
-                .filter(|id| !self.is_descendant_of(*id, dialog))
-                .collect::<Vec<_>>();
-            for id in blocked {
-                self.hovered.remove(&id);
-            }
+            // blocked hover and popover state without dispatching callbacks or
+            // walking unrelated mounted nodes.
+            self.retire_behind_dialog(dialog);
         }
         let facts = ApplyFacts {
             kind: if old_root.is_some() {
@@ -3343,6 +3676,18 @@ fn validate_fragment<'a>(
             NodeKind::Boundary { .. } if node.children.len() != 1 => {
                 return Err(format!(
                     "boundary node {} must have one content child",
+                    node.id
+                ));
+            }
+            NodeKind::Popover { .. } if node.children.is_empty() => {
+                return Err(format!(
+                    "popover node {} must have an anchor child",
+                    node.id
+                ));
+            }
+            NodeKind::Popover { delay_ms, .. } if delay_ms > 60_000 => {
+                return Err(format!(
+                    "popover node {} delay exceeds 60000 milliseconds",
                     node.id
                 ));
             }
@@ -6464,5 +6809,187 @@ mod tests {
             registry.begin_render(0).is_err(),
             "finished lowering still awaits graph acceptance"
         );
+    }
+
+    fn popover(id: u64, label: &str, delay_ms: u32, handlers: bool, children: Vec<u64>) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Popover {
+                label: label.into(),
+                placement: Placement::Below,
+                delay_ms,
+                hover_enter: handlers,
+                hover_exit: handlers,
+                style: Box::default(),
+            },
+            children,
+        }
+    }
+
+    /// A cell with a note: column 10 holds popover 3, anchoring text 1 and
+    /// presenting text 2.
+    fn noted_cell(base: u64, delay_ms: u32) -> Vec<Node> {
+        vec![
+            text(base + 1, "cell"),
+            text(base + 2, "note"),
+            popover(base + 3, "Note", delay_ms, false, vec![base + 1, base + 2]),
+            column(base + 10, vec![base + 3]),
+        ]
+    }
+
+    #[test]
+    fn popover_opens_after_its_delay_and_closes_when_the_pointer_leaves() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: noted_cell(0, 400),
+            })
+            .unwrap();
+        assert_eq!(graph.hover_targets(1), vec![3]);
+        assert!(
+            graph.hover_targets(2).is_empty(),
+            "the surface is not the anchor"
+        );
+        let presented = |graph: &MountedGraph| {
+            graph
+                .presented_preorder()
+                .iter()
+                .map(|node| node.id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(presented(&graph), vec![10, 3, 1]);
+        // No handler is installed, so the edge dispatches nothing to Roc.
+        assert_eq!(graph.hover_transition(3, true), None);
+        assert!(!graph.popover_open(3));
+        assert_eq!(graph.popover_delay(3), Some(400));
+        assert_eq!(graph.pending_popovers(), vec![3]);
+        assert!(graph.popover_elapse(3));
+        assert!(graph.popover_open(3));
+        assert_eq!(presented(&graph), vec![10, 3, 1, 2]);
+        assert_eq!(graph.hover_transition(3, false), None);
+        assert!(!graph.popover_open(3));
+        // A delay that elapses after the pointer left opens nothing.
+        graph.hover_transition(3, true);
+        graph.hover_transition(3, false);
+        assert!(!graph.popover_elapse(3));
+        assert_eq!(
+            graph.popover_counters(),
+            PopoverCounters {
+                opened: 1,
+                closed: 1,
+                dismissed: 0
+            }
+        );
+    }
+
+    #[test]
+    fn popover_focus_opens_at_once_and_holds_it_open_past_the_pointer() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: noted_cell(0, 400),
+            })
+            .unwrap();
+        assert_eq!(graph.popover_focus_moved(Some(1)), vec![3]);
+        assert!(graph.popover_open(3));
+        graph.hover_transition(3, true);
+        graph.hover_transition(3, false);
+        assert!(graph.popover_open(3), "focus inside keeps it presenting");
+        assert_eq!(graph.popover_focus_moved(None), vec![3]);
+        assert!(!graph.popover_open(3));
+        // Escape closes what presents, and it stays closed.
+        graph.popover_focus_moved(Some(1));
+        assert_eq!(graph.dismiss_popovers(), vec![3]);
+        assert!(!graph.popover_open(3));
+        assert_eq!(graph.popover_counters().as_array(), [2, 1, 1]);
+    }
+
+    #[test]
+    fn popover_presentation_survives_a_rebuild_under_the_pointer() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: noted_cell(0, 0),
+            })
+            .unwrap();
+        graph.hover_transition(3, true);
+        assert!(graph.popover_open(3), "no delay opens at once");
+        graph
+            .apply(Patch::Replace {
+                old_root: 10,
+                root: 110,
+                nodes: noted_cell(100, 0),
+            })
+            .unwrap();
+        assert!(graph.popover_open(103));
+        assert_eq!(graph.hover_transition(103, true), None, "still hovered");
+        graph.hover_transition(103, false);
+        assert!(!graph.popover_open(103));
+        assert_eq!(graph.popover_counters().as_array(), [1, 1, 0]);
+    }
+
+    #[test]
+    fn hover_region_reports_edges_on_any_element_and_presents_nothing() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: vec![
+                    text(1, "cell"),
+                    popover(3, "", 0, true, vec![1]),
+                    column(10, vec![3]),
+                ],
+            })
+            .unwrap();
+        assert_eq!(graph.hover_targets(1), vec![3]);
+        assert_eq!(
+            graph.hover_transition(3, true),
+            Some(3 | HOVER_ENTER_EVENT_BIT)
+        );
+        assert!(!graph.popover_open(3));
+        assert_eq!(
+            graph.hover_transition(3, false),
+            Some(3 | HOVER_EXIT_EVENT_BIT)
+        );
+        assert_eq!(graph.popover_counters().as_array(), [0, 0, 0]);
+    }
+
+    #[test]
+    fn popover_anchors_are_validated_and_modal_dialogs_close_background_popovers() {
+        assert!(
+            validate_tree(3, &[popover(3, "Empty", 0, false, vec![])])
+                .unwrap_err()
+                .contains("anchor")
+        );
+        let mut graph = MountedGraph::default();
+        let mut nodes = noted_cell(0, 0);
+        nodes.push(text(20, "slot"));
+        nodes.push(column(30, vec![10, 20]));
+        graph.apply(Patch::Mount { root: 30, nodes }).unwrap();
+        graph.hover_transition(3, true);
+        assert!(graph.popover_open(3));
+        graph
+            .apply(Patch::Replace {
+                old_root: 20,
+                root: 40,
+                nodes: vec![Node {
+                    id: 40,
+                    kind: NodeKind::Dialog {
+                        label: "Modal".into(),
+                        style: Box::default(),
+                    },
+                    children: vec![],
+                }],
+            })
+            .unwrap();
+        assert!(
+            !graph.popover_open(3),
+            "a dialog retires background popovers"
+        );
+        assert_eq!(graph.hover_transition(3, true), None);
+        assert!(!graph.popover_open(3), "and blocks them while it is up");
     }
 }

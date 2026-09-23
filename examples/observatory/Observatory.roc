@@ -422,7 +422,7 @@ capture_types : List(Gui.FilesFileType)
 capture_types = [{ label: "roc-gui captures", extensions: ["rgstats"], mime_types: [] }]
 
 unreadable_remedy : Str
-unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 19 captures written by the roc-gui recorder."
+unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 20 captures written by the roc-gui recorder."
 
 ## Open one capture the person chooses, without a folder. The folder grant, if
 ## any, is kept: a single file is a separate grant beside it.

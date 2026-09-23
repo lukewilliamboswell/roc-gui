@@ -250,6 +250,25 @@ independent of any one application.
   external accessibility client, while retaining the same semantic names used
   by specifications.
 
+- [ ] **Popover content cannot be operated.** A popover's surface presents
+  while the pointer rests on its anchor or focus is inside it, so moving the
+  pointer from the anchor onto the surface closes it. Tooltip-style notes need
+  nothing more, but a popover holding controls needs the surface to count as
+  part of the hover region, with a grace period for the pointer's travel
+  between them, decided by the graph so both runners share it.
+
+- [ ] **Nested hover regions are delivered in the semantic runner's order.** A
+  `hover-enter` step delivers each target the pointer rests on, outermost first,
+  and a target a handler's rebuild retired is skipped because its state moved to
+  its replacement. GPUI orders the same callbacks by its own hitbox traversal.
+  No example nests two handler-bearing regions yet; when one does, pin the
+  order GPUI uses and make the runner follow it.
+
+- [ ] **Popover placement is verified on Linux only.** The surface is a
+  deferred, window-anchored layer that flips to the opposite side when the
+  window lacks room. Verify placement, flipping, and focus-driven opening on
+  macOS and Windows, including a window whose content is scaled.
+
 - [ ] **Composite directory navigation has no roving focus.** A user can reach
   and activate every folder with Tab and Enter or Space. Close with a semantic
   list/list-item element whose Up, Down, Home, and End behavior, selected state,
@@ -489,10 +508,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   window-level shortcuts, and focus control for the command palette and
   keyboard navigation.
 
-- [ ] **No tooltip or popover (P4).** Hover is available only on buttons. Add an
-  anchored popover available on any element, so every value can show its
-  evidence status and reason on hover.
-
 - [ ] **No split panes or tabs (P5).** The shell needs resizable, collapsible
   panes and capture tabs. This is shared with the HTTP Workbench and Terminal
   Workspace entries.
@@ -591,7 +606,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   counts those rows among `visible_items` but has no column saying how many of
   them were blank, so a capture cannot show how often a fast scroll outran the
   list. Add an owner-populated column at the next schema version, together with
-  the Observatory and `analyze_stats.py`, which gate on schema 19.
+  the Observatory and `analyze_stats.py`, which gate on schema 20.
 
 - [ ] **Window benchmark warmup and sample orchestration.** Real-window
   hover-grid runs can record schema-14 captures containing native frames and

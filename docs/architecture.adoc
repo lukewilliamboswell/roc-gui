@@ -191,7 +191,8 @@ again later.
 
 Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
 and columns become flex containers, panels become styled surfaces, dialogs
-become centred modal layers with input-blocking scrims, text becomes a text
+become centred modal layers with input-blocking scrims, popovers become an
+anchor wrapper with a floating surface, text becomes a text
 child, and enabled action buttons add focus, keyboard, and pointer
 listeners. A boundary marker materialises as a transparent single-child view,
 not a synthetic row, column, or styled surface. Retained marker subtrees retain
@@ -283,6 +284,19 @@ While a dialog is mounted, controls outside its graph subtree do not install
 pointer listeners or tab stops. The runtime focuses the first enabled dialog
 control, routes Escape to the dialog node, and restores the opener by its stable
 role and semantic name after the dialog leaves the graph.
+
+A popover mounts its anchor and its content together, and the graph decides
+when the content presents. The pointer resting on the anchor arms the
+popover's delay, the host waits it out on the window's clock and asks the graph
+again, and focus entering the anchor presents it at once. The surface is drawn
+as a deferred, window-anchored layer beside the anchor, so no scroll region
+clips it. Escape that no dialog takes reaches the window root and closes every
+presenting popover. The graph carries hover and presentation state across a
+rebuild by identity, so an application that rerenders the anchor under the
+pointer neither closes the surface nor sees a second enter. A newly mounted
+dialog retires background popover state as it does background hover state.
+Opening and closing a surface runs no Roc: it is presentation, owned by the
+host, and counted by the graph that decides it.
 
 The host notifies GPUI of the changed entity. GPUI owns subsequent rendering,
 layout, prepaint, paint, and presentation. roc-gui does not calculate geometry

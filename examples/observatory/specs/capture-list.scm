@@ -16,6 +16,6 @@
     (expect-visible (within (role row :name "Capture row database-browser-scale-100.rgstats") (text "browse 100 database rows")))
     (expect-visible (within (role row :name "Capture row database-browser-scale-100.rgstats") (text "100")))
     (expect-visible (within (role row :name "Capture row interrupted.rgstats") (text "✗ untrusted")))
-    (expect-visible (within (role row :name "Capture row schema-4.rgstats") (text "✗ Schema 4 is not supported; Observatory reads schema 19")))
+    (expect-visible (within (role row :name "Capture row schema-4.rgstats") (text "✗ Schema 4 is not supported; Observatory reads schema 20")))
     (expect-visible (within (role row :name "Capture row truncated.rgstats") (text-prefix "✗ not a readable database")))
     (expect-not-visible (text "notes.txt"))))

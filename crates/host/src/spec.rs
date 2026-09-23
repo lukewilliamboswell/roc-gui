@@ -168,6 +168,9 @@ pub enum Command {
     HoverExit(Locator),
     /// Compare explicit application background, not a native hover refinement.
     ExpectBackground(Locator, u32),
+    /// Popovers opened, closed by pointer and focus leaving, and dismissed
+    /// by Escape, as counted by the mounted graph that decides them.
+    ExpectPopoverCounters([u64; 3]),
     MarkNativeWork,
     ExpectNativeWork {
         button_renders_max: Option<u64>,
@@ -398,6 +401,7 @@ impl Command {
             Self::HoverEnter(_) => "hover-enter",
             Self::HoverExit(_) => "hover-exit",
             Self::ExpectBackground(_, _) => "expect-background",
+            Self::ExpectPopoverCounters(_) => "expect-popover-counters",
             Self::MarkNativeWork => "mark-native-work",
             Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
@@ -517,6 +521,7 @@ impl Command {
             | Self::ExpectComponentWork(_)
             | Self::ExpectBefore(_, _)
             | Self::ExpectBackground(_, _)
+            | Self::ExpectPopoverCounters(_)
             // Answered from a process-global resource owner, of which the host
             // has exactly one. A window run reads the same files registry, the
             // same clipboard and the same audio device table the semantic run
@@ -599,6 +604,7 @@ pub enum Locator {
     CheckboxPrefix(String),
     ColumnName(String),
     DialogName(String),
+    TooltipName(String),
     PanelName(String),
     RowName(String),
     ScrollName(String),
@@ -637,6 +643,7 @@ impl fmt::Display for Locator {
             Self::CheckboxPrefix(value) => ("(checkbox-prefix", value),
             Self::ColumnName(value) => ("(role column :name", value),
             Self::DialogName(value) => ("(role dialog :name", value),
+            Self::TooltipName(value) => ("(role tooltip :name", value),
             Self::PanelName(value) => ("(role panel :name", value),
             Self::RowName(value) => ("(role row :name", value),
             Self::ScrollName(value) => ("(role scroll :name", value),
@@ -1432,6 +1439,17 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectClipboardCounters(expected)
         }
+        "expect-popover-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "popover counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "popover counters must be non-negative integers"))?;
+            }
+            Command::ExpectPopoverCounters(expected)
+        }
         "expect-sqlite-counters" if values.len() == 4 => {
             let mut expected = [0u64; 3];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1829,6 +1847,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-tcp-streams"
         | "expect-processes"
         | "expect-clipboard-counters"
+        | "expect-popover-counters"
         | "expect-sqlite-counters"
         | "expect-http-counters"
         | "expect-tcp-counters"
@@ -1972,6 +1991,16 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .string()
                 .map(|value| Locator::DialogName(value.to_owned()))
                 .ok_or_else(|| error(node, "dialog name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("tooltip")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::TooltipName(value.to_owned()))
+                .ok_or_else(|| error(node, "tooltip name must be a string"))
         }
         Some("role")
             if values.len() == 4
@@ -2360,6 +2389,41 @@ mod tests {
     }
 
     #[test]
+    fn tooltip_locators_and_popover_counters_are_claims_on_both_runners() {
+        let spec = parse(
+            r#"(test "note" (steps
+            (hover-enter (text "cell"))
+            (await-count (role tooltip :name "About the cell") 1)
+            (expect-popover-counters 1 0 0)))"#,
+        )
+        .unwrap();
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(matches!(
+            &spec.steps[1].command,
+            Command::AwaitCount(Locator::TooltipName(name), 1) if name == "About the cell"
+        ));
+        assert_eq!(
+            spec.steps[2].command,
+            Command::ExpectPopoverCounters([1, 0, 0])
+        );
+        assert!(!spec.steps[2].command.is_operation());
+        assert_eq!(
+            Locator::TooltipName("About the cell".into()).to_string(),
+            r#"(role tooltip :name "About the cell")"#
+        );
+        for bad in [
+            "(expect-popover-counters 1 0)",
+            "(expect-popover-counters 1 0 -1)",
+        ] {
+            assert!(
+                parse(&format!("(test \"bad\" (steps {bad}))")).is_err(),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
     fn hover_transitions_and_background_claims_are_shared_and_validate_colors() {
         let spec = parse(
             r#"(test "hover" (steps
@@ -2646,10 +2710,15 @@ mod tests {
                 }
             )
         );
-        assert!(parse(r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows"))))"#).is_err());
         assert!(
-            parse(r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows") :count -1)))"#)
+            parse(r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows"))))"#)
                 .is_err()
+        );
+        assert!(
+            parse(
+                r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows") :count -1)))"#
+            )
+            .is_err()
         );
         // A provided list's logical extent verifies a benchmark's scale.
         assert!(
