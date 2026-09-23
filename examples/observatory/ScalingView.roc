@@ -321,10 +321,18 @@ plot = |sorted, row| {
 		},
 	)
 	scale_captions = points.map_with_index(
-		|found, index| Gui.canvas_text({ key: (300 + index).to_u64_wrap(), label: "Scale ${name} ${found.scale.to_str()}", x: (px_x(found.x) - 40).to_i32_wrap(), y: (plot_top + plot_height + 6).to_i32_wrap(), width: 80, value: found.scale.to_str(), color: Theme.dim, size: 10, align: Center }),
+		|found, index| Gui.canvas_text({ key: (300 + index).to_u64_wrap(), label: "Scale ${name} ${found.scale.to_str()}", x: (px_x(found.x) - 40).to_i32_wrap(), y: (plot_top + plot_height + 20).to_i32_wrap(), width: 80, value: found.scale.to_str(), color: Theme.dim, size: 10, align: Center }),
 	)
+	# A value reads on the side of its point away from the reference line,
+	# below a point that grew no faster than linear and above one that grew
+	# faster, so the dashes never strike through it. The scales sit below
+	# the lowest value's caption.
+	value_y = |found| {
+		at = px_y(found.y)
+		if at >= px_y(first_y + found.x - low_x) at + 4 else at - 14
+	}
 	value_captions = points.map_with_index(
-		|found, index| Gui.canvas_text({ key: (400 + index).to_u64_wrap(), label: "Value ${name} ${found.scale.to_str()}", x: (px_x(found.x) + 6).to_i32_wrap(), y: (px_y(found.y) - 14).to_i32_wrap(), width: 90, value: shape(row.metric, found.value), color: Theme.ink, size: 10, align: Start }),
+		|found, index| Gui.canvas_text({ key: (400 + index).to_u64_wrap(), label: "Value ${name} ${found.scale.to_str()}", x: (px_x(found.x) + 6).to_i32_wrap(), y: value_y(found).to_i32_wrap(), width: 90, value: shape(row.metric, found.value), color: Theme.ink, size: 10, align: Start }),
 	)
 	title = Gui.canvas_text({ key: 500, label: "Title ${name}", x: 0, y: 0, width: (plot_left + plot_width).to_i32_wrap().to_u32_wrap(), value: name, color: Theme.dim, size: 11, align: Start })
 	primitives = if points.len() < 2 {
@@ -337,9 +345,9 @@ plot = |sorted, row| {
 		primitives,
 		on_pointer: |_, _| Gui.none,
 		width: Px((plot_left + plot_width + 110).to_u32_wrap()),
-		height: Px((plot_top + plot_height + 24).to_u32_wrap()),
+		height: Px((plot_top + plot_height + 36).to_u32_wrap()),
 		min_width: Px((plot_left + plot_width + 110).to_u32_wrap()),
-		min_height: Px((plot_top + plot_height + 24).to_u32_wrap()),
+		min_height: Px((plot_top + plot_height + 36).to_u32_wrap()),
 		bg: Theme.card,
 		border_color: Theme.line,
 		border_width: 1,

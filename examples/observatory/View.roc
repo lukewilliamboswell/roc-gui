@@ -1786,6 +1786,18 @@ caption = |props| Gui.canvas_text({
 	align: props.align,
 })
 
+## A chart marker's label: it reads rightward from the marker, and leftward
+## where reading rightward would leave the plot.
+marker_label : { key : U64, label : Str, at : I64, y : I64, value : Str, color : Gui.Color } -> Gui.CanvasPrimitive
+marker_label = |props| {
+	label_width = 160
+	if props.at + 4 + label_width > chart_gutter + chart_plot {
+		caption({ key: props.key, label: props.label, x: props.at - 4 - label_width, y: props.y, width: label_width, value: props.value, color: props.color, align: End })
+	} else {
+		caption({ key: props.key, label: props.label, x: props.at + 4, y: props.y, width: label_width, value: props.value, color: props.color, align: Start })
+	}
+}
+
 ## A part scaled into a span of pixels; any non-zero part is at least one
 ## pixel.
 pixels : I64, I64, I64 -> I64
@@ -1880,8 +1892,10 @@ distribution = |state, opened| {
 		shown = counts.keep_if(|found| found.bucket >= first and found.bucket <= last)
 		width = chart_plot / (last - first + 1)
 		tallest = shown.fold(0, |most, found| if found.count > most found.count else most)
-		top = 22
-		bottom = 132
+		median_row = 18
+		max_row = 32
+		top = 48
+		bottom = 148
 		chosen = match state.filter {
 			InBucket(held_bucket) => Some(held_bucket.bucket)
 			_ => None
@@ -1911,11 +1925,14 @@ distribution = |state, opened| {
 		}
 		median_x = duration_x(median, first, width)
 		max_x = duration_x(slowest, first, width)
+		# Each marker's label has a row of its own above the bars, so the two
+		# never meet and neither covers a bar. A label reads rightward from
+		# its marker and reads leftward where it would leave the plot.
 		markers = [
-			rule({ key: painted(3, 1), label: "Median marker", x1: median_x, y1: top - 4, x2: median_x, y2: bottom, stroke: Theme.ink }),
-			caption({ key: painted(3, 2), label: "Median caption", x: median_x + 3, y: top - 4, width: 160, value: "median ${Format.ms(median)}", color: Theme.ink, align: Start }),
-			rule({ key: painted(3, 3), label: "Max marker", x1: max_x, y1: top - 4, x2: max_x, y2: bottom, stroke: Theme.alarm_ink }),
-			caption({ key: painted(3, 4), label: "Max caption", x: max_x - 163, y: top + 10, width: 160, value: "max ${Format.ms(slowest)}", color: Theme.alarm_ink, align: End }),
+			rule({ key: painted(3, 1), label: "Median marker", x1: median_x, y1: median_row, x2: median_x, y2: bottom, stroke: Theme.ink }),
+			marker_label({ key: painted(3, 2), label: "Median caption", at: median_x, y: median_row, value: "median ${Format.ms(median)}", color: Theme.ink }),
+			rule({ key: painted(3, 3), label: "Max marker", x1: max_x, y1: max_row, x2: max_x, y2: bottom, stroke: Theme.alarm_ink }),
+			marker_label({ key: painted(3, 4), label: "Max caption", at: max_x, y: max_row, value: "max ${Format.ms(slowest)}", color: Theme.alarm_ink }),
 		]
 		readout_text = match state.bucket_hover {
 			Some(bucket) => {
@@ -1966,9 +1983,9 @@ distribution = |state, opened| {
 					},
 				),
 				width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
-				height: Px(150),
+				height: Px(166),
 				min_width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
-				min_height: Px(150),
+				min_height: Px(166),
 				bg: Theme.card,
 				border_color: Theme.line,
 				border_width: 1,
