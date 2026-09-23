@@ -218,7 +218,7 @@ gutter = |text| Gui.row(
 	[Gui.text(text)],
 )
 
-result_table = |result| {
+result_table = |result, offset| {
 	columns_justify = alignments(result)
 	header = Gui.row(
 		{
@@ -249,7 +249,7 @@ result_table = |result| {
 					border_width: 0,
 					border_bottom: Px(1),
 				},
-				[gutter("Result row ${index.to_str()}")].concat(row.map_with_index(|value, column| cell(Query.value_text(value), Theme.ink, Theme.body, columns_justify.get(column) ?? Start))),
+				[gutter("Result row ${(offset + index).to_str()}")].concat(row.map_with_index(|value, column| cell(Query.value_text(value), Theme.ink, Theme.body, columns_justify.get(column) ?? Start))),
 			),
 		},
 	)
@@ -257,6 +257,26 @@ result_table = |result| {
 		{ label: "Result table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 		[header, Gui.virtual_list({ label: "Query rows", row_height: Theme.row_height, items: rows })],
 	)
+}
+
+## A result longer than one page names the rows on screen and turns to the
+## neighbouring pages. A result that fits in one page shows no pager at all.
+pager : Browser.State, Browser.Shown -> List(Gui.Elem(Browser.State))
+pager = |state, shown| match state.database {
+	Some(database) if shown.offset > 0 or shown.page.more => {
+		first = shown.offset + 1
+		last = shown.offset + shown.page.rows.len()
+		turn = |caption, offset| quiet_key({ caption, label: caption, on_press: |current, _| Browser.turn_page(current, database, shown, offset), width: Auto })
+		earlier = if shown.offset > 0 [turn("Previous page", if shown.offset > Browser.page_rows shown.offset - Browser.page_rows else 0)] else []
+		later = if shown.page.more [turn("Next page", last)] else []
+		[
+			Gui.row(
+				{ label: "Result pages", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+				earlier.concat(later).concat([trailing_meta("Rows ${first.to_str()}–${last.to_str()}${if shown.page.more ", more follow" else ", end of result"}")]),
+			),
+		]
+	}
+	_ => []
 }
 
 query_bench = |state| {
@@ -308,13 +328,14 @@ query_bench = |state| {
 		None => [
 			Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body }, [Gui.text("Run a query to inspect rows")]),
 		]
-		Some(value) => [
+		Some(shown) => [
 			Gui.row(
 				{ label: "Result summary", width: Fill, padding: 0, gap: Theme.inset, align: Center },
-				[meta("Columns: ${Str.join_with(value.columns, ", ")}"), trailing_meta("Rows: ${value.rows.len().to_str()}")],
+				[meta("Columns: ${Str.join_with(shown.page.columns, ", ")}"), trailing_meta("Rows: ${shown.page.rows.len().to_str()}")],
 			),
-			result_table(value),
 		]
+			.concat(pager(state, shown))
+			.concat([result_table(shown.page, shown.offset)])
 	}
 	Gui.col(
 		{ label: "Query bench", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },

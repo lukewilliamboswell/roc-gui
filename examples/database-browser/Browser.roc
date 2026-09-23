@@ -17,6 +17,11 @@ Folder : { name : Str, directory : Gui.FilesDirRead, entries : List(Gui.FilesEnt
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
+## One page of a query's result, and where it sits in the whole: the statement
+## that produced it (not the editor's current text, which may since have
+## changed), the zero-based row the page starts at, and the page itself.
+Shown : { sql : Str, offset : U64, page : Gui.SqlitePage }
+
 State : {
 	access : Gui.Access,
 	database : [None, Some(Gui.SqliteDb)],
@@ -25,7 +30,7 @@ State : {
 	next_request : U64,
 	open_name : Str,
 	query : Str,
-	result : [None, Some(Gui.SqliteResult)],
+	result : [None, Some(Shown)],
 	schema : List(Str),
 	status : Status,
 }
@@ -33,8 +38,13 @@ State : {
 Browser := [].{
 	Folder : Folder
 	Grant : Grant
+	Shown : Shown
 	State : State
 	Status : Status
+
+	## Rows in one page of a result: the host's page limit.
+	page_rows : U64
+	page_rows = 10_000
 
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
@@ -56,7 +66,10 @@ Browser := [].{
 	open_database : State, Gui.FilesDirRead, Str -> Gui.Action(State)
 	open_database = open_database
 	run_query : State, Gui.SqliteDb, Str -> Gui.Action(State)
-	run_query = run_query
+	run_query = |state, database, sql| run_page(state, database, sql, 0)
+	## Fetch the page of the shown result that starts at `offset`.
+	turn_page : State, Gui.SqliteDb, Shown, U64 -> Gui.Action(State)
+	turn_page = |state, database, shown, offset| run_page(state, database, shown.sql, offset)
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
 }
@@ -139,14 +152,26 @@ open_database = |state, directory, name| {
 	})
 }
 
-run_query = |state, database, sql| {
+## The first page is the statement exactly as written, so any read-only
+## statement runs. A later page wraps it and binds the offset as a parameter;
+## the host cuts the page and reports whether rows follow it.
+page_request : Str, U64 -> { sql : Str, params : List(Gui.SqliteValue), rows : U64 }
+page_request = |sql, offset| if offset == 0 {
+	{ sql, params: [], rows: Browser.page_rows }
+} else {
+	body = sql.trim().drop_suffix(";")
+	{ sql: "SELECT * FROM (${body}) LIMIT -1 OFFSET ?", params: [Integer(offset.to_i64_wrap())], rows: Browser.page_rows }
+}
+
+run_page : State, Gui.SqliteDb, Str, U64 -> Gui.Action(State)
+run_page = |state, database, sql, offset| {
 	id = state.next_request
 	Gui.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || database.query!(sql),
+		run: || database.page!(page_request(sql, offset)),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(result) => Gui.update({ ..latest, result: Some(result), status: Ready })
+				Ok(page) => Gui.update({ ..latest, result: Some({ sql, offset, page }), status: Ready })
 				Err(error) => Gui.update({
 					..latest,
 					status: failure(
