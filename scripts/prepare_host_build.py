@@ -30,8 +30,6 @@ def main() -> None:
     destination = args.output.resolve()
     destination.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(host, destination / "libhost.a")
-    if target == "x64mingw":
-        shutil.copyfile(host.parent / "roc-gui.res", destination / "roc-gui.res")
     # Sealed against the archive Cargo produced, before anything transforms it.
     record_outputs(ROOT, target, destination, args.evidence.resolve(), fingerprint)
     if target == "x64mingw":

@@ -130,20 +130,32 @@ texts do.
 
 Native artifacts have three independent release layers:
 
-. External linker-input producers build one independently versioned dependency
-  from pinned sources or a reviewed system-library interface catalogue.
+. The linker-input producer builds one content-addressed release containing the
+  complete `x64glibc`, `arm64mac`, and `x64mingw` sets. This includes every
+  `platform/main.roc` input except `libhost.a`; the Windows resource therefore
+  belongs to this release, not to the GUI host release.
 . Host producers build `libhost.a` for each target and bind it to the exact host
   source, Cargo lock, configuration, profile, and toolchain inputs.
 . Platform release assembly admits released external and host inputs, runs the
   supported consumer matrix, and publishes those same tested bytes under Roc's
   content-addressed bundle name.
 
-Producer releases and consumer adoption are separate reviews. A producer
-workflow publishes a deterministic archive, complete inventory, licenses and
-reproduction material, and signed build-provenance attestation. It creates the
-release as a draft, verifies the tag and complete asset inventory, and then
-publishes it immutably. The consumer lock records the release, target, digest,
-size, source revision, signer workflow, and source fingerprint.
+Linker-input production runs only when explicitly dispatched for an open pull
+request whose branch contains a material recipe, catalogue, resource, or symbol
+change. The unprivileged producer builds each input twice, validates it, and
+uploads exact candidate bytes. The trusted default-branch publisher admits the
+requested branch and commit, verifies the successful producer run and its
+attestations, and publishes those same bytes under the SHA-256 of the aggregate
+manifest. The release remains permanent after the pull request merges. The
+publisher adds a GitHub-signed, lock-only commit to that pull request, so the
+review adopts the produced release without a bootstrap build on the default
+branch.
+
+`link-inputs.lock.json` records the immutable release, target archive digests
+and sizes, source revision and branch, signer workflow, source fingerprint, and
+aggregate manifest digest. Ordinary pull requests have no linker-input build
+job. They restore the archive cache, verify its locked size and SHA-256 even on
+a cache hit, and download the immutable release only on a miss.
 
 Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
@@ -151,9 +163,10 @@ must never fall back to a local build. Developers may explicitly select a native
 source build when an artifact is absent or its source fingerprint is stale.
 Final platform releases accept only locked, released, and attested inputs.
 
-Change an external input through its owning recipe and tests. Publish it from the
-default branch, then adopt the generated lock candidate in a separate review.
-Ordinary platform and host changes reuse existing dependency releases.
+Change a linker input through its owning recipe and tests, then dispatch the
+trusted linker-input publisher with that pull request number. The resulting
+signed lock commit makes the new symbols available to the same branch. Ordinary
+platform and host changes reuse the locked release and never invoke a producer.
 
 === Generated system-library interfaces
 
