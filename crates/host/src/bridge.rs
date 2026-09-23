@@ -712,6 +712,11 @@ pub enum NodeKind {
         delay_ms: u32,
         hover_enter: bool,
         hover_exit: bool,
+        /// The key chords the region answers, in the order declared.
+        shortcuts: Vec<Shortcut>,
+        /// A request for focus to move into the anchor, honoured once for each
+        /// distinct serial; 0 asks for nothing.
+        focus_serial: u64,
         /// The surface's style; the anchor keeps its own.
         style: Box<Style>,
     },
@@ -805,6 +810,34 @@ pub enum CanvasTextAlign {
     Start,
     Center,
     End,
+}
+
+/// One key chord a region answers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Shortcut {
+    /// The chord in GPUI's canonical spelling, which is also what the
+    /// application's handler is told was pressed.
+    pub keys: String,
+    pub scope: ShortcutScope,
+}
+
+/// When a shortcut is live.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShortcutScope {
+    /// While its region is mounted and presented.
+    Window,
+    /// Only while keyboard focus is inside its region.
+    Focus,
+}
+
+/// The shortcut a keystroke reached: the event naming its region's route,
+/// which of the region's shortcuts it is, and the chord as the region spells it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShortcutMatch {
+    pub region: u64,
+    pub event: u64,
+    pub index: u64,
+    pub keys: String,
 }
 
 /// Which side of its anchor a popover surface is placed on.
@@ -1291,6 +1324,8 @@ pub type ElementIdentity = Vec<IdentitySegment>;
 
 pub const HOVER_ENTER_EVENT_BIT: u64 = 1 << 62;
 pub const HOVER_EXIT_EVENT_BIT: u64 = 1 << 61;
+/// The route of every shortcut a region declares.
+pub const SHORTCUT_EVENT_BIT: u64 = 1 << 60;
 
 /// The canonical mounted UI graph. Both semantic specs and the GPUI runtime
 /// apply patches here; GPUI entities are only a materialized view of this state.
@@ -1306,6 +1341,44 @@ pub struct MountedGraph {
     dialog: Option<u64>,
     hovered: NodeSet,
     popovers: PopoverState,
+    keyboard: KeyboardState,
+}
+
+/// The regions whose shortcuts a keystroke may reach and the focus requests
+/// the last transaction made. Owned by the graph so the native window and the
+/// semantic runner resolve a keystroke, and honour a request, by one policy.
+#[derive(Default)]
+struct KeyboardState {
+    /// Every mounted region that declares a shortcut.
+    regions: NodeSet,
+    /// The subset declaring one that is live wherever focus is.
+    window_regions: NodeSet,
+    /// The serial each mounted region last asked for focus with.
+    serials: NodeMap<u64>,
+    /// Regions staged by the transaction being applied that carry a serial.
+    staged_requests: Vec<u64>,
+    /// Regions whose serial is new since the last request was taken.
+    requests: Vec<u64>,
+    counters: KeyboardCounters,
+}
+
+/// Deterministic keyboard work, counted by the graph that does it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct KeyboardCounters {
+    /// Keystrokes offered to the application's shortcuts.
+    pub offered: u64,
+    /// Keystrokes a shortcut answered.
+    pub matched: u64,
+    /// Declared shortcuts compared against a keystroke.
+    pub compared: u64,
+    /// Focus requests that moved focus.
+    pub focused: u64,
+}
+
+impl KeyboardCounters {
+    pub fn as_array(self) -> [u64; 4] {
+        [self.offered, self.matched, self.compared, self.focused]
+    }
 }
 
 /// Which popovers are presenting, and why. Owned by the graph so the native
@@ -1346,6 +1419,8 @@ struct InteractionCarry {
     open: HashSet<ElementIdentity>,
     pending: HashSet<ElementIdentity>,
     focus_within: HashSet<ElementIdentity>,
+    /// The serial a retired region had asked for focus with.
+    focus_serials: HashMap<ElementIdentity, u64>,
 }
 
 impl InteractionCarry {
@@ -1850,11 +1925,214 @@ impl MountedGraph {
         self.popovers.counters
     }
 
+    pub fn keyboard_counters(&self) -> KeyboardCounters {
+        self.keyboard.counters
+    }
+
+    /// Whether a person can perceive `id`: nothing above it is the content of
+    /// a closed popover.
+    fn is_presented(&self, id: u64) -> bool {
+        let mut current = id;
+        while let Some(location) = self.parent_location(current) {
+            let parent = location.parent();
+            if !matches!(location, ParentLocation::OrdinaryIndex { index: 0, .. })
+                && matches!(
+                    self.node(parent).map(|node| &node.kind),
+                    Some(NodeKind::Popover { .. })
+                )
+                && !self.popovers.open.contains(&parent)
+            {
+                return false;
+            }
+            current = parent;
+        }
+        true
+    }
+
+    /// `id` and its ancestors, from the mounted root down to `id`.
+    fn path_from_root(&self, id: u64) -> Vec<u64> {
+        let mut path = vec![id];
+        let mut current = id;
+        while let Some(location) = self.parent_location(current) {
+            current = location.parent();
+            path.push(current);
+        }
+        path.reverse();
+        path
+    }
+
+    /// Whether `a` comes before `b` in document order, the order Tab visits.
+    /// An ancestor comes before its descendants.
+    fn precedes(&self, a: u64, b: u64) -> bool {
+        let (left, right) = (self.path_from_root(a), self.path_from_root(b));
+        let shared = left
+            .iter()
+            .zip(&right)
+            .take_while(|(left, right)| left == right)
+            .count();
+        match (left.get(shared), right.get(shared)) {
+            (None, _) => true,
+            (Some(_), None) => false,
+            (Some(first), Some(second)) => {
+                self.children_of(left[shared - 1])
+                    .find(|child| child == first || child == second)
+                    == Some(*first)
+            }
+        }
+    }
+
+    /// Whether a keystroke may reach the shortcuts of `region` while a modal
+    /// dialog is active: only those declared inside it may.
+    fn region_live(&self, region: u64) -> bool {
+        self.dialog
+            .is_none_or(|dialog| self.is_descendant_of(region, dialog))
+            && self.is_presented(region)
+    }
+
+    /// The shortcut a keystroke reaches, with keyboard focus on `focused`.
+    ///
+    /// The regions enclosing focus are asked first, innermost first, with both
+    /// their window and focus shortcuts; then every other live region's window
+    /// shortcuts, where the last in document order wins a chord two declare. A
+    /// modal dialog leaves only the regions inside it live. A keystroke that
+    /// would type a character into a focused text field is text, and reaches
+    /// no shortcut. `matches` compares one declared chord, in canonical
+    /// spelling, with the keystroke; every comparison is counted.
+    pub fn resolve_shortcut(
+        &mut self,
+        focused: Option<u64>,
+        types_character: bool,
+        matches: impl Fn(&str) -> bool,
+    ) -> Option<ShortcutMatch> {
+        self.keyboard.counters.offered += 1;
+        let focused = focused.filter(|id| self.nodes.contains_key(id));
+        let editing = focused.is_some_and(|id| {
+            matches!(
+                self.node(id).map(|node| &node.kind),
+                Some(
+                    NodeKind::TextInput { enabled: true, .. }
+                        | NodeKind::Textarea {
+                            enabled: true,
+                            read_only: false,
+                            ..
+                        }
+                )
+            )
+        });
+        if editing && types_character {
+            return None;
+        }
+        let mut compared = 0;
+        let mut found = None;
+        let mut enclosing = Vec::new();
+        let mut current = focused;
+        while let Some(id) = current {
+            if self.keyboard.regions.contains(&id) {
+                enclosing.push(id);
+            }
+            if Some(id) == self.dialog {
+                break;
+            }
+            current = self.parent_location(id).map(ParentLocation::parent);
+        }
+        'enclosing: for region in &enclosing {
+            if !self.region_live(*region) {
+                continue;
+            }
+            if let Some(NodeKind::Popover { shortcuts, .. }) =
+                self.node(*region).map(|node| &node.kind)
+            {
+                for (index, shortcut) in shortcuts.iter().enumerate() {
+                    compared += 1;
+                    if matches(&shortcut.keys) {
+                        found = Some((*region, index, shortcut.keys.clone()));
+                        break 'enclosing;
+                    }
+                }
+            }
+        }
+        if found.is_none() {
+            let mut candidates = Vec::new();
+            for region in &self.keyboard.window_regions {
+                if enclosing.contains(region) || !self.region_live(*region) {
+                    continue;
+                }
+                if let Some(NodeKind::Popover { shortcuts, .. }) =
+                    self.node(*region).map(|node| &node.kind)
+                {
+                    for (index, shortcut) in shortcuts.iter().enumerate() {
+                        if shortcut.scope != ShortcutScope::Window {
+                            continue;
+                        }
+                        compared += 1;
+                        if matches(&shortcut.keys) {
+                            candidates.push((*region, index, shortcut.keys.clone()));
+                            break;
+                        }
+                    }
+                }
+            }
+            found = candidates.into_iter().reduce(|kept, next| {
+                if self.precedes(kept.0, next.0) {
+                    next
+                } else {
+                    kept
+                }
+            });
+        }
+        self.keyboard.counters.compared += compared;
+        let (region, index, keys) = found?;
+        self.keyboard.counters.matched += 1;
+        Some(ShortcutMatch {
+            region,
+            event: region | SHORTCUT_EVENT_BIT,
+            index: index as u64,
+            keys,
+        })
+    }
+
+    /// The control focus moves to for the regions that asked since this was
+    /// last called: the first enabled control inside the one latest in
+    /// document order, if it is live and has one. A request made behind a
+    /// modal dialog, or inside a closed popover, moves nothing.
+    pub fn take_focus_request(&mut self) -> Option<u64> {
+        let requests = std::mem::take(&mut self.keyboard.requests);
+        let region = requests
+            .into_iter()
+            .filter(|region| self.nodes.contains_key(region) && self.region_live(*region))
+            .reduce(|kept, next| {
+                if self.precedes(kept, next) {
+                    next
+                } else {
+                    kept
+                }
+            })?;
+        let mut pending = vec![region];
+        while let Some(id) = pending.pop() {
+            let node = self.node(id)?;
+            if node.kind.focus_identity().is_some() {
+                self.keyboard.counters.focused += 1;
+                return Some(id);
+            }
+            if matches!(node.kind, NodeKind::Popover { .. }) && !self.popovers.open.contains(&id) {
+                pending.extend(node.children.first().copied());
+            } else {
+                pending.extend(self.children_of(id).rev());
+            }
+        }
+        None
+    }
+
     /// Collect the interaction state of nodes about to be retired, by
     /// identity, while their ancestry is still mounted.
     fn carry_interaction(&mut self, removed: &[u64]) -> InteractionCarry {
         let mut carry = InteractionCarry::default();
         for id in removed {
+            self.keyboard.regions.remove(id);
+            self.keyboard.window_regions.remove(id);
+            if let Some(serial) = self.keyboard.serials.remove(id) {
+                carry.focus_serials.insert(self.identity(*id), serial);
+            }
             let hovered = self.hovered.remove(id);
             let open = self.popovers.open.remove(id);
             let pending = self.popovers.pending.remove(id);
@@ -1881,6 +2159,21 @@ impl MountedGraph {
     /// Give carried interaction state to the staged nodes that took the
     /// retired nodes' identities.
     fn restore_interaction(&mut self, staged: &[u64], carry: InteractionCarry) {
+        // A region asks for focus when its serial is one its identity has not
+        // asked with before: new, or changed since the region it replaces.
+        for region in std::mem::take(&mut self.keyboard.staged_requests) {
+            let Some(NodeKind::Popover { focus_serial, .. }) =
+                self.node(region).map(|node| &node.kind)
+            else {
+                continue;
+            };
+            let serial = *focus_serial;
+            let before = carry.focus_serials.get(&self.identity(region)).copied();
+            self.keyboard.serials.insert(region, serial);
+            if before != Some(serial) {
+                self.keyboard.requests.push(region);
+            }
+        }
         if carry.is_empty() {
             return;
         }
@@ -2868,6 +3161,24 @@ impl MountedGraph {
                 }
                 NodeKind::Dialog { .. } => {
                     self.dialog = Some(node.id);
+                }
+                NodeKind::Popover {
+                    shortcuts,
+                    focus_serial,
+                    ..
+                } => {
+                    if !shortcuts.is_empty() {
+                        self.keyboard.regions.insert(node.id);
+                    }
+                    if shortcuts
+                        .iter()
+                        .any(|shortcut| shortcut.scope == ShortcutScope::Window)
+                    {
+                        self.keyboard.window_regions.insert(node.id);
+                    }
+                    if *focus_serial != 0 {
+                        self.keyboard.staged_requests.push(node.id);
+                    }
                 }
                 _ => {}
             }
@@ -6853,10 +7164,219 @@ mod tests {
                 delay_ms,
                 hover_enter: handlers,
                 hover_exit: handlers,
+                shortcuts: vec![],
+                focus_serial: 0,
                 style: Box::default(),
             },
             children,
         }
+    }
+
+    /// A region of one child that answers `chords` and asks for focus with
+    /// `serial`.
+    fn keyed_region(id: u64, child: u64, chords: &[(&str, ShortcutScope)], serial: u64) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Popover {
+                label: String::new(),
+                placement: Placement::Below,
+                delay_ms: 0,
+                hover_enter: false,
+                hover_exit: false,
+                shortcuts: chords
+                    .iter()
+                    .map(|(keys, scope)| Shortcut {
+                        keys: (*keys).into(),
+                        scope: *scope,
+                    })
+                    .collect(),
+                focus_serial: serial,
+                style: Box::default(),
+            },
+            children: vec![child],
+        }
+    }
+
+    fn resolve(graph: &mut MountedGraph, focused: Option<u64>, chord: &str) -> Option<(u64, u64)> {
+        graph
+            .resolve_shortcut(focused, false, |declared| declared == chord)
+            .map(|found| (found.region, found.index))
+    }
+
+    /// A window region 20 around a column holding a focus region 21 around
+    /// button 1, a window region 22 around button 2, and a plain button 3.
+    fn shortcut_tree(base: u64) -> Vec<Node> {
+        use ShortcutScope::{Focus, Window};
+        vec![
+            button_node(base + 1, "One"),
+            button_node(base + 2, "Two"),
+            button_node(base + 3, "Three"),
+            keyed_region(
+                base + 21,
+                base + 1,
+                &[("down", Focus), ("ctrl-k", Window)],
+                0,
+            ),
+            keyed_region(
+                base + 22,
+                base + 2,
+                &[("ctrl-k", Window), ("ctrl-j", Window)],
+                0,
+            ),
+            column(base + 10, vec![base + 21, base + 22, base + 3]),
+            keyed_region(
+                base + 20,
+                base + 10,
+                &[("ctrl-k", Window), ("f1", Window)],
+                0,
+            ),
+        ]
+    }
+
+    fn button_node(id: u64, label: &str) -> Node {
+        Node {
+            id,
+            kind: button(label, true),
+            children: vec![],
+        }
+    }
+
+    #[test]
+    fn a_shortcut_nearer_focus_wins_and_focus_shortcuts_need_focus_inside() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 20,
+                nodes: shortcut_tree(0),
+            })
+            .unwrap();
+        // With focus in the focus region, it answers first, innermost first.
+        assert_eq!(resolve(&mut graph, Some(1), "down"), Some((21, 0)));
+        assert_eq!(resolve(&mut graph, Some(1), "ctrl-k"), Some((21, 1)));
+        assert_eq!(resolve(&mut graph, Some(2), "ctrl-k"), Some((22, 0)));
+        // Elsewhere its focus shortcut is not live, and among regions not
+        // enclosing focus the last in document order wins.
+        assert_eq!(resolve(&mut graph, Some(3), "down"), None);
+        assert_eq!(resolve(&mut graph, Some(3), "ctrl-k"), Some((20, 0)));
+        assert_eq!(resolve(&mut graph, None, "ctrl-j"), Some((22, 1)));
+        assert_eq!(resolve(&mut graph, None, "f1"), Some((20, 1)));
+        assert_eq!(resolve(&mut graph, None, "f2"), None);
+        let counters = graph.keyboard_counters();
+        assert_eq!((counters.offered, counters.matched), (8, 6));
+    }
+
+    #[test]
+    fn a_typed_character_in_a_text_field_reaches_no_shortcut() {
+        let mut graph = MountedGraph::default();
+        let field = Node {
+            id: 1,
+            kind: NodeKind::TextInput {
+                label: "Filter".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        graph
+            .apply(Patch::Mount {
+                root: 2,
+                nodes: vec![
+                    field,
+                    keyed_region(2, 1, &[("j", ShortcutScope::Window)], 0),
+                ],
+            })
+            .unwrap();
+        assert!(graph.resolve_shortcut(Some(1), true, |_| true).is_none());
+        assert_eq!(graph.keyboard_counters().compared, 0);
+        assert!(
+            graph
+                .resolve_shortcut(None, true, |keys| keys == "j")
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn a_modal_dialog_leaves_only_its_own_shortcuts_live() {
+        let mut graph = MountedGraph::default();
+        let mut nodes = shortcut_tree(0);
+        nodes.retain(|node| node.id != 20);
+        nodes.push(button_node(30, "Close"));
+        nodes.push(keyed_region(
+            31,
+            30,
+            &[("ctrl-j", ShortcutScope::Window)],
+            0,
+        ));
+        nodes.push(Node {
+            id: 32,
+            kind: NodeKind::Dialog {
+                label: "Palette".into(),
+                style: Box::default(),
+            },
+            children: vec![31],
+        });
+        nodes.push(keyed_region(
+            20,
+            10,
+            &[("ctrl-k", ShortcutScope::Window)],
+            0,
+        ));
+        nodes.push(column(40, vec![20, 32]));
+        graph.apply(Patch::Mount { root: 40, nodes }).unwrap();
+        assert_eq!(resolve(&mut graph, Some(30), "ctrl-k"), None);
+        assert_eq!(resolve(&mut graph, Some(30), "ctrl-j"), Some((31, 0)));
+        assert_eq!(resolve(&mut graph, None, "ctrl-j"), Some((31, 0)));
+    }
+
+    #[test]
+    fn a_region_takes_focus_once_for_each_new_serial() {
+        let tree = |serial: u64, base: u64| {
+            vec![
+                text(base + 1, "Heading"),
+                button_node(base + 2, "Choose"),
+                column(base + 3, vec![base + 1, base + 2]),
+                keyed_region(base + 4, base + 3, &[], serial),
+                column(base + 10, vec![base + 4]),
+            ]
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: tree(7, 0),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), Some(2));
+        assert_eq!(graph.take_focus_request(), None);
+        // The same serial on the region that replaces it asks for nothing.
+        graph
+            .apply(Patch::Replace {
+                old_root: 10,
+                root: 110,
+                nodes: tree(7, 100),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), None);
+        // A new serial asks again; 0 never asks.
+        graph
+            .apply(Patch::Replace {
+                old_root: 110,
+                root: 210,
+                nodes: tree(8, 200),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), Some(202));
+        graph
+            .apply(Patch::Replace {
+                old_root: 210,
+                root: 310,
+                nodes: tree(0, 300),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), None);
+        assert_eq!(graph.keyboard_counters().focused, 2);
     }
 
     /// A cell with a note: column 10 holds popover 3, anchoring text 1 and

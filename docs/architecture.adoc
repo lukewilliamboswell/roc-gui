@@ -298,6 +298,22 @@ dialog retires background popover state as it does background hover state.
 Opening and closing a surface runs no Roc: it is presentation, owned by the
 host, and counted by the graph that decides it.
 
+Shortcuts are declared by elements, so the graph knows every live one and the
+component that owns it. GPUI offers a keystroke to its keymap's actions along
+the focus path first: the host's Tab, Escape, and App access chords at the
+root, a focused control's activation keys, and a focused text input's editing
+keys. A keystroke no action took, and that a focused field is not typing,
+reaches one listener at the window root, which asks the graph for the shortcut
+it reaches. The graph walks up from the focused control to find the regions
+enclosing it, innermost first, then asks the regions holding window shortcuts;
+it never visits the rest of the tree, and it counts every comparison. The
+matched region's single route runs the shortcut's handler as a `key` cycle. A
+focus request is a serial on a region: the graph carries each region's serial
+across a rebuild by identity, so only a new serial asks, and after applying a
+patch the host focuses the first enabled control inside the region that asked.
+The semantic runner resolves a `key` step and honours a request through the same
+graph calls.
+
 The host notifies GPUI of the changed entity. GPUI owns subsequent rendering,
 layout, prepaint, paint, and presentation. roc-gui does not calculate geometry
 or issue GPU commands in Roc, and one application event does not necessarily

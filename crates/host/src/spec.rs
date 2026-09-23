@@ -171,6 +171,10 @@ pub enum Command {
     /// Popovers opened, closed by pointer and focus leaving, and dismissed
     /// by Escape, as counted by the mounted graph that decides them.
     ExpectPopoverCounters([u64; 3]),
+    /// Keystrokes offered to shortcuts, keystrokes a shortcut answered,
+    /// shortcuts compared, and focus requests honoured, as counted by the
+    /// mounted graph that resolves them.
+    ExpectKeyboardCounters([u64; 4]),
     MarkNativeWork,
     ExpectNativeWork {
         button_renders_max: Option<u64>,
@@ -275,7 +279,8 @@ pub enum Command {
     Screenshot(Screenshot),
     /// Type text one real keystroke at a time into the focused element.
     Type(String),
-    /// Send one real key chord, such as "secondary-a", through the keymap.
+    /// Press one key chord, such as "ctrl-k": through the window's real
+    /// keymap, or through the shortcut resolution the window would reach.
     Key(String),
     /// Resize the production window, so a layout can be proved at a size other
     /// than the one `main.roc` asks for.
@@ -401,6 +406,7 @@ impl Command {
             Self::HoverExit(_) => "hover-exit",
             Self::ExpectBackground(_, _) => "expect-background",
             Self::ExpectPopoverCounters(_) => "expect-popover-counters",
+            Self::ExpectKeyboardCounters(_) => "expect-keyboard-counters",
             Self::MarkNativeWork => "mark-native-work",
             Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
@@ -487,7 +493,6 @@ impl Command {
             | Self::ExpectBounds(_, _)
             | Self::Screenshot(_)
             | Self::Type(_)
-            | Self::Key(_)
             | Self::Resize { .. }
             // Scrolling is a fact about a viewport and a content size, neither
             // of which the semantic runner has: without layout there is no
@@ -505,6 +510,10 @@ impl Command {
             | Self::Wheel(..)
             | Self::Focus(_)
             | Self::PressKey(_)
+            // A semantic run resolves the chord's shortcut through the graph
+            // exactly as the window's root does, and refuses a chord the
+            // window's keymap would give to the host or to a focused field.
+            | Self::Key(_)
             | Self::AwaitTask
             // The fixture clipboard is one process-wide store, so changing the
             // granted source and waiting for the application's own timer to
@@ -530,6 +539,7 @@ impl Command {
             | Self::ExpectBefore(_, _)
             | Self::ExpectBackground(_, _)
             | Self::ExpectPopoverCounters(_)
+            | Self::ExpectKeyboardCounters(_)
             // Answered from a process-global resource owner, of which the host
             // has exactly one. A window run reads the same files registry, the
             // same clipboard and the same audio device table the semantic run
@@ -586,6 +596,7 @@ impl Command {
                 | Self::ReplaceText(_, _)
                 | Self::Focus(_)
                 | Self::PressKey(_)
+                | Self::Key(_)
                 | Self::AwaitTask
                 | Self::AwaitCount(_, _)
                 | Self::ClipboardText(_)
@@ -616,6 +627,8 @@ pub enum Locator {
     ColumnName(String),
     DialogName(String),
     TooltipName(String),
+    /// A presented region that answers a chord, in canonical spelling.
+    Shortcut(String),
     PanelName(String),
     RowName(String),
     ScrollName(String),
@@ -655,6 +668,7 @@ impl fmt::Display for Locator {
             Self::ColumnName(value) => ("(role column :name", value),
             Self::DialogName(value) => ("(role dialog :name", value),
             Self::TooltipName(value) => ("(role tooltip :name", value),
+            Self::Shortcut(value) => ("(shortcut", value),
             Self::PanelName(value) => ("(role panel :name", value),
             Self::RowName(value) => ("(role row :name", value),
             Self::ScrollName(value) => ("(role scroll :name", value),
@@ -1463,6 +1477,17 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectClipboardCounters(expected)
         }
+        "expect-keyboard-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "keyboard counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "keyboard counters must be non-negative integers"))?;
+            }
+            Command::ExpectKeyboardCounters(expected)
+        }
         "expect-popover-counters" if values.len() == 4 => {
             let mut expected = [0u64; 3];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1875,6 +1900,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-processes"
         | "expect-clipboard-counters"
         | "expect-popover-counters"
+        | "expect-keyboard-counters"
         | "expect-sqlite-counters"
         | "expect-http-counters"
         | "expect-tcp-counters"
@@ -1985,6 +2011,14 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .string()
             .map(|value| Locator::CanvasItemPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "canvas-item-prefix locator requires a string")),
+        Some("shortcut") if values.len() == 2 => {
+            let written = values[1]
+                .string()
+                .ok_or_else(|| error(node, "shortcut locator requires a chord string"))?;
+            crate::keyboard::canonical_chord(written)
+                .map(Locator::Shortcut)
+                .map_err(|detail| error(node, format!("shortcut locator: {detail}")))
+        }
         Some("button-prefix") if values.len() == 2 => values[1]
             .string()
             .map(|value| Locator::ButtonPrefix(value.to_owned()))
@@ -3030,6 +3064,38 @@ mod tests {
         assert!(
             matches!(&spec.steps[1].command, Command::ExpectVisible(Locator::CanvasItemName(name)) if name == "Card")
         );
+    }
+
+    #[test]
+    fn parses_shortcut_keys_counters_and_locators_for_both_runners() {
+        let spec = parse(
+            r#"(test "keys" (steps
+            (key "shift-ctrl-k")
+            (expect-keyboard-counters 1 1 2 0)
+            (expect-count (shortcut "shift-ctrl-k") 1)))"#,
+        )
+        .unwrap();
+        assert_eq!(spec.steps[0].command, Command::Key("shift-ctrl-k".into()));
+        assert_eq!(
+            spec.steps[1].command,
+            Command::ExpectKeyboardCounters([1, 1, 2, 0])
+        );
+        // The locator names the chord as the host spells it.
+        assert!(matches!(
+            &spec.steps[2].command,
+            Command::ExpectCount(Locator::Shortcut(keys), 1) if keys == "ctrl-shift-k"
+        ));
+        for step in &spec.steps {
+            assert_eq!(step.command.capability(), Capability::Both);
+        }
+        assert!(spec.steps[0].command.is_operation());
+        for invalid in [
+            "(expect-keyboard-counters 1 1 2)",
+            "(expect-count (shortcut \"escape\") 1)",
+        ] {
+            let source = format!("(test \"keys\" (steps {invalid}))");
+            assert!(parse(&source).is_err(), "{invalid} must not parse");
+        }
     }
 
     #[test]

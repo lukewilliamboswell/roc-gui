@@ -50,6 +50,7 @@ platform ""
 		"roc_gui_node_image": HostGlue.node_image!,
 		"roc_gui_node_canvas": HostGlue.node_canvas!,
 		"roc_gui_canvas_event": HostGlue.canvas_event!,
+		"roc_gui_shortcut_event": HostGlue.shortcut_event!,
 		"roc_gui_virtual_window": HostGlue.virtual_window!,
 		"roc_gui_virtual_rows_event": HostGlue.virtual_rows_event!,
 		"roc_gui_input_value": HostGlue.input_value!,

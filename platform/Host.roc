@@ -180,6 +180,8 @@ Host := [].{
 		delay_ms : U32,
 		hover_enter : Bool,
 		hover_exit : Bool,
+		shortcuts : List({ keys : Str, focus : Bool }),
+		focus_serial : U64,
 		gap : U32,
 		padding_top : U32,
 		padding_right : U32,
@@ -223,7 +225,7 @@ Host := [].{
 		overflow_y : U8,
 		align : U8,
 		justify : U8,
-	} => { id : U64, hover_enter : U64, hover_exit : U64 }
+	} => { id : U64, hover_enter : U64, hover_exit : U64, shortcut : U64 }
 
 	node_panel! : {
 		builder : U64,
@@ -602,6 +604,7 @@ Host := [].{
 	virtual_window! : { instance : U64, count : U64, row_height : U32, scroll_row : U64, scroll_align : U8, scroll_serial : U64 } => { first : U64, end : U64 }
 	virtual_rows_event! : () => { refresh : Bool, report : Bool, start : U64, end : U64 }
 	canvas_event! : () => { phase : U8, x : I32, y : I32, dx : I32, dy : I32, target : U64 }
+	shortcut_event! : () => { index : U64, keys : Str }
 
 	node_text_input! : {
 		label : Str,

@@ -1124,7 +1124,8 @@ async fn run_step(
         | Command::ExpectRows(_, _)
         | Command::ExpectBefore(_, _)
         | Command::ExpectBackground(_, _)
-        | Command::ExpectPopoverCounters(_) => window
+        | Command::ExpectPopoverCounters(_)
+        | Command::ExpectKeyboardCounters(_) => window
             .update(cx, |runtime, _, _| {
                 runner::graph_claim(&runtime.graph, &step.command)
                     .expect("graph claim is missing an arm")

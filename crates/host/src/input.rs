@@ -487,7 +487,12 @@ impl Render for TextInput {
 }
 
 pub fn bind_keys(cx: &mut App) {
-    cx.bind_keys([
+    cx.bind_keys(bindings());
+}
+
+/// The chords a focused text input takes for editing, in its own key context.
+pub fn bindings() -> Vec<KeyBinding> {
+    vec![
         KeyBinding::new("backspace", Backspace, Some("TextInput")),
         KeyBinding::new("delete", Delete, Some("TextInput")),
         KeyBinding::new("left", Left, Some("TextInput")),
@@ -498,7 +503,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("home", Home, Some("TextInput")),
         KeyBinding::new("end", End, Some("TextInput")),
         KeyBinding::new("enter", Submit, Some("TextInput")),
-    ]);
+    ]
 }
 
 #[cfg(test)]

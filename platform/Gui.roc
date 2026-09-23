@@ -114,6 +114,7 @@ Gui := [].{
 	EventCanvasHover : Event.CanvasHover
 	EventCanvasWheel : Event.CanvasWheel
 	EventVisibleRows : Event.VisibleRows
+	EventKey : Event.Key
 
 	# Types exchanged with `Files`.
 	FilesChoice(a) : Files.Choice(a)
@@ -184,6 +185,7 @@ Gui := [].{
 	ScrollRequest : Elem.ScrollRequest
 	ScrollAxis : Elem.ScrollAxis
 	Placement : Elem.Placement
+	Shortcut(a) : Elem.Shortcut(a)
 	ImageFormat : Elem.ImageFormat
 	ImageFit : Elem.ImageFit
 	CanvasEllipse : Elem.CanvasEllipse
@@ -277,6 +279,18 @@ Gui := [].{
 	## Annotate an element with a short text tooltip, named by that text.
 	tooltip : Elem.Elem(a), Str -> Elem.Elem(a)
 	tooltip = |anchor, value| Elem.tooltip(anchor, value)
+
+	## Answer key chords anywhere in the window while an element is mounted.
+	shortcuts : Elem.Elem(a), List(Elem.Shortcut(a)) -> Elem.Elem(a)
+	shortcuts = |elem, list| Elem.shortcuts(elem, list)
+
+	## Answer key chords only while keyboard focus is inside an element.
+	focus_shortcuts : Elem.Elem(a), List(Elem.Shortcut(a)) -> Elem.Elem(a)
+	focus_shortcuts = |elem, list| Elem.focus_shortcuts(elem, list)
+
+	## Focus the first enabled control inside an element once for each new serial.
+	request_focus : Elem.Elem(a), U64 -> Elem.Elem(a)
+	request_focus = |elem, serial| Elem.request_focus(elem, serial)
 
 	## Constrain content to the available space and allow scrolling.
 	scroll : Elem.ScrollProps(a) -> Elem.Elem(a)

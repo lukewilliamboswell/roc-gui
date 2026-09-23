@@ -16,6 +16,7 @@ mod grant;
 mod http;
 mod image_data;
 mod input;
+mod keyboard;
 mod observatory;
 mod probe;
 mod process;
@@ -49,10 +50,10 @@ use roc_platform_abi::{
     HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
     HostGlueNodePopover, HostGlueNodePopoverArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
     HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueVirtualRowsEventRetRecord,
-    HostGlueVirtualWindowArgs, HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace,
-    RocErasedCallable, RocHost, RocList, RocListWith, RocStr, decref_erased_callable,
-    incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueShortcutEvent,
+    HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs, HostGlueVirtualWindowRetRecord,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList, RocListWith, RocStr,
+    decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -252,6 +253,7 @@ thread_local! {
     static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
     static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
+    static SHORTCUT_EVENT: RefCell<Option<(u64, String)>> = const { RefCell::new(None) };
     static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
 }
 
@@ -939,7 +941,31 @@ pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_popover(args: HostGlueNodePopoverArgs) -> HostGlueNodePopover {
     let label = args.label.as_str().to_owned();
-    unsafe { args.label.decref(roc_host()) };
+    let shortcuts = args
+        .shortcuts
+        .as_slice()
+        .iter()
+        .map(|item| bridge::Shortcut {
+            keys: keyboard::canonical_chord(item.keys.as_str())
+                .unwrap_or_else(|message| panic!("invalid shortcut: {message}")),
+            scope: if item.focus {
+                bridge::ShortcutScope::Focus
+            } else {
+                bridge::ShortcutScope::Window
+            },
+        })
+        .collect::<Vec<_>>();
+    for (index, shortcut) in shortcuts.iter().enumerate() {
+        assert!(
+            shortcuts[..index]
+                .iter()
+                .all(|earlier| earlier.keys != shortcut.keys),
+            "invalid shortcut: one region declares {} twice",
+            shortcut.keys
+        );
+    }
+    unsafe { args.decref(roc_host()) };
+    let answers = !shortcuts.is_empty();
     let placement = match args.placement {
         0 => Placement::Below,
         1 => Placement::Above,
@@ -954,11 +980,18 @@ pub extern "C" fn roc_gui_node_popover(args: HostGlueNodePopoverArgs) -> HostGlu
             delay_ms: args.delay_ms,
             hover_enter: args.hover_enter,
             hover_exit: args.hover_exit,
+            shortcuts,
+            focus_serial: args.focus_serial,
             style: decode_layout_style!(args),
         },
         finish_children(args.builder),
     );
     HostGlueNodePopover {
+        shortcut: if answers {
+            id | bridge::SHORTCUT_EVENT_BIT
+        } else {
+            0
+        },
         id,
         hover_enter: if args.hover_enter {
             id | bridge::HOVER_ENTER_EVENT_BIT
@@ -1341,6 +1374,19 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
     )
 }
 
+/// Consume the shortcut installed for a key dispatch: which of the region's
+/// shortcuts matched, and the chord in canonical spelling.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_shortcut_event() -> HostGlueShortcutEvent {
+    let (index, keys) = SHORTCUT_EVENT
+        .with(|slot| slot.borrow_mut().take())
+        .expect("a shortcut route ran without a matched shortcut");
+    HostGlueShortcutEvent {
+        index,
+        keys: RocStr::from_str(&keys, roc_host()),
+    }
+}
+
 /// Consume the direct-manipulation payload installed for a canvas dispatch.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
@@ -1667,6 +1713,22 @@ fn dispatch_canvas(event_id: u64, event: CanvasEventPayload) -> Patch {
     });
     let patch = dispatch(event_id);
     CANVAS_EVENT.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
+fn dispatch_shortcut(found: &bridge::ShortcutMatch) -> Patch {
+    SHORTCUT_EVENT.with(|slot| {
+        assert!(
+            slot.borrow_mut()
+                .replace((found.index, found.keys.clone()))
+                .is_none(),
+            "nested shortcut dispatch"
+        );
+    });
+    let patch = dispatch(found.event);
+    SHORTCUT_EVENT.with(|slot| {
         slot.borrow_mut().take();
     });
     patch
@@ -3998,6 +4060,68 @@ impl Runtime {
         }
     }
 
+    /// The control holding keyboard focus, if any does. The one focused when
+    /// the window last drew is checked first, so a keystroke does not search
+    /// every focusable control to find it.
+    fn focused_control(&self, window: &Window) -> Option<u64> {
+        if self.root_focus.is_focused(window) {
+            return None;
+        }
+        self.focused_identity
+            .as_ref()
+            .map(|(id, _)| *id)
+            .filter(|id| {
+                self.focus_handles
+                    .get(id)
+                    .is_some_and(|handle| handle.is_focused(window))
+            })
+            .or_else(|| {
+                self.focus_handles
+                    .iter()
+                    .find(|(_, handle)| handle.is_focused(window))
+                    .map(|(id, _)| *id)
+            })
+    }
+
+    /// A keystroke nothing nearer took. The graph names the shortcut it
+    /// reaches, if any, and its handler runs as a `key` cycle.
+    fn shortcut_if_live(
+        &mut self,
+        keystroke: &Keystroke,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let focused = self.focused_control(window);
+        let Some(found) = self.graph.resolve_shortcut(
+            focused,
+            keyboard::types_character(keystroke),
+            |declared| keyboard::matches(keystroke, declared),
+        ) else {
+            return false;
+        };
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_shortcut(&found);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "key",
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_shortcut(&found);
+            self.apply_unrecorded(patch, cx);
+        }
+        true
+    }
+
     fn activate_if_live(&mut self, id: u64, key: ControlKey, cx: &mut Context<Self>) {
         if self
             .graph
@@ -4309,6 +4433,11 @@ impl Runtime {
                 }
             }
         }
+        // A region that asked for focus with a new serial takes it, over
+        // whatever the dialog policy above chose.
+        if let Some(target) = self.graph.take_focus_request() {
+            self.focus_after_render = Some(target);
+        }
         if self.active_dialog != next_dialog {
             for (id, view) in self.views.iter().chain(
                 self.virtual_entities
@@ -4497,6 +4626,11 @@ impl Runtime {
                     });
                 }
             }
+        }
+        // A region that asked for focus with a new serial takes it, over
+        // whatever the dialog policy above chose.
+        if let Some(target) = self.graph.take_focus_request() {
+            self.focus_after_render = Some(target);
         }
         if self.active_dialog != next_dialog {
             for (id, view) in self.views.iter().chain(
@@ -5323,6 +5457,23 @@ impl Render for Runtime {
                 .on_action(|_: &ToggleAppAccess, window, _| {
                     access_panel::request_toggle();
                     window.refresh();
+                })
+                // Reached only by a keystroke no action on the focus path
+                // took, after the focused control's own key listeners: the
+                // application's shortcuts come after the host's keys and after
+                // text a focused field is typing.
+                .on_key_down({
+                    let runtime = _cx.entity().downgrade();
+                    move |event: &KeyDownEvent, window, cx| {
+                        let answered = runtime
+                            .update(cx, |runtime, cx| {
+                                runtime.shortcut_if_live(&event.keystroke, window, cx)
+                            })
+                            .unwrap_or(false);
+                        if answered {
+                            cx.stop_propagation();
+                        }
+                    }
                 })
                 .size_full()
                 .flex()
@@ -8969,6 +9120,8 @@ mod tests {
                 delay_ms,
                 hover_enter: false,
                 hover_exit: false,
+                shortcuts: vec![],
+                focus_serial: 0,
                 style: Box::default(),
             },
             children: vec![base + 1, base + 4],
@@ -8979,6 +9132,105 @@ mod tests {
             children: vec![],
         });
         nodes
+    }
+
+    /// Two buttons in a row 1000; 1001 inside a focus region 1021 answering
+    /// `down`, the row inside a window region 1020 answering `ctrl-k` and
+    /// asking for focus with `serial`.
+    fn keyed_controls(serial: u64) -> Vec<Node> {
+        use crate::bridge::{Shortcut, ShortcutScope};
+        let region = |id, child, keys: &str, scope, focus_serial| Node {
+            id,
+            kind: NodeKind::Popover {
+                label: String::new(),
+                placement: crate::bridge::Placement::Below,
+                delay_ms: 0,
+                hover_enter: false,
+                hover_exit: false,
+                shortcuts: vec![Shortcut {
+                    keys: keys.into(),
+                    scope,
+                }],
+                focus_serial,
+                style: Box::default(),
+            },
+            children: vec![child],
+        };
+        let mut nodes = two_hover_buttons(1000);
+        nodes[0].children = vec![1021, 1002];
+        nodes.push(region(1021, 1001, "down", ShortcutScope::Focus, 0));
+        nodes.push(region(1020, 1000, "ctrl-k", ShortcutScope::Window, serial));
+        nodes
+    }
+
+    #[gpui::test]
+    fn live_keystrokes_reach_the_shortcut_nearest_focus(cx: &mut TestAppContext) {
+        let recorded = recording_dispatcher();
+        // The buttons also report hover; only the shortcut route is asked.
+        let events = || {
+            recorded
+                .borrow()
+                .iter()
+                .copied()
+                .filter(|event| event & crate::bridge::SHORTCUT_EVENT_BIT != 0)
+                .collect::<Vec<_>>()
+        };
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1020,
+                    nodes: keyed_controls(0),
+                }),
+                cx,
+            )
+        });
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        // With nothing focused the root's listener hears the keystroke.
+        cx.simulate_keystrokes("ctrl-k");
+        cx.run_until_parked();
+        assert_eq!(events(), [1020 | crate::bridge::SHORTCUT_EVENT_BIT]);
+        // A focus shortcut is live only with focus inside its region.
+        cx.simulate_keystrokes("down");
+        cx.run_until_parked();
+        assert_eq!(events().len(), 1);
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1001].focus(window, cx)
+        });
+        cx.run_until_parked();
+        cx.simulate_keystrokes("down");
+        cx.run_until_parked();
+        assert_eq!(
+            events().last(),
+            Some(&(1021 | crate::bridge::SHORTCUT_EVENT_BIT))
+        );
+        runtime.read_with(cx, |runtime, _| {
+            assert_eq!(
+                runtime.graph.keyboard_counters().as_array()[..2],
+                [3, 2],
+                "three keystrokes offered, two answered"
+            );
+        });
+    }
+
+    #[gpui::test]
+    fn a_focus_request_moves_focus_when_its_region_mounts(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1020,
+                    nodes: keyed_controls(3),
+                }),
+                cx,
+            )
+        });
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        runtime.update_in(cx, |runtime, window, _| {
+            assert!(runtime.focus_handles[&1001].is_focused(window));
+            assert_eq!(runtime.graph.keyboard_counters().focused, 1);
+        });
     }
 
     #[gpui::test]

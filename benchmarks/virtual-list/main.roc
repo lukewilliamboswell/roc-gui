@@ -28,6 +28,50 @@ rows_list = |state| if state.on_demand {
 	Gui.virtual_list({ label: "Rows", row_height: 28, items: state.rows.map(|row| { key: row, content: row_button(row) }) })
 }
 
+## How many rows the list holds, whichever way it holds them.
+total : State -> U64
+total = |state| if state.on_demand state.provided else state.rows.len()
+
+## Select a row and, for rows produced on demand, bring it into view. A new
+## serial moves the list even to the row it last moved to.
+select : State, U64 -> Gui.Action(State)
+select = |state, row| {
+	serial = match state.jump {
+		None => 0
+		Some(previous) => previous.serial + 1
+	}
+	jump = if state.on_demand Some({ row, align: Nearest, serial }) else state.jump
+	Gui.update({ ..state, selected: row, jump })
+}
+
+## The keyboard moves the selection one row, or to either end, wherever focus
+## is. Nothing is selected until the first move, which starts at the end it
+## moves from.
+step : State, [Next, Previous, First, Last] -> Gui.Action(State)
+step = |state, move| {
+	count = total(state)
+	chosen = state.selected < count
+	if count == 0 {
+		Gui.none
+	} else {
+		row = match move {
+			Next => if !chosen 0 else if state.selected + 1 < count state.selected + 1 else state.selected
+			Previous => if !chosen count - 1 else if state.selected > 0 state.selected - 1 else 0
+			First => 0
+			Last => count - 1
+		}
+		select(state, row)
+	}
+}
+
+navigation : List(Gui.Shortcut(State))
+navigation = [
+	{ keys: "down", on_press: |current, _| step(current, Next) },
+	{ keys: "up", on_press: |current, _| step(current, Previous) },
+	{ keys: "home", on_press: |current, _| step(current, First) },
+	{ keys: "end", on_press: |current, _| step(current, Last) },
+]
+
 render = |state| Gui.col(
 	{ width: Fill, height: Fill, grow: True },
 	[
@@ -53,11 +97,11 @@ render = |state| Gui.col(
 				}),
 			],
 		),
-		Gui.text("Rows: ${(if state.on_demand state.provided else state.rows.len()).to_str()}"),
+		Gui.text("Rows: ${total(state).to_str()}"),
 		Gui.text("Selected: ${state.selected.to_str()}"),
 		rows_list(state),
 	],
-)
+).shortcuts(navigation)
 
 main : Gui.Program(State)
 main = Gui.run({ init: |_access| { rows: [], provided: 0, on_demand: False, selected: 0, jump: None }, render })

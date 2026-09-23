@@ -161,6 +161,9 @@ are captured.
 `(role tooltip :name "label")`:: A popover's presenting surface, identified by
 its semantic label. A closed popover presents nothing, so neither it nor
 anything in its content matches.
+`(shortcut "CHORD")`:: Every presented element that declares a shortcut for
+`CHORD`, which is compared in the host's canonical spelling, so
+`"shift-ctrl-k"` finds a shortcut declared as `"ctrl-shift-k"`.
 `(role textarea :name "name")`:: A multiline editor identified by its semantic
 name. Locator matching never records its value.
 `(role textbox :name "label")`:: A controlled text input identified by its
@@ -275,6 +278,17 @@ entering a popover's anchor presents it at once; focus leaving closes it unless
 the pointer rests there. The window runner activates the window first, as a
 person moving focus there would; focus arriving in a region is reported only in
 the active window.
+`(key "CHORD")`:: Press one key chord, such as `"ctrl-k"`, `"down"`, or
+`"shift-f3"`. The window runner sends a real keystroke through the window's
+production keymap, so the host's own keys, a focused control, and a focused
+text field take it exactly as they take a person's. The semantic runner offers
+it to the application's shortcuts through the same resolution the window's root
+uses, from the control `focus` last named, and runs the shortcut that answers as
+a `key` cycle; a chord nothing answers does nothing, as in a window. A chord the
+window would give to the host or to the focused control instead — Tab, Escape,
+Enter on a button, a character typed into a text field — fails the step in the
+semantic runner, which does not imitate what they do; use `focus`,
+`press-key`, `replace-text`, or a window run.
 `(mark-metrics)`:: Separate benchmark setup from the operation being measured.
 `(press-key Enter)`:: Activate the focused button through the normal Roc event
 route.
@@ -365,6 +379,13 @@ live client count, operation attempts, and authority denials.
 `(expect-image-bytes LOCATOR N)`:: Require an image node to own exactly `N`
 encoded bytes, and record expected and observed deterministic counts without
 persisting image content.
+`(expect-keyboard-counters OFFERED MATCHED COMPARED FOCUSED)`:: Require the
+mounted graph's keyboard work since the run began: keystrokes offered to the
+application's shortcuts, keystrokes a shortcut answered, declared shortcuts
+compared against a keystroke, and focus requests that moved focus. Resolving a
+keystroke visits the focused control's ancestors and the elements that declare
+window shortcuts, never the rest of the graph, so `COMPARED` is the cost a
+scaling case bounds. Both runners answer from the same graph.
 `(expect-not-visible LOCATOR)`:: Require no matches.
 `(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced
 by the preceding click. `KIND` is `mount`, `replace`, or `no_change`.
@@ -469,12 +490,12 @@ which depend on the semantic runner's per-iteration mount. Also every step the
 window runner does not implement: `drag`, `replace-text`, `submit`, and the
 repository fixture steps the Contributing chapter describes.
 
-`window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
+`window-only`:: `settle`, `screenshot`, `type`, `resize`, `scroll`,
 `expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
 mean anything without a presented frame: without layout there is no fold for
 content to be below, and no size a window could be resized from.
 
-`both`:: `click`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `await-task`, `await-count`, `clipboard-text`,
+`both`:: `click`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
 `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
 `expect-count`, `expect-component-work`, and the value and ordering assertions — `expect-value`,
 `expect-value-bytes`, `expect-image-bytes`, `expect-before`, `expect-rows`, and
@@ -504,9 +525,6 @@ means two different things.
 
 Input steps first, then waiting, then assertions in alphabetical order.
 
-`(key "CHORD")`:: Send one real chord, such as `"cmd-a"` or `"escape"`, through
-the window's production keymap. The semantic `press-key` covers three
-activation keys and no modifiers.
 `(type "TEXT")`:: Send each character as a real keystroke into the focused
 element, through GPUI's own keystroke dispatch. The semantic `replace-text`
 sets a value directly and exercises none of the editing path.

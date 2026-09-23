@@ -321,7 +321,9 @@ completed frame is unavailable rather than zero.
 
 Schema 20 adds kind 17. A popover's view renders when its surface opens or
 closes as well as when the popover itself changes; its anchor and content are
-counted under their own kinds.
+counted under their own kinds. The region that carries hover handlers,
+shortcuts, or a focus request for an element is a popover with no content, and
+is counted here too.
 
 Rows contain positive counts. A missing metric/kind row means measured zero
 only within a recorded frame with complete native-work evidence. A capture

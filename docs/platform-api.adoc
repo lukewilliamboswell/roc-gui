@@ -446,6 +446,54 @@ be as tall as the window the application asked for: a list mounts the rows such
 a viewport shows and one viewport below them, and a scroll request moves that
 viewport by the same arithmetic the window uses.
 
+[[keyboard]]
+=== Keyboard shortcuts and focus
+
+A shortcut is a key chord and a handler, declared by the element it belongs
+to rather than registered with the window:
+
+`elem.shortcuts([{ keys, on_press }, ...])`:: Answer each chord anywhere in the
+window while `elem` is mounted and presented.
+`elem.focus_shortcuts([{ keys, on_press }, ...])`:: Answer each chord only
+while keyboard focus is inside `elem`.
+`elem.request_focus(serial)`:: Move keyboard focus to the first enabled
+control inside `elem` once for each distinct `serial`. Holding a serial across
+renders leaves focus wherever a person has since moved it; a new serial moves
+it again, and 0 asks for nothing.
+
+`keys` names modifiers and a key joined by `-`: `ctrl-k`, `shift-down`, `f2`,
+`[`. `secondary` is Ctrl on Linux and Windows and Cmd on macOS. The handler
+receives an `Event.Key` whose `keys` is the chord in the host's canonical
+spelling, modifiers in a fixed order, whatever spelling was declared.
+
+[source,roc]
+----
+navigation = [
+    { keys: "down", on_press: |state, _| Gui.update(select_next(state)) },
+    { keys: "up", on_press: |state, _| Gui.update(select_previous(state)) },
+]
+
+Gui.col({ width: Fill }, rows).shortcuts(navigation)
+----
+
+A keystroke reaches at most one shortcut. The host's own keys come first:
+Tab and Shift+Tab move focus, Escape dismisses, a focused button takes Enter
+and Space, a focused checkbox Space, and a focused text field its editing keys
+and every character it types. Declaring Tab, Shift+Tab, Escape, or the App
+access chord is refused, because none of them could ever arrive. Otherwise the
+elements enclosing the focused control are asked first, innermost first, with
+both their window and focus shortcuts; then every other presented element's
+window shortcuts, where the element later in the window's order wins a chord
+two declare. While a dialog is open only the shortcuts declared inside it are
+live. A shortcut's handler runs like any other handler, as a `key` cycle,
+owned by the component that declared it.
+
+Shortcuts and focus requests are carried by the element they are declared on:
+an element that is not a popover is wrapped in a region that takes its share of
+the parent's layout and presents nothing, and a popover or tooltip takes them
+itself. Always wrap the same element the same way, so that the region, and
+the controls inside it, keep their identity across renders.
+
 === Modifiers
 
 A property record is how an element is written. The code that builds an
@@ -460,7 +508,8 @@ field, together with `label`. Control-specific fields such as `enabled`,
 `placeholder`, `read_only`, `axis`, `row_gap`, `fit`, `grayscale`, and `heading`
 follow the same rule, as do the handlers `on_press`, `on_hover_enter`,
 `on_hover_exit`, `on_check`, `on_change`, `on_submit`, `on_input`,
-`on_dismiss`, and `on_pointer`. A modifier that does not apply to an element
+`on_dismiss`, and `on_pointer`, and the keyboard's `shortcuts`,
+`focus_shortcuts`, and `request_focus`. A modifier that does not apply to an element
 leaves it unchanged. A typographic modifier on `Gui.text` styles that string,
 and a modifier on a translated component applies to the root that component
 renders.

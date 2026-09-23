@@ -169,6 +169,20 @@ pub(crate) fn graph_claim(
             )
         }
 
+        Command::ExpectKeyboardCounters(expected) => {
+            let observed = graph.keyboard_counters().as_array();
+            (
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected keyboard counters offered/matched/compared/focused {expected:?}; observed {observed:?}"
+                    ))
+                },
+                None,
+            )
+        }
+
         Command::ExpectPopoverCounters(expected) => {
             let observed = graph.popover_counters().as_array();
             (
@@ -446,6 +460,11 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             }
             (Locator::DialogName(expected), NodeKind::Dialog { label, .. })
                 if expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::Shortcut(expected), NodeKind::Popover { shortcuts, .. })
+                if shortcuts.iter().any(|shortcut| &shortcut.keys == expected) =>
             {
                 Some(node.id)
             }
@@ -888,7 +907,6 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectBounds(_, _)
             | Command::Screenshot(_)
             | Command::Type(_)
-            | Command::Key(_)
             | Command::Resize { .. }
             | Command::Scroll { .. } => Err(format!(
                 "line {}: step `{}` is window-only; run this specification with --host-run-window-spec",
@@ -1456,6 +1474,54 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     }
                 }
             }
+            Command::Key(chord) => {
+                let keystroke = crate::keyboard::delivered(chord)
+                    .map_err(|detail| format!("line {}: {detail}", step.line))?;
+                let focused_kind = focused.and_then(|id| graph.node(id)).map(|node| &node.kind);
+                if crate::keyboard::host_takes(focused_kind, &keystroke) {
+                    // The window's keymap gives this chord to the host or to the
+                    // focused control before any shortcut; this runner does not
+                    // imitate what they then do.
+                    Err(format!(
+                        "line {}: the window gives \"{chord}\" to the host or the focused control before any shortcut; use focus, press-key, or a window run",
+                        step.line
+                    ))
+                } else {
+                    match graph.resolve_shortcut(
+                        focused,
+                        crate::keyboard::types_character(&keystroke),
+                        |declared| crate::keyboard::matches(&keystroke, declared),
+                    ) {
+                        // Nothing answers the chord, and in a window nothing
+                        // would happen either.
+                        None => Ok(()),
+                        Some(found) => {
+                            let cycle_started = Instant::now();
+                            observatory::reset_roc_work();
+                            let roc_started = Instant::now();
+                            let patch = crate::dispatch_shortcut(&found);
+                            let roc_ns = elapsed_ns(roc_started);
+                            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                            let facts = apply_transaction(&mut graph, patch)?;
+                            last_patch = Some(facts);
+                            pending_cycles.push(make_cycle(
+                                run_id,
+                                cycle_ordinal,
+                                Some(ordinal),
+                                if marked { "measured" } else { "setup" },
+                                "key",
+                                cycle_started,
+                                roc_ns,
+                                roc_work,
+                                &facts,
+                                roc_work_valid,
+                            ));
+                            cycle_ordinal += 1;
+                            Ok(())
+                        }
+                    }
+                }
+            }
             Command::AwaitTask => {
                 let before = task_counts();
                 let cycle_started = Instant::now();
@@ -1684,7 +1750,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectRows(_, _)
             | Command::ExpectBefore(_, _)
             | Command::ExpectBackground(_, _)
-            | Command::ExpectPopoverCounters(_)) => {
+            | Command::ExpectPopoverCounters(_)
+            | Command::ExpectKeyboardCounters(_)) => {
                 let (result, counts) =
                     graph_claim(&graph, command).expect("graph claim is missing an arm");
                 count_evidence = counts;
@@ -1727,6 +1794,12 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             },
         };
+        // A region that asked for focus with a new serial takes it once the
+        // step's patches are applied, as the window's does after a patch.
+        if let Some(target) = graph.take_focus_request() {
+            focused = Some(target);
+            graph.popover_focus_moved(focused);
+        }
         // Operation timing begins only after locator resolution, at the same
         // boundary as its attributed cycle. Assertions are correctness-only.
         let operation_duration = (!pending_cycles.is_empty())

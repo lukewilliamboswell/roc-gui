@@ -269,6 +269,20 @@ independent of any one application.
   window lacks room. Verify placement, flipping, and focus-driven opening on
   macOS and Windows, including a window whose content is scaled.
 
+- [ ] **Shortcuts are verified on Linux only.** Chords are parsed and matched
+  by GPUI, and `secondary` resolves to Ctrl on Linux. Verify on macOS (Cmd as
+  `secondary`, Option producing characters) and Windows (AltGr layouts, where a
+  chord's character arrives with Ctrl and Alt held) that the root listener
+  receives the keystrokes a person means as shortcuts, and that a focused text
+  field still keeps every character it types.
+
+- [ ] **A focus request into rows GPUI has not drawn moves nothing.** The graph
+  chooses the first enabled control inside the requesting region and counts it
+  as focused, but a control inside a virtual list has no native view until GPUI
+  draws its row, so the window cannot focus one mounted just outside the
+  viewport. Close by bringing the row into view before focusing it, as a scroll
+  request does, and count the request only once the window has focused it.
+
 - [ ] **Composite directory navigation has no roving focus.** A user can reach
   and activate every folder with Tab and Enter or Space. Close with a semantic
   list/list-item element whose Up, Down, Home, and End behavior, selected state,
@@ -506,10 +520,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   exercised, so verify macOS and Windows, including a verbatim `\\?\UNC` share,
   which is refused.
 
-- [ ] **No keyboard shortcuts or focus control (P3).** Only Tab, Enter, Space,
-  text editing, and Escape reach an application. Add key events with modifiers,
-  window-level shortcuts, and focus control for the command palette and
-  keyboard navigation.
 
 - [ ] **No split panes or tabs (P5).** The shell needs resizable, collapsible
   panes and capture tabs. This is shared with the HTTP Workbench and Terminal

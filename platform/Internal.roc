@@ -246,7 +246,16 @@ Internal := [].{
 			None => False
 			Some(_) => True
 		}
-		Host.node_popover!({ builder, label: props.label, placement, delay_ms: props.delay_ms, hover_enter, hover_exit, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+		shortcuts = props.shortcuts.map(
+			|binding| {
+				keys: binding.keys,
+				focus: match binding.scope {
+					Window => False
+					Focus => True
+				},
+			},
+		)
+		Host.node_popover!({ builder, label: props.label, placement, delay_ms: props.delay_ms, hover_enter, hover_exit, shortcuts, focus_serial: props.focus_serial, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 	}
 
 	finish_panel! = |builder, props| {
@@ -630,6 +639,24 @@ Internal := [].{
 							$routes = Index.set($routes, exit_route.id, exit_route)
 							$boundaries = record_route($boundaries, $active_boundary, exit_route.id)
 						}
+					}
+					if !props.shortcuts.is_empty() {
+						# One route answers every shortcut of the region; the host
+						# names which one matched and the chord in its own spelling.
+						shortcut_route = {
+							id: ids.shortcut,
+							boundary: $active_boundary,
+							revision,
+							fire: |current, _| {
+								event = Host.shortcut_event!()
+								match props.shortcuts.get(event.index) {
+									Ok(binding) => (binding.on_press)(current, { keys: event.keys })
+									Err(_) => crash "host named a shortcut the region does not declare"
+								}
+							},
+						}
+						$routes = Index.set($routes, shortcut_route.id, shortcut_route)
+						$boundaries = record_route($boundaries, $active_boundary, shortcut_route.id)
 					}
 					Host.scope_exit!()
 				}

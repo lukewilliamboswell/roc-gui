@@ -56,6 +56,11 @@ Event := [].{
 		target : [None, Some(U64)],
 	}
 
+	## A key chord that matched a shortcut. `keys` is the chord in the host's
+	## canonical spelling, such as `ctrl-shift-k`: modifiers in a fixed order,
+	## then the key, whatever spelling the shortcut was declared with.
+	Key : { keys : Str }
+
 	## The rows of a virtual list that intersect its viewport, as the half-open
 	## range `start` up to but not including `end`. Delivered when that range
 	## changes, so an application can page in the data those rows show.

@@ -183,16 +183,27 @@ Elem(a) :: [
 
 	## Platform representation of a popover. Its first child is the anchor and
 	## any others are the surface's content. A popover with no content is a
-	## hover region: it reports the pointer entering and leaving its anchor
-	## and presents nothing.
+	## region of its anchor: it reports the pointer entering and leaving it,
+	## answers its keyboard shortcuts, and asks for focus, and presents nothing.
 	PopoverNode(a) := {
 		label : Str,
 		placement : Placement,
 		delay_ms : U32,
 		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))],
 		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))],
+		shortcuts : List(Binding(a)),
+		focus_serial : U64,
 		style : Style,
 	}
+
+	## A key chord and what pressing it does. `keys` names modifiers and a key
+	## joined by `-`, such as `ctrl-k`, `shift-down`, or `secondary-s`, where
+	## `secondary` is Ctrl on Linux and Windows and Cmd on macOS.
+	Shortcut(a) : { keys : Str, on_press : (a, Event.Key => Action(a)) }
+
+	## Platform representation of one shortcut and when it is live: while its
+	## region is mounted, or only while keyboard focus is inside the region.
+	Binding(a) : { keys : Str, scope : [Window, Focus], on_press : (a, Event.Key => Action(a)) }
 
 	## Platform representation of a headed surface.
 	PanelNode := { label : Str, style : Style, heading : Str, heading_size : U32, heading_weight : U32, heading_color : Style.Color }
@@ -1516,7 +1527,38 @@ Elem(a) :: [
 	}
 
 	hover_region : Elem(a), [None, Some((a, Event.Hover => Action(a)))], [None, Some((a, Event.Hover => Action(a)))] -> Elem(a)
-	hover_region = |anchor, enter, exit| Popover({ children: [anchor], props: { label: "", placement: Below, delay_ms: 0, on_hover_enter: enter, on_hover_exit: exit, style: Style.{} } })
+	hover_region = |anchor, enter, exit| Popover({ children: [anchor], props: { label: "", placement: Below, delay_ms: 0, on_hover_enter: enter, on_hover_exit: exit, shortcuts: [], focus_serial: 0, style: Style.{} } })
+
+	## A region of `anchor` that presents nothing, for the annotations that
+	## need no surface. A popover already is one, so it takes them itself.
+	region : Elem(a), (PopoverNode(a) -> PopoverNode(a)) -> Elem(a)
+	region = |anchor, change| match anchor {
+		Popover(value) => Popover({ ..value, props: change(value.props) })
+		_ => Popover({ children: [anchor], props: change({ label: "", placement: Below, delay_ms: 0, on_hover_enter: None, on_hover_exit: None, shortcuts: [], focus_serial: 0, style: Style.{} }) })
+	}
+
+	## Answer key chords anywhere in the window while `elem` is mounted. A
+	## shortcut declared nearer the focused control wins over one further
+	## out; a modal dialog leaves live only the shortcuts declared inside it.
+	## A chord that types a character into a focused text field is text, and
+	## Tab, Shift-Tab, and Escape belong to the host.
+	shortcuts : Elem(a), List(Shortcut(a)) -> Elem(a)
+	shortcuts = |elem, list| bind(elem, list, Window)
+
+	## Answer key chords only while keyboard focus is inside `elem`, before
+	## any shortcut declared further out.
+	focus_shortcuts : Elem(a), List(Shortcut(a)) -> Elem(a)
+	focus_shortcuts = |elem, list| bind(elem, list, Focus)
+
+	bind : Elem(a), List(Shortcut(a)), [Window, Focus] -> Elem(a)
+	bind = |elem, list, scope| region(elem, |props| { ..props, shortcuts: props.shortcuts.concat(list.map(|shortcut| { keys: shortcut.keys, scope, on_press: shortcut.on_press })) })
+
+	## Move keyboard focus to the first enabled control inside `elem`, once for
+	## each distinct `serial`: holding the same serial across later renders
+	## leaves focus wherever a person has since moved it, and a new serial
+	## moves it again. A serial of 0 asks for nothing.
+	request_focus : Elem(a), U64 -> Elem(a)
+	request_focus = |elem, serial| region(elem, |props| { ..props, focus_serial: serial })
 
 	## Handle a checkbox being toggled.
 	on_check : Elem(a), (a, Event.Check => Action(a)) -> Elem(a)
@@ -1627,7 +1669,7 @@ Elem(a) :: [
 	popover : PopoverProps(a), Elem(a), List(Elem(a)) -> Elem(a)
 	popover = |props, anchor, content| Popover({
 		children: [anchor].concat(content),
-		props: { label: props.label, placement: props.placement, delay_ms: props.delay_ms, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, style: style_of(props) },
+		props: { label: props.label, placement: props.placement, delay_ms: props.delay_ms, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, shortcuts: [], focus_serial: 0, style: style_of(props) },
 	})
 
 	## Annotate an element with a short text tooltip, named by that text.
@@ -1777,7 +1819,8 @@ Elem(a) :: [
 				None => None
 				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
 			}
-			Popover({ children: [], props: { label: value.props.label, placement: value.props.placement, delay_ms: value.props.delay_ms, on_hover_enter: hover_enter, on_hover_exit: hover_exit, style: value.props.style } })
+			bindings = value.props.shortcuts.map(|binding| { keys: binding.keys, scope: binding.scope, on_press: |parent, event| adapt_event(binding.on_press, parent, event, project, adapt_action) })
+			Popover({ children: [], props: { label: value.props.label, placement: value.props.placement, delay_ms: value.props.delay_ms, on_hover_enter: hover_enter, on_hover_exit: hover_exit, shortcuts: bindings, focus_serial: value.props.focus_serial, style: value.props.style } })
 		}
 		Panel(value) => Panel({ props: value.props, children: [] })
 		Scroll(scroll_value) => Scroll({ axis: scroll_value.axis, content: Text(""), label: scroll_value.label, style: scroll_value.style })
@@ -2034,6 +2077,33 @@ expect {
 			(Some(_), Some(_), 1) => value.props.label == ""
 			_ => False
 		}
+		_ => False
+	}
+}
+
+expect {
+	# Shortcuts, focus shortcuts, and a focus request join one region around
+	# the element, in the order declared, each with its own scope.
+	keyed : Elem(U64)
+	keyed = Elem.text("list")
+		.shortcuts([{ keys: "down", on_press: |state, _| Action.update(state + 1) }])
+		.focus_shortcuts([{ keys: "up", on_press: |state, _| Action.update(state - 1) }])
+		.request_focus(3)
+	match Elem.inspect(keyed) {
+		Popover(value) => {
+			scopes = value.props.shortcuts.map(|binding| binding.scope)
+			value.children.len() == 1 and value.props.focus_serial == 3 and scopes == [Window, Focus] and value.props.label == ""
+		}
+		_ => False
+	}
+}
+
+expect {
+	# A tooltip carries a shortcut itself rather than being wrapped again.
+	noted : Elem(U64)
+	noted = Elem.tooltip(Elem.text("cell"), "About the cell").shortcuts([{ keys: "f1", on_press: |state, _| Action.update(state) }])
+	match Elem.inspect(noted) {
+		Popover(value) => value.props.label == "About the cell" and value.children.len() == 2 and value.props.shortcuts.len() == 1
 		_ => False
 	}
 }
