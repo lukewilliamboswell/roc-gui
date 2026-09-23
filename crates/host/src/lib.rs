@@ -34,10 +34,10 @@ mod watchdog;
 mod window_runner;
 
 use bridge::{
-    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CheckboxIndicator, ControlKey,
-    ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify, Length,
-    MountedGraph, Node, NodeKind, Overflow, Patch, Placement, ScrollAxis, Style, TextOverflow,
-    decode_commit, validate_tree,
+    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CanvasTextAlign, CheckboxIndicator,
+    ControlKey, ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify,
+    Length, MountedGraph, Node, NodeKind, Overflow, Patch, Placement, ScrollAxis, Style,
+    TextOverflow, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -257,11 +257,20 @@ thread_local! {
 
 #[derive(Clone, Copy)]
 struct CanvasEventPayload {
+    /// 0, 1, 2: a pressed gesture's begin, move, and end. 3 and 4: pointer
+    /// movement with no button pressed and leaving the canvas. 5: a wheel.
     phase: u8,
     x: i32,
     y: i32,
+    /// A wheel's scroll distance in logical pixels; zero for every other phase.
+    dx: i32,
+    dy: i32,
     target: u64,
 }
+
+pub(crate) const CANVAS_HOVER_MOVE: u8 = 3;
+pub(crate) const CANVAS_HOVER_LEAVE: u8 = 4;
+pub(crate) const CANVAS_WHEEL: u8 = 5;
 
 const SUBMIT_EVENT_BIT: u64 = 1 << 63;
 
@@ -1269,6 +1278,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
                 0 => CanvasPrimitiveKind::Ellipse,
                 1 => CanvasPrimitiveKind::Line,
                 2 => CanvasPrimitiveKind::Rectangle,
+                3 => CanvasPrimitiveKind::Text,
                 other => panic!("invalid canvas primitive kind {other}"),
             },
             key: item.key,
@@ -1283,8 +1293,20 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
             stroke: decode_color(item.stroke),
             stroke_width: item.stroke_width,
             radius: item.radius,
+            text: item.text.as_str().to_owned(),
+            text_size: item.text_size,
+            align: match item.align {
+                0 => CanvasTextAlign::Start,
+                1 => CanvasTextAlign::Center,
+                2 => CanvasTextAlign::End,
+                other => panic!("invalid canvas text alignment {other}"),
+            },
         })
         .collect::<Vec<_>>();
+    assert!(
+        primitives.iter().all(|item| !item.text.contains('\n')),
+        "canvas text is a single line"
+    );
     assert!(
         primitives.iter().all(|item| item.key != 0),
         "canvas primitive keys must be non-zero"
@@ -1311,6 +1333,8 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         NodeKind::Canvas {
             label,
             primitives,
+            hover: args.hover,
+            wheel: args.wheel,
             style,
         },
         vec![],
@@ -1326,12 +1350,16 @@ pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
             phase: 2,
             x: 0,
             y: 0,
+            dx: 0,
+            dy: 0,
             target: 0,
         });
     HostGlueCanvasEventRetRecord {
         phase: event.phase,
         x: event.x,
         y: event.y,
+        dx: event.dx,
+        dy: event.dy,
         target: event.target,
     }
 }
@@ -2176,9 +2204,50 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     }
 }
 
+/// Paint one canvas text primitive: a single shaped line in the canvas's
+/// inherited font, placed within its box by its alignment.
+fn paint_canvas_text(
+    item: &CanvasPrimitive,
+    origin: Point<Pixels>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    if item.text.is_empty() || item.text_size == 0 {
+        return;
+    }
+    let mut run = window.text_style().to_run(item.text.len());
+    if let Some(color) = item.fill {
+        run.color = rgb(color).into();
+    }
+    let size = px(item.text_size as f32);
+    let line =
+        window
+            .text_system()
+            .shape_line(SharedString::from(item.text.clone()), size, &[run], None);
+    let slack = item.width as f32 - f32::from(line.width);
+    let offset = match item.align {
+        CanvasTextAlign::Start => 0.0,
+        CanvasTextAlign::Center => slack / 2.0,
+        CanvasTextAlign::End => slack,
+    };
+    let _ = line.paint(
+        point(
+            origin.x + px(item.x as f32 + offset),
+            origin.y + px(item.y as f32),
+        ),
+        px(item.line_height() as f32),
+        TextAlign::Left,
+        None,
+        window,
+        cx,
+    );
+}
+
 pub(crate) fn canvas_target(primitives: &[CanvasPrimitive], x: i32, y: i32) -> Option<u64> {
     primitives.iter().rev().find_map(|item| {
         let hit = match item.kind {
+            // Text labels shapes; it is never itself a pointer target.
+            CanvasPrimitiveKind::Text => false,
             CanvasPrimitiveKind::Rectangle => {
                 x >= item.x
                     && y >= item.y
@@ -2424,12 +2493,22 @@ impl Render for NodeView {
             NodeKind::Canvas {
                 label: _,
                 primitives,
+                hover,
+                wheel,
                 style,
             } => {
+                let (hover, wheel) = (*hover, *wheel);
                 let paint_items = primitives.clone();
                 let hit_items = primitives.clone();
+                let hover_items = primitives.clone();
+                let wheel_items = primitives.clone();
                 let bounds_slot = self.canvas_bounds.clone();
                 let down_bounds = self.canvas_bounds.clone();
+                let hover_bounds = self.canvas_bounds.clone();
+                let wheel_bounds = self.canvas_bounds.clone();
+                let hover_runtime = self.runtime.clone();
+                let leave_runtime = self.runtime.clone();
+                let wheel_runtime = self.runtime.clone();
                 let down_runtime = self.runtime.clone();
                 let paint_runtime = self.runtime.clone();
                 let canvas_id = self.node.id;
@@ -2437,9 +2516,12 @@ impl Render for NodeView {
                     move |bounds, _, _| {
                         *bounds_slot.lock().expect("canvas bounds poisoned") = Some(bounds);
                     },
-                    move |bounds, _, window, _| {
+                    move |bounds, _, window, cx| {
                         for item in &paint_items {
                             match item.kind {
+                                CanvasPrimitiveKind::Text => {
+                                    paint_canvas_text(item, bounds.origin, window, cx);
+                                }
                                 CanvasPrimitiveKind::Rectangle => {
                                     let item_bounds = Bounds::new(
                                         point(
@@ -2533,7 +2615,60 @@ impl Render for NodeView {
                     },
                 )
                 .size_full();
-                element = apply_style(element, style)
+                element = apply_style(element, style);
+                if hover {
+                    element = element
+                        .on_mouse_move(move |event, _, cx| {
+                            // A pressed pointer is a gesture, delivered as one.
+                            if event.pressed_button.is_some() {
+                                return;
+                            }
+                            let Some(bounds) =
+                                *hover_bounds.lock().expect("canvas bounds poisoned")
+                            else {
+                                return;
+                            };
+                            let x = f32::from(event.position.x - bounds.origin.x).round() as i32;
+                            let y = f32::from(event.position.y - bounds.origin.y).round() as i32;
+                            let target = canvas_target(&hover_items, x, y).unwrap_or(0);
+                            let _ = hover_runtime.update(cx, |runtime, cx| {
+                                runtime.canvas_hover_for_node(canvas_id, x, y, target, cx)
+                            });
+                        })
+                        .on_hover(move |entered, _, cx| {
+                            if !*entered {
+                                let _ = leave_runtime.update(cx, |runtime, cx| {
+                                    runtime.canvas_leave_for_node(canvas_id, cx)
+                                });
+                            }
+                        });
+                }
+                if wheel {
+                    element = element.on_scroll_wheel(move |event, window, cx| {
+                        let Some(bounds) = *wheel_bounds.lock().expect("canvas bounds poisoned")
+                        else {
+                            return;
+                        };
+                        // A canvas that handles the wheel owns it: an enclosing
+                        // scroll region does not also move.
+                        cx.stop_propagation();
+                        let delta = event.delta.pixel_delta(window.line_height());
+                        let x = f32::from(event.position.x - bounds.origin.x).round() as i32;
+                        let y = f32::from(event.position.y - bounds.origin.y).round() as i32;
+                        // GPUI reports a scroll towards the content's end as a
+                        // negative delta; the event carries it as positive.
+                        let dx = -f32::from(delta.x).round() as i32;
+                        let dy = -f32::from(delta.y).round() as i32;
+                        if dx == 0 && dy == 0 {
+                            return;
+                        }
+                        let target = canvas_target(&wheel_items, x, y).unwrap_or(0);
+                        let _ = wheel_runtime.update(cx, |runtime, cx| {
+                            runtime.canvas_wheel_for_node(canvas_id, x, y, dx, dy, target, cx)
+                        });
+                    });
+                }
+                element = element
                     .child(drawing)
                     .cursor(CursorStyle::Crosshair)
                     .on_mouse_down(MouseButton::Left, move |event, _, cx| {
@@ -3234,6 +3369,8 @@ struct Runtime {
     /// view survives a rebuild of its node, so the timer finds the popover's
     /// current node when it fires. Dropping a task cancels it.
     popover_timers: HashMap<EntityId, Task<()>>,
+    /// The canvas the pointer is hovering and the last point delivered to it.
+    canvas_hover: Option<(ElementIdentity, (i32, i32))>,
 }
 
 #[derive(Clone)]
@@ -3310,6 +3447,7 @@ impl Runtime {
             editor_nodes: HashMap::new(),
             canvas_drag: None,
             popover_timers: HashMap::new(),
+            canvas_hover: None,
         };
         if observatory::active() {
             runtime.apply_recorded(
@@ -3433,8 +3571,128 @@ impl Runtime {
             phase,
             x,
             y,
+            dx: 0,
+            dy: 0,
             target: resolved_target,
         };
+        // A pressed gesture ends any hover: the pointer that begins it is no
+        // longer merely moving over the canvas.
+        self.canvas_hover = None;
+        self.dispatch_canvas_event(id, event, "drag", cx);
+        if phase == 2 {
+            self.canvas_drag = None;
+        }
+    }
+
+    /// The identity of a mounted canvas whose owner handles `wants`, or `None`.
+    fn canvas_listening(&self, id: u64, wants: fn(&NodeKind) -> bool) -> Option<ElementIdentity> {
+        let kind = &self.graph.node(id)?.kind;
+        if !matches!(kind, NodeKind::Canvas { .. }) || !wants(kind) {
+            return None;
+        }
+        self.identities.get(&id).cloned()
+    }
+
+    /// Pointer movement over a canvas with no button pressed. One cycle is
+    /// recorded, with the trigger `hover`, for each change of point; a move
+    /// that GPUI reports at the point already delivered changes nothing and
+    /// dispatches nothing.
+    fn canvas_hover_for_node(
+        &mut self,
+        id: u64,
+        x: i32,
+        y: i32,
+        target: u64,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(identity) = self.canvas_listening(id, |kind| {
+            matches!(kind, NodeKind::Canvas { hover: true, .. })
+        }) else {
+            return;
+        };
+        if self.canvas_drag.is_some() {
+            return;
+        }
+        if matches!(&self.canvas_hover, Some((active, at)) if *active == identity && *at == (x, y))
+        {
+            return;
+        }
+        self.canvas_hover = Some((identity, (x, y)));
+        let event = CanvasEventPayload {
+            phase: CANVAS_HOVER_MOVE,
+            x,
+            y,
+            dx: 0,
+            dy: 0,
+            target,
+        };
+        self.dispatch_canvas_event(id, event, "hover", cx);
+    }
+
+    /// The pointer left a canvas it was hovering. Delivered once, only after
+    /// a move was delivered to the same canvas, at the last point delivered.
+    fn canvas_leave_for_node(&mut self, id: u64, cx: &mut Context<Self>) {
+        let Some(identity) = self.canvas_listening(id, |kind| {
+            matches!(kind, NodeKind::Canvas { hover: true, .. })
+        }) else {
+            return;
+        };
+        let (x, y) = match &self.canvas_hover {
+            Some((active, at)) if *active == identity => *at,
+            _ => return,
+        };
+        self.canvas_hover = None;
+        let event = CanvasEventPayload {
+            phase: CANVAS_HOVER_LEAVE,
+            x,
+            y,
+            dx: 0,
+            dy: 0,
+            target: 0,
+        };
+        self.dispatch_canvas_event(id, event, "hover", cx);
+    }
+
+    /// One wheel scroll over a canvas, recorded as a `wheel` cycle.
+    #[allow(clippy::too_many_arguments)]
+    fn canvas_wheel_for_node(
+        &mut self,
+        id: u64,
+        x: i32,
+        y: i32,
+        dx: i32,
+        dy: i32,
+        target: u64,
+        cx: &mut Context<Self>,
+    ) {
+        if self
+            .canvas_listening(id, |kind| {
+                matches!(kind, NodeKind::Canvas { wheel: true, .. })
+            })
+            .is_none()
+        {
+            return;
+        }
+        let event = CanvasEventPayload {
+            phase: CANVAS_WHEEL,
+            x,
+            y,
+            dx,
+            dy,
+            target,
+        };
+        self.dispatch_canvas_event(id, event, "wheel", cx);
+    }
+
+    /// Dispatch one canvas event through the canvas's route, recording its
+    /// cycle under `trigger` when a capture is recording.
+    fn dispatch_canvas_event(
+        &mut self,
+        id: u64,
+        event: CanvasEventPayload,
+        trigger: &'static str,
+        cx: &mut Context<Self>,
+    ) {
         if observatory::active() {
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
@@ -3444,7 +3702,7 @@ impl Runtime {
             let (roc_work, roc_work_valid) = observatory::take_roc_work();
             self.apply_recorded(
                 patch,
-                "drag",
+                trigger,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -3454,9 +3712,6 @@ impl Runtime {
         } else {
             let patch = dispatch_canvas(id, event);
             self.apply_unrecorded(patch, cx);
-        }
-        if phase == 2 {
-            self.canvas_drag = None;
         }
     }
 
@@ -4108,6 +4363,13 @@ impl Runtime {
         {
             self.canvas_drag = None;
         }
+        if self
+            .canvas_hover
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_hover = None;
+        }
         KeyedNativeApply::default()
     }
 
@@ -4244,6 +4506,13 @@ impl Runtime {
             .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
         {
             self.canvas_drag = None;
+        }
+        if self
+            .canvas_hover
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_hover = None;
         }
         work
     }
@@ -6947,6 +7216,7 @@ mod tests {
             stroke: Some(0),
             stroke_width: 2,
             radius: 0,
+            ..Default::default()
         };
         let shapes = vec![
             primitive(CanvasPrimitiveKind::Rectangle, 1, 0, 0, 30, 30, 0, 0),
@@ -7420,6 +7690,8 @@ mod tests {
                         kind: NodeKind::Canvas {
                             label: "Board".into(),
                             primitives: vec![],
+                            hover: false,
+                            wheel: false,
                             style: Box::new(Style::default()),
                         },
                         children: vec![],
@@ -7481,6 +7753,159 @@ mod tests {
         assert_eq!(rows, 3);
         drop(db);
         std::fs::remove_file(path).unwrap();
+    }
+
+    /// Hover and wheel reach a canvas only through the window's own pointer,
+    /// only when the owner handles them, and never while a button is held.
+    #[gpui::test]
+    fn live_canvas_hover_and_wheel_follow_the_real_pointer(cx: &mut TestAppContext) {
+        let canvas = Node {
+            id: 1000,
+            kind: NodeKind::Canvas {
+                label: "Chart".into(),
+                primitives: vec![
+                    CanvasPrimitive {
+                        kind: CanvasPrimitiveKind::Rectangle,
+                        key: 7,
+                        label: "Bar".into(),
+                        width: 40,
+                        height: 40,
+                        ..Default::default()
+                    },
+                    CanvasPrimitive {
+                        kind: CanvasPrimitiveKind::Text,
+                        key: 8,
+                        label: "Caption".into(),
+                        width: 40,
+                        text: "over the bar".into(),
+                        text_size: 12,
+                        fill: Some(0),
+                        ..Default::default()
+                    },
+                ],
+                hover: true,
+                wheel: true,
+                style: Box::new(Style {
+                    width: Length::Px(200),
+                    height: Length::Px(100),
+                    ..Style::default()
+                }),
+            },
+            children: vec![],
+        };
+        type Seen = (u8, i32, i32, i32, i32, u64);
+        let events: Rc<RefCell<Vec<Seen>>> = Rc::default();
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 999,
+                    nodes: vec![
+                        Node {
+                            id: 999,
+                            kind: NodeKind::Column {
+                                label: "Page".into(),
+                                style: Box::new(Style {
+                                    gap: 0,
+                                    align: super::Align::Start,
+                                    width: Length::Fill,
+                                    height: Length::Fill,
+                                    ..Style::default()
+                                }),
+                            },
+                            children: vec![1000],
+                        },
+                        canvas,
+                    ],
+                }),
+                cx,
+            )
+        });
+        let recorded = events.clone();
+        install_test_dispatcher(move |_| {
+            let event = super::CANVAS_EVENT
+                .with(|slot| *slot.borrow())
+                .expect("canvas dispatch carries its event");
+            recorded.borrow_mut().push((
+                event.phase,
+                event.x,
+                event.y,
+                event.dx,
+                event.dy,
+                event.target,
+            ));
+            Patch::NoChange
+        });
+        cx.simulate_mouse_move(point(px(10.0), px(10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        // The same point again changes nothing.
+        cx.simulate_mouse_move(point(px(10.0), px(10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(100.0), px(10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        // A held button is a gesture, not a hover.
+        cx.simulate_mouse_move(
+            point(px(120.0), px(10.0)),
+            Some(MouseButton::Left),
+            Modifiers::none(),
+        );
+        cx.run_until_parked();
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position: point(px(20.0), px(20.0)),
+            delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-30.0))),
+            modifiers: Modifiers::none(),
+            touch_phase: gpui::TouchPhase::Moved,
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(
+            *events.borrow(),
+            vec![
+                // The text over the bar is not a target; the bar under it is.
+                (super::CANVAS_HOVER_MOVE, 10, 10, 0, 0, 7),
+                (super::CANVAS_HOVER_MOVE, 100, 10, 0, 0, 0),
+                (super::CANVAS_WHEEL, 20, 20, 0, 30, 7),
+                (super::CANVAS_HOVER_LEAVE, 100, 10, 0, 0, 0),
+            ]
+        );
+    }
+
+    /// A canvas whose owner handles neither hover nor wheel dispatches nothing
+    /// for them, so hovering it costs no cycle.
+    #[gpui::test]
+    fn an_unlistened_canvas_dispatches_no_hover(cx: &mut TestAppContext) {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: vec![Node {
+                        id: 1000,
+                        kind: NodeKind::Canvas {
+                            label: "Chart".into(),
+                            primitives: vec![],
+                            hover: false,
+                            wheel: false,
+                            style: Box::new(Style::default()),
+                        },
+                        children: vec![],
+                    }],
+                }),
+                cx,
+            )
+        });
+        let dispatched = recording_dispatcher();
+        cx.simulate_mouse_move(point(px(10.0), px(10.0)), None, Modifiers::none());
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position: point(px(10.0), px(10.0)),
+            delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-30.0))),
+            modifiers: Modifiers::none(),
+            touch_phase: gpui::TouchPhase::Moved,
+        });
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert!(dispatched.borrow().is_empty());
     }
 
     /// Open a runtime window whose pointer starts outside it.

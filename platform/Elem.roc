@@ -293,10 +293,18 @@ Elem(a) :: [
 	CanvasEllipse := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Style.Color, stroke : Style.Color ?? Default, stroke_width : U32 ?? 0 }
 	CanvasLine := { key : U64, label : Str, x1 : I32, y1 : I32, x2 : I32, y2 : I32, stroke : Style.Color, stroke_width : U32 ?? 1 }
 	CanvasRectangle := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Style.Color, stroke : Style.Color ?? Default, stroke_width : U32 ?? 0, radius : U32 ?? 0 }
+	## A single line of text set in the box from `x` to `x + width`, with its
+	## top at `y` and a line `size * 5 / 4` pixels tall. `align` places the
+	## text within the box; text wider than the box is not clipped. Text is
+	## painted but never hit-tested, so a label drawn over a shape leaves the
+	## shape as the pointer's target.
+	CanvasText := { key : U64, label : Str, x : I32, y : I32, width : U32, value : Str, color : Style.Color, size : U32 ?? 12, align : CanvasTextAlign ?? Start }
+	CanvasTextAlign : [Start, Center, End]
 	CanvasPrimitive : [
 		Ellipse(CanvasEllipse),
 		Line(CanvasLine),
 		Rectangle(CanvasRectangle),
+		Text(CanvasText),
 	]
 
 	## A filled, optionally stroked and rounded rectangle on a canvas.
@@ -311,10 +319,21 @@ Elem(a) :: [
 	line : CanvasLine -> CanvasPrimitive
 	line = |shape| Line(shape)
 
+	## A single line of text on a canvas, aligned within a box.
+	canvas_text : CanvasText -> CanvasPrimitive
+	canvas_text = |shape| Text(shape)
+
 	## Platform representation of a native retained canvas. Coordinates are
 	## integer logical pixels, which makes semantic gestures and deterministic
 	## rendering agree.
-	CanvasNode(a) := { label : Str, primitives : List(CanvasPrimitive), on_pointer : (a, Event.CanvasPointer => Action(a)), style : Style }
+	CanvasNode(a) := {
+		label : Str,
+		primitives : List(CanvasPrimitive),
+		on_pointer : (a, Event.CanvasPointer => Action(a)),
+		on_hover : [None, Some((a, Event.CanvasHover => Action(a)))],
+		on_wheel : [None, Some((a, Event.CanvasWheel => Action(a)))],
+		style : Style,
+	}
 
 	## Platform representation of text set in its own colour, size, weight, and
 	## face. Only the typographic fields of `style` apply to a string.
@@ -998,6 +1017,13 @@ Elem(a) :: [
 		label : Str,
 		primitives : List(CanvasPrimitive),
 		on_pointer : (a, Event.CanvasPointer => Action(a)),
+		## Pointer movement with no button pressed. Without a handler the host
+		## does not listen, so hovering costs no cycle.
+		on_hover : [None, Some((a, Event.CanvasHover => Action(a)))] ?? None,
+		## Wheel and trackpad scrolling over the canvas. A canvas with a
+		## handler consumes the scroll, so an enclosing scroll region does
+		## not also move.
+		on_wheel : [None, Some((a, Event.CanvasWheel => Action(a)))] ?? None,
 		width : Style.Length ?? Fill,
 		height : Style.Length ?? Fill,
 		min_width : Style.Length ?? Auto,
@@ -1114,6 +1140,8 @@ Elem(a) :: [
 		label: props.label,
 		primitives: props.primitives,
 		on_pointer: props.on_pointer,
+		on_hover: props.on_hover,
+		on_wheel: props.on_wheel,
 		style: Style.{
 			width: props.width,
 			height: props.height,
@@ -1808,7 +1836,15 @@ Elem(a) :: [
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
-			Canvas({ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, style: canvas_value.style })
+			on_hover = match canvas_value.on_hover {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			on_wheel = match canvas_value.on_wheel {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			Canvas({ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, on_hover, on_wheel, style: canvas_value.style })
 		}
 		Component(bound) => {
 			child_render = bound.render

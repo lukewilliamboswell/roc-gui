@@ -1120,7 +1120,8 @@ remain the responsibility of the established platform-independent package.
 == Retained canvas
 
 `Gui.canvas` paints an ordered list of keyed primitives in native GPUI, built
-with `Gui.rectangle({ ... })`, `Gui.ellipse({ ... })`, and `Gui.line({ ... })`. A canvas and every primitive have stable
+with `Gui.rectangle({ ... })`, `Gui.ellipse({ ... })`, `Gui.line({ ... })`, and
+`Gui.canvas_text({ ... })`. A canvas and every primitive have stable
 semantic labels. Primitive keys are non-zero and unique within the canvas;
 they preserve direct-manipulation identity independently of list position.
 
@@ -1128,3 +1129,26 @@ The controlled `on_pointer` handler receives `Begin`, `Move`, and `End` in
 integer canvas coordinates. The topmost hit-tested primitive is captured on
 `Begin`, and that same optional target key accompanies the complete gesture,
 including when a state update replaces the canvas subtree.
+
+A text primitive sets one line of `value` in the canvas's inherited font, at
+`size` logical pixels and in `color`, within the box from `x` to `x + width`
+with its top at `y`. `align` places it at the box's `Start`, `Center`, or
+`End`. Its semantic rectangle is that box, one line tall: `size` and a quarter
+again. Text labels the shapes beneath it and is never a pointer target, so a
+caption drawn over a bar leaves the bar as the target.
+
+`on_hover` receives pointer movement with no button pressed. `Move` carries the
+point and the topmost keyed primitive under it, and is delivered once for each
+new point; `Leave` is delivered once when the pointer leaves the canvas, with
+the last point delivered. A pressed pointer is always an `on_pointer` gesture,
+so hovering never interrupts a drag. `on_wheel` receives wheel and trackpad
+scrolling as `dx` and `dy` logical pixels, positive towards the content's end,
+with the pointer's point and target; a wheel that reports lines is converted at
+the window's line height. A canvas that handles the wheel consumes it, so an
+enclosing scroll region does not also move. Both handlers are optional. A
+canvas without one is not listened to for it, and moving the pointer across it
+records nothing.
+
+Each delivered hover records one `hover` cycle and each wheel scroll one
+`wheel` cycle, through the same recorded dispatch as a `drag` phase, whether a
+person or a specification moves the pointer.

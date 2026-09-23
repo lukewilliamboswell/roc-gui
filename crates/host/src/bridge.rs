@@ -651,6 +651,10 @@ pub enum NodeKind {
     Canvas {
         label: String,
         primitives: Vec<CanvasPrimitive>,
+        /// Whether the owner handles pointer movement with no button pressed,
+        /// and wheel scrolling. The host listens only for what is handled.
+        hover: bool,
+        wheel: bool,
         style: Box<Style>,
     },
     Button {
@@ -756,7 +760,7 @@ pub enum NodeKind {
     Text(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CanvasPrimitive {
     pub kind: CanvasPrimitiveKind,
     pub key: u64,
@@ -771,13 +775,36 @@ pub struct CanvasPrimitive {
     pub stroke: Option<u32>,
     pub stroke_width: u32,
     pub radius: u32,
+    /// A text primitive's line, its size in logical pixels, and its placement
+    /// within the box from `x` to `x + width`. Empty for every other kind.
+    pub text: String,
+    pub text_size: u32,
+    pub align: CanvasTextAlign,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+impl CanvasPrimitive {
+    /// A text primitive's line height: its size and a quarter again, rounded
+    /// down, so a locator's rectangle is the same on every host.
+    pub fn line_height(&self) -> u32 {
+        self.text_size + self.text_size / 4
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CanvasPrimitiveKind {
     Ellipse,
     Line,
+    #[default]
     Rectangle,
+    Text,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CanvasTextAlign {
+    #[default]
+    Start,
+    Center,
+    End,
 }
 
 /// Which side of its anchor a popover surface is placed on.
@@ -4782,6 +4809,8 @@ mod tests {
             NodeKind::Canvas {
                 label: "Timeline track".into(),
                 primitives: vec![],
+                hover: false,
+                wheel: false,
                 style: Box::default(),
             },
             NodeKind::Dialog {

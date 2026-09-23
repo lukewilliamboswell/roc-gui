@@ -825,6 +825,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut cycle_ordinal = 1u64;
     let mut last_patch: Option<ApplyFacts> = None;
     let mut focused: Option<u64> = None;
+    // The canvas an unpressed pointer is over and the last point delivered.
+    let mut hovering: Option<(u64, (i32, i32))> = None;
     let mut timer_fired_seen = crate::timers::fired_count();
     let mut dialog_return_focus: Option<(u8, String)> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
@@ -1025,6 +1027,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 phase,
                                 x,
                                 y,
+                                dx: 0,
+                                dy: 0,
                                 target,
                             },
                         );
@@ -1046,9 +1050,129 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         ));
                         cycle_ordinal += 1;
                     }
+                    hovering = None;
                     Ok(())
                 } else {
                     Err(format!("line {}: locator is not a canvas", step.line))
+                }
+            }
+            Command::PointerMove(locator, _, _)
+            | Command::PointerLeave(locator)
+            | Command::Wheel(locator, _, _, _, _) => {
+                let found = matches(&graph, locator);
+                let listening = match (found.as_slice(), &step.command) {
+                    ([id], _) => match graph.node(*id).map(|node| &node.kind) {
+                        Some(NodeKind::Canvas {
+                            primitives,
+                            hover,
+                            wheel,
+                            ..
+                        }) => {
+                            if matches!(step.command, Command::Wheel(..)) {
+                                Ok((*id, *wheel, primitives))
+                            } else {
+                                Ok((*id, *hover, primitives))
+                            }
+                        }
+                        _ => Err(format!("line {}: locator is not a canvas", step.line)),
+                    },
+                    (found, _) => Err(format!(
+                        "line {}: {} locator matched {} nodes; expected exactly one",
+                        step.line,
+                        step.command.kind(),
+                        found.len()
+                    )),
+                };
+                match listening {
+                    Err(message) => Err(message),
+                    Ok((_, false, _)) => Err(format!(
+                        "line {}: the canvas has no {} handler, so the host delivers nothing",
+                        step.line,
+                        if matches!(step.command, Command::Wheel(..)) {
+                            "on_wheel"
+                        } else {
+                            "on_hover"
+                        }
+                    )),
+                    Ok((id, true, primitives)) => {
+                        // The window delivers what its pointer produces: one
+                        // move per new point, a leave only after a move, and
+                        // the topmost keyed shape under the point.
+                        let event = match &step.command {
+                            Command::PointerMove(_, x, y) => (hovering != Some((id, (*x, *y))))
+                                .then(|| {
+                                    hovering = Some((id, (*x, *y)));
+                                    (
+                                        "hover",
+                                        crate::CanvasEventPayload {
+                                            phase: crate::CANVAS_HOVER_MOVE,
+                                            x: *x,
+                                            y: *y,
+                                            dx: 0,
+                                            dy: 0,
+                                            target: crate::canvas_target(primitives, *x, *y)
+                                                .unwrap_or(0),
+                                        },
+                                    )
+                                }),
+                            Command::PointerLeave(_) => match hovering.take() {
+                                Some((hovered, (x, y))) if hovered == id => Some((
+                                    "hover",
+                                    crate::CanvasEventPayload {
+                                        phase: crate::CANVAS_HOVER_LEAVE,
+                                        x,
+                                        y,
+                                        dx: 0,
+                                        dy: 0,
+                                        target: 0,
+                                    },
+                                )),
+                                other => {
+                                    hovering = other;
+                                    None
+                                }
+                            },
+                            Command::Wheel(_, x, y, dx, dy) => Some((
+                                "wheel",
+                                crate::CanvasEventPayload {
+                                    phase: crate::CANVAS_WHEEL,
+                                    x: *x,
+                                    y: *y,
+                                    dx: *dx,
+                                    dy: *dy,
+                                    target: crate::canvas_target(primitives, *x, *y).unwrap_or(0),
+                                },
+                            )),
+                            _ => unreachable!("matched a canvas pointer step above"),
+                        };
+                        match event {
+                            None => Ok(()),
+                            Some((trigger, event)) => {
+                                let cycle_started = Instant::now();
+                                observatory::reset_roc_work();
+                                let roc_started = Instant::now();
+                                let patch = crate::dispatch_canvas(id, event);
+                                let roc_ns = elapsed_ns(roc_started);
+                                let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                                let facts = apply_transaction(&mut graph, patch)?;
+                                last_patch = Some(facts);
+                                pending_cycles.push(make_cycle(
+                                    run_id,
+                                    cycle_ordinal,
+                                    Some(ordinal),
+                                    if marked { "measured" } else { "setup" },
+                                    trigger,
+                                    cycle_started,
+                                    roc_ns,
+                                    roc_work,
+                                    &facts,
+                                    roc_work_valid,
+                                ));
+                                cycle_ordinal += 1;
+                                Ok(())
+                            }
+                        }
+                    }
                 }
             }
             Command::ReplaceText(locator, value) => {
@@ -1895,6 +2019,7 @@ mod locator_tests {
             stroke: None,
             stroke_width: 0,
             radius: 0,
+            ..Default::default()
         };
         let mut graph = MountedGraph::default();
         graph
@@ -1929,6 +2054,8 @@ mod locator_tests {
                         NodeKind::Canvas {
                             label: "Canvas".into(),
                             primitives: vec![primitive(1, "Dot one"), primitive(2, "Dot two")],
+                            hover: false,
+                            wheel: false,
                             style: style.clone(),
                         },
                         vec![],
@@ -1938,6 +2065,8 @@ mod locator_tests {
                         NodeKind::Canvas {
                             label: "Canvas".into(),
                             primitives: vec![primitive(1, "Dot one")],
+                            hover: false,
+                            wheel: false,
                             style,
                         },
                         vec![],

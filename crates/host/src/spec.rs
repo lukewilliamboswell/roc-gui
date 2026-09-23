@@ -184,6 +184,13 @@ pub enum Command {
         element_states_moved_min: Option<u64>,
     },
     Drag(Locator, i32, i32, i32, i32),
+    /// Move an unpressed pointer to a point in canvas coordinates, through the
+    /// canvas's production hover route.
+    PointerMove(Locator, i32, i32),
+    /// Take a hovering pointer off a canvas.
+    PointerLeave(Locator),
+    /// Scroll a wheel over a point of a canvas by a distance in pixels.
+    Wheel(Locator, i32, i32, i32, i32),
     ReplaceText(Locator, String),
     Focus(Locator),
     PressKey(ControlKey),
@@ -397,6 +404,9 @@ impl Command {
             Self::MarkNativeWork => "mark-native-work",
             Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
+            Self::PointerMove(..) => "pointer-move",
+            Self::PointerLeave(_) => "pointer-leave",
+            Self::Wheel(..) => "wheel",
             Self::ReplaceText(_, _) => "replace-text",
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
@@ -487,6 +497,12 @@ impl Command {
             Self::Click(_)
             | Self::HoverEnter(_)
             | Self::HoverExit(_)
+            // A semantic run delivers the canvas event the window's real
+            // pointer produces, through the same route; a window run moves
+            // the pointer itself.
+            | Self::PointerMove(..)
+            | Self::PointerLeave(_)
+            | Self::Wheel(..)
             | Self::Focus(_)
             | Self::PressKey(_)
             | Self::AwaitTask
@@ -564,6 +580,9 @@ impl Command {
                 | Self::HoverEnter(_)
                 | Self::HoverExit(_)
                 | Self::Drag(..)
+                | Self::PointerMove(..)
+                | Self::PointerLeave(_)
+                | Self::Wheel(..)
                 | Self::ReplaceText(_, _)
                 | Self::Focus(_)
                 | Self::PressKey(_)
@@ -1169,6 +1188,19 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             parse_i32(&values[3], "drag coordinate")?,
             parse_i32(&values[4], "drag coordinate")?,
             parse_i32(&values[5], "drag coordinate")?,
+        ),
+        "pointer-move" if values.len() == 4 => Command::PointerMove(
+            parse_locator(&values[1])?,
+            parse_i32(&values[2], "pointer coordinate")?,
+            parse_i32(&values[3], "pointer coordinate")?,
+        ),
+        "pointer-leave" if values.len() == 2 => Command::PointerLeave(parse_locator(&values[1])?),
+        "wheel" if values.len() == 6 => Command::Wheel(
+            parse_locator(&values[1])?,
+            parse_i32(&values[2], "wheel coordinate")?,
+            parse_i32(&values[3], "wheel coordinate")?,
+            parse_i32(&values[4], "wheel distance")?,
+            parse_i32(&values[5], "wheel distance")?,
         ),
         "replace-text" if values.len() == 3 => Command::ReplaceText(
             parse_locator(&values[1])?,
@@ -1828,6 +1860,9 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click"
         | "drag"
+        | "pointer-move"
+        | "pointer-leave"
+        | "wheel"
         | "replace-text"
         | "focus"
         | "press-key"
@@ -2995,6 +3030,33 @@ mod tests {
         assert!(
             matches!(&spec.steps[1].command, Command::ExpectVisible(Locator::CanvasItemName(name)) if name == "Card")
         );
+    }
+
+    #[test]
+    fn parses_canvas_hover_and_wheel_for_both_runners() {
+        let spec = parse(
+            r#"(test "canvas" (steps
+            (pointer-move (role canvas :name "Chart") 10 -4)
+            (pointer-leave (role canvas :name "Chart"))
+            (wheel (role canvas :name "Chart") 5 6 0 -120)))"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            &spec.steps[0].command,
+            Command::PointerMove(Locator::CanvasName(name), 10, -4) if name == "Chart"
+        ));
+        assert!(matches!(
+            &spec.steps[1].command,
+            Command::PointerLeave(Locator::CanvasName(name)) if name == "Chart"
+        ));
+        assert!(matches!(
+            &spec.steps[2].command,
+            Command::Wheel(Locator::CanvasName(name), 5, 6, 0, -120) if name == "Chart"
+        ));
+        for step in &spec.steps {
+            assert_eq!(step.command.capability(), Capability::Both);
+            assert!(step.command.is_operation());
+        }
     }
 
     #[test]

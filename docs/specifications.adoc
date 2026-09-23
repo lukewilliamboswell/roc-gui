@@ -258,6 +258,17 @@ assertions belong to controlled interactions without unrelated input or resize.
 `(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
 gesture through a canvas's production event route. Coordinates are integer
 logical pixels in canvas space.
+`(pointer-move LOCATOR X Y)`:: Move an unpressed pointer to a point of a canvas,
+in canvas coordinates. The window runner moves the window's own pointer to that
+point of the painted surface; the semantic runner delivers the event that
+movement produces. A move to the point already delivered delivers nothing. The
+canvas must handle `on_hover`.
+`(pointer-leave LOCATOR)`:: Take a hovering pointer off a canvas. The canvas
+receives `Leave` at the last point delivered, and nothing when it was not
+hovered.
+`(wheel LOCATOR X Y DX DY)`:: Scroll a wheel by `DX` and `DY` pixels over a point
+of a canvas that handles `on_wheel`. Positive distances scroll towards the
+content's end.
 `(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
 or checkbox. Focus remains valid only while that mounted node is live. Focus
 entering a popover's anchor presents it at once; focus leaving closes it unless
@@ -462,7 +473,7 @@ repository fixture steps the Contributing chapter describes.
 mean anything without a presented frame: without layout there is no fold for
 content to be below, and no size a window could be resized from.
 
-`both`:: `click`, `focus`, `press-key`, `await-task`, `await-count`, `clipboard-text`,
+`both`:: `click`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `await-task`, `await-count`, `clipboard-text`,
 `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
 `expect-count`, `expect-component-work`, and the value and ordering assertions — `expect-value`,
 `expect-value-bytes`, `expect-image-bytes`, `expect-before`, `expect-rows`, and

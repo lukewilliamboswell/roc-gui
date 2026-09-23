@@ -179,8 +179,9 @@ and presentation are unavailable.
 
 `cycles.roc_callback_ns` measures time inside one Roc dispatch call. Each drag
 phase and task completion has its own cycle, including steps that await several completions.
-A canvas pointer phase records a `drag` cycle whether a specification or a
-person in the interactive window drives it.
+A canvas pointer phase records a `drag` cycle, a delivered canvas hover a
+`hover` cycle, and a canvas wheel scroll a `wheel` cycle, whether a
+specification or a person in the interactive window drives it.
 Waiting for workers and applying graph patches are outside the callback span.
 The enclosing cycle duration includes the wait.
 

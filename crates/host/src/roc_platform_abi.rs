@@ -2282,13 +2282,13 @@ const _: () = assert!(core::mem::size_of::<AnonStruct8ea95e8b24a76f41>() == 160,
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct8ea95e8b24a76f41>() == 4, "AnonStruct8ea95e8b24a76f41 alignment mismatch");
 
-/// Element type for __AnonStruct_1cd73c88e8aa8818
+/// Element type for __AnonStruct_8bcc49165c6cf713
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct1cd73c88e8aa8818 {
+pub struct AnonStruct8bcc49165c6cf713 {
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub primitives: RocList<AnonStructD488b27242f381c2>,
     pub bg: u32,
     pub border_color: u32,
     pub border_width: u32,
@@ -2297,16 +2297,18 @@ pub struct AnonStruct1cd73c88e8aa8818 {
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_1cd73c88e8aa8818
+/// Element type for __AnonStruct_8bcc49165c6cf713
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct1cd73c88e8aa8818 {
+pub struct AnonStruct8bcc49165c6cf713 {
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub primitives: RocList<AnonStructD488b27242f381c2>,
     pub bg: u32,
     pub border_color: u32,
     pub border_width: u32,
@@ -2315,66 +2317,74 @@ pub struct AnonStruct1cd73c88e8aa8818 {
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct1cd73c88e8aa8818>() == 80, "AnonStruct1cd73c88e8aa8818 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8bcc49165c6cf713>() == 80, "AnonStruct8bcc49165c6cf713 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct1cd73c88e8aa8818>() == 8, "AnonStruct1cd73c88e8aa8818 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8bcc49165c6cf713>() == 8, "AnonStruct8bcc49165c6cf713 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct1cd73c88e8aa8818>() == 52, "AnonStruct1cd73c88e8aa8818 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct8bcc49165c6cf713>() == 56, "AnonStruct8bcc49165c6cf713 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct1cd73c88e8aa8818>() == 4, "AnonStruct1cd73c88e8aa8818 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct8bcc49165c6cf713>() == 4, "AnonStruct8bcc49165c6cf713 alignment mismatch");
 
-/// Element type for __AnonStruct_6d9cdb5c6eba22bc
+/// Element type for __AnonStruct_d488b27242f381c2
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct6d9cdb5c6eba22bc {
+pub struct AnonStructD488b27242f381c2 {
     pub key: u64,
     pub label: RocStr,
+    pub text: RocStr,
     pub fill: u32,
     pub height: u32,
     pub radius: u32,
     pub stroke: u32,
     pub stroke_width: u32,
+    pub text_size: u32,
     pub width: u32,
     pub x: i32,
     pub x2: i32,
     pub y: i32,
     pub y2: i32,
+    pub align: u8,
     pub kind: u8,
 }
 
-/// Element type for __AnonStruct_6d9cdb5c6eba22bc
+/// Element type for __AnonStruct_d488b27242f381c2
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct6d9cdb5c6eba22bc {
+pub struct AnonStructD488b27242f381c2 {
     pub key: u64,
     pub label: RocStr,
+    pub text: RocStr,
     pub fill: u32,
     pub height: u32,
     pub radius: u32,
     pub stroke: u32,
     pub stroke_width: u32,
+    pub text_size: u32,
     pub width: u32,
     pub x: i32,
     pub x2: i32,
     pub y: i32,
     pub y2: i32,
+    pub align: u8,
     pub kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct6d9cdb5c6eba22bc>() == 80, "AnonStruct6d9cdb5c6eba22bc size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructD488b27242f381c2>() == 104, "AnonStructD488b27242f381c2 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct6d9cdb5c6eba22bc>() == 8, "AnonStruct6d9cdb5c6eba22bc alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructD488b27242f381c2>() == 8, "AnonStructD488b27242f381c2 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct6d9cdb5c6eba22bc>() == 64, "AnonStruct6d9cdb5c6eba22bc size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructD488b27242f381c2>() == 80, "AnonStructD488b27242f381c2 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct6d9cdb5c6eba22bc>() == 8, "AnonStruct6d9cdb5c6eba22bc alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructD488b27242f381c2>() == 8, "AnonStructD488b27242f381c2 alignment mismatch");
 
 /// Element type for __AnonStruct_be98516b6662a57b
 #[cfg(target_pointer_width = "32")]
@@ -2469,36 +2479,40 @@ const _: () = assert!(core::mem::size_of::<AnonStructD56b0eabf62517b9>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructD56b0eabf62517b9>() == 8, "AnonStructD56b0eabf62517b9 alignment mismatch");
 
-/// Element type for __AnonStruct_b2e41b851da291a
+/// Element type for __AnonStruct_e7c8b7462a78f14b
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB2e41b851da291a {
+pub struct AnonStructE7c8b7462a78f14b {
     pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
     pub x: i32,
     pub y: i32,
     pub phase: u8,
 }
 
-/// Element type for __AnonStruct_b2e41b851da291a
+/// Element type for __AnonStruct_e7c8b7462a78f14b
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB2e41b851da291a {
+pub struct AnonStructE7c8b7462a78f14b {
     pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
     pub x: i32,
     pub y: i32,
     pub phase: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructB2e41b851da291a>() == 24, "AnonStructB2e41b851da291a size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructE7c8b7462a78f14b>() == 32, "AnonStructE7c8b7462a78f14b size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructB2e41b851da291a>() == 8, "AnonStructB2e41b851da291a alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructE7c8b7462a78f14b>() == 8, "AnonStructE7c8b7462a78f14b alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructB2e41b851da291a>() == 24, "AnonStructB2e41b851da291a size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructE7c8b7462a78f14b>() == 32, "AnonStructE7c8b7462a78f14b size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructB2e41b851da291a>() == 8, "AnonStructB2e41b851da291a alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructE7c8b7462a78f14b>() == 8, "AnonStructE7c8b7462a78f14b alignment mismatch");
 
 /// Element type for __AnonStruct_dc4c26f806dfc5bf
 #[cfg(target_pointer_width = "32")]
@@ -9303,6 +9317,8 @@ const _: () = assert!(core::mem::align_of::<HostGlueNodeActionButtonRetRecord>()
 #[derive(Clone, Copy)]
 pub struct HostGlueCanvasEventRetRecord {
     pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
     pub x: i32,
     pub y: i32,
     pub phase: u8,
@@ -9315,17 +9331,19 @@ pub struct HostGlueCanvasEventRetRecord {
 #[derive(Clone, Copy)]
 pub struct HostGlueCanvasEventRetRecord {
     pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
     pub x: i32,
     pub y: i32,
     pub phase: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 24, "HostGlueCanvasEventRetRecord size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 32, "HostGlueCanvasEventRetRecord size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueCanvasEventRetRecord>() == 8, "HostGlueCanvasEventRetRecord alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 24, "HostGlueCanvasEventRetRecord size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 32, "HostGlueCanvasEventRetRecord size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueCanvasEventRetRecord>() == 8, "HostGlueCanvasEventRetRecord alignment mismatch");
 
@@ -11571,14 +11589,14 @@ unsafe impl RocRelease<HostGlueNodeImageArgs> for HostGlueNodeImageArgsRelease {
 }
 
 /// Arguments for HostGlue.node_canvas!
-/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, wheel : Bool, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeCanvasArgs {
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub primitives: RocList<AnonStructD488b27242f381c2>,
     pub bg: u32,
     pub border_color: u32,
     pub border_width: u32,
@@ -11587,18 +11605,20 @@ pub struct HostGlueNodeCanvasArgs {
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_canvas!
-/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, wheel : Bool, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeCanvasArgs {
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
+    pub primitives: RocList<AnonStructD488b27242f381c2>,
     pub bg: u32,
     pub border_color: u32,
     pub border_width: u32,
@@ -11607,6 +11627,8 @@ pub struct HostGlueNodeCanvasArgs {
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
@@ -11615,7 +11637,7 @@ const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 80, "Hos
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCanvasArgs>() == 8, "HostGlueNodeCanvasArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 52, "HostGlueNodeCanvasArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 56, "HostGlueNodeCanvasArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCanvasArgs>() == 4, "HostGlueNodeCanvasArgs alignment mismatch");
 
@@ -11627,7 +11649,7 @@ impl HostGlueNodeCanvasArgs {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.label.decref(roc_host); }
-        unsafe { decref_list_of_anon_struct6d9cdb5c6eba22bc(value.primitives, roc_host); }
+        unsafe { decref_list_of_anon_struct_d488b27242f381c2(value.primitives, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -12475,9 +12497,9 @@ pub type HostGlueNodeVirtualListArg0 = AnonStruct56284af79f83a6ed;
 pub type HostGlueNodeCheckboxArg0 = AnonStruct32380512021fa2b7;
 pub type HostGlueNodeTextareaArg0 = AnonStructFd6767d07aac9300;
 pub type HostGlueNodeImageArg0 = AnonStruct8ea95e8b24a76f41;
-pub type HostGlueNodeCanvasArg0 = AnonStruct1cd73c88e8aa8818;
-pub type HostGlueNodeCanvasArg0Primitives = AnonStruct6d9cdb5c6eba22bc;
-pub type HostGlueCanvasEvent = AnonStructB2e41b851da291a;
+pub type HostGlueNodeCanvasArg0 = AnonStruct8bcc49165c6cf713;
+pub type HostGlueNodeCanvasArg0Primitives = AnonStructD488b27242f381c2;
+pub type HostGlueCanvasEvent = AnonStructE7c8b7462a78f14b;
 pub type HostGlueVirtualWindowArg0 = AnonStruct521b63caff3553f9;
 pub type HostGlueVirtualWindow = AnonStructBe98516b6662a57b;
 pub type HostGlueVirtualRowsEvent = AnonStructD56b0eabf62517b9;
@@ -13224,7 +13246,7 @@ unsafe impl RocRelease<AnonStruct8ea95e8b24a76f41> for AnonStruct8ea95e8b24a76f4
     }
 }
 
-impl AnonStruct1cd73c88e8aa8818 {
+impl AnonStruct8bcc49165c6cf713 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -13232,7 +13254,7 @@ impl AnonStruct1cd73c88e8aa8818 {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.label.decref(roc_host); }
-        unsafe { decref_list_of_anon_struct6d9cdb5c6eba22bc(value.primitives, roc_host); }
+        unsafe { decref_list_of_anon_struct_d488b27242f381c2(value.primitives, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -13247,15 +13269,15 @@ impl AnonStruct1cd73c88e8aa8818 {
     }
 }
 
-pub struct AnonStruct1cd73c88e8aa8818Release;
+pub struct AnonStruct8bcc49165c6cf713Release;
 
-unsafe impl RocRelease<AnonStruct1cd73c88e8aa8818> for AnonStruct1cd73c88e8aa8818Release {
-    unsafe fn release(value: AnonStruct1cd73c88e8aa8818, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct8bcc49165c6cf713> for AnonStruct8bcc49165c6cf713Release {
+    unsafe fn release(value: AnonStruct8bcc49165c6cf713, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct6d9cdb5c6eba22bc {
+impl AnonStructD488b27242f381c2 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -13263,6 +13285,7 @@ impl AnonStruct6d9cdb5c6eba22bc {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.label.decref(roc_host); }
+        unsafe { value.text.decref(roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -13273,13 +13296,14 @@ impl AnonStruct6d9cdb5c6eba22bc {
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
         unsafe { value.label.incref(amount); }
+        unsafe { value.text.incref(amount); }
     }
 }
 
-pub struct AnonStruct6d9cdb5c6eba22bcRelease;
+pub struct AnonStructD488b27242f381c2Release;
 
-unsafe impl RocRelease<AnonStruct6d9cdb5c6eba22bc> for AnonStruct6d9cdb5c6eba22bcRelease {
-    unsafe fn release(value: AnonStruct6d9cdb5c6eba22bc, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructD488b27242f381c2> for AnonStructD488b27242f381c2Release {
+    unsafe fn release(value: AnonStructD488b27242f381c2, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -13377,7 +13401,7 @@ unsafe impl RocRelease<AnonStructD56b0eabf62517b9> for AnonStructD56b0eabf62517b
     }
 }
 
-impl AnonStructB2e41b851da291a {
+impl AnonStructE7c8b7462a78f14b {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -13400,10 +13424,10 @@ impl AnonStructB2e41b851da291a {
     }
 }
 
-pub struct AnonStructB2e41b851da291aRelease;
+pub struct AnonStructE7c8b7462a78f14bRelease;
 
-unsafe impl RocRelease<AnonStructB2e41b851da291a> for AnonStructB2e41b851da291aRelease {
-    unsafe fn release(value: AnonStructB2e41b851da291a, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructE7c8b7462a78f14b> for AnonStructE7c8b7462a78f14bRelease {
+    unsafe fn release(value: AnonStructE7c8b7462a78f14b, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -16518,15 +16542,15 @@ pub unsafe fn decref_list_of_list_of_type4(value: RocList<RocListWith<u8, false>
     unsafe { value.release_with::<RocListSpineRelease>(roc_host); }
 }
 
-/// Release one owned reference to a `RocList<AnonStruct6d9cdb5c6eba22bc>`.
+/// Release one owned reference to a `RocList<AnonStructD488b27242f381c2>`.
 ///
 /// The allocation's final reference is claimed atomically before any element
 /// is read, so concurrent owners cannot skip or duplicate element teardown.
 ///
 /// # Safety
 /// `value` must own one live Roc list reference.
-pub unsafe fn decref_list_of_anon_struct6d9cdb5c6eba22bc(value: RocList<AnonStruct6d9cdb5c6eba22bc>, roc_host: &RocHost) {
-    unsafe { value.release_with::<AnonStruct6d9cdb5c6eba22bcRelease>(roc_host); }
+pub unsafe fn decref_list_of_anon_struct_d488b27242f381c2(value: RocList<AnonStructD488b27242f381c2>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStructD488b27242f381c2Release>(roc_host); }
 }
 
 /// Release one owned reference to a `RocList<RocStr>`.
@@ -16864,15 +16888,15 @@ unsafe extern "C" {
     pub fn roc_gui_node_image(arg0: HostGlueNodeImageArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_canvas!
-    /// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, wheel : Bool, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_canvas(arg0: HostGlueNodeCanvasArgs) -> u64;
 
     /// Hosted symbol for HostGlue.canvas_event!
-    /// Roc signature: {} => { phase : U8, target : U64, x : I32, y : I32 }
-    pub fn roc_gui_canvas_event() -> AnonStructB2e41b851da291a;
+    /// Roc signature: {} => { dx : I32, dy : I32, phase : U8, target : U64, x : I32, y : I32 }
+    pub fn roc_gui_canvas_event() -> AnonStructE7c8b7462a78f14b;
 
     /// Hosted symbol for HostGlue.virtual_window!
     /// Roc signature: { count : U64, instance : U64, row_height : U32, scroll_align : U8, scroll_row : U64, scroll_serial : U64 } => { end : U64, first : U64 }

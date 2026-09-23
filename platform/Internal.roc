@@ -885,29 +885,56 @@ Internal := [].{
 			height = length(canvas_value.style.height)
 			primitives = canvas_value.primitives.map(
 				|primitive| match primitive {
-					Ellipse(shape) => { kind: 0, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0 }
-					Line(shape) => { kind: 1, key: shape.key, label: shape.label, x: shape.x1, y: shape.y1, width: 0, height: 0, x2: shape.x2, y2: shape.y2, fill: color(Default), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0 }
-					Rectangle(shape) => { kind: 2, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: shape.radius }
+					Ellipse(shape) => { kind: 0, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0, text: "", text_size: 0, align: 0 }
+					Line(shape) => { kind: 1, key: shape.key, label: shape.label, x: shape.x1, y: shape.y1, width: 0, height: 0, x2: shape.x2, y2: shape.y2, fill: color(Default), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0, text: "", text_size: 0, align: 0 }
+					Rectangle(shape) => { kind: 2, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: shape.radius, text: "", text_size: 0, align: 0 }
+					Text(shape) => {
+						text_align = match shape.align {
+							Start => 0
+							Center => 1
+							End => 2
+						}
+						{ kind: 3, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: 0, x2: 0, y2: 0, fill: color(shape.color), stroke: color(Default), stroke_width: 0, radius: 0, text: shape.value, text_size: shape.size, align: text_align }
+					}
 				},
 			)
-			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.style.grow, bg: color(canvas_value.style.bg), border_color: color(canvas_value.style.border_color), border_width: canvas_value.style.border_width, radius: canvas_value.style.radius })
+			hover = match canvas_value.on_hover {
+				Some(_) => True
+				None => False
+			}
+			wheel = match canvas_value.on_wheel {
+				Some(_) => True
+				None => False
+			}
+			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.style.grow, bg: color(canvas_value.style.bg), border_color: color(canvas_value.style.border_color), border_width: canvas_value.style.border_width, radius: canvas_value.style.radius, hover, wheel })
 			route = {
 				id,
 				boundary: active_boundary,
 				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, _| {
 					event = Host.canvas_event!()
-					phase = match event.phase {
-						0 => Begin
-						1 => Move
-						2 => End
-						_ => crash "invalid canvas pointer phase"
-					}
 					target = match event.target {
 						0 => None
 						value => Some(value)
 					}
-					(canvas_value.on_pointer)(current, { phase, x: event.x, y: event.y, target })
+					match event.phase {
+						0 => (canvas_value.on_pointer)(current, { phase: Begin, x: event.x, y: event.y, target })
+						1 => (canvas_value.on_pointer)(current, { phase: Move, x: event.x, y: event.y, target })
+						2 => (canvas_value.on_pointer)(current, { phase: End, x: event.x, y: event.y, target })
+						3 => match canvas_value.on_hover {
+							Some(handler) => handler(current, { phase: Move, x: event.x, y: event.y, target })
+							None => crash "canvas hover delivered without a hover handler"
+						}
+						4 => match canvas_value.on_hover {
+							Some(handler) => handler(current, { phase: Leave, x: event.x, y: event.y, target })
+							None => crash "canvas hover delivered without a hover handler"
+						}
+						5 => match canvas_value.on_wheel {
+							Some(handler) => handler(current, { x: event.x, y: event.y, dx: event.dx, dy: event.dy, target })
+							None => crash "canvas wheel delivered without a wheel handler"
+						}
+						_ => crash "invalid canvas pointer phase"
+					}
 				},
 			}
 			{ root: id, routes: Index.set(routes, route.id, route), boundaries: record_route(boundaries, active_boundary, route.id) }

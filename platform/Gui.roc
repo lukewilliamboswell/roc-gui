@@ -111,6 +111,8 @@ Gui := [].{
 	EventTextChange : Event.TextChange
 	EventTextSubmit : Event.TextSubmit
 	EventCanvasPointer : Event.CanvasPointer
+	EventCanvasHover : Event.CanvasHover
+	EventCanvasWheel : Event.CanvasWheel
 	EventVisibleRows : Event.VisibleRows
 
 	# Types exchanged with `Files`.
@@ -187,6 +189,8 @@ Gui := [].{
 	CanvasEllipse : Elem.CanvasEllipse
 	CanvasLine : Elem.CanvasLine
 	CanvasRectangle : Elem.CanvasRectangle
+	CanvasText : Elem.CanvasText
+	CanvasTextAlign : Elem.CanvasTextAlign
 	CanvasPrimitive : Elem.CanvasPrimitive
 
 	## Construct the program value required by the platform's `main` module.
@@ -313,4 +317,8 @@ Gui := [].{
 	## A stroked line on a canvas.
 	line : Elem.CanvasLine -> Elem.CanvasPrimitive
 	line = |shape| Elem.line(shape)
+
+	## A single line of text on a canvas, aligned within a box.
+	canvas_text : Elem.CanvasText -> Elem.CanvasPrimitive
+	canvas_text = |shape| Elem.canvas_text(shape)
 }

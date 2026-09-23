@@ -32,6 +32,30 @@ Event := [].{
 		target : [None, Some(U64)],
 	}
 
+	## Pointer movement over a canvas with no button pressed, in canvas
+	## coordinates. `Move` carries the topmost keyed shape under the pointer;
+	## `Leave` is delivered once when the pointer leaves the canvas, with the
+	## last point it was seen at. A pressed pointer is a `CanvasPointer`
+	## gesture instead, so hovering never interrupts a drag.
+	CanvasHover : {
+		phase : [Move, Leave],
+		x : I32,
+		y : I32,
+		target : [None, Some(U64)],
+	}
+
+	## One wheel or trackpad scroll over a canvas. `dx` and `dy` are the
+	## scroll distance in logical pixels, positive towards the content's end;
+	## a wheel that reports lines is converted at the platform's line height.
+	## `x`, `y`, and `target` locate the pointer as for `CanvasHover`.
+	CanvasWheel : {
+		x : I32,
+		y : I32,
+		dx : I32,
+		dy : I32,
+		target : [None, Some(U64)],
+	}
+
 	## The rows of a virtual list that intersect its viewport, as the half-open
 	## range `start` up to but not including `end`. Delivered when that range
 	## changes, so an application can page in the data those rows show.

@@ -850,6 +850,60 @@ async fn run_step(
             .map_err(|_| StepError::WindowClosed)?;
             await_painted(window, options.timeout, cx).await
         }
+        Command::PointerMove(locator, _, _)
+        | Command::PointerLeave(locator)
+        | Command::Wheel(locator, _, _, _, _) => {
+            // The window's own pointer, at a point of the canvas's painted
+            // surface: GPUI hit-tests it and the canvas's production
+            // listeners turn it into the event, exactly as a person's would.
+            let (x, y) = match &step.command {
+                Command::PointerMove(_, x, y) | Command::Wheel(_, x, y, _, _) => (*x, *y),
+                _ => (0, 0),
+            };
+            let origin = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    let surface = runtime
+                        .canvas_surfaces
+                        .get(&id)
+                        .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                        .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+                    Ok::<_, StepError>(surface.origin)
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            let position = point(origin.x + px(x as f32), origin.y + px(y as f32));
+            let input = match &step.command {
+                Command::PointerMove(..) => gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                    position,
+                    pressed_button: None,
+                    modifiers: Default::default(),
+                }),
+                Command::PointerLeave(_) => gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                    position: point(px(-1.0), px(-1.0)),
+                    pressed_button: None,
+                    modifiers: Default::default(),
+                }),
+                Command::Wheel(_, _, _, dx, dy) => {
+                    gpui::PlatformInput::ScrollWheel(gpui::ScrollWheelEvent {
+                        position,
+                        // A scroll towards the content's end is negative in GPUI.
+                        delta: gpui::ScrollDelta::Pixels(point(
+                            px(-(*dx as f32)),
+                            px(-(*dy as f32)),
+                        )),
+                        modifiers: Default::default(),
+                        touch_phase: gpui::TouchPhase::Moved,
+                    })
+                }
+                _ => unreachable!("matched a canvas pointer step above"),
+            };
+            // Release the Runtime borrow before GPUI delivers callbacks into it.
+            cx.update_window(window.into(), |_, window, cx| {
+                window.dispatch_event(input, cx);
+            })
+            .map_err(|_| StepError::WindowClosed)?;
+            await_painted(window, options.timeout, cx).await
+        }
         Command::Click(locator) => {
             let viewport = viewport_rect(window, cx)?;
             window
@@ -1343,6 +1397,12 @@ pub(crate) fn primitive_rect(canvas: Rect, item: &crate::bridge::CanvasPrimitive
             item.x as f32 + item.width as f32,
             item.y as f32 + item.height as f32,
         ),
+        CanvasPrimitiveKind::Text => (
+            item.x as f32,
+            item.y as f32,
+            item.x as f32 + item.width as f32,
+            item.y as f32 + item.line_height() as f32,
+        ),
         CanvasPrimitiveKind::Line => {
             let margin = (item.stroke_width as f32 / 2.0).max(1.0);
             (
@@ -1825,6 +1885,7 @@ mod tests {
             stroke: None,
             stroke_width: 0,
             radius: 0,
+            ..Default::default()
         };
         assert_eq!(
             primitive_rect(canvas, &item),

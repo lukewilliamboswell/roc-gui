@@ -585,7 +585,7 @@ Host := [].{
 
 	node_canvas! : {
 		label : Str,
-		primitives : List({ kind : U8, key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, x2 : I32, y2 : I32, fill : U32, stroke : U32, stroke_width : U32, radius : U32 }),
+		primitives : List({ kind : U8, key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, x2 : I32, y2 : I32, fill : U32, stroke : U32, stroke_width : U32, radius : U32, text : Str, text_size : U32, align : U8 }),
 		width_kind : U8,
 		width : U32,
 		height_kind : U8,
@@ -595,11 +595,13 @@ Host := [].{
 		border_color : U32,
 		border_width : U32,
 		radius : U32,
+		hover : Bool,
+		wheel : Bool,
 	} => U64
 
 	virtual_window! : { instance : U64, count : U64, row_height : U32, scroll_row : U64, scroll_align : U8, scroll_serial : U64 } => { first : U64, end : U64 }
 	virtual_rows_event! : () => { refresh : Bool, report : Bool, start : U64, end : U64 }
-	canvas_event! : () => { phase : U8, x : I32, y : I32, target : U64 }
+	canvas_event! : () => { phase : U8, x : I32, y : I32, dx : I32, dy : I32, target : U64 }
 
 	node_text_input! : {
 		label : Str,
