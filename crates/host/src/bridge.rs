@@ -627,6 +627,21 @@ impl KeyedChildOrder {
     }
 }
 
+/// The logical extent of a list whose rows are produced on demand.
+///
+/// The mounted item children are the rows `first..first + children.len()` of
+/// `count`. The owning render boundary, `instance`, is what carries the list's
+/// viewport across renders, because the list node itself is replaced whenever
+/// its window moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProvidedRows {
+    pub instance: u64,
+    pub count: u64,
+    pub first: u64,
+    /// The application asked to hear when the visible rows change.
+    pub notify: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
     /// A mounted component's lifetime. This node adds no layout surface.
@@ -706,6 +721,9 @@ pub enum NodeKind {
         /// Space held clear at the bottom of each row inside `row_height`.
         row_gap: u32,
         style: Box<Style>,
+        /// Present when the application produces rows on demand; the item
+        /// children are then a window of the list, not the whole of it.
+        rows: Option<ProvidedRows>,
     },
     TextInput {
         label: String,
@@ -3346,6 +3364,19 @@ fn validate_fragment<'a>(
                     node.id
                 ));
             }
+            NodeKind::VirtualList {
+                rows: Some(rows), ..
+            } if rows.instance == 0
+                || rows
+                    .first
+                    .checked_add(node.children.len() as u64)
+                    .is_none_or(|end| end > rows.count) =>
+            {
+                return Err(format!(
+                    "virtual list node {} mounts rows outside its provided extent",
+                    node.id
+                ));
+            }
             NodeKind::VirtualList { .. } => {
                 validate_virtual_keys(node, |id| result.lookup(id, nodes, &mounted))?
             }
@@ -4735,6 +4766,7 @@ mod tests {
                     row_height: 24,
                     row_gap: 0,
                     style: Box::default(),
+                    rows: None,
                 },
                 children: vec![2, 4],
             },
@@ -4744,6 +4776,51 @@ mod tests {
                 .unwrap_err()
                 .contains("duplicate item key 7")
         );
+    }
+
+    #[test]
+    fn a_provided_list_mounts_rows_only_inside_its_extent() {
+        let list = |first, count, instance| Node {
+            id: 5,
+            kind: NodeKind::VirtualList {
+                name: "rows".into(),
+                row_height: 24,
+                row_gap: 0,
+                style: Box::default(),
+                rows: Some(ProvidedRows {
+                    instance,
+                    count,
+                    first,
+                    notify: false,
+                }),
+            },
+            children: vec![2, 4],
+        };
+        let rows = |list| {
+            [
+                text(1, "first"),
+                Node {
+                    id: 2,
+                    kind: NodeKind::VirtualItem { key: 998 },
+                    children: vec![1],
+                },
+                text(3, "second"),
+                Node {
+                    id: 4,
+                    kind: NodeKind::VirtualItem { key: 999 },
+                    children: vec![3],
+                },
+                list,
+            ]
+        };
+        assert!(validate_tree(5, &rows(list(998, 1000, 9))).is_ok());
+        for refused in [list(999, 1000, 9), list(u64::MAX, 1000, 9), list(0, 1000, 0)] {
+            assert!(
+                validate_tree(5, &rows(refused))
+                    .unwrap_err()
+                    .contains("outside its provided extent")
+            );
+        }
     }
 
     #[test]
@@ -4763,6 +4840,7 @@ mod tests {
                     row_height: 24,
                     row_gap: 0,
                     style: Box::default(),
+                    rows: None,
                 },
                 children: vec![2],
             },
@@ -4784,6 +4862,7 @@ mod tests {
                 row_height: 24,
                 row_gap: 0,
                 style: Box::default(),
+                rows: None,
             },
             children: vec![2, 4, 6],
         }];

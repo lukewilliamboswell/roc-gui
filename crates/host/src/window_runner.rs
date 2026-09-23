@@ -322,7 +322,7 @@ pub(crate) fn check_bounds(
 ///
 /// Split out from the await loop so the quiescence rule is testable without a
 /// window.
-pub(crate) fn quiet_enough(history: &[(u64, u64)], frames: u32) -> bool {
+pub(crate) fn quiet_enough<T: PartialEq>(history: &[T], frames: u32) -> bool {
     let frames = frames as usize;
     if history.len() <= frames {
         return false;
@@ -339,10 +339,13 @@ async fn settle(
     cx: &mut AsyncApp,
 ) -> Result<(), StepError> {
     let started = std::time::Instant::now();
-    let mut history = vec![task_counts()];
+    // A viewport turn is host work as much as a task is: it replaces a list the
+    // frame just drew, so a frame after one is not yet the settled picture.
+    let activity = || (task_counts(), crate::rows::turns());
+    let mut history = vec![activity()];
     while started.elapsed() < timeout {
         next_frame(window, cx).await?;
-        history.push(task_counts());
+        history.push(activity());
         if quiet_enough(&history, frames) {
             prune_bounds(window, cx)?;
             return Ok(());
@@ -1058,6 +1061,7 @@ async fn run_step(
         | Command::ExpectValue(_, _)
         | Command::ExpectValueBytes(_, _)
         | Command::ExpectImageBytes(_, _)
+        | Command::ExpectRows(_, _)
         | Command::ExpectBefore(_, _)
         | Command::ExpectBackground(_, _) => window
             .update(cx, |runtime, _, _| {
@@ -1262,7 +1266,15 @@ fn scroll_region(
                         region: describe(region),
                         target: describe(target),
                     })?;
-                tracker.scroll_to_row(index);
+                // A provided list mounts a window of its rows, so a mounted
+                // row's position is counted from the window's first row.
+                let first = match runtime.graph.node(region_id).map(|node| &node.kind) {
+                    Some(crate::bridge::NodeKind::VirtualList {
+                        rows: Some(rows), ..
+                    }) => usize::try_from(rows.first).unwrap_or(usize::MAX),
+                    _ => 0,
+                };
+                tracker.scroll_to_row(first.saturating_add(index));
                 return Ok(());
             }
             // A scroll region lays every child out, below the fold included, so

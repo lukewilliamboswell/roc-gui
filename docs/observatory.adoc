@@ -65,8 +65,14 @@ subtree, and what is the status of the frame stages the host does not own?
 `AnyView` elements occurred in completed GPUI frames, grouped by node kind?
 `virtual_list_materialization`:: For interactive GPUI frames, how many logical
 items intersected each viewport and how many native entities were
-materialised, recycled, and retained? Semantic-headless captures report this
-family as `not_recorded` because they have no viewport.
+materialised, recycled, and retained? Each list records one row per drawn
+frame, after GPUI has drawn it; a patch that rebuilds part of a row, or retires
+rows with their list, records the entities it built or recycled in rows of its
+own. For a list of rows produced on demand, the intersecting
+items include rows not yet mounted, which are drawn as blank places and
+materialise no entity. The Roc turns that move such a list's window are
+ordinary cycles with the trigger `viewport`. Semantic-headless captures report
+this family as `not_recorded` because they have no viewport.
 `process_resources`:: How did process CPU time, peak RSS, and Roc allocation
 counters change across runs?
 `capture_health`:: Did batching, queue pressure, omissions, limits, or writer

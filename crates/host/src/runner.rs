@@ -247,6 +247,50 @@ pub(crate) fn graph_claim(
                 Some((*expected as u64, actual as u64)),
             )
         }
+        Command::ExpectRows(locator, expected) => {
+            let observed = only(graph, locator)
+                .map_err(|count| {
+                    format!("expect-rows locator matched {count} nodes; expected exactly one")
+                })
+                .and_then(|id| {
+                    let node = graph.node(id).expect("matched node is mounted");
+                    match &node.kind {
+                        NodeKind::VirtualList { rows, .. } => {
+                            let mounted = node.children.len() as u64;
+                            Ok(match rows {
+                                Some(rows) => (rows.count, rows.first, mounted),
+                                None => (mounted, 0, mounted),
+                            })
+                        }
+                        _ => Err("expect-rows requires a virtual list".to_owned()),
+                    }
+                });
+            match observed {
+                Err(message) => (Err(message), None),
+                Ok((count, first, mounted)) => {
+                    let mut differences = Vec::new();
+                    for (name, wanted, actual) in [
+                        ("rows", expected.count, count),
+                        ("first mounted row", expected.first, first),
+                        ("mounted rows", expected.mounted, mounted),
+                    ] {
+                        if let Some(wanted) = wanted
+                            && wanted != actual
+                        {
+                            differences.push(format!("expected {wanted} {name}; observed {actual}"));
+                        }
+                    }
+                    (
+                        if differences.is_empty() {
+                            Ok(())
+                        } else {
+                            Err(differences.join("; "))
+                        },
+                        expected.count.map(|wanted| (wanted, count)),
+                    )
+                }
+            }
+        }
         Command::ExpectBefore(first, second) => {
             let ordered = graph.nodes_preorder();
             let position = |id| ordered.iter().position(|node| node.id == id);
@@ -1415,6 +1459,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectValue(_, _)
             | Command::ExpectValueBytes(_, _)
             | Command::ExpectImageBytes(_, _)
+            | Command::ExpectRows(_, _)
             | Command::ExpectBefore(_, _)
             | Command::ExpectBackground(_, _)) => {
                 let (result, counts) =

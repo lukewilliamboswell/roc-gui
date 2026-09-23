@@ -22,6 +22,7 @@ mod process;
 // Generated glue (scripts/regenerate_glue.py); variant names mirror the Roc types.
 #[allow(clippy::enum_variant_names)]
 mod roc_platform_abi;
+mod rows;
 mod runner;
 mod screenshot;
 mod spec;
@@ -48,7 +49,8 @@ use roc_platform_abi::{
     HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
     HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs,
     HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
-    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
+    HostGlueNodeVirtualListArgs, HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs,
+    HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
     RocListWith, RocStr, decref_erased_callable, incref_erased_callable, make_roc_host,
     roc_gui_dispatch, roc_gui_init,
 };
@@ -968,15 +970,61 @@ pub extern "C" fn roc_gui_node_virtual_item(key: u64, content: u64) -> u64 {
 pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -> u64 {
     let name = args.name.as_str().to_owned();
     unsafe { args.name.decref(roc_host()) };
+    // Instance zero is the application root, which is never a list's own
+    // boundary, so it marks a list that carries all of its rows.
+    let rows = (args.instance != 0).then_some(bridge::ProvidedRows {
+        instance: args.instance,
+        count: args.count,
+        first: args.first,
+        notify: args.notify,
+    });
     stage_node(
         NodeKind::VirtualList {
             name,
             row_height: args.row_height,
             row_gap: args.row_gap,
             style: decode_layout_style!(args),
+            rows,
         },
         finish_children(args.builder),
     )
+}
+
+/// Name the rows a provided list mounts in this render, applying a new scroll
+/// request first. The host owns the viewport, so the host decides.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_virtual_window(
+    args: HostGlueVirtualWindowArgs,
+) -> HostGlueVirtualWindowRetRecord {
+    assert!(
+        (1..=16_384).contains(&args.row_height),
+        "virtual row height must be between 1 and 16384"
+    );
+    assert!(args.scroll_align <= 4, "invalid virtual row alignment");
+    let window_height = WINDOW_CONFIG.with(|config| config.borrow().height);
+    let estimate = u64::from(window_height.div_ceil(args.row_height));
+    let window = rows::window(
+        args.instance,
+        args.count,
+        estimate,
+        (args.scroll_row, args.scroll_align, args.scroll_serial),
+    );
+    HostGlueVirtualWindowRetRecord {
+        first: window.start,
+        end: window.end,
+    }
+}
+
+/// Consume the viewport payload installed for a provided list's dispatch.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_virtual_rows_event() -> HostGlueVirtualRowsEventRetRecord {
+    let event = rows::event();
+    HostGlueVirtualRowsEventRetRecord {
+        refresh: event.refresh,
+        report: event.report,
+        start: event.start,
+        end: event.end,
+    }
 }
 
 /// Stage one styled action button.
@@ -1368,6 +1416,13 @@ pub(crate) fn accept_transaction(graph: &MountedGraph, applied: &bridge::GraphAp
         }
     });
     observatory::commit_component_work();
+    rows::retire(
+        applied
+            .removed_instances
+            .iter()
+            .copied()
+            .filter(|instance| graph.boundary_root(*instance).is_none()),
+    );
     for job in turn.jobs {
         if job.owner == 0 || graph.boundary_root(job.owner).is_some() {
             let runtime = task_runtime();
@@ -1618,6 +1673,7 @@ fn clear_bridge() {
     CANVAS_EVENT.with(|slot| {
         slot.borrow_mut().take();
     });
+    rows::clear();
 }
 
 fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
@@ -2484,10 +2540,26 @@ impl Render for NodeView {
                 row_height,
                 row_gap,
                 style,
+                rows,
                 ..
             } => {
                 let list_id = self.node.id;
-                let count = self.node.children.len();
+                // A provided list scrolls through all of its rows, though it
+                // mounts only a window of them.
+                let count = match rows {
+                    Some(rows) => usize::try_from(rows.count).unwrap_or(usize::MAX),
+                    None => self.node.children.len(),
+                };
+                if let (Some(rows), Some(ScrollTracker::List(handle))) = (rows, &self.scroll)
+                    && let Some((row, align)) = rows::take_pending_scroll(rows.instance)
+                {
+                    let strategy = match align {
+                        rows::Align::Start => ScrollStrategy::Top,
+                        rows::Align::Center => ScrollStrategy::Center,
+                        rows::Align::End => ScrollStrategy::Bottom,
+                    };
+                    handle.scroll_to_item_strict(usize::try_from(row).unwrap_or(usize::MAX), strategy);
+                }
                 let runtime = self.runtime.clone();
                 let height = *row_height;
                 let gap = *row_gap;
@@ -2906,6 +2978,8 @@ struct Runtime {
     virtual_entities: HashMap<u64, VirtualCached>,
     preserved_virtual: std::collections::HashSet<u64>,
     virtual_constructions: u64,
+    /// Each list's GPUI frame in progress, settled once the frame is drawn.
+    virtual_frames: HashMap<u64, VirtualFrame>,
     focus_handles: HashMap<u64, FocusHandle>,
     /// The live scroll position of every mounted scrolling node, by id. The
     /// same tracker the node's view holds, so writing through it moves the
@@ -2939,6 +3013,16 @@ struct Runtime {
 struct VirtualCached {
     view: Entity<NodeView>,
     entities: u64,
+}
+
+/// What one list's row callbacks did during the frame being drawn.
+#[derive(Default)]
+struct VirtualFrame {
+    /// The last range GPUI asked for, which is the viewport's.
+    range: std::ops::Range<usize>,
+    /// Native entities built for this list during the frame.
+    materialized: u64,
+    scheduled: bool,
 }
 
 #[derive(Default)]
@@ -2978,6 +3062,7 @@ impl Runtime {
             virtual_entities: HashMap::new(),
             preserved_virtual: std::collections::HashSet::new(),
             virtual_constructions: 0,
+            virtual_frames: HashMap::new(),
             focus_handles: HashMap::new(),
             scroll_trackers: HashMap::new(),
             canvas_surfaces: HashMap::new(),
@@ -4287,6 +4372,12 @@ impl Runtime {
         Some(cached)
     }
 
+    /// GPUI's row callback: the elements for `range` of a list's rows.
+    ///
+    /// GPUI calls this more than once a frame — first for the row it measures,
+    /// then for the rows the viewport shows — so nothing is evicted and nothing
+    /// is recorded here. The last range of the frame is the viewport's, and
+    /// [`Self::finish_virtual_frame`] settles the frame once GPUI has drawn it.
     fn virtual_range(
         &mut self,
         list_id: u64,
@@ -4296,19 +4387,100 @@ impl Runtime {
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let list = self.graph.node(list_id).expect("virtual list is missing");
+        let first = provided_first(&list.kind);
+        // A provided list mounts a window of its rows. A row outside it has no
+        // node yet, and holds its place until the list's route builds it.
         let wanted = range
-            .filter_map(|index| list.children.get(index).copied())
+            .clone()
+            .map(|index| {
+                index
+                    .checked_sub(first)
+                    .and_then(|offset| list.children.get(offset).copied())
+            })
             .collect::<Vec<_>>();
-        let wanted_set = wanted
-            .iter()
-            .copied()
+        let construction_start = self.virtual_constructions;
+        for item in wanted.iter().flatten() {
+            if !self.virtual_views.contains_key(&(list_id, *item)) {
+                let (view, entities) = self.build_virtual_node(*item, cx);
+                self.cache_virtual_row(list_id, *item, VirtualCached { view, entities });
+            }
+        }
+        let frame = self.virtual_frames.entry(list_id).or_default();
+        frame.range = range.clone();
+        frame.materialized += self.virtual_constructions - construction_start;
+        if !frame.scheduled {
+            frame.scheduled = true;
+            let runtime = cx.entity().downgrade();
+            cx.defer(move |cx| {
+                let _ = runtime.update(cx, |runtime, cx| runtime.finish_virtual_frame(list_id, cx));
+            });
+        }
+        wanted
+            .into_iter()
+            .zip(range)
+            .map(|(item, index)| {
+                let Some(id) = item else {
+                    return div()
+                        .id(("virtual-pending", index))
+                        .h(px(row_height as f32))
+                        .into_any_element();
+                };
+                let view = self.virtual_views[&(list_id, id)].view.clone();
+                let key = match self.graph.node(id).map(|node| &node.kind) {
+                    Some(NodeKind::VirtualItem { key }) => *key,
+                    _ => panic!("virtual list child is not an item"),
+                };
+                // The gap is held clear inside the row's own height, which is
+                // what keeps a list's scroll arithmetic exactly row_height per
+                // row while its rows still read as separate surfaces.
+                div()
+                    .id(("virtual-row", key))
+                    .h(px(row_height as f32))
+                    .pb(px(row_gap.min(row_height.saturating_sub(1)) as f32))
+                    .child(view)
+                    .into_any_element()
+            })
+            .collect()
+    }
+
+    /// Settle one list's frame after GPUI has drawn it.
+    ///
+    /// Rows the viewport no longer shows are recycled, except the row GPUI
+    /// measures every frame, which it lays out whether or not it is in view.
+    /// The frame's materialisation is recorded here, by the owner of the work,
+    /// once per frame rather than once per callback. A provided list then
+    /// learns which rows it showed, and its route is dispatched when the
+    /// mounted window must move or the application asked to hear the range.
+    fn finish_virtual_frame(&mut self, list_id: u64, cx: &mut Context<Self>) {
+        let Some(frame) = self.virtual_frames.remove(&list_id) else {
+            return;
+        };
+        let Some(list) = self.graph.node(list_id) else {
+            return;
+        };
+        let rows = match &list.kind {
+            NodeKind::VirtualList { rows, .. } => *rows,
+            _ => return,
+        };
+        let first = provided_first(&list.kind);
+        let mounted = list.children.len();
+        let row_at = |index: usize| {
+            index
+                .checked_sub(first)
+                .and_then(|offset| list.children.get(offset).copied())
+        };
+        let mut kept = frame
+            .range
+            .clone()
+            .filter_map(row_at)
             .collect::<std::collections::HashSet<_>>();
+        kept.extend(row_at(0));
         let evicted = self
             .virtual_lists
             .get(&list_id)
             .into_iter()
             .flat_map(|summary| summary.rows.iter().copied())
-            .filter(|item| !wanted_set.contains(item))
+            .filter(|item| !kept.contains(item))
             .collect::<Vec<_>>();
         let mut recycled = 0;
         for item in evicted {
@@ -4326,7 +4498,7 @@ impl Runtime {
                 let mut child = *id;
                 while let Some((parent, _)) = self.graph.parent(child) {
                     if parent == list_id {
-                        return !wanted_set.contains(&child);
+                        return !kept.contains(&child);
                     }
                     child = parent;
                 }
@@ -4339,43 +4511,38 @@ impl Runtime {
                 self.forget_virtual_subtree(cached.view, cx);
             }
         }
-        let construction_start = self.virtual_constructions;
-        for item in &wanted {
-            if !self.virtual_views.contains_key(&(list_id, *item)) {
-                let (view, entities) = self.build_virtual_node(*item, cx);
-                self.cache_virtual_row(list_id, *item, VirtualCached { view, entities });
-            }
-        }
         let live_entities = self
             .virtual_lists
             .get(&list_id)
             .map_or(0, |summary| summary.entities);
         observatory::virtual_list_frame(
             list_id,
-            wanted.len() as u64,
-            self.virtual_constructions - construction_start,
+            frame.range.len() as u64,
+            frame.materialized,
             recycled,
             live_entities,
         );
-        wanted
-            .into_iter()
-            .map(|id| {
-                let view = self.virtual_views[&(list_id, id)].view.clone();
-                let key = match self.graph.node(id).map(|node| &node.kind) {
-                    Some(NodeKind::VirtualItem { key }) => *key,
-                    _ => panic!("virtual list child is not an item"),
-                };
-                // The gap is held clear inside the row's own height, which is
-                // what keeps a list's scroll arithmetic exactly row_height per
-                // row while its rows still read as separate surfaces.
-                div()
-                    .id(("virtual-row", key))
-                    .h(px(row_height as f32))
-                    .pb(px(row_gap.min(row_height.saturating_sub(1)) as f32))
-                    .child(view)
-                    .into_any_element()
-            })
-            .collect()
+        let Some(rows) = rows else {
+            return;
+        };
+        let visible = frame.range.start as u64..frame.range.end as u64;
+        let mounted = rows.first..rows.first + mounted as u64;
+        if let Some(event) = rows::observe(rows.instance, visible, rows.count, mounted, rows.notify)
+        {
+            rows::begin_event(event);
+            self.dispatch_live_event(list_id, "viewport", cx);
+            rows::end_event();
+        }
+    }
+}
+
+/// The index of a list's first mounted row: zero unless its rows are provided.
+fn provided_first(kind: &NodeKind) -> usize {
+    match kind {
+        NodeKind::VirtualList {
+            rows: Some(rows), ..
+        } => usize::try_from(rows.first).unwrap_or(usize::MAX),
+        _ => 0,
     }
 }
 
@@ -6572,6 +6739,7 @@ mod tests {
                         row_height: 40,
                         row_gap: 0,
                         style: Box::default(),
+                        rows: None,
                     },
                     children: vec![base + 2],
                 },
@@ -7497,6 +7665,7 @@ mod tests {
                     row_height: 20,
                     row_gap: 0,
                     style: Box::default(),
+                    rows: None,
                 },
                 children: vec![1005],
             },
@@ -7539,6 +7708,128 @@ mod tests {
             assert!(!runtime.virtual_lists.contains_key(&1004));
             assert!(!runtime.virtual_row_owners.contains_key(&1005));
         });
+    }
+
+    /// Three rows, each a button, under one items list.
+    fn three_row_list(base: u64) -> (u64, Vec<Node>) {
+        let (root, mut nodes) = queue_tree(base);
+        let button = nodes.pop().unwrap();
+        let item = nodes.pop().unwrap();
+        nodes[1].children = vec![base + 2, base + 4, base + 6];
+        for (offset, key) in [(2, 7), (4, 8), (6, 9)] {
+            nodes.push(Node {
+                id: base + offset,
+                kind: NodeKind::VirtualItem { key },
+                children: vec![base + offset + 1],
+            });
+            nodes.push(Node {
+                id: base + offset + 1,
+                ..button.clone()
+            });
+        }
+        drop(item);
+        (root, nodes)
+    }
+
+    #[gpui::test]
+    fn the_row_gpui_measures_is_not_evicted_by_the_rows_it_shows(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let (root, nodes) = three_row_list(1000);
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            // A frame of the production callback: first the measured row, then
+            // the rows the viewport shows. The measured row is not evicted by
+            // the second call, and the frame settles once.
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            drop(runtime.virtual_range(1001, 2..3, 40, 0, cx));
+            runtime.finish_virtual_frame(1001, cx);
+            let cached = |runtime: &Runtime| {
+                let mut rows = runtime.virtual_lists[&1001]
+                    .rows
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>();
+                rows.sort();
+                rows
+            };
+            assert_eq!(cached(runtime), vec![1002, 1006]);
+            // The next identical frame builds nothing.
+            let constructions = runtime.virtual_constructions;
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            drop(runtime.virtual_range(1001, 2..3, 40, 0, cx));
+            runtime.finish_virtual_frame(1001, cx);
+            assert_eq!(runtime.virtual_constructions, constructions);
+            assert_eq!(cached(runtime), vec![1002, 1006]);
+            // A row that leaves the viewport is recycled.
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            runtime.finish_virtual_frame(1001, cx);
+            assert_eq!(cached(runtime), vec![1002]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_provided_list_holds_unbuilt_rows_and_asks_its_route_for_them(cx: &mut TestAppContext) {
+        let heard: Rc<RefCell<Vec<(u64, crate::rows::RowsEvent)>>> = Rc::default();
+        let recorded = heard.clone();
+        install_test_dispatcher(move |event_id| {
+            recorded
+                .borrow_mut()
+                .push((event_id, crate::rows::event()));
+            Patch::NoChange
+        });
+        let (root, mut nodes) = queue_tree(1000);
+        // Row 10 of 1,000 is the only row mounted.
+        nodes[1].kind = NodeKind::VirtualList {
+            name: "Tracks".into(),
+            row_height: 40,
+            row_gap: 0,
+            style: Box::default(),
+            rows: Some(crate::bridge::ProvidedRows {
+                instance: 77,
+                count: 1000,
+                first: 10,
+                notify: true,
+            }),
+        };
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        // No viewport has been named for this boundary, so the frames drawn so
+        // far asked nothing of the route.
+        assert!(heard.borrow().is_empty());
+        crate::rows::window(77, 1000, 4, (0, 0, 0));
+        runtime.update(cx, |runtime, cx| {
+            let elements = runtime.virtual_range(1001, 8..12, 40, 0, cx);
+            // Four rows are drawn, one of them built; the others hold their
+            // place until the route builds them.
+            assert_eq!(elements.len(), 4);
+            assert_eq!(
+                runtime.virtual_lists[&1001].rows.iter().copied().collect::<Vec<_>>(),
+                vec![1002]
+            );
+            runtime.finish_virtual_frame(1001, cx);
+        });
+        {
+            let heard = heard.borrow();
+            assert_eq!(heard.len(), 1);
+            let (list, event) = heard[0];
+            assert_eq!(list, 1001);
+            assert!(event.refresh && event.report);
+            assert_eq!((event.start, event.end), (8, 12));
+        }
+        // Outside a viewport dispatch the payload asks nothing.
+        assert_eq!(
+            crate::rows::event(),
+            crate::rows::RowsEvent {
+                refresh: false,
+                report: false,
+                start: 0,
+                end: 0
+            }
+        );
+        crate::rows::clear();
     }
 
     #[gpui::test]

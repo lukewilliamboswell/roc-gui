@@ -16,7 +16,7 @@ import Work
 Action(a) := {
 	# Keep recursive callable signatures explicit and pointer-sized at each
 	# dynamic argument boundary; the compiler cannot expand recursive aliases here.
-	value : [NoChange, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) })],
+	value : [NoChange, Refresh, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) })],
 	levels : U64,
 }.{
 
@@ -33,6 +33,12 @@ Action(a) := {
 	## Leave state and the displayed UI unchanged.
 	none : Action(a)
 	none = Action.{ value: NoChange, levels: 0 }
+
+	## Platform action rendering the originating boundary again against the
+	## state it already has. Its ancestors' memo snapshots stay valid, because
+	## no state changed; only the boundary's own render inputs from the host did.
+	refresh : Action(a)
+	refresh = Action.{ value: Refresh, levels: 0 }
 
 	## Request a new state for this render boundary. Derive it from the handler's
 	## `prev_state`, not a state snapshot captured by the renderer.
@@ -148,7 +154,7 @@ Action(a) := {
 	)
 
 	## Reveal the transition for platform dispatch; constructing it has no effect.
-	inspect : Action(a) -> [NoChange, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) })]
+	inspect : Action(a) -> [NoChange, Refresh, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) })]
 	inspect = |Action.(action)| action.value
 
 	## Platform delegation depth used to find the boundary accepting an action.
@@ -176,6 +182,7 @@ Action(a) := {
 		write = |latest, child| Ok(set(latest, child))
 		match inspect(action) {
 			NoChange => none
+			Refresh => with_levels(refresh, levels)
 			Update(child) => with_levels(update(set(parent, child)), levels)
 			Delegate(child) => match delegated {
 				None => with_levels(delegate(set(parent, child)), levels)
@@ -223,6 +230,7 @@ Action(a) := {
 			levels = owner_levels(resolved)
 			match inspect(resolved) {
 				NoChange => Work.next(|| done!(none))
+				Refresh => Work.next(|| done!(with_levels(refresh, levels)))
 				Update(child) => Work.set(
 					|| match set(parent, child) {
 						Err(_) => Work.next(|| done!(none))

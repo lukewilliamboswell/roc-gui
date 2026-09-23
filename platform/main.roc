@@ -42,6 +42,8 @@ platform ""
 		"roc_gui_node_image": Host.node_image!,
 		"roc_gui_node_canvas": Host.node_canvas!,
 		"roc_gui_canvas_event": Host.canvas_event!,
+		"roc_gui_virtual_window": Host.virtual_window!,
+		"roc_gui_virtual_rows_event": Host.virtual_rows_event!,
 		"roc_gui_input_value": Host.input_value!,
 		"roc_gui_node_text_input": Host.node_text_input!,
 		"roc_sqlite_open_read": Host.sqlite_open_read!,

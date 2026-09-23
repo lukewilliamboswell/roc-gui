@@ -111,6 +111,7 @@ Gui := [].{
 	EventTextChange : Event.TextChange
 	EventTextSubmit : Event.TextSubmit
 	EventCanvasPointer : Event.CanvasPointer
+	EventVisibleRows : Event.VisibleRows
 
 	# Types exchanged with `Files`.
 	FilesChoice(a) : Files.Choice(a)
@@ -177,6 +178,8 @@ Gui := [].{
 	TryTranslateConfig(parent, child) : Elem.TryTranslateConfig(parent, child)
 	KeyedColConfig(parent, item) : Elem.KeyedColConfig(parent, item)
 	VirtualListItem(a) : Elem.VirtualListItem(a)
+	RowAlign : Elem.RowAlign
+	ScrollRequest : Elem.ScrollRequest
 	ScrollAxis : Elem.ScrollAxis
 	ImageFormat : Elem.ImageFormat
 	ImageFit : Elem.ImageFit
@@ -269,6 +272,10 @@ Gui := [].{
 	## Present fixed-height rows, materializing only the visible range.
 	virtual_list : Elem.VirtualListProps(a) -> Elem.Elem(a)
 	virtual_list = |props| Elem.virtual_list(props)
+
+	## Present `count` fixed-height rows, producing each on demand for the viewport.
+	virtual_rows : Elem.VirtualRowsProps(a) -> Elem.Elem(a)
+	virtual_rows = |props| Elem.virtual_rows(props)
 
 	## Embed a renderer over a smaller part of parent state.
 	translate : (child -> Elem.Elem(child)), (parent -> child), (parent, child -> parent) -> Elem.Elem(parent)

@@ -47,6 +47,10 @@ Elem(a) :: [
 		render : (a, (Elem(a) -> Work) -> Work),
 		exists : (a, (Bool -> Work) -> Work),
 		remember : [None, Some((a, (Box((a, (Bool -> Work) -> Work)) -> Work) -> Work))],
+		## A transparent boundary renders on its own but holds no state of its
+		## own: an action raised inside it belongs to the nearest boundary
+		## above it that is not transparent.
+		transparent : Bool,
 	}
 
 	## Connect a child renderer to parent state and give it a stable lifetime.
@@ -161,7 +165,7 @@ Elem(a) :: [
 				},
 			),
 		)
-		Component(BoundComponent.{ key, render: render_boundary, exists: exists, remember })
+		Component(BoundComponent.{ key, render: render_boundary, exists: exists, remember, transparent: False })
 	}
 
 	## The semantic locator and presentation shared by `row`, `col`, and
@@ -207,8 +211,30 @@ Elem(a) :: [
 	## of its current index, while `content` is an ordinary element tree.
 	VirtualListItem(a) := { content : Elem(a), key : U64 }
 
-	## Platform representation of a viewport-driven, fixed-height list.
-	VirtualListNode(a) := { items : List(VirtualListItem(a)), label : Str, row_height : U32, row_gap : U32, style : Style }
+	## Platform representation of a viewport-driven, fixed-height list. A list
+	## built by `virtual_list` carries its rows in `items`; one built by
+	## `virtual_rows` carries a `provider` instead and no items.
+	VirtualListNode(a) := { items : List(VirtualListItem(a)), label : Str, row_height : U32, row_gap : U32, style : Style, provider : [None, Some(RowProvider(a))] }
+
+	## Where a list places a row it is asked to bring into view: at the leading
+	## edge, in the middle, at the trailing edge, or wherever moves it least —
+	## not at all when the row is already in view.
+	RowAlign : [Start, Center, End, Nearest]
+
+	## A request to bring `row` into view at `align`. The list moves once for
+	## each distinct `serial`: holding the same request across later renders
+	## leaves a person's own scrolling alone, and a new serial moves the list
+	## again, even to the same row.
+	ScrollRequest : { row : U64, align : RowAlign, serial : U64 }
+
+	## Platform representation of rows produced on demand.
+	RowProvider(a) := {
+		count : U64,
+		render_row : U64 -> Elem(a),
+		row_key : U64 -> U64,
+		scroll_to : [None, Some(ScrollRequest)],
+		on_range : [None, Some((a, Event.VisibleRows => Action(a)))],
+	}
 
 	## Platform representation of a checkbox.
 	CheckboxNode(a) := {
@@ -625,6 +651,71 @@ Elem(a) :: [
 
 		## The space held clear at the bottom of each row inside `row_height`,
 		## so rows read as separate surfaces rather than one continuous block.
+		row_gap : U32 ?? 0,
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
+		border_width : U32 ?? 0,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Style.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
+	}
+
+	## Properties for a fixed-height list of `count` rows produced on demand.
+	## `render_row` is called only for the rows near the viewport, so the cost
+	## of a render follows the rows on screen rather than `count`.
+	VirtualRowsProps(a) := {
+		label : Str,
+		row_height : U32,
+
+		## How many rows the list holds. The list scrolls through all of them.
+		count : U64,
+
+		## Build the row at a zero-based index below `count`.
+		render_row : U64 -> Elem(a),
+
+		## The row's stable identity, unique among the rows shown together.
+		## The index is the default; a key drawn from the data keeps a row's
+		## native state with its data when rows are inserted above it.
+		row_key : U64 -> U64 ?? |index| index,
+
+		## Bring a row into view. See `ScrollRequest`.
+		scroll_to : [None, Some(ScrollRequest)] ?? None,
+
+		## Receive the rows intersecting the viewport whenever they change.
+		on_range : [None, Some((a, Event.VisibleRows => Action(a)))] ?? None,
 		row_gap : U32 ?? 0,
 		gap : U32 ?? 8,
 		padding : U32 ?? 0,
@@ -1401,6 +1492,7 @@ Elem(a) :: [
 			},
 			exists: |_parent, done!| Work.next(|| done!(True)),
 			remember: None,
+			transparent: False,
 		},
 	)
 
@@ -1425,7 +1517,24 @@ Elem(a) :: [
 	virtual_list = |props| if props.row_height == 0 or props.row_height > 16384 {
 		crash "Gui virtual row height must be between 1 and 16384"
 	} else {
-		VirtualList({ items: props.items, label: props.label, row_height: props.row_height, row_gap: props.row_gap, style: style_of(props) })
+		VirtualList({ items: props.items, label: props.label, row_height: props.row_height, row_gap: props.row_gap, style: style_of(props), provider: None })
+	}
+
+	## Present `count` fixed-height rows, building each with `render_row` only
+	## while it is near the viewport. The list is its own render boundary: when
+	## scrolling brings unbuilt rows near, the platform renders the list alone,
+	## from the renderer's most recent `render_row`, without rendering its owner.
+	## The boundary is transparent, so an action raised by a row or by
+	## `on_range` belongs to the list's owner, exactly as if the rows had been
+	## built there.
+	virtual_rows : VirtualRowsProps(a) -> Elem(a)
+	virtual_rows = |props| if props.row_height == 0 or props.row_height > 16384 {
+		crash "Gui virtual row height must be between 1 and 16384"
+	} else {
+		provider = { count: props.count, render_row: props.render_row, row_key: props.row_key, scroll_to: props.scroll_to, on_range: props.on_range }
+		node : Elem(a)
+		node = VirtualList({ items: [], label: props.label, row_height: props.row_height, row_gap: props.row_gap, style: style_of(props), provider: Some(provider) })
+		Component(BoundComponent.{ key: Some(Key.from_str("Gui.virtual_rows ${props.label}")), render: |_state, done| done(node), exists: |_state, done| done(True), remember: None, transparent: True })
 	}
 
 	## Adapt an already-built child tree to parent state.
@@ -1532,6 +1641,10 @@ Elem(a) :: [
 			items: list_value.items.map(|item| { key: item.key, content: Text("") }),
 			row_gap: list_value.row_gap,
 			style: list_value.style,
+			provider: match list_value.provider {
+				None => None
+				Some(provider) => Some(lift_provider(provider, project, set_child, adapt_action))
+			},
 		})
 		TextInput(input_value) => {
 			child_change = input_value.on_change
@@ -1621,8 +1734,22 @@ Elem(a) :: [
 					},
 				),
 			)
-			Component(BoundComponent.{ key: bound.key, render: render_parent, exists: exists_parent, remember })
+			Component(BoundComponent.{ key: bound.key, render: render_parent, exists: exists_parent, remember, transparent: bound.transparent })
 		}
+	}
+
+	# A provided row is lifted when the platform asks for it, so adapting a
+	# list costs nothing for the rows it never builds.
+	lift_provider : RowProvider(child), Project(parent, child), (parent, child -> Try(parent, [Removed])), (Action(child), parent, (Action(parent) -> Work) -> Work) -> RowProvider(parent)
+	lift_provider = |provider, project, set_child, adapt_action| {
+		child_render = provider.render_row
+		parent_render : U64 -> Elem(parent)
+		parent_render = |index| lift_with(child_render(index), project, set_child, adapt_action)
+		on_range = match provider.on_range {
+			None => None
+			Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+		}
+		{ count: provider.count, render_row: parent_render, row_key: provider.row_key, scroll_to: provider.scroll_to, on_range }
 	}
 
 	snapshot_test : Project(parent, child), (child, child -> Bool), child, parent, (Bool -> Work) -> Work

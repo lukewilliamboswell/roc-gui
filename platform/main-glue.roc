@@ -49,6 +49,8 @@ platform ""
 		"roc_gui_node_image": HostGlue.node_image!,
 		"roc_gui_node_canvas": HostGlue.node_canvas!,
 		"roc_gui_canvas_event": HostGlue.canvas_event!,
+		"roc_gui_virtual_window": HostGlue.virtual_window!,
+		"roc_gui_virtual_rows_event": HostGlue.virtual_rows_event!,
 		"roc_gui_input_value": HostGlue.input_value!,
 		"roc_gui_node_text_input": HostGlue.node_text_input!,
 		"roc_sqlite_open_read": HostGlue.sqlite_open_read!,

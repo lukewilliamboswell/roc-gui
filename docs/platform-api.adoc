@@ -218,6 +218,12 @@ rows read as separate surfaces while the list's scrolling arithmetic stays
 exactly one `row_height` per row. Without them a list has no ground, inset,
 corner, or spacing of its own, and each row has to repaint the surface the list
 is sitting on.
+`Gui.virtual_rows({ label, row_height, count, render_row })`:: Present `count`
+rows at one fixed logical height, building each with `render_row` only while it
+is near the viewport, so the cost of a render follows the rows on screen rather
+than `count`. It brings a row into view from state with `scroll_to` and reports
+the rows on screen through `on_range`. It shares the style fields and `row_gap`
+of `Gui.virtual_list`. See <<rows-produced-on-demand>>.
 `Gui.row({ ... }, children)`:: Lay out children horizontally.
 `Gui.col({ ... }, children)`:: Lay out children vertically.
 `Gui.keyed_col(render_item, { ... }, { key, get, set, on_delegate })`::
@@ -348,6 +354,65 @@ ink text inherits when it names none. The background reaches the whole window,
 including its rounded corners and the edge above the root element, which a
 grown root element cannot cover. Both default to the host's own ground, so an
 application that says nothing keeps it.
+
+[[rows-produced-on-demand]]
+=== Rows produced on demand
+
+`Gui.virtual_list` receives every row as an item. GPUI draws only the rows in
+view, but every row is still built, lowered, and mounted, so its cost follows the
+list's length. `Gui.virtual_rows` receives a row count and a row function
+instead:
+
+[source,roc]
+----
+Gui.virtual_rows({
+    label: "Query rows",
+    row_height: 24,
+    count: result.rows.len(),
+    render_row: |index| result_row(result, index),
+    scroll_to: state.rows_scroll,
+    on_range: Some(|prev_state, visible| Gui.update({ ..prev_state, on_screen: Some(visible) })),
+})
+----
+
+The host owns the viewport, so the host names the rows to build: those the
+viewport shows and one viewport's worth either side of them. Only those rows are
+rendered, lowered, and mounted. When scrolling brings the viewport within half a
+viewport of the edge of the mounted rows, the platform renders the list again
+for the new range. The list is its own render boundary: that render calls the
+`render_row` of the owner's most recent render and lowers the list alone,
+without rendering its owner. A row the viewport reaches before the list has
+been rendered for it holds its place, blank, for the frames in between.
+
+The boundary is transparent. An action raised by a row, or by `on_range`,
+belongs to the list's owner exactly as if the rows had been built there, and a
+task it starts is owned by that owner too. A row may contain translations,
+buttons, editors, and nested lists like any other element.
+
+`row_key : U64 -> U64`:: The stable identity of the row at an index; it
+defaults to the index. Keys are unique among the rows mounted together. A key
+drawn from the data keeps a row's native state — a pending press, focus, an
+editor — with its data when rows are inserted above it.
+`scroll_to : [None, Some(Gui.ScrollRequest)]`:: Bring a row into view from
+state. A `Gui.ScrollRequest` is `{ row, align, serial }`, and `align` is a
+`Gui.RowAlign`: `Start`, `Center`, `End`, or `Nearest`, which moves the list the
+least distance and not at all when the row is already in view. The list moves
+once for each distinct `serial`. Holding a request in state across later
+renders leaves a person's own scrolling alone; jumping again, even to the same
+row, or restoring a remembered position takes a new serial. The rows around the
+requested one are built in the render that asks for them, so a jump lands on
+built rows without building any row in between.
+`on_range : [None, Some((a, Gui.EventVisibleRows => Gui.Action(a)))]`:: Receive
+`{ start, end }`, the half-open range of rows the viewport intersects, whenever
+it changes. This is the hook for paging: an application that holds only part of
+its data reads the rest as the viewport approaches it. An action that changes
+nothing still lets a pending rebuild of the list happen.
+
+Visible rows are a fact about a presented frame, so `on_range` is delivered by
+GPUI frames alone. Without a window, the semantic runner takes the viewport to
+be as tall as the window the application asked for: a list mounts the rows such
+a viewport shows and one viewport below them, and a scroll request moves that
+viewport by the same arithmetic the window uses.
 
 === Modifiers
 

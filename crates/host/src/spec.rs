@@ -244,6 +244,8 @@ pub enum Command {
     ExpectValue(Locator, String),
     ExpectValueBytes(Locator, usize),
     ExpectImageBytes(Locator, usize),
+    /// The logical extent of a virtual list and the rows it has mounted.
+    ExpectRows(Locator, RowsExpectation),
     ExpectBefore(Locator, Locator),
     ExpectPatch(PatchExpectation),
     MarkMetrics,
@@ -360,6 +362,17 @@ fn valid_screenshot_name(name: &str) -> bool {
             .all(|value| value.is_ascii_lowercase() || value.is_ascii_digit() || value == '-')
 }
 
+/// Claims about a virtual list's rows. `count` is how many rows the list
+/// holds, `first` is the index of its first mounted row, and `mounted` is how
+/// many rows it has mounted. A list given all of its items mounts all of them;
+/// a list whose rows are produced on demand mounts a window of them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RowsExpectation {
+    pub count: Option<u64>,
+    pub first: Option<u64>,
+    pub mounted: Option<u64>,
+}
+
 /// Bounds on a laid-out element's size, in logical pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct BoundsExpectation {
@@ -431,6 +444,7 @@ impl Command {
             Self::ExpectValue(_, _) => "expect-value",
             Self::ExpectValueBytes(_, _) => "expect-value-bytes",
             Self::ExpectImageBytes(_, _) => "expect-image-bytes",
+            Self::ExpectRows(_, _) => "expect-rows",
             Self::ExpectBefore(_, _) => "expect-before",
             Self::ExpectPatch(_) => "expect-patch",
             Self::MarkMetrics => "mark-metrics",
@@ -499,6 +513,7 @@ impl Command {
             | Self::ExpectValue(_, _)
             | Self::ExpectValueBytes(_, _)
             | Self::ExpectImageBytes(_, _)
+            | Self::ExpectRows(_, _)
             | Self::ExpectComponentWork(_)
             | Self::ExpectBefore(_, _)
             | Self::ExpectBackground(_, _)
@@ -770,6 +785,7 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
         }
         let verifies_scale = steps.iter().any(|step| {
             matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectCanvasPrimitives(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
+                || matches!(step.command, Command::ExpectRows(_, RowsExpectation { count: Some(count), .. }) if count == policy.scale)
         });
         if !verifies_scale {
             return Err(error(
@@ -1086,6 +1102,17 @@ impl<'a> Keywords<'a> {
             .map(|(_, value)| *value)
     }
 
+    fn u64(&self, key: &str) -> Result<Option<u64>, ParseError> {
+        let Some(value) = self.expr(key) else {
+            return Ok(None);
+        };
+        value
+            .atom()
+            .and_then(|text| text.parse().ok())
+            .map(Some)
+            .ok_or_else(|| error(value, format!("{key} requires a non-negative integer")))
+    }
+
     fn u32_in(
         &self,
         key: &str,
@@ -1254,6 +1281,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 ));
             }
             Command::ExpectBounds(locator, expectation)
+        }
+        "expect-rows" if values.len() >= 2 => {
+            let locator = parse_locator(&values[1])?;
+            let keywords = parse_keywords(head, &values[2..], &[":count", ":first", ":mounted"])?;
+            let expectation = RowsExpectation {
+                count: keywords.u64(":count")?,
+                first: keywords.u64(":first")?,
+                mounted: keywords.u64(":mounted")?,
+            };
+            if expectation == RowsExpectation::default() {
+                return Err(error(
+                    node,
+                    "expect-rows requires at least one of :count, :first, :mounted",
+                ));
+            }
+            Command::ExpectRows(locator, expectation)
         }
         "resize" if values.len() == 3 => {
             let dimension = |index: usize, name: &str| -> Result<u32, ParseError> {
@@ -2583,6 +2626,38 @@ mod tests {
         assert_eq!(
             spec.steps[0].command,
             Command::ExpectVisible(Locator::ScrollName("Directory contents".into()))
+        );
+    }
+
+    #[test]
+    fn expect_rows_names_a_list_and_at_least_one_claim() {
+        let spec = parse(
+            r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows") :count 1000000 :first 0 :mounted 64)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectRows(
+                Locator::VirtualListName("Rows".into()),
+                RowsExpectation {
+                    count: Some(1_000_000),
+                    first: Some(0),
+                    mounted: Some(64),
+                }
+            )
+        );
+        assert!(parse(r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows"))))"#).is_err());
+        assert!(
+            parse(r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows") :count -1)))"#)
+                .is_err()
+        );
+        // A provided list's logical extent verifies a benchmark's scale.
+        assert!(
+            parse(
+                r#"(test "rows" (benchmark :warmups 1 :samples 1 :iterations 1 :scale 1000 :initial-size 0 :change-size 1000)
+                     (steps (mark-metrics) (expect-rows (role virtual-list :name "Rows") :count 1000)))"#
+            )
+            .is_ok()
         );
     }
 

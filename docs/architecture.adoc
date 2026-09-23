@@ -203,8 +203,26 @@ preedit remains transient in the editor and dispatches one change when the
 composition commits. A virtual list is the deliberate exception: its complete
 keyed item subtrees remain in the canonical graph, but GPUI's
 viewport callback creates entities only for intersecting fixed-height rows and
-recycles entities that leave the range. The host connects the new native
+recycles entities that leave the range. GPUI asks for one row to measure and
+then for the rows it shows, so a list's frame is settled once, after GPUI has
+drawn it: rows that left the view are recycled, the measured row is kept, and
+the frame's materialisation is recorded. The host connects the new native
 subtree to retained entities around its boundary and releases replaced views.
+
+A list of rows produced on demand goes further: the canonical graph holds only
+a window of its rows. The list lowers inside its own transparent render
+boundary, and lowering asks the host which rows to build, because the host owns
+the viewport. The host keeps that viewport per boundary instance, since the list
+node is replaced whenever its window moves. It places the rows the viewport
+shows and one viewport either side, applies a scroll request once per serial,
+and, before GPUI has drawn the list, takes the viewport to be as tall as the
+window. GPUI's callback draws the list's full length and holds the place of a
+row that is not mounted. When a settled frame shows rows within half a viewport
+of the mounted edge, or shows a new range the application asked to hear of, the
+host dispatches the list's own route. That turn renders the list boundary again
+against unchanged state, which invalidates no ancestor's memo snapshot, and the
+new window replaces the old one in one ordinary patch. An action a row raises
+passes through the transparent boundary to the list's owner.
 
 The host enables GPUI's native view cache for non-root button leaves, rows,
 columns, and panels whose pixel width and height equal their minimum and
@@ -250,7 +268,9 @@ structural path remounts it. Removing and recreating the same key also remounts
 it. Native focus, caret, IME preedit, scroll offsets, and pending presses belong
 to these scoped lifetimes, not to a globally reusable application key. A virtual
 row leaving the materialised viewport does not remove its canonical component
-instance or revoke its tasks.
+instance or revoke its tasks. A row produced on demand that leaves the mounted
+window leaves the graph, and its components retire with it like any removed
+subtree; state that must outlive the row belongs to the list's owner.
 
 An ordinary patch keeps focus on the control that had it, by its stable role
 and semantic name, even where the node carrying that control is a new one. A

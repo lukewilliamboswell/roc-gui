@@ -317,6 +317,10 @@ HostGlue := [].{
 	node_virtual_item! : U64, U64 => U64
 	node_virtual_list! : {
 		builder : U64,
+		count : U64,
+		first : U64,
+		instance : U64,
+		notify : Bool,
 		name : Str,
 		row_height : U32,
 		row_gap : U32,
@@ -529,6 +533,8 @@ HostGlue := [].{
 		border_width : U32,
 		radius : U32,
 	} => U64
+	virtual_window! : { instance : U64, count : U64, row_height : U32, scroll_row : U64, scroll_align : U8, scroll_serial : U64 } => { first : U64, end : U64 }
+	virtual_rows_event! : () => { refresh : Bool, report : Bool, start : U64, end : U64 }
 	canvas_event! : () => { phase : U8, x : I32, y : I32, target : U64 }
 	input_value! : () => Str
 	node_text_input! : {

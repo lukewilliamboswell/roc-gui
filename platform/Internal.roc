@@ -290,10 +290,24 @@ Internal := [].{
 		id
 	}
 
-	finish_list! = |builder, props| {
+	finish_list! = |builder, props, first, instance| {
 		style = style_args(props.style)
+		provided = match props.provider {
+			None => { count: 0, notify: False }
+			Some(provider) => {
+				count: provider.count,
+				notify: match provider.on_range {
+					None => False
+					Some(_) => True
+				},
+			}
+		}
 		id = Host.node_virtual_list!({
 			builder,
+			count: provided.count,
+			first,
+			instance,
+			notify: provided.notify,
 			name: props.label,
 			row_height: props.row_height,
 			row_gap: props.row_gap,
@@ -363,7 +377,7 @@ Internal := [].{
 		CloseDialog(U64, Elem.DialogNode(a)),
 		ClosePanel(U64, Elem.PanelNode),
 		CloseScroll(Elem.ScrollNode(a)),
-		CloseList(U64, Elem.VirtualListNode(a)),
+		CloseList(U64, Elem.VirtualListNode(a), U64),
 		OpenItem(U64),
 		CloseItem(U64),
 		CloseBoundary(Box(BoundaryWork(a))),
@@ -454,12 +468,29 @@ Internal := [].{
 						VirtualList(value) => {
 							Host.scope_enter!(6, value.label, child_position)
 							builder = Host.children_begin!()
-							$work = $work.push(CloseList(builder, { ..value, items: [] }))
-							var $index = value.items.len()
-							while $index > 0 {
-								$index = $index - 1
-								row = value.items.get($index) ?? crash "missing virtual row"
-								$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(Box.box({ elem: row.content, position: 0 }))).push(OpenItem(row.key))
+							match value.provider {
+								None => {
+									$work = $work.push(CloseList(builder, { ..value, items: [] }, 0))
+									var $index = value.items.len()
+									while $index > 0 {
+										$index = $index - 1
+										row = value.items.get($index) ?? crash "missing virtual row"
+										$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(Box.box({ elem: row.content, position: 0 }))).push(OpenItem(row.key))
+									}
+								}
+								Some(provider) => {
+									# The host owns the viewport, so it names the rows worth
+									# building: those near the viewport, or near a requested row.
+									window = rows_window!(provider, value.row_height, $active_boundary)
+									$work = $work.push(CloseList(builder, { ..value, items: [] }, window.first))
+									var $index = window.end
+									while $index > window.first {
+										$index = $index - 1
+										key = (provider.row_key)($index)
+										row = (provider.render_row)($index)
+										$work = $work.push(Append(builder)).push(CloseItem(key)).push(Visit(Box.box({ elem: row, position: 0 }))).push(OpenItem(key))
+									}
+								}
 							}
 						}
 						Component(bound) => {
@@ -556,8 +587,18 @@ Internal := [].{
 					$root = finish_scroll!($root, props)
 					Host.scope_exit!()
 				}
-				CloseList(builder, props) => {
-					$root = finish_list!(builder, props)
+				CloseList(builder, props, first) => {
+					match props.provider {
+						None => {
+							$root = finish_list!(builder, props, 0, 0)
+						}
+						Some(provider) => {
+							$root = finish_list!(builder, props, first, $active_boundary)
+							route = { id: $root, boundary: $active_boundary, revision: (Box.unbox($boundaries.active)).revision, fire: |current, _| rows_event!(provider, current) }
+							$routes = Index.set($routes, route.id, route)
+							$boundaries = record_route($boundaries, $active_boundary, route.id)
+						}
+					}
 					Host.scope_exit!()
 				}
 			}
@@ -576,6 +617,55 @@ Internal := [].{
 					Work.next(|| lower_work!(remaining, state, current_owner, result.routes, result.boundaries, result.root, done!))
 				}
 			}
+		}
+	}
+
+	# Ask the host which rows of a provided list to build. `instance` is the
+	# list's own render boundary, whose lifetime carries its viewport.
+	rows_window! : Elem.RowProvider(a), U32, U64 => { first : U64, end : U64 }
+	rows_window! = |provider, row_height, instance| {
+		request = match provider.scroll_to {
+			None => { row: 0, align: 0, serial: 0 }
+			Some(wanted) => {
+				row: wanted.row,
+				align: match wanted.align {
+					Start => 1
+					Center => 2
+					End => 3
+					Nearest => 4
+				},
+				serial: wanted.serial,
+			}
+		}
+		window = Host.virtual_window!({ instance, count: provider.count, row_height, scroll_row: request.row, scroll_align: request.align, scroll_serial: request.serial })
+		if window.first > window.end or window.end > provider.count {
+			crash "host named rows outside a provided list"
+		}
+		window
+	}
+
+	# A viewport event either asks for the list's rows to be built again for a
+	# new range, reports the range to the application, or both. The list's
+	# boundary is transparent, so the application's action belongs to the list's
+	# owner; when it changes nothing, a pending rebuild still happens.
+	rows_event! : Elem.RowProvider(a), a => Action(a)
+	rows_event! = |provider, current| {
+		event = Host.virtual_rows_event!()
+		fallback = if event.refresh Action.refresh else Action.none
+		match provider.on_range {
+			Some(handler) if event.report => {
+				proposed = handler(current, { start: event.start, end: event.end })
+				Action.deferred(
+					|done| Action.resolve_work!(
+						proposed,
+						|resolved| match Action.inspect(resolved) {
+							NoChange => done(fallback)
+							_ => done(resolved)
+						},
+					),
+				)
+			}
+			_ => fallback
 		}
 	}
 
@@ -1353,23 +1443,48 @@ Internal := [].{
 		_ => {
 			source = Index.get(boundaries, origin) ?? crash "missing action owner"
 			levels = Action.owner_levels(action)
-			offset = if levels >= source.path.len() 0 else source.path.len() - levels - 1
-			owner = source.path.get(offset) ?? crash "missing delegated owner"
+			# A refresh renders its own boundary again and changes no state, so no
+			# ancestor snapshot is invalidated. Every other action changes state,
+			# which a transparent boundary does not hold: it passes to the nearest
+			# boundary above that does.
+			changes_state = match Action.inspect(action) {
+				Refresh => False
+				_ => True
+			}
+			var $offset = if levels >= source.path.len() 0 else source.path.len() - levels - 1
+			if changes_state {
+				while $offset > 0 and transparent(boundaries, source.path.get($offset) ?? crash "missing delegated owner") {
+					$offset = $offset - 1
+				}
+			}
+			owner = source.path.get($offset) ?? crash "missing delegated owner"
 			target = Index.get(boundaries, owner) ?? crash "missing delegated component"
 			var $dirty = boundaries
-			for key in target.path {
-				info = Index.get($dirty, key) ?? crash "missing update ancestor"
-				if key != owner {
-					$dirty = Index.set($dirty, key, { ..info, memo: Unknown })
-					Host.component_work!(6, 1)
+			if changes_state {
+				for key in target.path {
+					info = Index.get($dirty, key) ?? crash "missing update ancestor"
+					if key != owner {
+						$dirty = Index.set($dirty, key, { ..info, memo: Unknown })
+						Host.component_work!(6, 1)
+					}
 				}
 			}
 			match Action.inspect(action) {
+				Refresh => update_boundary!(state, None, owner, owner, render, routes, $dirty)
 				Update(next) => update_boundary!(next, None, owner, owner, render, routes, $dirty)
 				Delegate(next) => update_boundary!(next, None, 0, 0, render, routes, $dirty)
 				Task(task) => update_boundary!(task.pending, Some(task.run), owner, owner, render, routes, $dirty)
 				_ => crash "action changed during dispatch"
 			}
+		}
+	}
+
+	transparent : Index(BoundaryInfo(a)), U64 -> Bool
+	transparent = |boundaries, key| match Index.get(boundaries, key) {
+		Err(_) => False
+		Ok(info) => match info.bound {
+			None => False
+			Some(bound) => bound.transparent
 		}
 	}
 

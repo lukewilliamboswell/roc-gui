@@ -31,4 +31,9 @@ Event := [].{
 		y : I32,
 		target : [None, Some(U64)],
 	}
+
+	## The rows of a virtual list that intersect its viewport, as the half-open
+	## range `start` up to but not including `end`. Delivered when that range
+	## changes, so an application can page in the data those rows show.
+	VisibleRows : { start : U64, end : U64 }
 }
