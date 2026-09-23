@@ -31,6 +31,11 @@ State : {
 	open_name : Str,
 	query : Str,
 	result : [None, Some(Shown)],
+	## Where the result rows were last asked to move. A new page returns to
+	## its first row; the first- and last-row keys move within a page.
+	rows_scroll : [None, Some(Gui.ScrollRequest)],
+	## The result rows the viewport shows, as the list last reported them.
+	on_screen : [None, Some(Gui.EventVisibleRows)],
 	schema : List(Str),
 	status : Status,
 }
@@ -58,6 +63,8 @@ Browser := [].{
 		open_name: "",
 		query: "SELECT id, title, price FROM books ORDER BY id LIMIT 100",
 		result: None,
+		rows_scroll: None,
+		on_screen: None,
 		schema: [],
 		status: Ready,
 	}
@@ -72,6 +79,19 @@ Browser := [].{
 	turn_page = |state, database, shown, offset| run_page(state, database, shown.sql, offset)
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
+
+	## Bring one row of the shown page into view. Each request takes a fresh
+	## serial, so asking for the same row again moves the list again.
+	scroll_rows : State, U64, Gui.RowAlign -> State
+	scroll_rows = |state, row, align| {
+		..state,
+		next_request: state.next_request + 1,
+		rows_scroll: Some({ row, align, serial: state.next_request }),
+	}
+
+	## Record the rows the viewport shows.
+	show_rows : State, Gui.EventVisibleRows -> State
+	show_rows = |state, rows| { ..state, on_screen: Some(rows) }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -171,7 +191,7 @@ run_page = |state, database, sql, offset| {
 		run: || database.page!(page_request(sql, offset)),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(page) => Gui.update({ ..latest, result: Some({ sql, offset, page }), status: Ready })
+				Ok(page) => Gui.update({ ..latest, result: Some({ sql, offset, page }), rows_scroll: Some({ row: 0, align: Start, serial: id }), on_screen: None, status: Ready })
 				Err(error) => Gui.update({
 					..latest,
 					status: failure(

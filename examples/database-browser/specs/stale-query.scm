@@ -13,5 +13,5 @@
     (await-task)
     (await-task)
     (expect-visible (text "Rows: 100"))
-    (expect-count (text-prefix "Result row ") 100)
+    (expect-count (text-prefix "Result row ") 64)
     (expect-sqlite-counters 1 1 3)))

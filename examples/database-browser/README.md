@@ -6,8 +6,11 @@ read-only, shows the tables it contains, and runs SQL from a multiline editor.
 Write statements are rejected before they reach the database.
 
 Results keep their SQLite value types — integers, reals, text, blobs reported by
-length, and nulls — and are presented through the production virtual list, so a
-ten-thousand-row answer costs the same rows on screen as a hundred-row one. A
+length, and nulls — and are presented as rows produced on demand: the page is
+held once, and only the rows near the viewport are ever built, so a
+ten-thousand-row answer costs the same rows as a hundred-row one. First- and
+last-row keys move the list from state, a new page opens at its first row, and
+the summary names the rows on screen as the list reports them. A
 longer answer is read ten thousand rows at a time: the first page runs the
 statement as written, and the next and previous pages bind their offset as a
 query parameter. The file is read in place, so a database of any size opens,
@@ -58,7 +61,10 @@ write, recovery after each kind of failure, a refused folder grant, the
 authority readout, reopening, a superseded query, a result turned page by page,
 and a result that fits one page. Each asserts the SQLite capability counters, so
 a query that never reached the host cannot pass by looking right.
-`scale-100.scm`, `scale-1k.scm`, and `scale-10k.scm` scale the rows on screen;
+`scale-100.scm`, `scale-1k.scm`, and `scale-10k.scm` scale the rows in a result
+and prove with `expect-rows` that the same 64 rows are built at every size;
 `scale-pages-20k.scm`, `scale-pages-50k.scm`, and `scale-pages-100k.scm` keep one
 page resident and scale how deep in the result it lies. `window-ledger.scm`
-drives the real window and photographs the ledger.
+drives the real window and photographs the ledger, and `window-rows.scm`
+scrolls ten thousand rows, jumps to the last and first rows, and photographs
+each.

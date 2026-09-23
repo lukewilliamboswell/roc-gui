@@ -218,7 +218,7 @@ gutter = |text| Gui.row(
 	[Gui.text(text)],
 )
 
-result_table = |result, offset| {
+result_table = |result, offset, scroll_request| {
 	columns_justify = alignments(result)
 	header = Gui.row(
 		{
@@ -235,28 +235,57 @@ result_table = |result, offset| {
 		},
 		[gutter("ROW")].concat(result.columns.map_with_index(|name, index| cell(name, Theme.dim, Theme.meta, columns_justify.get(index) ?? Start))),
 	)
-	rows = result.rows.map_with_index(
-		|row, index| {
-			key: index,
-			content: Gui.row(
-				{
-					width: Fill,
-					height: Px(Theme.row_height),
-					padding: 0,
-					padding_left: Px(Theme.inset),
-					gap: 0,
-					border_color: Theme.line,
-					border_width: 0,
-					border_bottom: Px(1),
-				},
-				[gutter("Result row ${(offset + index).to_str()}")].concat(row.map_with_index(|value, column| cell(Query.value_text(value), Theme.ink, Theme.body, columns_justify.get(column) ?? Start))),
-			),
+	# Only the rows near the viewport are ever built, so a page of ten thousand
+	# rows costs what a screenful does.
+	render_row : U64 -> Gui.Elem(Browser.State)
+	render_row = |index| Gui.row(
+		{
+			width: Fill,
+			height: Px(Theme.row_height),
+			padding: 0,
+			padding_left: Px(Theme.inset),
+			gap: 0,
+			border_color: Theme.line,
+			border_width: 0,
+			border_bottom: Px(1),
 		},
+		[gutter("Result row ${(offset + index).to_str()}")].concat((result.rows.get(index) ?? []).map_with_index(|value, column| cell(Query.value_text(value), Theme.ink, Theme.body, columns_justify.get(column) ?? Start))),
 	)
 	Gui.col(
 		{ label: "Result table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
-		[header, Gui.virtual_list({ label: "Query rows", row_height: Theme.row_height, items: rows })],
+		[
+			header,
+			Gui.virtual_rows({
+				label: "Query rows",
+				row_height: Theme.row_height,
+				count: result.rows.len(),
+				render_row,
+				scroll_to: scroll_request,
+				on_range: Some(|current, rows| Gui.update(Browser.show_rows(current, rows))),
+			}),
+		],
 	)
+}
+
+## Keys that move the result to its first or last row, and the rows the
+## viewport shows, numbered as the gutter numbers them.
+row_keys : Browser.State, Browser.Shown -> List(Gui.Elem(Browser.State))
+row_keys = |state, shown| {
+	count = shown.page.rows.len()
+	if count == 0 {
+		[]
+	} else {
+		on_screen = match state.on_screen {
+			Some(rows) if rows.end > rows.start => [meta("On screen ${(shown.offset + rows.start + 1).to_str()}–${(shown.offset + rows.end).to_str()}")]
+			_ => []
+		}
+		on_screen.concat(
+			[
+				quiet_key({ caption: "First row", label: "Scroll to first row", on_press: |current, _| Gui.update(Browser.scroll_rows(current, 0, Start)), width: Auto }),
+				quiet_key({ caption: "Last row", label: "Scroll to last row", on_press: |current, _| Gui.update(Browser.scroll_rows(current, count - 1, End)), width: Auto }),
+			],
+		)
+	}
 }
 
 ## A result longer than one page names the rows on screen and turns to the
@@ -331,11 +360,11 @@ query_bench = |state| {
 		Some(shown) => [
 			Gui.row(
 				{ label: "Result summary", width: Fill, padding: 0, gap: Theme.inset, align: Center },
-				[meta("Columns: ${Str.join_with(shown.page.columns, ", ")}"), trailing_meta("Rows: ${shown.page.rows.len().to_str()}")],
+				[meta("Columns: ${Str.join_with(shown.page.columns, ", ")}"), trailing_meta("Rows: ${shown.page.rows.len().to_str()}")].concat(row_keys(state, shown)),
 			),
 		]
 			.concat(pager(state, shown))
-			.concat([result_table(shown.page, shown.offset)])
+			.concat([result_table(shown.page, shown.offset, state.rows_scroll)])
 	}
 	Gui.col(
 		{ label: "Query bench", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },
