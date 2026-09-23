@@ -12,7 +12,24 @@ A capture of any schema other than 24 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be
-trusted or is not yet finalised. Nine views follow:
+trusted or is not yet finalised.
+
+Several captures stay open at once, one tab each above the capture bar, and
+the baseline's tab is marked `◆`. `+` keeps the capture on screen open in its
+tab and lists the folder to choose another; pressing a tab, or Left and Right
+while focus is in the strip, brings its capture back at the view, filter,
+selection, and list positions it was left at, without reading it again. A
+capture still being recorded is read again when it comes back, and watched
+again. Closing a tab, with its `×` or Delete, closes its capture and shows its
+neighbour; "‹ Captures" closes the capture on screen and lists the folder.
+
+Beside every view is the inspector, which shows the detail of whatever that
+view has selected: the cycle in Interactions, the pressed frame in Frames and
+in the Timeline, and the chosen line's or step's steps in Spec. Its divider
+drags, or moves with the arrow keys while it has focus, to widen or narrow it,
+and folds it away; Enter on the divider or "Hide" folds it, and it comes back
+at the width it had. Pinning it keeps the selection of the view it was pinned
+on beside every other view until it is unpinned. Nine views follow:
 
 - **Overview**: identity from `metadata`, and tiles for outcome, slowest
   trigger, median cycle, frames over budget, skip rate, and verdict.
@@ -29,7 +46,7 @@ trusted or is not yet finalised. Nine views follow:
   five work spans, validate, and apply with graph and GPUI apply, where the time
   no owner attributed is shown as `unattributed` and a Σ check proves the parts
   sum to the cycle; the eleven component work kinds; graph and keyed work; and
-  the allocations of each span. A cycle driven by a specification step opens
+  the allocations of each span, beside the view. A cycle driven by a specification step opens
   the Spec view with its step list scrolled to that step. Between the triggers
   table and the cycle list, a histogram counts the listed cycles in octave
   buckets of duration, with median and max markers; hovering a bucket reads
@@ -171,10 +188,12 @@ closed capture's watch ends without a completion.
 
 ## Component boundaries
 
-The capture list, the capture bar, the trust banner, the baseline bar, the view rail, and each
-view are keyed, memoized boundaries directly under the root. Inside
-Interactions, the triggers table, the cycle list, each cycle row (keyed by its
-cycle), and the inspector are boundaries of their own, and every long list
+The capture list, the tabs, the capture bar, the trust banner, the baseline bar, the view rail, each
+view, and the inspector are keyed, memoized boundaries directly under the root.
+The inspector's width is the root's own state, so dragging its divider renders
+the window alone and compares every boundary, whatever the views beside it
+hold. Inside Interactions, the triggers table, the cycle list, and each cycle
+row (keyed by its cycle) are boundaries of their own, and every long list
 builds its rows as a boundary of its own. Every boundary compares only what it
 draws: the capture's revision, which names one reading of it, the read that
 produced a list's page of rows, and the few fields of navigation it reads. A
@@ -240,7 +259,8 @@ platform, or the host's sources and locks.
 
 ## Not yet built
 
-- One capture opens at a time; there is no drop target or recent list.
+- There is no drop target or recent list, and tabs cannot be dragged into
+  another order.
 - The scaling charts have no metric selector.
 - Only six tables have Copy; the Overview tiles, the inspector's work and
   allocation sections, the run lifecycle and process resources, the Frames and
@@ -253,7 +273,7 @@ platform, or the host's sources and locks.
 
 ## Specifications
 
-Fifty-three specifications run on the semantic runner. They cover the first
+Fifty-five specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
@@ -278,7 +298,9 @@ in every view and the A/A capture that bounds them, and a scaling set with its
 refusals and its noise band, the command palette finding captures, views,
 triggers, a cycle, and a step, back and forward over jumps, the view and
 inspector shortcuts, copying every table that has Copy with and without a
-clipboard grant, and a `—` whose hover says why. The comparison and scaling specifications also
+clipboard grant, a `—` whose hover says why, captures open in tabs that each
+keep their own view (`tabs.scm`), and the inspector resized, folded, and pinned
+(`inspector-pane.scm`). The comparison and scaling specifications also
 pin how many SQLite connections are live: one each for the open capture, the
 baseline, the A/A capture, and every capture of a scaling set.
 Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
@@ -289,6 +311,11 @@ folder of 100 is replaced, and only it is read again.
 folder: each opens a benchmark output folder of that many real captures, and
 `scale-compare.scm` compares two of a thousand and chooses a scaling set among
 them.
+`scale-tabs-10.scm` and `scale-tabs-50.scm` are the scaling cases for tabs:
+each opens that many captures, one tab each, and switches back to the first,
+whose work is the same whatever the number of tabs open. `scale-divider.scm`
+drags the inspector's divider beside the 10,000-cycle session's cycle list and
+renders the window alone.
 `scale-session.scm` is the scaling case for one long capture: it opens the
 10,000-cycle session and jumps from one end of its cycle list to the other, and
 `session-step.scm` opens a step ten thousand steps into its run.
@@ -314,6 +341,8 @@ walks to a cycle and into its inspector by keyboard, copies its waterfall, and
 photographs a `—`'s hover. `window-spec-source.scm` photographs a failing
 run's annotated specification with its diagnostic and assertion table, and
 `window-spec-median.scm` a benchmark's at the median of its samples.
+`window-shell.scm` opens two captures in tabs, drags the inspector's divider
+with the window's own pointer, folds it by keyboard, and photographs each.
 `theme.scm` follows the system's scheme as it changes and chooses one over it
 from the palette, and `window-theme.scm` photographs the capture list, the
 Overview, Interactions with each cycle's target, and a hovered Timeline in the

@@ -8,7 +8,7 @@
     (await-task)
     (click (role button :name "Capture database-browser-scale-100.rgstats"))
     (await-task)
-    (expect-visible (within (role row :name "Capture bar") (text "database-browser-scale-100.rgstats")))
+    (expect-selected (role tab :name "database-browser-scale-100.rgstats"))
     (expect-visible (within (role row :name "Capture bar") (text "semantic-headless")))
     (expect-visible (within (role row :name "Capture bar") (text "summary")))
     (expect-visible (within (role row :name "Capture bar") (text "schema 24")))

@@ -7,7 +7,7 @@
   (steps
     (click (role button :name "Open capture"))
     (await-task)
-    (expect-visible (within (role row :name "Capture bar") (text "database-browser-scale-100.rgstats")))
+    (expect-selected (role tab :name "database-browser-scale-100.rgstats"))
     (expect-visible (within (role row :name "Capture bar") (text "schema 24")))
     (expect-visible (within (role panel :name "Tile Outcome") (text "4/4 runs pass")))
     (expect-not-visible (role virtual-list :name "Captures"))

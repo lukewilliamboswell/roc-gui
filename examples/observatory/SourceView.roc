@@ -32,9 +32,16 @@ SourceView := [].{
 		None => state.run == run_id
 	}
 
-	## The annotated source and the inspector of its chosen step.
+	## The annotated source.
 	annotated : Observatory.State, Capture.Opened -> Elem
 	annotated = annotated
+
+	## The inspector of the chosen line's steps, which sits beside the source.
+	step_inspector : Observatory.State, Capture.Opened -> Elem
+	step_inspector = |state, opened| match (state.spec_source.annotation, state.spec_source.found) {
+		(Some(annotation), Matched(_)) => inspector(state, opened, annotation)
+		_ => Widgets.note("Reading the steps of this run…")
+	}
 
 	## Whether two states show the same source, compared by the reading that
 	## produced it rather than its lines and marks.
@@ -243,7 +250,9 @@ line_row = |state, opened, annotation, lines, number, found| {
 		caption: number.to_str(),
 		label: "Line ${number.to_str()}",
 		selected: chosen,
-		on_press: |current, _| Gui.update({ ..current, spec_source: { ..current.spec_source, chosen: Some(number) } }),
+		# The inspector beside the view shows the line, so the change is the
+		# root's to render.
+		on_press: |current, _| Gui.delegate({ ..current, spec_source: { ..current.spec_source, chosen: Some(number) } }),
 	})
 	label = "Source line ${number.to_str()}"
 	if found.is_empty() {
@@ -350,8 +359,6 @@ step_detail = |opened, annotation, mark| {
 		.concat(samples)
 }
 
-inspector_width = 300.U32
-
 ## The steps of the chosen line.
 inspector : Observatory.State, Capture.Opened, SpecSource.Annotation -> Elem
 inspector = |state, opened, annotation| {
@@ -369,14 +376,14 @@ inspector = |state, opened, annotation| {
 	}
 	Gui.scroll({
 		label: "Step inspector",
-		width: Px(inspector_width),
-		min_width: Px(inspector_width),
+		width: Fill,
 		height: Fill,
+		grow: True,
 		bg: Theme.card,
 		border_color: Theme.line,
 		border_width: 1,
 		radius: Theme.radius,
-		content: Gui.col({ width: Px(inspector_width - 2), max_width: Px(inspector_width - 2), padding: Theme.inset, gap: 4 }, body),
+		content: Gui.col({ width: Fill, padding: Theme.inset, gap: 4 }, body),
 	})
 }
 
@@ -411,7 +418,6 @@ annotated = |state, opened| match (state.spec_source.annotation, state.spec_sour
 						}),
 					],
 				),
-				inspector(state, opened, annotation),
 			],
 		)
 	}

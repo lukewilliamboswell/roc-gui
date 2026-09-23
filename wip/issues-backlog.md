@@ -395,7 +395,7 @@ built on top of them; none is a defect in what is there.
 
 - [ ] **HTTP Workbench advanced document tools.** Add syntax-highlighted JSON
   and text response modes, cURL and collection import/export, and resizable
-  split panes through production editor/layout primitives. Preserve request
+  split panes through `Gui.split` between the request and the response. Preserve request
   meaning and redact authentication material in every persisted or exported
   representation.
 
@@ -450,7 +450,9 @@ built on top of them; none is a defect in what is there.
   clipboard policy, and URL recognition on top of the ordered PTY byte stream.
 
 - [ ] Add tabs, nested split panes, focus navigation, pane zoom, and persisted
-  workspace layouts using the existing mounted graph and event route.
+  workspace layouts using the existing mounted graph and event route. The two
+  workspaces share one resizable, foldable divider (`Gui.split`); `Gui.tabs`
+  and nested splits are the primitives the rest would use.
 
 - [ ] Add user-configurable shell-profile grants without exposing executable or
   environment selection as ambient application authority.
@@ -524,9 +526,30 @@ ideal and the repository. P- and E-numbers refer to that document.
   which is refused.
 
 
-- [ ] **No split panes or tabs (P5).** The shell needs resizable, collapsible
-  panes and capture tabs. This is shared with the HTTP Workbench and Terminal
-  Workspace entries.
+- [ ] **Tabs cannot be reordered (P5).** `Gui.tabs` selects and closes tabs
+  by pointer and keyboard, but a tab cannot be dragged to another place in its
+  strip, and there is no keyboard chord to move one. Add a reorder request the
+  application owns, carried by a pointer drag over the strip and a chord,
+  with a specification on both runners.
+
+- [ ] **A split's size is bounded by the application, not by the window
+  (P5).** A divider asks for sizes within the split's `min` and `max`; when the
+  window is narrower than `max` allows, a drag can still ask for a size that
+  leaves the other pane nothing. The host knows the split's own extent when it
+  lays it out; clamp a drag to it as well, and say so in the event.
+
+- [ ] **A capture being recorded is not watched while its tab is parked
+  (P5).** Observatory watches only the capture on screen. A capture still
+  being recorded that is left in another tab is read again, and watched again,
+  when it comes back, so its tab says nothing of the rows written meanwhile.
+  Keep a watch per open capture, bounded in number, and mark a parked tab that
+  has grown.
+
+- [ ] **The inspector's details are laid out for a wide column (P5).** The
+  cycle inspector's waterfall bars and the Timeline's frame detail keep the
+  widths they had below the view, so a narrow inspector clips their right-hand
+  side until the divider widens it. Lay each detail out for the inspector's
+  width, as the cycle work sections already stack.
 
 - [ ] **Copy covers six tables (US-37).** The triggers, cycles, waterfall,
   allocations by trigger, steps, and measurement families tables copy their
@@ -559,9 +582,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   and no chart draws the baseline in a secondary style. Each needs a baseline
   value joined to its row (runs and steps have no key shared across captures
   beyond phase and ordinal) and, for charts, a second series drawn in a
-  secondary style. The baseline is also one
-  capture beside the open one, named in the baseline bar, rather than a capture
-  tab marked `◆` (P5).
+  secondary style.
 
 - [ ] **An A/A bound is the spread of one pair.** Compare and Scaling bound
   noise by how far one A/A capture's value lies from its reference's. A single

@@ -32,11 +32,11 @@
     (key "j")
     (await-task)
     (settle)
-    (expect-visible (role row :name "Inspector title"))
+    (expect-visible (role column :name "Inspector title"))
     (key "i")
     (settle)
     (expect-focused (role button :name "Show step"))
-    (scroll (role scroll :name "Interactions scroll") :to (role row :name "Waterfall gpui apply"))
+    (scroll (role scroll :name "Inspector scroll") :to (role row :name "Waterfall gpui apply"))
     (settle)
     (click (role button :name "Copy Waterfall"))
     (await-task)
@@ -51,5 +51,7 @@
     (settle)
     (expect-on-screen (text "Press a cycle to inspect it."))
     ; the nine characters typed into the query were offered and left to it;
-    ; Enter went to the query itself, and the five chords were answered
-    (expect-keyboard-counters 14 5 15 1)))
+    ; Enter went to the query itself, and the five chords were answered. The
+    ; closing palette leaves focus on the inspector's divider, whose own keys
+    ; each chord is compared with first
+    (expect-keyboard-counters 14 5 51 1)))

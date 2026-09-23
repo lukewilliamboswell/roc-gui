@@ -610,7 +610,6 @@ capture_bar = |state, opened| {
 		{ label: "Capture bar", width: Fill, padding: Theme.inset, gap: 6, align: Center, bg: Theme.paper, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 		[
 			key({ caption: "‹ Captures", label: "Back to captures", selected: False, on_press: |current, _| Observatory.ask(current, CloseCapture) }),
-			Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face, max_width: Px(260), text_overflow: Ellipsis }, [Gui.text(opened.name)]),
 			chip(Capture.metadata(opened, "backend"), Theme.ink),
 			chip(Capture.metadata(opened, "effective_detail"), Theme.ink),
 			chip("schema ${Capture.metadata(opened, "schema_version")}", Theme.ink),
@@ -1273,11 +1272,12 @@ inspector = |state, opened| match state.inspected {
 			]
 			_ => []
 		}
-		title = Gui.row(
-			{ label: "Inspector title", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+		# The title and its keys stack, so a narrow inspector keeps both.
+		title = Gui.col(
+			{ label: "Inspector title", width: Fill, padding: 0, gap: 6 },
 			[
 				Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("CYCLE ${cycle_name(cycle)} · ${cycle.trigger} · ${cycle.patch_kind} · ${cycle.phase}")]),
-				Gui.row({ padding: 0, gap: Theme.inset, grow: True, justify: End }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.delegate(Observatory.close_inspector(current)) }))),
+				Gui.row({ padding: 0, gap: Theme.inset }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.delegate(Observatory.close_inspector(current)) }))),
 			],
 		)
 		timed = Capture.complete(opened, "host_cycles")
@@ -1296,7 +1296,7 @@ inspector = |state, opened| match state.inspected {
 					.concat(timing)
 					.concat(
 						[
-							Gui.row(
+							Gui.col(
 								{ label: "Cycle work", width: Fill, padding: 0, gap: Theme.inset },
 								[
 									Gui.col({ width: Px(300), padding: 0, gap: 4 }, component_work(opened, inspected)),
@@ -1338,12 +1338,6 @@ interactions = |state, _opened| Gui.col(
 			|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and inspected_id(a) == inspected_id(b) and same_cycles(a, b),
 			section(cycles_section),
 		),
-		heading("CYCLE"),
-		part_boundary(
-			"Inspector",
-			|a, b| same_capture(a, b) and a.inspected == b.inspected and a.inspector_focus == b.inspector_focus and CompareView.same_comparison(a, b),
-			inspector_part,
-		),
 	],
 )
 	.shortcuts(cycle_keys)
@@ -1354,7 +1348,7 @@ cycle_keys : List(Gui.Shortcut(Observatory.State))
 cycle_keys = [
 	{ keys: "j", on_press: |current, _| Observatory.ask(current, InspectAdjacent(1)) },
 	{ keys: "k", on_press: |current, _| Observatory.ask(current, InspectAdjacent(-1)) },
-	{ keys: "i", on_press: |current, _| Gui.update({ ..current, inspector_focus: current.inspector_focus + 1 }) },
+	{ keys: "i", on_press: |current, _| Gui.delegate({ ..current, inspector_focus: current.inspector_focus + 1 }) },
 ]
 
 ## The inspector, which I moves keyboard focus into. Annotated: written as an
@@ -1600,22 +1594,6 @@ spec = |state, opened| {
 		None => family_row(False, [cell("…", 120, Theme.dim), rest_cell("reading", Theme.dim)])
 	}
 	absence = if timed [] else [absence_note(opened, "step_results")]
-	focus = match state.step_focus {
-		None => []
-		Some(ordinal) => {
-			found = window.rows.keep_if(|step| step.ordinal == ordinal)
-			[
-				Gui.panel(
-					{ label: "Focused step", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.selected, border_color: Theme.edge, border_width: 1, radius: Theme.radius },
-					if found.is_empty() {
-						[line("No step of run ${state.run.to_str()} has ordinal ${ordinal.to_str()}.")]
-					} else {
-						found.map(|step| line(Str.join_with(["line ${step.line.to_str()}", step.kind, step.role, step.status, step_result(step)].keep_if(|part| !Str.is_empty(part)), " · ")))
-					},
-				),
-			]
-		}
-	}
 	if annotated {
 		Gui.col(
 			{ label: "Spec", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset },
@@ -1626,7 +1604,6 @@ spec = |state, opened| {
 			{ label: "Spec", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset },
 			[selector].concat(source_bar).concat([heading("RUNS"), runs, CopyView.heading("STEPS OF RUN ${state.run.to_str()} · ${count.to_str()}", "Steps", |_| CopyView.steps(opened, window.rows, step_result))])
 				.concat(absence)
-				.concat(focus)
 				.concat(
 					[
 						Gui.col(
@@ -1651,6 +1628,25 @@ spec = |state, opened| {
 					],
 				),
 		)
+	}
+}
+
+## The step Show step opened, in the selected run.
+focused_step : Observatory.State -> List(Gui.Elem(Observatory.State))
+focused_step = |state| match state.step_focus {
+	None => [note("Press Show step on a cycle, or choose a step, to inspect it.")]
+	Some(ordinal) => {
+		found = state.steps.window.rows.keep_if(|step| step.ordinal == ordinal)
+		[
+			Gui.panel(
+				{ label: "Focused step", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.selected, border_color: Theme.edge, border_width: 1, radius: Theme.radius },
+				if found.is_empty() {
+					[line("No step of run ${state.run.to_str()} has ordinal ${ordinal.to_str()}.")]
+				} else {
+					found.map(|step| line(Str.join_with(["line ${step.line.to_str()}", step.kind, step.role, step.status, step_result(step)].keep_if(|part| !Str.is_empty(part)), " · ")))
+				},
+			),
+		]
 	}
 }
 
@@ -2435,19 +2431,10 @@ frames_view = |_state, opened| if !Capture.complete(opened, "gpui_frame_spans") 
 		{ label: "Frames", width: Fill, padding: Theme.inset, gap: Theme.inset },
 		[
 			part_boundary("Frame budget", |a, b| same_capture(a, b) and a.budget == b.budget, section(|current, captured| [budget_bar(current, captured)])),
-			Gui.row(
-				{ label: "Frame panes", width: Fill, padding: 0, gap: Theme.inset },
-				[
-					part_boundary(
-						"Frame strip",
-						|a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and a.frame_hover == b.frame_hover and same_frame(a, b),
-						section(frame_strip),
-					),
-					Gui.col(
-						{ label: "Frame inspector", width: Px(280), min_width: Px(280), padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
-						[part_boundary("Frame detail", |a, b| same_capture(a, b) and a.budget == b.budget and same_frame(a, b), section(frame_detail))],
-					),
-				],
+			part_boundary(
+				"Frame strip",
+				|a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and a.frame_hover == b.frame_hover and same_frame(a, b),
+				section(frame_strip),
 			),
 			part_boundary("Native work", |a, b| same_capture(a, b) and same_frame(a, b), section(native_work)),
 			part_boundary("Frame work", |a, b| same_capture(a, b) and same_frame(a, b), section(frame_work)),
@@ -2465,7 +2452,7 @@ main_view = |state| match state.view {
 	Overview => view_boundary("Overview", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Overview scroll", overview(s, o))))
 	Interactions => view_boundary(
 		"Interactions",
-		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and a.inspector_focus == b.inspector_focus and same_cycles(a, b) and CompareView.same_comparison(a, b),
+		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and same_cycles(a, b) and CompareView.same_comparison(a, b),
 		|current| with_capture(current, |s, o| scrolled("Interactions scroll", interactions(s, o))),
 	)
 	## The strip's hover is compared only by the strip, which a hover updates
@@ -2488,10 +2475,164 @@ workspace = |state| Gui.col(
 		view_boundary("Baseline bar", CompareView.same_comparison, CompareView.baseline_bar),
 		Gui.row(
 			{ label: "Workspace", width: Fill, height: Fill, grow: True, min_height: Px(0), overflow_y: Clip, padding: 0, gap: 0, bg: Theme.paper },
-			[view_boundary("Views", |a, b| a.view == b.view, nav), main_view(state)],
+			[
+				view_boundary("Views", |a, b| a.view == b.view, nav),
+				Gui.split(
+					{
+						label: "Inspector divider",
+						side: End,
+						size: state.inspector.size,
+						min: 240,
+						max: 1100,
+						collapsible: True,
+						collapsed: state.inspector.collapsed,
+						on_resize: |current, event| Gui.update({ ..current, inspector: { ..current.inspector, size: event.size, collapsed: event.collapsed } }),
+						thickness: 5,
+						color: Theme.line,
+						hover_color: Theme.edge,
+						active_color: Theme.accent,
+						focus_color: Theme.accent,
+					},
+					main_view(state),
+					view_boundary("Inspector pane", same_inspector, inspector_pane),
+				),
+			],
 		),
 	],
 )
+
+## The shell's inspector (§6): the detail of whatever the view on screen, or
+## the view it is pinned to, has selected, so every view drills down in the
+## same place. It renders only when that selection changes.
+same_inspector : Observatory.State, Observatory.State -> Bool
+same_inspector = |a, b| {
+	shown = Observatory.inspected_view(a)
+	pinned = |state| match state.inspector.pinned {
+		Some(_) => True
+		None => False
+	}
+	shown == Observatory.inspected_view(b)
+	and pinned(a) == pinned(b)
+	and same_capture(a, b)
+	and (
+		match shown {
+			Interactions => a.inspected == b.inspected and a.inspector_focus == b.inspector_focus and CompareView.same_comparison(a, b)
+			Frames => a.budget == b.budget and same_frame(a, b)
+			Timeline => TimelineView.same_view(a, b)
+			Spec => a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and SourceView.same(a, b)
+			_ => True
+		}
+	)
+}
+
+inspector_pane : Observatory.State -> Gui.Elem(Observatory.State)
+inspector_pane = |state| {
+	shown = Observatory.inspected_view(state)
+	pinned = match state.inspector.pinned {
+		Some(_) => True
+		None => False
+	}
+	bar = Gui.row(
+		{ label: "Inspector bar", width: Fill, padding: 0, gap: 6, align: Center },
+		[
+			meta("INSPECTOR · ${Observatory.view_name(shown)}"),
+			Gui.row(
+				{ padding: 0, gap: 6, grow: True, justify: End },
+				[
+					key({ caption: if pinned "Unpin" else "Pin", label: if pinned "Unpin inspector" else "Pin inspector", selected: pinned, on_press: |current, _| Gui.update(toggle_pin(current)) }),
+					# The split that folds the inspector is the window's, so the
+					# change is the root's to render.
+					key({ caption: "Hide", label: "Hide inspector", selected: False, on_press: |current, _| Gui.delegate({ ..current, inspector: { ..current.inspector, collapsed: True } }) }),
+				],
+			),
+		],
+	)
+	Gui.col(
+		{ label: "Inspector", width: Fill, height: Fill, grow: True, min_height: Px(0), padding: Theme.inset, gap: Theme.inset, bg: Theme.rail },
+		[
+			bar,
+			# Notes wrap to the inspector's width; a detail wider than it, such as
+			# a waterfall's bars, shows in full once the divider widens it.
+			Gui.scroll({ label: "Inspector scroll", width: Fill, height: Fill, grow: True, content: Gui.col({ width: Fill, padding: 0, gap: Theme.inset }, inspector_body(state, shown)) }),
+		],
+	)
+}
+
+## Pinning keeps the inspector on the view on screen; unpinning lets it
+## follow the view again.
+toggle_pin : Observatory.State -> Observatory.State
+toggle_pin = |current| {
+	pinned = match current.inspector.pinned {
+		Some(_) => None
+		None => Some(current.view)
+	}
+	{ ..current, inspector: { ..current.inspector, pinned } }
+}
+
+inspector_body : Observatory.State, Observatory.View -> List(Gui.Elem(Observatory.State))
+inspector_body = |state, shown| match state.capture {
+	None => []
+	Some(opened) => match shown {
+		Interactions => [inspector_part(state)]
+		Frames => [
+			Gui.col(
+				{ label: "Frame inspector", width: Fill, padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+				frame_detail(state, opened),
+			),
+		]
+		Timeline => [TimelineView.detail]
+		Spec => if Observatory.annotated(state) [SourceView.step_inspector(state, opened)] else focused_step(state)
+		other => [note("${Observatory.view_name(other)} has nothing to inspect. Pin the inspector on a view to keep its selection beside every other.")]
+	}
+}
+
+## The capture bar's tabs (§6): one per open capture, the baseline's marked
+## ◆. Switching keeps each capture's view as it was left; `+` keeps the one on
+## screen open and lists the folder to choose another.
+capture_tabs : Observatory.State -> Gui.Elem(Observatory.State)
+capture_tabs = |state| {
+	selected = match Observatory.on_screen_tab(state) {
+		Some(on_screen) => on_screen.to_str()
+		None => ""
+	}
+	items = state.tabs.map(|tab| { key: tab.key.to_str(), title: if Observatory.holds_baseline(state, tab) "◆ ${tab.name}" else tab.name, closable: True })
+	more = match state.capture {
+		Some(_) => [key({ caption: "+", label: "Open another capture", selected: False, on_press: |current, _| Observatory.ask(current, ShowCaptures) })]
+		None => []
+	}
+	Gui.row(
+		{ label: "Capture tabs row", width: Fill, padding: 0, padding_left: Px(Theme.inset), padding_right: Px(Theme.inset), padding_top: Px(4), gap: 6, align: Center, bg: Theme.rail, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+		[
+			Gui.tabs({
+				label: "Capture tabs",
+				width: Auto,
+				tabs: items,
+				selected,
+				on_select: |current, event| Observatory.ask(current, SwitchTab(tab_key(event.key))),
+				on_close: |current, event| Observatory.ask(current, CloseTab(tab_key(event.key))),
+				font_size: Theme.body,
+				font_face: Theme.face,
+				fg: Theme.dim,
+				selected_fg: Theme.ink,
+				selected_bg: Theme.paper,
+				hover_bg: Theme.quiet_hover,
+				accent: Theme.accent,
+				border_color: Theme.line,
+				focus_color: Theme.accent,
+			}),
+		]
+			.concat(more),
+	)
+}
+
+tab_key : Str -> U64
+tab_key = |text| U64.from_str(text) ?? 0
+
+same_tabs : Observatory.State, Observatory.State -> Bool
+same_tabs = |a, b| {
+	titles = |state| state.tabs.map(|tab| { key: tab.key, baseline: Observatory.holds_baseline(state, tab) })
+	titles(a) == titles(b) and Observatory.on_screen_tab(a) == Observatory.on_screen_tab(b) and (a.capture == None) == (b.capture == None)
+}
 
 render : Observatory.State -> Gui.Elem(Observatory.State)
 render = |state| {
@@ -2505,11 +2646,14 @@ render = |state| {
 			header(state),
 			authority_bar(state),
 			error_band(state),
+		]
+			.concat(if state.tabs.is_empty() [] else [view_boundary("Capture tabs", same_tabs, capture_tabs)])
+			.concat([
 			match state.capture {
 				Some(_) => workspace(state)
 				None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort, capture_list)
 			},
-		]
+		])
 			.concat(palette),
 	)
 		.shortcuts(window_keys)

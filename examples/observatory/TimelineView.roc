@@ -26,6 +26,13 @@ TimelineView := [].{
 	timeline : Observatory.State, Capture.Opened -> Elem
 	timeline = timeline
 
+	## The pressed frame's detail, which the inspector shows beside the chart.
+	detail : Elem
+	detail = Gui.col(
+		{ label: "Timeline frame", width: Fill, padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+		[part("Timeline frame detail", |a, b| inputs(a) == inputs(b), frame_panel)],
+	)
+
 	## The cycles a frame's owner recorded it was the first to draw, each of
 	## which opens in the inspector, or why no cause is shown.
 	causes : Capture.Opened, Capture.FrameDetail -> List(Elem)
@@ -374,13 +381,7 @@ timeline = |state, opened| {
 	} else if window.span <= 0 {
 		[Widgets.labelled_note("Timeline empty", "This capture records no interval on its clock.", Theme.dim)]
 	} else {
-		[
-			part("Timeline chart", |a, b| inputs(a) == inputs(b) and a.clock_hover == b.clock_hover, chart),
-			Gui.col(
-				{ label: "Timeline frame", width: Px((gutter + plot + 8).to_u32_wrap()), padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
-				[part("Timeline frame detail", |a, b| inputs(a) == inputs(b), frame_panel)],
-			),
-		]
+		[part("Timeline chart", |a, b| inputs(a) == inputs(b) and a.clock_hover == b.clock_hover, chart)]
 	}
 	Gui.col({ label: "Timeline", width: Fill, padding: Theme.inset, gap: Theme.inset }, body)
 }

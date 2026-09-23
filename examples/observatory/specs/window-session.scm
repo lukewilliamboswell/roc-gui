@@ -25,7 +25,7 @@
     (click (role button :name "Cycle r1 #9998"))
     (await-task)
     (settle)
-    (scroll (role scroll :name "Interactions scroll") :to (role button :name "Show step"))
+    (scroll (role scroll :name "Inspector scroll") :to (role button :name "Show step"))
     (settle)
     (click (role button :name "Show step"))
     (await-task)

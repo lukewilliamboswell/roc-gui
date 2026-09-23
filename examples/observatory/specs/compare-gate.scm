@@ -11,9 +11,10 @@
     (await-task)
     (expect-visible (within (role row :name "Baseline verdict") (text-prefix "none")))
     (click (role button :name "Set as baseline"))
-    ; only the baseline bar renders: the capture and trust bars, the view rail,
-    ; and the Overview, which shows no delta, are kept
-    (expect-component-work :rendered 2 :skipped 4 :mounted 0 :retired 0)
+    ; only the baseline bar and the tab that now wears ◆ render: the capture
+    ; and trust bars, the view rail, the Overview, which shows no delta, and
+    ; the inspector are kept
+    (expect-component-work :rendered 3 :skipped 5 :mounted 0 :retired 0)
     (expect-visible (text "◆ browse-100.rgstats"))
     (click (role button :name "Back to captures"))
     (click (role button :name "Capture browse-100-aa.rgstats"))

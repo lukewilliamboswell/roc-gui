@@ -77,6 +77,31 @@ Place : {
 	step_scroll : [None, Some(Gui.ScrollRequest)],
 }
 
+## A capture open in a tab that is not on screen, with everything its views
+## need to come back as they were left: its place and the pages its lists
+## hold, and where it was read from.
+Parked : {
+	capture : Capture.Opened,
+	source : Source,
+	place : Place,
+	cycles : Cycles,
+	steps : Steps,
+	strip : Strip,
+	clock : Clock,
+	trigger_sort : Sort,
+	budget : I64,
+	history : History.Trail(Place),
+}
+
+## One open capture's tab: a key of its own, which survives the capture being
+## read again, its name, and the capture itself unless it is on screen.
+Tab : { key : U64, name : Str, parked : [OnScreen, Parked(Parked)] }
+
+## The inspector beside every view: how wide it is, whether it is folded
+## away, and the view it is pinned to, whose selection it keeps showing
+## wherever the person goes.
+Inspector : { size : U32, collapsed : Bool, pinned : [None, Some(View)] }
+
 ## The command palette: closed, or open with the query typed so far and the
 ## result Enter chooses.
 Palette : [Closed, Open({ query : Str, highlight : U64 })]
@@ -92,6 +117,11 @@ Request : [
 	Show(View),
 	ShowFamily(Str),
 	CloseCapture,
+	## Tabs: show one open capture, close one, or leave the one on screen open
+	## in its tab and choose another from the folder.
+	SwitchTab(U64),
+	CloseTab(U64),
+	ShowCaptures,
 	SetPhase(Str),
 	FilterTrigger(Str, Str),
 	## Read the page of the listed cycles, or of the selected run's steps,
@@ -197,6 +227,9 @@ State : {
 	folder_watch : U64,
 	## The open capture's file now holds another capture, and a reload reads it.
 	changed : Bool,
+	## Every open capture, in the order its tab was opened.
+	tabs : List(Tab),
+	inspector : Inspector,
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
@@ -221,6 +254,9 @@ Observatory := [].{
 	Palette : Palette
 	Source : Source
 	Live : Live
+	Tab : Tab
+	Parked : Parked
+	Inspector : Inspector
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -266,6 +302,8 @@ Observatory := [].{
 		live: idle,
 		folder_watch: 0,
 		changed: False,
+		tabs: [],
+		inspector: { size: 360, collapsed: False, pinned: None },
 		request: None,
 	}
 
@@ -380,6 +418,132 @@ Observatory := [].{
 	## Whether the open capture is being watched as it is recorded.
 	watching : State -> Bool
 	watching = |state| state.live.generation != 0
+
+	## The key of the tab on screen, if a capture is.
+	on_screen_tab : State -> [None, Some(U64)]
+	on_screen_tab = on_screen_tab
+
+	## Whether a tab holds the baseline, which its title marks with ◆.
+	holds_baseline : State, Tab -> Bool
+	holds_baseline = holds_baseline
+
+	## The view whose selection the inspector shows: the one it is pinned to,
+	## or the one on screen.
+	inspected_view : State -> View
+	inspected_view = |state| match state.inspector.pinned {
+		Some(view) => view
+		None => state.view
+	}
+}
+
+on_screen_tab : State -> [None, Some(U64)]
+on_screen_tab = |state| match state.tabs.find_first(|tab| tab.parked == OnScreen) {
+	Ok(tab) => Some(tab.key)
+	Err(_) => None
+}
+
+## A capture's identity, which reading it again does not change.
+identity_of : Capture.Opened -> Str
+identity_of = |opened| {
+	id = Capture.metadata(opened, "capture_id")
+	if Str.is_empty(id) opened.name else id
+}
+
+holds_baseline : State, Tab -> Bool
+holds_baseline = |state, tab| match state.baseline {
+	None => False
+	Some(baseline) => {
+		held = match tab.parked {
+			Parked(parked) => Some(parked.capture)
+			OnScreen => state.capture
+		}
+		match held {
+			Some(opened) => identity_of(opened) == identity_of(baseline)
+			None => False
+		}
+	}
+}
+
+## Leave the capture on screen in its tab, with everything needed to show it
+## again as it is.
+stash : State -> State
+stash = |state| match state.capture {
+	None => state
+	Some(opened) => {
+		parked = { capture: opened, source: state.source, place: here(state), cycles: state.cycles, steps: state.steps, strip: state.strip, clock: state.clock, trigger_sort: state.trigger_sort, budget: state.budget, history: state.history }
+		{ ..state, tabs: state.tabs.map(|tab| if tab.parked == OnScreen { ..tab, parked: Parked(parked) } else tab) }
+	}
+}
+
+## Give the capture just shown a tab of its own, after every other.
+enlist : State, U64 -> State
+enlist = |state, key| match state.capture {
+	None => state
+	Some(opened) => { ..state, tabs: state.tabs.append({ key, name: opened.name, parked: OnScreen }) }
+}
+
+## Show a parked capture as it was left. Its lists are held, so nothing is
+## read, and a list scrolled away is brought back to where it was. A capture
+## still being recorded is read again, which watches it again.
+switch_tab : State, U64 -> Gui.Action(State)
+switch_tab = |state, key| match state.tabs.find_first(|tab| tab.key == key) {
+	Ok(found) => match found.parked {
+		OnScreen => Gui.update(state)
+		Parked(parked) => unpark(state, key, parked)
+	}
+	Err(_) => Gui.update(state)
+}
+
+unpark : State, U64, Parked -> Gui.Action(State)
+unpark = |state, key, parked| {
+	# The capture leaving the screen keeps its tab; the one arriving takes
+	# the screen.
+	left = close_capture(stash(state))
+	closed = { ..left, tabs: left.tabs.map(|tab| if tab.key == key { ..tab, parked: OnScreen } else tab) }
+	serial = closed.next_request
+	place = parked.place
+	moved = {
+		..closed,
+		next_request: serial + 1,
+		capture: Some(parked.capture),
+		source: parked.source,
+		view: place.view,
+		phase: place.phase,
+		filter: place.filter,
+		run: place.run,
+		inspected: place.inspected,
+		step_focus: place.step_focus,
+		family_focus: place.family_focus,
+		frame: place.frame,
+		cycle_scroll: again(place.cycle_scroll, serial),
+		step_scroll: again(place.step_scroll, serial),
+		cycles: parked.cycles,
+		steps: parked.steps,
+		strip: parked.strip,
+		clock: parked.clock,
+		trigger_sort: parked.trigger_sort,
+		budget: parked.budget,
+		history: parked.history,
+	}
+	if Capture.finalised(parked.capture) Gui.cancel(moved, live_key) else reload(moved)
+}
+
+## Close one tab. The one on screen closes as the capture does, and the next
+## tab, or the one before it, is shown in its place.
+close_tab : State, U64 -> Gui.Action(State)
+close_tab = |state, key| {
+	index = state.tabs.find_first_index(|tab| tab.key == key) ?? 0
+	remaining = state.tabs.keep_if(|tab| tab.key != key)
+	if Some(key) != on_screen_tab(state) {
+		Gui.update({ ..state, tabs: remaining })
+	} else {
+		closed = close_capture(state)
+		neighbour = if index < remaining.len() index else if index > 0 index - 1 else 0
+		match remaining.get(neighbour) {
+			Ok(next) => switch_tab(closed, next.key)
+			Err(_) => Gui.cancel(closed, live_key)
+		}
+	}
 }
 
 view_name : View -> Str
@@ -674,7 +838,11 @@ fulfil = |asked| {
 		}
 		## Open Health at the family a `—` belongs to.
 		Some(ShowFamily(name)) => Gui.update({ ..state, view: Health, family_focus: Some(name) })
+		## The capture on screen closes with its tab, and the folder is listed.
 		Some(CloseCapture) => Gui.cancel(close_capture(state), live_key)
+		Some(SwitchTab(key)) => switch_tab(state, key)
+		Some(CloseTab(key)) => close_tab(state, key)
+		Some(ShowCaptures) => Gui.cancel(close_capture(stash(state)), live_key)
 		Some(SetBaseline) => Gui.update(set_baseline(state))
 		Some(ClearBaseline) => Gui.update(clear_baseline(state))
 		Some(ChooseNoise(name)) => match state.folder {
@@ -748,7 +916,7 @@ close_capture = |state| {
 		Busy(active) => Busy(active)
 		_ => Ready
 	}
-	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty, source: None, live: idle, changed: False }
+	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty, source: None, live: idle, changed: False, tabs: state.tabs.keep_if(|tab| tab.parked != OnScreen) }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -853,7 +1021,7 @@ choose_file = |state| {
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
 				OpenedFile(opened) => match opened.loaded {
-					Ok(loaded) => begin_live(show({ ..latest, source: opened.source }, loaded, id), loaded.live, id)
+					Ok(loaded) => begin_live(enlist(show({ ..stash(latest), source: opened.source }, loaded, id), id), loaded.live, id)
 					Err(message) => Gui.update({ ..latest, capture: None, source: None, live: idle, status: failure(message, unreadable_remedy) })
 				}
 				FileCanceled => Gui.update({ ..latest, status: Ready })
@@ -954,7 +1122,7 @@ open_capture = |state, directory, name| {
 		run: || first_pages!(Capture.open!(directory, name)),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(loaded) => begin_live(show({ ..latest, source: InFolder({ directory, name }) }, loaded, id), loaded.live, id)
+				Ok(loaded) => begin_live(enlist(show({ ..stash(latest), source: InFolder({ directory, name }) }, loaded, id), id), loaded.live, id)
 				Err(message) => Gui.update({ ..latest, capture: None, source: None, live: idle, status: failure(message, unreadable_remedy) })
 			}
 			_ => Gui.none
@@ -1660,7 +1828,10 @@ reload = |state| match state.capture {
 		id = state.next_request
 		source = state.source
 		place = kept(state, opened)
-		Gui.task({
+		# Reading again restarts the watch, so it supersedes the one running,
+		# which may be another tab's.
+		Gui.keyed_task({
+			key: live_key,
 			pending: { ..state, next_request: id + 1, status: Busy(id), live: idle },
 			run: || reopen!(source, place),
 			resolve: |latest, outcome| match latest.status {
