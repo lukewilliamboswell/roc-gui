@@ -88,14 +88,33 @@ trusted. Nine views follow:
   plots each mean against its scale beside a dashed line of linear growth.
 
 Every number belongs to a measurement family. A family whose status is not
-`complete` is shown as `—` with its status and reason, never as zero, and
-pressing a `—` opens Health at that family. Values the capture records per
+`complete` is shown as `—` with its status and reason, never as zero; hovering
+a `—` shows its family, status, and reason, and pressing it opens Health at
+that family. Values the capture records per
 cycle follow the same rule: spans and their allocations are `—` for a callback
 whose spans were not valid, component work is `—` for a cycle with no component
 observation (and an absent kind is zero only for one with it), GPUI apply is
 `—` when it was not recorded, and a run with no end snapshot has no CPU, RSS,
 or allocation change. The capture list and the triggers table sort by any
 column.
+
+The keyboard reaches everything. Ctrl+K opens a command palette that finds, as
+you type, the commands (open a folder or a capture, back, forward, set or clear
+the baseline, close the capture), the views, the folder's captures, and every
+trigger of every phase; `cycle N` inspects the cycle with that ordinal in the
+selected run and `step N` shows its step in Spec. Up and Down move the
+highlight and Enter chooses it. Opening a cycle, its step, a frame, or a
+palette target remembers the place left, and Alt+Left and Alt+Right, or the
+Back and Forward buttons in the header, move over those places, restoring the
+view, what it had selected, and where its lists were. Ctrl+1 to Ctrl+9 show
+the views in the rail's order. In Interactions, J and K inspect the next and
+the previous cycle of the list, bringing it into view, and I moves keyboard
+focus into the inspector.
+
+The triggers, cycles, waterfall, allocations by trigger, steps, and measurement
+families tables each have a Copy button, which puts the rows the table shows on
+the clipboard as Markdown, each with the family its values come from, that
+family's status, and its reason, so a `—` pasted into a review still says why.
 
 The verdict is `untrusted` when a capture is not finalised, shut down uncleanly,
 omitted events, reached its output limit, had a writer failure, or recorded a
@@ -129,10 +148,12 @@ roc build --output=observatory examples/observatory/main.roc
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures
 ./observatory -- --host-cap-dir examples/observatory/fixture/compare
 ./observatory -- --host-cap-file examples/observatory/fixture/captures/counter-counting.rgstats
+./observatory -- --host-cap-dir examples/observatory/fixture/captures --host-cap-clipboard
 ```
 
 `--host-cap-dir` provisions the folder the folder chooser answers with, and
-`--host-cap-file` the file "Open capture…" answers with. Any folder of
+`--host-cap-file` the file "Open capture…" answers with. `--host-cap-clipboard`
+grants the clipboard Copy writes to; without it, Copy says how to grant one. Any folder of
 captures works, such as `.test-out/specs/<stamp>/examples/counter/specs`.
 
 The fixture script runs real specifications of the Counter and Database Browser
@@ -159,13 +180,16 @@ platform, or the host's sources and locks.
 - One capture opens at a time; there is no drop target or recent list.
 - The scaling charts have no metric selector.
 - The timeline cannot name the node an interactive cycle targeted (E4).
-- A `—` shows its family's status and reason beside it, not on hover.
+- Only six tables have Copy; the Overview tiles, the inspector's work and
+  allocation sections, the run lifecycle and process resources, the Frames and
+  Timeline tables, and the Compare and Scaling sheets have none.
+- The palette does not find a frame or a source line (`frame N`, `line N`).
 - Steps are listed by line number and kind; the specification source is not
   shown beside them.
 
 ## Specifications
 
-Thirty-seven specifications run on the semantic runner. They cover the first
+Forty-four specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
@@ -180,7 +204,10 @@ frame's recorded causes followed from the strip to the inspector, the
 Timeline of a headless capture, the
 comparability sheet of an A/A pair and of a contended run, a baseline's deltas
 in every view and the A/A capture that bounds them, and a scaling set with its
-refusals and its noise band. The comparison and scaling specifications also
+refusals and its noise band, the command palette finding captures, views,
+triggers, a cycle, and a step, back and forward over jumps, the view and
+inspector shortcuts, copying every table that has Copy with and without a
+clipboard grant, and a `—` whose hover says why. The comparison and scaling specifications also
 pin how many SQLite connections are live: one each for the open capture, the
 baseline, the A/A capture, and every capture of a scaling set.
 Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
@@ -205,4 +232,6 @@ comparable and an incomparable pair, the triggers table with its deltas, and
 a scaling set's gate, ratios, and chart. `window-frames.scm` moves the
 window's own pointer over the frame strip and the distribution and scrolls its
 wheel, and photographs each, and `window-timeline.scm` does the same over the
-Timeline.
+Timeline. `window-keyboard.scm` types into the palette in the real window,
+walks to a cycle and into its inspector by keyboard, copies its waterfall, and
+photographs a `—`'s hover.

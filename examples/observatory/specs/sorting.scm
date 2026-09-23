@@ -26,7 +26,7 @@
     (click (role button :name "Sort triggers by trigger"))
     ; and so is the triggers table, inside the Interactions view
     (expect-component-work :rendered 1 :mounted 0 :retired 0)
-    (expect-patch :kind replace :staged 77 :removed 77)
+    (expect-patch :kind replace :staged 79 :removed 79)
     (expect-before (within (role column :name "Triggers") (text "click")) (within (role column :name "Triggers") (text "task")))
     (click (role button :name "Sort triggers by trigger"))
     (expect-before (within (role column :name "Triggers") (text "task")) (within (role column :name "Triggers") (text "click")))

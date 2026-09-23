@@ -4,6 +4,7 @@
 ## The mounted presentation lives in `View.roc`.
 import pf.Gui
 import Capture
+import History
 import Scaling
 import Timeline
 
@@ -49,6 +50,25 @@ Strip : { strip : Capture.Strip, read : U64 }
 ## the request that read it.
 Clock : { of : U64, window : Timeline.Window, read : U64 }
 
+## Where a person is: the view, what it shows, what is selected in it, and
+## where its lists were last brought to. Going back or forward returns here.
+Place : {
+	view : View,
+	phase : Str,
+	filter : Filter,
+	run : I64,
+	inspected : [None, Some(Capture.Inspected)],
+	step_focus : [None, Some(I64)],
+	family_focus : [None, Some(Str)],
+	frame : [None, Some(Capture.FrameDetail)],
+	cycle_scroll : [None, Some(Gui.ScrollRequest)],
+	step_scroll : [None, Some(Gui.ScrollRequest)],
+}
+
+## The command palette: closed, or open with the query typed so far and the
+## result Enter chooses.
+Palette : [Closed, Open({ query : Str, highlight : U64 })]
+
 ## What a view inside a component boundary asks of the application as a whole:
 ## work that needs a handle only the root holds, or a change a sibling view
 ## must show. A boundary forwards it by delegation, and the root fulfils it.
@@ -87,6 +107,18 @@ Request : [
 	ShowTimeline(I64, I64),
 	## Open a cycle in the Interactions inspector from another view.
 	InspectCycle(Capture.Cycle),
+	## Jumps, each remembered so Back returns from it: a view, one trigger's
+	## cycles, a cycle of the selected run by its ordinal, and the cycle a
+	## number of rows from the one inspected in the cycle list.
+	Visit(View),
+	ShowTrigger({ phase : Str, trigger : Str, patch_kind : Str }),
+	FindCycle(I64),
+	InspectAdjacent(I64),
+	## Return to the place before the last jump, or to the one Back left.
+	Back,
+	Forward,
+	## Put a table on the clipboard as Markdown.
+	Copy({ name : Str, rows : U64, markdown : Str }),
 ]
 
 State : {
@@ -129,6 +161,13 @@ State : {
 	clock : Clock,
 	clock_reading : Reading,
 	clock_hover : [None, Some(I64)],
+	palette : Palette,
+	## The places jumped from, for Back and Forward.
+	history : History.Trail(Place),
+	## Moves keyboard focus into the cycle inspector once for each new value.
+	inspector_focus : U64,
+	## What the last copy put on the clipboard.
+	copied : [None, Some(Str)],
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
@@ -149,6 +188,8 @@ Observatory := [].{
 	Reading : Reading
 	Strip : Strip
 	Clock : Clock
+	Place : Place
+	Palette : Palette
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -185,6 +226,10 @@ Observatory := [].{
 		clock: no_clock,
 		clock_reading: None,
 		clock_hover: None,
+		palette: Closed,
+		history: History.empty,
+		inspector_focus: 0,
+		copied: None,
 		request: None,
 	}
 
@@ -249,14 +294,7 @@ Observatory := [].{
 
 	## The row at an index of a window, if the window holds it.
 	row_at : Window(a), U64 -> [None, Some(a)]
-	row_at = |window, index| if index < window.offset {
-		None
-	} else {
-		match window.rows.get(index - window.offset) {
-			Ok(row) => Some(row)
-			Err(_) => None
-		}
-	}
+	row_at = row_at
 
 	close_inspector : State -> State
 	close_inspector = |state| { ..state, inspected: None }
@@ -279,6 +317,175 @@ Observatory := [].{
 	## Add a capture of the folder to the scaling set, or take it out.
 	toggle_scaling : State, Str -> State
 	toggle_scaling = |state, name| { ..state, scaling: Scaling.toggle(state.scaling, name) }
+
+	## Every view, in the order the rail and the view shortcuts give them.
+	views : List(View)
+	views = [Overview, Interactions, Frames, Timeline, Spec, Memory, Health, Compare, Scaling]
+
+	view_name : View -> Str
+	view_name = view_name
+
+	## Open the command palette with an empty query.
+	open_palette : State -> State
+	open_palette = |state| { ..state, palette: Open({ query: "", highlight: 0 }) }
+
+	## Whether Back or Forward has somewhere to go.
+	can_go_back : State -> Bool
+	can_go_back = |state| !state.history.back.is_empty()
+
+	can_go_forward : State -> Bool
+	can_go_forward = |state| !state.history.forward.is_empty()
+}
+
+view_name : View -> Str
+view_name = |view| match view {
+	Overview => "Overview"
+	Interactions => "Interactions"
+	Frames => "Frames"
+	Timeline => "Timeline"
+	Spec => "Spec"
+	Memory => "Memory"
+	Health => "Health"
+	Compare => "Compare"
+	Scaling => "Scaling"
+}
+
+## Where the person is now.
+here : State -> Place
+here = |state| {
+	view: state.view,
+	phase: state.phase,
+	filter: state.filter,
+	run: state.run,
+	inspected: state.inspected,
+	step_focus: state.step_focus,
+	family_focus: state.family_focus,
+	frame: state.frame,
+	cycle_scroll: state.cycle_scroll,
+	step_scroll: state.step_scroll,
+}
+
+## Leave the current place for somewhere new, so Back can return to it.
+remember : State -> State
+remember = |state| { ..state, history: History.push(state.history, here(state)) }
+
+## A scroll request asked again, so the list moves to it again.
+again : [None, Some(Gui.ScrollRequest)], U64 -> [None, Some(Gui.ScrollRequest)]
+again = |request, serial| match request {
+	Some(held) => Some({ ..held, serial })
+	None => None
+}
+
+## Return to a place: its view, selection, and list positions. A list whose
+## rows are not held for that place is read again, from the page its scroll
+## request reaches.
+restore : State, Place -> Gui.Action(State)
+restore = |state, place| {
+	serial = state.next_request
+	moved = {
+		..state,
+		next_request: serial + 1,
+		view: place.view,
+		phase: place.phase,
+		filter: place.filter,
+		inspected: place.inspected,
+		step_focus: place.step_focus,
+		family_focus: place.family_focus,
+		frame: place.frame,
+		cycle_scroll: again(place.cycle_scroll, serial),
+		step_scroll: again(place.step_scroll, serial),
+	}
+	scrolled_to = |request| match request {
+		Some(held) => held.row
+		None => 0
+	}
+	if place.run != state.steps.run {
+		focus = match place.step_focus {
+			Some(ordinal) => Some(ordinal.to_u64_wrap())
+			None => None
+		}
+		read_steps(moved, place.run, page_start(scrolled_to(place.step_scroll)), focus)
+	} else if moved.view == Interactions and !holds_cycles(moved) {
+		read_cycles(moved, page_start(scrolled_to(place.cycle_scroll)))
+	} else {
+		Gui.update(moved)
+	}
+}
+
+## The row `delta` rows from the inspected cycle in the listed cycles, or the
+## first row when none is inspected, if the list holds it.
+adjacent : State, I64 -> [None, Some({ row : U64, cycle : Capture.Cycle })]
+adjacent = |state, delta| {
+	window = listed_cycles(state)
+	current = match state.inspected {
+		Some(inspected) => match window.rows.find_first_index(|cycle| cycle.id == inspected.cycle.id) {
+			Ok(index) => Some((window.offset + index).to_i64_wrap())
+			Err(_) => None
+		}
+		None => None
+	}
+	target = match current {
+		Some(row) => row + delta
+		None => if delta >= 0 window.offset.to_i64_wrap() else (window.offset + window.rows.len()).to_i64_wrap() - 1
+	}
+	if target < 0 {
+		None
+	} else {
+		match row_at(window, target.to_u64_wrap()) {
+			Some(cycle) => Some({ row: target.to_u64_wrap(), cycle })
+			None => None
+		}
+	}
+}
+
+## Put a table on the clipboard through the clipboard the host granted.
+copy : State, { name : Str, rows : U64, markdown : Str } -> Gui.Action(State)
+copy = |state, table| {
+	id = state.next_request
+	Gui.task({
+		pending: { ..state, next_request: id + 1, copied: None },
+		run: || match state.access.clipboard!() {
+			Ok(handle) => match handle.write_text!(table.markdown) {
+				Ok({}) => Copied
+				Err(_) => CopyFailed
+			}
+			Err(_) => CopyFailed
+		},
+		resolve: |latest, result| match result {
+			Copied => Gui.update({ ..latest, copied: Some("Copied ${table.name} as Markdown · ${table.rows.to_str()} rows") })
+			CopyFailed => Gui.update({ ..latest, status: failure("Could not copy ${table.name}", "The host granted no clipboard to write. Start Observatory with --host-cap-clipboard.") })
+		},
+	})
+}
+
+## One cycle of the selected run by its ordinal, read and inspected in the
+## Interactions view, at the phase it belongs to.
+find_cycle : State, I64 -> Gui.Action(State)
+find_cycle = |state, ordinal| match state.capture {
+	None => Gui.update(state)
+	Some(opened) => {
+		id = state.next_request
+		run_id = state.run
+		Gui.task({
+			pending: { ..state, next_request: id + 1, status: Busy(id) },
+			run: || match Capture.cycle_at!(opened.database, run_id, ordinal) {
+				Ok(Some(cycle)) => match Capture.inspect!(opened.database, cycle) {
+					Ok(inspected) => FoundCycle(inspected)
+					Err(message) => CycleFailed(message)
+				}
+				Ok(None) => NoCycle
+				Err(message) => CycleFailed(message)
+			},
+			resolve: |latest, outcome| match latest.status {
+				Busy(active) if active == id => match outcome {
+					FoundCycle(inspected) => list_cycles({ ..latest, view: Interactions, phase: inspected.cycle.phase, filter: All, inspected: Some(inspected), status: Ready, cycle_scroll: None })
+					NoCycle => Gui.update({ ..latest, status: failure("No cycle ${ordinal.to_str()} in run ${run_id.to_str()}", "Cycles are numbered from 0 in each run; choose a run in Spec to look in another.") })
+					CycleFailed(message) => Gui.update({ ..latest, status: failure(message, "This cycle could not be read from the open capture.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
 }
 
 empty_window : Window(a)
@@ -286,6 +493,16 @@ empty_window = { offset: 0, rows: [], read: 0 }
 
 no_clock : Clock
 no_clock = { of: 0, window: Timeline.empty, read: 0 }
+
+row_at : Window(a), U64 -> [None, Some(a)]
+row_at = |window, index| if index < window.offset {
+	None
+} else {
+	match window.rows.get(index - window.offset) {
+		Ok(row) => Some(row)
+		Err(_) => None
+	}
+}
 
 ## Rows either side of the viewport a window should still hold before the
 ## list reads again, so a person scrolling steadily meets rows already read.
@@ -367,18 +584,18 @@ fulfil = |asked| {
 			Some(folder) => open_capture(state, folder.directory, name)
 			None => Gui.update(state)
 		}
-		Some(Inspect(cycle)) => inspect(state, cycle)
+		Some(Inspect(cycle)) => inspect(remember(state), cycle)
 		## Open the Spec view at the step, by ordinal, that drove a cycle, with
 		## the step list scrolled to it. A step's ordinal is its row.
 		Some(ShowStep(run_id, ordinal)) => {
 			row = ordinal.to_u64_wrap()
-			read_steps({ ..state, view: Spec, step_focus: Some(ordinal) }, run_id, page_start(row), Some(row))
+			read_steps({ ..remember(state), view: Spec, step_focus: Some(ordinal) }, run_id, page_start(row), Some(row))
 		}
 		Some(SelectRun(run_id)) => read_steps({ ..state, step_focus: None }, run_id, 0, None)
 		Some(Show(view)) => list_cycles({ ..state, view, step_focus: None, family_focus: None })
 		Some(ShowTimeline(start, span)) => read_clock(state, start, span)
 		## A cycle pressed elsewhere opens in Interactions, in its own phase.
-		Some(InspectCycle(cycle)) => inspect({ ..state, view: Interactions, phase: cycle.phase, filter: if state.phase == cycle.phase state.filter else All, step_focus: None, family_focus: None }, cycle)
+		Some(InspectCycle(cycle)) => inspect({ ..remember(state), view: Interactions, phase: cycle.phase, filter: if state.phase == cycle.phase state.filter else All, step_focus: None, family_focus: None }, cycle)
 		## A phase chosen in Interactions reads the cycles the list then shows.
 		Some(SetPhase(phase)) => list_cycles({ ..state, phase, filter: All, cycle_scroll: None })
 		## Pressing the selected trigger again shows every trigger.
@@ -397,7 +614,7 @@ fulfil = |asked| {
 			}
 			read_cycles({ ..state, filter, cycle_scroll: None }, 0)
 		}
-		Some(SelectFrame(bar)) => read_frame(state, bar)
+		Some(SelectFrame(bar)) => read_frame(remember(state), bar)
 		Some(ShowFrames(start, span)) => read_strip(state, start, span)
 		Some(ReadCycles(offset)) => read_cycles(state, offset)
 		Some(ReadSteps(offset)) => read_steps(state, state.steps.run, offset, None)
@@ -419,6 +636,28 @@ fulfil = |asked| {
 			None => Gui.update(state)
 		}
 		Some(ClearNoise) => Gui.update({ ..state, noise: None })
+		Some(Visit(view)) => list_cycles({ ..remember(state), view, step_focus: None, family_focus: None })
+		Some(ShowTrigger(chosen)) => {
+			filter = Only({ trigger: chosen.trigger, patch_kind: chosen.patch_kind })
+			read_cycles({ ..remember(state), view: Interactions, phase: chosen.phase, filter, cycle_scroll: None, bucket_hover: None }, 0)
+		}
+		Some(FindCycle(ordinal)) => find_cycle(remember(state), ordinal)
+		Some(InspectAdjacent(delta)) => match adjacent(state, delta) {
+			Some(found) => {
+				serial = state.next_request
+				inspect({ ..remember(state), next_request: serial + 1, cycle_scroll: Some({ row: found.row, align: Nearest, serial }) }, found.cycle)
+			}
+			None => Gui.update(state)
+		}
+		Some(Back) => match History.back(state.history, here(state)) {
+			Some(went) => restore({ ..state, history: went.history }, went.place)
+			None => Gui.update(state)
+		}
+		Some(Forward) => match History.forward(state.history, here(state)) {
+			Some(went) => restore({ ..state, history: went.history }, went.place)
+			None => Gui.update(state)
+		}
+		Some(Copy(table)) => copy(state, table)
 		Some(BuildScaling) => match state.folder {
 			Some(folder) => build_scaling(state, folder.directory)
 			None => Gui.update(state)
@@ -434,7 +673,7 @@ close_capture = |state| {
 		Busy(active) => Busy(active)
 		_ => Ready
 	}
-	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None }
+	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -572,6 +811,7 @@ show = |latest, loaded, id| {
 		steps_reading: None,
 		step_scroll: None,
 		family_focus: None,
+		history: History.empty,
 		status: Ready,
 	}
 }

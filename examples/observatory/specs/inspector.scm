@@ -16,7 +16,7 @@
     ; while the cycle is read only the header changes; every view, and the
     ; capture, trust, and baseline bars, are retained
     (expect-component-work :rendered 1 :skipped 5 :mounted 0 :retired 0)
-    (expect-patch :kind replace :staged 19 :removed 19)
+    (expect-patch :kind replace :staged 24 :removed 24)
     (await-task)
     ; the answer renders the view, the cycle list, the two rows whose selection
     ; changed, and the inspector; the triggers table and the other rows are kept

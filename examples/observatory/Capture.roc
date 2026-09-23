@@ -317,6 +317,16 @@ Capture := [].{
 	cycles! : Gui.SqliteDb, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
 	cycles! = cycles!
 
+	## The cycle of a run with an ordinal, whatever its phase, if there is one.
+	cycle_at! : Gui.SqliteDb, I64, I64 => Try([None, Some(Cycle)], Str)
+	cycle_at! = |database, run_id, ordinal| {
+		found = database.query_with!(cycle_at_sql, [Integer(run_id), Integer(ordinal)]) ? |error| Gui.Sqlite.detail(error)
+		match found.rows.first() {
+			Ok(row) => Ok(Some(decode_cycle(row)))
+			Err(_) => Ok(None)
+		}
+	}
+
 	## How many columns the frame strip and the list-pass chart draw.
 	columns : I64
 	columns = columns
@@ -742,6 +752,8 @@ buckets_sql = "SELECT measurement_phase, trigger, patch_kind, ${bucket_expressio
 cycle_columns = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns FROM cycles WHERE measurement_phase = ? AND run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')"
 
 cycles_sql = "${cycle_columns} ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
+
+cycle_at_sql = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns FROM cycles WHERE run_id = ? AND ordinal = ?"
 
 trigger_cycles_sql = "${cycle_columns} AND trigger = ? AND patch_kind = ? ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
 

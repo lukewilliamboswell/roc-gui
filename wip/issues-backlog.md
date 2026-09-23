@@ -525,6 +525,24 @@ ideal and the repository. P- and E-numbers refer to that document.
   panes and capture tabs. This is shared with the HTTP Workbench and Terminal
   Workspace entries.
 
+- [ ] **Copy covers six tables (US-37).** The triggers, cycles, waterfall,
+  allocations by trigger, steps, and measurement families tables copy their
+  rows as Markdown with each value's family, status, and reason. The Overview
+  tiles, the inspector's component work, graph work, and span allocations, the
+  run lifecycle and process resources, the Frames and Timeline tables, and the
+  Compare and Scaling sheets have no Copy button. Give each one, building its
+  Markdown from the rows it draws, with a specification that copies it.
+
+- [ ] **The palette finds no frame or source line (US-35).** `cycle N` and
+  `step N` name a cycle and a step of the selected run; `frame N` and `line N`
+  find nothing. Add both, reading the frame by ordinal and opening its work in
+  Frames, and showing the step at a source line in Spec.
+
+- [ ] **Compare and Scaling draw an absent value as plain text (US-7).** Their
+  `—` cells come from `Widgets.roc` and carry their reason in a neighbouring
+  column, but neither shows it on hover nor opens Health at the family. Draw
+  them with the same pressable, hoverable dash the other views use.
+
 - [ ] **The scaling charts have no metric selector (US-29).**
   `ScalingView.chart` draws a log-log canvas for every trigger and metric,
   with a dashed line of linear growth through the smallest scale. W7 asks for
@@ -1103,6 +1121,29 @@ names the reproduction so the workaround can be removed when the fix lands.
   the helper's type avoids it. Reported upstream as roc-lang/roc#11463, a
   remaining path to the closed roc-lang/roc#10871; remove this entry when a
   pinned compiler carries the fix.
+
+- [ ] **A lambda that calls a modifier on a curried call's result overflows
+  the compiler's stack.** In Observatory's `View.roc`, passing
+  `|current| section(inspector)(current).request_focus(current.inspector_focus)`
+  as the draw function of the annotated `part_boundary` checks cleanly, and
+  then `roc build` exits with "The Roc compiler overflowed its stack memory" on
+  the pin and on `nightly-2026-09-22-e494788`. The same body as the annotated
+  top-level `inspector_part` builds. A small application with the same shape
+  (a curried section helper, a memoized boundary with a delegating policy, a
+  window shortcut, and the same modifier) builds, so the trigger is not yet
+  reduced; restore the lambda in place of `inspector_part` to reproduce it.
+  Reduce it, report it upstream, and remove this entry when a pinned compiler
+  builds the lambda.
+
+- [ ] **`roc test` segfaults on a module whose alias shares its type's name.**
+  Observatory's `History.roc` with its `Trail(place)` alias renamed to
+  `History(place)`, the name of the module's own type, is reported by
+  `roc check` as "The type History is being redeclared", but `roc test` on the
+  same file crashes the compiler with a segmentation fault on the pin once an
+  `expect` calls one of the module's functions; without the expectations it
+  reports the error. A module declaring only the conflicting alias reports it
+  too. Reduce it, report it upstream, and remove this entry when `roc test`
+  reports the error.
 
 ## Runner: test what we fly
 
