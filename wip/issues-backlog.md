@@ -199,10 +199,11 @@ independent of any one application.
   `window-provide-1m.scm` have run only on Linux. Run them on macOS and
   Windows.
 
-- [ ] **A directory cannot be watched outside Linux.** `directory.watch!()` and
-  `database.watch!()` answer `Unsupported` on macOS and Windows. Implement
-  them with FSEvents or kqueue and `ReadDirectoryChangesW`, keeping the same
-  coalesced names, settle interval, and derived grant.
+- [ ] **A directory cannot be watched on macOS.** `directory.watch!()` and
+  `database.watch!()` answer `Unsupported` there. Implement the `sys` seam in
+  `crates/host/src/watch.rs` with FSEvents or kqueue, as Linux does with
+  inotify and Windows with `ReadDirectoryChangesW`, keeping the same coalesced
+  names, settle interval, and derived grant.
 
 ## Element appearance
 
@@ -468,6 +469,27 @@ built on top of them; none is a defect in what is there.
   environment selection as ambient application authority.
 
 ## Observatory example
+
+- [ ] **Confirm `window-keyboard.scm`'s keyboard counters on Linux.** The
+  window runner's `click` activates a button without focusing it, so the
+  palette's opener is the window, and a chord with no focus inside a region is
+  compared with the window's twelve shortcuts first, as `shortcuts.scm`
+  states. Windows counts 36 comparisons, which is the expectation now; Linux
+  recorded 12, as if focus sat inside Interactions when J and I were pressed.
+  Run the specification on Linux and find which is true there and why.
+
+- [ ] **Run the Windows changes on Linux and macOS.** A dialog whose opener is
+  gone now returns focus to the window, SQLite opens files sharing delete on
+  Windows only, the Observatory fixture takes its contended run from the
+  first build's executable, System Monitor's readings shrink rather than
+  widening the page, and the window runner starts its pointer outside the
+  window and restores it after a resize rather than taking the system
+  cursor's position. Run the full suite on Linux and macOS.
+
+- [ ] **Captures from Apple silicon record no CPU model.** `cpu_model` is read
+  from `/proc/cpuinfo` on Linux and from the processor's brand string on other
+  x86-64 hosts; on macOS arm64 it is `unavailable`, so the comparability gate
+  refuses every pair of macOS captures. Read `machdep.cpu.brand_string`.
 
 `examples/observatory/requirements.md` describes a roc-gui application that
 opens `.rgstats` captures and queries their tables directly. It is also the
@@ -986,6 +1008,25 @@ names the evidence so a fix can be verified against the same case.
 
 ## Compiler and toolchain defects
 
+- [ ] **Move the compiler pin past `cde92d117ac`.** With the pinned
+  `nightly-2026-09-12-220fd47`, the default (`--opt=speed`) build of every
+  application faults at startup on Windows: the LLVM backend marked an erased
+  callable's capture and reuse parameters `noalias` although the capture
+  points into the reuse allocation, so a capture was read from a freed box.
+  Windows fills freed heap memory, so it faults there; the read is wrong on
+  every platform. Roc fixed it in `cde92d117ac` (in every nightly from
+  `nightly-2026-09-18-1d982dc`), and Counter built by
+  `nightly-2026-09-23-c7852fd` runs on Windows. Move every application
+  header, the documentation, and CI to such a nightly and run the suite with
+  `--roc-opt speed` on all three platforms.
+
+- [ ] **A Windows link is not reproducible.** Two `roc build` runs of the same
+  source differ in the PE header's `TimeDateStamp` and in one later field, so
+  `executable_hash` differs between builds of one application, and an A/A
+  pair must share one build rather than one source. Linux and macOS links are
+  byte-identical. The Roc compiler's COFF link needs a deterministic
+  timestamp (`/Brepro` or a fixed `/timestamp`).
+
 - [ ] **Observatory's arm64 dev build overruns ld64.lld's thunk range.** On
   macOS 15 (arm64), `roc build --opt=dev examples/observatory/main.roc` fails in
   the final link with `ld64.lld: error: finalize: FIXME: thunk range overrun`
@@ -1412,6 +1453,16 @@ names the reproduction so the workaround can be removed when the fix lands.
   global coordinates. Capture reports `unavailable` rather than guessing.
 
 ## Release infrastructure
+
+- [ ] **Publish the Windows inputs the host now derives.** The x64mingw
+  linker-input archive composes only the GNU runtime and `roc-gui.res`, and the
+  Windows host releases `windows-imports.lib` with a schema 2 normalization
+  receipt. `link-inputs.lock.json` is already stale for this checkout (its
+  fingerprint predates the change to `.github/workflows/link-inputs.yml`), so
+  `build.py` needs `--source-inputs` on every target until the linker-input
+  producer is dispatched and the lock adopted. The Windows GUI host release
+  (`prepare_host_build.py`, `host_notice_payload.py`) has been changed but not
+  yet run; run it on a Windows runner before the next host release.
 
 - [ ] **Keep Metal shader debug paths free of build-machine identity.**
   The host pins the GPUI fork at
