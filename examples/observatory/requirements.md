@@ -354,6 +354,10 @@ navigation, next and previous slow cycle, and inspector focus.
 
 **US-39 [shared] Theme.** As any user, I want light and dark themes with scales that stay
 readable in both.
+- The window follows the system's scheme (`Gui.adaptive` colours, P14), and the palette's
+  "Theme: light", "Theme: dark", and "Theme: follow the system" choose one over it. Text keeps
+  at least 4.5:1 against the ground it sits on in both schemes, and the blue family of a
+  cycle's parts runs from the ground outward in both.
 
 ### J12: Scale
 
@@ -662,7 +666,7 @@ vocabulary. **Both** means both viewers need it.
 | P9 | Single-file chooser with type filter, file drop, and recent documents | US-1, US-3, US-4 | Both |
 | P10 | Content hash of file bytes | US-19 | Both |
 | P13 | Task cancellation and supersede | US-10, US-36 | Both |
-| P14 | Theme query (light/dark) | US-39 | Both |
+| P14 | Theme query (light/dark, reduced motion), live changes, and adaptive colours | US-39 | Both |
 
 ## 10. Specifications and scaling case
 

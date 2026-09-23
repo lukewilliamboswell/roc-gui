@@ -345,6 +345,42 @@ application is compiled. A colour held in a name is annotated, `ink : Gui.Color`
 then `ink = 0x1f1c17`, and one computed at run time is `Rgb(value)`. `Default`
 keeps the control's native colour.
 
+`Gui.adaptive(light, dark)` is a colour for each appearance, both `0xRRGGBB`.
+The host keeps the pair and chooses one each time it paints: `light` while the
+window's scheme is light and `dark` while it is dark. An application that
+writes its palette as adaptive pairs follows the system's scheme with no code
+of its own, and a change of scheme repaints the window without rendering the
+application again. The window's scheme is the system's unless the application
+has chosen one with `Gui.Appearance.prefer!`.
+
+=== Appearance
+
+`Gui.Appearance.current!()` answers the system's appearance as
+`{ scheme : [Light, Dark], motion : [Full, Reduced] }`: whether the desktop asks
+for a light or a dark scheme, and whether it asks for non-essential motion to
+be reduced. A desktop that states no preference is `Light` and `Full`. On Linux
+the host reads the XDG desktop portal's `org.freedesktop.appearance` settings,
+and GNOME's `enable-animations` for reduced motion where the portal does not
+publish its own key.
+
+`Gui.Appearance.next_change!(known)` waits until the system's appearance
+differs from `known` and answers the new one. It belongs inside a keyed
+`Gui.task`, so a newer wait supersedes it; cancelling the task interrupts the
+wait, which then answers `known`. An application that decides something by
+the appearance, such as whether to animate, starts the next wait from the
+completion of the last.
+
+`Gui.Appearance.prefer!(preference)` chooses the scheme adaptive colours
+resolve to: `System`, `Light`, or `Dark`. It is a task's work, not a render's,
+and it lasts until the next `prefer!`; the system's appearance, as `current!`
+answers it, does not change. An application that keeps a person's choice
+across launches stores it and chooses it again at startup.
+
+Reading the appearance takes no authority. A specification provisions the
+system's appearance with a `(theme ...)` grant and changes it with
+`system-theme`, so a case never depends on the desktop it runs on; see
+Specifications.
+
 `padding` is the shorthand for all four sides. `padding_top`, `padding_right`,
 `padding_bottom`, and `padding_left` each override one side with `Px(n)` and
 default to `Same`, which takes the shorthand. A pill-shaped control wants

@@ -6,78 +6,84 @@ import pf.Gui
 ## cannot be trusted. Bars of measured time are one blue family, and time no
 ## owner attributed is sand. Specification source takes two muted inks for
 ## its keywords and literals. Nothing else is coloured.
+##
+## Every colour is a pair, light and dark, that the window resolves by its
+## appearance: the system's, or the one chosen in the palette. The dark
+## scheme keeps each role's meaning and its contrast with the ground it sits
+## on, and the blue family of a cycle's parts runs from the ground outward in
+## both, so the callback is always the part that stands out most.
 Theme := [].{
 	paper : Gui.Color
-	paper = 0xf6f7f8
+	paper = Gui.adaptive(0xf6f7f8, 0x121519)
 
 	rail : Gui.Color
-	rail = 0xeceef1
+	rail = Gui.adaptive(0xeceef1, 0x191d22)
 
 	card : Gui.Color
-	card = 0xffffff
+	card = Gui.adaptive(0xffffff, 0x1e2328)
 
 	line : Gui.Color
-	line = 0xd9dde3
+	line = Gui.adaptive(0xd9dde3, 0x2e353d)
 
 	edge : Gui.Color
-	edge = 0xc3c9d1
+	edge = Gui.adaptive(0xc3c9d1, 0x444d57)
 
 	ink : Gui.Color
-	ink = 0x1a1f26
+	ink = Gui.adaptive(0x1a1f26, 0xe4e8ed)
 
 	dim : Gui.Color
-	dim = 0x6b737e
+	dim = Gui.adaptive(0x5f6772, 0x9aa3ae)
 
 	## The selected view and the selected run.
 	accent : Gui.Color
-	accent = 0x1f5f8b
+	accent = Gui.adaptive(0x1f5f8b, 0x6cb0e0)
 	accent_hover : Gui.Color
-	accent_hover = 0x2a72a4
+	accent_hover = Gui.adaptive(0x2a72a4, 0x86c0e8)
 	accent_active : Gui.Color
-	accent_active = 0x184c70
+	accent_active = Gui.adaptive(0x184c70, 0x5aa0d2)
 	on_accent : Gui.Color
-	on_accent = 0xf6f7f8
+	on_accent = Gui.adaptive(0xf6f7f8, 0x0f1419)
 
 	## Evidence verdicts.
 	good : Gui.Color
-	good = 0x1e7a46
+	good = Gui.adaptive(0x1e7a46, 0x5fc98e)
 	caution : Gui.Color
-	caution = 0x9a6400
+	caution = Gui.adaptive(0x9a6400, 0xe3aa45)
 	alarm : Gui.Color
-	alarm = 0xfbe9e5
+	alarm = Gui.adaptive(0xfbe9e5, 0x3a211c)
 	alarm_ink : Gui.Color
-	alarm_ink = 0x8f2f1c
+	alarm_ink = Gui.adaptive(0x8f2f1c, 0xf2a592)
 	alarm_line : Gui.Color
-	alarm_line = 0xebcbc3
+	alarm_line = Gui.adaptive(0xebcbc3, 0x6b3a30)
 
 	## Measured parts of a cycle, from the Roc callback outward, and the time
 	## no owner attributed.
 	callback : Gui.Color
-	callback = 0x1f5f8b
+	callback = Gui.adaptive(0x1f5f8b, 0x8cc6f0)
 	span : Gui.Color
-	span = 0x4f86ad
+	span = Gui.adaptive(0x4f86ad, 0x5f9fd0)
 	validate : Gui.Color
-	validate = 0x8fb3cf
+	validate = Gui.adaptive(0x8fb3cf, 0x3f7eaf)
 	apply : Gui.Color
-	apply = 0xbdd2e2
+	apply = Gui.adaptive(0xbdd2e2, 0x33607f)
 	unattributed : Gui.Color
-	unattributed = 0xd8c9a8
+	unattributed = Gui.adaptive(0xd8c9a8, 0x8c7a52)
 	selected : Gui.Color
-	selected = 0xe6eef5
+	selected = Gui.adaptive(0xe6eef5, 0x233646)
 
 	## Specification source: keywords and literals. Operators are the accent
 	## in weight, and parentheses and comments are dim.
 	code_keyword : Gui.Color
-	code_keyword = 0x6a4c93
+	code_keyword = Gui.adaptive(0x6a4c93, 0xbf9ee8)
 	code_literal : Gui.Color
-	code_literal = 0x7a5418
+	code_literal = Gui.adaptive(0x7a5418, 0xdcae66)
 
 	quiet : Gui.Color
-	quiet = 0xffffff
+	quiet = Gui.adaptive(0xffffff, 0x1e2328)
 	quiet_hover : Gui.Color
-	quiet_hover = 0xeef1f4
+	quiet_hover = Gui.adaptive(0xeef1f4, 0x2a3139)
 	quiet_active : Gui.Color
-	quiet_active = 0xe1e5ea
+	quiet_active = Gui.adaptive(0xe1e5ea, 0x343c45)
 
 	face = Monospace
 

@@ -99,6 +99,9 @@ platform ""
 		"roc_gui_work_start": Host.work_start!,
 		"roc_gui_work_end": Host.work_end!,
 		"roc_gui_window_config": Host.window_config!,
+		"roc_gui_appearance_current": Host.appearance_current!,
+		"roc_gui_appearance_next_change": Host.appearance_next_change!,
+		"roc_gui_appearance_prefer": Host.appearance_prefer!,
 		"roc_files_pick_directory": InternalFiles.pick_directory!,
 		"roc_files_dir_list": InternalFiles.dir_list!,
 		"roc_files_dir_open_read": InternalFiles.dir_open_read!,
@@ -132,6 +135,7 @@ import Style
 import Color
 import Files
 import Timer
+import Appearance
 import Http
 import Sqlite
 import InternalFiles

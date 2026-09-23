@@ -21,6 +21,7 @@ mod observatory;
 mod probe;
 mod process;
 // Generated glue (scripts/regenerate_glue.py); variant names mirror the Roc types.
+mod appearance;
 #[allow(clippy::enum_variant_names)]
 mod roc_platform_abi;
 mod rows;
@@ -32,6 +33,7 @@ mod system_monitor;
 mod tasks;
 mod tcp;
 mod timers;
+pub(crate) use appearance::Paint;
 mod watch;
 mod watchdog;
 mod window_runner;
@@ -304,8 +306,8 @@ struct WindowConfig {
     height: u32,
     /// The colour behind the root element, and the ink text inherits when it
     /// names none. `None` keeps the host's own ground.
-    background: Option<u32>,
-    foreground: Option<u32>,
+    background: Option<Paint>,
+    foreground: Option<Paint>,
 }
 
 impl Default for WindowConfig {
@@ -322,11 +324,11 @@ impl Default for WindowConfig {
 
 /// The application's chosen window ground, or None for the host's own.
 fn window_ground() -> Option<u32> {
-    WINDOW_CONFIG.with(|config| config.borrow().background)
+    WINDOW_CONFIG.with(|config| config.borrow().background.map(Paint::resolve))
 }
 
 fn window_ink() -> Option<u32> {
-    WINDOW_CONFIG.with(|config| config.borrow().foreground)
+    WINDOW_CONFIG.with(|config| config.borrow().foreground.map(Paint::resolve))
 }
 
 fn validate_window_config(config: WindowConfig) -> Result<WindowConfig, String> {
@@ -343,8 +345,8 @@ pub extern "C" fn roc_gui_window_config(
     title: RocStr,
     width: u32,
     height: u32,
-    background: u32,
-    foreground: u32,
+    background: u64,
+    foreground: u64,
 ) {
     let title_value = title.as_str().to_owned();
     unsafe { title.decref(roc_host()) };
@@ -1276,8 +1278,13 @@ fn decode_overflow(value: u8) -> Overflow {
     }
 }
 
-fn decode_color(value: u32) -> Option<u32> {
-    (value != 0x0100_0000).then_some(value)
+fn decode_color(value: u64) -> Option<Paint> {
+    Paint::decode(value)
+}
+
+/// A colour as GPUI paints it under the effective appearance.
+fn paint(value: Paint) -> gpui::Rgba {
+    rgb(value.resolve())
 }
 
 #[unsafe(no_mangle)]
@@ -1534,6 +1541,26 @@ pub extern "C" fn roc_gui_set_dispatch(dispatcher: RocErasedCallable) {
         if let Some(previous) = previous {
             unsafe { decref_erased_callable(previous, roc_host()) };
         }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_appearance_current() -> u8 {
+    appearance::system().bits()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_appearance_next_change(known: u8) -> u8 {
+    appearance::next_change(appearance::Settings::from_bits(known)).bits()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_appearance_prefer(preference: u8) {
+    appearance::prefer(match preference {
+        0 => appearance::Preference::System,
+        1 => appearance::Preference::Light,
+        2 => appearance::Preference::Dark,
+        _ => panic!("invalid appearance preference {preference}"),
     });
 }
 
@@ -2299,19 +2326,19 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
         element = element.flex_grow(1.0);
     }
     if let Some(value) = style.bg {
-        element = element.bg(rgb(value));
+        element = element.bg(paint(value));
     }
     if let Some(value) = style.hover_bg {
-        element = element.hover(move |s| s.bg(rgb(value)));
+        element = element.hover(move |s| s.bg(paint(value)));
     }
     if let Some(value) = style.active_bg {
-        element = element.active(move |s| s.bg(rgb(value)));
+        element = element.active(move |s| s.bg(paint(value)));
     }
     if let Some(value) = style.fg {
-        element = element.text_color(rgb(value));
+        element = element.text_color(paint(value));
     }
     if let Some(value) = style.border_color {
-        element = element.border_color(rgb(value));
+        element = element.border_color(paint(value));
     }
     element = element
         .border_t(px(style.border_width[0] as f32))
@@ -2334,7 +2361,7 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     // border has too little contrast to read. The blur is the element's own,
     // so a paper-light palette can choose both the colour and how much of it.
     if style.shadow > 0 {
-        let rgba = style.shadow_color.unwrap_or(0x000000);
+        let rgba = style.shadow_color.map(Paint::resolve).unwrap_or(0x000000);
         let alpha = (style.shadow_alpha.min(100) as f32) / 100.0;
         element = element.shadow(vec![BoxShadow {
             color: gpui::Rgba {
@@ -2380,7 +2407,7 @@ fn paint_canvas_text(
     }
     let mut run = window.text_style().to_run(item.text.len());
     if let Some(color) = item.fill {
-        run.color = rgb(color).into();
+        run.color = paint(color).into();
     }
     let size = px(item.text_size as f32);
     let line =
@@ -2502,8 +2529,14 @@ fn trace_ellipse(builder: &mut PathBuilder, center: Point<Pixels>, radii: Size<f
 /// is what left a saturated pill still reading as live on a near-black ground.
 fn apply_disabled(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     let element = element
-        .bg(rgb(style.disabled_bg.unwrap_or(DISABLED_BG)))
-        .text_color(rgb(style.disabled_fg.unwrap_or(DISABLED_FG)))
+        .bg(rgb(style
+            .disabled_bg
+            .map(Paint::resolve)
+            .unwrap_or(DISABLED_BG)))
+        .text_color(rgb(style
+            .disabled_fg
+            .map(Paint::resolve)
+            .unwrap_or(DISABLED_FG)))
         .cursor_default();
     match (style.disabled_bg, style.disabled_fg) {
         (None, None) => element.opacity(0.55),
@@ -2512,7 +2545,7 @@ fn apply_disabled(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
 }
 
 fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
-    let ring = rgb(style.focus_color.unwrap_or(FOCUS_RING));
+    let ring = rgb(style.focus_color.map(Paint::resolve).unwrap_or(FOCUS_RING));
     element.focus(move |focused| focused.border_2().border_color(ring))
 }
 
@@ -2637,8 +2670,8 @@ fn rich_text(value: &str, runs: &[TextRun]) -> gpui::StyledText {
             continue;
         }
         let highlight = HighlightStyle {
-            color: run.fg.map(|color| rgb(color).into()),
-            background_color: run.bg.map(|color| rgb(color).into()),
+            color: run.fg.map(|color| paint(color).into()),
+            background_color: run.bg.map(|color| paint(color).into()),
             font_weight: (run.font_weight > 0).then(|| FontWeight(run.font_weight as f32)),
             underline: run.underline.then(|| UnderlineStyle {
                 thickness: px(1.0),
@@ -2742,9 +2775,9 @@ impl Render for NodeView {
                                     window.paint_quad(quad(
                                         item_bounds,
                                         px(item.radius as f32),
-                                        item.fill.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
+                                        item.fill.map(paint).unwrap_or_else(|| rgba(0x00000000)),
                                         px(item.stroke_width as f32),
-                                        item.stroke.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
+                                        item.stroke.map(paint).unwrap_or_else(|| rgba(0x00000000)),
                                         Default::default(),
                                     ));
                                 }
@@ -2761,7 +2794,7 @@ impl Render for NodeView {
                                         let mut builder = PathBuilder::fill();
                                         trace_ellipse(&mut builder, center, radii);
                                         if let Ok(path) = builder.build() {
-                                            window.paint_path(path, rgb(fill));
+                                            window.paint_path(path, paint(fill));
                                         }
                                     }
                                     if let (Some(stroke), true) =
@@ -2771,7 +2804,7 @@ impl Render for NodeView {
                                             PathBuilder::stroke(px(item.stroke_width as f32));
                                         trace_ellipse(&mut builder, center, radii);
                                         if let Ok(path) = builder.build() {
-                                            window.paint_path(path, rgb(stroke));
+                                            window.paint_path(path, paint(stroke));
                                         }
                                     }
                                 }
@@ -2790,7 +2823,7 @@ impl Render for NodeView {
                                         window.paint_path(
                                             path,
                                             item.stroke
-                                                .map(rgb)
+                                                .map(paint)
                                                 .unwrap_or_else(|| rgba(0x00000000)),
                                         );
                                     }
@@ -3169,7 +3202,7 @@ impl Render for NodeView {
                     element.child(rich_text(value, runs))
                 };
                 if let Some(color) = fg {
-                    element = element.text_color(rgb(*color));
+                    element = element.text_color(paint(*color));
                 }
                 if *font_size > 0 {
                     element = element.text_size(px(*font_size as f32));
@@ -3372,13 +3405,22 @@ impl Render for NodeView {
                 let runtime = self.runtime.clone();
                 let mark = if *checked { "✓" } else { "" };
                 let box_bg = if *checked {
-                    indicator.box_checked_bg.unwrap_or(CHECKBOX_CHECKED_BG)
+                    indicator
+                        .box_checked_bg
+                        .map(Paint::resolve)
+                        .unwrap_or(CHECKBOX_CHECKED_BG)
                 } else {
-                    indicator.box_bg.unwrap_or(CHECKBOX_BG)
+                    indicator.box_bg.map(Paint::resolve).unwrap_or(CHECKBOX_BG)
                 };
-                let box_border = indicator.box_border.unwrap_or(CHECKBOX_BORDER);
+                let box_border = indicator
+                    .box_border
+                    .map(Paint::resolve)
+                    .unwrap_or(CHECKBOX_BORDER);
                 let box_fg = if *checked {
-                    indicator.mark_color.unwrap_or(CHECKBOX_CHECKED_FG)
+                    indicator
+                        .mark_color
+                        .map(Paint::resolve)
+                        .unwrap_or(CHECKBOX_CHECKED_FG)
                 } else {
                     box_border
                 };
@@ -3396,7 +3438,7 @@ impl Render for NodeView {
                             .border_color(rgb(if *enabled {
                                 box_border
                             } else {
-                                style.disabled_fg.unwrap_or(DISABLED_FG)
+                                style.disabled_fg.map(Paint::resolve).unwrap_or(DISABLED_FG)
                             }))
                             .bg(rgb(box_bg))
                             .text_color(rgb(box_fg))
@@ -3435,13 +3477,13 @@ impl Render for NodeView {
                     element = element.flex_grow(1.0);
                 }
                 if let Some(value) = style.bg {
-                    element = element.bg(rgb(value));
+                    element = element.bg(paint(value));
                 }
                 if let Some(value) = style.fg {
-                    element = element.text_color(rgb(value));
+                    element = element.text_color(paint(value));
                 }
                 if let Some(value) = style.border_color {
-                    element = element.border_color(rgb(value));
+                    element = element.border_color(paint(value));
                 }
                 element = element
                     .border_t(px(style.border_width[0] as f32))
@@ -3476,10 +3518,10 @@ impl Render for NodeView {
                     Overflow::Scroll => element.overflow_y_scroll(),
                 };
                 if let Some(value) = style.hover_bg {
-                    element = element.hover(move |refinement| refinement.bg(rgb(value)));
+                    element = element.hover(move |refinement| refinement.bg(paint(value)));
                 }
                 if let Some(value) = style.active_bg {
-                    element = element.active(move |refinement| refinement.bg(rgb(value)));
+                    element = element.active(move |refinement| refinement.bg(paint(value)));
                 }
                 if *enabled && self.input_enabled {
                     let space_runtime = self.runtime.clone();
@@ -3714,6 +3756,26 @@ impl Runtime {
             }
         })
         .detach();
+        // Adaptive colours resolve as they are painted, so a change of
+        // appearance redraws every view and renders nothing again. It moves the
+        // generation a painted read compares against, as a patch does.
+        if let Some(repaints) = appearance::repaints() {
+            cx.spawn(async move |runtime, cx| {
+                while repaints.recv().await.is_ok() {
+                    if runtime
+                        .update(cx, |runtime, cx| {
+                            runtime.generation += 1;
+                            cx.refresh_windows();
+                            cx.notify();
+                        })
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            })
+            .detach();
+        }
         // The chooser wakes on the request rather than polling for it. A person
         // who presses Open waits for the panel, and every millisecond between
         // the press and the panel is time the application looks unresponsive
@@ -5733,6 +5795,8 @@ struct HostArgs {
     cap_audio: audio::Grant,
     cap_device: Option<device::GrantedDevice>,
     cap_system_monitor: system_monitor::Grant,
+    /// The system appearance to report instead of the desktop's.
+    host_theme: Option<appearance::Settings>,
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -5777,6 +5841,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_audio: audio::Grant::System,
         cap_device: None,
         cap_system_monitor: system_monitor::Grant::Denied,
+        host_theme: None,
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -5941,6 +6006,13 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_system_monitor = parse_system_monitor_fixture(&pending.next().ok_or_else(|| "--host-cap-system-monitor-fixture requires standard, unavailable, or processes:N".to_string())?)?;
         } else if let Some(value) = argument.strip_prefix("--host-cap-system-monitor-fixture=") {
             parsed.cap_system_monitor = parse_system_monitor_fixture(value)?;
+        } else if let Some(value) = argument.strip_prefix("--host-theme=") {
+            parsed.host_theme = Some(appearance::Settings::parse(value)?);
+        } else if argument == "--host-theme" {
+            parsed.host_theme =
+                Some(appearance::Settings::parse(&pending.next().ok_or_else(
+                    || "--host-theme requires light or dark".to_string(),
+                )?)?);
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -6161,6 +6233,15 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
                 flags.push("--host-cap-system-monitor-fixture".into());
                 flags.push(kind.clone());
             }
+            spec::Grant::Theme(settings) => flags.push(format!(
+                "--host-theme={}{}",
+                if settings.dark { "dark" } else { "light" },
+                if settings.reduced_motion {
+                    ",reduced-motion"
+                } else {
+                    ""
+                }
+            )),
             spec::Grant::Server { port, .. } => {
                 let path = resolved.expect("server grant names a path");
                 if !path.is_file() {
@@ -6268,6 +6349,7 @@ fn print_host_help(app_name: &str) {
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
 		   --host-cap-system-monitor           Grant read-only local system sampling\n\
+           --host-theme=light|dark[,reduced-motion]  Report this appearance instead of the desktop's\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-run-window-spec PATH         Run one .scm specification against the real window\n\
            --host-window-report=PATH           Write the window run's JSON report here\n\
@@ -6481,6 +6563,15 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     audio::configure(args.cap_audio);
     device::configure(args.cap_device);
     system_monitor::configure(args.cap_system_monitor);
+    // A specification sees the appearance it names, and a light one when it
+    // names none: never the desktop's, which would make a case depend on the
+    // machine it runs on.
+    let under_spec = args.spec_path.is_some() || args.window_spec_path.is_some();
+    appearance::configure(
+        args.host_theme
+            .or(under_spec.then(appearance::Settings::default)),
+        !args.host_smoke,
+    );
     let window_spec = match args.window_spec_path.as_ref() {
         Some(path) => match std::fs::read_to_string(path) {
             Ok(text) => match spec::parse(&text) {
@@ -6792,7 +6883,7 @@ mod tests {
     pub(super) fn record_native_style(id: gpui::EntityId, node: &Node) {
         NATIVE_STYLES.with(|styles| {
             let background = match &node.kind {
-                NodeKind::Button { style, .. } => style.bg,
+                NodeKind::Button { style, .. } => style.bg.map(crate::Paint::resolve),
                 _ => None,
             };
             styles.borrow_mut().insert(id, background);
@@ -6842,7 +6933,7 @@ mod tests {
             if let NodeKind::Button { style, .. } = &mut node.kind {
                 style.max_width = Length::Px(100);
                 style.max_height = Length::Px(100);
-                style.bg = Some(0x123456);
+                style.bg = Some(crate::Paint::Rgb(0x123456));
             }
         }
         nodes[0].children = vec![base + 3, base + 4];
@@ -6903,7 +6994,7 @@ mod tests {
             let mut next = runtime.graph.node(1001).unwrap().clone();
             next.id = 2001;
             if let NodeKind::Button { style, .. } = &mut next.kind {
-                style.bg = Some(0xabcdef);
+                style.bg = Some(crate::Paint::Rgb(0xabcdef));
             }
             let nodes = vec![next];
             let expected = patched_button_count(&nodes);
@@ -7209,7 +7300,7 @@ mod tests {
             let mut panel = runtime.graph.node(901).unwrap().clone();
             panel.id = 1901;
             if let NodeKind::Panel { style, .. } = &mut panel.kind {
-                style.fg = Some(0xabcdef);
+                style.fg = Some(crate::Paint::Rgb(0xabcdef));
                 style.font_size = 19;
             }
             runtime.apply_unrecorded(
@@ -7354,7 +7445,7 @@ mod tests {
                                 max_width: Length::Px(5),
                                 min_height: Length::Px(5),
                                 max_height: Length::Px(5),
-                                bg: Some(0x123456),
+                                bg: Some(crate::Paint::Rgb(0x123456)),
                                 ..Style::default()
                             }),
                         },
@@ -7400,7 +7491,7 @@ mod tests {
                 let mut button = runtime.graph.node(1001).unwrap().clone();
                 button.id = 1_000_001;
                 if let NodeKind::Button { style, .. } = &mut button.kind {
-                    style.bg = Some(0xabcdef);
+                    style.bg = Some(crate::Paint::Rgb(0xabcdef));
                 }
                 let nodes = vec![
                     Node {
@@ -7721,8 +7812,8 @@ mod tests {
             height,
             x2,
             y2,
-            fill: Some(0xffffff),
-            stroke: Some(0),
+            fill: Some(crate::Paint::Rgb(0xffffff)),
+            stroke: Some(crate::Paint::Rgb(0)),
             stroke_width: 2,
             radius: 0,
             ..Default::default()
@@ -8313,7 +8404,7 @@ mod tests {
                         width: 40,
                         text: "over the bar".into(),
                         text_size: 12,
-                        fill: Some(0),
+                        fill: Some(crate::Paint::Rgb(0)),
                         ..Default::default()
                     },
                 ],

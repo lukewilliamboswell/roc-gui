@@ -133,6 +133,10 @@ a case still needs `(http-origin ...)` or `(tcp ...)` to reach it.
 `(system-monitor processes N)`:: A deterministic system sampler delivering its
 snapshots through the same ABI as the physical source.
 `(tcp "IP:PORT")`:: TCP access to exactly one endpoint.
+`(theme light)` and `(theme dark)`:: The system appearance the case sees, in
+place of the desktop's. `(theme dark reduced-motion)` also asks for reduced
+motion. It grants no authority; a case without it sees a light scheme with full
+motion, whatever the machine running it prefers.
 
 == Locators
 
@@ -280,6 +284,11 @@ canvas must handle `on_hover`.
 `(pointer-leave LOCATOR)`:: Take a hovering pointer off a canvas. The canvas
 receives `Leave` at the last point delivered, and nothing when it was not
 hovered.
+`(system-theme light)` and `(system-theme dark)`:: The desktop reports a new
+appearance, as a person changing it would; `reduced-motion` may follow the
+scheme. Adaptive colours resolve by it unless the application has chosen a
+scheme over the system's, and a `Gui.Appearance.next_change!` wait answers it.
+The window runner presents one frame after it, drawn in the new scheme.
 `(wheel LOCATOR X Y DX DY)`:: Scroll a wheel by `DX` and `DY` pixels over a point
 of a canvas that handles `on_wheel`. Positive distances scroll towards the
 content's end.
@@ -385,6 +394,10 @@ device transactions.
 the document owner's totals for single-file grants: `pick_file!` calls, chosen
 files, cancellations, refused picks of any reason, whole-file reads, and then
 the document handles the application still holds.
+`(expect-theme light)` and `(expect-theme dark)`:: The scheme adaptive colours
+now resolve to: the system's, or the one the application chose with
+`Gui.Appearance.prefer!`. An `expect-background` on an adaptive colour compares
+the value it resolves to.
 `(expect-watch-counters STARTED CHANGES CANCELED REVOKED LIVE)`:: Require the
 watch owner's totals: watches started, changes delivered, watches cancelled,
 and watches ended because their grant was withdrawn, then the watches the
@@ -538,7 +551,7 @@ mean anything without a presented frame: without layout there is no fold for
 content to be below, and no size a window could be resized from.
 
 `both`:: `click`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
-`await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
+`system-theme`, `expect-theme`, `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
 `expect-count`, `expect-component-work`, and the value and ordering assertions — `expect-value`,
 `expect-value-bytes`, `expect-image-bytes`, `expect-before`, `expect-rows`, and
 `expect-canvas-primitives`. The fixture clipboard is one process-wide store, so

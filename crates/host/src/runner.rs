@@ -152,6 +152,7 @@ pub(crate) fn graph_claim(
                         | NodeKind::VirtualList { style, .. },
                     ) => style
                         .bg
+                        .map(crate::Paint::resolve)
                         .ok_or_else(|| "explicit background is unavailable".to_owned()),
                     _ => Err("locator has no application background".to_owned()),
                 });
@@ -1715,6 +1716,13 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             }
             Command::ClipboardText(text) => crate::clipboard::inject_fixture(text.clone())
                 .map_err(|message| format!("line {}: {message}", step.line)),
+            Command::SystemTheme(settings) => {
+                crate::appearance::set_system(*settings);
+                Ok(())
+            }
+            Command::ExpectTheme(dark) => {
+                theme_is(*dark).map_err(|message| format!("line {}: {message}", step.line))
+            }
             // A worker blocking is not a turn: nothing is delivered and no
             // cycle is recorded. The step only lets a later cancellation find
             // the wait it is meant to interrupt, rather than a queued task.
@@ -2044,6 +2052,22 @@ fn make_cycle(
     }
 }
 
+/// Whether adaptive colours resolve to the scheme a step names. Both runners
+/// answer from the one process-wide appearance.
+pub(crate) fn theme_is(dark: bool) -> Result<(), String> {
+    let actual = crate::appearance::effective_dark();
+    if actual == dark {
+        Ok(())
+    } else {
+        let name = |dark| if dark { "dark" } else { "light" };
+        Err(format!(
+            "expected the {} scheme; adaptive colours resolve to {}",
+            name(dark),
+            name(actual)
+        ))
+    }
+}
+
 fn elapsed_ns(start: Instant) -> u64 {
     start.elapsed().as_nanos().try_into().unwrap_or(u64::MAX)
 }
@@ -2098,7 +2122,11 @@ mod controlled_value_tests {
 
     #[test]
     fn background_claim_uses_explicit_graph_color_without_fabricating_counts() {
-        for color in [None, Some(0), Some(0x66E0FF)] {
+        for color in [
+            None,
+            Some(crate::Paint::Rgb(0)),
+            Some(crate::Paint::Rgb(0x66E0FF)),
+        ] {
             let mut graph = MountedGraph::default();
             graph
                 .apply(Patch::Mount {
@@ -2125,7 +2153,7 @@ mod controlled_value_tests {
                 &Command::ExpectBackground(Locator::ButtonName("Cell".into()), 0x66E0FF),
             )
             .unwrap();
-            assert_eq!(result.is_ok(), color == Some(0x66E0FF));
+            assert_eq!(result.is_ok(), color == Some(crate::Paint::Rgb(0x66E0FF)));
             assert_eq!(counts, None);
             if color.is_none() {
                 assert!(result.unwrap_err().contains("unavailable"));

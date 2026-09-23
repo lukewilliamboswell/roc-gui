@@ -1235,6 +1235,14 @@ async fn run_step(
             Err(detail) => Err(StepError::Geometry(detail)),
             Ok(()) => next_frame(window, cx).await,
         },
+        // The desktop's report reaches the window as it would from the portal:
+        // the effective scheme changes and the window repaints, which one
+        // presented frame shows.
+        Command::SystemTheme(settings) => {
+            crate::appearance::set_system(*settings);
+            next_frame(window, cx).await
+        }
+        Command::ExpectTheme(dark) => crate::runner::theme_is(*dark).map_err(StepError::Geometry),
         Command::AwaitCount(locator, expected) => {
             // A terminal answers on its own schedule, not the window's, so this
             // presents frames until the graph holds what the step names rather

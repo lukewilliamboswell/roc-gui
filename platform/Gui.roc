@@ -1,4 +1,5 @@
 import Action
+import Appearance
 import Assets
 import Audio
 import Clipboard
@@ -51,6 +52,7 @@ Gui := [].{
 	TextOverflow : Style.TextOverflow
 	Overflow : Style.Overflow
 
+	Appearance : Appearance.Appearance
 	Assets : Assets.Assets
 	Audio : Audio.Audio
 	Clipboard : Clipboard.Clipboard
@@ -69,6 +71,12 @@ Gui := [].{
 	KeyedSeqPlacement : KeyedSeq.Placement
 	KeyedSeqTransition(value) : KeyedSeq.Transition(value)
 	KeyedSeqError : KeyedSeq.Error
+
+	# Types exchanged with `Appearance`.
+	AppearanceScheme : Appearance.Scheme
+	AppearanceMotion : Appearance.Motion
+	AppearanceSettings : Appearance.Settings
+	AppearancePreference : Appearance.Preference
 
 	# Types exchanged with `Assets`.
 	AssetsStore : Assets.Store
@@ -229,6 +237,13 @@ Gui := [].{
 	## Install `state` and cancel this component's task with `key`.
 	cancel : a, Str -> Action.Action(a)
 	cancel = |state, key| Action.cancel(state, key)
+
+	## A colour for each appearance, `0xRRGGBB` both: `light` on a light
+	## window and `dark` on a dark one. The host chooses when it paints, so the
+	## window follows the system, or `Appearance.prefer!`, without rendering the
+	## application again.
+	adaptive : U32, U32 -> Style.Color
+	adaptive = |light, dark| Adaptive({ light, dark })
 
 	## Construct a fixed per-side inset.
 	inset : U32 -> Style.Inset

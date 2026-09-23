@@ -612,8 +612,34 @@ ideal and the repository. P- and E-numbers refer to that document.
   until it is shown again, and the frame strip returns to every frame, losing
   its zoom. Read the Timeline's span again, and the strip's, with the rest.
 
-- [ ] **No theme query (P14).** Add a light/dark query so chart scales stay
-  readable in both themes.
+- [ ] **The appearance is observed only on Linux.** macOS and Windows hosts
+  report a light scheme with full motion whatever the desktop asks, so adaptive
+  colours never turn dark there unless the application prefers dark. Read
+  GPUI's window appearance, and the platform's reduced-motion setting, through
+  the same `appearance` owner.
+
+- [ ] **The platform's own colours are not adaptive.** The host's window ground
+  and control defaults, the `Elem` control defaults, and the access panel are
+  one dark palette whatever the scheme. Give each an adaptive pair.
+
+- [ ] **Appearance changes are not counted.** No counter records how many times
+  the system's appearance changed or the application chose a scheme, so a
+  specification can assert the resolved scheme but not how it got there. Add
+  them to the `appearance` owner with an assertion step.
+
+- [ ] **No example waits on the system appearance.** `Gui.Appearance.current!`
+  and `next_change!` are exercised by the host's tests alone: Observatory
+  follows the scheme through adaptive colours and never reads it. Give an
+  example a reason to, such as honouring reduced motion, with its specification.
+
+- [ ] **Observatory forgets its theme.** A scheme chosen in the palette lasts
+  until the window closes. Remember it in application data and choose it again
+  at startup.
+
+- [ ] **Observatory's lightest cycle parts are faint in the light scheme.**
+  Validate and apply bars measure 2.2:1 and 1.6:1 against the card, below the
+  3:1 a graphic needs, where the dark scheme's measure 3.6:1 and 2.4:1. Darken
+  the light ramp without losing its order from the ground outward.
 
 - [ ] **A timeline mark cannot be followed to what it links.** Pressing a
   list pass on the Timeline does nothing: the pass names its frame or cycle by

@@ -112,9 +112,14 @@ observation (and an absent kind is zero only for one with it), GPUI apply is
 or allocation change. The capture list and the triggers table sort by any
 column.
 
+The window is light or dark as the desktop asks, and follows it when it
+changes; the palette's Theme commands choose light or dark over it, or follow
+the system again. Every colour is a light and dark pair, so the scales keep
+their order and their contrast with the ground in both.
+
 The keyboard reaches everything. Ctrl+K opens a command palette that finds, as
 you type, the commands (open a folder or a capture, back, forward, set or clear
-the baseline, close the capture), the views, the folder's captures, and every
+the baseline, close the capture, choose a theme), the views, the folder's captures, and every
 trigger of every phase; `cycle N` inspects the cycle with that ordinal in the
 selected run and `step N` shows its step in Spec. Up and Down move the
 highlight and Enter chooses it. Opening a cycle, its step, a frame, or a
@@ -309,3 +314,7 @@ walks to a cycle and into its inspector by keyboard, copies its waterfall, and
 photographs a `—`'s hover. `window-spec-source.scm` photographs a failing
 run's annotated specification with its diagnostic and assertion table, and
 `window-spec-median.scm` a benchmark's at the median of its samples.
+`theme.scm` follows the system's scheme as it changes and chooses one over it
+from the palette, and `window-theme.scm` photographs the capture list, the
+Overview, Interactions with each cycle's target, and a hovered Timeline in the
+light scheme and then the dark.

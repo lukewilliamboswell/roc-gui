@@ -760,7 +760,7 @@ pub enum NodeKind {
     /// its own bytes of it.
     StyledText {
         value: String,
-        fg: Option<u32>,
+        fg: Option<crate::Paint>,
         font_size: u32,
         font_weight: u32,
         font_face: FontFace,
@@ -780,8 +780,8 @@ pub struct CanvasPrimitive {
     pub height: u32,
     pub x2: i32,
     pub y2: i32,
-    pub fill: Option<u32>,
-    pub stroke: Option<u32>,
+    pub fill: Option<crate::Paint>,
+    pub stroke: Option<crate::Paint>,
     pub stroke_width: u32,
     pub radius: u32,
     /// A text primitive's line, its size in logical pixels, and its placement
@@ -1093,10 +1093,10 @@ pub enum Justify {
 /// box and its mark, which otherwise keep host values chosen for a dark ground.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckboxIndicator {
-    pub box_bg: Option<u32>,
-    pub box_checked_bg: Option<u32>,
-    pub box_border: Option<u32>,
-    pub mark_color: Option<u32>,
+    pub box_bg: Option<crate::Paint>,
+    pub box_checked_bg: Option<crate::Paint>,
+    pub box_border: Option<crate::Paint>,
+    pub mark_color: Option<crate::Paint>,
 }
 
 /// One styled run of rich text: `len` UTF-8 bytes of the element's value,
@@ -1105,8 +1105,8 @@ pub struct CheckboxIndicator {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TextRun {
     pub len: usize,
-    pub fg: Option<u32>,
-    pub bg: Option<u32>,
+    pub fg: Option<crate::Paint>,
+    pub bg: Option<crate::Paint>,
     pub font_weight: u32,
     pub underline: bool,
     pub monospace: bool,
@@ -1143,14 +1143,14 @@ pub struct Style {
     pub max_width: Length,
     pub max_height: Length,
     pub grow: bool,
-    pub bg: Option<u32>,
-    pub hover_bg: Option<u32>,
-    pub active_bg: Option<u32>,
-    pub disabled_bg: Option<u32>,
-    pub disabled_fg: Option<u32>,
-    pub focus_color: Option<u32>,
-    pub fg: Option<u32>,
-    pub border_color: Option<u32>,
+    pub bg: Option<crate::Paint>,
+    pub hover_bg: Option<crate::Paint>,
+    pub active_bg: Option<crate::Paint>,
+    pub disabled_bg: Option<crate::Paint>,
+    pub disabled_fg: Option<crate::Paint>,
+    pub focus_color: Option<crate::Paint>,
+    pub fg: Option<crate::Paint>,
+    pub border_color: Option<crate::Paint>,
     /// Top, right, bottom, left, already resolved from the shorthand.
     pub border_width: [u32; 4],
     pub radius: u32,
@@ -1160,7 +1160,7 @@ pub struct Style {
     /// percentage of that colour it is painted at. A zero blur paints none.
     pub shadow: u32,
     pub shadow_y: u32,
-    pub shadow_color: Option<u32>,
+    pub shadow_color: Option<crate::Paint>,
     pub shadow_alpha: u32,
     pub font_face: FontFace,
     pub text_overflow: TextOverflow,

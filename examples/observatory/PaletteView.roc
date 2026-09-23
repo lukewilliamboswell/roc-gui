@@ -11,8 +11,9 @@ import Widgets
 
 Elem : Gui.Elem(Observatory.State)
 
-## What choosing a result does: ask the root for a request, or open a chooser.
-Act : [Ask(Observatory.Request), ChooseFolder, ChooseFile]
+## What choosing a result does: ask the root for a request, open a chooser, or
+## choose the window's appearance.
+Act : [Ask(Observatory.Request), ChooseFolder, ChooseFile, Prefer(Gui.AppearancePreference)]
 
 Candidate : Palette.Candidate(Act)
 
@@ -73,6 +74,9 @@ commands = |state| {
 	always = [
 		candidate("Command", "Open folder…", "choose a folder of captures", ChooseFolder),
 		candidate("Command", "Open capture…", "choose one capture file", ChooseFile),
+		candidate("Command", "Theme: follow the system", "light or dark as the desktop asks", Prefer(System)),
+		candidate("Command", "Theme: light", "light whatever the desktop asks", Prefer(Light)),
+		candidate("Command", "Theme: dark", "dark whatever the desktop asks", Prefer(Dark)),
 	]
 	back = if Observatory.can_go_back(state) [candidate("Command", "Back", "return to the place before the last jump · Alt+Left", Ask(Back))] else []
 	forward = if Observatory.can_go_forward(state) [candidate("Command", "Forward", "return to the place Back left · Alt+Right", Ask(Forward))] else []
@@ -126,6 +130,8 @@ choose = |current, act| {
 		Ask(request) => Observatory.ask(closed, request)
 		ChooseFolder => Observatory.choose(closed)
 		ChooseFile => Observatory.choose_file(closed)
+		# The window repaints in the chosen scheme; nothing here renders again.
+		Prefer(preference) => Gui.task({ pending: closed, run: || Gui.Appearance.prefer!(preference), resolve: |_, {}| Gui.none })
 	}
 }
 

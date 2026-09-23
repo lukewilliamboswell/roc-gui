@@ -69,6 +69,10 @@ pub enum Grant {
     Device(String),
     /// A system sampler: `standard`, `unavailable`, or `processes:N`.
     SystemMonitor(String),
+    /// The system appearance the case sees: `(theme dark)`, optionally with
+    /// `reduced-motion`. It is not authority, only what the desktop reports;
+    /// a case without it sees a light scheme with full motion.
+    Theme(crate::appearance::Settings),
 }
 
 impl Grant {
@@ -87,6 +91,7 @@ impl Grant {
             Self::Process(_) => "process",
             Self::Device(_) => "device",
             Self::SystemMonitor(_) => "system-monitor",
+            Self::Theme(_) => "theme",
         }
     }
 
@@ -219,6 +224,10 @@ pub enum Command {
     /// the application, so this waits for the graph to say what it means.
     AwaitCount(Locator, usize),
     ClipboardText(String),
+    /// The desktop reports a new appearance, as a person changing it would.
+    SystemTheme(crate::appearance::Settings),
+    /// The scheme adaptive colours now resolve to: `true` for dark.
+    ExpectTheme(bool),
     AwaitTicks(u32),
     /// Wait until exactly this many running tasks are blocked in a capability
     /// wait that ending them would interrupt: a timer, a watch, or a query.
@@ -452,6 +461,8 @@ impl Command {
             Self::AwaitTask => "await-task",
             Self::AwaitCount(_, _) => "await-count",
             Self::ClipboardText(_) => "clipboard-text",
+            Self::SystemTheme(_) => "system-theme",
+            Self::ExpectTheme(_) => "expect-theme",
             Self::AwaitTicks(_) => "await-ticks",
             Self::AwaitTaskWaits(_) => "await-task-waits",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
@@ -559,6 +570,11 @@ impl Command {
             // two a windowed case could not put a single item into a
             // clipboard-driven application, and so could not photograph one.
             | Self::ClipboardText(_)
+            // The appearance is one process-wide setting both runners resolve
+            // colours by, so changing it and reading it back mean the same
+            // thing under either.
+            | Self::SystemTheme(_)
+            | Self::ExpectTheme(_)
             | Self::AwaitTicks(_)
             | Self::AwaitCount(_, _)
             | Self::ExpectVisible(_)
@@ -643,6 +659,7 @@ impl Command {
                 | Self::AwaitTask
                 | Self::AwaitCount(_, _)
                 | Self::ClipboardText(_)
+                | Self::SystemTheme(_)
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
                 | Self::RevokeFileGrants
@@ -1000,19 +1017,49 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
                 "system-monitor grant must be standard, unavailable, or (processes N)",
             )),
         },
+        ("theme", 2 | 3) => Ok(Grant::Theme(parse_theme(node, &list[1..])?)),
         (
             "directory" | "app-data" | "assets" | "clipboard" | "audio" | "http-origin" | "tcp"
-            | "server" | "process" | "device" | "system-monitor",
+            | "server" | "process" | "device" | "system-monitor" | "theme",
             _,
         ) => Err(error(node, format!("malformed {name} grant"))),
         _ => Err(error(
             node,
             format!(
                 "unsupported grant {name}; supported grants are app-data, audio, clipboard, \
-                 device, directory, http-origin, process, server, system-monitor, and tcp"
+                 device, directory, http-origin, process, server, system-monitor, tcp, and theme"
             ),
         )),
     }
+}
+
+/// `light` or `dark`, optionally followed by `reduced-motion`.
+fn parse_theme(node: &SExpr, values: &[SExpr]) -> Result<crate::appearance::Settings, ParseError> {
+    let dark = match values.first().and_then(SExpr::atom) {
+        Some("light") => false,
+        Some("dark") => true,
+        _ => return Err(error(node, "a theme is light or dark")),
+    };
+    let reduced_motion = match values.get(1).map(SExpr::atom) {
+        None => false,
+        Some(Some("reduced-motion")) => true,
+        Some(_) => {
+            return Err(error(
+                node,
+                "a theme takes only reduced-motion after its scheme",
+            ));
+        }
+    };
+    if values.len() > 2 {
+        return Err(error(
+            node,
+            "a theme takes only reduced-motion after its scheme",
+        ));
+    }
+    Ok(crate::appearance::Settings {
+        dark,
+        reduced_motion,
+    })
 }
 
 fn grant_string(node: &SExpr, name: &str) -> Result<String, ParseError> {
@@ -1457,6 +1504,14 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 timeout_ms: keywords.u32_in(":timeout-ms", 1..=60_000)?.unwrap_or(2_000),
             }
         }
+        "system-theme" if (2..=3).contains(&values.len()) => {
+            Command::SystemTheme(parse_theme(&values[0], &values[1..])?)
+        }
+        "expect-theme" if values.len() == 2 => Command::ExpectTheme(match values[1].atom() {
+            Some("light") => false,
+            Some("dark") => true,
+            _ => return Err(error(&values[1], "expect-theme requires light or dark")),
+        }),
         "clipboard-text" if values.len() == 2 => Command::ClipboardText(
             values[1]
                 .string()
@@ -3019,8 +3074,11 @@ mod tests {
                    (server "fixture_server.py" 36379)
                    (process test-program)
                    (device virtual 100)
-                   (system-monitor processes 500))
-                 (steps (await-ticks 1)))"#,
+                   (system-monitor processes 500)
+                   (theme dark reduced-motion))
+                 (steps
+                   (system-theme light)
+                   (expect-theme light)))"#,
         )
         .expect("grants parse");
         assert_eq!(
@@ -3039,8 +3097,23 @@ mod tests {
                 Grant::Process("test-program".into()),
                 Grant::Device("virtual:100".into()),
                 Grant::SystemMonitor("processes:500".into()),
+                Grant::Theme(crate::appearance::Settings {
+                    dark: true,
+                    reduced_motion: true,
+                }),
             ]
         );
+        assert_eq!(
+            case.steps
+                .iter()
+                .map(|step| step.command.clone())
+                .collect::<Vec<_>>(),
+            vec![
+                Command::SystemTheme(crate::appearance::Settings::default()),
+                Command::ExpectTheme(false),
+            ]
+        );
+        assert!(parse(r#"(test "t" (grants (theme sepia)) (steps (expect-theme dark)))"#).is_err());
     }
 
     #[test]

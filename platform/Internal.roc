@@ -82,13 +82,21 @@ Internal := [].{
 
 	max_style_value = 16384
 
+	# One U64 per colour: an RGB value in the low 24 bits, the default as bit
+	# 24 alone, and an adaptive pair as its light value in bits 0-23, its dark
+	# value in bits 24-47, and bit 48. The host resolves a pair when it paints.
+	color : Style.Color -> U64
 	color = |value| match value {
 		Default => 0x01000000
-		Rgb(rgb) => if rgb <= 0x00ffffff {
-			rgb
-		} else {
-			crash "Gui RGB colors are at most 0xffffff"
-		}
+		Rgb(rgb) => rgb_bits(rgb)
+		Adaptive(pair) => 0x1000000000000 + rgb_bits(pair.dark) * 0x1000000 + rgb_bits(pair.light)
+	}
+
+	rgb_bits : U32 -> U64
+	rgb_bits = |rgb| if rgb <= 0x00ffffff {
+		rgb.to_u64()
+	} else {
+		crash "Gui RGB colors are at most 0xffffff"
 	}
 
 	length = |value| match value {
