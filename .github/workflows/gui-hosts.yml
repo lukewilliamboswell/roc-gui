@@ -110,12 +110,7 @@ jobs:
         run: |
           mkdir -p platform/targets/arm64mac
           cp "$RUNNER_TEMP/host-output/libhost.a" platform/targets/arm64mac/libhost.a
-          if test -f link-inputs.lock.json; then
-            PYTHONPATH=scripts python3 -c 'from pathlib import Path; from link_input_artifacts import install; install("arm64mac", Path("platform/targets/arm64mac"))'
-          else
-            python3 scripts/build_macos_stubs.py --archives platform/targets/arm64mac --output "$RUNNER_TEMP/macos-sysroot"
-            cp -R "$RUNNER_TEMP/macos-sysroot" platform/targets/arm64mac/macos-sysroot
-          fi
+          PYTHONPATH=scripts python3 -c 'from pathlib import Path; from link_input_artifacts import install; install("arm64mac", Path("platform/targets/arm64mac"))'
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

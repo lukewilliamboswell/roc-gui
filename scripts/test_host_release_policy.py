@@ -37,7 +37,7 @@ class HostReleasePolicyTests(unittest.TestCase):
     def test_windows_resource_is_not_a_host_release_output(self):
         self.assertEqual(HOST_FILES["x64mingw"], ("libhost.a",))
 
-    def test_candidate_admission_uses_unified_link_inputs_when_locked(self):
+    def test_candidate_admission_requires_unified_link_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             lock = root / "link-inputs.lock.json"
@@ -50,26 +50,6 @@ class HostReleasePolicyTests(unittest.TestCase):
                     receipt,
                 )
             install.assert_called_once_with("arm64mac", destination, lock)
-
-    def test_macos_bootstrap_generates_interfaces_from_staged_host(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            destination = root / "platform/targets/arm64mac"
-            destination.mkdir(parents=True)
-            (destination / "libhost.a").write_bytes(b"host archive")
-
-            def generate(archives, sysroot):
-                self.assertEqual((archives / "libhost.a").read_bytes(), b"host archive")
-                libraries = sysroot / "usr/lib"
-                libraries.mkdir(parents=True)
-                (libraries / "libSystem.tbd").write_bytes(b"interface")
-
-            with patch("build_macos_stubs.generate", side_effect=generate):
-                gui_host_artifacts.stage_candidate_dependencies("arm64mac", destination, root)
-            self.assertEqual(
-                (destination / "macos-sysroot/usr/lib/libSystem.tbd").read_bytes(),
-                b"interface",
-            )
 
     def test_notice_archive_rejects_missing_or_changed_index(self):
         packed = host_notice_payload.pack_notices({"LICENSE": b"terms"})
