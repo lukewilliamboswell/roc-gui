@@ -928,6 +928,11 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Runner: test what we fly
 
+- [ ] **The window runner cannot drag a canvas.** `drag` is semantic-only
+  (`crates/host/src/spec.rs`), so no window specification exercises the
+  interactive canvas pointer path or its recorded `drag` cycles end to end.
+  Drive pointer begin, move, and end through the window's own mouse handlers.
+
 - [ ] **Native frame focus work still scans unaffected controls.**
   `Runtime::render` walks focus handles and computes the graph's focus order on
   focused frames. Deleted-focus and canvas-drag recovery also reverse-search
