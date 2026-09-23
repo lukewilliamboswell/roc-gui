@@ -842,6 +842,9 @@ async fn run_step(
         }
         Command::HoverEnter(locator) | Command::HoverExit(locator) => {
             let entered = matches!(step.command, Command::HoverEnter(_));
+            // Where the pointer goes is a painted question: a completion the
+            // previous step accounted for may not have been drawn yet.
+            await_painted(window, options.timeout, cx).await?;
             let viewport = viewport_rect(window, cx)?;
             let position = window
                 .update(cx, |runtime, _, _| {
@@ -930,6 +933,9 @@ async fn run_step(
             await_painted(window, options.timeout, cx).await
         }
         Command::Click(locator) => {
+            // Only a drawn control can be pressed, and a completion the
+            // previous step accounted for may not have been drawn yet.
+            await_painted(window, options.timeout, cx).await?;
             let viewport = viewport_rect(window, cx)?;
             window
                 .update(cx, |runtime, window, cx| {
@@ -1024,6 +1030,8 @@ async fn run_step(
             settle(window, 2, options.timeout, cx).await
         }
         Command::Scroll { region, motion } => {
+            // A scroll target is located in the drawn frame.
+            await_painted(window, options.timeout, cx).await?;
             window
                 .update(cx, |runtime, _, _| scroll_region(runtime, region, motion))
                 .map_err(|_| StepError::WindowClosed)??;

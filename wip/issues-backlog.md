@@ -1163,16 +1163,22 @@ names the reproduction so the workaround can be removed when the fix lands.
   node's probe marker inside a virtual-list row lags or leads its row, and add
   a window specification that crops a produced row's text.
 
-- [ ] **Two window specifications fail intermittently on the GPUI fork.**
-  `benchmarks/nested-hover-grid/specs/window-trail.scm` line 20 sometimes
-  observes 8 button renders in one completed frame against its bound of 7
-  (passes on a rerun), `benchmarks/hover-grid/specs/window-trail.scm` line 22
-  sometimes observes the previous hover colour (0xd58aff for 0x66e0ff) under
-  `--jobs 4`, and `examples/terminal-workspace/specs/gallery.scm`
-  sometimes exits before "Command sent" appears. The first appeared with the
-  move to the fork, whose hover reaches a stationary pointer once painted;
-  find which button renders the eighth time and whether it is routed hover or
-  a frame boundary, then fix the cause rather than widening the bound.
+- [ ] **Two hover-grid window specifications failed intermittently and no
+  longer reproduce.** `benchmarks/nested-hover-grid/specs/window-trail.scm`
+  line 20 once observed 8 button renders in one completed frame against its
+  bound of 7, and `benchmarks/hover-grid/specs/window-trail.scm` line 22 once
+  observed the trailing colour (0xd58aff) for 0x66e0ff under `--jobs 4`. Both
+  passed 50 of 50 loops, 30 of them beside 32 busy CPU workers, once
+  `hover-enter`, `click`, and `scroll` waited for the window to draw the graph
+  before locating their target; one loaded run before that change had failed
+  line 30 of the flat grid as a stale generation. What remains unexplained is
+  a cell leaving hover while the runner's pointer rests on it, which only a
+  pointer event the runner did not send — a compositor `wl_pointer` motion or
+  leave for the real cursor, or the GPUI fork re-routing hover to a stationary
+  pointer after paint — could cause. If either recurs, record the step's
+  `native_work_since_mark` per frame with the node ids rendered, and log every
+  `MouseMove` GPUI dispatches with its origin, to say which button rendered
+  the eighth time and whose pointer event exited the cell.
 
 - [ ] **A canvas node's probe bounds disagree with its painted surface.** In
   Observatory's scrolled Frames view, `probe::Frame::bounds` for a canvas node
