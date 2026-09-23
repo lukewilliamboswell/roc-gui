@@ -74,7 +74,7 @@ the change lands; do not soften the docs to match the gap.
   cancellation and retry semantics.
 
 - [ ] **Portal parenting and protected consent need external certification.**
-  GPUI 0.2.2 does not expose an xdg-foreign Wayland surface handle to this host,
+  GPUI does not expose an xdg-foreign Wayland surface handle to this host,
   so the portal request cannot yet name its parent window. Export that handle,
   attribute focus, and certify compositor placement, protected portal identity,
   cancellation and accessibility on a packaged confined application. Headless
@@ -194,7 +194,7 @@ independent of any one application.
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
   label from ordinary body text once family is unavailable. `counter`'s per-card
-  captions are plain small grey text instead. GPUI 0.2.2 has no letter-spacing
+  captions are plain small grey text instead. GPUI has no letter-spacing
   concept at all: neither `TextStyle` nor `TextStyleRefinement` carries one, and
   the shaper takes none, so this needs an upstream field before a
   `Gui.Style` letter-spacing field can mean anything.
@@ -202,14 +202,14 @@ independent of any one application.
 - [ ] **A border is one colour on all four sides.** Per-side widths have
   landed, and `terminal-workspace` now draws one hairline on the edge that faces
   the next region instead of boxing every region and holding the boxes apart
-  with a 1-point seam. Per-side colour is not expressible: GPUI 0.2.2's `Style`
+  with a 1-point seam. Per-side colour is not expressible: GPUI's `Style`
   carries `border_widths` as `Edges` but a single `border_color`, so a side
   cannot have a colour of its own without an upstream change.
 
 - [ ] **A large SVG is rasterized at its own size and then never painted.**
-  `gpui` 0.2.2 decodes an SVG through
-  `SvgRenderer::render_pixmap(&bytes, SvgSize::ScaleFactor(1.0))`
-  (`src/platform.rs`, `ImageFormat::Svg`), so the raster is the file's intrinsic
+  GPUI decodes an image-asset SVG through
+  `SvgRenderer::render_single_frame(&bytes, 1.0)` (`crates/gpui/src/platform.rs`,
+  `ImageFormat::Svg`), a scale-factor raster, so the raster follows the file's intrinsic
   size and the element's box is never an input: `SvgSize::Size(_)` exists but the
   image-asset path never uses it. `image-library`'s 8000x6000 fixtures therefore
   produce a 48-megapixel frame that nothing paints, while the 24x24 glyph in
@@ -220,21 +220,6 @@ independent of any one application.
   needs `SvgSize::Size` at the laid-out box upstream, or a host-side SVG
   rasterizer, and should not be worked around by shrinking the fixtures, which
   are deliberately larger than any box they are put in.
-
-- [ ] **An SVG's red and blue channels are exchanged when it is rendered.** A
-  rasterised image is correct; an SVG is not. In `gpui` 0.2.2,
-  `Image::to_image_data` (`platform.rs`) sends every raster format through a
-  helper that converts the decoded RGBA to the BGRA the renderer wants, but the
-  `ImageFormat::Svg` arm wraps `svg_renderer.render_pixmap`'s buffer directly
-  and performs no such conversion. So `hsl(29,55%,35%)`, the warm brown
-  `image-library`'s `collection-01.svg` is authored with, reaches the screen as
-  a blue, and the fixtures authored as browns and an amber-to-violet sky present
-  as blues and greens. PNG, JPEG, WebP, BMP, TIFF and GIF are unaffected.
-  Decoding is GPUI's to own, and pre-rasterising SVG in this host would
-  duplicate the decoder this platform deliberately does not reimplement, so this
-  closes upstream. The vendored example icons are neutral greys, which are
-  invariant under the exchange and therefore honest either way. Verify with a
-  specification that samples a known pixel of a known fixture once a fix lands.
 
 - [ ] **Image decode status is not represented in the mounted graph.** GPUI's
   image asset decoder owns asynchronous success and failure after mounting, but
@@ -634,7 +619,7 @@ names the evidence so a fix can be verified against the same case.
   Roc patches supply the changed and retained frontier, and production native
   counters can check patch-derived expectations in controlled GPUI tests.
   Arbitrary interactive frames also include focus, pointer styling, geometry,
-  inherited styles, and GPUI refreshes. GPUI 0.2.2 keeps its dirty-view set and
+  inherited styles, and GPUI refreshes. GPUI keeps its dirty-view set and
   refreshing flag private, so the host cannot classify every native render
   cause. Expose those causes before treating every render outside a Roc patch
   as a production invariant violation. Keep actual counters always available;
@@ -657,7 +642,7 @@ names the evidence so a fix can be verified against the same case.
   the GPUI fork's `crates/gpui/src/view.rs` (cached subtree lifetime), `window.rs` (frame records,
   replay ranges, transactional prepaint, hitboxes and listener ownership),
   `scene.rs` (primitive insertion, overlap order and batching),
-  `key_dispatch.rs`, `tab_stop.rs`, `text_system/line_layout.rs`, and the Blade,
+  `key_dispatch.rs`, `tab_stop.rs`, `text_system/line_layout.rs`, and the WGPU,
   Metal and DirectX renderers. `crates/host/src/lib.rs` supplies the mounted
   change frontier and descendant notifications; it must not build a second
   scene or event implementation.
@@ -702,8 +687,8 @@ names the evidence so a fix can be verified against the same case.
   4.5% in frame hit testing, and 5% in bounds-tree insertion. This exploratory
   run overlapped other work and had incomplete Rust stack unwinding; these are
   exclusive sample shares, not latency measurements or caller attribution.
-  GPUI 0.2.2 dispatch traverses the frame listener list in capture and bubble
-  order, and hit testing scans hitboxes. A spatial hit-test index alone would
+  GPUI dispatch routes free pointer motion by hit path but delivers every other
+  event to the whole frame listener list, and hit testing scans hitboxes. A spatial hit-test index alone would
   leave listener traversal. Profile native input separately from frame work,
   preserving hover exit, capture, stacking, clipping, drag, and removal semantics
   before changing dispatch further. Use retained ordered interaction segments
@@ -1155,7 +1140,7 @@ names the reproduction so the workaround can be removed when the fix lands.
   distinction until the sampled native matrix replaces it.
 
 - [ ] **Capture the window, not the screen region, on macOS.** Linux reads back
-  the presented frame from the Blade renderer and Windows uses `PrintWindow`;
+  the presented frame from the WGPU renderer and Windows uses `PrintWindow`;
   the equivalent on macOS is a readback from the Metal renderer's drawable,
   which GPUI does not yet offer. `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a
@@ -1176,7 +1161,7 @@ names the reproduction so the workaround can be removed when the fix lands.
   never compare images. Comparison needs a storage, review, and update story of
   its own, and should not be bolted onto the capture step.
 
-- [ ] **Multi-display screenshots.** `gpui` 0.2.2 hard-zeroes the macOS display
+- [ ] **Multi-display screenshots.** GPUI hard-zeroes the macOS display
   origin (`platform/mac/display.rs`) and computes window bounds relative to the
   window's own `NSScreen`, so a window on a secondary display has no recoverable
   global coordinates. Capture reports `unavailable` rather than guessing.
@@ -1209,10 +1194,7 @@ names the reproduction so the workaround can be removed when the fix lands.
   `cargo_build_evidence.derive` rejects every such package ("compiled package
   has no Cargo.lock identity") and `prepare_gui_host_release.crate_cache` accepts
   only registry crates. Release composition is therefore blocked for every
-  target. The reviewed notices in `dependencies/gui-host-notices` also still
-  name crates the fork no longer compiles (Blade, naga 25, `dtor`,
-  `stacksafe`, `spirv`), so `scripts/test_rust_license_inventory.py` fails
-  until the review is regenerated against the new lock.
+  target.
 
   Contract to implement: admit a Git package only when its repository and
   revision appear in a reviewed policy under `dependencies/gui-host-notices`.
