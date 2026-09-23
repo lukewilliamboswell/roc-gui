@@ -90,7 +90,9 @@ examples through `scripts/run_specs.py` and keeps their captures. From those it
 derives an interrupted capture (the metadata a recorder leaves when its process
 dies before finalisation), a capture that names schema 4, and a capture cut
 short to one kilobyte. The scaling folders hold 10, 100, and 1,000 hard links to
-the real captures. Nothing under `fixture/` is committed; `run_specs.py`
+the real captures, and `session/` holds one long capture: a Database Browser
+browsing session of exactly 10,000 cycles in one run, written out as a
+specification and recorded at full detail by the Database Browser itself. Nothing under `fixture/` is committed; `run_specs.py`
 regenerates it when the recorder schema or the contents of any input change: the
 generator, the specifications it runs and the applications they drive, the
 platform, or the host's sources and locks.
@@ -105,7 +107,7 @@ platform, or the host's sources and locks.
 
 ## Specifications
 
-Twenty-two specifications run on the semantic runner. They cover the first
+Twenty-four specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
@@ -115,8 +117,13 @@ the cycle list and its trigger filter, the cycle inspector with a dash that
 opens Health, a cycle's step in the Spec view, and the memory view.
 Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
 also pin which boundaries render, and how many nodes the host restages.
-`scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases: each opens a
-benchmark output folder of that many real captures. `window-tour.scm` drives
+`scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases for a
+folder: each opens a benchmark output folder of that many real captures.
+`scale-session.scm` is the scaling case for one long capture: it opens the
+10,000-cycle session and jumps from one end of its cycle list to the other, and
+`session-step.scm` opens a step ten thousand steps into its run.
+`window-session.scm` scrolls the same list four thousand cycles down in the
+real window and photographs the late step. `window-tour.scm` drives
 the real window through every view and photographs each, and
 `window-open-capture.scm` photographs the start page and a capture opened from
 a single file.

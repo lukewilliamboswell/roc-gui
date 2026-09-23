@@ -424,13 +424,16 @@ opens `.rgstats` captures and queries their tables directly. It is also the
 pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
 ideal and the repository. P- and E-numbers refer to that document.
 
-- [ ] **No large-capture case.** I1 and I2 exist with specifications: folder
-  open, a sortable capture list, the schema gate, Overview, Health, spec
-  results, the sortable triggers table, the slowest-cycles list, the cycle
-  inspector, and Memory. The scaling case opens folders of 10, 100, and 1,000
-  real captures, but no case opens one long interactive-session capture at 10k
-  and 100k cycles, which needs a real recorded session driven through the
-  ordinary window path as its fixture.
+- [ ] **The long-capture case stops at 10,000 cycles and records no frames
+  (US-40).** `scale-session.scm` opens one generated 10,000-cycle Database
+  Browser session and jumps through its cycle list, and `window-session.scm`
+  scrolls it in the window, but the session runs on the semantic runner, so
+  its capture has no `gpui_frames` rows, and at about 5 ms a cycle a
+  100,000-cycle session would take eight minutes to generate. US-40 asks for
+  100,000 cycles and 100,000 frames from a recorded window session, which also
+  needs the frame strip and timeline (P6, E1) to scroll. A cheaper cycle in the
+  semantic runner, or a window session that can be recorded unattended, would
+  make the 100,000 case reachable.
 
 - [ ] **Two honest-absence paths are reached only by unit expectations.** No
   fixture capture has a cycle with `roc_work_valid = 0` or

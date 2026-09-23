@@ -216,9 +216,10 @@ margin : U64
 margin = 40
 
 ## The window's first row for a viewport starting at `start`: the viewport
-## sits a quarter of the way into the page, so scrolling either way has rows.
+## sits in the middle of the page, so the rows a list mounts on either side of
+## it, and scrolling either way, meet rows already read.
 page_start : U64 -> U64
-page_start = |start| if start > Capture.page_rows / 4 start - Capture.page_rows / 4 else 0
+page_start = |start| if start > Capture.page_rows / 2 start - Capture.page_rows / 2 else 0
 
 wanted : Window(a), Reading, Gui.EventVisibleRows, U64 -> [None, Some(U64)]
 wanted = |window, reading, visible, total| {
