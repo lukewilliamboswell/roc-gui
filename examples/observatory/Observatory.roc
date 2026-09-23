@@ -13,7 +13,14 @@ Folder : { name : Str, directory : Gui.FilesDirRead, captures : List(Capture.Lis
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
-View : [Overview, Interactions, Spec, Health]
+View : [Overview, Interactions, Spec, Memory, Health]
+
+## A table's order: the column index and its direction.
+Sort : { column : U64, descending : Bool }
+
+## The cycle list shows every trigger of the phase, or one trigger and patch
+## kind chosen from the triggers table.
+Filter : [All, Only({ trigger : Str, patch_kind : Str })]
 
 State : {
 	access : Gui.Access,
@@ -25,6 +32,13 @@ State : {
 	phase : Str,
 	run : I64,
 	status : Status,
+	capture_sort : Sort,
+	trigger_sort : Sort,
+	filter : Filter,
+	inspected : [None, Some(Capture.Inspected)],
+	## The ordinal of the step "Show step" opened, in the selected run.
+	step_focus : [None, Some(I64)],
+	family_focus : [None, Some(Str)],
 }
 
 Observatory := [].{
@@ -33,6 +47,8 @@ Observatory := [].{
 	State : State
 	Status : Status
 	View : View
+	Sort : Sort
+	Filter : Filter
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -45,7 +61,44 @@ Observatory := [].{
 		phase: "measured",
 		run: 0,
 		status: Ready,
+		capture_sort: { column: 0, descending: False },
+		trigger_sort: { column: 4, descending: True },
+		filter: All,
+		inspected: None,
+		step_focus: None,
+		family_focus: None,
 	}
+
+	## Pressing a column's heading orders by it; pressing it again reverses.
+	resort : Sort, U64 -> Sort
+	resort = |sort, column| if sort.column == column { column, descending: !sort.descending } else { column, descending: False }
+
+	sort_captures : State, U64 -> State
+	sort_captures = |state, column| { ..state, capture_sort: resort(state.capture_sort, column) }
+
+	sort_triggers : State, U64 -> State
+	sort_triggers = |state, column| { ..state, trigger_sort: resort(state.trigger_sort, column) }
+
+	## Pressing the selected trigger again shows every trigger.
+	filter_trigger : State, Str, Str -> State
+	filter_trigger = |state, trigger, patch_kind| {
+		chosen = Only({ trigger, patch_kind })
+		{ ..state, filter: if state.filter == chosen All else chosen }
+	}
+
+	inspect : State, Capture.Cycle -> Gui.Action(State)
+	inspect = inspect
+
+	close_inspector : State -> State
+	close_inspector = |state| { ..state, inspected: None }
+
+	## Open the Spec view at the step, by ordinal, that drove a cycle.
+	show_step : State, I64, I64 -> Gui.Action(State)
+	show_step = |state, run_id, ordinal| select_run({ ..state, view: Spec, step_focus: Some(ordinal) }, run_id)
+
+	## Open Health at the family a `—` belongs to.
+	show_family : State, Str -> State
+	show_family = |state, name| { ..state, view: Health, family_focus: Some(name) }
 
 	choose : State -> Gui.Action(State)
 	choose = choose
@@ -59,14 +112,14 @@ Observatory := [].{
 			Busy(active) => Busy(active)
 			_ => Ready
 		}
-		{ ..state, capture: None, status }
+		{ ..state, capture: None, inspected: None, status }
 	}
 
 	show : State, View -> State
-	show = |state, view| { ..state, view }
+	show = |state, view| { ..state, view, step_focus: None, family_focus: None }
 
 	set_phase : State, Str -> State
-	set_phase = |state, phase| { ..state, phase }
+	set_phase = |state, phase| { ..state, phase, filter: All }
 
 	select_run : State, I64 -> Gui.Action(State)
 	select_run = select_run
@@ -143,7 +196,7 @@ open_capture = |state, directory, name| {
 		run: || Capture.open!(directory, name),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(opened) => Gui.update({ ..latest, capture: Some(opened), view: Overview, phase: default_phase(opened), run: first_run(opened), status: Ready })
+				Ok(opened) => Gui.update({ ..latest, capture: Some(opened), view: Overview, phase: default_phase(opened), run: first_run(opened), filter: All, inspected: None, step_focus: None, family_focus: None, status: Ready })
 				Err(message) => Gui.update({
 					..latest,
 					capture: None,
@@ -153,6 +206,26 @@ open_capture = |state, directory, name| {
 			_ => Gui.none
 		},
 	})
+}
+
+## A cycle's detail is read through the connection the open capture holds.
+inspect : State, Capture.Cycle -> Gui.Action(State)
+inspect = |state, cycle| match state.capture {
+	None => Gui.none
+	Some(opened) => {
+		id = state.next_request
+		Gui.task({
+			pending: { ..state, next_request: id + 1, status: Busy(id) },
+			run: || Capture.inspect!(opened.database, cycle),
+			resolve: |latest, outcome| match latest.status {
+				Busy(active) if active == id => match outcome {
+					Ok(inspected) => Gui.update({ ..latest, inspected: Some(inspected), status: Ready })
+					Err(message) => Gui.update({ ..latest, status: failure(message, "This cycle's detail could not be read from the open capture.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
 }
 
 ## Steps are read one run at a time from the connection the open capture holds.

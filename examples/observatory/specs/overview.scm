@@ -22,7 +22,7 @@
     (expect-visible (text "benchmark: 1 warmups · 3 samples · 1 iterations · scale 100"))
     (expect-visible (within (role panel :name "Tile Outcome") (text "4/4 runs pass")))
     (expect-visible (within (role panel :name "Tile Median cycle") (text "6 measured cycles")))
-    (expect-visible (within (role panel :name "Tile Frames over budget") (text "—")))
+    (expect-visible (within (role panel :name "Tile Frames over budget") (role button :name "Why gpui_frame_spans")))
     (expect-visible (within (role panel :name "Tile Frames over budget") (text "gpui_frame_spans not_recorded: semantic headless execution draws no GPUI frame")))
     (expect-visible (within (role panel :name "Tile Verdict") (text "complete")))
     (click (role button :name "Open Outcome"))

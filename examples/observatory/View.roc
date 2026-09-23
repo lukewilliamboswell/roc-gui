@@ -58,27 +58,41 @@ verdict_badge = |verdict| match verdict {
 ## Tables. A cell clips rather than wraps, so every row is one line tall and a
 ## column's figures sit on the same vertical rule as its heading.
 
-cell : Str, U32, Gui.Color -> Gui.Elem(Observatory.State)
-cell = |text, width, ink| Gui.row(
-	{ width: Px(width), padding: 0, padding_right: Px(Theme.inset), gap: 0, fg: ink, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis, align: Center },
-	[Gui.text(text)],
+## A fixed-width column. The gutter sits outside the clip, so a clipped value
+## never runs into its neighbour.
+column_cell : { width : U32, justify : Gui.Justify, ink : Gui.Color, size : U32 }, List(Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
+column_cell = |props, children| Gui.row(
+	{ width: Px(props.width), min_width: Px(props.width), max_width: Px(props.width), padding: 0, padding_right: Px(Theme.inset), gap: 0, align: Center },
+	[
+		Gui.row(
+			{ width: Fill, grow: True, overflow_x: Clip, padding: 0, gap: 0, fg: props.ink, font_size: props.size, font_face: Theme.face, text_overflow: Ellipsis, align: Center, justify: props.justify },
+			children,
+		),
+	],
 )
 
+cell : Str, U32, Gui.Color -> Gui.Elem(Observatory.State)
+cell = |text, width, ink| column_cell({ width, justify: Start, ink, size: Theme.body }, [Gui.text(text)])
+
 figure_cell : Str, U32 -> Gui.Elem(Observatory.State)
-figure_cell = |text, width| Gui.row(
-	{ width: Px(width), padding: 0, padding_right: Px(Theme.inset), gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis, align: Center, justify: End },
-	[Gui.text(text)],
-)
+figure_cell = |text, width| column_cell({ width, justify: End, ink: Theme.ink, size: Theme.body }, [Gui.text(text)])
 
 rest_cell : Str, Gui.Color -> Gui.Elem(Observatory.State)
 rest_cell = |text, ink| Gui.row(
-	{ width: Fill, grow: True, padding: 0, gap: 0, fg: ink, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis, align: Center },
+	{ width: Fill, grow: True, overflow_x: Clip, padding: 0, padding_right: Px(Theme.inset), gap: 0, fg: ink, font_size: Theme.body, font_face: Theme.face, text_overflow: Ellipsis, align: Center },
 	[Gui.text(text)],
 )
 
 table_row : List(Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
 table_row = |cells| Gui.row(
 	{ width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+	cells,
+)
+
+## A row a specification can name.
+labelled_row : Str, List(Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
+labelled_row = |label, cells| Gui.row(
+	{ label, width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 	cells,
 )
 
@@ -89,16 +103,10 @@ table_head = |label, cells| Gui.row(
 )
 
 head_cell : Str, U32 -> Gui.Elem(Observatory.State)
-head_cell = |text, width| Gui.row(
-	{ width: Px(width), padding: 0, padding_right: Px(Theme.inset), gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face, align: Center },
-	[Gui.text(text)],
-)
+head_cell = |text, width| column_cell({ width, justify: Start, ink: Theme.dim, size: Theme.meta }, [Gui.text(text)])
 
 head_figure : Str, U32 -> Gui.Elem(Observatory.State)
-head_figure = |text, width| Gui.row(
-	{ width: Px(width), padding: 0, padding_right: Px(Theme.inset), gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face, align: Center, justify: End },
-	[Gui.text(text)],
-)
+head_figure = |text, width| column_cell({ width, justify: End, ink: Theme.dim, size: Theme.meta }, [Gui.text(text)])
 
 head_rest : Str -> Gui.Elem(Observatory.State)
 head_rest = |text| Gui.row(
@@ -131,6 +139,139 @@ key = |props| Gui.button({
 	border_width: 1,
 	text_overflow: Ellipsis,
 })
+
+## An absent value. It is a `—`, never a zero, and pressing it opens Health at
+## the family that explains it.
+dash : Str, U32 -> Gui.Elem(Observatory.State)
+dash = |family_name, font_size| Gui.button({
+	caption: "—",
+	label: "Why ${family_name}",
+	on_press: |current, _| Gui.update(Observatory.show_family(current, family_name)),
+	padding: 0,
+	font_size,
+	font_face: Theme.face,
+	radius: 0,
+	bg: Theme.card,
+	hover_bg: Theme.quiet_hover,
+	active_bg: Theme.quiet_active,
+	fg: Theme.ink,
+	border_width: 0,
+})
+
+dash_cell : Str, U32 -> Gui.Elem(Observatory.State)
+dash_cell = |family_name, width| column_cell({ width, justify: End, ink: Theme.ink, size: Theme.body }, [dash(family_name, Theme.body)])
+
+## A figure from one family: its text when the family is complete, otherwise a
+## `—` that opens Health at the family.
+family_cell : Bool, Str, Str, U32 -> Gui.Elem(Observatory.State)
+family_cell = |present, family_name, text, width| if present figure_cell(text, width) else dash_cell(family_name, width)
+
+## The line beside a table whose values are absent.
+absence_note : Capture.Opened, Str -> Gui.Elem(Observatory.State)
+absence_note = |opened, family_name| absence_line(family_name, Capture.absence(opened, family_name))
+
+absence_line : Str, Str -> Gui.Elem(Observatory.State)
+absence_line = |family_name, reason| Gui.row(
+	{ label: "Absent ${family_name}", width: Fill, padding: 0, gap: 6, align: Center, fg: Theme.dim, font_size: Theme.meta },
+	[dash(family_name, Theme.meta), Gui.text(reason)],
+)
+
+## Sorting. Numbers order before text, and text orders by its bytes.
+
+SortKey : [Text(Str), Number(I64)]
+
+compare_text : Str, Str -> [Before, Same, After]
+compare_text = |left, right| {
+	left_bytes = left.to_utf8()
+	right_bytes = right.to_utf8()
+	var $result = Same
+	for item in List.map2(left_bytes, right_bytes, |a, b| if a < b Before else if a > b After else Same) {
+		if $result == Same {
+			$result = item
+		}
+	}
+	if $result == Same {
+		if left_bytes.len() < right_bytes.len() Before else if left_bytes.len() > right_bytes.len() After else Same
+	} else {
+		$result
+	}
+}
+
+compare_keys : SortKey, SortKey -> [Before, Same, After]
+compare_keys = |left, right| match (left, right) {
+	(Number(a), Number(b)) => if a < b Before else if a > b After else Same
+	(Text(a), Text(b)) => compare_text(a, b)
+	(Number(_), Text(_)) => Before
+	(Text(_), Number(_)) => After
+}
+
+reverse_order : [Before, Same, After] -> [Before, Same, After]
+reverse_order = |order| match order {
+	Before => After
+	After => Before
+	Same => Same
+}
+
+number_or_text : Str -> SortKey
+number_or_text = |text| match I64.from_str(text) {
+	Ok(number) => Number(number)
+	Err(_) => Text(text)
+}
+
+## The caption of the column a table is ordered by.
+sort_caption : List(Column), Observatory.Sort -> Str
+sort_caption = |columns, sort| match columns.get(sort.column) {
+	Ok(column) => column.caption
+	Err(_) => ""
+}
+
+## A column heading that orders its table. The active column carries its
+## direction.
+sort_head : { caption : Str, label : Str, width : [Px(U32), Rest], figure : Bool, sort : Observatory.Sort, column : U64, on_press : Observatory.State -> Observatory.State } -> Gui.Elem(Observatory.State)
+sort_head = |props| {
+	active = props.sort.column == props.column
+	arrow = if !active "" else if props.sort.descending " ▾" else " ▴"
+	handler = props.on_press
+	button = Gui.button({
+		caption: "${props.caption}${arrow}",
+		label: props.label,
+		on_press: |current, _| Gui.update(handler(current)),
+		padding: 0,
+		font_size: Theme.meta,
+		font_face: Theme.face,
+		radius: Theme.radius,
+		bg: Theme.rail,
+		hover_bg: Theme.quiet_hover,
+		active_bg: Theme.quiet_active,
+		fg: if active Theme.ink else Theme.dim,
+		border_width: 0,
+	})
+	match props.width {
+		Px(width) => column_cell({ width, justify: if props.figure End else Start, ink: Theme.dim, size: Theme.meta }, [button])
+		Rest => Gui.row({ width: Fill, grow: True, padding: 0, gap: 0, align: Center }, [button])
+	}
+}
+
+## Bars. A measured part is a sized block; its width is its share of `whole`
+## across `span` pixels, and any non-zero part is at least one pixel wide.
+
+scaled : I64, I64, U32 -> U32
+scaled = |part, whole, span| if whole <= 0 or part <= 0 {
+	0
+} else {
+	width = part * span.to_i64() / whole
+	if width < 1 1 else width.to_u32_wrap()
+}
+
+block : U32, Gui.Color -> Gui.Elem(Observatory.State)
+block = |width, color| Gui.row({ width: Px(width), height: Px(10), padding: 0, gap: 0, bg: color }, [])
+
+## One bar at an offset within a track, as a waterfall row draws it.
+offset_bar : { offset : I64, part : I64, whole : I64, span : U32, color : Gui.Color } -> Gui.Elem(Observatory.State)
+offset_bar = |props| Gui.row(
+	{ width: Px(props.span), padding: 0, gap: 0, align: Center },
+	[block(scaled(props.offset, props.whole, props.span), Theme.card), block(scaled(props.part, props.whole, props.span), props.color)],
+)
 
 ## Header and authority
 
@@ -191,24 +332,25 @@ capture_row = |directory, listing| Gui.row(
 	{ label: "Capture row ${listing.name}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 	[
 		Gui.row(
-			{ width: Px(250), padding: 0, padding_right: Px(Theme.inset), gap: 0 },
+			{ width: Px(250), min_width: Px(250), max_width: Px(250), overflow_x: Clip, padding: 0, padding_right: Px(Theme.inset), gap: 0 },
 			[
 				Gui.button({
 					caption: listing.name,
 					label: "Capture ${listing.name}",
 					on_press: |current, _| Observatory.open_capture(current, directory, listing.name),
 					width: Fill,
-					padding: 3,
+					padding: 0,
 					font_size: Theme.body,
 					font_face: Theme.face,
 					radius: Theme.radius,
-					bg: Theme.quiet,
+					bg: Theme.card,
 					hover_bg: Theme.quiet_hover,
 					active_bg: Theme.quiet_active,
-					fg: Theme.ink,
+					fg: Theme.accent,
 					border_color: Theme.line,
-					border_width: 1,
+					border_width: 0,
 					text_overflow: Ellipsis,
+					justify: Start,
 				}),
 			],
 		),
@@ -219,6 +361,52 @@ capture_row = |directory, listing| Gui.row(
 		cell(listing.detail, 80, Theme.dim),
 		rest_cell(verdict_badge(listing.verdict), verdict_ink(listing.verdict)),
 	],
+)
+
+Column : { caption : Str, width : [Px(U32), Rest], figure : Bool }
+
+capture_columns : List(Column)
+capture_columns = [
+	{ caption: "file", width: Px(250), figure: False },
+	{ caption: "app", width: Px(150), figure: False },
+	{ caption: "spec", width: Px(260), figure: False },
+	{ caption: "backend", width: Px(150), figure: False },
+	{ caption: "scale", width: Px(70), figure: True },
+	{ caption: "detail", width: Px(80), figure: False },
+	{ caption: "health", width: Rest, figure: False },
+]
+
+capture_heads : Observatory.Sort -> List(Gui.Elem(Observatory.State))
+capture_heads = |sort| capture_columns.map_with_index(
+	|column, index| sort_head({
+		caption: column.caption,
+		label: "Sort captures by ${column.caption}",
+		width: column.width,
+		figure: column.figure,
+		sort,
+		column: index,
+		on_press: |current| Observatory.sort_captures(current, index),
+	}),
+)
+
+capture_key : Capture.Listing, U64 -> SortKey
+capture_key = |listing, column| match column {
+	0 => Text(listing.name)
+	1 => Text(listing.application)
+	2 => Text(listing.spec)
+	3 => Text(listing.backend)
+	4 => number_or_text(listing.scale)
+	5 => Text(listing.detail)
+	_ => Text(verdict_badge(listing.verdict))
+}
+
+sorted_captures : List(Capture.Listing), Observatory.Sort -> List(Capture.Listing)
+sorted_captures = |captures, sort| List.sort_with(
+	captures,
+	|left, right| {
+		order = compare_keys(capture_key(left, sort.column), capture_key(right, sort.column))
+		if sort.descending reverse_order(order) else order
+	},
 )
 
 capture_list : Observatory.State -> Gui.Elem(Observatory.State)
@@ -233,11 +421,11 @@ capture_list = |state| {
 				Gui.col(
 					{ label: "Capture table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 					[
-						table_head("Capture columns", [head_cell("file", 250), head_cell("app", 150), head_cell("spec", 260), head_cell("backend", 150), head_figure("scale", 70), head_cell("detail", 80), head_rest("health")]),
+						table_head("Capture columns", capture_heads(state.capture_sort)),
 						Gui.virtual_list({
 							label: "Captures",
 							row_height: Theme.row_height,
-							items: folder.captures.map_with_index(|listing, index| { key: index, content: capture_row(folder.directory, listing) }),
+							items: sorted_captures(folder.captures, state.capture_sort).map_with_index(|listing, index| { key: index, content: capture_row(folder.directory, listing) }),
 						}),
 					],
 				),
@@ -294,19 +482,25 @@ nav = |state| {
 	entry = |caption, view| key({ caption, label: caption, selected: state.view == view, on_press: |current, _| Gui.update(Observatory.show(current, view)) })
 	Gui.col(
 		{ label: "Views", width: Px(Theme.nav_width), height: Fill, padding: Theme.inset, gap: 6, bg: Theme.rail, border_color: Theme.line, border_width: 0, border_right: Px(1) },
-		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Spec", Spec), entry("Health", Health)],
+		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health)],
 	)
 }
 
 ## Overview (W1)
 
-tile : { name : Str, value : Str, detail : Str, opens : Str, view : Observatory.View } -> Gui.Elem(Observatory.State)
+## A tile's figure. An absent one is a `—` that opens Health at its family,
+## and its reason wraps in full beneath it.
+tile : { name : Str, family : Str, value : Str, detail : Str, opens : Str, view : Observatory.View } -> Gui.Elem(Observatory.State)
 tile = |props| Gui.panel(
-	{ label: "Tile ${props.name}", width: Px(Theme.tile_width), padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+	{ label: "Tile ${props.name}", width: Fill, grow: True, padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
 	[
 		meta(props.name),
-		Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.figure, font_face: Theme.face, text_overflow: Ellipsis }, [Gui.text(props.value)]),
-		Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, text_overflow: Ellipsis }, [Gui.text(props.detail)]),
+		if props.value == "—" {
+			Gui.row({ padding: 0, gap: 0 }, [dash(props.family, Theme.figure)])
+		} else {
+			Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.figure, font_face: Theme.face, text_overflow: Ellipsis }, [Gui.text(props.value)])
+		},
+		Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Gui.text(props.detail)]),
 		key({ caption: "${props.opens} ›", label: "Open ${props.name}", selected: False, on_press: |current, _| Gui.update(Observatory.show(current, props.view)) }),
 	],
 )
@@ -384,17 +578,17 @@ overview = |state, opened| {
 					Gui.row(
 						{ label: "Tiles", width: Fill, padding: 0, gap: Theme.inset },
 						[
-							tile({ name: "Outcome", value: outcome.value, detail: outcome.detail, opens: "Spec", view: Spec }),
-							tile({ name: "Slowest trigger", value: slowest.value, detail: slowest.detail, opens: "Interactions", view: Interactions }),
-							tile({ name: "Median cycle", value: median.value, detail: median.detail, opens: "Interactions", view: Interactions }),
+							tile({ name: "Outcome", family: "test_outcome", value: outcome.value, detail: outcome.detail, opens: "Spec", view: Spec }),
+							tile({ name: "Slowest trigger", family: "host_cycles", value: slowest.value, detail: slowest.detail, opens: "Interactions", view: Interactions }),
+							tile({ name: "Median cycle", family: "host_cycles", value: median.value, detail: median.detail, opens: "Interactions", view: Interactions }),
 						],
 					),
 					Gui.row(
 						{ label: "More tiles", width: Fill, padding: 0, gap: Theme.inset },
 						[
-							tile({ name: "Frames over budget", value: frames.value, detail: frames.detail, opens: "Health", view: Health }),
-							tile({ name: "Skip rate", value: skip.value, detail: skip.detail, opens: "Health", view: Health }),
-							tile({ name: "Verdict", value: Capture.verdict_word(opened.verdict), detail: Capture.verdict_reason(opened.verdict), opens: "Health", view: Health }),
+							tile({ name: "Frames over budget", family: "gpui_frame_spans", value: frames.value, detail: frames.detail, opens: "Health", view: Health }),
+							tile({ name: "Skip rate", family: "component_work", value: skip.value, detail: skip.detail, opens: "Health", view: Health }),
+							tile({ name: "Verdict", family: "", value: Capture.verdict_word(opened.verdict), detail: Capture.verdict_reason(opened.verdict), opens: "Health", view: Health }),
 						],
 					),
 				],
@@ -402,20 +596,95 @@ overview = |state, opened| {
 	)
 }
 
-## Interactions (W2, the triggers table)
+## Interactions (W2): the triggers table, the slowest cycles, and the inspector
 
 phases : List(Str)
 phases = ["initialization", "setup", "measured", "interactive"]
 
-interactions : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
-interactions = |state, opened| {
-	timed = Capture.complete(opened, "host_cycles")
-	shown = |ns| if timed Format.ms(ns) else "—"
-	rows = opened.triggers.keep_if(|trigger| trigger.phase == state.phase)
-	selector = Gui.row(
-		{ label: "Phase", width: Fill, padding: 0, gap: 6, align: Center },
-		[meta("PHASE")].concat(phases.map(|phase| key({ caption: phase, label: "Phase ${phase}", selected: state.phase == phase, on_press: |current, _| Gui.update(Observatory.set_phase(current, phase)) }))),
+phase_selector : Observatory.State -> Gui.Elem(Observatory.State)
+phase_selector = |state| Gui.row(
+	{ label: "Phase", width: Fill, padding: 0, gap: 6, align: Center },
+	[meta("PHASE")].concat(phases.map(|phase| key({ caption: phase, label: "Phase ${phase}", selected: state.phase == phase, on_press: |current, _| Gui.update(Observatory.set_phase(current, phase)) }))),
+)
+
+trigger_columns : List(Column)
+trigger_columns = [
+	{ caption: "trigger", width: Px(180), figure: False },
+	{ caption: "patch", width: Px(110), figure: False },
+	{ caption: "cycles", width: Px(70), figure: True },
+	{ caption: "min", width: Px(110), figure: True },
+	{ caption: "median", width: Px(110), figure: True },
+	{ caption: "max", width: Px(110), figure: True },
+	{ caption: "IQR", width: Px(110), figure: True },
+]
+
+trigger_key : Capture.Trigger, U64 -> SortKey
+trigger_key = |trigger, column| match column {
+	0 => Text(trigger.trigger)
+	1 => Text(trigger.patch_kind)
+	2 => Number(trigger.count)
+	3 => Number(trigger.min)
+	4 => Number(trigger.median)
+	5 => Number(trigger.max)
+	_ => Number(trigger.iqr)
+}
+
+sorted_triggers : List(Capture.Trigger), Observatory.Sort -> List(Capture.Trigger)
+sorted_triggers = |triggers, sort| List.sort_with(
+	triggers,
+	|left, right| {
+		order = compare_keys(trigger_key(left, sort.column), trigger_key(right, sort.column))
+		if sort.descending reverse_order(order) else order
+	},
+)
+
+trigger_heads : Observatory.Sort -> List(Gui.Elem(Observatory.State))
+trigger_heads = |sort| trigger_columns
+	.map_with_index(
+		|column, index| sort_head({
+			caption: column.caption,
+			label: "Sort triggers by ${column.caption}",
+			width: column.width,
+			figure: column.figure,
+			sort,
+			column: index,
+			on_press: |current| Observatory.sort_triggers(current, index),
+		}),
 	)
+	.append(head_rest("cycle list"))
+
+## Pressing a trigger's filter shows only its cycles; pressing it again shows
+## every trigger of the phase.
+trigger_filter : Observatory.State, Capture.Trigger -> Gui.Elem(Observatory.State)
+trigger_filter = |state, trigger| {
+	chosen = state.filter == Only({ trigger: trigger.trigger, patch_kind: trigger.patch_kind })
+	Gui.row(
+		{ width: Fill, grow: True, padding: 0, gap: 0, align: Center },
+		[
+			Gui.button({
+				caption: if chosen "✓ only these" else "only these",
+				label: "Filter ${trigger.trigger} ${trigger.patch_kind}",
+				on_press: |current, _| Gui.update(Observatory.filter_trigger(current, trigger.trigger, trigger.patch_kind)),
+				padding: 2,
+				font_size: Theme.meta,
+				font_face: Theme.face,
+				radius: Theme.radius,
+				bg: if chosen Theme.selected else Theme.card,
+				hover_bg: Theme.quiet_hover,
+				active_bg: Theme.quiet_active,
+				fg: if chosen Theme.ink else Theme.dim,
+				border_color: Theme.line,
+				border_width: 1,
+			}),
+		],
+	)
+}
+
+triggers_table : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+triggers_table = |state, opened| {
+	timed = Capture.complete(opened, "host_cycles")
+	shown = |ns, width| family_cell(timed, "host_cycles", Format.ms(ns), width)
+	rows = sorted_triggers(opened.triggers.keep_if(|trigger| trigger.phase == state.phase), state.trigger_sort)
 	body = if rows.is_empty() {
 		[note("No cycles were recorded in the ${state.phase} phase.")]
 	} else {
@@ -423,32 +692,559 @@ interactions = |state, opened| {
 			|trigger| table_row([
 				cell(trigger.trigger, 180, Theme.ink),
 				cell(trigger.patch_kind, 110, Theme.dim),
-				figure_cell(if timed trigger.count.to_str() else "—", 70),
-				figure_cell(shown(trigger.min), 110),
-				figure_cell(shown(trigger.median), 110),
-				figure_cell(shown(trigger.max), 110),
-				figure_cell(shown(trigger.iqr), 110),
+				family_cell(timed, "host_cycles", trigger.count.to_str(), 70),
+				shown(trigger.min, 110),
+				shown(trigger.median, 110),
+				shown(trigger.max, 110),
+				shown(trigger.iqr, 110),
+				trigger_filter(state, trigger),
+			]),
+		)
+	}
+	absence = if timed [] else [absence_note(opened, "host_cycles")]
+	[heading("TRIGGERS · ${state.phase} · by ${sort_caption(trigger_columns, state.trigger_sort)} · warmups excluded")]
+		.concat(absence)
+		.concat([table("Triggers", [table_head("Trigger columns", trigger_heads(state.trigger_sort))].concat(body))])
+}
+
+## The slowest cycles (US-10)
+
+cycle_name : Capture.Cycle -> Str
+cycle_name = |cycle| "r${cycle.run_id.to_str()} #${cycle.ordinal.to_str()}"
+
+bar_span : U32
+bar_span = 320
+
+## Callback, validate, apply, and the rest of the cycle no owner attributed,
+## drawn to one scale so rows compare.
+stacked_bar : Capture.Cycle, I64 -> Gui.Elem(Observatory.State)
+stacked_bar = |cycle, slowest| {
+	rest = cycle.duration - cycle.callback - cycle.validate - cycle.apply
+	Gui.row(
+		{ label: "Cycle bar ${cycle_name(cycle)}", width: Fill, grow: True, padding: 0, gap: 0, align: Center },
+		[
+			block(scaled(cycle.callback, slowest, bar_span), Theme.callback),
+			block(scaled(cycle.validate, slowest, bar_span), Theme.validate),
+			block(scaled(cycle.apply, slowest, bar_span), Theme.apply),
+			block(scaled(rest, slowest, bar_span), Theme.unattributed),
+		],
+	)
+}
+
+cycle_row : Observatory.State, Capture.Cycle, I64, Bool -> Gui.Elem(Observatory.State)
+cycle_row = |state, cycle, slowest, timed| {
+	chosen = match state.inspected {
+		Some(inspected) => inspected.cycle.id == cycle.id
+		None => False
+	}
+	Gui.row(
+		{ label: "Cycle row ${cycle_name(cycle)}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, bg: if chosen Theme.selected else Theme.card, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+		[
+			Gui.row(
+				{ width: Px(100), padding: 0, padding_right: Px(Theme.inset), gap: 0 },
+				[
+					Gui.button({
+						caption: cycle_name(cycle),
+						label: "Cycle ${cycle_name(cycle)}",
+						on_press: |current, _| Observatory.inspect(current, cycle),
+						width: Fill,
+						padding: 2,
+						font_size: Theme.body,
+						font_face: Theme.face,
+						radius: Theme.radius,
+						bg: if chosen Theme.accent else Theme.card,
+						hover_bg: if chosen Theme.accent_hover else Theme.quiet_hover,
+						active_bg: if chosen Theme.accent_active else Theme.quiet_active,
+						fg: if chosen Theme.on_accent else Theme.accent,
+						border_color: Theme.line,
+						border_width: 0,
+						justify: Start,
+					}),
+				],
+			),
+			cell(cycle.trigger, 150, Theme.ink),
+			cell(cycle.patch_kind, 90, Theme.dim),
+			family_cell(timed, "host_cycles", Format.ms(cycle.duration), 110),
+			if timed stacked_bar(cycle, slowest) else rest_cell("", Theme.dim),
+		],
+	)
+}
+
+legend_entry : Str, Gui.Color -> Gui.Elem(Observatory.State)
+legend_entry = |caption, color| Gui.row(
+	{ padding: 0, gap: 4, align: Center, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face },
+	[block(10, color), Gui.text(caption)],
+)
+
+legend : Gui.Elem(Observatory.State)
+legend = Gui.row(
+	{ label: "Cycle legend", padding: 0, gap: Theme.inset, align: Center },
+	[legend_entry("callback", Theme.callback), legend_entry("validate", Theme.validate), legend_entry("apply", Theme.apply), legend_entry("unattributed", Theme.unattributed)],
+)
+
+## How many cycles the list could hold, so a list cut at `cycle_page` per
+## trigger says so.
+phase_total : Observatory.State, Capture.Opened -> I64
+phase_total = |state, opened| match state.filter {
+	All => match opened.medians.find_first(|found| found.phase == state.phase) {
+		Ok(found) => found.count
+		Err(_) => 0
+	}
+	Only(chosen) => opened.triggers
+		.keep_if(|found| found.phase == state.phase and found.trigger == chosen.trigger and found.patch_kind == chosen.patch_kind)
+		.fold(0, |total, found| total + found.count)
+}
+
+cycles_section : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+cycles_section = |state, opened| {
+	timed = Capture.complete(opened, "host_cycles")
+	listed = opened.cycles.keep_if(
+		|cycle| cycle.phase == state.phase
+		and (
+			match state.filter {
+				All => True
+				Only(chosen) => cycle.trigger == chosen.trigger and cycle.patch_kind == chosen.patch_kind
+			}
+		),
+	)
+	slowest = match listed.first() {
+		Ok(cycle) => cycle.duration
+		Err(_) => 0
+	}
+	scope = match state.filter {
+		All => "every trigger"
+		Only(chosen) => "${chosen.trigger} · ${chosen.patch_kind}"
+	}
+	total = phase_total(state, opened)
+	cut = if listed.len().to_i64_wrap() < total [note("The slowest ${Capture.cycle_page.to_str()} cycles of each trigger and patch kind are read; ${listed.len().to_str()} of ${total.to_str()} are listed.")] else []
+	body = if listed.is_empty() {
+		[note("No ${state.phase} cycles to list.")]
+	} else {
+		[
+			Gui.col(
+				{ label: "Cycle table", width: Fill, height: Px(Theme.row_height * 9), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+				[
+					table_head("Cycle columns", [head_cell("cycle", 100), head_cell("trigger", 150), head_cell("patch", 90), head_figure("duration", 110), head_rest("callback · validate · apply · unattributed")]),
+					Gui.virtual_list({
+						label: "Cycles",
+						row_height: Theme.row_height,
+						items: listed.map(|cycle| { key: cycle.id.to_u64_wrap(), content: cycle_row(state, cycle, slowest, timed) }),
+					}),
+				],
+			),
+		]
+	}
+	[
+		Gui.row(
+			{ width: Fill, padding: 0, padding_top: Px(Theme.inset), gap: Theme.inset, align: Center },
+			[meta("CYCLES · ${state.phase} · ${scope} · slowest first · ${listed.len().to_str()}"), Gui.row({ padding: 0, gap: 0, grow: True, justify: End }, [legend])],
+		),
+	]
+		.concat(cut)
+		.concat(body)
+}
+
+## The cycle inspector (W3)
+
+## One waterfall row: a name indented by depth, its duration, and its bar at
+## its offset within the cycle.
+waterfall_row : { name : Str, depth : U32, part : I64, offset : I64, whole : I64, color : Gui.Color } -> Gui.Elem(Observatory.State)
+waterfall_row = |props| Gui.row(
+	{ label: "Waterfall ${props.name}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset + props.depth * 16), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+	[
+		cell(props.name, 220 - props.depth * 16, Theme.ink),
+		figure_cell(Format.ms(props.part), 110),
+		offset_bar({ offset: props.offset, part: props.part, whole: props.whole, span: 420, color: props.color }),
+	],
+)
+
+## A waterfall row whose value is absent: its `—` and why.
+waterfall_absent : { name : Str, depth : U32, family : Str, reason : Str } -> Gui.Elem(Observatory.State)
+waterfall_absent = |props| Gui.row(
+	{ label: "Waterfall ${props.name}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset + props.depth * 16), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+	[cell(props.name, 220 - props.depth * 16, Theme.ink), dash_cell(props.family, 110), rest_cell(props.reason, Theme.dim)],
+)
+
+## Span evidence is shown only for a callback whose spans were recorded validly
+## in a capture whose span family is complete.
+spans_absence : Capture.Opened, Capture.Inspected -> [Shown, Absent(Str)]
+spans_absence = |opened, inspected| if !Capture.complete(opened, "roc_work_spans") {
+	Absent(Capture.absence(opened, "roc_work_spans"))
+} else if !inspected.roc_work_valid {
+	Absent("roc_work_valid = 0: this callback's work spans were invalid or incomplete")
+} else {
+	Shown
+}
+
+waterfall : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
+waterfall = |opened, inspected| {
+	cycle = inspected.cycle
+	parts = Capture.decompose(inspected)
+	whole = cycle.duration
+	row = |name, depth, part, offset, color| waterfall_row({ name, depth, part, offset, whole, color })
+	span_rows = match spans_absence(opened, inspected) {
+		Absent(reason) => [waterfall_absent({ name: "spans", depth: 2, family: "roc_work_spans", reason })]
+		Shown => {
+			var $offset = 0
+			var $drawn = []
+			for kind in Capture.span_kinds {
+				duration = match Capture.span(inspected, kind) {
+					Found(found) => found.duration
+					Missing => 0
+				}
+				$drawn = $drawn.append(row(kind, 2, duration, $offset, Theme.span))
+				$offset = $offset + duration
+			}
+			$drawn.append(row("unattributed", 2, parts.callback_rest, parts.spans_total, Theme.unattributed))
+		}
+	}
+	apply_at = cycle.callback + cycle.validate
+	gpui_rows = match inspected.gpui_apply {
+		Some(gpui) => [
+			row("gpui apply", 2, gpui, apply_at + inspected.graph_apply, Theme.apply),
+			match parts.apply_rest {
+				Some(rest) => row("unattributed", 2, rest, apply_at + inspected.graph_apply + gpui, Theme.unattributed)
+				None => waterfall_absent({ name: "unattributed", depth: 2, family: "gpui_application", reason: Capture.absence(opened, "gpui_application") })
+			},
+		]
+		None => [
+			waterfall_absent({ name: "gpui apply", depth: 2, family: "gpui_application", reason: Capture.absence(opened, "gpui_application") }),
+		]
+	}
+	check = if parts.balanced {
+		"✓ Σ parts = ${Format.ms(parts.sum)} = cycle"
+	} else {
+		"✗ Σ parts = ${Format.ms(parts.sum)}, cycle ${Format.ms(cycle.duration)}: a part exceeds the time that contains it"
+	}
+	[
+		row("cycle", 0, cycle.duration, 0, Theme.ink),
+		row("roc callback", 1, cycle.callback, 0, Theme.callback),
+	]
+		.concat(span_rows)
+		.concat(
+			[
+				row("validate", 1, cycle.validate, cycle.callback, Theme.validate),
+				row("apply", 1, cycle.apply, apply_at, Theme.apply),
+				row("graph apply", 2, inspected.graph_apply, apply_at, Theme.apply),
+			],
+		)
+		.concat(gpui_rows)
+		.concat(
+			[
+				row("unattributed", 1, parts.cycle_rest, apply_at + cycle.apply, Theme.unattributed),
+				Gui.row(
+					{ label: "Sum check", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, fg: if parts.balanced Theme.good else Theme.alarm_ink, font_size: Theme.body, font_face: Theme.face },
+					[Gui.text(check)],
+				),
+			],
+		)
+}
+
+## US-14: every kind, `—` when the cycle has no component work observation.
+component_work : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
+component_work = |opened, inspected| {
+	absent = if !Capture.complete(opened, "component_work") {
+		Some(Capture.absence(opened, "component_work"))
+	} else if !inspected.component_work_recorded {
+		Some("component_work_recorded = 0: this cycle has no component work observation")
+	} else {
+		None
+	}
+	value = |kind| match absent {
+		Some(_) => None
+		None => Capture.work_count(inspected, kind)
+	}
+	rows = Capture.work_kinds.map_with_index(
+		|name, index| labelled_row("Work ${name}", [
+			cell(name, 190, Theme.ink),
+			match value(index.to_i64_wrap()) {
+				Some(count) => figure_cell(count.to_str(), 70)
+				None => dash_cell("component_work", 70)
+			},
+			rest_cell("", Theme.dim),
+		]),
+	)
+	skip = match (value(2), value(1)) {
+		(Some(skipped), Some(compared)) => "skip rate ${Format.percent(skipped, compared)} · ${skipped.to_str()} skipped of ${compared.to_str()} compared"
+		_ => "skip rate —"
+	}
+	reason = match absent {
+		Some(why) => [absence_line("component_work", why)]
+		None => []
+	}
+	[heading("COMPONENT WORK")]
+		.concat(reason)
+		.concat([table("Component work", [table_head("Component work columns", [head_cell("kind", 190), head_figure("count", 70), head_rest("")])].concat(rows)), note(skip)])
+}
+
+## US-15
+graph_work : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
+graph_work = |opened, inspected| {
+	present = Capture.complete(opened, "patch_accounting")
+	counter_row = |counter| labelled_row("Graph ${counter.name}", [cell(counter.name, 190, Theme.ink), family_cell(present, "patch_accounting", counter.value.to_str(), 70), rest_cell("", Theme.dim)])
+	reason = if present [] else [absence_note(opened, "patch_accounting")]
+	[heading("GRAPH WORK")]
+		.concat(reason)
+		.concat(
+			[
+				table(
+					"Graph work",
+					[table_head("Graph work columns", [head_cell("counter", 190), head_figure("count", 70), head_rest("")])]
+						.concat(inspected.graph.map(counter_row))
+						.concat(inspected.keyed.map(counter_row)),
+				),
+			],
+		)
+}
+
+## US-16
+span_allocations : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
+span_allocations = |opened, inspected| {
+	shown = spans_absence(opened, inspected)
+	figures = |kind| match (shown, Capture.span(inspected, kind)) {
+		(Shown, Found(found)) => [
+			figure_cell(found.alloc_calls.to_str(), 80),
+			figure_cell(Format.bytes(found.allocated_bytes), 100),
+			figure_cell(found.dealloc_calls.to_str(), 80),
+			figure_cell(found.realloc_calls.to_str(), 80),
+			figure_cell(Format.bytes(found.reallocated_bytes), 100),
+		]
+		(Shown, Missing) => [figure_cell("0", 80), figure_cell(Format.bytes(0), 100), figure_cell("0", 80), figure_cell("0", 80), figure_cell(Format.bytes(0), 100)]
+		(Absent(_), _) => [dash_cell("roc_work_spans", 80), dash_cell("roc_work_spans", 100), dash_cell("roc_work_spans", 80), dash_cell("roc_work_spans", 80), dash_cell("roc_work_spans", 100)]
+	}
+	reason = match shown {
+		Absent(why) => [absence_line("roc_work_spans", why)]
+		Shown => []
+	}
+	[heading("ALLOCATIONS BY SPAN")]
+		.concat(reason)
+		.concat(
+			[
+				table(
+					"Allocations",
+					[table_head("Allocation columns", [head_cell("span", 190), head_figure("allocs", 80), head_figure("bytes", 100), head_figure("deallocs", 80), head_figure("reallocs", 80), head_figure("realloc bytes", 100), head_rest("")])].concat(
+						Capture.span_kinds.map(|kind| labelled_row("Allocation ${kind}", [cell(kind, 190, Theme.ink)].concat(figures(kind)).append(rest_cell("", Theme.dim)))),
+					),
+				),
+			],
+		)
+}
+
+inspector : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+inspector = |state, opened| match state.inspected {
+	None => [note("Press a cycle to inspect it.")]
+	Some(inspected) => {
+		cycle = inspected.cycle
+		step = match (cycle.step_ordinal, inspected.step_line) {
+			(Some(ordinal), Some(source_line)) => [
+				key({ caption: "Show step ▸ line ${source_line.to_str()}", label: "Show step", selected: False, on_press: |current, _| Observatory.show_step(current, cycle.run_id, ordinal) }),
+			]
+			_ => []
+		}
+		title = Gui.row(
+			{ label: "Inspector title", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+			[
+				Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("CYCLE ${cycle_name(cycle)} · ${cycle.trigger} · ${cycle.patch_kind} · ${cycle.phase}")]),
+				Gui.row({ padding: 0, gap: Theme.inset, grow: True, justify: End }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.update(Observatory.close_inspector(current)) }))),
+			],
+		)
+		timing = if Capture.complete(opened, "host_cycles") {
+			[table("Waterfall", waterfall(opened, inspected))]
+		} else {
+			[absence_note(opened, "host_cycles")]
+		}
+		[
+			Gui.col(
+				{ label: "Cycle inspector", width: Fill, padding: Theme.inset, gap: 6, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+				[title, heading("WATERFALL")]
+					.concat(timing)
+					.concat(
+						[
+							Gui.row(
+								{ label: "Cycle work", width: Fill, padding: 0, gap: Theme.inset },
+								[
+									Gui.col({ width: Px(300), padding: 0, gap: 4 }, component_work(opened, inspected)),
+									Gui.col({ width: Px(300), padding: 0, gap: 4 }, graph_work(opened, inspected)),
+								],
+							),
+						],
+					)
+					.concat(span_allocations(opened, inspected)),
+			),
+		]
+	}
+}
+
+interactions : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
+interactions = |state, opened| Gui.col(
+	{ label: "Interactions", width: Fill, padding: Theme.inset, gap: Theme.inset },
+	[phase_selector(state)]
+		.concat(triggers_table(state, opened))
+		.concat(cycles_section(state, opened))
+		.concat([heading("CYCLE")])
+		.concat(inspector(state, opened)),
+)
+
+## Memory (US-27, US-28)
+
+allocations_by_trigger : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+allocations_by_trigger = |state, opened| {
+	present = Capture.complete(opened, "roc_work_spans")
+	rows = opened.allocations.keep_if(|found| found.phase == state.phase)
+	body = if !present {
+		[]
+	} else if rows.is_empty() {
+		[table_row([rest_cell("No ${state.phase} cycles with valid spans.", Theme.dim)])]
+	} else {
+		rows.map(
+			|found| labelled_row("Allocation ${found.trigger} ${found.span}", [
+				cell(found.trigger, 130, Theme.ink),
+				cell(found.span, 180, Theme.dim),
+				figure_cell(found.cycles.to_str(), 60),
+				figure_cell(found.calls_mean.to_str(), 70),
+				figure_cell(found.calls_max.to_str(), 70),
+				figure_cell(found.calls_total.to_str(), 80),
+				figure_cell(Format.bytes(found.bytes_mean), 90),
+				figure_cell(Format.bytes(found.bytes_max), 90),
+				figure_cell(Format.bytes(found.bytes_total), 90),
 				rest_cell("", Theme.dim),
 			]),
 		)
 	}
-	absence = if timed [] else [note("Durations shown as — : ${Capture.absence(opened, "host_cycles")}")]
-	Gui.col(
-		{ label: "Interactions", width: Fill, padding: Theme.inset, gap: Theme.inset },
-		[selector, heading("TRIGGERS · ${state.phase} · by median · warmups excluded")]
-			.concat(absence)
-			.concat(
-				[
-					table(
-						"Triggers",
-						[
-							table_head("Trigger columns", [head_cell("trigger", 180), head_cell("patch", 110), head_figure("cycles", 70), head_figure("min", 110), head_figure("median", 110), head_figure("max", 110), head_figure("IQR", 110), head_rest("")]),
-						].concat(body),
-					),
-				],
-			),
-	)
+	reason = if present [] else [absence_note(opened, "roc_work_spans")]
+	[heading("ALLOCATIONS BY TRIGGER · ${state.phase} · per cycle with valid spans · warmups excluded")]
+		.concat(reason)
+		.concat(
+			[
+				table(
+					"Allocations by trigger",
+					[
+						table_head(
+							"Allocation by trigger columns",
+							[head_cell("trigger", 130), head_cell("span", 180), head_figure("cycles", 60), head_figure("calls x̄", 70), head_figure("max", 70), head_figure("total", 80), head_figure("bytes x̄", 90), head_figure("max", 90), head_figure("total", 90), head_rest("")],
+						),
+					].concat(body),
+				),
+			],
+		)
 }
+
+## A value that exists only once its run has ended.
+ended : Bool, Str, [None, Some(I64)], (I64 -> Str), U32 -> Gui.Elem(Observatory.State)
+ended = |present, family_name, value, shape, width| match value {
+	Some(number) if present => figure_cell(shape(number), width)
+	_ => dash_cell(family_name, width)
+}
+
+## Runs recorded without an end snapshot, such as an interactive session's run,
+## which has no end until its process exits. Their changes are absent.
+unended_note : Capture.Opened, Str -> List(Gui.Elem(Observatory.State))
+unended_note = |opened, family_name| {
+	unended = opened.resources.keep_if(|found| found.cpu_user == None)
+	if unended.is_empty() {
+		[]
+	} else {
+		runs = Str.join_with(unended.map(|found| found.run_id.to_str()), ", ")
+		[absence_line(family_name, "no end snapshot was recorded for run ${runs}, so its changes are absent")]
+	}
+}
+
+count_text : I64 -> Str
+count_text = |number| number.to_str()
+
+run_cells : Capture.Resources -> List(Gui.Elem(Observatory.State))
+run_cells = |found| [figure_cell(found.run_id.to_str(), 50), cell(found.phase, 90, Theme.ink), figure_cell(Format.maybe_int(found.sample), 60)]
+
+run_lifecycle : Capture.Opened -> List(Gui.Elem(Observatory.State))
+run_lifecycle = |opened| {
+	present = Capture.complete(opened, "roc_allocations")
+	family_name = "roc_allocations"
+	rows = opened.resources.map(
+		|found| labelled_row(
+			"Lifecycle run ${found.run_id.to_str()}",
+			run_cells(found)
+				.concat(
+					[
+						ended(present, family_name, found.alloc_calls, count_text, 90),
+						ended(present, family_name, found.alloc_bytes, Format.bytes, 100),
+						ended(present, family_name, found.dealloc_calls, count_text, 90),
+						ended(present, family_name, found.realloc_calls, count_text, 90),
+						ended(present, family_name, found.realloc_bytes, Format.bytes, 100),
+						rest_cell("", Theme.dim),
+					],
+				),
+		),
+	)
+	reason = if present unended_note(opened, family_name) else [absence_note(opened, family_name)]
+	[heading("RUN LIFECYCLE · Roc allocations from each run's start to its end")]
+		.concat(reason)
+		.concat(
+			[
+				table(
+					"Run lifecycle",
+					[table_head("Run lifecycle columns", [head_figure("run", 50), head_cell("phase", 90), head_figure("index", 60), head_figure("allocs", 90), head_figure("bytes", 100), head_figure("deallocs", 90), head_figure("reallocs", 90), head_figure("realloc bytes", 100), head_rest("")])].concat(rows),
+				),
+			],
+		)
+}
+
+process_resources : Capture.Opened -> List(Gui.Elem(Observatory.State))
+process_resources = |opened| {
+	present = Capture.complete(opened, "process_resources")
+	family_name = "process_resources"
+	rows = opened.resources.map(
+		|found| labelled_row(
+			"Resources run ${found.run_id.to_str()}",
+			run_cells(found)
+				.concat(
+					[
+						ended(present, family_name, found.cpu_user, Format.ms, 110),
+						ended(present, family_name, found.cpu_system, Format.ms, 110),
+						ended(present, family_name, found.peak_rss, Format.bytes, 100),
+						ended(present, family_name, found.current_rss, Format.bytes, 100),
+						rest_cell("", Theme.dim),
+					],
+				),
+		),
+	)
+	peaks = opened.resources.fold(0, |most, found| match found.peak_rss {
+		Some(bytes) if bytes > most => bytes
+		_ => most
+	})
+	chart_row = |found| Gui.row(
+		{ label: "RSS run ${found.run_id.to_str()}", width: Fill, height: Px(18), padding: 0, gap: Theme.inset, align: Center },
+		[
+			cell("${found.phase} ${Format.maybe_int(found.sample)}", 120, Theme.dim),
+			match found.peak_rss {
+				Some(bytes) if present => Gui.row({ width: Px(bar_span), padding: 0, gap: 0, align: Center }, [block(scaled(bytes, peaks, bar_span), Theme.callback)])
+				_ => Gui.row({ width: Px(bar_span), padding: 0, gap: 0, align: Center }, [dash(family_name, Theme.meta)])
+			},
+			ended(present, family_name, found.peak_rss, Format.bytes, 100),
+		],
+	)
+	reason = if present unended_note(opened, family_name) else [absence_note(opened, family_name)]
+	[heading("PROCESS RESOURCES · CPU and RSS from each run's start to its end")]
+		.concat(reason)
+		.concat(
+			[
+				table(
+					"Process resources",
+					[table_head("Process resource columns", [head_figure("run", 50), head_cell("phase", 90), head_figure("index", 60), head_figure("user CPU", 110), head_figure("system CPU", 110), head_figure("peak RSS", 100), head_figure("current RSS", 100), head_rest("")])].concat(rows),
+				),
+				heading("PEAK RSS BY RUN"),
+				Gui.col({ label: "RSS chart", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius }, opened.resources.map(chart_row)),
+			],
+		)
+}
+
+memory : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
+memory = |state, opened| Gui.col(
+	{ label: "Memory", width: Fill, padding: Theme.inset, gap: Theme.inset },
+	[phase_selector(state)]
+		.concat(allocations_by_trigger(state, opened))
+		.concat(run_lifecycle(opened))
+		.concat(process_resources(opened)),
+)
 
 ## Spec results (US-21)
 
@@ -502,21 +1298,38 @@ spec = |state, opened| {
 	step_rows = steps.map_with_index(
 		|step, index| {
 			key: index,
-			content: table_row([
+			content: family_row(state.step_focus == Some(step.ordinal), [
 				cell("Step line ${step.line.to_str()}", 120, Theme.dim),
 				cell(step.kind, 200, Theme.ink),
 				cell(step.role, 90, Theme.dim),
 				cell(step.status, 50, if step.status == "pass" Theme.good else Theme.alarm_ink),
-				figure_cell(if timed Format.maybe_ms(step.duration) else "—", 110),
+				if timed figure_cell(Format.maybe_ms(step.duration), 110) else dash_cell("step_results", 110),
 				rest_cell(step_result(step), if step.status == "pass" Theme.dim else Theme.alarm_ink),
 			]),
 		},
 	)
-	absence = if timed [] else [note("Durations shown as — : ${Capture.absence(opened, "step_results")}")]
+	absence = if timed [] else [absence_note(opened, "step_results")]
+	focus = match state.step_focus {
+		None => []
+		Some(ordinal) => {
+			found = steps.keep_if(|step| step.ordinal == ordinal)
+			[
+				Gui.panel(
+					{ label: "Focused step", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.selected, border_color: Theme.edge, border_width: 1, radius: Theme.radius },
+					if found.is_empty() {
+						[line("No step of run ${state.run.to_str()} has ordinal ${ordinal.to_str()}.")]
+					} else {
+						found.map(|step| line(Str.join_with(["line ${step.line.to_str()}", step.kind, step.role, step.status, step_result(step)].keep_if(|part| !Str.is_empty(part)), " · ")))
+					},
+				),
+			]
+		}
+	}
 	Gui.col(
 		{ label: "Spec", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset },
 		[selector, heading("RUNS"), runs, heading("STEPS OF RUN ${state.run.to_str()} · ${steps.len().to_str()}")]
 			.concat(absence)
+			.concat(focus)
 			.concat(more)
 			.concat(
 				[
@@ -545,13 +1358,39 @@ status_ink = |status| match status {
 flag : I64 -> Str
 flag = |value| if value == 0 "ok" else "failed"
 
-health : Capture.Opened -> Gui.Elem(Observatory.State)
-health = |opened| {
+## A family row, marked when a `—` elsewhere opened Health at it.
+family_row : Bool, List(Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
+family_row = |focused, cells| Gui.row(
+	{ width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, bg: if focused Theme.selected else Theme.card, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+	cells,
+)
+
+## The family a `—` opened Health at, with its status and reason in full.
+family_focus : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+family_focus = |state, opened| match state.family_focus {
+	None => []
+	Some(name) => [
+		Gui.panel(
+			{ label: "Focused family", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.selected, border_color: Theme.edge, border_width: 1, radius: Theme.radius },
+			match Capture.family(opened, name) {
+				Found(found) => [
+					Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("${found.name} · ${found.status}")]),
+					Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Gui.text(found.reason)]),
+				]
+				Missing => [Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body }, [Gui.text("${name} is not recorded in this capture")])]
+			},
+		),
+	]
+}
+
+health : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
+health = |state, opened| {
+	focused = |name| state.family_focus == Some(name)
 	families = table(
 		"Measurement families",
 		[table_head("Family columns", [head_cell("family", 230), head_cell("detail", 80), head_cell("status", 110), head_figure("rows", 70), head_figure("omitted", 80), head_rest("reason")])].concat(
 			opened.families.map(
-				|found| table_row([
+				|found| family_row(focused(found.name), [
 					cell(found.name, 230, Theme.ink),
 					cell(found.detail, 80, Theme.dim),
 					cell(found.status, 110, status_ink(found.status)),
@@ -588,6 +1427,7 @@ health = |opened| {
 				[meta("VERDICT"), Gui.row({ padding: 0, gap: 0, fg: verdict_ink(opened.verdict), font_size: Theme.body, font_face: Theme.face }, [Gui.text(Capture.verdict_word(opened.verdict))]), line(Capture.verdict_reason(opened.verdict))],
 			),
 			note(Capture.rule),
+			Gui.col({ label: "Family focus", width: Fill, padding: 0, gap: 0 }, family_focus(state, opened)),
 			heading("MEASUREMENT FAMILIES"),
 			families,
 			heading("RECORDING GAPS"),
@@ -616,17 +1456,18 @@ main_view = |state, opened| match state.view {
 	Overview => scrolled("Overview scroll", overview(state, opened))
 	Interactions => scrolled("Interactions scroll", interactions(state, opened))
 	Spec => spec(state, opened)
-	Health => scrolled("Health scroll", health(opened))
+	Memory => scrolled("Memory scroll", memory(state, opened))
+	Health => scrolled("Health scroll", health(state, opened))
 }
 
 workspace : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
 workspace = |state, opened| Gui.col(
-	{ label: "Capture", width: Fill, height: Fill, grow: True, padding: 0, gap: 0 },
+	{ label: "Capture", width: Fill, height: Fill, grow: True, min_height: Px(0), overflow_y: Clip, padding: 0, gap: 0 },
 	[
 		capture_bar(opened),
 		banner(opened),
 		Gui.row(
-			{ label: "Workspace", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.paper },
+			{ label: "Workspace", width: Fill, height: Fill, grow: True, min_height: Px(0), overflow_y: Clip, padding: 0, gap: 0, bg: Theme.paper },
 			[nav(state), main_view(state, opened)],
 		),
 	],
