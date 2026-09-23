@@ -34,13 +34,21 @@
     (expect-count (role row :name "Waterfall unattributed") 2)
     (expect-visible (within (role row :name "Waterfall gpui apply") (text "gpui_application not_recorded: semantic headless execution does not instantiate GPUI views")))
     (expect-visible (within (role row :name "Sum check") (text-prefix "✓ Σ parts = ")))
-    (expect-visible (within (role row :name "Work rendered") (text "1")))
+    ; The counters belong to another application's run, so their values are
+    ; that application's business. What the inspector owes is that each is
+    ; shown as recorded, not as an absence, and that the derived skip rate
+    ; agrees with the table it is derived from.
+    (expect-visible (role row :name "Work rendered"))
+    (expect-not-visible (within (role row :name "Work rendered") (button-prefix "Why ")))
     (expect-visible (within (role row :name "Work compared") (text "0")))
     (expect-visible (within (role row :name "Work keyed_snapshot_items") (text "0")))
     (expect-visible (text "skip rate — · 0 skipped of 0 compared"))
-    (expect-visible (within (role row :name "Graph staged") (text "1466")))
-    (expect-visible (within (role row :name "Graph removed") (text "48")))
-    (expect-visible (within (role row :name "Graph validation visits") (text "2980")))
+    (expect-visible (role row :name "Graph staged"))
+    (expect-not-visible (within (role row :name "Graph staged") (button-prefix "Why ")))
+    (expect-visible (role row :name "Graph removed"))
+    (expect-not-visible (within (role row :name "Graph removed") (button-prefix "Why ")))
+    (expect-visible (role row :name "Graph validation visits"))
+    (expect-not-visible (within (role row :name "Graph validation visits") (button-prefix "Why ")))
     (expect-visible (within (role row :name "Graph items moved") (text "0")))
     (expect-visible (within (role row :name "Allocation component_comparison") (text "0 B")))
     (expect-visible (role row :name "Allocation platform_lowering"))

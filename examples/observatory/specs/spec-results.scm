@@ -14,7 +14,8 @@
     (expect-visible (within (role column :name "Runs") (text "warmup")))
     (expect-visible (text "STEPS OF RUN 1 · 9"))
     (expect-count (within (role virtual-list :name "Steps") (text-prefix "Step line ")) 9)
-    (expect-visible (within (role virtual-list :name "Steps") (text "expect-count")))
+    ; the scale-100 benchmark ends in one assertion, which proves its scale
+    (expect-count (within (role virtual-list :name "Steps") (text "assertion")) 1)
     (expect-visible (within (role virtual-list :name "Steps") (text "count 100 / 100")))
     (click (role button :name "Run 3"))
     (await-task)
