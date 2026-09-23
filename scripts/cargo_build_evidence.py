@@ -11,7 +11,6 @@ import tempfile
 import tomllib
 
 from host_build_identity import source_fingerprint
-import vendored_gpui
 from prepare_dependencies import cargo_environment
 
 EVIDENCE_SCHEMA = 2
@@ -134,14 +133,11 @@ def derive(metadata_bytes, messages_bytes, lock_bytes, target, host_bytes, host_
         key = (package["name"], package["version"], package["source"])
         if key not in locked or (package["source"] is not None and not locked[key]):
             raise ValueError("compiled package has no Cargo.lock identity")
-        vendored = None
         if package["source"] is None and identity != root:
-            vendored, _, _, _ = vendored_gpui.admit(package, source_root)
+            raise ValueError("compiled path package is not the host")
         record = {"id": identity, "name": package["name"], "version": package["version"],
                   "source": package["source"], "crate_sha256": locked[key],
                   "declared_license": package["license"]}
-        if vendored is not None:
-            record["vendored_source"] = vendored
         selected.append(record)
         report.append({"package": package})
     evidence = {"schema_version": EVIDENCE_SCHEMA, "target": target, "rust_target": TARGETS[target],

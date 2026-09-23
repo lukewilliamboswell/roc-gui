@@ -22,7 +22,7 @@ TARGETS = {
     ("Windows", "AMD64"): "x64mingw",
 }
 SOURCE_PATHS = (
-    "crates/host", "vendor/gpui", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
+    "crates/host", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
     "dependencies/gui-host-notices",
     ".github/actions/setup-toolchain/action.yml", ".github/workflows/gui-hosts.yml",
     "scripts/cargo_build_evidence.py", "scripts/gui_host_artifacts.py",
@@ -33,7 +33,6 @@ SOURCE_PATHS = (
     # as surely as the Cargo sources do.
     "scripts/windows_gnu_build.py", "scripts/windows_gnu_coff.py",
     "scripts/rust_license_inventory.py", "scripts/toolchain_license_inventory.py",
-    "scripts/vendored_gpui.py",
 )
 
 
