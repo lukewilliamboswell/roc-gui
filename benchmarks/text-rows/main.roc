@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-22-e494788" }
 
 import pf.Gui
 
@@ -36,15 +36,15 @@ render = |state| {
 			Gui.row(
 				{},
 				[
-					Gui.button({ caption: "Short 100", label: "Show 100 short messages", on_press: |_, _| Gui.update({ count: 100, content: Short }) }),
-					Gui.button({ caption: "Short 1,000", label: "Show 1,000 short messages", on_press: |_, _| Gui.update({ count: 1000, content: Short }) }),
-					Gui.button({ caption: "Short 10,000", label: "Show 10,000 short messages", on_press: |_, _| Gui.update({ count: 10000, content: Short }) }),
-					Gui.button({ caption: "Long 100", label: "Show 100 long messages", on_press: |_, _| Gui.update({ count: 100, content: Long }) }),
-					Gui.button({ caption: "Long 1,000", label: "Show 1,000 long messages", on_press: |_, _| Gui.update({ count: 1000, content: Long }) }),
-					Gui.button({ caption: "Long 10,000", label: "Show 10,000 long messages", on_press: |_, _| Gui.update({ count: 10000, content: Long }) }),
-					Gui.button({ caption: "Rich 100", label: "Show 100 metadata-rich messages", on_press: |_, _| Gui.update({ count: 100, content: MetadataRich }) }),
-					Gui.button({ caption: "Rich 1,000", label: "Show 1,000 metadata-rich messages", on_press: |_, _| Gui.update({ count: 1000, content: MetadataRich }) }),
-					Gui.button({ caption: "Rich 10,000", label: "Show 10,000 metadata-rich messages", on_press: |_, _| Gui.update({ count: 10000, content: MetadataRich }) }),
+					Gui.button({ caption: "Short 100", label: "Show 100 short messages", on_press: |_, _| Gui.Action.update({ count: 100, content: Short }) }),
+					Gui.button({ caption: "Short 1,000", label: "Show 1,000 short messages", on_press: |_, _| Gui.Action.update({ count: 1000, content: Short }) }),
+					Gui.button({ caption: "Short 10,000", label: "Show 10,000 short messages", on_press: |_, _| Gui.Action.update({ count: 10000, content: Short }) }),
+					Gui.button({ caption: "Long 100", label: "Show 100 long messages", on_press: |_, _| Gui.Action.update({ count: 100, content: Long }) }),
+					Gui.button({ caption: "Long 1,000", label: "Show 1,000 long messages", on_press: |_, _| Gui.Action.update({ count: 1000, content: Long }) }),
+					Gui.button({ caption: "Long 10,000", label: "Show 10,000 long messages", on_press: |_, _| Gui.Action.update({ count: 10000, content: Long }) }),
+					Gui.button({ caption: "Rich 100", label: "Show 100 metadata-rich messages", on_press: |_, _| Gui.Action.update({ count: 100, content: MetadataRich }) }),
+					Gui.button({ caption: "Rich 1,000", label: "Show 1,000 metadata-rich messages", on_press: |_, _| Gui.Action.update({ count: 1000, content: MetadataRich }) }),
+					Gui.button({ caption: "Rich 10,000", label: "Show 10,000 metadata-rich messages", on_press: |_, _| Gui.Action.update({ count: 10000, content: MetadataRich }) }),
 				],
 			),
 			Gui.col({}, $messages),

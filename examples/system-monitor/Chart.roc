@@ -37,7 +37,7 @@ Chart := [].{
 	## The samples a history reduces to: CPU in tenths of a percent, or the
 	## sentinel that means the sample carried no CPU reading.
 	no_reading = 65535.U32
-	loads : List(Gui.SystemMonitorSnapshot) -> List(U32)
+	loads : List(Gui.SystemMonitor.Snapshot) -> List(U32)
 	loads = loads
 }
 
@@ -132,7 +132,7 @@ bars = |history, capacity| {
 render = |history, capacity| Gui.canvas({
 	label: "CPU history plot",
 	primitives: gridlines.concat(bars(history, capacity)),
-	on_pointer: |_, _| Gui.none,
+	on_pointer: |_, _| Gui.Action.none,
 	width: Px(plot_width),
 	height: Px(plot_height),
 	min_width: Px(plot_width),

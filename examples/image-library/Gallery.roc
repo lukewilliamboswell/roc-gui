@@ -6,7 +6,7 @@ Gallery := [].{
 	Scan : { items : List(Item) }
 	format_for : Str -> Try(Gui.ImageFormat, [Unsupported])
 	format_for = format_for
-	scan! : Gui.FilesDirRead, List(Gui.FilesEntry) => Scan
+	scan! : Gui.Files.Dir.Read, List(Gui.Files.Entry) => Scan
 	scan! = scan!
 	visible : List(Item), Str -> List(Item)
 	visible = |items, query| items.keep_if(|item| Str.is_empty(query) or Str.contains(name(item), query))

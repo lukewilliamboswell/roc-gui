@@ -267,7 +267,7 @@ query_bench = |state| {
 				label: "SQL query",
 				value: state.query,
 				placeholder: "SELECT * FROM books LIMIT 100",
-				on_input: |current, event| Gui.update(Browser.set_query(current, event.value)),
+				on_input: |current, event| Gui.Action.update(Browser.set_query(current, event.value)),
 				width: Fill,
 				height: Px(76),
 				padding: Theme.inset,

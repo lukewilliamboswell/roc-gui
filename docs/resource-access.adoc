@@ -56,15 +56,15 @@ to functions, and store it in a record:
 
 [source,roc]
 ----
-State : { project : [None, Some(Gui.FilesDirRead)] }
+State : { project : [None, Some(Gui.Files.Dir.Read)] }
 ----
 
 Three things are true of it, and between them they are the reason this works.
 
-*You cannot make one up.* There is no constructor. A `Gui.FilesDirRead` exists
+*You cannot make one up.* There is no constructor. A `Gui.Files.Dir.Read` exists
 because someone handed you one.
 
-*Its type says what it is for.* A `Gui.FilesDirRead` reads a directory. There is
+*Its type says what it is for.* A `Gui.Files.Dir.Read` reads a directory. There is
 no permission list to consult alongside it, because the type you are holding is
 the permission, and at every call site you can see exactly what you are handing
 over.

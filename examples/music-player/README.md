@@ -10,7 +10,7 @@ coloured as a failure rather than reported in the same grey as "Paused".
 
 It exercises the `Audio` module — acquire an output, load a track from a
 capability-scoped directory, play, pause, seek, read status, stop — with every
-blocking call inside an `Gui.task`. Ordinary mixer output needs no grant; the
+blocking call inside an `Gui.Action.task`. Ordinary mixer output needs no grant; the
 folder does.
 
 ## Running

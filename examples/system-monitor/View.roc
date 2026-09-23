@@ -340,8 +340,8 @@ sort_controls = |state| Gui.row(
 	{ label: "Process sorting", padding: 0, gap: 8, align: Center },
 	[
 		Theme.caption("SORT"),
-		sort_button("CPU", "Sort processes by CPU", state.sort == ByCpu, |current, _| Gui.update({ ..current, sort: ByCpu })),
-		sort_button("Memory", "Sort processes by memory", state.sort == ByMemory, |current, _| Gui.update({ ..current, sort: ByMemory })),
+		sort_button("CPU", "Sort processes by CPU", state.sort == ByCpu, |current, _| Gui.Action.update({ ..current, sort: ByCpu })),
+		sort_button("Memory", "Sort processes by memory", state.sort == ByMemory, |current, _| Gui.Action.update({ ..current, sort: ByMemory })),
 	],
 )
 
@@ -349,8 +349,8 @@ filter_field = |state| Gui.text_input({
 	label: "Filter processes",
 	value: state.filter,
 	placeholder: "Filter by name",
-	on_change: |current, event| Gui.update({ ..current, filter: event.value }),
-	on_submit: |current, _| Gui.update(current),
+	on_change: |current, event| Gui.Action.update({ ..current, filter: event.value }),
+	on_submit: |current, _| Gui.Action.update(current),
 	width: Fill,
 	height: Px(34),
 	font_size: 13,
@@ -394,7 +394,7 @@ process_row = |state, process| {
 	Gui.button({
 		caption: Processes.row_text(process),
 		label: "Inspect process ${process.name}",
-		on_press: |current, _| Gui.update({ ..current, selected: Some(process.pid) }),
+		on_press: |current, _| Gui.Action.update({ ..current, selected: Some(process.pid) }),
 		width: Fill,
 		height: Px(26),
 		padding: 8,

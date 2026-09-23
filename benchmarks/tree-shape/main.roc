@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-22-e494788" }
 
 import pf.Gui
 
@@ -35,11 +35,11 @@ editable_leaf = |value| Gui.col(
 	{},
 	[
 		Gui.text("Deep value ${value.to_str()}"),
-		Gui.button({ caption: "Increment deepest leaf", label: "Increment deepest leaf", on_press: |latest, _| Gui.delegate(latest + 1) }),
+		Gui.button({ caption: "Increment deepest leaf", label: "Increment deepest leaf", on_press: |latest, _| Gui.Action.delegate(latest + 1) }),
 		Gui.button({
 			caption: "Queue deepest edit",
 			label: "Queue deepest edit",
-			on_press: |latest, _| Gui.task({
+			on_press: |latest, _| Gui.Action.task({
 				pending: latest,
 				run: || match Gui.Timer.start!({ interval_ms: 25 }) {
 					Ok(timer) => {
@@ -49,7 +49,7 @@ editable_leaf = |value| Gui.col(
 					}
 					Err(_) => Canceled
 				},
-				resolve: |current, tick| if tick == Fired Gui.update(current + 1) else Gui.none,
+				resolve: |current, tick| if tick == Fired Gui.Action.update(current + 1) else Gui.Action.none,
 			}),
 		}),
 	],
@@ -100,7 +100,7 @@ heterogeneous_a = |depth, value| {
 					key: "heterogeneous layer",
 					get: |parent| { number: parent.value, label: "kept A", veto: parent.veto },
 					set: |parent, child| if parent.marker != 91 or child.label != "kept A" crash "invalid B/A projection" else { ..parent, value: child.number },
-					on_delegate: |parent| if level == 500 and parent.veto Gui.none else Gui.delegate(parent),
+					on_delegate: |parent| if level == 500 and parent.veto Gui.Action.none else Gui.Action.delegate(parent),
 				},
 			),
 		}
@@ -111,7 +111,7 @@ heterogeneous_a = |depth, value| {
 					key: "heterogeneous layer",
 					get: |parent| { value: parent.number, marker: 91.U64, veto: parent.veto },
 					set: |parent, child| if parent.label != "kept A" or child.marker != 91 crash "invalid A/B projection" else { ..parent, number: child.value },
-					on_delegate: Gui.delegate,
+					on_delegate: Gui.Action.delegate,
 				},
 			),
 		}
@@ -127,24 +127,24 @@ render = |state| Gui.col(
 		Gui.row(
 			{},
 			[
-				Gui.button({ caption: "Lifted 1,000", label: "Build lifted tree of 1,000", on_press: |_, _| Gui.update({ shape: Lifted(1000, 0) }) }),
-				Gui.button({ caption: "Lifted 10,000", label: "Build lifted tree of 10,000", on_press: |_, _| Gui.update({ shape: Lifted(10000, 0) }) }),
+				Gui.button({ caption: "Lifted 1,000", label: "Build lifted tree of 1,000", on_press: |_, _| Gui.Action.update({ shape: Lifted(1000, 0) }) }),
+				Gui.button({ caption: "Lifted 10,000", label: "Build lifted tree of 10,000", on_press: |_, _| Gui.Action.update({ shape: Lifted(10000, 0) }) }),
 				Gui.button({
 					caption: "Toggle veto",
 					label: "Toggle middle veto",
 					on_press: |latest, _| match latest.shape {
-						Heterogeneous(count, value, veto) => Gui.update({ shape: Heterogeneous(count, value, !veto) })
-						_ => Gui.none
+						Heterogeneous(count, value, veto) => Gui.Action.update({ shape: Heterogeneous(count, value, !veto) })
+						_ => Gui.Action.none
 					},
 				}),
-				Gui.button({ caption: "Typed 1,000", label: "Build heterogeneous tree of 1,000", on_press: |_, _| Gui.update({ shape: Heterogeneous(1000, 0, False) }) }),
-				Gui.button({ caption: "Nested 1,000", label: "Build nested tree of 1,000", on_press: |_, _| Gui.update({ shape: Nested(1000, 0) }) }),
-				Gui.button({ caption: "Deep 10", label: "Build deep tree of 10", on_press: |_, _| Gui.update({ shape: Deep(10) }) }),
-				Gui.button({ caption: "Deep 100", label: "Build deep tree of 100", on_press: |_, _| Gui.update({ shape: Deep(100) }) }),
-				Gui.button({ caption: "Deep 1,000", label: "Build deep tree of 1,000", on_press: |_, _| Gui.update({ shape: Deep(1000) }) }),
-				Gui.button({ caption: "Balanced 127", label: "Build balanced tree of 127", on_press: |_, _| Gui.update({ shape: Balanced(7) }) }),
-				Gui.button({ caption: "Balanced 1,023", label: "Build balanced tree of 1,023", on_press: |_, _| Gui.update({ shape: Balanced(10) }) }),
-				Gui.button({ caption: "Balanced 8,191", label: "Build balanced tree of 8,191", on_press: |_, _| Gui.update({ shape: Balanced(13) }) }),
+				Gui.button({ caption: "Typed 1,000", label: "Build heterogeneous tree of 1,000", on_press: |_, _| Gui.Action.update({ shape: Heterogeneous(1000, 0, False) }) }),
+				Gui.button({ caption: "Nested 1,000", label: "Build nested tree of 1,000", on_press: |_, _| Gui.Action.update({ shape: Nested(1000, 0) }) }),
+				Gui.button({ caption: "Deep 10", label: "Build deep tree of 10", on_press: |_, _| Gui.Action.update({ shape: Deep(10) }) }),
+				Gui.button({ caption: "Deep 100", label: "Build deep tree of 100", on_press: |_, _| Gui.Action.update({ shape: Deep(100) }) }),
+				Gui.button({ caption: "Deep 1,000", label: "Build deep tree of 1,000", on_press: |_, _| Gui.Action.update({ shape: Deep(1000) }) }),
+				Gui.button({ caption: "Balanced 127", label: "Build balanced tree of 127", on_press: |_, _| Gui.Action.update({ shape: Balanced(7) }) }),
+				Gui.button({ caption: "Balanced 1,023", label: "Build balanced tree of 1,023", on_press: |_, _| Gui.Action.update({ shape: Balanced(10) }) }),
+				Gui.button({ caption: "Balanced 8,191", label: "Build balanced tree of 8,191", on_press: |_, _| Gui.Action.update({ shape: Balanced(13) }) }),
 			],
 		),
 		match state.shape {

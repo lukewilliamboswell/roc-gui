@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-22-e494788" }
 
 import pf.Gui
 
@@ -75,19 +75,19 @@ handle_request = |state, key| {
 		}
 	}
 	rows = Gui.KeyedSeq.apply_all(state.rows, $edits) ?? crash "commit delegated incident edit"
-	Gui.update({ rows: rows })
+	Gui.Action.update({ rows: rows })
 }
 
 incident_update : QueueRow, (Incident -> Incident) -> Gui.Action(QueueRow)
 incident_update = |row, change| match row {
-	IncidentRow(value) => Gui.update(IncidentRow(change(value)))
-	_ => Gui.none
+	IncidentRow(value) => Gui.Action.update(IncidentRow(change(value)))
+	_ => Gui.Action.none
 }
 
 incident_delegate : QueueRow, IncidentRequest -> Gui.Action(QueueRow)
 incident_delegate = |row, request| match row {
-	IncidentRow(value) => Gui.delegate(IncidentRow({ ..value, request }))
-	_ => Gui.none
+	IncidentRow(value) => Gui.Action.delegate(IncidentRow({ ..value, request }))
+	_ => Gui.Action.none
 }
 
 render_incident : QueueRow -> Gui.Elem(QueueRow)
@@ -143,8 +143,8 @@ render_incident = |row| {
 
 control_delegate : QueueRow, ControlRequest -> Gui.Action(QueueRow)
 control_delegate = |row, request| match row {
-	ControlRow(value) => Gui.delegate(ControlRow({ ..value, request }))
-	_ => Gui.none
+	ControlRow(value) => Gui.Action.delegate(ControlRow({ ..value, request }))
+	_ => Gui.Action.none
 }
 
 render_controls : QueueRow -> Gui.Elem(QueueRow)
@@ -182,8 +182,8 @@ handle_control : State -> Gui.Action(State)
 handle_control = |state| {
 	controls = get_controls(state.rows)
 	match controls.request {
-		NoControlRequest => Gui.update({ rows: Gui.KeyedSeq.apply_all(state.rows, [Set(control_key, ControlRow({ ..controls, request: NoControlRequest }))]) ?? crash "clear control request" })
-		AddUrgent => Gui.update(add_front(state))
+		NoControlRequest => Gui.Action.update({ rows: Gui.KeyedSeq.apply_all(state.rows, [Set(control_key, ControlRow({ ..controls, request: NoControlRequest }))]) ?? crash "clear control request" })
+		AddUrgent => Gui.Action.update(add_front(state))
 		Load(count) => {
 			var $edits = []
 			for entry in Gui.KeyedSeq.to_list(state.rows) {
@@ -199,7 +199,7 @@ handle_control = |state| {
 				$edits = $edits.append(InsertBefore(Gui.Key.id(id), IncidentRow(incident), End))
 				$id = id + 1
 			}
-			Gui.update({ rows: Gui.KeyedSeq.apply_all(state.rows, $edits) ?? crash "load incident queue" })
+			Gui.Action.update({ rows: Gui.KeyedSeq.apply_all(state.rows, $edits) ?? crash "load incident queue" })
 		}
 	}
 }

@@ -11,7 +11,7 @@ import Format
 Processes := [].{
 	Sort : [ByCpu, ByMemory]
 
-	filter_sort : List(Gui.SystemMonitorProcess), Str, Sort -> List(Gui.SystemMonitorProcess)
+	filter_sort : List(Gui.SystemMonitor.Process), Str, Sort -> List(Gui.SystemMonitor.Process)
 	filter_sort = filter_sort
 
 	## The column heading, built from the same widths the rows are.
@@ -19,13 +19,13 @@ Processes := [].{
 	heading = heading
 
 	## One row of the table.
-	row_text : Gui.SystemMonitorProcess -> Str
+	row_text : Gui.SystemMonitor.Process -> Str
 	row_text = row_text
 
 	## The process a selected pid now refers to, if it is still in the sample. A
 	## selection outliving the process it named is ordinary, and saying so is
 	## better than showing a number with nothing behind it.
-	find : List(Gui.SystemMonitorProcess), U64 -> [None, Some(Gui.SystemMonitorProcess)]
+	find : List(Gui.SystemMonitor.Process), U64 -> [None, Some(Gui.SystemMonitor.Process)]
 	find = find
 }
 

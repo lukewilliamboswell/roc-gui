@@ -13,19 +13,19 @@ import Query
 ## call for three different next steps.
 Grant : [Ungranted, Declined, Granted(Str), Refused]
 
-Folder : { name : Str, directory : Gui.FilesDirRead, entries : List(Gui.FilesEntry) }
+Folder : { name : Str, directory : Gui.Files.Dir.Read, entries : List(Gui.Files.Entry) }
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
 State : {
 	access : Gui.Access,
-	database : [None, Some(Gui.SqliteDb)],
+	database : [None, Some(Gui.Sqlite.Db)],
 	folder : [None, Some(Folder)],
 	grant : Grant,
 	next_request : U64,
 	open_name : Str,
 	query : Str,
-	result : [None, Some(Gui.SqliteResult)],
+	result : [None, Some(Gui.Sqlite.Result)],
 	schema : List(Str),
 	status : Status,
 }
@@ -53,9 +53,9 @@ Browser := [].{
 	}
 	choose : State -> Gui.Action(State)
 	choose = choose
-	open_database : State, Gui.FilesDirRead, Str -> Gui.Action(State)
+	open_database : State, Gui.Files.Dir.Read, Str -> Gui.Action(State)
 	open_database = open_database
-	run_query : State, Gui.SqliteDb, Str -> Gui.Action(State)
+	run_query : State, Gui.Sqlite.Db, Str -> Gui.Action(State)
 	run_query = run_query
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
@@ -75,7 +75,7 @@ still_held_or_declined = |grant| match grant {
 ## host that refused to open one at all.
 choose = |state| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match state.access.pick_directory!() {
 			Ok(Chosen(selection)) => match selection.directory.list!() {
@@ -87,9 +87,9 @@ choose = |state| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				ChosenFolder(folder) => Gui.update({ ..latest, folder: Some(folder), grant: Granted(folder.name), status: Ready })
-				ChooseCanceled => Gui.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
-				ChooseFailed => Gui.update({
+				ChosenFolder(folder) => Gui.Action.update({ ..latest, folder: Some(folder), grant: Granted(folder.name), status: Ready })
+				ChooseCanceled => Gui.Action.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
+				ChooseFailed => Gui.Action.update({
 					..latest,
 					grant: Refused,
 					status: failure(
@@ -98,14 +98,14 @@ choose = |state| {
 					),
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }
 
 open_database = |state, directory, name| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match Gui.Sqlite.open_read!(directory, name) {
 			Err(error) => Err(OpenFailed("Could not open SQLite database: ${Gui.Sqlite.detail(error)}"))
@@ -116,11 +116,11 @@ open_database = |state, directory, name| {
 		},
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Err(OpenFailed(message)) => Gui.update({
+				Err(OpenFailed(message)) => Gui.Action.update({
 					..latest,
 					status: failure(message, "The grant covers this folder, but this file is not a database this browser can read."),
 				})
-				Ok(opened) => Gui.update({
+				Ok(opened) => Gui.Action.update({
 					..latest,
 					database: Some(opened.database),
 					open_name: name,
@@ -134,20 +134,20 @@ open_database = |state, directory, name| {
 					status: Ready,
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }
 
 run_query = |state, database, sql| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || database.query!(sql),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(result) => Gui.update({ ..latest, result: Some(result), status: Ready })
-				Err(error) => Gui.update({
+				Ok(result) => Gui.Action.update({ ..latest, result: Some(result), status: Ready })
+				Err(error) => Gui.Action.update({
 					..latest,
 					status: failure(
 						Gui.Sqlite.detail(error),
@@ -155,7 +155,7 @@ run_query = |state, database, sql| {
 					),
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }

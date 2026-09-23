@@ -11,7 +11,7 @@ platform ""
 	}
 	exposes [KeyedSeq]
 	packages {
-		roc: "nightly-2026-09-12-220fd47",
+		roc: "nightly-2026-09-22-e494788",
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 	}
 	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch! }

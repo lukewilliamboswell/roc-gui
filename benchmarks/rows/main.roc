@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-22-e494788" }
 
 import pf.Gui
 
@@ -76,15 +76,15 @@ render_row = |row| Gui.row(
 			caption: "Select",
 			label: "Select row ${row.id.to_str()}",
 			on_press: |state, _| if state.selected == row.id {
-				Gui.none
+				Gui.Action.none
 			} else {
-				Gui.update({ ..state, selected: row.id })
+				Gui.Action.update({ ..state, selected: row.id })
 			},
 		}),
 		Gui.button({
 			caption: "Delete",
 			label: "Delete row ${row.id.to_str()}",
-			on_press: |state, _| Gui.update(delete_row(state, row.id)),
+			on_press: |state, _| Gui.Action.update(delete_row(state, row.id)),
 		}),
 	],
 )
@@ -101,16 +101,16 @@ render = |state| {
 			Gui.row(
 				{},
 				[
-					Gui.button({ caption: "Create 100", label: "Create 100 rows", on_press: |_, _| Gui.update(create(100)) }),
-					Gui.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |_, _| Gui.update(create(1000)) }),
-					Gui.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |_, _| Gui.update(create(10000)) }),
-					Gui.button({ caption: "Create 100,000", label: "Create 100,000 rows", on_press: |_, _| Gui.update(create(100000)) }),
-					Gui.button({ caption: "Append 1,000", label: "Append 1,000 rows", on_press: |value, _| Gui.update(append_rows(value, 1000)) }),
-					Gui.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Gui.update(update_every_tenth(value)) }),
-					Gui.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Gui.update(swap_rows(value, 1, 998)) }),
-					Gui.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Gui.update(swap_rows(value, 1, 98)) }),
-					Gui.button({ caption: "Swap far", label: "Swap rows 2 and 9999", on_press: |value, _| Gui.update(swap_rows(value, 1, 9998)) }),
-					Gui.button({ caption: "Clear", label: "Clear rows", on_press: |value, _| Gui.update({ ..value, rows: [], selected: 0 }) }),
+					Gui.button({ caption: "Create 100", label: "Create 100 rows", on_press: |_, _| Gui.Action.update(create(100)) }),
+					Gui.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |_, _| Gui.Action.update(create(1000)) }),
+					Gui.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |_, _| Gui.Action.update(create(10000)) }),
+					Gui.button({ caption: "Create 100,000", label: "Create 100,000 rows", on_press: |_, _| Gui.Action.update(create(100000)) }),
+					Gui.button({ caption: "Append 1,000", label: "Append 1,000 rows", on_press: |value, _| Gui.Action.update(append_rows(value, 1000)) }),
+					Gui.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Gui.Action.update(update_every_tenth(value)) }),
+					Gui.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Gui.Action.update(swap_rows(value, 1, 998)) }),
+					Gui.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Gui.Action.update(swap_rows(value, 1, 98)) }),
+					Gui.button({ caption: "Swap far", label: "Swap rows 2 and 9999", on_press: |value, _| Gui.Action.update(swap_rows(value, 1, 9998)) }),
+					Gui.button({ caption: "Clear", label: "Clear rows", on_press: |value, _| Gui.Action.update({ ..value, rows: [], selected: 0 }) }),
 				],
 			),
 			Gui.text("Rows: ${state.rows.len().to_str()}"),

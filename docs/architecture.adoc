@@ -326,16 +326,16 @@ state. Adapters operate on state rather than decoding keys. The `lift` method on
 adapts a prebuilt element's handlers: it adds no lifetime or boundary and does
 not consume delegation.
 
-`Gui.update` commits through the adapters and renders only the originating
+`Gui.Action.update` commits through the adapters and renders only the originating
 boundary. It neither renders nor compares unrelated siblings. Parent summaries
 respond through explicit delegation or composition within one render boundary.
 The platform does not infer dependencies by tracking state reads.
 
-`Gui.delegate(next_child)` constructs a candidate parent and passes it to the
+`Gui.Action.delegate(next_child)` constructs a candidate parent and passes it to the
 nearest translation's `on_delegate` callback. Its parent action accepts,
-revises, vetoes, starts parent-owned work, or delegates further. `Gui.none`
+revises, vetoes, starts parent-owned work, or delegates further. `Gui.Action.none`
 vetoes the entire candidate. Delegation reaching the root becomes a root
-update; the default callback accepts with `Gui.update`.
+update; the default callback accepts with `Gui.Action.update`.
 
 A key promises a stable logical component and state projection for its mounted
 lifetime. Rebinding either requires a different key. Removal, a changed key or
@@ -377,7 +377,7 @@ unique ownership of lists, strings, resources, or indexed registry nodes.
 
 == Asynchronous action turns
 
-A `Gui.task` proposes its pending state and a boxed worker. After graph
+A `Gui.Action.task` proposes its pending state and a boxed worker. After graph
 acceptance, the host queues the worker on the native pool. The worker runs its
 continuations and hands a boxed reducer to the host completion slot. The UI
 thread delivers that reducer through
@@ -401,12 +401,12 @@ not imply a latest-request-wins policy. Roc values cross threads only as owned
 erased callables; generic state and actions remain boxed across the ABI.
 
 Periodic subscriptions use the same route. A timer has at most one waiting
-`Gui.TimerHandle` `next!` task. Its wait parks on a worker and returns a normal boxed
+`Gui.Timer.Handle` `next!` task. Its wait parks on a worker and returns a normal boxed
 reducer; the UI thread applies that reducer through the installed session.
 Cancellation wakes the waiter, and cadence advances from the completion of the
 preceding pull, so a slow consumer cannot create an unbounded event backlog.
 
-HTTP requests also use `Gui.task` and the canonical worker/completion route.
+HTTP requests also use `Gui.Action.task` and the canonical worker/completion route.
 An opaque `Box(U64)` client names a host registry entry for one explicitly
 granted origin. The initial URL and every redirect retain its scheme, host, and
 effective port.
@@ -471,7 +471,7 @@ That write-up proposes a user interface API for Roc in which a renderer is a
 pure function from state to an `Elem` value, event handlers return an `Action`
 rather than a message, and a translation function relates a component's state to
 its parent's state while marking the unit of re-rendering. roc-gui is an
-development of that design. `Gui.update`, `Gui.none`, the shared `state`
+development of that design. `Gui.Action.update`, `Gui.Action.none`, the shared `state`
 type variable on `Elem` and `Action`, and adapting child renderers through
 getters and setters follow its central idea: state ownership can identify the
 subtree an action needs to update. Pure translations express that boundary;
@@ -485,7 +485,7 @@ calling it twice with the same state yields the same description and calling it
 is never a way to make something happen. Everything that can make something
 happen is an `Action` returned from a handler, and an `Action` is a value: it
 describes a transition rather than performing one. Constructing
-`Gui.update(next)` changes nothing. The platform changes state only when it
+`Gui.Action.update(next)` changes nothing. The platform changes state only when it
 receives that value back from a handler and accepts its graph transaction.
 
 That division is what makes the concurrency tractable. Application state lives
@@ -498,7 +498,7 @@ always receives the state that precedes it rather than a snapshot captured when
 the tree was rendered. A handler's first argument is therefore the state to
 build the next state from.
 
-`Gui.task` extends the same discipline to work that must not block the
+`Gui.Action.task` extends the same discipline to work that must not block the
 interface. It commits its `pending` state before handing the effect body
 to a worker thread, which returns a reducer rather than a state value. The UI
 thread applies that reducer to whatever the latest state is by then, so events
@@ -513,10 +513,10 @@ surface syntax. Pure descriptions leave execution to the platform. Delegation
 lets the parent decide whether to accept a child's proposal. Fallible state
 projections make removal explicit. Deferred rendering enables memoized
 subtrees. roc-gui gives those ideas one coherent ownership model through
-pure translations, `Gui.delegate`, host-owned keyed lifetimes, and explicit
+pure translations, `Gui.Action.delegate`, host-owned keyed lifetimes, and explicit
 memo equivalence.
 
-Periodic work uses `Gui.task` around a timer handle in application state,
+Periodic work uses `Gui.Action.task` around a timer handle in application state,
 with explicit cadence and cancellation. There is no string-keyed global effect
 tracker. Instance liveness answers whether an owner still exists; application
 request identity answers whether a result remains relevant to that live owner.

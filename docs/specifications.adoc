@@ -250,11 +250,11 @@ route.
 checkbox, through the normal Roc event route.
 `(replace-text LOCATOR "value")`:: Replace the complete controlled value of one
 editable text input or textarea through its production Roc input route. A text
-input delivers `Gui.EventTextChange`; a textarea delivers `Gui.EventInput`. A
+input delivers `Gui.Event.TextChange`; a textarea delivers `Gui.Event.Input`. A
 disabled text input consumes no edit and dispatches nothing. A disabled or
 read-only textarea fails as non-editable.
 `(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
-`Gui.EventTextSubmit` through the normal Roc event route.
+`Gui.Event.TextSubmit` through the normal Roc event route.
 
 == Assertions
 

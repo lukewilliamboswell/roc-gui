@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-22-e494788" }
 
 import pf.Gui
 
@@ -26,7 +26,7 @@ make_dashboard = |visual_count, interaction_count, first_identity| {
 }
 
 configure : State, U64, U64 -> Gui.Action(State)
-configure = |state, visual_count, interaction_count| Gui.update(make_dashboard(visual_count, interaction_count, state.next_identity))
+configure = |state, visual_count, interaction_count| Gui.Action.update(make_dashboard(visual_count, interaction_count, state.next_identity))
 
 render_signal : U64 -> Gui.Elem(State)
 render_signal = |id| {
@@ -65,7 +65,7 @@ render_control : Control -> Gui.Elem(Control)
 render_control = |control| Gui.button({
 	caption: if control.presses == 0 "Run" else "Ran ${control.presses.to_str()}",
 	label: if control.presses == 0 "Run action ${control.id.to_str()}" else "Action ${control.id.to_str()} ran ${control.presses.to_str()} time",
-	on_press: |latest, _| Gui.update({ ..latest, presses: latest.presses + 1 }),
+	on_press: |latest, _| Gui.Action.update({ ..latest, presses: latest.presses + 1 }),
 	width: Px(74),
 	height: Px(24),
 	min_width: Px(74),

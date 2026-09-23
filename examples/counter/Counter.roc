@@ -8,25 +8,17 @@ Counter := [].{
 	init : I64 -> State
 	init = |initial_value| { count: initial_value }
 
-	ink : Gui.Color
-	ink = 0x1F1C17
-	muted_ink : Gui.Color
-	muted_ink = 0x8C8474
-	negative_ink : Gui.Color
-	negative_ink = 0x9B4A32
-	card : Gui.Color
-	card = 0xFBFAF6
-	rule : Gui.Color
-	rule = 0xDCD5C4
-	control_hover : Gui.Color
-	control_hover = 0xEFE9DA
-	control_active : Gui.Color
-	control_active = 0xE2DAC6
+	ink = 0x1F1C17.Gui.Color
+	muted_ink = 0x8C8474.Gui.Color
+	negative_ink = 0x9B4A32.Gui.Color
+	card = 0xFBFAF6.Gui.Color
+	rule = 0xDCD5C4.Gui.Color
+	control_hover = 0xEFE9DA.Gui.Color
+	control_active = 0xE2DAC6.Gui.Color
 
 	## The keyboard focus ring. The host's amber suits its own dark ground and
 	## fights this paper one, so the card picks the ink it already uses.
-	focus_ring : Gui.Color
-	focus_ring = 0x9B4A32
+	focus_ring = 0x9B4A32.Gui.Color
 
 	## Ink for the numeral: negative counts read in a muted red so the sign is
 	## legible at a glance rather than only in the glyph.
@@ -111,8 +103,8 @@ Counter := [].{
 			Gui.row(
 				{ gap: 12 },
 				[
-					control("−", "${name} decrement", |prev_state, _| Gui.update({ count: prev_state.count - 1.I64 })),
-					control("+", "${name} increment", |prev_state, _| Gui.update({ count: prev_state.count + 1.I64 })),
+					control("−", "${name} decrement", |prev_state, _| Gui.Action.update({ count: prev_state.count - 1.I64 })),
+					control("+", "${name} increment", |prev_state, _| Gui.Action.update({ count: prev_state.count + 1.I64 })),
 				],
 			),
 		],
