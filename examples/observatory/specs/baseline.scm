@@ -39,7 +39,7 @@
     (await-task)
     ; the A/A capture keeps a connection of its own beside the baseline's and
     ; the open capture's, and the refused one it replaced is closed
-    (expect-sqlite-counters 3 10 71)
+    (expect-sqlite-counters 3 10 99)
     (expect-visible (within (role row :name "A/A verdict") (text-prefix "✓ browse-100-aa.rgstats bounds every Δ")))
     (expect-visible (within (role row :name "Baseline verdict") (text "✓ comparable: Δ against the baseline · A/A browse-100-aa.rgstats")))
     (click (role button :name "Interactions"))

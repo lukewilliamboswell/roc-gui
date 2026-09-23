@@ -454,11 +454,14 @@ ideal and the repository. P- and E-numbers refer to that document.
   Browser session and jumps through its cycle list, and `window-session.scm`
   scrolls it in the window, but the session runs on the semantic runner, so
   its capture has no `gpui_frames` rows, and at about 5 ms a cycle a
-  100,000-cycle session would take eight minutes to generate. US-40 asks for
-  100,000 cycles and 100,000 frames from a recorded window session, which also
-  needs the frame strip and timeline (P6, E1) to scroll. A cheaper cycle in the
-  semantic runner, or a window session that can be recorded unattended, would
-  make the 100,000 case reachable.
+  100,000-cycle session would take eight minutes to generate. A window session
+  is now recorded unattended (`window/database-browser-frames.rgstats`, at
+  least 1,000 frames, which `frames-scale.scm` opens and zooms), but a window
+  session occupies the person's screen while it runs and draws about three
+  frames per scroll at the display's rate, so 100,000 frames would hold the
+  screen for many minutes and exceed the window runner's 600-second watchdog. US-40 asks for 100,000 cycles and 100,000 frames in one
+  capture; it needs a window session split across the watchdog, or a watchdog
+  that measures progress rather than elapsed time, and the timeline (E1).
 
 - [ ] **Two honest-absence paths are reached only by unit expectations.** No
   fixture capture has a cycle with `roc_work_valid = 0` or
@@ -542,10 +545,18 @@ ideal and the repository. P- and E-numbers refer to that document.
   it once the Frames view that is being added to View.roc has landed, so the
   two are not edited concurrently.
 
-- [ ] **Canvas cannot label or explore a chart (P6).** The canvas draws
-  rectangles, ellipses, and lines only, reports pointer events only while a
-  button is pressed, and has no wheel. Add text, hover movement, and wheel/zoom
-  for histograms, the frame strip, the timeline, and scaling charts.
+- [ ] **Canvas text, hover, and wheel have run only on Linux.** Text is shaped
+  through GPUI's text system and hover and wheel arrive through GPUI's mouse
+  events, so nothing in the host is platform-specific, but `window-frames.scm`
+  and the host's live canvas tests have run only on Linux (Wayland). Run them
+  on macOS and Windows, where a trackpad reports pixel deltas and a wheel
+  reports lines.
+
+- [ ] **The frame strip draws one run's frames as one sequence.** Frames number
+  in run and ordinal order across every run of a capture, so a capture of
+  several window runs draws them end to end with no mark where one run ends.
+  No fixture has more than one window run; when one does, draw a rule and a
+  caption at each run's first column.
 
 - [ ] **Granted files cannot be watched (P8).** Add change notification on
   granted files so a replaced or growing capture reloads.
@@ -1090,10 +1101,22 @@ names the reproduction so the workaround can be removed when the fix lands.
   find which button renders the eighth time and whether it is routed hover or
   a frame boundary, then fix the cause rather than widening the bound.
 
-- [ ] **The window runner cannot drag a canvas.** `drag` is semantic-only
-  (`crates/host/src/spec.rs`), so no window specification exercises the
-  interactive canvas pointer path or its recorded `drag` cycles end to end.
-  Drive pointer begin, move, and end through the window's own mouse handlers.
+- [ ] **A canvas node's probe bounds disagree with its painted surface.** In
+  Observatory's scrolled Frames view, `probe::Frame::bounds` for a canvas node
+  reported a rectangle one canvas-height below where the canvas painted, so a
+  `:region (role canvas ...)` screenshot photographed the table beneath it.
+  Canvas regions now use the painted surface (`canvas_surfaces`), as canvas
+  items and pointer steps already did, but `expect-on-screen` and
+  `expect-bounds` on a canvas still read the probe. Find why the probe's
+  prepaint rectangle for a canvas differs and make one rectangle serve all.
+
+- [ ] **The window runner cannot drag or press a canvas.** `drag` is
+  semantic-only (`crates/host/src/spec.rs`), so no window specification
+  exercises the interactive canvas pointer path or its recorded `drag` cycles
+  end to end, and Observatory's press on a frame or a bucket is proved only on
+  the semantic runner. `pointer-move`, `pointer-leave`, and `wheel` already
+  move the window's own pointer; drive pointer begin, move, and end the same
+  way.
 
 - [ ] **Native frame focus work still scans unaffected controls.**
   `Runtime::render` walks focus handles and computes the graph's focus order on

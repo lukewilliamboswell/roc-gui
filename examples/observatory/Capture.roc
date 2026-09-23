@@ -57,6 +57,55 @@ SkipRate : { phase : Str, skipped : I64, compared : I64 }
 ## Drawn frames, and those whose host-owned stages together exceeded 16.7 ms.
 Frames : { drawn : I64, over_budget : I64 }
 
+## A frame budget a frame's host-owned stages are compared against, and the
+## drawn frames that exceeded it.
+Budget : { hz : I64, over : I64 }
+
+## One column of the frame strip. A column stands for `frames` consecutive
+## frames and draws the costliest of them, by the sum of its host-owned
+## stages, so a slow frame is never averaged away.
+Bar : { column : I64, frames : I64, id : I64, run_id : I64, ordinal : I64, layout : I64, prepaint : I64, paint : I64 }
+
+## The frame strip: `span` frames from row `start` of every drawn frame in
+## run and ordinal order, of `total`.
+Strip : { start : I64, span : I64, total : I64, bars : List(Bar) }
+
+## One metric and node kind of `gpui_native_work` over every drawn frame.
+NativeTotal : { metric : I64, kind : I64, total : I64, max : I64 }
+
+## One metric of `gpui_frame_work` over every drawn frame.
+WorkTotal : { metric : I64, total : I64, max : I64 }
+
+## One drawn frame and the native and GPUI-owned work recorded for it. A
+## missing native row is zero only because the frame itself was recorded.
+FrameDetail : {
+	id : I64,
+	run_id : I64,
+	ordinal : I64,
+	layout : I64,
+	prepaint : I64,
+	paint : I64,
+	native : List({ metric : I64, kind : I64, count : I64 }),
+	work : List({ metric : I64, count : I64 }),
+}
+
+## One virtual list: its number of recorded passes, its last pass, and the most
+## entities any pass materialised.
+ListRow : { list_id : I64, passes : I64, visible : I64, materialized : I64, recycled : I64, live : I64, most : I64 }
+
+## One column of the list-pass chart: the pass that materialised the most of
+## the passes the column stands for.
+Pass : { column : I64, list_id : I64, visible : I64, materialized : I64 }
+
+## Cycles of one phase, trigger, and patch kind whose durations fall in one
+## octave bucket.
+Bucket : { phase : Str, trigger : Str, patch_kind : Str, bucket : I64, count : I64 }
+
+## The cycles a list reads: every trigger of a phase, or one trigger and patch
+## kind, and optionally only those in one duration bucket.
+Only : [All, Only({ trigger : Str, patch_kind : Str })]
+Scope : [All, Only({ trigger : Str, patch_kind : Str }), InBucket({ within : Only, bucket : I64, count : I64 })]
+
 ## The facts a verdict is judged from.
 Trust : {
 	final_state : Str,
@@ -186,6 +235,13 @@ Opened : {
 	medians : List(PhaseMedian),
 	skips : List(SkipRate),
 	frames : Frames,
+	budgets : List(Budget),
+	strip : Strip,
+	native : List(NativeTotal),
+	work : List(WorkTotal),
+	lists : List(ListRow),
+	passes : List(Pass),
+	buckets : List(Bucket),
 	allocations : List(TriggerAlloc),
 	resources : List(Resources),
 	verdict : Verdict,
@@ -202,6 +258,17 @@ Capture := [].{
 	PhaseMedian : PhaseMedian
 	SkipRate : SkipRate
 	Frames : Frames
+	Budget : Budget
+	Bar : Bar
+	Strip : Strip
+	NativeTotal : NativeTotal
+	WorkTotal : WorkTotal
+	FrameDetail : FrameDetail
+	ListRow : ListRow
+	Pass : Pass
+	Bucket : Bucket
+	Only : Only
+	Scope : Scope
 	Trust : Trust
 	Verdict : Verdict
 	Listing : Listing
@@ -245,8 +312,57 @@ Capture := [].{
 
 	## At most `page_rows` cycles of one phase, slowest first, from the
 	## `offset`th: every trigger's, or one trigger and patch kind's.
-	cycles! : Gui.SqliteDb, { phase : Str, only : [All, Only({ trigger : Str, patch_kind : Str })], offset : U64 } => Try(List(Cycle), Str)
+	cycles! : Gui.SqliteDb, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
 	cycles! = cycles!
+
+	## How many columns the frame strip and the list-pass chart draw.
+	columns : I64
+	columns = columns
+
+	## The budgets a frame can be compared against, in hertz.
+	budget_rates : List(I64)
+	budget_rates = budget_rates
+
+	## A frame budget in nanoseconds.
+	budget_ns : I64 -> I64
+	budget_ns = |hz| 1000000000 / hz
+
+	## The frame strip of `span` frames from row `start`; a `span` of zero is
+	## every frame from `start`.
+	strip! : Gui.SqliteDb, I64, I64 => Try(Strip, Str)
+	strip! = strip!
+
+	## One frame's own work.
+	frame! : Gui.SqliteDb, Bar => Try(FrameDetail, Str)
+	frame! = frame!
+
+	## The native node kinds, the keyed container, and the popover, by numeric kind.
+	node_kinds : List(Str)
+	node_kinds = ["canvas", "button", "checkbox", "textarea", "image", "column", "dialog", "panel", "row", "scroll", "virtual item", "virtual list", "text input", "text", "styled text", "boundary", "keyed container", "popover"]
+
+	## The nineteen GPUI frame-work metrics, by numeric metric, and the group
+	## each belongs to.
+	work_metrics : List({ name : Str, group : [Replayed, Fresh, Moved] })
+	work_metrics = work_metrics
+
+	## The share of a frame's scene operations GPUI replayed from its cache
+	## rather than built fresh: `Some` percent, or `None` for a frame with no
+	## scene operation at all.
+	replay_share : List({ metric : I64, count : I64 }) -> [None, Some(I64)]
+	replay_share = replay_share
+
+	## The duration range of an octave bucket, in nanoseconds: at least `low`
+	## and below `high`.
+	bucket_range : I64 -> { low : I64, high : I64 }
+	bucket_range = bucket_range
+
+	## How many octave buckets there are.
+	bucket_count : I64
+	bucket_count = bucket_count
+
+	## The bucket a duration falls in.
+	bucket_of : I64 -> I64
+	bucket_of = bucket_of
 
 	## Read one cycle's spans, component work, graph work, and step.
 	inspect! : Gui.SqliteDb, Cycle => Try(Inspected, Str)
@@ -494,6 +610,127 @@ skips_sql = "SELECT c.measurement_phase, coalesce(sum(CASE w.kind WHEN 2 THEN w.
 
 frames_sql = "SELECT count(*), coalesce(sum(CASE WHEN layout_request_ns + prepaint_ns + paint_ns > 16666667 THEN 1 ELSE 0 END), 0) FROM gpui_frames"
 
+columns : I64
+columns = 240
+
+budget_rates : List(I64)
+budget_rates = [30, 60, 120]
+
+## Over-budget counts for every selectable budget, in `budget_rates` order.
+budgets_sql = "SELECT coalesce(sum(CASE WHEN t > 1000000000 / 30 THEN 1 ELSE 0 END), 0), coalesce(sum(CASE WHEN t > 1000000000 / 60 THEN 1 ELSE 0 END), 0), coalesce(sum(CASE WHEN t > 1000000000 / 120 THEN 1 ELSE 0 END), 0) FROM (SELECT layout_request_ns + prepaint_ns + paint_ns AS t FROM gpui_frames)"
+
+## Frames number from zero in run and ordinal order. Each column keeps the
+## costliest of its frames: with exactly one max() aggregate, SQLite takes the
+## bare columns from the row that holds the maximum.
+strip_sql = "WITH f AS (SELECT id, run_id, ordinal, layout_request_ns AS l, prepaint_ns AS p, paint_ns AS q, row_number() OVER (ORDER BY run_id, ordinal) - 1 AS r FROM gpui_frames), w AS (SELECT *, (r - ?1) * ?3 / ?2 AS c FROM f WHERE r >= ?1 AND r < ?1 + ?2) SELECT c, count(*), max(l + p + q), id, run_id, ordinal, l, p, q FROM w GROUP BY c ORDER BY c"
+
+frame_count_sql = "SELECT count(*) FROM gpui_frames"
+
+native_sql = "SELECT metric, kind, sum(count), max(count) FROM gpui_native_work GROUP BY metric, kind ORDER BY metric, kind"
+
+work_totals_sql = "SELECT metric, sum(count), max(count) FROM gpui_frame_work GROUP BY metric ORDER BY metric"
+
+frame_native_sql = "SELECT metric, kind, count FROM gpui_native_work WHERE frame_id = ? ORDER BY metric, kind"
+
+frame_work_sql = "SELECT metric, count FROM gpui_frame_work WHERE frame_id = ? ORDER BY metric"
+
+lists_sql = "WITH l AS (SELECT list_id, count(*) AS n, max(id) AS last, max(materialized_entities) AS most FROM virtual_list_frames GROUP BY list_id) SELECT l.list_id, l.n, v.visible_items, v.materialized_entities, v.recycled_entities, v.live_entities, l.most FROM l JOIN virtual_list_frames v ON v.id = l.last ORDER BY l.list_id"
+
+## As the frame strip: each column keeps the pass that materialised the most.
+passes_sql = "WITH p AS (SELECT list_id, visible_items AS v, materialized_entities AS m, row_number() OVER (ORDER BY id) - 1 AS r, count(*) OVER () AS n FROM virtual_list_frames) SELECT r * 240 / n AS c, max(m), list_id, v FROM p GROUP BY c ORDER BY c"
+
+work_metrics : List({ name : Str, group : [Replayed, Fresh, Moved] })
+work_metrics = [
+	{ name: "cached prepaint subtrees", group: Replayed },
+	{ name: "replayed hitboxes", group: Replayed },
+	{ name: "replayed dispatch nodes", group: Replayed },
+	{ name: "replayed deferred draws", group: Replayed },
+	{ name: "replayed prepaint element states", group: Replayed },
+	{ name: "cached paint subtrees", group: Replayed },
+	{ name: "replayed scene operations", group: Replayed },
+	{ name: "replayed mouse listeners", group: Replayed },
+	{ name: "replayed input handlers", group: Replayed },
+	{ name: "replayed cursor styles", group: Replayed },
+	{ name: "replayed paint element states", group: Replayed },
+	{ name: "replayed tab stops", group: Replayed },
+	{ name: "fresh hitboxes", group: Fresh },
+	{ name: "fresh mouse listeners", group: Fresh },
+	{ name: "fresh scene operations", group: Fresh },
+	{ name: "fresh element state accesses", group: Fresh },
+	{ name: "element states moved", group: Moved },
+	{ name: "view states rebased in prepaint", group: Moved },
+	{ name: "view states rebased in paint", group: Moved },
+]
+
+replay_share : List({ metric : I64, count : I64 }) -> [None, Some(I64)]
+replay_share = |work| {
+	count = |metric| match work.find_first(|found| found.metric == metric) {
+		Ok(found) => found.count
+		Err(_) => 0
+	}
+	replayed = count(6)
+	fresh = count(14)
+	if replayed + fresh == 0 None else Some(replayed * 100 / (replayed + fresh))
+}
+
+expect replay_share([{ metric: 6, count: 3 }, { metric: 14, count: 9 }]) == Some(25)
+expect replay_share([]) == None
+
+## Octave buckets from one microsecond: bucket 0 is below 1 µs, bucket k holds
+## durations of at least 2^(k-1) µs and below 2^k µs, and the last bucket holds
+## every duration from 2^23 µs (about 8.4 s) up.
+bucket_count : I64
+bucket_count = 25
+
+bucket_edge : I64 -> I64
+bucket_edge = |k| {
+	var $edge = 1000
+	var $index = 0
+	while $index < k {
+		$edge = $edge * 2
+		$index = $index + 1
+	}
+	$edge
+}
+
+bucket_range : I64 -> { low : I64, high : I64 }
+bucket_range = |bucket| {
+	low = if bucket <= 0 0 else bucket_edge(bucket - 1)
+	high = if bucket >= bucket_count - 1 9223372036854775807 else bucket_edge(bucket)
+	{ low, high }
+}
+
+bucket_of : I64 -> I64
+bucket_of = |duration| {
+	var $bucket = 0
+	while $bucket < bucket_count - 1 and duration >= bucket_edge($bucket) {
+		$bucket = $bucket + 1
+	}
+	$bucket
+}
+
+expect bucket_range(0) == { low: 0, high: 1000 }
+expect bucket_range(1) == { low: 1000, high: 2000 }
+expect bucket_of(999) == 0
+expect bucket_of(1000) == 1
+expect bucket_of(1999) == 1
+expect bucket_of(16666667) == 15
+
+## A cycle's bucket is the number of edges its duration reaches, exactly as
+## `bucket_of` counts them.
+bucket_expression : Str
+bucket_expression = {
+	var $terms = []
+	var $k = 0
+	while $k < bucket_count - 1 {
+		$terms = $terms.append("(duration_ns >= ${bucket_edge($k).to_str()})")
+		$k = $k + 1
+	}
+	Str.join_with($terms, " + ")
+}
+
+buckets_sql = "SELECT measurement_phase, trigger, patch_kind, ${bucket_expression} AS b, count(*) FROM cycles WHERE run_id IN (SELECT id FROM runs WHERE phase <> 'warmup') GROUP BY measurement_phase, trigger, patch_kind, b ORDER BY measurement_phase, trigger, patch_kind, b"
+
 ## Warmups are excluded, as in every cycle statistic. Ties in duration order
 ## by id, so a page boundary never repeats or skips a cycle.
 cycle_columns = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, trigger, patch_kind, duration_ns, roc_callback_ns, validate_ns, apply_ns FROM cycles WHERE measurement_phase = ? AND run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')"
@@ -501,6 +738,10 @@ cycle_columns = "SELECT id, run_id, ordinal, step_ordinal, measurement_phase, tr
 cycles_sql = "${cycle_columns} ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
 
 trigger_cycles_sql = "${cycle_columns} AND trigger = ? AND patch_kind = ? ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
+
+bucket_cycles_sql = "${cycle_columns} AND duration_ns >= ? AND duration_ns < ? ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
+
+trigger_bucket_cycles_sql = "${cycle_columns} AND trigger = ? AND patch_kind = ? AND duration_ns >= ? AND duration_ns < ? ORDER BY duration_ns DESC, id LIMIT -1 OFFSET ?"
 
 detail_sql = "SELECT graph_apply_ns, gpui_apply_ns, roc_work_valid, component_work_recorded, staged_nodes, removed_nodes, live_nodes, retained_nodes, parent_nodes_scanned, validation_visits, keyed_graph_visits, keyed_original_reads, keyed_first_touches, keyed_native_edits, keyed_item_entities_created, keyed_item_entities_retired, keyed_item_entities_moved, (SELECT s.source_line FROM steps s WHERE s.run_id = c.run_id AND s.ordinal = c.step_ordinal) FROM cycles c WHERE c.id = ?"
 
@@ -522,12 +763,19 @@ bound_rows! = |database, sql, value| match database.query_with!(sql, [Integer(va
 	Err(error) => Err(Gui.Sqlite.detail(error))
 }
 
-cycles! : Gui.SqliteDb, { phase : Str, only : [All, Only({ trigger : Str, patch_kind : Str })], offset : U64 } => Try(List(Cycle), Str)
+cycles! : Gui.SqliteDb, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
 cycles! = |database, scope| {
 	offset = Integer(scope.offset.to_i64_wrap())
 	request = match scope.only {
 		All => { sql: cycles_sql, params: [String(scope.phase), offset], rows: page_rows }
 		Only(chosen) => { sql: trigger_cycles_sql, params: [String(scope.phase), String(chosen.trigger), String(chosen.patch_kind), offset], rows: page_rows }
+		InBucket(held) => {
+			range = bucket_range(held.bucket)
+			match held.within {
+				All => { sql: bucket_cycles_sql, params: [String(scope.phase), Integer(range.low), Integer(range.high), offset], rows: page_rows }
+				Only(chosen) => { sql: trigger_bucket_cycles_sql, params: [String(scope.phase), String(chosen.trigger), String(chosen.patch_kind), Integer(range.low), Integer(range.high), offset], rows: page_rows }
+			}
+		}
 	}
 	page = database.page!(request) ? |error| Gui.Sqlite.detail(error)
 	Ok(page.rows.map(decode_cycle))
@@ -773,6 +1021,82 @@ read_frames! = |database| {
 	)
 }
 
+read_budgets! : Gui.SqliteDb => Try(List(Budget), Str)
+read_budgets! = |database| {
+	found = rows!(database, budgets_sql)?
+	Ok(
+		match found.first() {
+			Ok(row) => budget_rates.map_with_index(|hz, index| { hz, over: int_at(row, index) })
+			Err(_) => budget_rates.map(|hz| { hz, over: 0 })
+		},
+	)
+}
+
+decode_bar : List(Gui.SqliteValue) -> Bar
+decode_bar = |row| { column: int_at(row, 0), frames: int_at(row, 1), id: int_at(row, 3), run_id: int_at(row, 4), ordinal: int_at(row, 5), layout: int_at(row, 6), prepaint: int_at(row, 7), paint: int_at(row, 8) }
+
+strip! : Gui.SqliteDb, I64, I64 => Try(Strip, Str)
+strip! = |database, start, span| {
+	counted = rows!(database, frame_count_sql)?
+	total = match counted.first() {
+		Ok(row) => int_at(row, 0)
+		Err(_) => 0
+	}
+	shown = if span <= 0 or start + span > total total - start else span
+	if shown <= 0 {
+		Ok({ start, span: 0, total, bars: [] })
+	} else {
+		result = database.query_with!(strip_sql, [Integer(start), Integer(shown), Integer(columns)]) ? |error| Gui.Sqlite.detail(error)
+		Ok({ start, span: shown, total, bars: result.rows.map(decode_bar) })
+	}
+}
+
+frame! : Gui.SqliteDb, Bar => Try(FrameDetail, Str)
+frame! = |database, bar| {
+	native = bound_rows!(database, frame_native_sql, bar.id)?
+	work = bound_rows!(database, frame_work_sql, bar.id)?
+	Ok({
+		id: bar.id,
+		run_id: bar.run_id,
+		ordinal: bar.ordinal,
+		layout: bar.layout,
+		prepaint: bar.prepaint,
+		paint: bar.paint,
+		native: native.map(|row| { metric: int_at(row, 0), kind: int_at(row, 1), count: int_at(row, 2) }),
+		work: work.map(|row| { metric: int_at(row, 0), count: int_at(row, 1) }),
+	})
+}
+
+read_native! : Gui.SqliteDb => Try(List(NativeTotal), Str)
+read_native! = |database| {
+	found = rows!(database, native_sql)?
+	Ok(found.map(|row| { metric: int_at(row, 0), kind: int_at(row, 1), total: int_at(row, 2), max: int_at(row, 3) }))
+}
+
+read_work! : Gui.SqliteDb => Try(List(WorkTotal), Str)
+read_work! = |database| {
+	found = rows!(database, work_totals_sql)?
+	Ok(found.map(|row| { metric: int_at(row, 0), total: int_at(row, 1), max: int_at(row, 2) }))
+}
+
+read_lists! : Gui.SqliteDb => Try(List(ListRow), Str)
+read_lists! = |database| {
+	found = rows!(database, lists_sql)?
+	Ok(found.map(|row| { list_id: int_at(row, 0), passes: int_at(row, 1), visible: int_at(row, 2), materialized: int_at(row, 3), recycled: int_at(row, 4), live: int_at(row, 5), most: int_at(row, 6) }))
+}
+
+read_passes! : Gui.SqliteDb => Try(List(Pass), Str)
+read_passes! = |database| {
+	found = rows!(database, passes_sql)?
+	Ok(found.map(|row| { column: int_at(row, 0), materialized: int_at(row, 1), list_id: int_at(row, 2), visible: int_at(row, 3) }))
+}
+
+read_buckets! : Gui.SqliteDb => Try(List(Bucket), Str)
+read_buckets! = |database| {
+	found = rows!(database, buckets_sql)?
+	Ok(found.map(|row| { phase: text_at(row, 0), trigger: text_at(row, 1), patch_kind: text_at(row, 2), bucket: int_at(row, 3), count: int_at(row, 4) }))
+}
+
 open! : Gui.FilesDirRead, Str => Try(Opened, Str)
 open! = |directory, name| {
 	database = Gui.Sqlite.open_read!(directory, name) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
@@ -798,7 +1122,14 @@ read! = |database, name| {
 	medians = read_medians!(database)?
 	skips = read_skips!(database)?
 	frames = read_frames!(database)?
+	budgets = read_budgets!(database)?
+	strip = strip!(database, 0, 0)?
+	native = read_native!(database)?
+	work = read_work!(database)?
+	lists = read_lists!(database)?
+	passes = read_passes!(database)?
+	buckets = read_buckets!(database)?
 	allocations = read_allocations!(database)?
 	resources = read_resources!(database)?
-	Ok({ revision: 0, name, database, metadata: entries, families, gaps, health, runs, triggers, medians, skips, frames, allocations, resources, verdict: judge(trust) })
+	Ok({ revision: 0, name, database, metadata: entries, families, gaps, health, runs, triggers, medians, skips, frames, budgets, strip, native, work, lists, passes, buckets, allocations, resources, verdict: judge(trust) })
 }

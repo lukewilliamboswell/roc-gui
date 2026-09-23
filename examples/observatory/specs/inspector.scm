@@ -20,7 +20,7 @@
     (await-task)
     ; the answer renders the view, the cycle list, the two rows whose selection
     ; changed, and the inspector; the triggers table and the other rows are kept
-    (expect-component-work :rendered 6 :skipped 10 :mounted 0 :retired 0)
+    (expect-component-work :rendered 6 :skipped 11 :mounted 0 :retired 0)
     (expect-visible (text "CYCLE r4 #7 · task · replace · measured"))
     (expect-count (within (role virtual-list :name "Cycles") (button-prefix "Cycle r")) 6)
     (expect-visible (role row :name "Waterfall cycle"))

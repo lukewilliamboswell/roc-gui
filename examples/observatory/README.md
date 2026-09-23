@@ -12,7 +12,7 @@ A capture of any schema other than 20 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be
-trusted. Seven views follow:
+trusted. Eight views follow:
 
 - **Overview**: identity from `metadata`, and tiles for outcome, slowest
   trigger, median cycle, frames over budget, skip rate, and verdict.
@@ -29,8 +29,24 @@ trusted. Seven views follow:
   no owner attributed is shown as `unattributed` and a Σ check proves the parts
   sum to the cycle; the eleven component work kinds; graph and keyed work; and
   the allocations of each span. A cycle driven by a specification step opens
-  the Spec view with its step list scrolled to that step. Warmup runs are
-  excluded.
+  the Spec view with its step list scrolled to that step. Between the triggers
+  table and the cycle list, a histogram counts the listed cycles in octave
+  buckets of duration, with median and max markers; hovering a bucket reads
+  out its range and count, and pressing it lists only its cycles. Warmup runs
+  are excluded.
+- **Frames**: a strip chart of every drawn frame, one stacked bar of layout
+  request, prepaint, and paint per frame against a 30, 60, or 120 Hz budget.
+  A capture of more frames than the strip's 240 columns draws the costliest
+  frame of each column, so a slow frame is never averaged away, and the wheel
+  zooms into the frames around the pointer. Layout solve and presentation are
+  drawn as unavailable bands with their reasons. Hovering a frame reads out its
+  stages; pressing it opens its own work. Below the strip: native renders and
+  elements created for every node kind, including the keyed container; GPUI's
+  nineteen frame-work counts grouped as cached and replayed, fresh, and moved
+  and rebased, with the share of scene operations replayed; and each virtual
+  list's last pass, flagged when it materialised more than three times what it
+  showed, with a chart of its passes. A semantic-headless capture draws no
+  frame, and the view says so with the family's status and reason.
 - **Spec**: the runs, a run selector, and the selected run's steps with their
   status, duration, and expected and observed values, in a list read a page at
   a time as it scrolls.
@@ -115,7 +131,11 @@ benchmark by that executable (A/A captures), and one run with two jobs, which
 the recorder marks contended. The scaling folders hold 10, 100, and 1,000 hard links to
 the real captures, and `session/` holds one long capture: a Database Browser
 browsing session of exactly 10,000 cycles in one run, written out as a
-specification and recorded at full detail by the Database Browser itself. Nothing under `fixture/` is committed; `run_specs.py`
+specification and recorded at full detail by the Database Browser itself.
+`window/` holds two captures of the Database Browser's real window: its own
+`window-rows` specification, and a generated session that scrolls its ten
+thousand rows until at least 1,000 frames are drawn, in about half a minute
+of window time. Nothing under `fixture/` is committed; `run_specs.py`
 regenerates it when the recorder schema or the contents of any input change: the
 generator, the specifications it runs and the applications they drive, the
 platform, or the host's sources and locks.
@@ -123,22 +143,24 @@ platform, or the host's sources and locks.
 ## Not yet built
 
 - One capture opens at a time; there is no drop target or recent list.
-- No distribution chart, frames, or timeline; the scaling chart is a bar per
-  scale, not a log-log chart with a linear reference line.
+- No timeline; the scaling chart is a bar per scale, not a log-log chart with
+  a linear reference line.
 - A `—` shows its family's status and reason beside it, not on hover.
 - Steps are listed by line number and kind; the specification source is not
   shown beside them.
 
 ## Specifications
 
-Twenty-nine specifications run on the semantic runner. They cover the first
+Thirty-three specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
 honest tiles, an untrusted capture's banner on every view, the health sheet,
 spec results across runs, the triggers table across phases, sorting by column,
 the cycle list and its trigger filter, the cycle inspector with a dash that
-opens Health, a cycle's step in the Spec view, the memory view, the
+opens Health, a cycle's step in the Spec view, the memory view, the duration
+distribution and its bucket filter, the Frames view of a window capture with
+its hover and a pressed frame, the Frames view of a headless capture, the
 comparability sheet of an A/A pair and of a contended run, a baseline's deltas
 in every view and the A/A capture that bounds them, and a scaling set with its
 refusals and its noise band. The comparison and scaling specifications also
@@ -153,10 +175,14 @@ them.
 `scale-session.scm` is the scaling case for one long capture: it opens the
 10,000-cycle session and jumps from one end of its cycle list to the other, and
 `session-step.scm` opens a step ten thousand steps into its run.
+`frames-scale.scm` is the scaling case for the frame strip: it opens the
+session of at least 1,000 frames and zooms into it with the wheel.
 `window-session.scm` scrolls the same list four thousand cycles down in the
 real window and photographs the late step. `window-tour.scm` drives
 the real window through every view and photographs each, and
 `window-open-capture.scm` photographs the start page and a capture opened from
 a single file. `window-compare.scm` photographs the comparability sheet of a
 comparable and an incomparable pair, the triggers table with its deltas, and
-a scaling set's gate, ratios, and chart.
+a scaling set's gate, ratios, and chart. `window-frames.scm` moves the
+window's own pointer over the frame strip and the distribution and scrolls its
+wheel, and photographs each.

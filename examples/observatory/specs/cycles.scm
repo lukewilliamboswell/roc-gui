@@ -23,14 +23,14 @@
     (click (role button :name "Filter click replace"))
     ; choosing a trigger reads its cycles. While they are read the list holds
     ; their places, and the six rows of every trigger retire; the empty
-    ; inspector, the capture bar, trust banner, and baseline bar are kept
-    (expect-component-work :rendered 5 :skipped 5 :mounted 0 :retired 6)
+    ; inspector, the capture bar, trust banner, and baseline bar are kept, and the distribution renders for the new filter
+    (expect-component-work :rendered 6 :skipped 5 :mounted 0 :retired 6)
     (expect-count (within (role virtual-list :name "Cycles") (button-prefix "Cycle r")) 0)
     (expect-count (within (role virtual-list :name "Cycles") (role row :name "Cycle row pending 3")) 1)
     (await-task)
     ; the answer renders the Interactions view and not the window: the list
     ; mounts the three rows read, and the inspector is still kept
-    (expect-component-work :rendered 7 :skipped 6 :mounted 3 :retired 0)
+    (expect-component-work :rendered 7 :skipped 7 :mounted 3 :retired 0)
     (expect-visible (text "CYCLES · measured · click · replace · slowest first · 3"))
     (expect-count (within (role virtual-list :name "Cycles") (button-prefix "Cycle r")) 3)
     (expect-count (within (role virtual-list :name "Cycles") (text "task")) 0)

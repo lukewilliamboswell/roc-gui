@@ -16,14 +16,15 @@ Folder : { revision : U64, name : Str, directory : Gui.FilesDirRead, captures : 
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
-View : [Overview, Interactions, Spec, Memory, Health, Compare, Scaling]
+View : [Overview, Interactions, Frames, Spec, Memory, Health, Compare, Scaling]
 
 ## A table's order: the column index and its direction.
 Sort : { column : U64, descending : Bool }
 
 ## The cycle list shows every trigger of the phase, or one trigger and patch
-## kind chosen from the triggers table.
-Filter : [All, Only({ trigger : Str, patch_kind : Str })]
+## kind chosen from the triggers table, and optionally only the cycles in one
+## duration bucket chosen from the distribution.
+Filter : Capture.Scope
 
 ## The part of a long table a list holds: `rows` from the row `offset`, and
 ## the request that read them, which a memoized list compares instead of the
@@ -38,6 +39,10 @@ Steps : { run : I64, window : Window(Capture.Step) }
 
 ## A page read in flight: its request and the row it starts at.
 Reading : [None, Some({ id : U64, offset : U64 })]
+
+## The frame strip on screen and the request that read it, which a memoized
+## chart compares instead of its bars.
+Strip : { strip : Capture.Strip, read : U64 }
 
 ## What a view inside a component boundary asks of the application as a whole:
 ## work that needs a handle only the root holds, or a change a sibling view
@@ -66,6 +71,13 @@ Request : [
 	ChooseNoise(Str),
 	ClearNoise,
 	BuildScaling,
+	## Show only the cycles of the list's scope in one duration bucket, which
+	## holds a count of cycles; the same bucket again shows the whole scope.
+	FilterBucket(I64, I64),
+	## Read one frame's own work.
+	SelectFrame(Capture.Bar),
+	## Read the frame strip of a span of frames from a row.
+	ShowFrames(I64, I64),
 ]
 
 State : {
@@ -96,6 +108,14 @@ State : {
 	baseline : [None, Some(Capture.Opened)],
 	noise : [None, Some(Scaling.Member)],
 	scaling : Scaling.Selection,
+	## The frame budget, in hertz, frames are drawn against.
+	budget : I64,
+	strip : Strip,
+	strip_reading : Reading,
+	## The strip column and the distribution bucket under the pointer.
+	frame_hover : [None, Some(I64)],
+	bucket_hover : [None, Some(I64)],
+	frame : [None, Some(Capture.FrameDetail)],
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
@@ -114,6 +134,7 @@ Observatory := [].{
 	Cycles : Cycles
 	Steps : Steps
 	Reading : Reading
+	Strip : Strip
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -141,6 +162,12 @@ Observatory := [].{
 		baseline: None,
 		noise: None,
 		scaling: Scaling.empty,
+		budget: 60,
+		strip: { strip: { start: 0, span: 0, total: 0, bars: [] }, read: 0 },
+		strip_reading: None,
+		frame_hover: None,
+		bucket_hover: None,
+		frame: None,
 		request: None,
 	}
 
@@ -217,6 +244,11 @@ Observatory := [].{
 	close_inspector : State -> State
 	close_inspector = |state| { ..state, inspected: None }
 
+	## The trigger and patch kind a filter holds to, whether or not it also
+	## holds to a duration bucket.
+	within : Filter -> Capture.Only
+	within = within
+
 	choose : State -> Gui.Action(State)
 	choose = choose
 
@@ -269,21 +301,32 @@ holds_cycles = |state| state.cycles.phase == state.phase and state.cycles.filter
 cycles_wanted : State, Gui.EventVisibleRows -> [None, Some(U64)]
 cycles_wanted = |state, visible| wanted(listed_cycles(state), state.cycles_reading, visible, cycle_total(state))
 
+within : Filter -> Capture.Only
+within = |filter| match filter {
+	All => All
+	Only(chosen) => Only(chosen)
+	InBucket(held) => held.within
+}
+
 listed_triggers : State, Capture.Opened -> List(Capture.Trigger)
 listed_triggers = |state, opened| opened.triggers.keep_if(
 	|found| found.phase == state.phase
 	and (
-		match state.filter {
+		match within(state.filter) {
 			All => True
 			Only(chosen) => found.trigger == chosen.trigger and found.patch_kind == chosen.patch_kind
 		}
 	),
 )
 
+## A bucket's count is the distribution's, which counts every cycle in it.
 cycle_total : State -> U64
-cycle_total = |state| match state.capture {
-	None => 0
-	Some(opened) => listed_triggers(state, opened).fold(0.I64, |total, found| total + found.count).to_u64_wrap()
+cycle_total = |state| match state.filter {
+	InBucket(held) => held.count.to_u64_wrap()
+	_ => match state.capture {
+		None => 0
+		Some(opened) => listed_triggers(state, opened).fold(0.I64, |total, found| total + found.count).to_u64_wrap()
+	}
 }
 
 run_step_count : State -> U64
@@ -318,8 +361,21 @@ fulfil = |asked| {
 		## Pressing the selected trigger again shows every trigger.
 		Some(FilterTrigger(trigger, patch_kind)) => {
 			chosen = Only({ trigger, patch_kind })
-			read_cycles({ ..state, filter: if state.filter == chosen All else chosen, cycle_scroll: None }, 0)
+			read_cycles({ ..state, filter: if state.filter == chosen All else chosen, cycle_scroll: None, bucket_hover: None }, 0)
 		}
+		Some(FilterBucket(bucket, count)) => {
+			scope = within(state.filter)
+			filter = match state.filter {
+				InBucket(held) if held.bucket == bucket => match scope {
+					All => All
+					Only(chosen) => Only(chosen)
+				}
+				_ => InBucket({ within: scope, bucket, count })
+			}
+			read_cycles({ ..state, filter, cycle_scroll: None }, 0)
+		}
+		Some(SelectFrame(bar)) => read_frame(state, bar)
+		Some(ShowFrames(start, span)) => read_strip(state, start, span)
 		Some(ReadCycles(offset)) => read_cycles(state, offset)
 		Some(ReadSteps(offset)) => read_steps(state, state.steps.run, offset, None)
 		Some(JumpToCycle(row, align)) => {
@@ -355,7 +411,7 @@ close_capture = |state| {
 		Busy(active) => Busy(active)
 		_ => Ready
 	}
-	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None }
+	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -481,6 +537,11 @@ show = |latest, loaded, id| {
 		cycles: { phase: loaded.phase, filter: All, window },
 		cycles_reading: None,
 		cycle_scroll: None,
+		strip: { strip: loaded.opened.strip, read: id },
+		strip_reading: None,
+		frame_hover: None,
+		bucket_hover: None,
+		frame: None,
 		steps: { run: loaded.run, window: steps },
 		steps_reading: None,
 		step_scroll: None,
@@ -654,4 +715,46 @@ build_scaling = |state, directory| {
 			_ => Gui.none
 		},
 	})
+}
+
+## One frame's own work, read through the connection the open capture holds.
+read_frame : State, Capture.Bar -> Gui.Action(State)
+read_frame = |state, bar| match state.capture {
+	None => Gui.update(state)
+	Some(opened) => {
+		id = state.next_request
+		Gui.task({
+			pending: { ..state, next_request: id + 1, status: Busy(id) },
+			run: || Capture.frame!(opened.database, bar),
+			resolve: |latest, outcome| match latest.status {
+				Busy(active) if active == id => match outcome {
+					Ok(detail) => Gui.update({ ..latest, frame: Some(detail), status: Ready })
+					Err(message) => Gui.update({ ..latest, status: failure(message, "This frame's work could not be read from the open capture.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
+}
+
+## The frame strip of a span of frames. A strip superseded by a later read is
+## discarded, and the column under the pointer is forgotten, since it now
+## stands for other frames.
+read_strip : State, I64, I64 -> Gui.Action(State)
+read_strip = |state, start, span| match state.capture {
+	None => Gui.update(state)
+	Some(opened) => {
+		id = state.next_request
+		Gui.task({
+			pending: { ..state, next_request: id + 1, strip_reading: Some({ id, offset: start.to_u64_wrap() }) },
+			run: || Capture.strip!(opened.database, start, span),
+			resolve: |latest, outcome| match latest.strip_reading {
+				Some(reading) if reading.id == id => match outcome {
+					Ok(strip) => Gui.update({ ..latest, strip: { strip, read: id }, strip_reading: None, frame_hover: None })
+					Err(message) => Gui.update({ ..latest, strip_reading: None, status: failure(message, "These frames could not be read from the open capture.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
 }

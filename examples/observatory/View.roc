@@ -555,7 +555,7 @@ nav = |state| {
 	entry = |caption, view| key({ caption, label: caption, selected: state.view == view, on_press: |current, _| Observatory.ask(current, Show(view)) })
 	Gui.col(
 		{ label: "Views", width: Px(Theme.nav_width), height: Fill, padding: Theme.inset, gap: 6, bg: Theme.rail, border_color: Theme.line, border_width: 0, border_right: Px(1) },
-		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health), entry("Compare", Compare), entry("Scaling", Scaling)],
+		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Frames", Frames), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health), entry("Compare", Compare), entry("Scaling", Scaling)],
 	)
 }
 
@@ -659,7 +659,7 @@ overview = |state, opened| {
 					Gui.row(
 						{ label: "More tiles", width: Fill, padding: 0, gap: Theme.inset },
 						[
-							tile({ name: "Frames over budget", family: "gpui_frame_spans", value: frames.value, detail: frames.detail, opens: "Health", view: Health }),
+							tile({ name: "Frames over budget", family: "gpui_frame_spans", value: frames.value, detail: frames.detail, opens: "Frames", view: Frames }),
 							tile({ name: "Skip rate", family: "component_work", value: skip.value, detail: skip.detail, opens: "Health", view: Health }),
 							tile({ name: "Verdict", family: "", value: Capture.verdict_word(opened.verdict), detail: Capture.verdict_reason(opened.verdict), opens: "Health", view: Health }),
 						],
@@ -894,9 +894,13 @@ cycles_section = |state, opened| {
 	total = Observatory.cycle_total(state)
 	# The bars share one scale: the slowest cycle of everything listed.
 	slowest = Observatory.listed_triggers(state, opened).fold(0, |most, found| if found.max > most found.max else most)
-	scope = match state.filter {
+	within_scope = match Observatory.within(state.filter) {
 		All => "every trigger"
 		Only(chosen) => "${chosen.trigger} · ${chosen.patch_kind}"
+	}
+	scope = match state.filter {
+		InBucket(held) => "${within_scope} · ${range_text(held.bucket)}"
+		_ => within_scope
 	}
 	render_row : U64 -> Gui.Elem(Observatory.State)
 	render_row = |index| match Observatory.row_at(window, index) {
@@ -907,6 +911,10 @@ cycles_section = |state, opened| {
 	row_key = |index| match Observatory.row_at(window, index) {
 		Some(cycle) => cycle.id.to_u64_wrap()
 		None => pending_key(index)
+	}
+	clear = match state.filter {
+		InBucket(held) => [key({ caption: "All durations", label: "Clear duration bucket", selected: False, on_press: |current, _| Observatory.ask(current, FilterBucket(held.bucket, held.count)) })]
+		_ => []
 	}
 	jumps = if total > 1 {
 		[
@@ -946,6 +954,7 @@ cycles_section = |state, opened| {
 		Gui.row(
 			{ width: Fill, padding: 0, padding_top: Px(Theme.inset), gap: Theme.inset, align: Center },
 			[meta("CYCLES · ${state.phase} · ${scope} · slowest first · ${total.to_str()}")]
+				.concat(clear)
 				.concat(jumps)
 				.append(Gui.row({ padding: 0, gap: 0, grow: True, justify: End }, [legend])),
 		),
@@ -1202,6 +1211,11 @@ interactions = |state, _opened| Gui.col(
 			"Triggers",
 			|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and CompareView.same_comparison(a, b),
 			section(triggers_table),
+		),
+		part_boundary(
+			"Distribution",
+			|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and a.bucket_hover == b.bucket_hover,
+			section(distribution),
 		),
 		part_boundary(
 			"Cycles",
@@ -1596,6 +1610,703 @@ health = |state, opened| {
 	)
 }
 
+## Charts. A chart is a canvas of integer primitives: bars and rules from the
+## capture's figures, captions in canvas text, and a transparent hit rectangle
+## over every bar so the whole column, not only its painted height, answers the
+## pointer. Captions are never targets, so a readout drawn over a bar leaves
+## the bar as the thing under the pointer.
+
+box : { key : U64, label : Str, x : I64, y : I64, width : I64, height : I64, fill : Gui.Color } -> Gui.CanvasPrimitive
+box = |props| Gui.rectangle({
+	key: props.key,
+	label: props.label,
+	x: props.x.to_i32_wrap(),
+	y: props.y.to_i32_wrap(),
+	width: if props.width < 0 0 else props.width.to_u32_wrap(),
+	height: if props.height < 0 0 else props.height.to_u32_wrap(),
+	fill: props.fill,
+})
+
+rule : { key : U64, label : Str, x1 : I64, y1 : I64, x2 : I64, y2 : I64, stroke : Gui.Color } -> Gui.CanvasPrimitive
+rule = |props| Gui.line({ key: props.key, label: props.label, x1: props.x1.to_i32_wrap(), y1: props.y1.to_i32_wrap(), x2: props.x2.to_i32_wrap(), y2: props.y2.to_i32_wrap(), stroke: props.stroke, stroke_width: 1 })
+
+caption : { key : U64, label : Str, x : I64, y : I64, width : I64, value : Str, color : Gui.Color, align : Gui.CanvasTextAlign } -> Gui.CanvasPrimitive
+caption = |props| Gui.canvas_text({
+	key: props.key,
+	label: props.label,
+	x: props.x.to_i32_wrap(),
+	y: props.y.to_i32_wrap(),
+	width: props.width.to_u32_wrap(),
+	value: props.value,
+	color: props.color,
+	size: 11,
+	align: props.align,
+})
+
+## A part scaled into a span of pixels; any non-zero part is at least one
+## pixel.
+pixels : I64, I64, I64 -> I64
+pixels = |part, whole, span| if whole <= 0 or part <= 0 {
+	0
+} else {
+	scaled_part = part * span / whole
+	if scaled_part < 1 1 else scaled_part
+}
+
+## A hit target's key names what it stands for: keys from 1 are the columns
+## or buckets themselves, and every painted shape's key is offset past them.
+target_of : [None, Some(U64)], I64 -> [None, Some(I64)]
+target_of = |target, count| match target {
+	Some(hit) if hit >= 1 and hit.to_i64_wrap() <= count => Some(hit.to_i64_wrap() - 1)
+	_ => None
+}
+
+painted : I64, I64 -> U64
+painted = |layer, index| (layer * 1000 + index).to_u64_wrap()
+
+## The duration distribution (US-11)
+
+## The cycles of the list's scope counted by octave bucket.
+bucket_counts : Observatory.State, Capture.Opened -> List({ bucket : I64, count : I64 })
+bucket_counts = |state, opened| {
+	scope = Observatory.within(state.filter)
+	matching = opened.buckets.keep_if(
+		|found| found.phase == state.phase
+		and (
+			match scope {
+				All => True
+				Only(chosen) => found.trigger == chosen.trigger and found.patch_kind == chosen.patch_kind
+			}
+		),
+	)
+	var $counts = []
+	var $bucket = 0
+	while $bucket < Capture.bucket_count {
+		count = matching.keep_if(|found| found.bucket == $bucket).fold(0, |total, found| total + found.count)
+		$counts = $counts.append({ bucket: $bucket, count })
+		$bucket = $bucket + 1
+	}
+	$counts
+}
+
+range_text : I64 -> Str
+range_text = |bucket| {
+	range = Capture.bucket_range(bucket)
+	if bucket <= 0 {
+		"below ${Format.ms(range.high)}"
+	} else if bucket >= Capture.bucket_count - 1 {
+		"${Format.ms(range.low)} and above"
+	} else {
+		"${Format.ms(range.low)} to ${Format.ms(range.high)}"
+	}
+}
+
+chart_gutter : I64
+chart_gutter = 56
+
+chart_plot : I64
+chart_plot = 720
+
+## Where a duration falls on the distribution's logarithmic axis, from the
+## first shown bucket, each `width` pixels wide.
+duration_x : I64, I64, I64 -> I64
+duration_x = |duration, first, width| {
+	bucket = Capture.bucket_of(duration)
+	range = Capture.bucket_range(bucket)
+	within_bucket = if range.high - range.low <= 0 or bucket >= Capture.bucket_count - 1 0 else (duration - range.low) * width / (range.high - range.low)
+	chart_gutter + (bucket - first) * width + within_bucket
+}
+
+distribution : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+distribution = |state, opened| {
+	counts = bucket_counts(state, opened)
+	held = counts.keep_if(|found| found.count > 0)
+	if !Capture.complete(opened, "host_cycles") {
+		[heading("DURATION DISTRIBUTION"), absence_note(opened, "host_cycles")]
+	} else if held.is_empty() {
+		[heading("DURATION DISTRIBUTION"), note("No ${state.phase} cycles to count.")]
+	} else {
+		first = match held.first() {
+			Ok(found) => found.bucket
+			Err(_) => 0
+		}
+		last = match held.last() {
+			Ok(found) => found.bucket
+			Err(_) => 0
+		}
+		shown = counts.keep_if(|found| found.bucket >= first and found.bucket <= last)
+		width = chart_plot / (last - first + 1)
+		tallest = shown.fold(0, |most, found| if found.count > most found.count else most)
+		top = 22
+		bottom = 132
+		chosen = match state.filter {
+			InBucket(held_bucket) => Some(held_bucket.bucket)
+			_ => None
+		}
+		bars = shown.map(
+			|found| {
+				height = pixels(found.count, tallest, bottom - top)
+				fill = if chosen == Some(found.bucket) Theme.accent else if state.bucket_hover == Some(found.bucket) Theme.span else Theme.callback
+				box({ key: painted(1, found.bucket), label: "Bucket bar ${range_text(found.bucket)}", x: chart_gutter + (found.bucket - first) * width + 1, y: bottom - height, width: width - 2, height, fill })
+			},
+		)
+		edges = shown.keep_if(|found| (found.bucket - first) % 2 == 0).map(
+			|found| caption({ key: painted(2, found.bucket), label: "Bucket edge ${found.bucket.to_str()}", x: chart_gutter + (found.bucket - first) * width - 40, y: bottom + 4, width: 80, value: Format.ms(Capture.bucket_range(found.bucket).low), color: Theme.dim, align: Center }),
+		)
+		scope = Observatory.within(state.filter)
+		listed = Observatory.listed_triggers(state, opened)
+		slowest = listed.fold(0, |most, found| if found.max > most found.max else most)
+		median = match scope {
+			Only(chosen_trigger) => match listed.find_first(|found| found.trigger == chosen_trigger.trigger and found.patch_kind == chosen_trigger.patch_kind) {
+				Ok(found) => found.median
+				Err(_) => 0
+			}
+			All => match opened.medians.find_first(|found| found.phase == state.phase) {
+				Ok(found) => found.median
+				Err(_) => 0
+			}
+		}
+		median_x = duration_x(median, first, width)
+		max_x = duration_x(slowest, first, width)
+		markers = [
+			rule({ key: painted(3, 1), label: "Median marker", x1: median_x, y1: top - 4, x2: median_x, y2: bottom, stroke: Theme.ink }),
+			caption({ key: painted(3, 2), label: "Median caption", x: median_x + 3, y: top - 4, width: 160, value: "median ${Format.ms(median)}", color: Theme.ink, align: Start }),
+			rule({ key: painted(3, 3), label: "Max marker", x1: max_x, y1: top - 4, x2: max_x, y2: bottom, stroke: Theme.alarm_ink }),
+			caption({ key: painted(3, 4), label: "Max caption", x: max_x - 163, y: top + 10, width: 160, value: "max ${Format.ms(slowest)}", color: Theme.alarm_ink, align: End }),
+		]
+		readout_text = match state.bucket_hover {
+			Some(bucket) => {
+				count = match counts.get(bucket.to_u64_wrap()) {
+					Ok(found) => found.count
+					Err(_) => 0
+				}
+				"${range_text(bucket)} · ${count.to_str()} cycles · press to list them"
+			}
+			None => "Hover a bucket for its range and count; press it to list its cycles."
+		}
+		hover_mark = match state.bucket_hover {
+			Some(bucket) if bucket >= first and bucket <= last => [box({ key: painted(6, 1), label: "Hovered bucket", x: chart_gutter + (bucket - first) * width, y: top, width, height: bottom - top, fill: Theme.selected })]
+			_ => []
+		}
+		readout = caption({ key: painted(4, 1), label: "Distribution readout", x: chart_gutter, y: 2, width: chart_plot, value: readout_text, color: Theme.ink, align: Start })
+		axis = [
+			rule({ key: painted(5, 1), label: "Distribution axis", x1: chart_gutter, y1: bottom, x2: chart_gutter + chart_plot, y2: bottom, stroke: Theme.edge }),
+			caption({ key: painted(5, 2), label: "Distribution count", x: 0, y: top - 2, width: chart_gutter - 6, value: tallest.to_str(), color: Theme.dim, align: End }),
+		]
+		# Hit rectangles last, so they are the topmost targets.
+		hits = shown.map(|found| box({ key: (found.bucket + 1).to_u64_wrap(), label: "Bucket ${range_text(found.bucket)}", x: chart_gutter + (found.bucket - first) * width, y: top, width, height: bottom - top, fill: Default }))
+		count_of : I64 -> I64
+		count_of = |bucket| match counts.get(bucket.to_u64_wrap()) {
+			Ok(found) => found.count
+			Err(_) => 0
+		}
+		scope_caption = match scope {
+			All => "every trigger"
+			Only(chosen_trigger) => "${chosen_trigger.trigger} · ${chosen_trigger.patch_kind}"
+		}
+		[
+			heading("DURATION DISTRIBUTION · ${state.phase} · ${scope_caption} · octave buckets · warmups excluded"),
+			Gui.canvas({
+				label: "Duration distribution",
+				primitives: hover_mark.concat(bars).concat(edges).concat(axis).concat(markers).append(readout).concat(hits),
+				on_pointer: |current, event| match (event.phase, target_of(event.target, Capture.bucket_count)) {
+					(Begin, Some(bucket)) => Observatory.ask(current, FilterBucket(bucket, count_of(bucket)))
+					_ => Gui.none
+				},
+				on_hover: Some(
+					|current, event| {
+						hovered = match event.phase {
+							Move => target_of(event.target, Capture.bucket_count)
+							Leave => None
+						}
+						if hovered == current.bucket_hover Gui.none else Gui.update({ ..current, bucket_hover: hovered })
+					},
+				),
+				width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				height: Px(150),
+				min_width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				min_height: Px(150),
+				bg: Theme.card,
+				border_color: Theme.line,
+				border_width: 1,
+				radius: Theme.radius,
+			}),
+		]
+	}
+}
+
+## Frames (W5, US-22 to US-25)
+
+strip_top : I64
+strip_top = 22
+
+strip_bottom : I64
+strip_bottom = 172
+
+## One stage of a bar, stacked on the stages below it.
+stage : { layer : I64, column : I64, below : I64, part : I64, scale : I64, color : Gui.Color, name : Str } -> Gui.CanvasPrimitive
+stage = |props| {
+	base = pixels(props.below, props.scale, strip_bottom - strip_top)
+	top = pixels(props.below + props.part, props.scale, strip_bottom - strip_top)
+	box({ key: painted(props.layer, props.column), label: "${props.name} ${props.column.to_str()}", x: chart_gutter + props.column * 3, y: strip_bottom - top, width: 2, height: top - base, fill: props.color })
+}
+
+frame_name : I64, I64 -> Str
+frame_name = |run_id, ordinal| "r${run_id.to_str()} #${ordinal.to_str()}"
+
+bar_total : Capture.Bar -> I64
+bar_total = |bar| bar.layout + bar.prepaint + bar.paint
+
+## Layout solve and presentation happen inside GPUI, outside any host-owned
+## element. They are drawn as bands that say so, never as zero.
+unavailable_band : Capture.Opened, I64, Str, Str -> List(Gui.CanvasPrimitive)
+unavailable_band = |opened, row, name, family_name| {
+	y = strip_bottom + 8 + row * 18
+	reason = match Capture.family(opened, family_name) {
+		Found(found) => "${found.status}: ${found.reason}"
+		Missing => "not recorded in this capture"
+	}
+	[
+		box({ key: painted(7, row), label: "Unavailable ${name}", x: chart_gutter, y, width: chart_plot, height: 14, fill: Theme.rail }),
+		caption({ key: painted(8, row), label: "Reason ${name}", x: chart_gutter + 6, y: y + 1, width: chart_plot - 12, value: "${name} ${reason}", color: Theme.dim, align: Start }),
+	]
+}
+
+## Zooming halves or doubles the span of frames around the pointer's frame,
+## and a sideways scroll pans by an eighth of it.
+zoomed : Capture.Strip, Gui.EventCanvasWheel -> [None, Some({ start : I64, span : I64 })]
+zoomed = |strip, wheel| {
+	smallest = if strip.total < Capture.columns strip.total else Capture.columns
+	offset = if wheel.x.to_i64() < chart_gutter 0 else if wheel.x.to_i64() > chart_gutter + chart_plot chart_plot else wheel.x.to_i64() - chart_gutter
+	anchor = strip.start + offset * strip.span / chart_plot
+	requested = if wheel.dy < 0 strip.span / 2 else if wheel.dy > 0 strip.span * 2 else strip.span
+	span = if requested < smallest smallest else if requested > strip.total strip.total else requested
+	panned = if wheel.dx > 0 span / 8 else if wheel.dx < 0 -(span / 8) else 0
+	unclamped = anchor - offset * span / chart_plot + panned
+	start = if unclamped < 0 0 else if unclamped > strip.total - span strip.total - span else unclamped
+	if start == strip.start and span == strip.span None else Some({ start, span })
+}
+
+frame_strip : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+frame_strip = |state, opened| {
+	strip = state.strip.strip
+	budget = Capture.budget_ns(state.budget)
+	slowest = strip.bars.fold(0, |most, bar| if bar_total(bar) > most bar_total(bar) else most)
+	scale = if budget * 3 / 2 > slowest budget * 3 / 2 else slowest
+	budget_y = strip_bottom - pixels(budget, scale, strip_bottom - strip_top)
+	columns = strip.bars.len().to_i64_wrap()
+	bars = strip.bars.fold(
+		[],
+		|drawn, bar| {
+			over = if bar_total(bar) > budget [box({ key: painted(4, bar.column), label: "Over budget ${bar.column.to_str()}", x: chart_gutter + bar.column * 3, y: strip_top - 6, width: 2, height: 3, fill: Theme.alarm_ink })] else []
+			drawn
+				.concat(
+					[
+						stage({ layer: 1, column: bar.column, below: 0, part: bar.layout, scale, color: Theme.callback, name: "Layout request" }),
+						stage({ layer: 2, column: bar.column, below: bar.layout, part: bar.prepaint, scale, color: Theme.span, name: "Prepaint" }),
+						stage({ layer: 3, column: bar.column, below: bar.layout + bar.prepaint, part: bar.paint, scale, color: Theme.validate, name: "Paint" }),
+					],
+				)
+				.concat(over)
+		},
+	)
+	hovered = match state.frame_hover {
+		Some(column) => match strip.bars.get(column.to_u64_wrap()) {
+			Ok(bar) => Some(bar)
+			Err(_) => None
+		}
+		None => None
+	}
+	readout_text = match hovered {
+		Some(bar) => {
+			verdict = if bar_total(bar) > budget "✗ over budget" else "✓ within budget"
+			many = if bar.frames > 1 " · costliest of ${bar.frames.to_str()} frames" else ""
+			"frame ${frame_name(bar.run_id, bar.ordinal)} · layout request ${Format.ms(bar.layout)} · prepaint ${Format.ms(bar.prepaint)} · paint ${Format.ms(bar.paint)} = ${Format.ms(bar_total(bar))} ${verdict}${many}"
+		}
+		None => "Hover a frame for its stages; press it to inspect; scroll to zoom."
+	}
+	highlight = match state.frame_hover {
+		Some(column) => [box({ key: painted(9, 1), label: "Hovered column", x: chart_gutter + column * 3 - 1, y: strip_top, width: 4, height: strip_bottom - strip_top, fill: Theme.selected })]
+		None => []
+	}
+	selected = match state.frame {
+		Some(detail) => match strip.bars.find_first(|bar| bar.id == detail.id) {
+			Ok(bar) => [rule({ key: painted(9, 2), label: "Selected frame", x1: chart_gutter + bar.column * 3 + 1, y1: strip_top - 10, x2: chart_gutter + bar.column * 3 + 1, y2: strip_bottom, stroke: Theme.accent })]
+			Err(_) => []
+		}
+		None => []
+	}
+	guides = [
+		rule({ key: painted(5, 1), label: "Frame axis", x1: chart_gutter, y1: strip_bottom, x2: chart_gutter + chart_plot, y2: strip_bottom, stroke: Theme.edge }),
+		rule({ key: painted(5, 2), label: "Budget line", x1: chart_gutter, y1: budget_y, x2: chart_gutter + chart_plot, y2: budget_y, stroke: Theme.alarm_ink }),
+		caption({ key: painted(5, 3), label: "Budget caption", x: 0, y: budget_y - 7, width: chart_gutter - 6, value: Format.ms(budget), color: Theme.alarm_ink, align: End }),
+		caption({ key: painted(5, 4), label: "Scale caption", x: 0, y: strip_top - 6, width: chart_gutter - 6, value: Format.ms(scale), color: Theme.dim, align: End }),
+		caption({ key: painted(5, 5), label: "Frame readout", x: chart_gutter, y: 2, width: chart_plot, value: readout_text, color: Theme.ink, align: Start }),
+	]
+	bands = unavailable_band(opened, 0, "layout solve", "gpui_layout_solve").concat(unavailable_band(opened, 1, "presentation", "gpui_presentation"))
+	hits = strip.bars.map(|bar| box({ key: (bar.column + 1).to_u64_wrap(), label: "Frame ${frame_name(bar.run_id, bar.ordinal)}", x: chart_gutter + bar.column * 3, y: strip_top, width: 3, height: strip_bottom - strip_top, fill: Default }))
+	bar_at : I64 -> [None, Some(Capture.Bar)]
+	bar_at = |column| match strip.bars.get(column.to_u64_wrap()) {
+		Ok(bar) => Some(bar)
+		Err(_) => None
+	}
+	last = strip.start + strip.span
+	span_caption = if strip.span == strip.total "all ${strip.total.to_str()} frames" else "frames ${(strip.start + 1).to_str()}–${last.to_str()} of ${strip.total.to_str()}"
+	whole = if strip.span < strip.total [key({ caption: "Whole capture", label: "Show every frame", selected: False, on_press: |current, _| Observatory.ask(current, ShowFrames(0, 0)) })] else []
+	[
+		Gui.row(
+			{ label: "Strip heading", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+			[meta("FRAMES · stacked: layout request · prepaint · paint · ${span_caption} · ${columns.to_str()} columns")].concat(whole),
+		),
+		Gui.canvas({
+			label: "Frames",
+			primitives: highlight.concat(bars).concat(guides).concat(selected).concat(bands).concat(hits),
+			on_pointer: |current, event| match (event.phase, target_of(event.target, columns)) {
+				(Begin, Some(column)) => match bar_at(column) {
+					Some(bar) => Observatory.ask(current, SelectFrame(bar))
+					None => Gui.none
+				}
+				_ => Gui.none
+			},
+			on_hover: Some(
+				|current, event| {
+					column = match event.phase {
+						Move => target_of(event.target, columns)
+						Leave => None
+					}
+					if column == current.frame_hover Gui.none else Gui.update({ ..current, frame_hover: column })
+				},
+			),
+			on_wheel: Some(
+				|current, wheel| match zoomed(current.strip.strip, wheel) {
+					Some(next) => Observatory.ask(current, ShowFrames(next.start, next.span))
+					None => Gui.none
+				},
+			),
+			width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+			height: Px(214),
+			min_width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+			min_height: Px(214),
+			bg: Theme.card,
+			border_color: Theme.line,
+			border_width: 1,
+			radius: Theme.radius,
+		}),
+	]
+}
+
+budget_bar : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
+budget_bar = |state, opened| {
+	over = match opened.budgets.find_first(|found| found.hz == state.budget) {
+		Ok(found) => found.over
+		Err(_) => 0
+	}
+	Gui.row(
+		{ label: "Budget", width: Fill, padding: 0, gap: 6, align: Center },
+		[meta("BUDGET")]
+			.concat(Capture.budget_rates.map(|hz| key({ caption: "${hz.to_str()} Hz", label: "Budget ${hz.to_str()} Hz", selected: state.budget == hz, on_press: |current, _| Gui.delegate({ ..current, budget: hz }) })))
+			.append(Gui.row({ label: "Frame summary", padding: 0, gap: 0, grow: True, justify: End, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("${opened.frames.drawn.to_str()} frames · ${over.to_str()} over budget")])),
+	)
+}
+
+## The frame a press opened: its stages against the budget, and its own work.
+frame_detail : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+frame_detail = |state, _opened| match state.frame {
+	None => [note("Press a frame in the strip to inspect it.")]
+	Some(detail) => {
+		total = detail.layout + detail.prepaint + detail.paint
+		budget = Capture.budget_ns(state.budget)
+		figure = |name, value| labelled_row("Frame ${name}", [cell(name, 110, Theme.dim), figure_cell(value, 110)])
+		count = |metric| match detail.work.find_first(|found| found.metric == metric) {
+			Ok(found) => found.count.to_str()
+			Err(_) => "—"
+		}
+		share = match Capture.replay_share(detail.work) {
+			Some(percent) => "${percent.to_str()}%"
+			None => "no scene operations"
+		}
+		[
+			Gui.row({ label: "Frame title", padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("FRAME ${frame_name(detail.run_id, detail.ordinal)}")]),
+			figure("layout request", Format.ms(detail.layout)),
+			figure("prepaint", Format.ms(detail.prepaint)),
+			figure("paint", Format.ms(detail.paint)),
+			Gui.row(
+				{ label: "Frame verdict", width: Fill, padding: 0, gap: 0, fg: if total > budget Theme.alarm_ink else Theme.good, font_size: Theme.body, font_face: Theme.face },
+				[Gui.text(if total > budget "= ${Format.ms(total)} ✗ over ${Format.ms(budget)}" else "= ${Format.ms(total)} ✓ within ${Format.ms(budget)}")],
+			),
+			note("cause not recorded: a frame carries no link to the cycle that caused it"),
+			heading("FRAME WORK"),
+			figure("replay share", share),
+			figure("fresh scene ops", count(14)),
+			figure("replayed scene ops", count(6)),
+			figure("cached paint", count(5)),
+		]
+	}
+}
+
+tenths_text : I64, I64 -> Str
+tenths_text = |total, frames| if frames <= 0 {
+	"—"
+} else {
+	scaled_total = total * 10 / frames
+	"${(scaled_total / 10).to_str()}.${(scaled_total % 10).to_str()}"
+}
+
+## US-23: every node kind, both metrics, over every frame and in the frame a
+## press opened. A kind with no row in a recorded frame did no such work.
+native_work : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+native_work = |state, opened| {
+	drawn = opened.frames.drawn
+	present = Capture.complete(opened, "gpui_native_work")
+	totals = |metric, kind| match opened.native.find_first(|found| found.metric == metric and found.kind == kind) {
+		Ok(found) => { total: found.total, max: found.max }
+		Err(_) => { total: 0, max: 0 }
+	}
+	chosen = |metric, kind| match state.frame {
+		Some(detail) => match detail.native.find_first(|found| found.metric == metric and found.kind == kind) {
+			Ok(found) => found.count.to_str()
+			Err(_) => "0"
+		}
+		None => ""
+	}
+	cells = |metric, kind| {
+		found = totals(metric, kind)
+		[
+			family_cell(present, "gpui_native_work", found.total.to_str(), 70),
+			family_cell(present, "gpui_native_work", found.max.to_str(), 60),
+			family_cell(present, "gpui_native_work", tenths_text(found.total, drawn), 60),
+			figure_cell(chosen(metric, kind), 70),
+		]
+	}
+	rows = Capture.node_kinds.map_with_index(
+		|name, index| {
+			kind = index.to_i64_wrap()
+			labelled_row("Native ${name}", [cell(name, 130, Theme.ink)].concat(cells(0, kind)).concat(cells(1, kind)).append(rest_cell("", Theme.dim)))
+		},
+	)
+	selected = match state.frame {
+		Some(detail) => "frame ${frame_name(detail.run_id, detail.ordinal)}"
+		None => "no frame"
+	}
+	reason = if present [] else [absence_note(opened, "gpui_native_work")]
+	[heading("NATIVE WORK · renders and elements created · total · max · mean per frame · ${selected}")]
+		.concat(reason)
+		.concat(
+			[
+				table(
+					"Native work",
+					[
+						table_head(
+							"Native work columns",
+							[head_cell("kind", 130), head_figure("renders", 70), head_figure("max", 60), head_figure("mean", 60), head_figure("frame", 70), head_figure("created", 70), head_figure("max", 60), head_figure("mean", 60), head_figure("frame", 70), head_rest("")],
+						),
+					].concat(rows),
+				),
+			],
+		)
+}
+
+group_name : [Replayed, Fresh, Moved] -> Str
+group_name = |group| match group {
+	Replayed => "cached and replayed"
+	Fresh => "fresh"
+	Moved => "moved and rebased"
+}
+
+## US-24: the nineteen GPUI frame-work metrics, grouped.
+frame_work : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+frame_work = |state, opened| {
+	drawn = opened.frames.drawn
+	present = Capture.complete(opened, "gpui_frame_work")
+	total_of = |metric| match opened.work.find_first(|found| found.metric == metric) {
+		Ok(found) => found
+		Err(_) => { metric, total: 0, max: 0 }
+	}
+	chosen = |metric| match state.frame {
+		Some(detail) => match detail.work.find_first(|found| found.metric == metric) {
+			Ok(found) => found.count.to_str()
+			Err(_) => "—"
+		}
+		None => ""
+	}
+	metric_row = |metric, name| {
+		found = total_of(metric)
+		labelled_row(
+			"Frame work ${name}",
+			[
+				cell(name, 250, Theme.ink),
+				family_cell(present, "gpui_frame_work", found.total.to_str(), 90),
+				family_cell(present, "gpui_frame_work", found.max.to_str(), 70),
+				family_cell(present, "gpui_frame_work", tenths_text(found.total, drawn), 70),
+				figure_cell(chosen(metric), 70),
+				rest_cell("", Theme.dim),
+			],
+		)
+	}
+	group_rows = |group| {
+		members = Capture.work_metrics.map_with_index(|found, index| { index: index.to_i64_wrap(), name: found.name, group: found.group }).keep_if(|found| found.group == group)
+		[table_row([rest_cell(group_name(group), Theme.dim)])].concat(members.map(|found| metric_row(found.index, found.name)))
+	}
+	replayed = total_of(6).total
+	fresh = total_of(14).total
+	overall = if !present "replay share —" else if replayed + fresh == 0 "replay share: no scene operations" else "replay share over every frame: ${Format.percent(replayed, replayed + fresh)} of scene operations replayed"
+	frame_share = match state.frame {
+		Some(detail) => match Capture.replay_share(detail.work) {
+			Some(percent) => " · frame ${frame_name(detail.run_id, detail.ordinal)}: ${percent.to_str()}%"
+			None => " · frame ${frame_name(detail.run_id, detail.ordinal)}: no scene operations"
+		}
+		None => ""
+	}
+	reason = if present [] else [absence_note(opened, "gpui_frame_work")]
+	[heading("FRAME WORK · GPUI replay against fresh construction")]
+		.concat(reason)
+		.concat(
+			[
+				Gui.row({ label: "Replay share", width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("${overall}${frame_share}")]),
+				table(
+					"Frame work",
+					[table_head("Frame work columns", [head_cell("metric", 250), head_figure("total", 90), head_figure("max", 70), head_figure("mean", 70), head_figure("frame", 70), head_rest("")])]
+						.concat(group_rows(Replayed))
+						.concat(group_rows(Fresh))
+						.concat(group_rows(Moved)),
+				),
+			],
+		)
+}
+
+## A list the platform builds the viewport and one viewport either side of
+## materialises at most three times what it shows; beyond that it is flagged.
+list_flag : Capture.ListRow -> { text : Str, ink : Gui.Color }
+list_flag = |found| if found.visible > 0 and found.materialized > 3 * found.visible {
+	{ text: "⚠ ${(found.materialized / found.visible).to_str()}× visible", ink: Theme.caution }
+} else {
+	{ text: "✓", ink: Theme.good }
+}
+
+## US-25: every virtual list's last pass, and its passes over time.
+virtual_lists : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+virtual_lists = |_state, opened| {
+	present = Capture.complete(opened, "virtual_list_materialization")
+	rows = opened.lists.map(
+		|found| {
+			marked = list_flag(found)
+			labelled_row(
+				"List ${found.list_id.to_str()}",
+				[
+					cell("#${found.list_id.to_str()}", 90, Theme.ink),
+					figure_cell(found.passes.to_str(), 70),
+					figure_cell(found.visible.to_str(), 70),
+					figure_cell(found.materialized.to_str(), 100),
+					figure_cell(found.recycled.to_str(), 80),
+					figure_cell(found.live.to_str(), 70),
+					figure_cell(found.most.to_str(), 90),
+					rest_cell(marked.text, marked.ink),
+				],
+			)
+		},
+	)
+	tallest = opened.passes.fold(0, |most, found| if found.materialized > most found.materialized else most)
+	top = 8
+	bottom = 88
+	pass_bars = opened.passes.map(
+		|found| {
+			height = pixels(found.materialized, tallest, bottom - top)
+			box({ key: painted(1, found.column), label: "Pass ${found.column.to_str()}", x: chart_gutter + found.column * 3, y: bottom - height, width: 2, height, fill: Theme.span })
+		},
+	)
+	visible_marks = opened.passes.map(
+		|found| {
+			y = bottom - pixels(found.visible, tallest, bottom - top)
+			box({ key: painted(2, found.column), label: "Pass visible ${found.column.to_str()}", x: chart_gutter + found.column * 3, y, width: 3, height: 1, fill: Theme.ink })
+		},
+	)
+	chart_captions = [
+		caption({ key: painted(3, 1), label: "Pass scale", x: 0, y: top - 4, width: chart_gutter - 6, value: tallest.to_str(), color: Theme.dim, align: End }),
+		caption({ key: painted(3, 2), label: "Pass legend", x: chart_gutter, y: bottom + 4, width: chart_plot, value: "materialised entities per pass, oldest first; the dark tick is the rows visible", color: Theme.dim, align: Start }),
+	]
+	body = if !present {
+		[absence_note(opened, "virtual_list_materialization")]
+	} else {
+		[
+			table(
+				"Virtual lists",
+				[table_head("Virtual list columns", [head_cell("list", 90), head_figure("passes", 70), head_figure("visible", 70), head_figure("materialised", 100), head_figure("recycled", 80), head_figure("live", 70), head_figure("most", 90), head_rest("")])].concat(rows),
+			),
+			Gui.canvas({
+				label: "List passes",
+				primitives: pass_bars.concat(visible_marks).concat(chart_captions),
+				on_pointer: |_, _| Gui.none,
+				width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				height: Px(110),
+				min_width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				min_height: Px(110),
+				bg: Theme.card,
+				border_color: Theme.line,
+				border_width: 1,
+				radius: Theme.radius,
+			}),
+		]
+	}
+	[heading("VIRTUAL LISTS · last pass · most materialised in any pass")].concat(body)
+}
+
+same_frame : Observatory.State, Observatory.State -> Bool
+same_frame = |a, b| frame_id(a) == frame_id(b)
+
+frame_id : Observatory.State -> [None, Some(I64)]
+frame_id = |state| match state.frame {
+	Some(detail) => Some(detail.id)
+	None => None
+}
+
+## A capture whose frame spans were not recorded, such as a semantic-headless
+## one, shows the family's status and reason instead of any chart.
+frames_view : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
+frames_view = |_state, opened| if !Capture.complete(opened, "gpui_frame_spans") {
+	reason = match Capture.family(opened, "gpui_frame_spans") {
+		Found(found) => "Frames ${found.status}: ${found.reason}"
+		Missing => "Frames not recorded: this capture has no gpui_frame_spans family"
+	}
+	Gui.col(
+		{ label: "Frames", width: Fill, padding: Theme.inset, gap: Theme.inset },
+		[
+			heading("FRAMES"),
+			Gui.panel(
+				{ label: "Frames absent", width: Fill, padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+				[
+					Gui.row({ label: "Frames status", width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text(reason)]),
+					absence_note(opened, "gpui_frame_spans"),
+					note("Record a capture of a GPUI window, such as a window specification run with --host-stats-output, to see its frames."),
+				],
+			),
+		],
+	)
+} else {
+	Gui.col(
+		{ label: "Frames", width: Fill, padding: Theme.inset, gap: Theme.inset },
+		[
+			part_boundary("Frame budget", |a, b| same_capture(a, b) and a.budget == b.budget, section(|current, captured| [budget_bar(current, captured)])),
+			Gui.row(
+				{ label: "Frame panes", width: Fill, padding: 0, gap: Theme.inset },
+				[
+					part_boundary(
+						"Frame strip",
+						|a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and a.frame_hover == b.frame_hover and same_frame(a, b),
+						section(frame_strip),
+					),
+					Gui.col(
+						{ label: "Frame inspector", width: Px(280), min_width: Px(280), padding: Theme.inset, gap: 4, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+						[part_boundary("Frame detail", |a, b| same_capture(a, b) and a.budget == b.budget and same_frame(a, b), section(frame_detail))],
+					),
+				],
+			),
+			part_boundary("Native work", |a, b| same_capture(a, b) and same_frame(a, b), section(native_work)),
+			part_boundary("Frame work", |a, b| same_capture(a, b) and same_frame(a, b), section(frame_work)),
+			part_boundary("Virtual lists", same_capture, section(virtual_lists)),
+		],
+	)
+}
+
 scrolled : Str, Gui.Elem(Observatory.State) -> Gui.Elem(Observatory.State)
 scrolled = |label, content| Gui.scroll({ label, content, width: Fill, height: Fill, grow: True })
 
@@ -1608,6 +2319,9 @@ main_view = |state| match state.view {
 		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and same_cycles(a, b) and CompareView.same_comparison(a, b),
 		|current| with_capture(current, |s, o| scrolled("Interactions scroll", interactions(s, o))),
 	)
+	## The strip's hover is compared only by the strip, which a hover updates
+	## in place.
+	Frames => view_boundary("Frames", |a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and same_frame(a, b), |current| with_capture(current, |s, o| scrolled("Frames scroll", frames_view(s, o))))
 	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and a.step_scroll == b.step_scroll, |current| with_capture(current, spec))
 	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase and CompareView.same_comparison(a, b), |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
 	Health => view_boundary("Health", |a, b| same_capture(a, b) and a.family_focus == b.family_focus, |current| with_capture(current, |s, o| scrolled("Health scroll", health(s, o))))

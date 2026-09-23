@@ -19,7 +19,7 @@
     (click (role button :name "Capture browse-100-aa.rgstats"))
     (await-task)
     ; the baseline keeps its own connection beside the open capture's
-    (expect-sqlite-counters 2 8 40)
+    (expect-sqlite-counters 2 8 54)
     (expect-visible (within (role row :name "Baseline verdict") (text-prefix "✓ comparable")))
     (click (role button :name "Compare"))
     (expect-visible (text "COMPARABILITY · A: browse-100.rgstats ◆ baseline · B: browse-100-aa.rgstats"))
