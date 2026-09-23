@@ -1082,7 +1082,9 @@ names the reproduction so the workaround can be removed when the fix lands.
 - [ ] **Two window specifications fail intermittently on the GPUI fork.**
   `benchmarks/nested-hover-grid/specs/window-trail.scm` line 20 sometimes
   observes 8 button renders in one completed frame against its bound of 7
-  (passes on a rerun), and `examples/terminal-workspace/specs/gallery.scm`
+  (passes on a rerun), `benchmarks/hover-grid/specs/window-trail.scm` line 22
+  sometimes observes the previous hover colour (0xd58aff for 0x66e0ff) under
+  `--jobs 4`, and `examples/terminal-workspace/specs/gallery.scm`
   sometimes exits before "Command sent" appears. The first appeared with the
   move to the fork, whose hover reaches a stationary pointer once painted;
   find which button renders the eighth time and whether it is routed hover or
