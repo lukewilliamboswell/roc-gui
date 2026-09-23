@@ -153,7 +153,14 @@ choose = |state| {
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match state.access.pick_directory!() {
 			Ok(Chosen(selection)) => match selection.directory.list!() {
-				Ok(entries) => ChosenFolder({ name: selection.name, directory: selection.directory, captures: list_captures!(selection.directory, entries) })
+				Ok(entries) => {
+					# The listing is bound before the record is built. Written inline
+					# beside `directory: selection.directory`, an optimized build loses
+					# a reference to the capability: see "A value used twice in one
+					# record literal" in wip/issues-backlog.md.
+					captures = list_captures!(selection.directory, entries)
+					ChosenFolder({ name: selection.name, directory: selection.directory, captures })
+				}
 				Err(_) => ChooseFailed
 			}
 			Ok(Canceled) => ChooseCanceled
