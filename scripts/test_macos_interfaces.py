@@ -18,7 +18,7 @@ class MacosInterfaceTests(unittest.TestCase):
             "System/Library/Frameworks/AudioToolbox.framework/AudioToolbox.tbd",
             "System/Library/Frameworks/CoreAudio.framework/CoreAudio.tbd",
         } <= paths)
-        self.assertEqual(sum(len(library["symbols"]) for library in catalog["libraries"]), 576)
+        self.assertEqual(sum(len(library["symbols"]) for library in catalog["libraries"]), 674)
 
     def test_platform_links_every_published_interface(self):
         platform = (Path(__file__).resolve().parents[1] / "platform/main.roc").read_text()
