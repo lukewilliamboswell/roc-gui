@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATORS = (
     ROOT / "examples/database-browser/generate_fixture.py",
     ROOT / "examples/music-player/generate_fixture.py",
+    ROOT / "examples/observatory/generate_fixture.py",
 )
 
 

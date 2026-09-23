@@ -1,0 +1,21 @@
+(test "the health sheet lists every family, gap, recorder fact, and identity key"
+  (grants
+    (directory "fixture/captures"))
+  (steps
+    (click (role button :name "Open folder"))
+    (await-task)
+    (click (role button :name "Capture counter-counting.rgstats"))
+    (await-task)
+    (click (role button :name "Health"))
+    (expect-visible (within (role row :name "Verdict") (text "complete")))
+    (expect-visible (text-prefix "Untrusted when the capture is not finalised"))
+    (expect-visible (within (role column :name "Measurement families") (text "host_cycles")))
+    (expect-visible (within (role column :name "Measurement families") (text "gpui_presentation")))
+    (expect-count (within (role column :name "Measurement families") (text "complete")) 9)
+    (expect-count (within (role column :name "Measurement families") (text "not_recorded")) 7)
+    (expect-count (within (role column :name "Measurement families") (text "unavailable")) 3)
+    (expect-visible (within (role column :name "Recording gaps") (text "none")))
+    (expect-visible (within (role panel :name "Recorder health") (text-prefix "omitted events 0 · writer ok · output limit not reached")))
+    (expect-visible (within (role panel :name "Identity") (text "schema_version = 19")))
+    (expect-visible (within (role panel :name "Identity") (text "app_name = counter")))
+    (expect-visible (within (role column :name "Unavailable sources") (text "gpu_timing")))))

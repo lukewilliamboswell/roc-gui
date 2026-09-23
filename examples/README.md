@@ -26,6 +26,7 @@ directory.
 | [Device Configurator](device-configurator/) | peripheral configuration tool | device lifecycle and transactional changes |
 | [Animation Studio](animation-studio/) | timeline-based graphics editor | canvas interaction, timelines, and undo |
 | [Redis Explorer](redis-explorer/) | read-only Redis client | a capability-owned TCP stream |
+| [Observatory](observatory/) | `.rgstats` capture explorer | SQLite queries over real captures and honest evidence status |
 
 Every completed example has deterministic first-run data, semantic locators,
 SCM specifications for its meaningful behaviour, and a scaling case reached
