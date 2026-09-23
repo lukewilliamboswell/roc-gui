@@ -146,8 +146,9 @@ thread_local! {
     static EVENT: RefCell<Option<RowsEvent>> = const { RefCell::new(None) };
 }
 
-/// Roc turns the viewport started. A window specification settles only once
-/// these stop, because each one replaces the list the frame just drew.
+/// Roc turns a drawn frame started: a list's viewport moving, or a canvas
+/// hearing its size. A window specification settles only once these stop,
+/// because each one replaces what the frame just drew.
 static TURNS: AtomicU64 = AtomicU64::new(0);
 
 /// The rows a provided list should mount, applying any new scroll request.
@@ -237,6 +238,12 @@ pub(crate) fn event() -> RowsEvent {
         start: 0,
         end: 0,
     })
+}
+
+/// Count a turn a frame started outside a list's viewport, such as a canvas
+/// hearing the size it was laid out at: it too replaces what the frame drew.
+pub(crate) fn note_turn() {
+    TURNS.fetch_add(1, Ordering::Relaxed);
 }
 
 pub(crate) fn turns() -> u64 {

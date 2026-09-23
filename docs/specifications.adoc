@@ -370,6 +370,12 @@ process enforces the scope. `LINEAGE` is `root` or `derived`. No step means the
 application holds no authority at all. Identifiers are deliberately not part of
 a description: they are allocation order, which is a fact about the run rather
 than about the authority.
+`(expect-canvas-size LOCATOR WIDTH HEIGHT)`:: Require the size last reported
+to one canvas that handles `on_size` to be `WIDTH` by `HEIGHT` logical pixels.
+A canvas without the handler, or one that has heard no size, fails. The
+window runner reports the size GPUI laid the canvas out at; the semantic runner
+the size it derives from the window the application asked for. Both answer
+from the size the mounted graph recorded.
 `(expect-canvas-primitives LOCATOR N)`:: Require one canvas owner to report
 exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.
@@ -566,7 +572,7 @@ content to be below, and no size a window could be resized from.
 
 `both`:: `click`, `drag`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
 `system-theme`, `expect-theme`, `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
-`expect-count`, `expect-component-work`, and the value and ordering assertions — `expect-value`,
+`expect-count`, `expect-component-work`, `expect-canvas-size`, and the value and ordering assertions — `expect-value`,
 `expect-selected`, `expect-not-selected`,
 `expect-value-bytes`, `expect-image-bytes`, `expect-before`, `expect-rows`, and
 `expect-canvas-primitives`. The fixture clipboard is one process-wide store, so

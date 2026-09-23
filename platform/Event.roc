@@ -56,6 +56,11 @@ Event := [].{
 		target : [None, Some(U64)],
 	}
 
+	## The size in logical pixels a canvas was laid out at: the surface its
+	## primitives are drawn on, inside any border. Delivered once for each
+	## size, after a drawn frame gives the canvas one it has not reported.
+	CanvasSize : { width : U32, height : U32 }
+
 	## A key chord that matched a shortcut. `keys` is the chord in the host's
 	## canonical spelling, such as `ctrl-shift-k`: modifiers in a fixed order,
 	## then the key, whatever spelling the shortcut was declared with.

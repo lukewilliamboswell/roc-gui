@@ -299,6 +299,9 @@ pub enum Command {
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
     ExpectCanvasPrimitives(Locator, usize),
+    /// The size last reported to a canvas whose owner handles its size:
+    /// width and height in logical pixels.
+    ExpectCanvasSize(Locator, u32, u32),
     ExpectValue(Locator, String),
     ExpectValueBytes(Locator, usize),
     ExpectImageBytes(Locator, usize),
@@ -506,6 +509,7 @@ impl Command {
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
             Self::ExpectCanvasPrimitives(_, _) => "expect-canvas-primitives",
+            Self::ExpectCanvasSize(_, _, _) => "expect-canvas-size",
             Self::ExpectValue(_, _) => "expect-value",
             Self::ExpectValueBytes(_, _) => "expect-value-bytes",
             Self::ExpectImageBytes(_, _) => "expect-image-bytes",
@@ -592,6 +596,7 @@ impl Command {
             // and by one shared implementation rather than two. A window case
             // can therefore assert a semantic truth and photograph it.
             | Self::ExpectCanvasPrimitives(_, _)
+            | Self::ExpectCanvasSize(_, _, _)
             | Self::ExpectValue(_, _)
             | Self::ExpectSelected(_, _)
             | Self::ExpectValueBytes(_, _)
@@ -1915,6 +1920,24 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 })?;
             Command::ExpectCanvasPrimitives(parse_locator(&values[1])?, expected)
         }
+        "expect-canvas-size" if values.len() == 4 => {
+            let pixels = |value: &SExpr| {
+                value
+                    .atom()
+                    .and_then(|text| text.parse::<u32>().ok())
+                    .ok_or_else(|| {
+                        error(
+                            value,
+                            "expect-canvas-size requires a width and height in logical pixels",
+                        )
+                    })
+            };
+            Command::ExpectCanvasSize(
+                parse_locator(&values[1])?,
+                pixels(&values[2])?,
+                pixels(&values[3])?,
+            )
+        }
         "expect-value" if values.len() == 3 => Command::ExpectValue(
             parse_locator(&values[1])?,
             values[2]
@@ -2133,6 +2156,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-not-visible"
         | "expect-count"
         | "expect-canvas-primitives"
+        | "expect-canvas-size"
         | "expect-before"
         | "expect-patch"
         | "expect-value"

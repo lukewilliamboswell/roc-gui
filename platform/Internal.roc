@@ -1009,7 +1009,11 @@ Internal := [].{
 				Some(_) => True
 				None => False
 			}
-			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.style.grow, bg: color(canvas_value.style.bg), border_color: color(canvas_value.style.border_color), border_width: canvas_value.style.border_width, radius: canvas_value.style.radius, hover, wheel })
+			sized = match canvas_value.on_size {
+				Some(_) => True
+				None => False
+			}
+			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.style.grow, bg: color(canvas_value.style.bg), border_color: color(canvas_value.style.border_color), border_width: canvas_value.style.border_width, radius: canvas_value.style.radius, hover, wheel, size: sized })
 			route = {
 				id,
 				boundary: active_boundary,
@@ -1035,6 +1039,10 @@ Internal := [].{
 						5 => match canvas_value.on_wheel {
 							Some(handler) => handler(current, { x: event.x, y: event.y, dx: event.dx, dy: event.dy, target })
 							None => crash "canvas wheel delivered without a wheel handler"
+						}
+						6 => match canvas_value.on_size {
+							Some(handler) => handler(current, { width: event.x.to_u32_wrap(), height: event.y.to_u32_wrap() })
+							None => crash "canvas size delivered without a size handler"
 						}
 						_ => crash "invalid canvas pointer phase"
 					}

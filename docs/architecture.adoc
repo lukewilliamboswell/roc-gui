@@ -226,6 +226,14 @@ against unchanged state, which invalidates no ancestor's memo snapshot, and the
 new window replaces the old one in one ordinary patch. An action a row raises
 passes through the transparent boundary to the list's owner.
 
+A canvas that asks for its size is settled the same way, after the frame. Its
+prepaint records the bounds GPUI laid it out at and defers the report until the
+frame is drawn. The mounted graph holds the size last reported to each canvas
+and carries it by identity across a rebuild, as it carries hover and focus, so
+a size is dispatched through the canvas's route only when it is new to that
+canvas. Both runners ask the graph, which is what makes a size reported once
+whichever runner lays the canvas out.
+
 The host enables GPUI's native view cache for non-root button leaves, rows,
 columns, and panels whose pixel width and height equal their minimum and
 maximum dimensions and whose `grow` is false. Transparent single-child

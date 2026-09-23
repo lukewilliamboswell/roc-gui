@@ -656,6 +656,9 @@ pub enum NodeKind {
         /// and wheel scrolling. The host listens only for what is handled.
         hover: bool,
         wheel: bool,
+        /// Whether the owner handles the size the canvas is laid out at. The
+        /// host reports sizes only to a canvas that asks.
+        size: bool,
         style: Box<Style>,
     },
     Button {
@@ -1539,6 +1542,10 @@ pub struct MountedGraph {
     hovered: NodeSet,
     popovers: PopoverState,
     keyboard: KeyboardState,
+    /// The size last reported to each canvas whose owner handles its size.
+    /// Carried by identity across a rebuild, so a canvas hears each size once
+    /// while it stays mounted, whichever runner lays it out.
+    canvas_sizes: NodeMap<(u32, u32)>,
 }
 
 /// The regions whose shortcuts a keystroke may reach and the focus requests
@@ -1618,6 +1625,8 @@ struct InteractionCarry {
     focus_within: HashSet<ElementIdentity>,
     /// The serial a retired region had asked for focus with.
     focus_serials: HashMap<ElementIdentity, u64>,
+    /// The size a retired canvas had last reported.
+    canvas_sizes: HashMap<ElementIdentity, (u32, u32)>,
 }
 
 impl InteractionCarry {
@@ -1626,6 +1635,7 @@ impl InteractionCarry {
             && self.open.is_empty()
             && self.pending.is_empty()
             && self.focus_within.is_empty()
+            && self.canvas_sizes.is_empty()
     }
 }
 
@@ -2408,6 +2418,9 @@ impl MountedGraph {
             if let Some(serial) = self.keyboard.serials.remove(id) {
                 carry.focus_serials.insert(self.identity(*id), serial);
             }
+            if let Some(size) = self.canvas_sizes.remove(id) {
+                carry.canvas_sizes.insert(self.identity(*id), size);
+            }
             let hovered = self.hovered.remove(id);
             let open = self.popovers.open.remove(id);
             let pending = self.popovers.pending.remove(id);
@@ -2456,6 +2469,12 @@ impl MountedGraph {
             let Some(node) = self.node(*id) else {
                 continue;
             };
+            if matches!(node.kind, NodeKind::Canvas { size: true, .. }) {
+                if let Some(size) = carry.canvas_sizes.get(&self.identity(*id)) {
+                    self.canvas_sizes.insert(*id, *size);
+                }
+                continue;
+            }
             if !tracks_hover(&node.kind) {
                 continue;
             }
@@ -2476,6 +2495,24 @@ impl MountedGraph {
                 }
             }
         }
+    }
+
+    /// Record `size` as the size reported to a canvas whose owner handles
+    /// its size. False when the canvas is gone, does not ask, or has already
+    /// heard this size, so nothing is to be delivered.
+    pub(crate) fn report_canvas_size(&mut self, id: u64, size: (u32, u32)) -> bool {
+        if !matches!(
+            self.node(id).map(|node| &node.kind),
+            Some(NodeKind::Canvas { size: true, .. })
+        ) {
+            return false;
+        }
+        self.canvas_sizes.insert(id, size) != Some(size)
+    }
+
+    /// The size last reported to a canvas, if one has been.
+    pub(crate) fn reported_canvas_size(&self, id: u64) -> Option<(u32, u32)> {
+        self.canvas_sizes.get(&id).copied()
     }
 
     /// Modal input policy: a newly active dialog retires background pointer
@@ -5473,6 +5510,7 @@ mod tests {
                 primitives: vec![],
                 hover: false,
                 wheel: false,
+                size: false,
                 style: Box::default(),
             },
             NodeKind::Dialog {

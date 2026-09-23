@@ -382,6 +382,7 @@ Elem(a) :: [
 		on_pointer : (a, Event.CanvasPointer => Action(a)),
 		on_hover : [None, Some((a, Event.CanvasHover => Action(a)))],
 		on_wheel : [None, Some((a, Event.CanvasWheel => Action(a)))],
+		on_size : [None, Some((a, Event.CanvasSize => Action(a)))],
 		style : Style,
 	}
 
@@ -1156,6 +1157,11 @@ Elem(a) :: [
 		## handler consumes the scroll, so an enclosing scroll region does
 		## not also move.
 		on_wheel : [None, Some((a, Event.CanvasWheel => Action(a)))] ?? None,
+		## The size the canvas was laid out at, delivered after a drawn frame
+		## gives it a size it has not reported, so the owner can draw for the
+		## space the window gives it. Without a handler the host reports
+		## nothing.
+		on_size : [None, Some((a, Event.CanvasSize => Action(a)))] ?? None,
 		width : Style.Length ?? Fill,
 		height : Style.Length ?? Fill,
 		min_width : Style.Length ?? Auto,
@@ -1288,6 +1294,7 @@ Elem(a) :: [
 		on_pointer: props.on_pointer,
 		on_hover: props.on_hover,
 		on_wheel: props.on_wheel,
+		on_size: props.on_size,
 		style: Style.{
 			width: props.width,
 			height: props.height,
@@ -2166,7 +2173,11 @@ Elem(a) :: [
 				None => None
 				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
 			}
-			Canvas({ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, on_hover, on_wheel, style: canvas_value.style })
+			on_size = match canvas_value.on_size {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			Canvas({ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, on_hover, on_wheel, on_size, style: canvas_value.style })
 		}
 		Component(bound) => {
 			child_render = bound.render

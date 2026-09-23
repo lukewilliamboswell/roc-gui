@@ -121,6 +121,7 @@ Gui := [].{
 	EventCanvasPointer : Event.CanvasPointer
 	EventCanvasHover : Event.CanvasHover
 	EventCanvasWheel : Event.CanvasWheel
+	EventCanvasSize : Event.CanvasSize
 	EventVisibleRows : Event.VisibleRows
 	EventKey : Event.Key
 	EventResize : Event.Resize

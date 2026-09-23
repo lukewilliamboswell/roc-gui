@@ -600,6 +600,7 @@ Host := [].{
 		radius : U32,
 		hover : Bool,
 		wheel : Bool,
+		size : Bool,
 	} => U64
 
 	virtual_window! : { instance : U64, count : U64, row_height : U32, scroll_row : U64, scroll_align : U8, scroll_serial : U64 } => { first : U64, end : U64 }

@@ -193,7 +193,8 @@ A canvas pointer phase records a `drag` cycle, a delivered canvas hover a
 `hover` cycle, and a canvas wheel scroll a `wheel` cycle, whether a
 specification or a person in the interactive window drives it. Each size a
 split's divider asks for while it is dragged records a `drag` cycle, and each
-of its keys a `key` cycle.
+of its keys a `key` cycle. Each size a canvas hears it was laid out at records
+a `resize` cycle, after the frame that laid it out.
 Waiting for workers and applying graph patches are outside the callback span.
 The enclosing cycle duration includes the wait.
 

@@ -1219,6 +1219,7 @@ async fn run_step(
         // The claims answered from the mounted graph alone, made by the
         // same code the semantic runner calls, so the word means one thing.
         Command::ExpectCanvasPrimitives(_, _)
+        | Command::ExpectCanvasSize(_, _, _)
         | Command::ExpectValue(_, _)
         | Command::ExpectSelected(_, _)
         | Command::ExpectValueBytes(_, _)

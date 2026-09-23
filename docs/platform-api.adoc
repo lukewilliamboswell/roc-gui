@@ -1396,3 +1396,52 @@ records nothing.
 Each delivered hover records one `hover` cycle and each wheel scroll one
 `wheel` cycle, through the same recorded dispatch as a `drag` phase, whether a
 person or a specification moves the pointer.
+
+=== A canvas drawn for its size
+
+A canvas is laid out like any other element: its `width` and `height` are
+lengths, and `Fill` with `grow` lets it take the space its container gives it.
+Its primitives are placed in integer logical pixels and are not scaled, so a
+canvas that fills a column learns the column's width through `on_size` and is
+drawn for it:
+
+[source,roc]
+----
+Gui.canvas({
+    label: "CPU history plot",
+    primitives: bars(state.history, state.plot_width),
+    on_pointer: |_, _| Gui.none,
+    on_size: Some(|current, laid_out| if laid_out.width == current.plot_width Gui.none else Gui.update({ ..current, plot_width: laid_out.width })),
+    width: Fill,
+    grow: True,
+    height: Px(112),
+    min_width: Px(240),
+})
+----
+
+`on_size : [None, Some((a, Gui.EventCanvasSize => Gui.Action(a)))]`:: Receive
+`{ width, height }`, the size in logical pixels of the surface the primitives
+are drawn on, inside any border. A size is a fact about a drawn frame, so it is
+delivered after the frame that lays the canvas out at a size it has not yet
+reported, once for each size. A later frame at the same size delivers nothing;
+nor does a render that rebuilds the canvas under the same identity, which keeps
+the size already reported. A canvas mounted again, under a new lifetime, hears
+its size again. Without a handler the host reports nothing.
+
+Each delivered size records one `resize` cycle, whose target is the canvas.
+The handler draws for the size it hears; a handler that also changes the
+canvas's own dimensions must reach a size it keeps, or each frame would ask for
+another. A canvas that answers the width it was already drawn for with
+`Gui.none` makes that turn change nothing.
+
+Only a canvas reports its size. Every other element lays its content out
+natively, so text wraps, rows share their width, and a scroll region clips
+without the application knowing the numbers; only a canvas's content is placed
+by the application in pixels of its own.
+
+Without a window, the semantic runner lays a canvas out at the one extent it
+knows, the window the application asked for: a fixed dimension is its own
+size, a flexible one is the window's, each within the canvas's fixed minimum
+and maximum, less its border. It delivers each presented canvas's size after
+every step, by the same rule, so a specification sees the application draw for
+the size a window of that size would give a canvas that fills it.

@@ -286,6 +286,7 @@ thread_local! {
 struct CanvasEventPayload {
     /// 0, 1, 2: a pressed gesture's begin, move, and end. 3 and 4: pointer
     /// movement with no button pressed and leaving the canvas. 5: a wheel.
+    /// 6: the size the canvas was laid out at.
     phase: u8,
     x: i32,
     y: i32,
@@ -298,6 +299,51 @@ struct CanvasEventPayload {
 pub(crate) const CANVAS_HOVER_MOVE: u8 = 3;
 pub(crate) const CANVAS_HOVER_LEAVE: u8 = 4;
 pub(crate) const CANVAS_WHEEL: u8 = 5;
+/// The size a canvas was laid out at, carried as `x` (width) and `y` (height).
+pub(crate) const CANVAS_SIZE: u8 = 6;
+
+/// The payload that reports a canvas's laid-out size to its owner.
+pub(crate) fn canvas_size_event(width: u32, height: u32) -> CanvasEventPayload {
+    CanvasEventPayload {
+        phase: CANVAS_SIZE,
+        x: i32::try_from(width).unwrap_or(i32::MAX),
+        y: i32::try_from(height).unwrap_or(i32::MAX),
+        dx: 0,
+        dy: 0,
+        target: 0,
+    }
+}
+
+/// The size the semantic runner lays a canvas out at. It has no layout, so it
+/// uses the one extent it knows, the window the application asked for: a
+/// fixed dimension is its own size, and a flexible one is the window's,
+/// within the canvas's fixed minimum and maximum.
+pub(crate) fn semantic_canvas_size(style: &Style) -> (u32, u32) {
+    let window = WINDOW_CONFIG.with(|config| {
+        let config = config.borrow();
+        (config.width, config.height)
+    });
+    let extent = |length: Length, min: Length, max: Length, window: u32| {
+        let base = match length {
+            Length::Px(pixels) => pixels,
+            _ => window,
+        };
+        let base = match max {
+            Length::Px(pixels) => base.min(pixels),
+            _ => base,
+        };
+        match min {
+            Length::Px(pixels) => base.max(pixels),
+            _ => base,
+        }
+    };
+    let border = |a: u32, b: u32| a.saturating_add(b);
+    let width = extent(style.width, style.min_width, style.max_width, window.0)
+        .saturating_sub(border(style.border_width[1], style.border_width[3]));
+    let height = extent(style.height, style.min_height, style.max_height, window.1)
+        .saturating_sub(border(style.border_width[0], style.border_width[2]));
+    (width, height)
+}
 
 const SUBMIT_EVENT_BIT: u64 = 1 << 63;
 
@@ -1445,6 +1491,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
             primitives,
             hover: args.hover,
             wheel: args.wheel,
+            size: args.size,
             style,
         },
         vec![],
@@ -2836,9 +2883,11 @@ impl Render for NodeView {
                 primitives,
                 hover,
                 wheel,
+                size: sized,
                 style,
             } => {
-                let (hover, wheel) = (*hover, *wheel);
+                let (hover, wheel, sized) = (*hover, *wheel, *sized);
+                let size_runtime = self.runtime.clone();
                 let paint_items = primitives.clone();
                 let hit_items = primitives.clone();
                 let hover_items = primitives.clone();
@@ -2854,8 +2903,21 @@ impl Render for NodeView {
                 let paint_runtime = self.runtime.clone();
                 let canvas_id = self.node.id;
                 let drawing = canvas(
-                    move |bounds, _, _| {
+                    move |bounds, _, cx| {
                         *bounds_slot.lock().expect("canvas bounds poisoned") = Some(bounds);
+                        // The size is a fact about a drawn frame, so it is
+                        // reported after this one; the runtime delivers each
+                        // size once.
+                        if sized {
+                            let width = f32::from(bounds.size.width).round().max(0.0) as u32;
+                            let height = f32::from(bounds.size.height).round().max(0.0) as u32;
+                            let runtime = size_runtime.clone();
+                            cx.defer(move |cx| {
+                                let _ = runtime.update(cx, |runtime, cx| {
+                                    runtime.canvas_laid_out(canvas_id, width, height, cx)
+                                });
+                            });
+                        }
                     },
                     move |bounds, _, window, cx| {
                         for item in &paint_items {
@@ -4324,6 +4386,18 @@ impl Runtime {
             target,
         };
         self.dispatch_canvas_event(id, event, "wheel", cx);
+    }
+
+    /// The size a drawn frame laid a canvas out at. A canvas whose owner
+    /// handles its size hears each size once, as one `resize` cycle; the same
+    /// size in a later frame, or after a rebuild that keeps the canvas's
+    /// identity, delivers nothing.
+    fn canvas_laid_out(&mut self, id: u64, width: u32, height: u32, cx: &mut Context<Self>) {
+        if !self.graph.report_canvas_size(id, (width, height)) {
+            return;
+        }
+        rows::note_turn();
+        self.dispatch_canvas_event(id, canvas_size_event(width, height), "resize", cx);
     }
 
     /// Dispatch one canvas event through the canvas's route, recording its
@@ -8644,6 +8718,7 @@ mod tests {
                             primitives: vec![],
                             hover: false,
                             wheel: false,
+                            size: false,
                             style: Box::new(Style::default()),
                         },
                         children: vec![],
@@ -8840,6 +8915,84 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
+    /// A canvas that asks hears the size a drawn frame laid it out at, once:
+    /// later frames at the same size, and a rebuild that keeps the canvas's
+    /// identity, deliver nothing. A canvas that does not ask hears nothing.
+    #[gpui::test]
+    fn a_sized_canvas_hears_its_laid_out_size_once(cx: &mut TestAppContext) {
+        let canvas = |id: u64, label: &str, size: bool| Node {
+            id,
+            kind: NodeKind::Canvas {
+                label: label.into(),
+                primitives: vec![],
+                hover: false,
+                wheel: false,
+                size,
+                style: Box::new(Style {
+                    width: Length::Px(200),
+                    height: Length::Px(100),
+                    border_width: [1; 4],
+                    ..Style::default()
+                }),
+            },
+            children: vec![],
+        };
+        let column = |id: u64, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Column {
+                label: String::new(),
+                style: Box::new(Style::default()),
+            },
+            children,
+        };
+        let heard: Rc<RefCell<Vec<(u64, u8, i32, i32)>>> = Rc::default();
+        let recorded = heard.clone();
+        install_test_dispatcher(move |event_id| {
+            let event = super::CANVAS_EVENT.with(|slot| *slot.borrow()).unwrap();
+            recorded
+                .borrow_mut()
+                .push((event_id, event.phase, event.x, event.y));
+            Patch::NoChange
+        });
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![
+                        column(1, vec![2, 3]),
+                        canvas(2, "Sized", true),
+                        canvas(3, "Fixed", false),
+                    ],
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        // The surface inside the one-pixel border.
+        assert_eq!(*heard.borrow(), vec![(2, super::CANVAS_SIZE, 198, 98)]);
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        assert_eq!(heard.borrow().len(), 1);
+        // A rebuild renumbers the canvas but keeps its identity and size.
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1,
+                    root: 11,
+                    nodes: vec![
+                        column(11, vec![12, 13]),
+                        canvas(12, "Sized", true),
+                        canvas(13, "Fixed", false),
+                    ],
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        assert_eq!(heard.borrow().len(), 1);
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+    }
+
     /// Hover and wheel reach a canvas only through the window's own pointer,
     /// only when the owner handles them, and never while a button is held.
     #[gpui::test]
@@ -8870,6 +9023,7 @@ mod tests {
                 ],
                 hover: true,
                 wheel: true,
+                size: false,
                 style: Box::new(Style {
                     width: Length::Px(200),
                     height: Length::Px(100),
@@ -8971,6 +9125,7 @@ mod tests {
                             primitives: vec![],
                             hover: false,
                             wheel: false,
+                            size: false,
                             style: Box::new(Style::default()),
                         },
                         children: vec![],

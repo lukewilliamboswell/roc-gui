@@ -2383,11 +2383,11 @@ const _: () = assert!(core::mem::size_of::<AnonStruct71144019e2d669fc>() == 200,
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct71144019e2d669fc>() == 8, "AnonStruct71144019e2d669fc alignment mismatch");
 
-/// Element type for __AnonStruct_97820d55023100c7
+/// Element type for __AnonStruct_3b3f1dc02d4b4916
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct97820d55023100c7 {
+pub struct AnonStruct3b3f1dc02d4b4916 {
     pub bg: u64,
     pub border_color: u64,
     pub label: RocStr,
@@ -2399,15 +2399,16 @@ pub struct AnonStruct97820d55023100c7 {
     pub grow: bool,
     pub height_kind: u8,
     pub hover: bool,
+    pub size: bool,
     pub wheel: bool,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_97820d55023100c7
+/// Element type for __AnonStruct_3b3f1dc02d4b4916
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct97820d55023100c7 {
+pub struct AnonStruct3b3f1dc02d4b4916 {
     pub bg: u64,
     pub border_color: u64,
     pub label: RocStr,
@@ -2419,18 +2420,19 @@ pub struct AnonStruct97820d55023100c7 {
     pub grow: bool,
     pub height_kind: u8,
     pub hover: bool,
+    pub size: bool,
     pub wheel: bool,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct97820d55023100c7>() == 88, "AnonStruct97820d55023100c7 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct3b3f1dc02d4b4916>() == 88, "AnonStruct3b3f1dc02d4b4916 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct97820d55023100c7>() == 8, "AnonStruct97820d55023100c7 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct3b3f1dc02d4b4916>() == 8, "AnonStruct3b3f1dc02d4b4916 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct97820d55023100c7>() == 64, "AnonStruct97820d55023100c7 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct3b3f1dc02d4b4916>() == 64, "AnonStruct3b3f1dc02d4b4916 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct97820d55023100c7>() == 8, "AnonStruct97820d55023100c7 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct3b3f1dc02d4b4916>() == 8, "AnonStruct3b3f1dc02d4b4916 alignment mismatch");
 
 /// Element type for __AnonStruct_f74678f34f8b3cbf
 #[cfg(target_pointer_width = "32")]
@@ -12486,7 +12488,7 @@ unsafe impl RocRelease<HostGlueNodeImageArgs> for HostGlueNodeImageArgsRelease {
 }
 
 /// Arguments for HostGlue.node_canvas!
-/// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, wheel : Bool, width : U32, width_kind : U8 } => U64
+/// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, size : Bool, wheel : Bool, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -12503,12 +12505,13 @@ pub struct HostGlueNodeCanvasArgs {
     pub grow: bool,
     pub height_kind: u8,
     pub hover: bool,
+    pub size: bool,
     pub wheel: bool,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_canvas!
-/// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, wheel : Bool, width : U32, width_kind : U8 } => U64
+/// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, size : Bool, wheel : Bool, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
@@ -12525,6 +12528,7 @@ pub struct HostGlueNodeCanvasArgs {
     pub grow: bool,
     pub height_kind: u8,
     pub hover: bool,
+    pub size: bool,
     pub wheel: bool,
     pub width_kind: u8,
 }
@@ -13646,7 +13650,7 @@ pub type HostGlueNodeVirtualListArg0 = AnonStructFad101fcce1ec1a3;
 pub type HostGlueNodeCheckboxArg0 = AnonStruct751f7db6342b42f6;
 pub type HostGlueNodeTextareaArg0 = AnonStructA0ad260b0f5e9c52;
 pub type HostGlueNodeImageArg0 = AnonStruct71144019e2d669fc;
-pub type HostGlueNodeCanvasArg0 = AnonStruct97820d55023100c7;
+pub type HostGlueNodeCanvasArg0 = AnonStruct3b3f1dc02d4b4916;
 pub type HostGlueNodeCanvasArg0Primitives = AnonStructF74678f34f8b3cbf;
 pub type HostGlueCanvasEvent = AnonStructE7c8b7462a78f14b;
 pub type HostGlueShortcutEvent = AnonStructBdcbe7a50e42954d;
@@ -14530,7 +14534,7 @@ unsafe impl RocRelease<AnonStruct71144019e2d669fc> for AnonStruct71144019e2d669f
     }
 }
 
-impl AnonStruct97820d55023100c7 {
+impl AnonStruct3b3f1dc02d4b4916 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -14553,10 +14557,10 @@ impl AnonStruct97820d55023100c7 {
     }
 }
 
-pub struct AnonStruct97820d55023100c7Release;
+pub struct AnonStruct3b3f1dc02d4b4916Release;
 
-unsafe impl RocRelease<AnonStruct97820d55023100c7> for AnonStruct97820d55023100c7Release {
-    unsafe fn release(value: AnonStruct97820d55023100c7, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct3b3f1dc02d4b4916> for AnonStruct3b3f1dc02d4b4916Release {
+    unsafe fn release(value: AnonStruct3b3f1dc02d4b4916, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -18489,7 +18493,7 @@ unsafe extern "C" {
     pub fn roc_gui_node_image(arg0: HostGlueNodeImageArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_canvas!
-    /// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, wheel : Bool, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, size : Bool, wheel : Bool, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }

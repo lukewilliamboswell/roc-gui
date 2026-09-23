@@ -44,6 +44,78 @@ fn apply_transaction(graph: &mut MountedGraph, patch: Patch) -> Result<ApplyFact
     }
 }
 
+/// Report each presented canvas's size to an owner that handles it, as the
+/// window does after a drawn frame: once for each size, recorded by the
+/// mounted graph, each a `resize` cycle. The size is the one the semantic
+/// runner derives from the window the application asked for. A handler that
+/// keeps changing its own canvas's size is stopped rather than followed
+/// forever: a canvas hears at most a few sizes in one settling.
+fn settle_canvas_sizes(
+    graph: &mut MountedGraph,
+    run_id: i64,
+    cycle_ordinal: &mut u64,
+    step_ordinal: Option<usize>,
+    measurement_phase: &'static str,
+) -> Result<Vec<Cycle>, String> {
+    const MOST_SIZES: u32 = 8;
+    let mut cycles = Vec::new();
+    let mut heard = std::collections::HashMap::<crate::bridge::ElementIdentity, u32>::new();
+    loop {
+        let pending = graph
+            .presented_preorder()
+            .into_iter()
+            .filter_map(|node| match &node.kind {
+                NodeKind::Canvas {
+                    size: true, style, ..
+                } => {
+                    let size = crate::semantic_canvas_size(style);
+                    (graph.reported_canvas_size(node.id) != Some(size)).then_some((node.id, size))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if pending.is_empty() {
+            return Ok(cycles);
+        }
+        for (id, (width, height)) in pending {
+            // An earlier report may have rebuilt this canvas; the next pass
+            // finds it under its new id.
+            if !graph.report_canvas_size(id, (width, height)) {
+                continue;
+            }
+            let times = heard.entry(graph.identity(id)).or_default();
+            *times += 1;
+            if *times > MOST_SIZES {
+                return Err(format!(
+                    "canvas sizes did not settle: an on_size handler changed its canvas's size {MOST_SIZES} times"
+                ));
+            }
+            let target = graph.cycle_target(id);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = crate::dispatch_canvas(id, crate::canvas_size_event(width, height));
+            let roc_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            let facts = apply_transaction(graph, patch)?;
+            cycles.push(make_cycle(
+                run_id,
+                *cycle_ordinal,
+                step_ordinal,
+                measurement_phase,
+                "resize",
+                target,
+                cycle_started,
+                roc_ns,
+                roc_work,
+                &facts,
+                roc_work_valid,
+            ));
+            *cycle_ordinal += 1;
+        }
+    }
+}
+
 /// Both runners read the same completed owner observation, never reconstruct it.
 pub(crate) fn component_work_claim(
     expected: &[Option<u64>; observatory::COMPONENT_WORK_NAMES.len()],
@@ -224,6 +296,27 @@ pub(crate) fn graph_claim(
                 Some((*expected as u64, actual as u64)),
             )
         }
+        Command::ExpectCanvasSize(locator, width, height) => (
+            match only(graph, locator) {
+                Err(found) => Err(format!(
+                    "expect-canvas-size locator matched {found} nodes; expected exactly one"
+                )),
+                Ok(id) => match graph.node(id).map(|node| &node.kind) {
+                    Some(NodeKind::Canvas { size: false, .. }) => {
+                        Err("the canvas has no on_size handler, so the host reports no size".into())
+                    }
+                    Some(NodeKind::Canvas { .. }) => match graph.reported_canvas_size(id) {
+                        Some(observed) if observed == (*width, *height) => Ok(()),
+                        Some((observed_width, observed_height)) => Err(format!(
+                            "expected canvas size {width}x{height}; reported {observed_width}x{observed_height}"
+                        )),
+                        None => Err("no size has been reported to the canvas".into()),
+                    },
+                    _ => Err("expect-canvas-size locator is not a canvas".into()),
+                },
+            },
+            None,
+        ),
         // A canvas text primitive's value is the line it sets.
         Command::ExpectValue(locator, expected)
             if matches!(
@@ -1008,6 +1101,15 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
 
     let mut marked = spec.benchmark.is_none();
     let mut cycle_ordinal = 1u64;
+    for cycle in settle_canvas_sizes(
+        &mut graph,
+        run_id,
+        &mut cycle_ordinal,
+        None,
+        "initialization",
+    )? {
+        observatory::cycle(cycle);
+    }
     let mut last_patch: Option<ApplyFacts> = None;
     let mut focused: Option<u64> = None;
     // The canvas an unpressed pointer is over and the last point delivered.
@@ -1997,6 +2099,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             // Answered from the mounted graph alone, so the window runner
             // makes the same claims from the same code.
             command @ (Command::ExpectCanvasPrimitives(_, _)
+            | Command::ExpectCanvasSize(_, _, _)
             | Command::ExpectValue(_, _)
             | Command::ExpectSelected(_, _)
             | Command::ExpectValueBytes(_, _)
@@ -2048,6 +2151,18 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             },
         };
+        // A canvas the step mounted, or whose size it changed, hears its size
+        // before the next step, as it would after the window's next frame.
+        let result = result.and_then(|()| {
+            pending_cycles.extend(settle_canvas_sizes(
+                &mut graph,
+                run_id,
+                &mut cycle_ordinal,
+                Some(ordinal),
+                if marked { "measured" } else { "setup" },
+            )?);
+            Ok(())
+        });
         // The same control under a new id keeps focus, as it does in the
         // window, where focus follows a rebuilt control by its identity.
         if focused.is_some_and(|id| graph.node(id).is_none()) {
@@ -2446,6 +2561,7 @@ mod locator_tests {
                             primitives: vec![primitive(1, "Dot one"), primitive(2, "Dot two")],
                             hover: false,
                             wheel: false,
+                            size: false,
                             style: style.clone(),
                         },
                         vec![],
@@ -2457,6 +2573,7 @@ mod locator_tests {
                             primitives: vec![primitive(1, "Dot one")],
                             hover: false,
                             wheel: false,
+                            size: false,
                             style,
                         },
                         vec![],
