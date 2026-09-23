@@ -176,6 +176,19 @@ independent of any one application.
   but nothing measures an application reading many assets across many tasks.
   A scaling case belongs with the example that adopts the API.
 
+- [ ] **A very long list scrolls in coarse steps.** GPUI places a uniform
+  list's content with `f32` logical pixels, which are exact only to about
+  16.7 million. A million 28-pixel rows are 28 million pixels tall, where
+  adjacent offsets are 2 pixels apart; ten million rows would be 32 pixels
+  apart, more than a row. Close by positioning a list of rows produced on demand
+  relative to its mounted window rather than by an absolute offset.
+
+- [ ] **Rows produced on demand are exercised on Linux only.** The viewport
+  turns, deferred frame settlement, and scroll requests run through GPUI's
+  uniform list on every platform, but `window-rows.scm` and
+  `window-provide-1m.scm` have run only on Linux. Run them on macOS and
+  Windows.
+
 ## Element appearance
 
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
@@ -434,7 +447,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   and 100k cycles, which needs a real recorded session driven through the
   ordinary window path as its fixture. The cycle list reads at most 1,000 of
   the slowest cycles of each trigger and patch kind and builds every row up
-  front (see P1).
+  front; `Gui.virtual_rows` would build only the rows near the viewport.
 
 - [ ] **Two honest-absence paths are reached only by unit expectations.** No
   fixture capture has a cycle with `roc_work_valid = 0` or
@@ -477,10 +490,12 @@ ideal and the repository. P- and E-numbers refer to that document.
   exercised, so verify macOS and Windows, including a verbatim `\\?\UNC` share,
   which is refused.
 
-- [ ] **The virtual list cannot be driven (P1).** Every item is built in Roc up
-  front, and there is no scroll-to or visible-range event. Add a row provider,
-  programmatic scroll-to, and visible-range events for large tables, jump-to,
-  and history restore.
+- [ ] **The capture fixture is not rebuilt when a source specification
+  changes.** `generate_fixture.py` stamps the schema, the source paths, and the
+  scales, but not the contents of the specifications it runs, so editing
+  `examples/database-browser/specs/scale-100.scm` leaves stale captures in place
+  until the fixture directory is deleted. Stamp a hash of each source
+  specification.
 
 - [ ] **No keyboard shortcuts or focus control (P3).** Only Tab, Enter, Space,
   text editing, and Escape reach an application. Add key events with modifiers,
@@ -552,6 +567,14 @@ ideal and the repository. P- and E-numbers refer to that document.
   construction or rebinding. Add owner-populated counters and then their schema,
   queries, and production-window assertions together, without inferring them
   from graph retention or a timer.
+
+- [ ] **Rows drawn before they are mounted are not counted.** A list of rows
+  produced on demand draws a blank place for a visible row it has not yet
+  mounted, for the frames until its viewport turn lands. `virtual_list_frames`
+  counts those rows among `visible_items` but has no column saying how many of
+  them were blank, so a capture cannot show how often a fast scroll outran the
+  list. Add an owner-populated column at the next schema version, together with
+  the Observatory and `analyze_stats.py`, which gate on schema 19.
 
 - [ ] **Window benchmark warmup and sample orchestration.** Real-window
   hover-grid runs can record schema-14 captures containing native frames and
