@@ -45,6 +45,16 @@ and back `FRAME_SESSION_SCROLLS` times, each scroll settling the frames it
 draws. It is the Frames view's scaling case, kept short because a window session occupies
 the screen while it runs.
 
+`sources/` is a folder of specification sources as a person would grant it
+to the Spec view: the specifications behind `captures/`, the session's
+generated specification, and `counter-regressed.scm`, a copy of the Counter's
+counting specification whose component work assertion expects one render more
+than the Counter does. `failing/counter-regressed.rgstats` is the capture of
+running it: a real run that fails at that step, with its diagnostic and its
+expected and observed component work. `sources-edited/` holds the counting
+specification with one comment added after its capture was recorded, so its
+hash no longer matches while its test name still does.
+
 Captures are not committed. The output is reused while its stamp matches this
 generator's inputs: the recorder schema, a digest of this generator, the
 specifications it runs, the applications they drive, the platform, and the
@@ -92,6 +102,8 @@ WINDOW_SPEC = "examples/database-browser/specs/window-rows.scm"
 FRAME_SESSION = "window/database-browser-frames.rgstats"
 FRAME_SESSION_FRAMES = 1_000
 FRAME_SESSION_SCROLLS = 450
+FAILING = "failing/counter-regressed.rgstats"
+FAILING_SPEC = "examples/counter/specs/counting.scm"
 GUARD = "ROC_GUI_OBSERVATORY_FIXTURE"
 STAMP = FIXTURE / "stamp"
 
@@ -162,6 +174,53 @@ def session_spec() -> str:
         '  (grants\n    (directory "fixture"))\n'
         f"  (steps\n    {body}))\n"
     )
+
+
+def regressed_spec() -> str:
+    """The Counter's counting specification, expecting one render too many."""
+    source = (ROOT / FAILING_SPEC).read_text()
+    regressed = source.replace("(expect-component-work :rendered 1 ", "(expect-component-work :rendered 2 ", 1)
+    if regressed == source:
+        raise SystemExit(f"{FAILING_SPEC} no longer asserts one render")
+    return regressed
+
+
+def record_failing(runs: Path, spec: Path, destination: Path) -> None:
+    """Run a specification that fails with the Counter's own executable, as
+    `run_specs.py` runs a case, and keep the capture of its failed run."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        str(runs / "bin" / "counter"),
+        "--host-run-spec",
+        str(spec),
+        f"--host-stats-output={destination}",
+        "--host-stats-job-count=1",
+    ]
+    if subprocess.run(command, cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+        raise SystemExit(f"{spec.name} was expected to fail")
+    with closing(sqlite3.connect(destination)) as database, database:
+        metadata = dict(database.execute("SELECT key,value FROM metadata"))
+        failed = database.execute("SELECT count(*) FROM runs WHERE outcome='fail'").fetchone()[0]
+        if metadata.get("final_state") != "complete" or metadata.get("clean_shutdown") != "1" or failed != 1:
+            raise SystemExit(f"{destination} is not a finalised capture of one failed run")
+        database.execute("PRAGMA journal_mode=DELETE")
+
+
+def write_sources(runs: Path, staging: Path) -> None:
+    """The specification sources a person grants to the Spec view."""
+    sources = staging / "sources"
+    sources.mkdir()
+    for spec in sorted(set(SOURCES.values())):
+        shutil.copyfile(ROOT / spec, sources / Path(spec).name)
+    (sources / "session.scm").write_text(session_spec())
+    regressed = sources / "counter-regressed.scm"
+    regressed.write_text(regressed_spec())
+    record_failing(runs, regressed, staging / FAILING)
+    edited = staging / "sources-edited"
+    edited.mkdir()
+    counting = (ROOT / SOURCES["counter-counting.rgstats"]).read_text()
+    (edited / "counting.scm").write_text(";; Edited after its capture was recorded.\n" + counting)
+    (edited / "notes.txt").write_text("Not a specification; the Spec view reads only .scm files.\n")
 
 
 def record_session(runs: Path, destination: Path) -> None:
@@ -287,7 +346,8 @@ def stamp_text() -> str:
         f"schema={recorder_schema()};sources={sources};compare={compare};aa={AA};"
         f"contended={contended};rerun={RERUN};scales={scales};"
         f"session={SESSION_CYCLES};window={WINDOW}={WINDOW_SPEC};"
-        f"frames={FRAME_SESSION_FRAMES}x{FRAME_SESSION_SCROLLS};inputs={input_digest()}\n"
+        f"frames={FRAME_SESSION_FRAMES}x{FRAME_SESSION_SCROLLS};failing={FAILING}={FAILING_SPEC};"
+        f"inputs={input_digest()}\n"
     )
 
 
@@ -362,6 +422,7 @@ def generate(staging: Path) -> None:
     shutil.rmtree(contended)
 
     record_session(runs, staging / SESSION)
+    write_sources(runs, staging)
     record_window(runs, ROOT / WINDOW_SPEC, staging / WINDOW)
     frames_spec = runs / "frames.scm"
     frames_spec.write_text(frame_session_spec())

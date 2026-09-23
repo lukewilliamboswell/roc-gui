@@ -6,6 +6,7 @@ import pf.Gui
 import Capture
 import History
 import Scaling
+import SpecSource
 import Timeline
 
 ## What the application holds over the filesystem. Nothing chosen yet, a
@@ -119,6 +120,10 @@ Request : [
 	Forward,
 	## Put a table on the clipboard as Markdown.
 	Copy({ name : Str, rows : U64, markdown : Str }),
+	## Grant a folder of specification sources, and annotate the one the open
+	## capture ran from with one run's results or the median of its samples.
+	OpenSources,
+	Annotate(SpecSource.Mode),
 ]
 
 State : {
@@ -168,6 +173,8 @@ State : {
 	inspector_focus : U64,
 	## What the last copy put on the clipboard.
 	copied : [None, Some(Str)],
+	## The folder of specification sources and the source annotated from it.
+	spec_source : SpecSource.Shown,
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
@@ -230,6 +237,7 @@ Observatory := [].{
 		history: History.empty,
 		inspector_focus: 0,
 		copied: None,
+		spec_source: SpecSource.none,
 		request: None,
 	}
 
@@ -328,6 +336,11 @@ Observatory := [].{
 	## Open the command palette with an empty query.
 	open_palette : State -> State
 	open_palette = |state| { ..state, palette: Open({ query: "", highlight: 0 }) }
+
+	## Whether the specification source on screen was found by hash for the
+	## open capture, so its lines carry the selected run's results.
+	annotated : State -> Bool
+	annotated = annotated
 
 	## Whether Back or Forward has somewhere to go.
 	can_go_back : State -> Bool
@@ -589,9 +602,10 @@ fulfil = |asked| {
 		## the step list scrolled to it. A step's ordinal is its row.
 		Some(ShowStep(run_id, ordinal)) => {
 			row = ordinal.to_u64_wrap()
-			read_steps({ ..remember(state), view: Spec, step_focus: Some(ordinal) }, run_id, page_start(row), Some(row))
+			shown = { ..remember(state), view: Spec, step_focus: Some(ordinal) }
+			if annotated(state) annotate(shown, OneRun(run_id), Some(ordinal)) else read_steps(shown, run_id, page_start(row), Some(row))
 		}
-		Some(SelectRun(run_id)) => read_steps({ ..state, step_focus: None }, run_id, 0, None)
+		Some(SelectRun(run_id)) => if annotated(state) annotate({ ..state, step_focus: None }, OneRun(run_id), None) else read_steps({ ..state, step_focus: None }, run_id, 0, None)
 		Some(Show(view)) => list_cycles({ ..state, view, step_focus: None, family_focus: None })
 		Some(ShowTimeline(start, span)) => read_clock(state, start, span)
 		## A cycle pressed elsewhere opens in Interactions, in its own phase.
@@ -658,6 +672,8 @@ fulfil = |asked| {
 			None => Gui.update(state)
 		}
 		Some(Copy(table)) => copy(state, table)
+		Some(OpenSources) => open_sources(state)
+		Some(Annotate(mode)) => annotate({ ..state, step_focus: None }, mode, None)
 		Some(BuildScaling) => match state.folder {
 			Some(folder) => build_scaling(state, folder.directory)
 			None => Gui.update(state)
@@ -871,6 +887,8 @@ list_cycles = |state| if state.view == Interactions and !holds_cycles(state) {
 	read_cycles(state, 0)
 } else if state.view == Timeline and Some(state.clock.of) != opened_revision(state) and state.clock_reading == None {
 	read_clock(state, 0, 0)
+} else if state.view == Spec and state.spec_source.folder != None and Some(state.spec_source.of) != opened_revision(state) and state.spec_source.reading == None {
+	locate(state)
 } else {
 	Gui.update(state)
 }
@@ -1059,4 +1077,163 @@ read_strip = |state, start, span| match state.capture {
 			},
 		})
 	}
+}
+
+## Specification sources (US-19 to US-21)
+
+## Whether the source on screen was found by hash for the open capture, so
+## results belong on its lines.
+annotated : State -> Bool
+annotated = |state| Some(state.spec_source.of) == opened_revision(state) and matched(state.spec_source.found)
+
+matched : SpecSource.Found -> Bool
+matched = |found| match found {
+	Matched(_) => True
+	_ => False
+}
+
+source_lines : State -> List(Str)
+source_lines = |state| match state.spec_source.found {
+	Matched(found) => found.lines
+	_ => []
+}
+
+## Find the capture's specification in a folder of sources, and annotate it
+## with the selected run when its hash matches.
+locate! : Capture.Opened, Gui.FilesDirRead, Str, SpecSource.Mode => Try({ found : SpecSource.Found, marks : List(SpecSource.Mark) }, Str)
+locate! = |opened, directory, name, mode| {
+	found = SpecSource.find!(directory, name, opened)?
+	marks = if matched(found) SpecSource.annotate!(opened.database, opened, mode)? else []
+	Ok({ found, marks })
+}
+
+## What a located source puts on screen.
+located : State, U64, U64, { found : SpecSource.Found, marks : List(SpecSource.Mark) } -> SpecSource.Shown
+located = |state, id, of, result| {
+	lines = match result.found {
+		Matched(found) => found.lines
+		_ => []
+	}
+	annotation = if matched(result.found) Some(SpecSource.annotation(lines, OneRun(state.run), result.marks, id)) else None
+	{ ..state.spec_source, of, found: result.found, annotation, chosen: None, scroll: None, reading: None }
+}
+
+## Grant a folder of specification sources and look in it for the open
+## capture's specification.
+open_sources : State -> Gui.Action(State)
+open_sources = |state| match state.capture {
+	None => Gui.update(state)
+	Some(opened) => {
+		id = state.next_request
+		mode = OneRun(state.run)
+		Gui.task({
+			pending: { ..state, next_request: id + 1, status: Busy(id) },
+			run: || match state.access.pick_directory!() {
+				Ok(Chosen(selection)) => {
+					# Each value is bound before the record is built: see "A value
+					# used twice in one record literal" in wip/issues-backlog.md.
+					name = selection.name
+					directory = selection.directory
+					result = locate!(opened, directory, name, mode)
+					SourcesChosen({ name, directory, result })
+				}
+				Ok(Canceled) => SourcesCanceled
+				Err(_) => SourcesRefused
+			},
+			resolve: |latest, outcome| match latest.status {
+				Busy(active) if active == id => match outcome {
+					SourcesChosen(chosen) => match chosen.result {
+						Ok(result) => {
+							held = { ..latest, spec_source: { ..latest.spec_source, folder: Some({ name: chosen.name, directory: chosen.directory }) } }
+							Gui.update({ ..held, spec_source: located(held, id, opened.revision, result), status: Ready })
+						}
+						Err(message) => Gui.update({ ..latest, status: failure(message, "Choose the folder that holds the capture's .scm specification.") })
+					}
+					SourcesCanceled => Gui.update({ ..latest, status: Ready })
+					SourcesRefused => Gui.update({ ..latest, status: failure("Could not open the folder of specification sources", "The host granted no folder to read. Start Observatory with --host-cap-dir <folder>, or choose one this process may read.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
+}
+
+## Look again in the granted folder for a capture opened after it was granted.
+locate : State -> Gui.Action(State)
+locate = |state| match (state.capture, state.spec_source.folder) {
+	(Some(opened), Some(folder)) => {
+		id = state.next_request
+		mode = OneRun(state.run)
+		directory = folder.directory
+		name = folder.name
+		Gui.task({
+			pending: { ..state, next_request: id + 1, spec_source: { ..state.spec_source, reading: Some(id) } },
+			run: || locate!(opened, directory, name, mode),
+			resolve: |latest, outcome| match latest.spec_source.reading {
+				Some(reading) if reading == id => match outcome {
+					Ok(result) => Gui.update({ ..latest, spec_source: located(latest, id, opened.revision, result) })
+					Err(message) => Gui.update({ ..latest, spec_source: { ..latest.spec_source, reading: None }, status: failure(message, "The folder of specification sources could not be read.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
+	_ => Gui.update(state)
+}
+
+## Annotate the source with one run, or the median of the samples. One run's
+## first page of steps is read with it, so the run is selected everywhere.
+## `focus` is a step, by ordinal, to choose and bring into view.
+annotate : State, SpecSource.Mode, [None, Some(I64)] -> Gui.Action(State)
+annotate = |state, mode, focus| match state.capture {
+	None => Gui.update(state)
+	Some(opened) => {
+		id = state.next_request
+		lines = source_lines(state)
+		Gui.task({
+			pending: { ..state, next_request: id + 1, spec_source: { ..state.spec_source, reading: Some(id) } },
+			run: || read_annotation!(opened, mode),
+			resolve: |latest, outcome| match latest.spec_source.reading {
+				Some(reading) if reading == id => match outcome {
+					Ok(read) => {
+						annotation = SpecSource.annotation(lines, mode, read.marks, id)
+						chosen = match focus {
+							Some(ordinal) => match read.marks.find_first(|mark| mark.ordinal == ordinal) {
+								Ok(mark) => Some(mark.line.to_u64_wrap())
+								Err(_) => None
+							}
+							None => None
+						}
+						scroll = match focus {
+							Some(ordinal) => match SpecSource.row_of(annotation, ordinal) {
+								Some(row) => Some({ row, align: Center, serial: id })
+								None => None
+							}
+							None => latest.spec_source.scroll
+						}
+						source = { ..latest.spec_source, annotation: Some(annotation), chosen, scroll, reading: None }
+						match read.steps {
+							Some(held) => Gui.update({ ..latest, spec_source: source, run: held.run_id, steps: { run: held.run_id, window: { offset: 0, rows: held.rows, read: id } }, steps_reading: None })
+							None => Gui.update({ ..latest, spec_source: source })
+						}
+					}
+					Err(message) => Gui.update({ ..latest, spec_source: { ..latest.spec_source, reading: None }, status: failure(message, "The steps of this run could not be read from the open capture.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
+}
+
+read_annotation! : Capture.Opened, SpecSource.Mode => Try({ marks : List(SpecSource.Mark), steps : [None, Some({ run_id : I64, rows : List(Capture.Step) })] }, Str)
+read_annotation! = |opened, mode| {
+	marks = SpecSource.annotate!(opened.database, opened, mode)?
+	steps = match mode {
+		OneRun(run_id) => {
+			rows = Capture.run_steps!(opened.database, run_id, 0)?
+			Some({ run_id, rows })
+		}
+		Median => None
+	}
+	Ok({ marks, steps })
 }

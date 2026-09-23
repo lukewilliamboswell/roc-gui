@@ -4,7 +4,8 @@ import pf.Gui
 ## figures so columns of durations line up, and colour reserved for evidence.
 ## Green says a verdict is complete, amber that it is partial, red that it
 ## cannot be trusted. Bars of measured time are one blue family, and time no
-## owner attributed is sand. Nothing else is coloured.
+## owner attributed is sand. Specification source takes two muted inks for
+## its keywords and literals. Nothing else is coloured.
 Theme := [].{
 	paper : Gui.Color
 	paper = 0xf6f7f8
@@ -63,6 +64,13 @@ Theme := [].{
 	unattributed = 0xd8c9a8
 	selected : Gui.Color
 	selected = 0xe6eef5
+
+	## Specification source: keywords and literals. Operators are the accent
+	## in weight, and parentheses and comments are dim.
+	code_keyword : Gui.Color
+	code_keyword = 0x6a4c93
+	code_literal : Gui.Color
+	code_literal = 0x7a5418
 
 	quiet : Gui.Color
 	quiet = 0xffffff

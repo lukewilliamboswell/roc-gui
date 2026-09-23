@@ -11,6 +11,7 @@ import Format
 import Observatory
 import PaletteView
 import ScalingView
+import SourceView
 import Theme
 import TimelineView
 
@@ -1518,10 +1519,14 @@ step_result = |step| {
 spec : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
 spec = |state, opened| {
 	timed = Capture.complete(opened, "step_results")
+	annotated = Observatory.annotated(state)
 	selector = Gui.row(
 		{ label: "Run", width: Fill, padding: 0, gap: 6, align: Center },
-		[meta("RUN")].concat(opened.runs.map(|run| key({ caption: run_caption(run), label: "Run ${run.id.to_str()}", selected: state.run == run.id, on_press: |current, _| Observatory.ask(current, SelectRun(run.id)) }))),
+		[meta("RUN")]
+			.concat(opened.runs.map(|run| key({ caption: run_caption(run), label: "Run ${run.id.to_str()}", selected: if annotated SourceView.shows_run(state, run.id) else state.run == run.id, on_press: |current, _| Observatory.ask(current, SelectRun(run.id)) })))
+			.concat(SourceView.median_key(state, opened)),
 	)
+	source_bar = SourceView.bar(state, opened)
 	runs = table(
 		"Runs",
 		[table_head("Run columns", [head_figure("run", 50), head_cell("phase", 90), head_figure("index", 60), head_cell("outcome", 80), head_figure("steps", 60), head_figure("failed", 60), head_rest("diagnostic")])].concat(
@@ -1570,35 +1575,42 @@ spec = |state, opened| {
 			]
 		}
 	}
-	Gui.col(
-		{ label: "Spec", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset },
-		[selector, heading("RUNS"), runs, CopyView.heading("STEPS OF RUN ${state.run.to_str()} · ${count.to_str()}", "Steps", |_| CopyView.steps(opened, window.rows, step_result))]
-			.concat(absence)
-			.concat(focus)
-			.concat(
-				[
-					Gui.col(
-						{ label: "Step table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
-						[
-							table_head("Step columns", [head_cell("line", 120), head_cell("kind", 200), head_cell("role", 90), head_cell("status", 50), head_figure("duration", 110), head_rest("expected / observed · diagnostic")]),
-							Gui.virtual_rows({
-								label: "Steps",
-								row_height: Theme.row_height,
-								count,
-								render_row: step_row,
-								scroll_to: state.step_scroll,
-								on_range: Some(
-									|current, visible| match Observatory.steps_wanted(current, visible) {
-										Some(offset) => Observatory.ask(current, ReadSteps(offset))
-										None => Gui.none
-									},
-								),
-							}),
-						],
-					),
-				],
-			),
-	)
+	if annotated {
+		Gui.col(
+			{ label: "Spec", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset },
+			[selector].concat(source_bar).concat([SourceView.annotated(state, opened)]),
+		)
+	} else {
+		Gui.col(
+			{ label: "Spec", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset },
+			[selector].concat(source_bar).concat([heading("RUNS"), runs, CopyView.heading("STEPS OF RUN ${state.run.to_str()} · ${count.to_str()}", "Steps", |_| CopyView.steps(opened, window.rows, step_result))])
+				.concat(absence)
+				.concat(focus)
+				.concat(
+					[
+						Gui.col(
+							{ label: "Step table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+							[
+								table_head("Step columns", [head_cell("line", 120), head_cell("kind", 200), head_cell("role", 90), head_cell("status", 50), head_figure("duration", 110), head_rest("expected / observed · diagnostic")]),
+								Gui.virtual_rows({
+									label: "Steps",
+									row_height: Theme.row_height,
+									count,
+									render_row: step_row,
+									scroll_to: state.step_scroll,
+									on_range: Some(
+										|current, visible| match Observatory.steps_wanted(current, visible) {
+											Some(offset) => Observatory.ask(current, ReadSteps(offset))
+											None => Gui.none
+										},
+									),
+								}),
+							],
+						),
+					],
+				),
+		)
+	}
 }
 
 ## Health (W9, US-8)
@@ -2419,7 +2431,7 @@ main_view = |state| match state.view {
 	## in place.
 	Frames => view_boundary("Frames", |a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and same_frame(a, b), |current| with_capture(current, |s, o| scrolled("Frames scroll", frames_view(s, o))))
 	Timeline => view_boundary("Timeline", TimelineView.same_view, |current| with_capture(current, |s, o| scrolled("Timeline scroll", TimelineView.timeline(s, o))))
-	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and a.step_scroll == b.step_scroll, |current| with_capture(current, spec))
+	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and a.step_scroll == b.step_scroll and SourceView.same(a, b), |current| with_capture(current, spec))
 	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase and CompareView.same_comparison(a, b), |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
 	Health => view_boundary("Health", |a, b| same_capture(a, b) and a.family_focus == b.family_focus, |current| with_capture(current, |s, o| scrolled("Health scroll", health(s, o))))
 	Compare => view_boundary("Compare", CompareView.same_view, |current| scrolled("Compare scroll", CompareView.compare(current)))

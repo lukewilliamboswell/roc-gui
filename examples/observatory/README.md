@@ -62,7 +62,20 @@ trusted. Nine views follow:
   lanes as not recorded, with their reasons.
 - **Spec**: the runs, a run selector, and the selected run's steps with their
   status, duration, and expected and observed values, in a list read a page at
-  a time as it scrolls.
+  a time as it scrolls. "Open spec sources…" takes a folder of `.scm`
+  specifications. A capture records its specification only as `spec_name` and
+  `spec_hash`, never as a path, so Observatory asks the host for the SHA-256 of
+  each `.scm` file in the folder and takes the one whose hash is `spec_hash`.
+  That file is shown line by line, highlighted, with a gutter of each line's
+  step status, duration, cycle count, and patch kind for the selected run or
+  the median across the samples. A failing line is marked, with its diagnostic
+  and its assertions' expected and observed values beneath it, mismatches
+  marked; pressing a line number opens its steps in the inspector, with every
+  sample's own values beside the median. A file that declares the capture's
+  test but hashes differently has changed since the capture: a banner says so,
+  no number is placed on its lines, and the steps stay listed by line. The
+  source's lines are built only near the viewport, so a specification of ten
+  thousand lines opens as fast as a short one.
 - **Memory**: allocations by trigger and span (calls and bytes, mean, maximum,
   and total), each run's Roc allocation lifecycle, and each run's user and
   system CPU and peak and current RSS, with a bar of peak RSS per run.
@@ -148,6 +161,7 @@ roc build --output=observatory examples/observatory/main.roc
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures
 ./observatory -- --host-cap-dir examples/observatory/fixture/compare
 ./observatory -- --host-cap-file examples/observatory/fixture/captures/counter-counting.rgstats
+./observatory -- --host-cap-file examples/observatory/fixture/failing/counter-regressed.rgstats --host-cap-dir examples/observatory/fixture/sources
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures --host-cap-clipboard
 ```
 
@@ -170,7 +184,12 @@ specification and recorded at full detail by the Database Browser itself.
 `window/` holds two captures of the Database Browser's real window: its own
 `window-rows` specification, and a generated session that scrolls its ten
 thousand rows until at least 1,000 frames are drawn, in about half a minute
-of window time. Nothing under `fixture/` is committed; `run_specs.py`
+of window time. `sources/` is a folder of specification sources to grant to
+the Spec view: the specifications behind `captures/`, the session's, and a copy
+of the Counter's counting specification that expects one render more than the
+Counter does, whose failing run is `failing/counter-regressed.rgstats`.
+`sources-edited/` holds the counting specification with a comment added after
+its capture was recorded. Nothing under `fixture/` is committed; `run_specs.py`
 regenerates it when the recorder schema or the contents of any input change: the
 generator, the specifications it runs and the applications they drive, the
 platform, or the host's sources and locks.
@@ -184,19 +203,20 @@ platform, or the host's sources and locks.
   allocation sections, the run lifecycle and process resources, the Frames and
   Timeline tables, and the Compare and Scaling sheets have none.
 - The palette does not find a frame or a source line (`frame N`, `line N`).
-- Steps are listed by line number and kind; the specification source is not
-  shown beside them.
 
 ## Specifications
 
-Forty-four specifications run on the semantic runner. They cover the first
+Forty-eight specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
 honest tiles, an untrusted capture's banner on every view, the health sheet,
 spec results across runs, the triggers table across phases, sorting by column,
 the cycle list and its trigger filter, the cycle inspector with a dash that
-opens Health, a cycle's step in the Spec view, the memory view, the duration
+opens Health, a cycle's step in the Spec view, the specification source
+found by its hash and annotated with one run and with the median of its
+samples, a failing step's diagnostic and assertion table on its line, and a
+changed specification's banner, the memory view, the duration
 distribution and its bucket filter, the Frames view of a window capture with
 its hover and a pressed frame, the Frames view of a headless capture, the
 Timeline of a window capture with its hover, zoom, and a pressed cycle, a
@@ -219,6 +239,9 @@ them.
 `scale-session.scm` is the scaling case for one long capture: it opens the
 10,000-cycle session and jumps from one end of its cycle list to the other, and
 `session-step.scm` opens a step ten thousand steps into its run.
+`scale-source.scm` is the scaling case for the annotated specification: it
+annotates the session's own specification of ten thousand lines, building only
+the lines near the viewport, and opens a late cycle's step on its line.
 `frames-scale.scm` is the scaling case for the frame strip: it opens the
 session of at least 1,000 frames and zooms into it with the wheel, and
 `timeline-scale.scm` opens the same session on the Timeline and zooms and pans
@@ -234,4 +257,6 @@ window's own pointer over the frame strip and the distribution and scrolls its
 wheel, and photographs each, and `window-timeline.scm` does the same over the
 Timeline. `window-keyboard.scm` types into the palette in the real window,
 walks to a cycle and into its inspector by keyboard, copies its waterfall, and
-photographs a `—`'s hover.
+photographs a `—`'s hover. `window-spec-source.scm` photographs a failing
+run's annotated specification with its diagnostic and assertion table, and
+`window-spec-median.scm` a benchmark's at the median of its samples.
