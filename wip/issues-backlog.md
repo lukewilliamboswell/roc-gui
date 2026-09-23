@@ -312,12 +312,11 @@ built on top of them; none is a defect in what is there.
   general Redis administration tool. Credentials must never enter captures or
   ordinary persisted application state.
 
-- [ ] **SQLite write transactions and parameters.** The database capability is
-  deliberately read-only and executes one statement without bindings. Add a
-  separately granted read-write capability, typed parameters, cancellation,
-  transactions, paging, editable grids, and export with lifecycle and resource
-  counters before presenting the example as a general database administration
-  tool.
+- [ ] **SQLite write transactions.** The database capability is deliberately
+  read-only; it binds parameters and pages results, but cannot write. Add a
+  separately granted read-write capability, cancellation, transactions,
+  editable grids, and export with lifecycle and resource counters before
+  presenting the example as a general database administration tool.
 
 - [ ] **System Monitor charts and export.** The system-monitor slice has a real
   capability-scoped `sysinfo` sampler, explicit unavailable values, bounded
@@ -438,12 +437,16 @@ ideal and the repository. P- and E-numbers refer to that document.
   the window, and recent documents backed by remembered grants, as one trusted
   file workflow (see "Trusted file workflows remain incomplete").
 
-- [ ] **SQLite cannot hold a real capture (P7).** The host copies the whole
-  database into memory, refuses files over 64 MiB and results over 10,000 rows,
-  and has no bound parameters, paging, `ATTACH`, cancellation, or reading of a
-  write-ahead log that is still being written. Long interactive captures and
-  two-capture comparison need a read-only, in-place, parameterised capability
-  with paging and cancellation (see "SQLite write transactions and parameters").
+- [ ] **SQLite cannot compare two databases or cancel a query (P7).** Databases
+  open in place, read a live write-ahead log, bind parameters, and page past
+  the row limit. Two-capture comparison still needs a capability-scoped
+  `ATTACH` of a second granted database (plain `ATTACH` is refused, because it
+  names a path), and a long statement cannot be interrupted: add cancellation
+  through `sqlite3_interrupt` tied to task supersede (P13), with a counter for
+  interrupted statements. Opening in place derives the directory's path from
+  its descriptor on Linux, macOS, and Windows; only the Linux path has been
+  exercised, so verify macOS and Windows, including a verbatim `\\?\UNC` share,
+  which is refused.
 
 - [ ] **The virtual list cannot be driven (P1).** Every item is built in Roc up
   front, and there is no scroll-to or visible-range event. Add a row provider,
