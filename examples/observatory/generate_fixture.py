@@ -13,6 +13,13 @@ a real recorder or filesystem can leave behind and a passing run does not:
 - `truncated.rgstats` is the first kilobyte of a capture, as a copy that was cut
   short leaves it, and is not a readable database.
 
+`compare/` holds the captures Compare and Scaling are tested against: the
+Database Browser's 100, 1,000, and 10,000 row benchmarks, a second run of the
+100 row benchmark by the same executable (an A/A pair, as `run_specs.py --aa`
+records it), the 100 row benchmark run with two jobs, which is comparable with
+none of them, and that run's own A/A repeat with one job, a third comparable
+run of the 100 row benchmark.
+
 The scaling folders hold 10, 100, and 1,000 captures, as a benchmark output
 directory does after repeated runs. Each is a hard link to one of the real
 captures, so the folder costs no extra disk.
@@ -54,6 +61,18 @@ SOURCES = {
     "database-browser-browse.rgstats": "examples/database-browser/specs/browse.scm",
     "database-browser-scale-100.rgstats": "examples/database-browser/specs/scale-100.scm",
 }
+# The benchmarks of one application at three scales, and the name each keeps
+# in `compare/`. They run in the same invocation as `SOURCES`, twice, so a
+# capture of one scale has an A/A twin from the same executable.
+COMPARE = {
+    "browse-100.rgstats": "examples/database-browser/specs/scale-100.scm",
+    "browse-1k.rgstats": "examples/database-browser/specs/scale-1k.scm",
+    "browse-10k.rgstats": "examples/database-browser/specs/scale-10k.scm",
+}
+AA = "browse-100.rgstats"
+CONTENDED = ("browse-100-jobs-2.rgstats", "examples/database-browser/specs/scale-100.scm", 2)
+# The contended run's A/A repeat, which `run_specs.py` runs with one job.
+RERUN = "browse-100-b.rgstats"
 SCALES = (10, 100, 1000)
 SESSION = "session/database-browser-session.rgstats"
 SESSION_CYCLES = 10_000
@@ -157,7 +176,7 @@ def record_session(runs: Path, destination: Path) -> None:
 def input_files() -> list[Path]:
     """Every file whose contents can change a fixture capture."""
     roots = [Path(__file__), *(ROOT / path for path in HOST_INPUTS)]
-    roots.extend(ROOT / Path(spec).parent.parent for spec in SOURCES.values())
+    roots.extend(ROOT / Path(spec).parent.parent for spec in [*SOURCES.values(), *COMPARE.values()])
     files = set()
     for root in roots:
         candidates = [root] if root.is_file() else root.rglob("*")
@@ -179,9 +198,12 @@ def input_digest() -> str:
 
 def stamp_text() -> str:
     sources = ",".join(f"{name}={spec}" for name, spec in sorted(SOURCES.items()))
+    compare = ",".join(f"{name}={spec}" for name, spec in sorted(COMPARE.items()))
+    contended = f"{CONTENDED[0]}={CONTENDED[1]}@{CONTENDED[2]}"
     scales = ",".join(str(scale) for scale in SCALES)
     return (
-        f"schema={recorder_schema()};sources={sources};scales={scales};"
+        f"schema={recorder_schema()};sources={sources};compare={compare};aa={AA};"
+        f"contended={contended};rerun={RERUN};scales={scales};"
         f"session={SESSION_CYCLES};inputs={input_digest()}\n"
     )
 
@@ -200,19 +222,25 @@ def link_or_copy(source: Path, destination: Path) -> None:
         shutil.copyfile(source, destination)
 
 
-def generate(staging: Path) -> None:
-    runs = staging / "runs"
-    environment = {**os.environ, GUARD: "1"}
+def run_specs(specs: list[str], output: Path, *flags: str) -> None:
     command = [
         sys.executable,
         str(ROOT / "scripts/run_specs.py"),
-        *SOURCES.values(),
+        *specs,
+        *flags,
         "--output",
-        str(runs),
+        str(output),
         "--roc",
         os.environ.get("ROC", "roc"),
     ]
-    subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    subprocess.run(command, cwd=ROOT, env={**os.environ, GUARD: "1"}, check=True)
+
+
+def generate(staging: Path) -> None:
+    runs = staging / "runs"
+    # One invocation builds each application once, so every capture of an
+    # application, and its A/A repeat, names the same executable.
+    run_specs(sorted({*SOURCES.values(), *COMPARE.values()}), runs, "--aa")
 
     captures = staging / "captures"
     captures.mkdir()
@@ -236,6 +264,19 @@ def generate(staging: Path) -> None:
         folder.mkdir()
         for index in range(scale):
             link_or_copy(real[index % len(real)], folder / f"run-{index:04d}.rgstats")
+
+    compare = staging / "compare"
+    compare.mkdir()
+    for name, spec in COMPARE.items():
+        shutil.copyfile(runs / Path(spec).with_suffix(".rgstats"), compare / name)
+    twin = Path(COMPARE[AA])
+    shutil.copyfile(runs / twin.with_name(f"{twin.stem}-aa.rgstats"), compare / AA.replace(".rgstats", "-aa.rgstats"))
+    name, spec, jobs = CONTENDED
+    contended = staging / "runs-contended"
+    run_specs([spec], contended, "--jobs", str(jobs), "--aa")
+    shutil.copyfile(contended / Path(spec).with_suffix(".rgstats"), compare / name)
+    shutil.copyfile(contended / Path(spec).with_name(f"{Path(spec).stem}-aa.rgstats"), compare / RERUN)
+    shutil.rmtree(contended)
 
     record_session(runs, staging / SESSION)
     shutil.rmtree(runs)
