@@ -1070,6 +1070,15 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Runner: test what we fly
 
+- [ ] **Text in a produced row reports the next row's bounds.** In the Database
+  Browser's result list, `(text "Book 00003")` in result row 2 records the
+  rectangle of row 3's text, one row height lower, while the enclosing cell row
+  records its own. A `screenshot :region` of that text photographs the wrong
+  row, and a `hover-enter` at its centre rests on the next row's cell, so the
+  popover specifications there locate cells by their rows. Find why a text
+  node's probe marker inside a virtual-list row lags or leads its row, and add
+  a window specification that crops a produced row's text.
+
 - [ ] **Two window specifications fail intermittently on the GPUI fork.**
   `benchmarks/nested-hover-grid/specs/window-trail.scm` line 20 sometimes
   observes 8 button renders in one completed frame against its bound of 7
