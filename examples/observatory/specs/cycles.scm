@@ -21,6 +21,9 @@
     (expect-visible (within (role row :name "Cycle legend") (text "unattributed")))
     (expect-not-visible (within (role virtual-list :name "Cycles") (button-prefix "Cycle r1 ")))
     (click (role button :name "Filter click replace"))
+    ; choosing a trigger renders the Interactions view and not the window: the
+    ; empty inspector is kept, and the three rows filtered out retire
+    (expect-component-work :rendered 6 :skipped 1 :mounted 0 :retired 3)
     (expect-visible (text "CYCLES · measured · click · replace · slowest first · 3"))
     (expect-count (within (role virtual-list :name "Cycles") (button-prefix "Cycle r")) 3)
     (expect-count (within (role virtual-list :name "Cycles") (text "task")) 0)

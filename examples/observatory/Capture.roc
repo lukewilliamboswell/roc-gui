@@ -169,7 +169,11 @@ Resources : {
 
 ## A capture that passed the schema gate. Everything but the steps is read
 ## when it opens; steps are read one run at a time through the held connection.
+## `revision` names one reading of the capture: the request that produced it.
+## Two readings with the same revision hold the same values, which is what a
+## memoized view compares instead of the rows themselves.
 Opened : {
+	revision : U64,
 	name : Str,
 	database : Gui.SqliteDb,
 	metadata : List(Entry),
@@ -778,5 +782,5 @@ open! = |directory, name| {
 	cycles = read_cycles!(database)?
 	allocations = read_allocations!(database)?
 	resources = read_resources!(database)?
-	Ok({ name, database, metadata: entries, families, gaps, health, runs, steps: first.steps, steps_more: first.more, triggers, medians, skips, frames, cycles, allocations, resources, verdict: judge(trust) })
+	Ok({ revision: 0, name, database, metadata: entries, families, gaps, health, runs, steps: first.steps, steps_more: first.more, triggers, medians, skips, frames, cycles, allocations, resources, verdict: judge(trust) })
 }

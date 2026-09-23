@@ -49,6 +49,20 @@ The verdict is `untrusted` when a capture is not finalised, shut down uncleanly,
 omitted events, reached its output limit, had a writer failure, or recorded a
 gap; `partial` when any family is partial; otherwise `complete`.
 
+## Component boundaries
+
+The capture list, the capture bar, the trust banner, the view rail, and each
+view are keyed, memoized boundaries directly under the root. Inside
+Interactions, the triggers table, the cycle list, each cycle row (keyed by its
+cycle), and the inspector are boundaries of their own. Every boundary compares
+only what it draws: the capture's revision, which names one reading of it, and
+the few fields of navigation it reads. A view that changes only itself, such as
+sorting a table or choosing a phase, renders only that view. A change a sibling
+must show, such as choosing a trigger, is delegated to the nearest boundary that
+holds both. Work that needs a handle only the root holds, such as reading a
+cycle, is a request the root fulfils, so while it is read the window restages
+only its header and every view is kept.
+
 ## Running
 
 ```sh
@@ -88,6 +102,8 @@ honest tiles, an untrusted capture's banner on every view, the health sheet,
 spec results across runs, the triggers table across phases, sorting by column,
 the cycle list and its trigger filter, the cycle inspector with a dash that
 opens Health, a cycle's step in the Spec view, and the memory view.
+Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
+also pin which boundaries render, and how many nodes the host restages.
 `scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases: each opens a
 benchmark output folder of that many real captures. `window-tour.scm` drives
 the real window through every view and photographs each.

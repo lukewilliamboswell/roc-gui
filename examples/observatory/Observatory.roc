@@ -9,7 +9,9 @@ import Capture
 ## dismissed chooser, and a host refusal call for different next steps.
 Grant : [Ungranted, Declined, Granted(Str), Refused]
 
-Folder : { name : Str, directory : Gui.FilesDirRead, captures : List(Capture.Listing) }
+## `revision` is the request that listed the folder, so a view can tell two
+## listings apart without comparing the directory handle.
+Folder : { revision : U64, name : Str, directory : Gui.FilesDirRead, captures : List(Capture.Listing) }
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
@@ -21,6 +23,11 @@ Sort : { column : U64, descending : Bool }
 ## The cycle list shows every trigger of the phase, or one trigger and patch
 ## kind chosen from the triggers table.
 Filter : [All, Only({ trigger : Str, patch_kind : Str })]
+
+## What a view inside a component boundary asks of the application as a whole:
+## work that needs a handle only the root holds, or a change a sibling view
+## must show. A boundary forwards it by delegation, and the root fulfils it.
+Request : [Open(Str), Inspect(Capture.Cycle), ShowStep(I64, I64), SelectRun(I64), Show(View), ShowFamily(Str), CloseCapture]
 
 State : {
 	access : Gui.Access,
@@ -39,6 +46,9 @@ State : {
 	## The ordinal of the step "Show step" opened, in the selected run.
 	step_focus : [None, Some(I64)],
 	family_focus : [None, Some(Str)],
+	## Set only between a handler and the root that fulfils it; a rendered
+	## state never carries one.
+	request : [None, Some(Request)],
 }
 
 Observatory := [].{
@@ -49,6 +59,7 @@ Observatory := [].{
 	View : View
 	Sort : Sort
 	Filter : Filter
+	Request : Request
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -67,7 +78,26 @@ Observatory := [].{
 		inspected: None,
 		step_focus: None,
 		family_focus: None,
+		request: None,
 	}
+
+	## Ask the root for something a boundary cannot do itself.
+	ask : State, Request -> Gui.Action(State)
+	ask = |state, request| Gui.delegate({ ..state, request: Some(request) })
+
+	## A nested boundary's delegation policy: a request continues to the root,
+	## and any other change is accepted here, so it renders this boundary's
+	## parent and not the whole window.
+	forward : State -> Gui.Action(State)
+	forward = |state| match state.request {
+		Some(_) => Gui.delegate(state)
+		None => Gui.update(state)
+	}
+
+	## The policy of a boundary directly under the root: perform the request,
+	## or accept the change as a root update.
+	fulfil : State -> Gui.Action(State)
+	fulfil = fulfil
 
 	## Pressing a column's heading orders by it; pressing it again reverses.
 	resort : Sort, U64 -> Sort
@@ -86,43 +116,45 @@ Observatory := [].{
 		{ ..state, filter: if state.filter == chosen All else chosen }
 	}
 
-	inspect : State, Capture.Cycle -> Gui.Action(State)
-	inspect = inspect
-
 	close_inspector : State -> State
 	close_inspector = |state| { ..state, inspected: None }
-
-	## Open the Spec view at the step, by ordinal, that drove a cycle.
-	show_step : State, I64, I64 -> Gui.Action(State)
-	show_step = |state, run_id, ordinal| select_run({ ..state, view: Spec, step_focus: Some(ordinal) }, run_id)
-
-	## Open Health at the family a `—` belongs to.
-	show_family : State, Str -> State
-	show_family = |state, name| { ..state, view: Health, family_focus: Some(name) }
 
 	choose : State -> Gui.Action(State)
 	choose = choose
 
-	open_capture : State, Gui.FilesDirRead, Str -> Gui.Action(State)
-	open_capture = open_capture
-
-	close_capture : State -> State
-	close_capture = |state| {
-		status = match state.status {
-			Busy(active) => Busy(active)
-			_ => Ready
-		}
-		{ ..state, capture: None, inspected: None, status }
-	}
-
-	show : State, View -> State
-	show = |state, view| { ..state, view, step_focus: None, family_focus: None }
-
 	set_phase : State, Str -> State
 	set_phase = |state, phase| { ..state, phase, filter: All }
+}
 
-	select_run : State, I64 -> Gui.Action(State)
-	select_run = select_run
+fulfil : State -> Gui.Action(State)
+fulfil = |asked| {
+	state = { ..asked, request: None }
+	match asked.request {
+		None => Gui.update(state)
+		Some(Open(name)) => match state.folder {
+			Some(folder) => open_capture(state, folder.directory, name)
+			None => Gui.update(state)
+		}
+		Some(Inspect(cycle)) => inspect(state, cycle)
+		## Open the Spec view at the step, by ordinal, that drove a cycle.
+		Some(ShowStep(run_id, ordinal)) => select_run({ ..state, view: Spec, step_focus: Some(ordinal) }, run_id)
+		Some(SelectRun(run_id)) => select_run(state, run_id)
+		Some(Show(view)) => Gui.update({ ..state, view, step_focus: None, family_focus: None })
+		## Open Health at the family a `—` belongs to.
+		Some(ShowFamily(name)) => Gui.update({ ..state, view: Health, family_focus: Some(name) })
+		Some(CloseCapture) => Gui.update(close_capture(state))
+	}
+}
+
+## A read still in flight keeps its request, so its result is still accepted
+## or superseded as it would be with the capture open.
+close_capture : State -> State
+close_capture = |state| {
+	status = match state.status {
+		Busy(active) => Busy(active)
+		_ => Ready
+	}
+	{ ..state, capture: None, inspected: None, status }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -159,7 +191,7 @@ choose = |state| {
 					# a reference to the capability: see "A value used twice in one
 					# record literal" in wip/issues-backlog.md.
 					captures = list_captures!(selection.directory, entries)
-					ChosenFolder({ name: selection.name, directory: selection.directory, captures })
+					ChosenFolder({ revision: id, name: selection.name, directory: selection.directory, captures })
 				}
 				Err(_) => ChooseFailed
 			}
@@ -203,7 +235,7 @@ open_capture = |state, directory, name| {
 		run: || Capture.open!(directory, name),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(opened) => Gui.update({ ..latest, capture: Some(opened), view: Overview, phase: default_phase(opened), run: first_run(opened), filter: All, inspected: None, step_focus: None, family_focus: None, status: Ready })
+				Ok(opened) => Gui.update({ ..latest, capture: Some({ ..opened, revision: id }), view: Overview, phase: default_phase(opened), run: first_run(opened), filter: All, inspected: None, step_focus: None, family_focus: None, status: Ready })
 				Err(message) => Gui.update({
 					..latest,
 					capture: None,
@@ -248,7 +280,7 @@ select_run = |state, run_id| match state.capture {
 				Busy(active) if active == id => match latest.capture {
 					None => Gui.update({ ..latest, status: Ready })
 					Some(current) => match outcome {
-						Ok(page) => Gui.update({ ..latest, capture: Some({ ..current, steps: page.steps, steps_more: page.more }), run: run_id, status: Ready })
+						Ok(page) => Gui.update({ ..latest, capture: Some({ ..current, revision: id, steps: page.steps, steps_more: page.more }), run: run_id, status: Ready })
 						Err(message) => Gui.update({ ..latest, status: failure(message, "The steps of this run could not be read from the open capture.") })
 					}
 				}

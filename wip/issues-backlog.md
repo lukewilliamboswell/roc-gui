@@ -444,13 +444,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   produces such a cycle (a rejected turn, or a callback whose span stack does
   not close) should become a fixture.
 
-- [ ] **Every Observatory interaction replaces the whole tree.** A capture of
-  the window tour shows each click as a `replace` patch staging every live node
-  (148 to 430) with only the root rendered: the application has no component
-  boundaries, so opening a cycle re-renders the capture list, the triggers
-  table, and the inspector alike. Give each view and the inspector a
-  `translate` boundary and confirm locality with the capture's `staged_nodes`.
-
 - [ ] **Table cells clip without an ellipsis.** A fixed-width cell with
   `text_overflow: Ellipsis` clips its text at the column edge but draws no
   ellipsis, so a long spec name in the capture list ends mid-word.

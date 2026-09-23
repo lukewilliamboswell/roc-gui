@@ -13,6 +13,61 @@ View := [].{
 	render = render
 }
 
+## Component boundaries. Every view is a keyed, memoized boundary over the
+## whole state, and each compares only the inputs it draws: the capture's
+## revision rather than its rows, and the few fields of navigation it reads. A
+## change elsewhere then leaves its subtree and handlers in place, and a change
+## a view makes to itself renders only that view.
+
+boundary : Gui.Key, (Observatory.State, Observatory.State -> Bool), (Observatory.State -> Gui.Action(Observatory.State)), (Observatory.State -> Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
+boundary = |key, same, policy, draw| Gui.translate_with(
+	draw,
+	{
+		key,
+		get: |state| state,
+		set: |_, next| next,
+		on_delegate: policy,
+		memo: Some(same),
+	},
+)
+
+## A boundary directly under the root, which fulfils what its views ask.
+view_boundary : Str, (Observatory.State, Observatory.State -> Bool), (Observatory.State -> Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
+view_boundary = |name, same, draw| boundary(Gui.Key.from_str(name), same, Observatory.fulfil, draw)
+
+## A boundary inside a view, which forwards requests toward the root.
+part_boundary : Str, (Observatory.State, Observatory.State -> Bool), (Observatory.State -> Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
+part_boundary = |name, same, draw| boundary(Gui.Key.from_str(name), same, Observatory.forward, draw)
+
+revision_of : [None, Some(Capture.Opened)] -> [None, Some(U64)]
+revision_of = |capture| match capture {
+	Some(opened) => Some(opened.revision)
+	None => None
+}
+
+folder_revision : [None, Some(Observatory.Folder)] -> [None, Some(U64)]
+folder_revision = |folder| match folder {
+	Some(found) => Some(found.revision)
+	None => None
+}
+
+same_capture : Observatory.State, Observatory.State -> Bool
+same_capture = |a, b| revision_of(a.capture) == revision_of(b.capture)
+
+inspected_id : Observatory.State -> [None, Some(I64)]
+inspected_id = |state| match state.inspected {
+	Some(inspected) => Some(inspected.cycle.id)
+	None => None
+}
+
+## A view of the open capture. With no capture it draws nothing, which only a
+## stale boundary could ask for.
+with_capture : Observatory.State, (Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
+with_capture = |state, draw| match state.capture {
+	Some(opened) => draw(state, opened)
+	None => Gui.row({ padding: 0, gap: 0, height: Px(0) }, [])
+}
+
 ## Text
 
 meta : Str -> Gui.Elem(Observatory.State)
@@ -146,7 +201,7 @@ dash : Str, U32 -> Gui.Elem(Observatory.State)
 dash = |family_name, font_size| Gui.button({
 	caption: "—",
 	label: "Why ${family_name}",
-	on_press: |current, _| Gui.update(Observatory.show_family(current, family_name)),
+	on_press: |current, _| Observatory.ask(current, ShowFamily(family_name)),
 	padding: 0,
 	font_size,
 	font_face: Theme.face,
@@ -327,8 +382,8 @@ error_band = |state| match state.status {
 
 ## The capture list (W0)
 
-capture_row : Gui.FilesDirRead, Capture.Listing -> Gui.Elem(Observatory.State)
-capture_row = |directory, listing| Gui.row(
+capture_row : Capture.Listing -> Gui.Elem(Observatory.State)
+capture_row = |listing| Gui.row(
 	{ label: "Capture row ${listing.name}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 	[
 		Gui.row(
@@ -337,7 +392,7 @@ capture_row = |directory, listing| Gui.row(
 				Gui.button({
 					caption: listing.name,
 					label: "Capture ${listing.name}",
-					on_press: |current, _| Observatory.open_capture(current, directory, listing.name),
+					on_press: |current, _| Observatory.ask(current, Open(listing.name)),
 					width: Fill,
 					padding: 0,
 					font_size: Theme.body,
@@ -425,7 +480,7 @@ capture_list = |state| {
 						Gui.virtual_list({
 							label: "Captures",
 							row_height: Theme.row_height,
-							items: sorted_captures(folder.captures, state.capture_sort).map_with_index(|listing, index| { key: index, content: capture_row(folder.directory, listing) }),
+							items: sorted_captures(folder.captures, state.capture_sort).map_with_index(|listing, index| { key: index, content: capture_row(listing) }),
 						}),
 					],
 				),
@@ -454,7 +509,7 @@ capture_bar = |opened| {
 	Gui.row(
 		{ label: "Capture bar", width: Fill, padding: Theme.inset, gap: 6, align: Center, bg: Theme.paper, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 		[
-			key({ caption: "‹ Captures", label: "Back to captures", selected: False, on_press: |current, _| Gui.update(Observatory.close_capture(current)) }),
+			key({ caption: "‹ Captures", label: "Back to captures", selected: False, on_press: |current, _| Observatory.ask(current, CloseCapture) }),
 			Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face, max_width: Px(260), text_overflow: Ellipsis }, [Gui.text(opened.name)]),
 			chip(Capture.metadata(opened, "backend"), Theme.ink),
 			chip(Capture.metadata(opened, "effective_detail"), Theme.ink),
@@ -479,7 +534,7 @@ banner = |opened| match opened.verdict {
 
 nav : Observatory.State -> Gui.Elem(Observatory.State)
 nav = |state| {
-	entry = |caption, view| key({ caption, label: caption, selected: state.view == view, on_press: |current, _| Gui.update(Observatory.show(current, view)) })
+	entry = |caption, view| key({ caption, label: caption, selected: state.view == view, on_press: |current, _| Observatory.ask(current, Show(view)) })
 	Gui.col(
 		{ label: "Views", width: Px(Theme.nav_width), height: Fill, padding: Theme.inset, gap: 6, bg: Theme.rail, border_color: Theme.line, border_width: 0, border_right: Px(1) },
 		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health)],
@@ -501,7 +556,7 @@ tile = |props| Gui.panel(
 			Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.figure, font_face: Theme.face, text_overflow: Ellipsis }, [Gui.text(props.value)])
 		},
 		Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Gui.text(props.detail)]),
-		key({ caption: "${props.opens} ›", label: "Open ${props.name}", selected: False, on_press: |current, _| Gui.update(Observatory.show(current, props.view)) }),
+		key({ caption: "${props.opens} ›", label: "Open ${props.name}", selected: False, on_press: |current, _| Observatory.ask(current, Show(props.view)) }),
 	],
 )
 
@@ -664,7 +719,7 @@ trigger_filter = |state, trigger| {
 			Gui.button({
 				caption: if chosen "✓ only these" else "only these",
 				label: "Filter ${trigger.trigger} ${trigger.patch_kind}",
-				on_press: |current, _| Gui.update(Observatory.filter_trigger(current, trigger.trigger, trigger.patch_kind)),
+				on_press: |current, _| Gui.delegate(Observatory.filter_trigger(current, trigger.trigger, trigger.patch_kind)),
 				padding: 2,
 				font_size: Theme.meta,
 				font_face: Theme.face,
@@ -731,12 +786,21 @@ stacked_bar = |cycle, slowest| {
 	)
 }
 
-cycle_row : Observatory.State, Capture.Cycle, I64, Bool -> Gui.Elem(Observatory.State)
-cycle_row = |state, cycle, slowest, timed| {
-	chosen = match state.inspected {
-		Some(inspected) => inspected.cycle.id == cycle.id
-		None => False
-	}
+is_chosen : Observatory.State, I64 -> Bool
+is_chosen = |state, id| inspected_id(state) == Some(id)
+
+## Each row is its own boundary, keyed by its cycle, so opening a cycle
+## renders the two rows whose selection changed and retains the rest.
+cycle_boundary : Capture.Cycle, I64, Bool -> Gui.Elem(Observatory.State)
+cycle_boundary = |cycle, slowest, timed| boundary(
+	Gui.Key.id(cycle.id.to_u64_wrap()),
+	|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and is_chosen(a, cycle.id) == is_chosen(b, cycle.id),
+	Observatory.forward,
+	|current| cycle_row(is_chosen(current, cycle.id), cycle, slowest, timed),
+)
+
+cycle_row : Bool, Capture.Cycle, I64, Bool -> Gui.Elem(Observatory.State)
+cycle_row = |chosen, cycle, slowest, timed| {
 	Gui.row(
 		{ label: "Cycle row ${cycle_name(cycle)}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), gap: 0, align: Center, bg: if chosen Theme.selected else Theme.card, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 		[
@@ -746,7 +810,7 @@ cycle_row = |state, cycle, slowest, timed| {
 					Gui.button({
 						caption: cycle_name(cycle),
 						label: "Cycle ${cycle_name(cycle)}",
-						on_press: |current, _| Observatory.inspect(current, cycle),
+						on_press: |current, _| Observatory.ask(current, Inspect(cycle)),
 						width: Fill,
 						padding: 2,
 						font_size: Theme.body,
@@ -828,7 +892,7 @@ cycles_section = |state, opened| {
 					Gui.virtual_list({
 						label: "Cycles",
 						row_height: Theme.row_height,
-						items: listed.map(|cycle| { key: cycle.id.to_u64_wrap(), content: cycle_row(state, cycle, slowest, timed) }),
+						items: listed.map(|cycle| { key: cycle.id.to_u64_wrap(), content: cycle_boundary(cycle, slowest, timed) }),
 					}),
 				],
 			),
@@ -1037,7 +1101,7 @@ inspector = |state, opened| match state.inspected {
 		cycle = inspected.cycle
 		step = match (cycle.step_ordinal, inspected.step_line) {
 			(Some(ordinal), Some(source_line)) => [
-				key({ caption: "Show step ▸ line ${source_line.to_str()}", label: "Show step", selected: False, on_press: |current, _| Observatory.show_step(current, cycle.run_id, ordinal) }),
+				key({ caption: "Show step ▸ line ${source_line.to_str()}", label: "Show step", selected: False, on_press: |current, _| Observatory.ask(current, ShowStep(cycle.run_id, ordinal)) }),
 			]
 			_ => []
 		}
@@ -1045,7 +1109,7 @@ inspector = |state, opened| match state.inspected {
 			{ label: "Inspector title", width: Fill, padding: 0, gap: Theme.inset, align: Center },
 			[
 				Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("CYCLE ${cycle_name(cycle)} · ${cycle.trigger} · ${cycle.patch_kind} · ${cycle.phase}")]),
-				Gui.row({ padding: 0, gap: Theme.inset, grow: True, justify: End }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.update(Observatory.close_inspector(current)) }))),
+				Gui.row({ padding: 0, gap: Theme.inset, grow: True, justify: End }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.delegate(Observatory.close_inspector(current)) }))),
 			],
 		)
 		timing = if Capture.complete(opened, "host_cycles") {
@@ -1075,14 +1139,35 @@ inspector = |state, opened| match state.inspected {
 	}
 }
 
+## A part of a view, laid out with the view's own spacing.
+section : (Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))) -> (Observatory.State -> Gui.Elem(Observatory.State))
+section = |parts| |current| with_capture(current, |state, opened| Gui.col({ width: Fill, padding: 0, gap: Theme.inset }, parts(state, opened)))
+
+## The triggers table, the cycle list, and the inspector are boundaries of their
+## own: choosing a trigger renders the table and the list, opening a cycle the
+## list's changed rows and the inspector, and sorting only the table.
 interactions : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
-interactions = |state, opened| Gui.col(
+interactions = |state, _opened| Gui.col(
 	{ label: "Interactions", width: Fill, padding: Theme.inset, gap: Theme.inset },
-	[phase_selector(state)]
-		.concat(triggers_table(state, opened))
-		.concat(cycles_section(state, opened))
-		.concat([heading("CYCLE")])
-		.concat(inspector(state, opened)),
+	[
+		phase_selector(state),
+		part_boundary(
+			"Triggers",
+			|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter,
+			section(triggers_table),
+		),
+		part_boundary(
+			"Cycles",
+			|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and inspected_id(a) == inspected_id(b),
+			section(cycles_section),
+		),
+		heading("CYCLE"),
+		part_boundary(
+			"Inspector",
+			|a, b| same_capture(a, b) and a.inspected == b.inspected,
+			section(inspector),
+		),
+	],
 )
 
 ## Memory (US-27, US-28)
@@ -1275,7 +1360,7 @@ spec = |state, opened| {
 	timed = Capture.complete(opened, "step_results")
 	selector = Gui.row(
 		{ label: "Run", width: Fill, padding: 0, gap: 6, align: Center },
-		[meta("RUN")].concat(opened.runs.map(|run| key({ caption: run_caption(run), label: "Run ${run.id.to_str()}", selected: state.run == run.id, on_press: |current, _| Observatory.select_run(current, run.id) }))),
+		[meta("RUN")].concat(opened.runs.map(|run| key({ caption: run_caption(run), label: "Run ${run.id.to_str()}", selected: state.run == run.id, on_press: |current, _| Observatory.ask(current, SelectRun(run.id)) }))),
 	)
 	runs = table(
 		"Runs",
@@ -1451,24 +1536,29 @@ health = |state, opened| {
 scrolled : Str, Gui.Elem(Observatory.State) -> Gui.Elem(Observatory.State)
 scrolled = |label, content| Gui.scroll({ label, content, width: Fill, height: Fill, grow: True })
 
-main_view : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
-main_view = |state, opened| match state.view {
-	Overview => scrolled("Overview scroll", overview(state, opened))
-	Interactions => scrolled("Interactions scroll", interactions(state, opened))
-	Spec => spec(state, opened)
-	Memory => scrolled("Memory scroll", memory(state, opened))
-	Health => scrolled("Health scroll", health(state, opened))
+## Each view compares the capture's revision and the navigation it reads.
+main_view : Observatory.State -> Gui.Elem(Observatory.State)
+main_view = |state| match state.view {
+	Overview => view_boundary("Overview", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Overview scroll", overview(s, o))))
+	Interactions => view_boundary(
+		"Interactions",
+		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected,
+		|current| with_capture(current, |s, o| scrolled("Interactions scroll", interactions(s, o))),
+	)
+	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus, |current| with_capture(current, spec))
+	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
+	Health => view_boundary("Health", |a, b| same_capture(a, b) and a.family_focus == b.family_focus, |current| with_capture(current, |s, o| scrolled("Health scroll", health(s, o))))
 }
 
-workspace : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
-workspace = |state, opened| Gui.col(
+workspace : Observatory.State -> Gui.Elem(Observatory.State)
+workspace = |state| Gui.col(
 	{ label: "Capture", width: Fill, height: Fill, grow: True, min_height: Px(0), overflow_y: Clip, padding: 0, gap: 0 },
 	[
-		capture_bar(opened),
-		banner(opened),
+		view_boundary("Capture bar", same_capture, |current| with_capture(current, |_, opened| capture_bar(opened))),
+		view_boundary("Trust banner", same_capture, |current| with_capture(current, |_, opened| banner(opened))),
 		Gui.row(
 			{ label: "Workspace", width: Fill, height: Fill, grow: True, min_height: Px(0), overflow_y: Clip, padding: 0, gap: 0, bg: Theme.paper },
-			[nav(state), main_view(state, opened)],
+			[view_boundary("Views", |a, b| a.view == b.view, nav), main_view(state)],
 		),
 	],
 )
@@ -1481,8 +1571,8 @@ render = |state| Gui.col(
 		authority_bar(state),
 		error_band(state),
 		match state.capture {
-			Some(opened) => workspace(state, opened)
-			None => capture_list(state)
+			Some(_) => workspace(state)
+			None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort, capture_list)
 		},
 	],
 )

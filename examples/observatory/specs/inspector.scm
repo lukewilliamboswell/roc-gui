@@ -13,7 +13,13 @@
     (click (role button :name "Interactions"))
     (expect-visible (text "Press a cycle to inspect it."))
     (click (role button :name "Cycle r4 #7"))
+    ; while the cycle is read only the header changes; every view is retained
+    (expect-component-work :rendered 1 :skipped 4 :mounted 0 :retired 0)
+    (expect-patch :kind replace :staged 18 :removed 18)
     (await-task)
+    ; the answer renders the view, the cycle list, the two rows whose selection
+    ; changed, and the inspector; the triggers table and the other rows are kept
+    (expect-component-work :rendered 5 :skipped 9 :mounted 0 :retired 0)
     (expect-visible (text "CYCLE r4 #7 · task · replace · measured"))
     (expect-count (within (role virtual-list :name "Cycles") (button-prefix "Cycle r")) 6)
     (expect-visible (role row :name "Waterfall cycle"))
