@@ -194,6 +194,7 @@ Gui := [].{
 	CanvasText : Elem.CanvasText
 	CanvasTextAlign : Elem.CanvasTextAlign
 	CanvasPrimitive : Elem.CanvasPrimitive
+	TextSpan : Elem.TextSpan
 
 	## Construct the program value required by the platform's `main` module.
 	run : Program.Config(state) -> Program.Program(state)
@@ -231,6 +232,16 @@ Gui := [].{
 	## Display text in its own colour, size, weight, and face.
 	styled_text : Elem.TextProps -> Elem.Elem(a)
 	styled_text = |props| Elem.styled_text(props)
+
+	## One styled run of rich text: its own colour, ground, weight, underline,
+	## or monospace face.
+	span : Elem.SpanProps -> Elem.TextSpan
+	span = |props| Elem.span(props)
+
+	## Display several styled runs as one text element, which lays out and
+	## wraps as one string and is located by the whole of it.
+	rich_text : Elem.RichTextProps -> Elem.Elem(a)
+	rich_text = |props| Elem.rich_text(props)
 
 	## Display a controlled button. `caption` is its visible text and `label` its semantic locator.
 	button : Elem.ButtonProps(a) -> Elem.Elem(a)

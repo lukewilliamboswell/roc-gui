@@ -754,13 +754,16 @@ pub enum NodeKind {
         style: Box<Style>,
     },
     /// Text that carries its own type: colour, size, weight, and face, with no
-    /// container element to hold them.
+    /// container element to hold them. `runs` is empty for text of one style;
+    /// otherwise the runs cover `value` exactly, in order, and each restyles
+    /// its own bytes of it.
     StyledText {
         value: String,
         fg: Option<u32>,
         font_size: u32,
         font_weight: u32,
         font_face: FontFace,
+        runs: Vec<TextRun>,
     },
     Text(String),
 }
@@ -1068,6 +1071,19 @@ pub struct CheckboxIndicator {
     pub box_checked_bg: Option<u32>,
     pub box_border: Option<u32>,
     pub mark_color: Option<u32>,
+}
+
+/// One styled run of rich text: `len` UTF-8 bytes of the element's value,
+/// and what the run sets over the element's own type. An absent colour and a
+/// zero weight keep the element's.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TextRun {
+    pub len: usize,
+    pub fg: Option<u32>,
+    pub bg: Option<u32>,
+    pub font_weight: u32,
+    pub underline: bool,
+    pub monospace: bool,
 }
 
 /// The typeface family a string is set in.

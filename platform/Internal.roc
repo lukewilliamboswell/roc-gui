@@ -493,7 +493,7 @@ Internal := [].{
 								if value.props.heading_weight != 0 and (value.props.heading_weight < 100 or value.props.heading_weight > 900) {
 									crash "Gui font_weight is 0 for the native default, or 100 through 900"
 								}
-								heading = Host.node_styled_text!({ value: value.props.heading, fg: color(value.props.heading_color), font_size: value.props.heading_size, font_weight: value.props.heading_weight, font_face: 0 })
+								heading = Host.node_styled_text!({ value: value.props.heading, fg: color(value.props.heading_color), font_size: value.props.heading_size, font_weight: value.props.heading_weight, font_face: 0, runs: [] })
 								Host.children_push!(builder, heading)
 							}
 							$work = queue_children($work.push(ClosePanel(builder, value.props)), value.children, builder)
@@ -759,7 +759,15 @@ Internal := [].{
 			if value.style.font_weight != 0 and (value.style.font_weight < 100 or value.style.font_weight > 900) {
 				crash "Gui font_weight is 0 for the native default, or 100 through 900"
 			}
-			id = Host.node_styled_text!({ value: value.value, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face) })
+			runs = value.spans.map(
+				|part| {
+					if part.font_weight != 0 and (part.font_weight < 100 or part.font_weight > 900) {
+						crash "Gui font_weight is 0 for the native default, or 100 through 900"
+					}
+					{ len: Str.count_utf8_bytes(part.text), fg: color(part.fg), bg: color(part.bg), font_weight: part.font_weight, underline: part.underline, monospace: part.monospace }
+				},
+			)
+			id = Host.node_styled_text!({ value: value.value, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face), runs })
 			{ root: id, routes, boundaries }
 		}
 		ActionButton(button_value) => {

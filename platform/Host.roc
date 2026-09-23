@@ -9,7 +9,7 @@ Host := [].{
 
 	node_text! : Str => U64
 
-	node_styled_text! : { value : Str, fg : U32, font_size : U32, font_weight : U32, font_face : U8 } => U64
+	node_styled_text! : { value : Str, fg : U32, font_size : U32, font_weight : U32, font_face : U8, runs : List({ len : U64, fg : U32, bg : U32, font_weight : U32, underline : Bool, monospace : Bool }) } => U64
 
 	children_begin! : () => U64
 

@@ -38,7 +38,7 @@ use bridge::{
     Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CanvasTextAlign, CheckboxIndicator,
     ControlKey, ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify,
     Length, MountedGraph, Node, NodeKind, Overflow, Patch, Placement, ScrollAxis, Style,
-    TextOverflow, decode_commit, validate_tree,
+    TextOverflow, TextRun, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -709,7 +709,24 @@ pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> u64 {
     let value = args.value.as_str().to_owned();
-    unsafe { args.value.decref(roc_host()) };
+    let runs = args
+        .runs
+        .as_slice()
+        .iter()
+        .map(|run| TextRun {
+            len: usize::try_from(run.len).expect("text run length exceeds the address space"),
+            fg: decode_color(run.fg),
+            bg: decode_color(run.bg),
+            font_weight: run.font_weight,
+            underline: run.underline,
+            monospace: run.monospace,
+        })
+        .collect::<Vec<_>>();
+    unsafe { args.decref(roc_host()) };
+    assert!(
+        runs_cover(&value, &runs),
+        "rich text runs must cover the text exactly, on character boundaries"
+    );
     stage_node(
         NodeKind::StyledText {
             value,
@@ -717,9 +734,29 @@ pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> 
             font_size: args.font_size,
             font_weight: args.font_weight,
             font_face: decode_font_face(args.font_face),
+            runs,
         },
         vec![],
     )
+}
+
+/// Whether `runs` is empty, or covers `value` exactly with every boundary on a
+/// character boundary.
+fn runs_cover(value: &str, runs: &[TextRun]) -> bool {
+    if runs.is_empty() {
+        return true;
+    }
+    let mut end = 0usize;
+    for run in runs {
+        end = match end.checked_add(run.len) {
+            Some(next) => next,
+            None => return false,
+        };
+        if !value.is_char_boundary(end) {
+            return false;
+        }
+    }
+    end == value.len()
 }
 
 /// Begin a host-owned child sequence. Builders may be nested while recursively lowering.
@@ -2522,6 +2559,42 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyElement {
 /// width and leave the container to clip it, so truncation would never see the
 /// narrower width. Such text may shrink to its container and clips itself.
 /// Wrapping text keeps its floor, the width of its longest word.
+/// One text element whose runs restyle their own bytes. The highlights are
+/// resolved against the inherited text style at layout, so a run that sets
+/// nothing keeps the element's colour, size, weight, and face.
+fn rich_text(value: &str, runs: &[TextRun]) -> gpui::StyledText {
+    let mut highlights = Vec::with_capacity(runs.len());
+    let mut families = Vec::new();
+    let mut start = 0usize;
+    for run in runs {
+        let range = start..start + run.len;
+        start = range.end;
+        if run.len == 0 {
+            continue;
+        }
+        let highlight = HighlightStyle {
+            color: run.fg.map(|color| rgb(color).into()),
+            background_color: run.bg.map(|color| rgb(color).into()),
+            font_weight: (run.font_weight > 0).then(|| FontWeight(run.font_weight as f32)),
+            underline: run.underline.then(|| UnderlineStyle {
+                thickness: px(1.0),
+                color: None,
+                wavy: false,
+            }),
+            ..HighlightStyle::default()
+        };
+        if highlight != HighlightStyle::default() {
+            highlights.push((range.clone(), highlight));
+        }
+        if run.monospace {
+            families.push((range, SharedString::from(MONOSPACE_FAMILY)));
+        }
+    }
+    gpui::StyledText::new(value.to_owned())
+        .with_highlights(highlights)
+        .with_font_family_overrides(families)
+}
+
 fn single_line_text(element: Stateful<Div>, window: &Window) -> Stateful<Div> {
     if window.text_style().white_space == WhiteSpace::Nowrap {
         element.min_w_0().flex_shrink(1.0).overflow_x_hidden()
@@ -3023,8 +3096,14 @@ impl Render for NodeView {
                 font_size,
                 font_weight,
                 font_face,
+                runs,
             } => {
-                element = single_line_text(element, window).child(value.clone());
+                element = single_line_text(element, window);
+                element = if runs.is_empty() {
+                    element.child(value.clone())
+                } else {
+                    element.child(rich_text(value, runs))
+                };
                 if let Some(color) = fg {
                     element = element.text_color(rgb(*color));
                 }
@@ -6519,6 +6598,36 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn rich_text_runs_cover_their_text_on_character_boundaries() {
+        use super::{TextRun, runs_cover};
+        let run = |len| TextRun {
+            len,
+            ..TextRun::default()
+        };
+        assert!(runs_cover("anything", &[]));
+        assert!(runs_cover(
+            "(test \"左\")",
+            &[run(1), run(4), run(1), run(5), run(1)]
+        ));
+        assert!(
+            !runs_cover("(test", &[run(1), run(3)]),
+            "runs short of the text"
+        );
+        assert!(
+            !runs_cover("(test", &[run(1), run(5)]),
+            "runs past the text"
+        );
+        assert!(
+            !runs_cover("左", &[run(1), run(2)]),
+            "a boundary inside a character"
+        );
+        assert!(
+            !runs_cover("ab", &[run(usize::MAX), run(3)]),
+            "an overflowing length"
+        );
+    }
+
     use super::{ActivateEnter, InitialMount, Runtime, install_test_dispatcher};
     use super::{
         CanvasPrimitive, CanvasPrimitiveKind, WindowConfig, canvas_target, counted_roc_alloc,

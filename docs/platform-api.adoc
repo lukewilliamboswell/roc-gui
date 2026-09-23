@@ -205,6 +205,15 @@ Display a string in its own colour, size, weight, and face. Plain `Gui.text`
 inherits all four from its container, so every typographic step otherwise costs a
 one-child row or column that exists for no other reason; a wordmark, an eyebrow
 label, and a status line are each a string, not a layout.
+`Gui.rich_text({ spans, fg, font_size, font_weight, font_face })`:: Display
+several styled runs as one text element, such as a line of highlighted source.
+Each run is built with `Gui.span({ text, fg, bg, font_weight, underline,
+monospace })`; only `text` is required, and a run that sets nothing keeps the
+element's own colour, weight, and face, which it inherits from its container
+unless the element sets them. The runs lay out, wrap, and clip as one string
+under their container's `text_overflow`, and a locator matches the whole text,
+the runs' texts in order. A rich text element is one native text node however
+many runs it has, and its native work is counted as styled text.
 `Gui.scroll({ label, content, axis, ... })`:: Constrain content
 to available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `label` is the stable semantic identity. A

@@ -347,8 +347,34 @@ Elem(a) :: [
 	}
 
 	## Platform representation of text set in its own colour, size, weight, and
-	## face. Only the typographic fields of `style` apply to a string.
-	TextNode := { value : Str, style : Style }
+	## face. Only the typographic fields of `style` apply to a string. `spans`
+	## is empty for text of one style; otherwise `value` is the spans' texts in
+	## order, and each span restyles its own part of it.
+	TextNode := { value : Str, style : Style, spans : List(TextSpan) }
+
+	## One styled run of rich text: its text, and what it sets over the
+	## element's own type. `Default` colours and weight 0 keep the element's.
+	TextSpan : { text : Str, fg : Style.Color, bg : Style.Color, font_weight : U32, underline : Bool, monospace : Bool }
+
+	## Properties for `span`. Only `text` is required.
+	SpanProps := {
+		text : Str,
+		fg : Style.Color ?? Default,
+		bg : Style.Color ?? Default,
+		font_weight : U32 ?? 0,
+		underline : Bool ?? False,
+		monospace : Bool ?? False,
+	}
+
+	## Properties for `rich_text`: its spans, and the type every span starts
+	## from.
+	RichTextProps := {
+		spans : List(TextSpan),
+		fg : Style.Color ?? Default,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		font_face : Style.FontFace ?? Default,
+	}
 
 	## Properties for `col`. `label` is an optional stable semantic locator.
 	## The remaining fields control the column's native layout and presentation.
@@ -1113,7 +1139,21 @@ Elem(a) :: [
 	## Display text in its own colour, size, weight, and face, without a
 	## container element that exists only to carry them.
 	styled_text : TextProps -> Elem(a)
-	styled_text = |props| StyledText({ value: props.value, style: Style.{ fg: props.fg, font_size: props.font_size, font_weight: props.font_weight, font_face: props.font_face } })
+	styled_text = |props| StyledText({ value: props.value, style: Style.{ fg: props.fg, font_size: props.font_size, font_weight: props.font_weight, font_face: props.font_face }, spans: [] })
+
+	## One run of rich text in its own colour, ground, weight, underline, or
+	## monospace face.
+	span : SpanProps -> TextSpan
+	span = |props| { text: props.text, fg: props.fg, bg: props.bg, font_weight: props.font_weight, underline: props.underline, monospace: props.monospace }
+
+	## Display several styled runs as one text element. It lays out, wraps,
+	## and clips as one string, and a locator matches the whole of it.
+	rich_text : RichTextProps -> Elem(a)
+	rich_text = |props| StyledText({
+		value: Str.join_with(props.spans.map(|part| part.text), ""),
+		style: Style.{ fg: props.fg, font_size: props.font_size, font_weight: props.font_weight, font_face: props.font_face },
+		spans: props.spans,
+	})
 
 	## Display a controlled button. `caption` is its visible text and `label`
 	## is its stable semantic locator.
@@ -1188,7 +1228,7 @@ Elem(a) :: [
 	## text, and a component boundary passes the change to the root it renders.
 	with_style : Elem(a), (Style -> Style) -> Elem(a)
 	with_style = |elem, change| match elem {
-		Text(value) => StyledText({ value, style: change(Style.{}) })
+		Text(value) => StyledText({ value, style: change(Style.{}), spans: [] })
 		StyledText(value) => StyledText({ ..value, style: change(value.style) })
 		Row(value) => Row({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Column(value) => Column({ ..value, props: { ..value.props, style: change(value.props.style) } })
@@ -2114,6 +2154,17 @@ expect {
 	noted = Elem.tooltip(Elem.text("cell"), "About the cell").label("Cell")
 	match Elem.inspect(noted) {
 		Popover(value) => value.props.label == "About the cell" and value.children.len() == 2
+		_ => False
+	}
+}
+
+expect {
+	# Rich text is one text element: its value is the spans' texts in order,
+	# and each span keeps its own presentation.
+	shown : Elem(U64)
+	shown = Elem.rich_text({ spans: [Elem.span({ text: "(click", font_weight: 600 }), Elem.span({ text: " \"左\"", underline: True })] })
+	match Elem.inspect(shown) {
+		StyledText(node) => node.value == "(click \"左\"" and node.spans.map(|part| part.font_weight) == [600, 0] and node.spans.map(|part| part.underline) == [False, True]
 		_ => False
 	}
 }

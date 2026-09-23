@@ -1098,11 +1098,12 @@ unsafe impl<T> RocRelease<*mut T> for RocBoxSpineRelease<T> {
     }
 }
 
-/// Element type for __AnonStruct_b050404c6fb0b263
+/// Element type for __AnonStruct_2d6ef47cd27e05c6
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB050404c6fb0b263 {
+pub struct AnonStruct2d6ef47cd27e05c6 {
+    pub runs: RocListWith<AnonStructFcac5eba4a97639e, false>,
     pub value: RocStr,
     pub fg: u32,
     pub font_size: u32,
@@ -1110,11 +1111,12 @@ pub struct AnonStructB050404c6fb0b263 {
     pub font_face: u8,
 }
 
-/// Element type for __AnonStruct_b050404c6fb0b263
+/// Element type for __AnonStruct_2d6ef47cd27e05c6
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB050404c6fb0b263 {
+pub struct AnonStruct2d6ef47cd27e05c6 {
+    pub runs: RocListWith<AnonStructFcac5eba4a97639e, false>,
     pub value: RocStr,
     pub fg: u32,
     pub font_size: u32,
@@ -1123,13 +1125,48 @@ pub struct AnonStructB050404c6fb0b263 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructB050404c6fb0b263>() == 40, "AnonStructB050404c6fb0b263 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct2d6ef47cd27e05c6>() == 64, "AnonStruct2d6ef47cd27e05c6 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructB050404c6fb0b263>() == 8, "AnonStructB050404c6fb0b263 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct2d6ef47cd27e05c6>() == 8, "AnonStruct2d6ef47cd27e05c6 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructB050404c6fb0b263>() == 28, "AnonStructB050404c6fb0b263 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct2d6ef47cd27e05c6>() == 40, "AnonStruct2d6ef47cd27e05c6 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructB050404c6fb0b263>() == 4, "AnonStructB050404c6fb0b263 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct2d6ef47cd27e05c6>() == 4, "AnonStruct2d6ef47cd27e05c6 alignment mismatch");
+
+/// Element type for __AnonStruct_fcac5eba4a97639e
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructFcac5eba4a97639e {
+    pub len: u64,
+    pub bg: u32,
+    pub fg: u32,
+    pub font_weight: u32,
+    pub monospace: bool,
+    pub underline: bool,
+}
+
+/// Element type for __AnonStruct_fcac5eba4a97639e
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructFcac5eba4a97639e {
+    pub len: u64,
+    pub bg: u32,
+    pub fg: u32,
+    pub font_weight: u32,
+    pub monospace: bool,
+    pub underline: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructFcac5eba4a97639e>() == 24, "AnonStructFcac5eba4a97639e size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructFcac5eba4a97639e>() == 8, "AnonStructFcac5eba4a97639e alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructFcac5eba4a97639e>() == 24, "AnonStructFcac5eba4a97639e size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructFcac5eba4a97639e>() == 8, "AnonStructFcac5eba4a97639e alignment mismatch");
 
 /// Element type for __AnonStruct_ec521db91a8efd1f
 #[cfg(target_pointer_width = "32")]
@@ -7705,7 +7742,7 @@ pub enum InternalFilesPickDirectoryResultTag {
 #[derive(Clone, Copy)]
 pub union InternalFilesPickDirectoryResultPayload {
     pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr>,
-    pub ok: core::mem::ManuallyDrop<CanceledOrChosenType229>,
+    pub ok: core::mem::ManuallyDrop<CanceledOrChosenType231>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -7774,8 +7811,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType229 {
-        unsafe { &*(self.payload.as_ptr() as *const CanceledOrChosenType229) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType231 {
+        unsafe { &*(self.payload.as_ptr() as *const CanceledOrChosenType231) }
     }
 
     /// Borrow the `Ok` payload without creating another owner.
@@ -7783,8 +7820,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType229 {
-        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrChosenType229> as *const CanceledOrChosenType229) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType231 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrChosenType231> as *const CanceledOrChosenType231) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -7792,8 +7829,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType229 {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrChosenType229) }
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType231 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrChosenType231) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -7801,7 +7838,7 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType229 {
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType231 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
     }
 
@@ -8166,14 +8203,14 @@ const _: () = assert!(core::mem::align_of::<AccessDeniedOrInvalidCapabilityOrInv
 /// Tag discriminant for CanceledOrChosen.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CanceledOrChosenType229Tag {
+pub enum CanceledOrChosenType231Tag {
     Canceled = 0,
     Chosen = 1,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union CanceledOrChosenType229Payload {
+pub union CanceledOrChosenType231Payload {
     pub canceled: [u8; 0],
     pub chosen: core::mem::ManuallyDrop<AnonStruct4869dafad3498788>,
 }
@@ -8181,32 +8218,32 @@ pub union CanceledOrChosenType229Payload {
 #[cfg(target_pointer_width = "32")]
 #[repr(align(4))]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosenType229PayloadAlignment;
+pub struct CanceledOrChosenType231PayloadAlignment;
 
 /// Tag union: CanceledOrChosen
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosenType229 {
-    pub _payload_alignment: [CanceledOrChosenType229PayloadAlignment; 0],
+pub struct CanceledOrChosenType231 {
+    pub _payload_alignment: [CanceledOrChosenType231PayloadAlignment; 0],
     pub payload: [u8; 16],
-    pub tag: CanceledOrChosenType229Tag,
+    pub tag: CanceledOrChosenType231Tag,
 }
 
 /// Tag union: CanceledOrChosen
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosenType229 {
-    pub payload: CanceledOrChosenType229Payload,
-    pub tag: CanceledOrChosenType229Tag,
+pub struct CanceledOrChosenType231 {
+    pub payload: CanceledOrChosenType231Payload,
+    pub tag: CanceledOrChosenType231Tag,
 }
 
-impl CanceledOrChosenType229 {
+impl CanceledOrChosenType231 {
     /// Borrow the `Chosen` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType229Tag::Chosen` and the payload must still be initialized.
+    /// `self.tag` must be `CanceledOrChosenType231Tag::Chosen` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStruct4869dafad3498788 {
         unsafe { &*(self.payload.as_ptr() as *const AnonStruct4869dafad3498788) }
@@ -8215,7 +8252,7 @@ impl CanceledOrChosenType229 {
     /// Borrow the `Chosen` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType229Tag::Chosen` and the payload must still be initialized.
+    /// `self.tag` must be `CanceledOrChosenType231Tag::Chosen` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStruct4869dafad3498788 {
         unsafe { &*(&self.payload.chosen as *const core::mem::ManuallyDrop<AnonStruct4869dafad3498788> as *const AnonStruct4869dafad3498788) }
@@ -8224,7 +8261,7 @@ impl CanceledOrChosenType229 {
     /// Move the `Chosen` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType229Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `CanceledOrChosenType231Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStruct4869dafad3498788 {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4869dafad3498788) }
@@ -8233,7 +8270,7 @@ impl CanceledOrChosenType229 {
     /// Move the `Chosen` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType229Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `CanceledOrChosenType231Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStruct4869dafad3498788 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.chosen) }
@@ -8242,17 +8279,17 @@ impl CanceledOrChosenType229 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<CanceledOrChosenType229>() == 40, "CanceledOrChosenType229 size mismatch");
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType231>() == 40, "CanceledOrChosenType231 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<CanceledOrChosenType229>() == 8, "CanceledOrChosenType229 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType231>() == 8, "CanceledOrChosenType231 alignment mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType229, tag) == 32, "CanceledOrChosenType229 tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType231, tag) == 32, "CanceledOrChosenType231 tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<CanceledOrChosenType229>() == 20, "CanceledOrChosenType229 size mismatch");
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType231>() == 20, "CanceledOrChosenType231 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<CanceledOrChosenType229>() == 4, "CanceledOrChosenType229 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType231>() == 4, "CanceledOrChosenType231 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType229, tag) == 16, "CanceledOrChosenType229 tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType231, tag) == 16, "CanceledOrChosenType231 tag offset mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -8748,6 +8785,133 @@ const _: () = assert!(core::mem::offset_of!(InternalFilesDirReadResult, tag) == 
 /// Tag discriminant for Try.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InternalFilesDirSha256ResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesDirSha256ResultPayload {
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr>,
+    pub ok: core::mem::ManuallyDrop<RocStr>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256ResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256Result {
+    pub _payload_alignment: [InternalFilesDirSha256ResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: InternalFilesDirSha256ResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256Result {
+    pub payload: InternalFilesDirSha256ResultPayload,
+    pub tag: InternalFilesDirSha256ResultTag,
+}
+
+impl InternalFilesDirSha256Result {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocStr {
+        unsafe { &*(self.payload.as_ptr() as *const RocStr) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocStr {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocStr> as *const RocStr) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocStr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocStr) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocStr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesDirSha256Result>() == 32, "InternalFilesDirSha256Result size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesDirSha256Result>() == 8, "InternalFilesDirSha256Result alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesDirSha256Result, tag) == 24, "InternalFilesDirSha256Result tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesDirSha256Result>() == 16, "InternalFilesDirSha256Result size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesDirSha256Result>() == 4, "InternalFilesDirSha256Result alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesDirSha256Result, tag) == 12, "InternalFilesDirSha256Result tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InternalFilesPickFileResultTag {
     Err = 0,
     Ok = 1,
@@ -8757,7 +8921,7 @@ pub enum InternalFilesPickFileResultTag {
 #[derive(Clone, Copy)]
 pub union InternalFilesPickFileResultPayload {
     pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr>,
-    pub ok: core::mem::ManuallyDrop<CanceledOrChosenType257>,
+    pub ok: core::mem::ManuallyDrop<CanceledOrChosenType263>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -8826,8 +8990,8 @@ impl InternalFilesPickFileResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickFileResultTag::Ok` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType257 {
-        unsafe { &*(self.payload.as_ptr() as *const CanceledOrChosenType257) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType263 {
+        unsafe { &*(self.payload.as_ptr() as *const CanceledOrChosenType263) }
     }
 
     /// Borrow the `Ok` payload without creating another owner.
@@ -8835,8 +8999,8 @@ impl InternalFilesPickFileResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickFileResultTag::Ok` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType257 {
-        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrChosenType257> as *const CanceledOrChosenType257) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType263 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrChosenType263> as *const CanceledOrChosenType263) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -8844,8 +9008,8 @@ impl InternalFilesPickFileResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickFileResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType257 {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrChosenType257) }
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType263 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrChosenType263) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -8853,7 +9017,7 @@ impl InternalFilesPickFileResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickFileResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType257 {
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType263 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
     }
 
@@ -8875,14 +9039,14 @@ const _: () = assert!(core::mem::offset_of!(InternalFilesPickFileResult, tag) ==
 /// Tag discriminant for CanceledOrChosen.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CanceledOrChosenType257Tag {
+pub enum CanceledOrChosenType263Tag {
     Canceled = 0,
     Chosen = 1,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union CanceledOrChosenType257Payload {
+pub union CanceledOrChosenType263Payload {
     pub canceled: [u8; 0],
     pub chosen: core::mem::ManuallyDrop<AnonStructA295f39559baa24d>,
 }
@@ -8890,32 +9054,32 @@ pub union CanceledOrChosenType257Payload {
 #[cfg(target_pointer_width = "32")]
 #[repr(align(4))]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosenType257PayloadAlignment;
+pub struct CanceledOrChosenType263PayloadAlignment;
 
 /// Tag union: CanceledOrChosen
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosenType257 {
-    pub _payload_alignment: [CanceledOrChosenType257PayloadAlignment; 0],
+pub struct CanceledOrChosenType263 {
+    pub _payload_alignment: [CanceledOrChosenType263PayloadAlignment; 0],
     pub payload: [u8; 16],
-    pub tag: CanceledOrChosenType257Tag,
+    pub tag: CanceledOrChosenType263Tag,
 }
 
 /// Tag union: CanceledOrChosen
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosenType257 {
-    pub payload: CanceledOrChosenType257Payload,
-    pub tag: CanceledOrChosenType257Tag,
+pub struct CanceledOrChosenType263 {
+    pub payload: CanceledOrChosenType263Payload,
+    pub tag: CanceledOrChosenType263Tag,
 }
 
-impl CanceledOrChosenType257 {
+impl CanceledOrChosenType263 {
     /// Borrow the `Chosen` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType257Tag::Chosen` and the payload must still be initialized.
+    /// `self.tag` must be `CanceledOrChosenType263Tag::Chosen` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStructA295f39559baa24d {
         unsafe { &*(self.payload.as_ptr() as *const AnonStructA295f39559baa24d) }
@@ -8924,7 +9088,7 @@ impl CanceledOrChosenType257 {
     /// Borrow the `Chosen` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType257Tag::Chosen` and the payload must still be initialized.
+    /// `self.tag` must be `CanceledOrChosenType263Tag::Chosen` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStructA295f39559baa24d {
         unsafe { &*(&self.payload.chosen as *const core::mem::ManuallyDrop<AnonStructA295f39559baa24d> as *const AnonStructA295f39559baa24d) }
@@ -8933,7 +9097,7 @@ impl CanceledOrChosenType257 {
     /// Move the `Chosen` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType257Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `CanceledOrChosenType263Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStructA295f39559baa24d {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructA295f39559baa24d) }
@@ -8942,7 +9106,7 @@ impl CanceledOrChosenType257 {
     /// Move the `Chosen` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenType257Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `CanceledOrChosenType263Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStructA295f39559baa24d {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.chosen) }
@@ -8951,17 +9115,17 @@ impl CanceledOrChosenType257 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<CanceledOrChosenType257>() == 40, "CanceledOrChosenType257 size mismatch");
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType263>() == 40, "CanceledOrChosenType263 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<CanceledOrChosenType257>() == 8, "CanceledOrChosenType257 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType263>() == 8, "CanceledOrChosenType263 alignment mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType257, tag) == 32, "CanceledOrChosenType257 tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType263, tag) == 32, "CanceledOrChosenType263 tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<CanceledOrChosenType257>() == 20, "CanceledOrChosenType257 size mismatch");
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType263>() == 20, "CanceledOrChosenType263 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<CanceledOrChosenType257>() == 4, "CanceledOrChosenType257 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType263>() == 4, "CanceledOrChosenType263 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType257, tag) == 16, "CanceledOrChosenType257 tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType263, tag) == 16, "CanceledOrChosenType263 tag offset mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -9570,12 +9734,13 @@ pub struct HostGlueNodeTextArgs {
 }
 
 /// Arguments for HostGlue.node_styled_text!
-/// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, value : Str } => U64
+/// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, runs : List({ bg : U32, fg : U32, font_weight : U32, len : U64, monospace : Bool, underline : Bool }), value : Str } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeStyledTextArgs {
+    pub runs: RocListWith<AnonStructFcac5eba4a97639e, false>,
     pub value: RocStr,
     pub fg: u32,
     pub font_size: u32,
@@ -9584,12 +9749,13 @@ pub struct HostGlueNodeStyledTextArgs {
 }
 
 /// Arguments for HostGlue.node_styled_text!
-/// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, value : Str } => U64
+/// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, runs : List({ bg : U32, fg : U32, font_weight : U32, len : U64, monospace : Bool, underline : Bool }), value : Str } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeStyledTextArgs {
+    pub runs: RocListWith<AnonStructFcac5eba4a97639e, false>,
     pub value: RocStr,
     pub fg: u32,
     pub font_size: u32,
@@ -9598,11 +9764,11 @@ pub struct HostGlueNodeStyledTextArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 40, "HostGlueNodeStyledTextArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 64, "HostGlueNodeStyledTextArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeStyledTextArgs>() == 8, "HostGlueNodeStyledTextArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 28, "HostGlueNodeStyledTextArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 40, "HostGlueNodeStyledTextArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeStyledTextArgs>() == 4, "HostGlueNodeStyledTextArgs alignment mismatch");
 
@@ -9613,6 +9779,7 @@ impl HostGlueNodeStyledTextArgs {
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
+        unsafe { value.runs.decref(roc_host); }
         unsafe { value.value.decref(roc_host); }
     }
 
@@ -9623,6 +9790,7 @@ impl HostGlueNodeStyledTextArgs {
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
+        unsafe { value.runs.incref(amount); }
         unsafe { value.value.incref(amount); }
     }
 }
@@ -12601,9 +12769,29 @@ pub struct InternalFilesFileReadArgs {
     pub arg0: *mut u64,
 }
 
+/// Arguments for InternalFiles.dir_sha256!
+/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256Args {
+    pub arg0: *mut u64,
+    pub arg1: RocStr,
+}
+
+/// Arguments for InternalFiles.file_sha256!
+/// Roc signature: Resource.Handle([FileReadResource]) => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesFileSha256Args {
+    pub arg0: *mut u64,
+}
+
 // Platform Type Aliases
 
-pub type HostGlueNodeStyledTextArg0 = AnonStructB050404c6fb0b263;
+pub type HostGlueNodeStyledTextArg0 = AnonStruct2d6ef47cd27e05c6;
+pub type HostGlueNodeStyledTextArg0Runs = AnonStructFcac5eba4a97639e;
 pub type HostGlueKeyedSeedArg0 = AnonStructEc521db91a8efd1f;
 pub type HostGlueKeyedEditBeginArg0 = AnonStruct805ea43d90e5fb6e;
 pub type HostGlueKeyedInsertBeforeArg0 = AnonStruct1f2ff78011a2f7cd;
@@ -12815,9 +13003,9 @@ pub type InternalFilesPickDirectoryErrPickDirectoryErr = AccessDeniedOrInvalidCa
 pub type InternalFilesPickDirectoryErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickDirectoryErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickDirectoryErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type InternalFilesPickDirectoryOk = CanceledOrChosenType229;
-pub type InternalFilesPickDirectoryOkPayload = CanceledOrChosenType229Payload;
-pub type InternalFilesPickDirectoryOkTag = CanceledOrChosenType229Tag;
+pub type InternalFilesPickDirectoryOk = CanceledOrChosenType231;
+pub type InternalFilesPickDirectoryOkPayload = CanceledOrChosenType231Payload;
+pub type InternalFilesPickDirectoryOkTag = CanceledOrChosenType231Tag;
 pub type InternalFilesPickDirectoryOkChosen = AnonStruct4869dafad3498788;
 pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
@@ -12826,9 +13014,9 @@ pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryEr
 pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type CanceledOrChosen = CanceledOrChosenType229;
-pub type CanceledOrChosenPayload = CanceledOrChosenType229Payload;
-pub type CanceledOrChosenTag = CanceledOrChosenType229Tag;
+pub type CanceledOrChosen = CanceledOrChosenType231;
+pub type CanceledOrChosenPayload = CanceledOrChosenType231Payload;
+pub type CanceledOrChosenTag = CanceledOrChosenType231Tag;
 pub type CanceledOrChosenChosen = AnonStruct4869dafad3498788;
 pub type InternalFilesDirListErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr;
 pub type InternalFilesDirListErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrPayload;
@@ -12872,9 +13060,9 @@ pub type InternalFilesPickFileErrPickDirectoryErr = AccessDeniedOrInvalidCapabil
 pub type InternalFilesPickFileErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickFileErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickFileErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type InternalFilesPickFileOk = CanceledOrChosenType257;
-pub type InternalFilesPickFileOkPayload = CanceledOrChosenType257Payload;
-pub type InternalFilesPickFileOkTag = CanceledOrChosenType257Tag;
+pub type InternalFilesPickFileOk = CanceledOrChosenType263;
+pub type InternalFilesPickFileOkPayload = CanceledOrChosenType263Payload;
+pub type InternalFilesPickFileOkTag = CanceledOrChosenType263Tag;
 pub type InternalFilesPickFileOkChosen = AnonStructA295f39559baa24d;
 pub type InternalFilesFileReadResult = InternalFilesDirReadResult;
 pub type InternalFilesFileReadResultPayload = InternalFilesDirReadResultPayload;
@@ -12889,16 +13077,40 @@ pub type InternalFilesFileReadErrPickDirectoryErr = AccessDeniedOrInvalidCapabil
 pub type InternalFilesFileReadErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesFileReadErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesFileReadErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256Err = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr;
+pub type InternalFilesDirSha256ErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrPayload;
+pub type InternalFilesDirSha256ErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrTag;
+pub type InternalFilesDirSha256ErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256Result = InternalFilesDirSha256Result;
+pub type InternalFilesFileSha256ResultPayload = InternalFilesDirSha256ResultPayload;
+pub type InternalFilesFileSha256ResultTag = InternalFilesDirSha256ResultTag;
+pub type InternalFilesFileSha256Err = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErr;
+pub type InternalFilesFileSha256ErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrPayload;
+pub type InternalFilesFileSha256ErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWriteFileErrTag;
+pub type InternalFilesFileSha256ErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 
 // Generated Refcount Helpers
 
-impl AnonStructB050404c6fb0b263 {
+impl AnonStruct2d6ef47cd27e05c6 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
+        unsafe { value.runs.decref(roc_host); }
         unsafe { value.value.decref(roc_host); }
     }
 
@@ -12909,14 +13121,46 @@ impl AnonStructB050404c6fb0b263 {
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
+        unsafe { value.runs.incref(amount); }
         unsafe { value.value.incref(amount); }
     }
 }
 
-pub struct AnonStructB050404c6fb0b263Release;
+pub struct AnonStruct2d6ef47cd27e05c6Release;
 
-unsafe impl RocRelease<AnonStructB050404c6fb0b263> for AnonStructB050404c6fb0b263Release {
-    unsafe fn release(value: AnonStructB050404c6fb0b263, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct2d6ef47cd27e05c6> for AnonStruct2d6ef47cd27e05c6Release {
+    unsafe fn release(value: AnonStruct2d6ef47cd27e05c6, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructFcac5eba4a97639e {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStructFcac5eba4a97639eRelease;
+
+unsafe impl RocRelease<AnonStructFcac5eba4a97639e> for AnonStructFcac5eba4a97639eRelease {
+    unsafe fn release(value: AnonStructFcac5eba4a97639e, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -16104,7 +16348,7 @@ unsafe impl RocRelease<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8
     }
 }
 
-impl CanceledOrChosenType229 {
+impl CanceledOrChosenType231 {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -16113,8 +16357,8 @@ impl CanceledOrChosenType229 {
         let mut value = self;
         let _ = roc_host;
         match value.tag {
-            CanceledOrChosenType229Tag::Canceled => {},
-            CanceledOrChosenType229Tag::Chosen => {
+            CanceledOrChosenType231Tag::Canceled => {},
+            CanceledOrChosenType231Tag::Chosen => {
                 let payload = unsafe { value.take_payload_chosen_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
@@ -16130,8 +16374,8 @@ impl CanceledOrChosenType229 {
         let value = self;
         let _ = amount;
         match value.tag {
-            CanceledOrChosenType229Tag::Canceled => {},
-            CanceledOrChosenType229Tag::Chosen => {
+            CanceledOrChosenType231Tag::Canceled => {},
+            CanceledOrChosenType231Tag::Chosen => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_chosen_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
@@ -16139,10 +16383,10 @@ impl CanceledOrChosenType229 {
     }
 }
 
-pub struct CanceledOrChosenType229Release;
+pub struct CanceledOrChosenType231Release;
 
-unsafe impl RocRelease<CanceledOrChosenType229> for CanceledOrChosenType229Release {
-    unsafe fn release(value: CanceledOrChosenType229, roc_host: &RocHost) {
+unsafe impl RocRelease<CanceledOrChosenType231> for CanceledOrChosenType231Release {
+    unsafe fn release(value: CanceledOrChosenType231, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -16424,6 +16668,55 @@ unsafe impl RocRelease<InternalFilesDirReadResult> for InternalFilesDirReadResul
     }
 }
 
+impl InternalFilesDirSha256Result {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesDirSha256ResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesDirSha256ResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesDirSha256ResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesDirSha256ResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesDirSha256ResultRelease;
+
+unsafe impl RocRelease<InternalFilesDirSha256Result> for InternalFilesDirSha256ResultRelease {
+    unsafe fn release(value: InternalFilesDirSha256Result, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl InternalFilesPickFileResult {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -16473,7 +16766,7 @@ unsafe impl RocRelease<InternalFilesPickFileResult> for InternalFilesPickFileRes
     }
 }
 
-impl CanceledOrChosenType257 {
+impl CanceledOrChosenType263 {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -16482,8 +16775,8 @@ impl CanceledOrChosenType257 {
         let mut value = self;
         let _ = roc_host;
         match value.tag {
-            CanceledOrChosenType257Tag::Canceled => {},
-            CanceledOrChosenType257Tag::Chosen => {
+            CanceledOrChosenType263Tag::Canceled => {},
+            CanceledOrChosenType263Tag::Chosen => {
                 let payload = unsafe { value.take_payload_chosen_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
@@ -16499,8 +16792,8 @@ impl CanceledOrChosenType257 {
         let value = self;
         let _ = amount;
         match value.tag {
-            CanceledOrChosenType257Tag::Canceled => {},
-            CanceledOrChosenType257Tag::Chosen => {
+            CanceledOrChosenType263Tag::Canceled => {},
+            CanceledOrChosenType263Tag::Chosen => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_chosen_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
@@ -16508,10 +16801,10 @@ impl CanceledOrChosenType257 {
     }
 }
 
-pub struct CanceledOrChosenType257Release;
+pub struct CanceledOrChosenType263Release;
 
-unsafe impl RocRelease<CanceledOrChosenType257> for CanceledOrChosenType257Release {
-    unsafe fn release(value: CanceledOrChosenType257, roc_host: &RocHost) {
+unsafe impl RocRelease<CanceledOrChosenType263> for CanceledOrChosenType263Release {
+    unsafe fn release(value: CanceledOrChosenType263, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -16937,7 +17230,7 @@ unsafe extern "C" {
     pub fn roc_gui_node_text(arg0: RocStr) -> u64;
 
     /// Hosted symbol for HostGlue.node_styled_text!
-    /// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, value : Str } => U64
+    /// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, runs : List({ bg : U32, fg : U32, font_weight : U32, len : U64, monospace : Bool, underline : Bool }), value : Str } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -17555,6 +17848,23 @@ unsafe extern "C" {
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_files_file_read(arg0: *mut u64) -> InternalFilesDirReadResult;
+
+    /// Hosted symbol for InternalFiles.dir_sha256!
+    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_dir_sha256(arg0: *mut u64, arg1: RocStr) -> InternalFilesDirSha256Result;
+
+    /// Hosted symbol for InternalFiles.file_sha256!
+    /// Roc signature: Resource.Handle([FileReadResource]) => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_file_sha256(arg0: *mut u64) -> InternalFilesDirSha256Result;
 
 }
 
