@@ -11,6 +11,7 @@
 //! runner, and `spec::check_runner` refuses those steps here.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use gpui::{App, AppContext, AsyncApp, Keystroke, MouseMoveEvent, WindowHandle, point, px, size};
@@ -352,6 +353,7 @@ async fn settle(
         next_frame(window, cx).await?;
         history.push(activity());
         if quiet_enough(&history, frames) {
+            account_through_now();
             prune_bounds(window, cx)?;
             return Ok(());
         }
@@ -363,12 +365,27 @@ async fn settle(
     })
 }
 
-/// Await exactly one further worker completion, rather than quiescence.
+/// The worker completions the specification has waited for, or let land in a
+/// step that waits for the window rather than for one completion.
+static ACCOUNTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Every completion so far has been waited for.
+fn account_through_now() {
+    ACCOUNTED.store(task_counts().1, Ordering::Relaxed);
+}
+
+/// Await exactly one worker completion no earlier step waited for, rather
+/// than quiescence.
 ///
 /// An application whose timer restarts the moment a sample lands is never
 /// task-quiet, so settling for it can only ever time out. What the step
 /// actually claims is that one more accepted task has completed and its
 /// patch has been applied, which is a fact the counters carry directly.
+/// Frames apply completions, so the one this step waits for has often landed
+/// during the step that started it; it is counted then, rather than waited for
+/// again. An application that keeps a subscription open — a watch, a timer —
+/// always has a task in flight, so waiting for the next completion instead
+/// would wait on the subscription.
 async fn await_completion(
     window: WindowHandle<Runtime>,
     timeout: Duration,
@@ -376,8 +393,14 @@ async fn await_completion(
 ) -> Result<(), StepError> {
     let started = std::time::Instant::now();
     let (accepted, completed) = task_counts();
-    // Nothing is in flight, so the task this step waits for has already landed
-    // and its patch is applied. Waiting for another would wait forever.
+    let accounted = ACCOUNTED.load(Ordering::Relaxed);
+    if completed > accounted {
+        ACCOUNTED.store(accounted + 1, Ordering::Relaxed);
+        prune_bounds(window, cx)?;
+        return Ok(());
+    }
+    // Nothing is in flight and nothing unaccounted has landed, so there is no
+    // task for this step to wait for. Waiting for another would wait forever.
     if accepted == completed {
         prune_bounds(window, cx)?;
         return Ok(());
@@ -385,7 +408,8 @@ async fn await_completion(
     while started.elapsed() < timeout {
         next_frame(window, cx).await?;
         let (_, now) = task_counts();
-        if now > completed {
+        if now > accounted {
+            ACCOUNTED.store(accounted + 1, Ordering::Relaxed);
             prune_bounds(window, cx)?;
             return Ok(());
         }
@@ -430,6 +454,7 @@ async fn advance_timer_fires(
                     // One more frame, so that state has been laid out and
                     // painted before the next step asserts against it.
                     next_frame(window, cx).await?;
+                    account_through_now();
                     prune_bounds(window, cx)?;
                     return Ok(());
                 }
@@ -1223,6 +1248,7 @@ async fn run_step(
                         })
                         .map_err(|_| StepError::WindowClosed)?;
                     if drawn == *expected {
+                        account_through_now();
                         break Ok(());
                     }
                 }
@@ -1759,6 +1785,7 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
         };
 
         // Let the first real frame land before anything is asserted about it.
+        account_through_now();
         if let Err(error) = settle(window, 2, options.timeout, cx).await {
             outcome.failed = true;
             outcome.steps.push(StepRecord {

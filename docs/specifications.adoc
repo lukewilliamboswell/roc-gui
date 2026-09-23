@@ -228,11 +228,14 @@ another task requires another `await-task` step.
 +
 On the window runner this claim is weaker, and knowingly so: frames are what
 apply completions, so the task has usually landed before the step runs, and an
-application holding a subscription open — a terminal reading, a timer playing —
-never reaches a moment with nothing in flight. The step therefore waits for the
-window to go quiet rather than for a completion it can attribute. Where the
-distinction matters, say what the application should show with `await-count`
-instead of counting tasks.
+application holding a subscription open — a terminal reading, a timer playing,
+a watch waiting — never reaches a moment with nothing in flight. The step
+therefore counts completions rather than waiting for the next one: it is
+satisfied by one that no earlier `await-task` waited for and that landed after
+the last step that waited for the window, `settle`, `await-count`, or
+`await-ticks`, even if it landed during the step that started it. It cannot
+attribute that completion to a task. Where the distinction matters, say what
+the application should show with `await-count` instead of counting tasks.
 `(await-ticks N)`:: Apply `N` successive timer wait completions through that
 same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
