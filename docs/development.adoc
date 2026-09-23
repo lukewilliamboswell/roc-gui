@@ -138,13 +138,43 @@ Native artifacts have three independent release layers:
 
 . The linker-input producer builds one content-addressed release containing the
   complete `x64glibc`, `arm64mac`, and `x64mingw` sets. This includes every
-  `platform/main.roc` input except `libhost.a`; the Windows resource therefore
-  belongs to this release, not to the GUI host release.
+  `platform/main.roc` input the host does not produce; the Windows resource
+  therefore belongs to this release, not to the GUI host release.
 . Host producers build `libhost.a` for each target and bind it to the exact host
-  source, Cargo lock, configuration, profile, and toolchain inputs.
+  source, Cargo lock, configuration, profile, and toolchain inputs. The Windows
+  host also produces `windows-imports.lib`, described below.
 . Platform release assembly admits released external and host inputs, runs the
   supported consumer matrix, and publishes those same tested bytes under Roc's
   content-addressed bundle name.
+
+=== The Windows import library
+
+A Windows link needs an import record for every DLL function the program
+calls. The platform ships exactly those records in one library,
+`windows-imports.lib`, rather than the complete export lists of every DLL a
+dependency could name. Only the host and the GNU runtime call DLLs, and what
+they call is fixed when the host is built, so the host build derives it:
+
+. rustc reports the native libraries the host archive leaves to the final link,
+  and the build scripts report where they are.
+. `scripts/windows_link_imports.py` follows the link the way the linker does:
+  from the host's objects and the runtime's startup object, it pulls a runtime
+  or import member only when a symbol it defines is still undefined.
+. An import rustc emitted is taken with the DLL and type rustc gave it. A name
+  referenced without one is resolved through rustc's native libraries in
+  rustc's order. Anything left must be defined by the linker or by the Roc
+  application; any other name fails the build.
+. The complete exports of `kernel32` are added as the application ABI: code the
+  Roc compiler emits calls it as C code calls the UCRT, and a later compiler may
+  call more of it than this host does.
+. Zig's `dlltool` writes one import library per DLL from a module-definition
+  file, and the members are merged into one archive. Every member is read back
+  and compared with the requirement it was made from.
+
+The host's own import members are then separated from `libhost.a` against the
+host's own inventory. The normalization receipt records both steps, the native
+libraries, and every import by DLL, name, and type; a host release is admitted
+only when the packaged library matches that receipt.
 
 Linker-input production runs only when explicitly dispatched for an open pull
 request whose branch contains a material recipe, catalogue, resource, or symbol

@@ -59,6 +59,31 @@ def run(args, env=None, output=None):
     return result
 
 
+def cargo_messages(path):
+    for line in path.read_bytes().splitlines():
+        if line.startswith(b"{"):
+            yield json.loads(line)
+
+
+def native_link(path):
+    """Return the native libraries rustc named for the host and the build
+    scripts' search paths, from a build's Cargo messages, in rustc's order."""
+    libraries, search = None, []
+    for message in cargo_messages(path):
+        if message.get("reason") == "build-script-executed":
+            search += [Path(entry.split("=", 1)[1]) for entry in message.get("linked_paths", [])
+                       if entry.startswith("native=")]
+        elif message.get("reason") == "compiler-message":
+            text = message["message"].get("message", "")
+            if text.startswith("native-static-libs:"):
+                if libraries is not None:
+                    raise ValueError("rustc reported native libraries more than once")
+                libraries = [flag[2:] for flag in text.split(":", 1)[1].split() if flag.startswith("-l")]
+    if libraries is None:
+        raise ValueError("rustc did not report the host's native libraries")
+    return libraries, list(dict.fromkeys(search))
+
+
 def sdk_directory(environ=None):
     environ = os.environ if environ is None else environ
     return Path(environ["ProgramFiles(x86)"]) / "Windows Kits/10/bin" / SDK / "x64"
@@ -221,9 +246,17 @@ def execute(output, *, jobs=2, cargo_target=None, debug=False, extra_env=None):
                 "zig": "0.16.0"}
     if "release: 1.95.0\n" not in versions["rustc"]:
         raise ValueError("Rust toolchain version mismatch")
+    # rustc reports the native libraries the static library leaves to the
+    # final link; the Windows import library is derived from them.
     with (output / "cargo.jsonl").open("w") as stream:
-        run(["cargo", "build", "--locked", *([] if debug else ["--release"]), "--target", TRIPLE,
-             "-p", "roc-gui-host", "-j", str(jobs), "--message-format=json-render-diagnostics"], env, stream)
+        completed = subprocess.run(
+            ["cargo", "rustc", "--locked", *([] if debug else ["--release"]), "--target", TRIPLE,
+             "-p", "roc-gui-host", "--lib", "-j", str(jobs), "--message-format=json",
+             "--", "--print", "native-static-libs"], cwd=ROOT, env=env, stdout=stream)
+    for message in cargo_messages(output / "cargo.jsonl"):
+        if message.get("reason") == "compiler-message" and message["message"].get("rendered"):
+            print(message["message"]["rendered"], file=sys.stderr, end="")
+    completed.check_returncode()
     if (ROOT / "Cargo.lock").read_bytes() != lock:
         raise ValueError("Cargo.lock changed during the Windows host build")
     payload = output / "payload"

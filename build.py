@@ -48,42 +48,42 @@ def stage_external_inputs(target: str, destination: Path, profile: str, source: 
         artifacts.update(installer(destination)["artifacts"])
     return {"schema_version": 1, "artifacts": artifacts}
 
-def build_windows(debug: bool) -> None:
-    """Build the GNU host with pinned tools, then reuse verified Windows link inputs."""
-    from prepare_dependencies import verified_windows_gnu, windows_gnu_inventory
+def build_windows(debug: bool, source: bool = False) -> None:
+    """Build the GNU host with pinned tools, stage the verified runtime, and
+    derive the one import library the host's link references."""
     from link_input_artifacts import install as install_link_inputs
     from windows_gnu_build import TRIPLE, execute
-    from windows_gnu_coff import normalize
+    from windows_link_imports import prepare
 
-    destination = ROOT / "platform/targets/x64mingw"
-    unified_inputs = (ROOT / "link-inputs.lock.json").is_file()
-    if unified_inputs:
-        dependencies = install_link_inputs("x64mingw", destination)
-    else:
-        from prepare_dependencies import install_windows_gnu
-        dependencies = install_windows_gnu(destination)
+    platform_targets = ROOT / "platform/targets"
+    platform_targets.mkdir(parents=True, exist_ok=True)
+    destination = platform_targets / "x64mingw"
+    unified_inputs = not source and (ROOT / "link-inputs.lock.json").is_file()
     cargo_target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     if not cargo_target.is_absolute():
         cargo_target = ROOT / cargo_target
-    outputs = ("libhost.a", "normalization.json", "link-inputs.json")
     with tempfile.TemporaryDirectory(prefix="roc-gui-windows-build-") as temporary, \
-            tempfile.TemporaryDirectory(dir=destination, prefix=".host-") as staged_path:
-        staged = Path(staged_path)
-        payload, zig, _environment = execute(Path(temporary) / "build", jobs=os.cpu_count() or 2,
+            tempfile.TemporaryDirectory(dir=platform_targets, prefix=".stage-") as staged_path:
+        staged = Path(staged_path) / "x64mingw"
+        if unified_inputs:
+            dependencies = install_link_inputs("x64mingw", staged)
+        else:
+            from prepare_dependencies import install_windows_gnu
+            dependencies = install_windows_gnu(staged)
+        build = Path(temporary) / "build"
+        payload, zig, _environment = execute(build, jobs=os.cpu_count() or 2,
                                              cargo_target=cargo_target, debug=debug)
-        # Roc's link supplies DLL imports from the verified import libraries, so
-        # the Rust archive's own import members are separated out byte-for-byte.
-        with verified_windows_gnu() as verified:
-            receipt = normalize(payload / "libhost.a", staged / "libhost.a", windows_gnu_inventory(verified), zig)
+        receipt = prepare(payload / "libhost.a", build / "cargo.jsonl", staged, zig, staged)
         if not unified_inputs:
-            shutil.copyfile(payload / "roc-gui.res", destination / "roc-gui.res")
+            shutil.copyfile(payload / "roc-gui.res", staged / "roc-gui.res")
         (staged / "normalization.json").write_text(json.dumps(receipt, indent=2) + "\n")
         (staged / "link-inputs.json").write_text(json.dumps({
             "schema_version": 1, "dependencies": dependencies, "rust_target": TRIPLE,
             "manifest": "crates/host/windows/roc-gui.manifest.xml",
         }, indent=2) + "\n")
-        for name in outputs:
-            (staged / name).replace(destination / name)
+        if destination.exists():
+            shutil.rmtree(destination)
+        staged.rename(destination)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -94,7 +94,7 @@ def main() -> None:
     args = parser.parse_args()
     target = native_target()
     if target == "x64mingw":
-        build_windows(args.debug)
+        build_windows(args.debug, args.source_inputs)
         print(f"Built platform/targets/{target}/libhost.a ({'debug' if args.debug else 'release'})")
         return
     environment = os.environ.copy()

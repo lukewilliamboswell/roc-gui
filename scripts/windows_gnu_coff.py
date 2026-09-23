@@ -22,6 +22,22 @@ def inventory_digest(inventory):
     return hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
 
 
+def archive_inventory(data):
+    """The DLL imports an archive's own short-import members declare.
+
+    rustc writes one member per imported declaration; the members are removed
+    because the derived import library supplies what the link references.
+    """
+    inventory = {}
+    for name, body in members(data):
+        if name not in ('/', '//') and body[:6] == b'\0\0\xff\xff\0\0' and len(body) >= 20:
+            names = body[20:].split(b'\0')
+            if len(names) == 3 and not names[-1]:
+                symbol, dll = (n.decode('ascii') for n in names[:2])
+                inventory.setdefault(dll.lower(), {})[symbol] = struct.unpack_from('<H', body, 18)[0]
+    return inventory
+
+
 def identity(data):
     return {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
 
@@ -85,7 +101,7 @@ def classify(data, inventory):
             raise ValueError('unsupported import names')
         symbol, dll = [n.decode('ascii') for n in names[:2]]
         if inventory.get(dll.lower(), {}).get(symbol) != values[7]:
-            raise ValueError('import missing or differently typed in complete provider inventory')
+            raise ValueError(f'import {dll}!{symbol} (type {values[7]}) missing or differently typed in complete provider inventory')
         return {'kind': 'short-import', 'dll': dll, 'symbol': symbol, 'type': values[7]}
     header, sections, string = coff(data)
     if not any(s[0].startswith('.idata') for s in sections):

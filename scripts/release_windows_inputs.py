@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Admit independently released Windows link inputs against their reviewed recipe.
 
-The GNU runtime and the system imports are separate releases on separate
-cycles, but one admission path: the recipe, the expected payload shape, and the
-publication prose are the only things that differ, so they live in a table
-rather than in duplicated procedure.
+The recipe, the expected payload shape, and the publication prose are the only
+things that differ between Windows input kinds, so they live in a table rather
+than in duplicated procedure.
 """
 
 import hashlib
@@ -22,11 +21,6 @@ def _runtime_files(recipe):
     return recipe['files']
 
 
-def _import_files(recipe):
-    """The imports recipe names DLLs; the archive carries their import libraries."""
-    return [dll.rsplit('.', 1)[0] + '.lib' for dll in recipe['dlls']]
-
-
 KINDS = {
     'windows-gnu-runtime': {
         'recipe': 'build_windows_gnu_runtime',
@@ -35,14 +29,6 @@ KINDS = {
         'extra_sources': ('source.tar.xz',),
         'validation': 'Two fresh offline builds produced identical archives; native Windows tests exercised CRT startup and teardown, thread-local destructors, C++ and Rust unwinding, and mandatory UBSan failure.',
         'scope': 'The package contains full open-source CRT/runtime implementations and complete UCRT imports with weak aliases. Windows supplies the UCRT DLL implementations. No Microsoft SDK libraries or platform host code are included.',
-    },
-    'windows-system-imports': {
-        'recipe': 'build_windows_system_imports',
-        'workflow': 'windows-system-imports.yml',
-        'target_files': _import_files,
-        'extra_sources': ('source.tar.xz', 'coverage.json'),
-        'validation': 'Two fresh builds produced identical archives; an extracted candidate passed native ICUUC, NTDLL, OLE32 and KERNEL32 calls with OS-only DLL discovery.',
-        'scope': 'These are complete reviewed source inventories of import stubs, not Windows implementation DLLs or a CRT package. No platform host or application code is included.',
     },
 }
 

@@ -7,6 +7,7 @@
 /platform/targets/*/*.res
 /platform/targets/*/*.tbd
 /platform/targets/*/*.json
+/platform/targets/*/*.def
 /platform/targets/macos-sysroot/
 /counter
 /main
