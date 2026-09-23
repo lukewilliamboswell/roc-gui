@@ -32,20 +32,6 @@
         }
       ]
     },
-    "convert_case@0.4.0": {
-      "crate_sha256": "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e",
-      "source_revision": "300d9eef9e8c970e15f324afbc3df8b6a4ebbf71",
-      "category": "metadata_only_in_reviewed_archive",
-      "source_files": {
-        "Cargo.toml.orig": {
-          "sha256": "5f821f7641c67da8a4e0eb2ebf994f5ba88ad811a3529cb91017d26c8075aea2"
-        },
-        "Cargo.toml": {
-          "sha256": "bbd8c27bde074b1c78539307cc2f1770efdaf890253cce4b9557cfdc32d4e605"
-        }
-      },
-      "upstream_files": []
-    },
     "dwrote@0.11.5": {
       "crate_sha256": "9e1b35532432acc8b19ceed096e35dfa088d3ea037fe4f3c085f1f97f33b4d02",
       "source_revision": "5bbe910f7156213cdbaca4e1addfe85ea8b421ef",
@@ -111,75 +97,6 @@
       },
       "upstream_files": []
     },
-    "gpu-alloc@0.6.2": {
-      "crate_sha256": "45cf04b2726f02df5508c6de726acdc90cdf97ac771a9a0ffd8ba10a6e696bf9",
-      "source_revision": "61020bdcb4eb04fca6bbf748aeb9570e859236e0",
-      "category": "original_license_reference",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "94ce474d1051e0dcd688277d28f1e6803e667645b8998c016d6e30055d1ea2f5"
-        },
-        "Cargo.toml.orig": {
-          "sha256": "5c9a324870b38b37deca2de624a477ce63b9a46212c53d344dcab120b75d0ce0"
-        },
-        "README.md": {
-          "sha256": "5a96b135d18e172f090bd6147830ab3a1b5cefac5f02be28f06cf88eea61b64f"
-        }
-      },
-      "upstream_files": [
-        {
-          "path": "declarations/12121dfa588677007848ab922a45a1e3248868f6ff063598fceb3141d7897314.txt",
-          "sha256": "12121dfa588677007848ab922a45a1e3248868f6ff063598fceb3141d7897314",
-          "source_url": "https://raw.githubusercontent.com/zakarumych/gpu-alloc/61020bdcb4eb04fca6bbf748aeb9570e859236e0/COPYING"
-        }
-      ]
-    },
-    "gpu-alloc-ash@0.7.1": {
-      "crate_sha256": "643756f08ef6def813c776199e4766596395a4c6530373c9a4374a64de2f53a1",
-      "source_revision": "7ddd1fe576fcfc503347eb97e476a47581479f22",
-      "category": "original_license_reference",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "b0d20744fda94afc642a28deb15cfd400976adabf57ad2731cc90e55b64eba77"
-        },
-        "Cargo.toml.orig": {
-          "sha256": "1cc016f2ebbc21df00422a0e0daa15f19650dd387ec81913ed06fc260fef9089"
-        },
-        "README.md": {
-          "sha256": "5a96b135d18e172f090bd6147830ab3a1b5cefac5f02be28f06cf88eea61b64f"
-        }
-      },
-      "upstream_files": [
-        {
-          "path": "declarations/12121dfa588677007848ab922a45a1e3248868f6ff063598fceb3141d7897314.txt",
-          "sha256": "12121dfa588677007848ab922a45a1e3248868f6ff063598fceb3141d7897314",
-          "source_url": "https://raw.githubusercontent.com/zakarumych/gpu-alloc/7ddd1fe576fcfc503347eb97e476a47581479f22/COPYING"
-        }
-      ]
-    },
-    "gpu-alloc-types@0.3.1": {
-      "crate_sha256": "b2bbed164dd10ed526c2e4fe3e721ca4a71c61730e5aafac6844b417b3227058",
-      "source_revision": "7ddd1fe576fcfc503347eb97e476a47581479f22",
-      "category": "original_license_reference",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "34a3c36524ab156db79ebcf76a878995365eca34c7975c3316ab528a1eeb60b7"
-        },
-        "Cargo.toml.orig": {
-          "sha256": "1b01a661d9e5ed74a93f264d5d5455921570e9bb25f679c8d6d2263133267f62"
-        },
-        "README.md": {
-          "sha256": "5a96b135d18e172f090bd6147830ab3a1b5cefac5f02be28f06cf88eea61b64f"
-        }
-      },
-      "upstream_files": [
-        {
-          "path": "declarations/12121dfa588677007848ab922a45a1e3248868f6ff063598fceb3141d7897314.txt",
-          "sha256": "12121dfa588677007848ab922a45a1e3248868f6ff063598fceb3141d7897314",
-          "source_url": "https://raw.githubusercontent.com/zakarumych/gpu-alloc/7ddd1fe576fcfc503347eb97e476a47581479f22/COPYING"
-        }
-      ]
-    },
     "hexf-parse@0.2.1": {
       "crate_sha256": "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df",
       "source_revision": "4225763d744183d720f575ae96d04161b4d08ea0",
@@ -215,20 +132,6 @@
         },
         "src/lib.rs": {
           "sha256": "5c34776cad80147e94ce1c4af40135d645b478276abf16dc44265cd57da77ea0"
-        }
-      },
-      "upstream_files": []
-    },
-    "mac@0.1.1": {
-      "crate_sha256": "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4",
-      "source_revision": null,
-      "category": "original_license_reference",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "6d465c5e5a4b3e197049e9fb7393b2f996c1c654e6ded700afce046fac2f7969"
-        },
-        "README.md": {
-          "sha256": "8edb7a912d295acf1e1cfeafdd19a6813a63b301c7bbfda3c67f65509bd8d8cc"
         }
       },
       "upstream_files": []
