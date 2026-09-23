@@ -426,11 +426,17 @@ opens `.rgstats` captures and queries their tables directly. It is also the
 pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
 ideal and the repository. P- and E-numbers refer to that document.
 
-- [ ] **The application does not exist.** Build the first slice: folder open,
-  capture list, schema gate, Health, Overview, and spec results. Include a
-  README, semantic locators, SCM specifications, fixtures generated at test
-  time from real specification runs, and a scaling case of opening a large real
-  capture. Then add the example to `examples/README.md`.
+- [ ] **The first slice is not sortable and has no large-capture case.** Folder
+  open, the capture list, the schema gate, Overview, Health, spec results, and
+  the triggers table exist with specifications, and the scaling case opens
+  folders of 10, 100, and 1,000 real captures. Still missing from I1: sorting
+  the capture list and the triggers table by each column (US-2, US-9); pressing
+  a `—` value to open Health at its family (US-7); and a scaling case that opens
+  one long interactive-session capture at 10k and 100k cycles, which needs a
+  real recorded session driven through the ordinary window path as its fixture.
+  The photographs `window-tour.scm` takes have not been reviewed against the
+  wireframes, because no Linux screenshot backend was available (see the
+  `grim` entry under "Runner: test what we fly").
 
 - [ ] **A single capture file cannot be opened (P9).** Access offers only a
   directory chooser. Add a type-filtered single-file chooser, dropping files onto

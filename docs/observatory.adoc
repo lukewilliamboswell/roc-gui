@@ -17,6 +17,14 @@ case identity, run and cycle counts, and the distribution of measured operation
 duration. A capture with lost events, writer failure, output truncation, or an
 unclean shutdown is rejected as incomplete.
 
+A capture's verdict follows from its own records. It is _untrusted_ when
+`metadata.final_state` is not `complete`, `clean_shutdown` is not `1`,
+`recorder_health` reports omitted events, a writer failure, or a reached output
+limit, `recording_gaps` holds any row, or any measurement family is still
+`unfinalized`. It is _partial_ when any family is `partial`. Otherwise it is
+_complete_: a `not_recorded` or `unavailable` family is a declared absence, not
+a loss. The Observatory example applies this rule to every capture it lists.
+
 The analyser opens databases read-only. You can also inspect them with any
 SQLite client; application-facing reports should use the supplied views so the
 evidence-status rules remain visible.
