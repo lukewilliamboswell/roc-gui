@@ -68,9 +68,9 @@ the change lands; do not soften the docs to match the gap.
   work above, after which the broker returns a descriptor and the constant
   becomes `Brokered` with no change to the Roc API.
 
-  Add Open
-  Document's smallest single-file grant, persistent grants, revocation, edit
-  grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
+  Open Document's single-file read grant (`pick_file!`, recorded as a
+  `document` root) shares the same `ConsentOnly` enforcement. Add persistent
+  grants, edit grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
   cancellation and retry semantics.
 
 - [ ] **Portal parenting and protected consent need external certification.**
@@ -444,10 +444,27 @@ ideal and the repository. P- and E-numbers refer to that document.
   produces such a cycle (a rejected turn, or a callback whose span stack does
   not close) should become a fixture.
 
-- [ ] **A single capture file cannot be opened (P9).** Access offers only a
-  directory chooser. Add a type-filtered single-file chooser, dropping files onto
-  the window, and recent documents backed by remembered grants, as one trusted
-  file workflow (see "Trusted file workflows remain incomplete").
+- [ ] **Files cannot be dropped or reopened from a recent list (P9).**
+  `access.pick_file!(types)` grants one type-checked file, and Observatory opens
+  a capture with it. Still missing, as one trusted file workflow (see "Trusted
+  file workflows remain incomplete"): dropping files onto the window as a
+  trusted grant (US-4), and recent documents backed by remembered grants, which
+  need a persistent `Lifetime` in `grant.rs` (US-3). Both were left out as each
+  is its own host surface.
+
+- [ ] **No application reads a chosen file's bytes.** `Files.File.Read.read!`
+  shares its bounded, no-follow read with `Dir.Read.read!` and is covered by
+  host tests, but Observatory opens its file through SQLite only, so
+  `expect-document-counters` has never seen a read. File Explorer's preview is
+  the natural adopter: an "Open file…" that previews one chosen file.
+
+- [ ] **The native file panel does not filter by type on macOS.** GPUI's
+  `PathPromptOptions` has no allowed-types field, so `pick_file!` shows every
+  file there and the host refuses a wrong type after the choice with
+  `PickFileErr(Unsupported)`. Add allowed content types to the vendored
+  `NSOpenPanel` prompt. The Linux portal filter and both `pick_file!` choosers
+  are exercised only through `--host-cap-file`; certify them with a person
+  choosing, as for Open Project.
 
 - [ ] **SQLite cannot compare two databases or cancel a query (P7).** Databases
   open in place, read a live write-ahead log, bind parameters, and page past
