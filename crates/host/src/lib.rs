@@ -2552,6 +2552,11 @@ impl Render for NodeView {
         // constant key inside it is both stable and unique.
         let mut element = div().id("node");
         let mut append_children = true;
+        // Disabled is the application's word for a control. A modal dialog
+        // makes the controls behind it inert, not disabled: they keep their
+        // own look and only stop answering input.
+        #[cfg_attr(not(test), allow(unused_assignments, unused_variables))]
+        let mut shows_disabled = false;
         if self.is_root {
             element = element.size_full().min_h_0().min_w_0();
         }
@@ -3073,6 +3078,7 @@ impl Render for NodeView {
                         });
                 } else if !*enabled {
                     element = apply_disabled(element, style);
+                    shows_disabled = true;
                 }
                 let _ = label;
             }
@@ -3136,8 +3142,9 @@ impl Render for NodeView {
             }
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
-                if !enabled || !self.input_enabled {
+                if !enabled {
                     element = apply_disabled(element, style);
+                    shows_disabled = true;
                 }
                 if let Some(editor) = &self.input {
                     element = element.child(editor.clone());
@@ -3206,8 +3213,9 @@ impl Render for NodeView {
                                     .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
                             }
                         });
-                } else {
+                } else if !*enabled {
                     element = apply_disabled(element, style);
+                    shows_disabled = true;
                 }
             }
             NodeKind::Checkbox {
@@ -3219,7 +3227,6 @@ impl Render for NodeView {
             } => {
                 let node_id = self.node.id;
                 let runtime = self.runtime.clone();
-                let enabled_box = *enabled && self.input_enabled;
                 let mark = if *checked { "✓" } else { "" };
                 let box_bg = if *checked {
                     indicator.box_checked_bg.unwrap_or(CHECKBOX_CHECKED_BG)
@@ -3243,7 +3250,7 @@ impl Render for NodeView {
                             .w(px(18.0))
                             .h(px(18.0))
                             .border_1()
-                            .border_color(rgb(if enabled_box {
+                            .border_color(rgb(if *enabled {
                                 box_border
                             } else {
                                 style.disabled_fg.unwrap_or(DISABLED_FG)
@@ -3349,11 +3356,14 @@ impl Render for NodeView {
                                     .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
                             }
                         });
-                } else {
+                } else if !*enabled {
                     element = apply_disabled(element, style);
+                    shows_disabled = true;
                 }
             }
         }
+        #[cfg(test)]
+        tests::record_disabled_look(_cx.entity_id(), shows_disabled);
         // A popover that presents records its surface's bounds instead.
         let presents =
             matches!(self.node.kind, NodeKind::Popover { .. }) && self.children.len() > 1;
@@ -6538,6 +6548,20 @@ mod tests {
         });
     }
 
+    thread_local! {
+        static DISABLED_LOOKS: RefCell<std::collections::HashMap<gpui::EntityId, bool>> = RefCell::new(std::collections::HashMap::new());
+    }
+
+    pub(super) fn record_disabled_look(id: gpui::EntityId, disabled: bool) {
+        DISABLED_LOOKS.with(|looks| {
+            looks.borrow_mut().insert(id, disabled);
+        });
+    }
+
+    fn disabled_look(id: gpui::EntityId) -> Option<bool> {
+        DISABLED_LOOKS.with(|looks| looks.borrow().get(&id).copied())
+    }
+
     fn native_style(id: gpui::EntityId) -> Option<u32> {
         NATIVE_STYLES.with(|styles| styles.borrow().get(&id).copied().flatten())
     }
@@ -9275,6 +9299,38 @@ mod tests {
         nodes.push(button(base + 6, first));
         nodes.push(button(base + 7, second));
         nodes
+    }
+
+    #[gpui::test]
+    fn controls_behind_a_dialog_are_inert_but_keep_their_enabled_look(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let button = |id, label: &str, enabled| Node {
+            id,
+            kind: NodeKind::Button {
+                caption: label.into(),
+                label: label.into(),
+                enabled,
+                hover_enter: false,
+                hover_exit: false,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let mut nodes = dialog_with_input(1000, "");
+        nodes[0].children = vec![1004, 1005, 1002];
+        nodes.push(button(1004, "Live", true));
+        nodes.push(button(1005, "Off", false));
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1001, nodes }), cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            let live = runtime.views[&1004].read(cx);
+            assert!(!live.input_enabled, "the dialog makes the page inert");
+            assert_eq!(disabled_look(runtime.views[&1004].entity_id()), Some(false));
+            assert_eq!(disabled_look(runtime.views[&1005].entity_id()), Some(true));
+            assert_eq!(disabled_look(runtime.views[&1003].entity_id()), Some(false));
+        });
     }
 
     #[gpui::test]

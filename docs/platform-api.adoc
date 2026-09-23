@@ -288,7 +288,9 @@ Gui.popover(
 `Gui.dialog({ label, on_dismiss, ... }, children)`:: Present
 one modal surface above an input-blocking scrim. The first enabled control gains
 focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and
-closing the dialog restores its opener by stable semantic identity. Render at
+closing the dialog restores its opener by stable semantic identity. Controls
+behind the scrim stop answering input but keep their own enabled or disabled
+appearance; the dialog does not restyle them as disabled. Render at
 most one dialog at a time.
 
 Row, column, panel, dialog, popover, scroll, virtual-list, and button props share
