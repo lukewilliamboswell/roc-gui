@@ -879,7 +879,8 @@ async fn run_step(
                 .map_err(|_| StepError::WindowClosed)??;
             // Release the Runtime borrow before GPUI delivers callbacks into it.
             cx.update_window(window.into(), |_, window, cx| {
-                window.dispatch_event(
+                dispatch_pointer(
+                    window,
                     gpui::PlatformInput::MouseMove(MouseMoveEvent {
                         position,
                         pressed_button: None,
@@ -940,7 +941,7 @@ async fn run_step(
             };
             // Release the Runtime borrow before GPUI delivers callbacks into it.
             cx.update_window(window.into(), |_, window, cx| {
-                window.dispatch_event(input, cx);
+                dispatch_pointer(window, input, cx);
             })
             .map_err(|_| StepError::WindowClosed)?;
             await_painted(window, options.timeout, cx).await
@@ -1002,7 +1003,7 @@ async fn run_step(
                 // Release the Runtime borrow before GPUI delivers callbacks
                 // into it, and let each event land before the next.
                 cx.update_window(window.into(), |_, window, cx| {
-                    window.dispatch_event(input, cx);
+                    dispatch_pointer(window, input, cx);
                 })
                 .map_err(|_| StepError::WindowClosed)?;
             }
@@ -1162,7 +1163,11 @@ async fn run_step(
                 window.resize(size(px(*width as f32), px(*height as f32)));
             })
             .map_err(|_| StepError::WindowClosed)?;
-            settle(window, 2, options.timeout, cx).await
+            settle(window, 2, options.timeout, cx).await?;
+            // A resized window reads its pointer from the system again.
+            cx.update_window(window.into(), |_, window, cx| restore_pointer(window, cx))
+                .map_err(|_| StepError::WindowClosed)?;
+            settle(window, 1, options.timeout, cx).await
         }
         Command::Scroll { region, motion } => {
             // A scroll target is located in the drawn frame.
@@ -1228,8 +1233,25 @@ async fn run_step(
                 if focused {
                     Ok(())
                 } else {
+                    // Name what does hold it, as a specification would locate it.
+                    let holder = runtime
+                        .focus_handles
+                        .iter()
+                        .find(|(_, handle)| handle.is_focused(window))
+                        .and_then(|(id, _)| runtime.graph.node(*id))
+                        .map(|node| match node.kind.sibling_name() {
+                            Some(name) => format!("the {} {name:?}", node.kind.target_kind()),
+                            None => format!("an unnamed {}", node.kind.target_kind()),
+                        })
+                        .unwrap_or_else(|| {
+                            if runtime.root_focus.is_focused(window) {
+                                "the window itself".to_owned()
+                            } else {
+                                "no mounted control".to_owned()
+                            }
+                        });
                     Err(StepError::Geometry(format!(
-                        "{} does not hold keyboard focus",
+                        "{} does not hold keyboard focus; {holder} does",
                         describe(locator)
                     )))
                 }
@@ -1914,6 +1936,80 @@ fn native_window(window: &gpui::Window) -> Option<(isize, f32)> {
 #[cfg(not(windows))]
 fn native_window(_window: &gpui::Window) {}
 
+/// Where the specification last put the window's pointer; outside the window
+/// until a step moves it in.
+static POINTER: std::sync::Mutex<Option<gpui::Point<gpui::Pixels>>> = std::sync::Mutex::new(None);
+
+/// Deliver a step's pointer event, remembering where it leaves the pointer.
+fn dispatch_pointer(window: &mut gpui::Window, input: gpui::PlatformInput, cx: &mut App) {
+    let position = match &input {
+        gpui::PlatformInput::MouseMove(event) => Some(event.position),
+        gpui::PlatformInput::MouseDown(event) => Some(event.position),
+        gpui::PlatformInput::MouseUp(event) => Some(event.position),
+        gpui::PlatformInput::ScrollWheel(event) => Some(event.position),
+        _ => None,
+    };
+    if let Some(position) = position {
+        *POINTER.lock().unwrap_or_else(|error| error.into_inner()) = Some(position);
+    }
+    window.dispatch_event(input, cx);
+}
+
+/// Put the window's pointer where the specification left it. GPUI reads the
+/// system cursor when it opens or resizes a window, and a cursor resting over
+/// a control would make it hovered before any step entered it.
+fn restore_pointer(window: &mut gpui::Window, cx: &mut App) {
+    let position = POINTER
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .unwrap_or_else(|| point(px(-1.0), px(-1.0)));
+    window.dispatch_event(
+        gpui::PlatformInput::MouseMove(MouseMoveEvent { position, pressed_button: None, modifiers: Default::default() }),
+        cx,
+    );
+}
+
+/// A specification's window takes its pointer only from the specification.
+///
+/// Its steps move, press, and scroll the window's pointer themselves. On a
+/// desktop, the person's own cursor would also reach the window whenever it
+/// rests over it, and move hover or press controls between steps, so the same
+/// specification could pass or fail with where a mouse was left. On Windows the
+/// window's messages from the system pointer are dropped before GPUI reads
+/// them; the keyboard, painting, and every event a step dispatches are
+/// untouched. Elsewhere a specification window receives no stray pointer.
+#[cfg(windows)]
+fn own_the_pointer(window: &gpui::Window) {
+    use windows_sys::Win32::{
+        Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+        UI::Shell::{DefSubclassProc, SetWindowSubclass},
+    };
+    unsafe extern "system" fn system_pointer(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        _id: usize,
+        _data: usize,
+    ) -> LRESULT {
+        // Non-client mouse messages, client mouse messages, pointer messages,
+        // and hover and leave tracking, by their numbers in winuser.h.
+        let from_pointer = matches!(message, 0x00A0..=0x00AD | 0x0200..=0x020E | 0x0241..=0x0257 | 0x02A0..=0x02A3);
+        if from_pointer {
+            return 0;
+        }
+        unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+    }
+    let owned = native_window(window)
+        .is_some_and(|(hwnd, _)| unsafe { SetWindowSubclass(hwnd as HWND, Some(system_pointer), 1, 0) } != 0);
+    if !owned {
+        eprintln!("window runner: the system pointer still reaches the specification's window");
+    }
+}
+
+#[cfg(not(windows))]
+fn own_the_pointer(_window: &gpui::Window) {}
+
 fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rect, StepError> {
     window
         .update(cx, |_, window, _| {
@@ -1932,6 +2028,10 @@ fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rec
 pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &mut App) {
     cx.spawn(async move |cx| {
         crate::watchdog::milestone(crate::watchdog::Milestone::DriverStarted);
+        let _ = cx.update_window(window.into(), |_, window, cx| {
+            own_the_pointer(window);
+            restore_pointer(window, cx);
+        });
         let file_baseline = crate::files::operation_counts();
         let mut outcome = Outcome {
             spec_name: spec.name.clone(),

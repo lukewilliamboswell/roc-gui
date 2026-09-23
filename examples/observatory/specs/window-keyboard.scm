@@ -51,9 +51,11 @@
     (settle)
     (expect-on-screen (text "Press a cycle to inspect it."))
     ; the nine characters typed into the query were offered and left to it;
-    ; Enter went to the query itself, and the five chords were answered, each
-    ; compared with the shortcuts of the regions around focus and then with
-    ; the window's. The folder is remembered, so the start page the palette
-    ; closes over lists it, and focus does not come back to the inspector's
-    ; divider, whose own keys a chord would be compared with first
-    (expect-keyboard-counters 14 5 12 1)))
+    ; Enter went to the query itself, and the five chords were answered. A
+    ; press activates a button without focusing it, so the palette's opener is
+    ; the window and focus returns there when it closes. Until I moves focus
+    ; into the inspector, a chord encloses no focus and is compared with the
+    ; window's twelve shortcuts first: Ctrl+K costs 1, Ctrl+2 5, J 12 and then
+    ; Interactions' first, I 12 and then Interactions' third, and Alt+Left,
+    ; which the inspector does not declare, 2
+    (expect-keyboard-counters 14 5 36 1)))

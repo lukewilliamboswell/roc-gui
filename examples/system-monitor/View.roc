@@ -213,6 +213,11 @@ tile = |reading| {
 			label: "${reading.caption} reading",
 			width: Fill,
 			grow: True,
+			# A reading gives up width before the page does: its figures are
+			# clipped at the tile's edge rather than widening the window's
+			# content past the window.
+			min_width: Px(0),
+			overflow_x: Clip,
 			height: Px(tile_height),
 			min_height: Px(tile_height),
 			padding: 0,
@@ -258,6 +263,7 @@ axis = Gui.col(
 	{
 		label: "Load axis",
 		width: Px(34),
+		min_width: Px(34),
 		height: Px(Chart.height),
 		padding: 0,
 		gap: 0,
@@ -494,7 +500,7 @@ render = |state| Gui.col(
 			{ label: "Body", width: Fill, height: Fill, grow: True, padding: 0, gap: 16, align: Stretch },
 			[
 				Gui.col(
-					{ label: "Instruments", width: Fill, height: Fill, grow: True, padding: 0, gap: 12 },
+					{ label: "Instruments", width: Fill, height: Fill, grow: True, min_width: Px(0), padding: 0, gap: 12 },
 					[readings(state), plot(state), log(state)],
 				),
 				process_panel(state),

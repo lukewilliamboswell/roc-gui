@@ -64,7 +64,8 @@ class RuntimeValidationTests(unittest.TestCase):
                                'lib/libc/include/generic-glibc/foreign.h': 'unrelated\n'}.items():
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(text)
+                # Upstream sources are byte-exact; no checkout translates them.
+                path.write_bytes(text.encode())
             recipe = {'source_files': ['LICENSE'], 'source_directories': ['lib/libc/mingw'],
                       'headers': ['lib/include', 'lib/libc/include/any-windows-any']}
             first = corresponding_source(root, recipe)

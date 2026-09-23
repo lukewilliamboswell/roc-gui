@@ -13,7 +13,10 @@
     (await-task)
     (await-task)
     (await-task)
-    (expect-canvas-size (role canvas :name "CPU history plot") 728 110)
+    ; the instruments take what the 420 pixel process list leaves of the body,
+    ; whatever the readings say, less the panel's padding and border, the 34
+    ; pixel axis and its gap, and the plot's own border: 804 becomes 726
+    (expect-canvas-size (role canvas :name "CPU history plot") 726 110)
     (expect-on-screen (role canvas-item :name "Sample 0 load"))
     (screenshot "plot-wide" :region (role panel :name "CPU history") :pad 6)
     (click (role button :name "Pause sampling"))
@@ -21,6 +24,7 @@
     (settle)
     (resize 1000 800)
     (settle)
-    (expect-canvas-size (role canvas :name "CPU history plot") 565 110)
+    ; and at 1000 pixels, 524 becomes 446
+    (expect-canvas-size (role canvas :name "CPU history plot") 446 110)
     (expect-on-screen (role canvas-item :name "Sample 0 load"))
     (screenshot "plot-narrow" :region (role panel :name "CPU history") :pad 6)))
