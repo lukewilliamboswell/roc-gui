@@ -181,20 +181,24 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # selected compiler's LLVM callback/state corruption is tracked in the backlog;
 # --roc-opt allows intentional compiler diagnostics without an automatic retry
 # or fallback. The Rust host's build profile is independent of this option.
+SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
+
+
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
     print(f"Roc application build mode: {roc_opt}", flush=True)
-    # A generator that runs specifications itself builds with this compiler.
-    subprocess.run(
-        [sys.executable, str(ROOT / "scripts/bootstrap.py")],
-        cwd=ROOT,
-        check=True,
-        env={**os.environ, "ROC": roc},
-    )
     if not skip_host_build:
         sys.path.insert(0, str(ROOT / "scripts"))
         from install_released_host import install
         if not install():
             subprocess.run([sys.executable, str(ROOT / "build.py")], cwd=ROOT, check=True)
+    # A generator that runs specifications itself builds with this compiler,
+    # against the host just built, so its nested runs never build it again.
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/bootstrap.py")],
+        cwd=ROOT,
+        check=True,
+        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1"},
+    )
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
@@ -485,7 +489,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--skip-host-build", action="store_true")
+    parser.add_argument("--skip-host-build", action="store_true",
+                        default=os.environ.get(SKIP_HOST_BUILD) == "1")
     parser.add_argument("--only", choices=("all", "semantic", "window"), default="all",
                         help="run only the specifications a given runner handles")
     parser.add_argument("--allow-missing-shots", action="store_true",
