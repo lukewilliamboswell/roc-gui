@@ -189,6 +189,11 @@ independent of any one application.
   `window-provide-1m.scm` have run only on Linux. Run them on macOS and
   Windows.
 
+- [ ] **A directory cannot be watched outside Linux.** `directory.watch!()` and
+  `database.watch!()` answer `Unsupported` on macOS and Windows. Implement
+  them with FSEvents or kqueue and `ReadDirectoryChangesW`, keeping the same
+  coalesced names, settle interval, and derived grant.
+
 ## Element appearance
 
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
@@ -594,12 +599,25 @@ ideal and the repository. P- and E-numbers refer to that document.
   No fixture has more than one window run; when one does, draw a rule and a
   caption at each run's first column.
 
-- [ ] **Granted files cannot be watched (P8).** Add change notification on
-  granted files so a replaced or growing capture reloads.
-
 - [ ] **A task cannot be cancelled (P13).** Stale queries run to completion and
   are discarded in `resolve`. Add cancellation and supersede so a moved
   selection stops its superseded query.
+
+- [ ] **A finalised capture chosen as one file is not watched.** Observatory
+  watches the folder it lists, and a capture still being recorded, but not a
+  finalised capture opened from a single file grant, so replacing that file
+  shows no "Capture changed" until it is opened again. A watch whose capture is
+  closed ends with a stray task completion, and without cancellation (P13) a
+  specification awaiting the next task would take it for the one it awaits;
+  every capture opened from a file is closed or replaced in most
+  specifications. Watch it once a superseded task can be cancelled without
+  completing.
+
+- [ ] **A growing capture's Timeline keeps its last reading.** While a capture
+  being recorded is read again, the capture, its tables, its lists, and its
+  frame strip follow each commit, but the Timeline keeps the span it last read
+  until it is shown again, and the frame strip returns to every frame, losing
+  its zoom. Read the Timeline's span again, and the strip's, with the rest.
 
 - [ ] **No theme query (P14).** Add a light/dark query so chart scales stay
   readable in both themes.

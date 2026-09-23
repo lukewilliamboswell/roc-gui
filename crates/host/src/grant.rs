@@ -467,7 +467,7 @@ pub fn is_held(kind: Kind, id: u64) -> bool {
 ///
 /// Returns how many grants were revoked, which is the count the evidence uses.
 pub fn revoke(kind: Kind, id: u64) -> u64 {
-    with(|registry| {
+    let revoked = with(|registry| {
         let Some(target) = registry.grants.get(&GrantId::new(kind, id)).copied() else {
             return 0;
         };
@@ -484,14 +484,19 @@ pub fn revoke(kind: Kind, id: u64) -> u64 {
         }
         registry.revoked += count;
         count
-    })
+    });
+    // A watch waiting on what was just withdrawn wakes now, not at its next
+    // poll, so the application hears of the withdrawal at the instant it
+    // happened.
+    crate::watch::end_withdrawn();
+    revoked
 }
 
 /// Revoke every root of one kind, and everything derived from those roots
 /// whatever kind it is. What a person means by "stop using my files" includes
 /// the database they opened from one.
 pub fn revoke_kind(kind: Kind) -> u64 {
-    with(|registry| {
+    let revoked = with(|registry| {
         let roots: Vec<GrantId> = registry
             .grants
             .values()
@@ -508,7 +513,12 @@ pub fn revoke_kind(kind: Kind) -> u64 {
         }
         registry.revoked += count;
         count
-    })
+    });
+    // A watch waiting on what was just withdrawn wakes now, not at its next
+    // poll, so the application hears of the withdrawal at the instant it
+    // happened.
+    crate::watch::end_withdrawn();
+    revoked
 }
 
 /// Drop a grant because its handle is gone. Releasing is not revoking: the

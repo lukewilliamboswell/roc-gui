@@ -210,7 +210,11 @@ gate : List(Member) -> List(Gate)
 gate = |members| {
 	value = |member, key| Capture.metadata(member.opened, key)
 	count = { key: "members", pass: members.len() >= 2, detail: if members.len() >= 2 "" else "a set needs two or more captures, not ${members.len().to_str()}" }
-	finalised = each(members, "final_state", |member| if value(member, "final_state") == "complete" and value(member, "clean_shutdown") == "1" Pass else Fail("is not finalised with a clean shutdown"))
+	finalised = each(
+		members,
+		"final_state",
+		|member| if value(member, "final_state") != "complete" Fail("is a ${Capture.unfinalised}") else if value(member, "clean_shutdown") == "1" Pass else Fail("did not shut down cleanly"),
+	)
 	shared = match members.first() {
 		Err(_) => []
 		Ok(first) => shared_keys.map(

@@ -18,7 +18,7 @@
     (click (role button :name "Sort captures by scale"))
     (expect-before (role row :name "Capture row database-browser-scale-100.rgstats") (role row :name "Capture row counter-counting.rgstats"))
     (click (role button :name "Sort captures by health"))
-    (expect-before (role row :name "Capture row counter-counting.rgstats") (role row :name "Capture row interrupted.rgstats"))
+    (expect-before (role row :name "Capture row interrupted.rgstats") (role row :name "Capture row counter-counting.rgstats"))
     (click (role button :name "Capture database-browser-scale-100.rgstats"))
     (await-task)
     (click (role button :name "Interactions"))

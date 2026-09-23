@@ -17,13 +17,16 @@ case identity, run and cycle counts, and the distribution of measured operation
 duration. A capture with lost events, writer failure, output truncation, or an
 unclean shutdown is rejected as incomplete.
 
-A capture's verdict follows from its own records. It is _untrusted_ when
-`metadata.final_state` is not `complete`, `clean_shutdown` is not `1`,
-`recorder_health` reports omitted events, a writer failure, or a reached output
-limit, `recording_gaps` holds any row, or any measurement family is still
-`unfinalized`. It is _partial_ when any family is `partial`. Otherwise it is
-_complete_: a `not_recorded` or `unavailable` family is a declared absence, not
-a loss. The Observatory example applies this rule to every capture it lists.
+A capture's verdict follows from its own records. Until `metadata.final_state`
+is `complete` it has none: it is _withheld_, because the records a verdict rests
+on are decided at finalisation, and a capture still being recorded reads the
+same as one whose recorder stopped. A finalised capture is _untrusted_ when
+`clean_shutdown` is not `1`, `recorder_health` reports omitted events, a writer
+failure, or a reached output limit, `recording_gaps` holds any row, or any
+measurement family is still `unfinalized`. It is _partial_ when any family is
+`partial`. Otherwise it is _complete_: a `not_recorded` or `unavailable` family
+is a declared absence, not a loss. The Observatory example applies this rule to
+every capture it lists.
 
 The analyser opens databases read-only. You can also inspect them with any
 SQLite client; application-facing reports should use the supplied views so the
@@ -443,6 +446,13 @@ is `recording` and `clean_shutdown` is `0` until the recorder finalises, then
 A verdict, a comparison, or a scaling judgement rests on those, so a reader
 withholds it until the capture is finalised. A capture whose recorder died
 reads the same as one still being written; neither has a verdict.
+
+The Observatory example follows this contract. A capture it opens before
+finalisation is marked _Recording_ and watched through the platform's database
+watch, which reports each commit to the capture or its write-ahead log; when a
+commit wrote rows past the largest ids it read, or ended a run, or finalised
+the capture, it reads the capture again and shows the new rows where the
+person is. Its verdicts read _capture not yet finalised_ until then.
 
 `capture_id` is a random 128-bit identifier drawn when recording starts. It
 carries no machine, user, path, or clock. A reader that sees a file's

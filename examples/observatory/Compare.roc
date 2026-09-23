@@ -4,8 +4,9 @@
 ## and an incomparable pair shows its reasons and no delta anywhere.
 import Capture
 
-## How a gate key passes: the two captures agree, or both hold one value.
-Rule : [Same, Both(Str)]
+## How a gate key passes: the two captures agree, both hold one value, or both
+## have been finalised by their recorders.
+Rule : [Same, Both(Str), Finalised]
 
 ## One gate key, both values, and why it failed if it did.
 Check : { key : Str, a : Str, b : Str, pass : Bool, reason : Str }
@@ -97,7 +98,7 @@ Compare := [].{
 gate : List({ key : Str, rule : Rule })
 gate = [
 	{ key: "schema_version", rule: Both(Capture.supported_schema) },
-	{ key: "final_state", rule: Both("complete") },
+	{ key: "final_state", rule: Finalised },
 	{ key: "clean_shutdown", rule: Both("1") },
 	{ key: "spec_hash", rule: Same },
 	{ key: "benchmark_scale", rule: Same },
@@ -131,6 +132,7 @@ check = |key, rule, a, b| {
 		match rule {
 			Same => if a == b { key, a, b, pass: True, reason: "" } else failed("${key} differs: ${a} against ${b}")
 			Both(required) => if a == required and b == required { key, a, b, pass: True, reason: "" } else failed("${key} must be ${required} in both")
+			Finalised => if a == "complete" and b == "complete" { key, a, b, pass: True, reason: "" } else failed(Capture.unfinalised)
 		}
 	}
 }
@@ -297,7 +299,7 @@ expect signed_ms(1250000) == "+1.250 ms"
 expect signed_bytes(2048) == "+2.0 KiB"
 expect signed_bytes(-10) == "−10 B"
 expect check("job_count", Same, "1", "2") == { key: "job_count", a: "1", b: "2", pass: False, reason: "job_count differs: 1 against 2" }
-expect check("final_state", Both("complete"), "complete", "recording").pass == False
+expect check("final_state", Finalised, "complete", "recording") == { key: "final_state", a: "complete", b: "recording", pass: False, reason: "capture not yet finalised" }
 expect check("cpu_model", Same, "unavailable", "unavailable").reason == "cpu_model is absent from A"
 expect within_noise({ value: 10, base: 12, delta: -2, bound: Some(3) }) == Some(True)
 expect within_noise({ value: 10, base: 15, delta: -5, bound: Some(3) }) == Some(False)

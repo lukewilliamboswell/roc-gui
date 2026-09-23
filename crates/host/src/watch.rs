@@ -500,7 +500,9 @@ fn deliver(descriptor: Option<i32>, child: Option<&str>, mask: u32) {
 }
 
 /// End every watch whose grant was withdrawn or whose parent was released.
-fn end_withdrawn() {
+/// The grant registry calls this the moment it revokes anything, and the
+/// watcher thread at every poll.
+pub fn end_withdrawn() {
     let watches: Vec<(u64, Arc<Watch>)> = with(|store| {
         store
             .watches

@@ -12,7 +12,7 @@ A capture of any schema other than 22 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be
-trusted. Nine views follow:
+trusted or is not yet finalised. Nine views follow:
 
 - **Overview**: identity from `metadata`, and tiles for outcome, slowest
   trigger, median cycle, frames over budget, skip rate, and verdict.
@@ -129,9 +129,31 @@ families tables each have a Copy button, which puts the rows the table shows on
 the clipboard as Markdown, each with the family its values come from, that
 family's status, and its reason, so a `—` pasted into a review still says why.
 
-The verdict is `untrusted` when a capture is not finalised, shut down uncleanly,
-omitted events, reached its output limit, had a writer failure, or recorded a
-gap; `partial` when any family is partial; otherwise `complete`.
+The verdict is `withheld` while a capture is not finalised, since the families,
+recorder health, and gaps a verdict rests on are written only then; `untrusted`
+when a finalised capture shut down uncleanly, omitted events, reached its
+output limit, had a writer failure, or recorded a gap; `partial` when any family
+is partial; otherwise `complete`.
+
+## A capture that changes
+
+A capture its recorder has not finalised is marked **Recording**, its shutdown
+and gaps read as not yet known, and every verdict that needs finalisation, on
+Health, Compare, and Scaling, says "capture not yet finalised". While it is
+open it is watched: each commit its recorder makes wakes the watch, and when
+the commit wrote rows past the largest ids read, ended a run, or finalised the
+capture, Observatory reads it again through the same connection, so new
+cycles, frames, and steps appear in the lists on screen, at the phase, filter,
+and run they show. A chip "● live" says the watch is running; it ends when the
+capture is finalised, closed, or its grant is withdrawn. The capture's
+`capture_id` tells a file that grew from a file replaced by another capture.
+
+A folder is watched too. When a capture in it is created, removed, or replaced,
+the folder is listed again, and only the captures the watch named are read
+again. When the open capture's file now holds another capture, the capture bar
+says "Capture changed" and offers Reload, which reads it where the person was:
+the view, the phase, a trigger filter, the run by its phase and sample, and the
+inspected cycle by its run, trigger, and ordinal.
 
 ## Component boundaries
 
@@ -163,6 +185,14 @@ roc build --output=observatory examples/observatory/main.roc
 ./observatory -- --host-cap-file examples/observatory/fixture/captures/counter-counting.rgstats
 ./observatory -- --host-cap-file examples/observatory/fixture/failing/counter-regressed.rgstats --host-cap-dir examples/observatory/fixture/sources
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures --host-cap-clipboard
+```
+
+To watch a recording, record an application and open its capture while it
+runs:
+
+```sh
+./counter --host-stats-output=counter-session.rgstats &
+./observatory -- --host-cap-file counter-session.rgstats
 ```
 
 `--host-cap-dir` provisions the folder the folder chooser answers with, and
@@ -203,14 +233,21 @@ platform, or the host's sources and locks.
   allocation sections, the run lifecycle and process resources, the Frames and
   Timeline tables, and the Compare and Scaling sheets have none.
 - The palette does not find a frame or a source line (`frame N`, `line N`).
+- A finalised capture chosen as one file is not watched, so its replacement
+  is not offered for reloading.
+- While a capture grows, the Timeline keeps the span it last read until it is
+  shown again.
 
 ## Specifications
 
-Forty-eight specifications run on the semantic runner. They cover the first
+Fifty-one specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
-honest tiles, an untrusted capture's banner on every view, the health sheet,
+honest tiles, an unfinalised capture's withheld verdicts on every view, a
+capture being recorded growing as its recorder commits and its watch ending
+when its grant is withdrawn, a replaced capture offered for reloading and
+reloaded in place, the health sheet,
 spec results across runs, the triggers table across phases, sorting by column,
 the cycle list and its trigger filter, the cycle inspector with a dash that
 opens Health, a cycle's step in the Spec view, the specification source
@@ -232,6 +269,8 @@ pin how many SQLite connections are live: one each for the open capture, the
 baseline, the A/A capture, and every capture of a scaling set.
 Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
 also pin which boundaries render, and how many nodes the host restages.
+`watch-scale.scm` is the scaling case for a watched folder: one capture of a
+folder of 100 is replaced, and only it is read again.
 `scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases for a
 folder: each opens a benchmark output folder of that many real captures, and
 `scale-compare.scm` compares two of a thousand and chooses a scaling set among

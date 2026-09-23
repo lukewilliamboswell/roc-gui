@@ -119,11 +119,18 @@ Trust : {
 }
 
 ## How far a capture may be trusted. `Unsupported` captures are refused before
-## any of their tables are read.
-Verdict : [Complete, Partial(Str), Untrusted(Str), Unsupported(Str)]
+## any of their tables are read. `Withheld` is a capture not yet finalised,
+## which has no verdict until its recorder decides the families it rests on.
+Verdict : [Complete, Partial(Str), Untrusted(Str), Unsupported(Str), Withheld(Str)]
 
-## What the capture list shows for one file.
-Listing : { name : Str, application : Str, spec : Str, backend : Str, scale : Str, detail : Str, verdict : Verdict }
+## What the capture list shows for one file. `capture_id` names the capture a
+## file holds, so a file replaced by another capture is told from one that grew.
+Listing : { name : Str, capture_id : Str, application : Str, spec : Str, backend : Str, scale : Str, detail : Str, verdict : Verdict }
+
+## How far a capture being recorded has been read: the largest id of each
+## append-only table, the runs that have ended, and the finalisation and
+## identity keys. Rows past these ids are the ones written since.
+Progress : { cycles : I64, frames : I64, steps : I64, ended : I64, final_state : Str, capture_id : Str }
 
 ## One cycle in the slowest-cycles list. Durations are nanoseconds and every
 ## one is NOT NULL in the schema.
@@ -274,6 +281,7 @@ Capture := [].{
 	Trust : Trust
 	Verdict : Verdict
 	Listing : Listing
+	Progress : Progress
 	Opened : Opened
 	Cycle : Cycle
 	Span : Span
@@ -410,7 +418,34 @@ Capture := [].{
 
 	## The rule, in words, exactly as `judge` applies it.
 	rule : Str
-	rule = "Untrusted when the capture is not finalised, shut down uncleanly, lost events, hit its output limit, had a writer failure, or recorded a gap. Partial when any measurement family is partial. Otherwise complete: not_recorded and unavailable families are declared absences, not losses."
+	rule = "Withheld until the capture is finalised: the families a verdict rests on are decided only then, and a capture still being recorded reads the same as one whose recorder stopped. Untrusted when a finalised capture shut down uncleanly, lost events, hit its output limit, had a writer failure, or recorded a gap. Partial when any measurement family is partial. Otherwise complete: not_recorded and unavailable families are declared absences, not losses."
+
+	## What a verdict that needs finalisation says while it is withheld.
+	unfinalised : Str
+	unfinalised = unfinalised
+
+	## Whether the capture's recorder has finalised it.
+	finalised : Opened -> Bool
+	finalised = |opened| metadata(opened, "final_state") == "complete"
+
+	## How far a capture has been written, read in one statement.
+	progress! : Gui.SqliteDb => Try(Progress, Str)
+	progress! = progress!
+
+	## The identity of the capture a file holds, read through a connection of
+	## its own.
+	identity! : Gui.SqliteDb => Try(Str, Str)
+	identity! = |database| {
+		found = rows!(database, "SELECT value FROM metadata WHERE key = 'capture_id'")?
+		match found.first() {
+			Ok(row) => Ok(text_at(row, 0))
+			Err(_) => Ok("")
+		}
+	}
+
+	## Read every table the views present again, through a held connection.
+	read! : Gui.SqliteDb, Str => Try(Opened, Str)
+	read! = read!
 
 	metadata : Opened, Str -> Str
 	metadata = metadata
@@ -438,6 +473,7 @@ Capture := [].{
 		Partial(_) => "partial"
 		Untrusted(_) => "untrusted"
 		Unsupported(_) => "unsupported"
+		Withheld(_) => "withheld"
 	}
 
 	verdict_reason : Verdict -> Str
@@ -446,6 +482,7 @@ Capture := [].{
 		Partial(reason) => reason
 		Untrusted(reason) => reason
 		Unsupported(reason) => reason
+		Withheld(reason) => reason
 	}
 
 	## Refuse any capture whose schema is not the one this application reads.
@@ -533,8 +570,14 @@ family = |opened, name| match opened.families.find_first(|found| found.name == n
 	Err(_) => Missing
 }
 
+unfinalised : Str
+unfinalised = "capture not yet finalised"
+
 judge : Trust -> Verdict
-judge = |trust| {
+judge = |trust| if trust.final_state != "complete" Withheld(unfinalised) else judge_finalised(trust)
+
+judge_finalised : Trust -> Verdict
+judge_finalised = |trust| {
 	health_causes = match trust.health {
 		None => ["the recorder health row is missing"]
 		Some(health) => {
@@ -559,7 +602,8 @@ judge = |trust| {
 }
 
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Complete
-expect judge({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("not finalised (recording); unclean shutdown")
+expect judge({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Withheld("capture not yet finalised")
+expect judge({ final_state: "complete", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("unclean shutdown")
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "timing_environment", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Partial("partial families: timing_environment")
 expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 22")
 expect schema_gate("21") == Err("Schema 21 is not supported; Observatory reads schema 22")
@@ -922,7 +966,7 @@ read_trust! = |database, entries| {
 
 summarize! : Gui.FilesDirRead, Str => Listing
 summarize! = |directory, name| {
-	blank = { name, application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unsupported("unreadable") }
+	blank = { name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unsupported("unreadable") }
 	match Gui.Sqlite.open_read!(directory, name) {
 		Err(error) => { ..blank, verdict: Unsupported("not a readable database: ${Gui.Sqlite.detail(error)}") }
 		Ok(database) => match read_metadata!(database) {
@@ -930,6 +974,7 @@ summarize! = |directory, name| {
 			Ok(entries) => {
 				listed = {
 					..blank,
+					capture_id: lookup(entries, "capture_id"),
 					application: lookup(entries, "app_name"),
 					spec: lookup(entries, "spec_name"),
 					backend: lookup(entries, "backend"),
@@ -1127,6 +1172,17 @@ open_file! : Gui.FilesFileRead, Str => Try(Opened, Str)
 open_file! = |file, name| {
 	database = Gui.Sqlite.open_file_read!(file) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
 	read!(database, name)
+}
+
+progress_sql = "SELECT coalesce((SELECT max(id) FROM cycles), 0), coalesce((SELECT max(id) FROM gpui_frames), 0), coalesce((SELECT max(id) FROM steps), 0), (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL), coalesce((SELECT value FROM metadata WHERE key = 'final_state'), ''), coalesce((SELECT value FROM metadata WHERE key = 'capture_id'), '')"
+
+progress! : Gui.SqliteDb => Try(Progress, Str)
+progress! = |database| {
+	found = rows!(database, progress_sql)?
+	match found.first() {
+		Ok(row) => Ok({ cycles: int_at(row, 0), frames: int_at(row, 1), steps: int_at(row, 2), ended: int_at(row, 3), final_state: text_at(row, 4), capture_id: text_at(row, 5) })
+		Err(_) => Err("This capture's progress could not be read")
+	}
 }
 
 read! : Gui.SqliteDb, Str => Try(Opened, Str)

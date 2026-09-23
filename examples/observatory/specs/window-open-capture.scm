@@ -12,9 +12,10 @@
     (await-task)
     (settle)
     (expect-on-screen (role row :name "Capture bar"))
-    ; Observatory keeps the database, not the file, so the file handle is
-    ; released and only the connection derived from it is held.
+    ; Observatory keeps the file as well as the database opened from it, so
+    ; a replaced capture can be read again from the same grant.
     (expect-grants
+      "document provisioned/consent-only root read,derive"
       "sqlite provisioned/consent-only derived read,derive")
-    (expect-document-counters 1 1 0 0 0 0)
+    (expect-document-counters 1 1 0 0 0 1)
     (screenshot "opened")))

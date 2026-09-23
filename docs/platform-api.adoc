@@ -862,7 +862,6 @@ ends a watch whose directory was itself removed or moved away. Every later
 wait of an ended watch answers the same. A process holds at most 64 watches;
 starting another, or exceeding the operating system's limit, is
 `WatchDirectoryErr(ResourceLimit)` or `WatchDatabaseErr(ResourceLimit(_))`.
-Watching is implemented with inotify on Linux, and is `Unsupported` elsewhere.
 
 [source,roc]
 ----

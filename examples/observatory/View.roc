@@ -112,6 +112,7 @@ verdict_ink = |verdict| match verdict {
 	Partial(_) => Theme.caution
 	Untrusted(_) => Theme.alarm_ink
 	Unsupported(_) => Theme.alarm_ink
+	Withheld(_) => Theme.caution
 }
 
 verdict_badge : Capture.Verdict -> Str
@@ -120,6 +121,7 @@ verdict_badge = |verdict| match verdict {
 	Partial(_) => "⚠ partial"
 	Untrusted(_) => "✗ untrusted"
 	Unsupported(reason) => "✗ ${reason}"
+	Withheld(_) => "… withheld"
 }
 
 ## Tables. A cell clips rather than wraps, so every row is one line tall and a
@@ -573,9 +575,35 @@ chip = |text, ink| Gui.row(
 	[Gui.text(text)],
 )
 
-capture_bar : Capture.Opened -> Gui.Elem(Observatory.State)
-capture_bar = |opened| {
+## A capture still being written says so, and while it is watched its new rows
+## appear as they are committed. A file that now holds another capture offers
+## to read it (US-33, US-34).
+capture_bar : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
+capture_bar = |state, opened| {
 	final = Capture.metadata(opened, "final_state")
+	live = if Observatory.watching(state) [chip("● live", Theme.accent)] else []
+	changed = if state.changed {
+		[
+			chip("Capture changed", Theme.caution),
+			Gui.button({
+				caption: "Reload",
+				label: "Reload capture",
+				on_press: |current, _| Observatory.ask(current, Reload),
+				padding: 3,
+				font_size: Theme.meta,
+				font_face: Theme.face,
+				radius: Theme.radius,
+				bg: Theme.card,
+				hover_bg: Theme.quiet_hover,
+				active_bg: Theme.quiet_active,
+				fg: Theme.caution,
+				border_color: Theme.caution,
+				border_width: 1,
+			}),
+		]
+	} else {
+		[]
+	}
 	clean = Capture.metadata(opened, "clean_shutdown")
 	gaps = opened.gaps.len()
 	Gui.row(
@@ -586,12 +614,16 @@ capture_bar = |opened| {
 			chip(Capture.metadata(opened, "backend"), Theme.ink),
 			chip(Capture.metadata(opened, "effective_detail"), Theme.ink),
 			chip("schema ${Capture.metadata(opened, "schema_version")}", Theme.ink),
-			chip(if final == "complete" "✓ final" else "not finalised", if final == "complete" Theme.good else Theme.alarm_ink),
-			chip(if clean == "1" "clean shutdown" else "unclean shutdown", if clean == "1" Theme.good else Theme.alarm_ink),
-			chip("gaps ${gaps.to_str()}", if gaps == 0 Theme.good else Theme.alarm_ink),
+			chip(if final == "complete" "✓ final" else "Recording", if final == "complete" Theme.good else Theme.caution),
+			# Shutdown and recording gaps are written when the recorder finalises,
+			# so until then they are not known rather than clean or zero.
+			if final != "complete" chip("no shutdown yet", Theme.dim) else chip(if clean == "1" "clean shutdown" else "unclean shutdown", if clean == "1" Theme.good else Theme.alarm_ink),
+			if final != "complete" chip("gaps —", Theme.dim) else chip("gaps ${gaps.to_str()}", if gaps == 0 Theme.good else Theme.alarm_ink),
 			chip(Capture.metadata(opened, "timing_quality"), if Capture.metadata(opened, "timing_quality") == "isolated" Theme.ink else Theme.caution),
-			Gui.row({ padding: 0, gap: 0, grow: True, justify: End }, [chip(verdict_badge(opened.verdict), verdict_ink(opened.verdict))]),
-		],
+		]
+			.concat(live)
+			.concat(changed)
+			.append(Gui.row({ padding: 0, gap: 0, grow: True, justify: End }, [chip(verdict_badge(opened.verdict), verdict_ink(opened.verdict))])),
 	)
 }
 
@@ -600,6 +632,10 @@ banner = |opened| match opened.verdict {
 	Untrusted(cause) => Gui.panel(
 		{ label: "Untrusted capture", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.alarm, fg: Theme.alarm_ink, border_color: Theme.alarm_line, border_width: 0, border_bottom: Px(1), radius: 0 },
 		[Gui.row({ padding: 0, gap: 0, font_size: Theme.body }, [Gui.text("Untrusted capture: ${cause}")])],
+	)
+	Withheld(cause) => Gui.panel(
+		{ label: "Capture not yet finalised", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.card, fg: Theme.caution, border_color: Theme.line, border_width: 0, border_bottom: Px(1), radius: 0 },
+		[Gui.row({ padding: 0, gap: 0, font_size: Theme.body }, [Gui.text("Verdicts withheld: ${cause}. Health, comparison, and scaling are judged once the recorder finalises it.")])],
 	)
 	_ => Gui.row({ padding: 0, gap: 0, height: Px(0) }, [])
 }
@@ -2442,7 +2478,7 @@ workspace : Observatory.State -> Gui.Elem(Observatory.State)
 workspace = |state| Gui.col(
 	{ label: "Capture", width: Fill, height: Fill, grow: True, min_height: Px(0), overflow_y: Clip, padding: 0, gap: 0 },
 	[
-		view_boundary("Capture bar", same_capture, |current| with_capture(current, |_, opened| capture_bar(opened))),
+		view_boundary("Capture bar", |a, b| same_capture(a, b) and a.changed == b.changed and Observatory.watching(a) == Observatory.watching(b), |current| with_capture(current, capture_bar)),
 		view_boundary("Trust banner", same_capture, |current| with_capture(current, |_, opened| banner(opened))),
 		view_boundary("Baseline bar", CompareView.same_comparison, CompareView.baseline_bar),
 		Gui.row(

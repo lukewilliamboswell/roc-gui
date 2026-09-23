@@ -53,7 +53,7 @@
     (click (role button :name "Capture interrupted.rgstats"))
     (await-task)
     (settle)
-    (expect-on-screen (role panel :name "Untrusted capture"))
+    (expect-on-screen (role panel :name "Capture not yet finalised"))
     (screenshot "untrusted")
     (click (role button :name "Back to captures"))
     (settle)

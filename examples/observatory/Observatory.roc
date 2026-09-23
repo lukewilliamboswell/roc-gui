@@ -1,7 +1,8 @@
 ## Observatory's state, the one folder it may read, and the asynchronous
 ## transitions between them. Every read of a capture runs as a worker task and
 ## carries a request identity, so a superseded open cannot replace a newer one.
-## The mounted presentation lives in `View.roc`.
+## The folder, and a capture still being recorded, are watched for change in a
+## task of their own. The mounted presentation lives in `View.roc`.
 import pf.Gui
 import Capture
 import History
@@ -18,6 +19,16 @@ Grant : [Ungranted, Declined, Granted(Str), Refused]
 Folder : { revision : U64, name : Str, directory : Gui.FilesDirRead, captures : List(Capture.Listing) }
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
+
+## Where the open capture was read from, so it can be read again when the file
+## is replaced: a name in the granted folder, or the one chosen file.
+Source : [None, InFolder({ directory : Gui.FilesDirRead, name : Str }), Chosen({ file : Gui.FilesFileRead, name : Str })]
+
+## A capture still being recorded is watched while it is open. `generation` is
+## the request that started the current watch, zero when none is running, and
+## `progress` is how far the capture has been read, so a change that wrote no
+## row past it is not read again.
+Live : { generation : U64, progress : Capture.Progress }
 
 View : [Overview, Interactions, Frames, Timeline, Spec, Memory, Health, Compare, Scaling]
 
@@ -124,6 +135,9 @@ Request : [
 	## capture ran from with one run's results or the median of its samples.
 	OpenSources,
 	Annotate(SpecSource.Mode),
+	## Read a replaced capture again, keeping the view, its filters, and its
+	## selection by keys that survive the file changing.
+	Reload,
 ]
 
 State : {
@@ -175,6 +189,14 @@ State : {
 	copied : [None, Some(Str)],
 	## The folder of specification sources and the source annotated from it.
 	spec_source : SpecSource.Shown,
+	## Where the open capture was read from.
+	source : Source,
+	## The open capture's watch while it is being recorded.
+	live : Live,
+	## The request that started the folder's watch, zero when none is running.
+	folder_watch : U64,
+	## The open capture's file now holds another capture, and a reload reads it.
+	changed : Bool,
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
@@ -197,6 +219,8 @@ Observatory := [].{
 	Clock : Clock
 	Place : Place
 	Palette : Palette
+	Source : Source
+	Live : Live
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -238,6 +262,10 @@ Observatory := [].{
 		inspector_focus: 0,
 		copied: None,
 		spec_source: SpecSource.none,
+		source: None,
+		live: idle,
+		folder_watch: 0,
+		changed: False,
 		request: None,
 	}
 
@@ -348,6 +376,10 @@ Observatory := [].{
 
 	can_go_forward : State -> Bool
 	can_go_forward = |state| !state.history.forward.is_empty()
+
+	## Whether the open capture is being watched as it is recorded.
+	watching : State -> Bool
+	watching = |state| state.live.generation != 0
 }
 
 view_name : View -> Str
@@ -674,6 +706,7 @@ fulfil = |asked| {
 		Some(Copy(table)) => copy(state, table)
 		Some(OpenSources) => open_sources(state)
 		Some(Annotate(mode)) => annotate({ ..state, step_focus: None }, mode, None)
+		Some(Reload) => reload(state)
 		Some(BuildScaling) => match state.folder {
 			Some(folder) => build_scaling(state, folder.directory)
 			None => Gui.update(state)
@@ -689,7 +722,7 @@ close_capture = |state| {
 		Busy(active) => Busy(active)
 		_ => Ready
 	}
-	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty }
+	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty, source: None, live: idle, changed: False }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -726,7 +759,13 @@ choose = |state| {
 					# a reference to the capability: see "A value used twice in one
 					# record literal" in wip/issues-backlog.md.
 					captures = list_captures!(selection.directory, entries)
-					ChosenFolder({ revision: id, name: selection.name, directory: selection.directory, captures })
+					# A folder that cannot be watched is still read; it is
+					# just not read again when it changes.
+					watch = match selection.directory.watch!() {
+						Ok(started) => Some(started)
+						Err(_) => None
+					}
+					ChosenFolder({ revision: id, name: selection.name, directory: selection.directory, captures, watch })
 				}
 				Err(_) => ChooseFailed
 			}
@@ -735,7 +774,15 @@ choose = |state| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				ChosenFolder(folder) => Gui.update({ ..latest, folder: Some(folder), grant: Granted(folder.name), capture: None, status: Ready })
+				ChosenFolder(chosen) => {
+					folder = { revision: chosen.revision, name: chosen.name, directory: chosen.directory, captures: chosen.captures }
+					listed = { ..latest, folder: Some(folder), grant: Granted(chosen.name), capture: None, status: Ready, source: None, live: idle, changed: False }
+					match chosen.watch {
+						# Request identities start at zero, and zero means no watch.
+						Some(watch) => wait_folder(listed, watch, id + 1)
+						None => Gui.update({ ..listed, folder_watch: 0 })
+					}
+				}
 				ChooseCanceled => Gui.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
 				ChooseFailed => Gui.update({
 					..latest,
@@ -758,6 +805,9 @@ capture_types = [{ label: "roc-gui captures", extensions: ["rgstats"], mime_type
 unreadable_remedy : Str
 unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 22 captures written by the roc-gui recorder."
 
+idle : Live
+idle = { generation: 0, progress: { cycles: 0, frames: 0, steps: 0, ended: 0, final_state: "", capture_id: "" } }
+
 ## Open one capture the person chooses, without a folder. The folder grant, if
 ## any, is kept: a single file is a separate grant beside it.
 choose_file : State -> Gui.Action(State)
@@ -766,15 +816,20 @@ choose_file = |state| {
 	Gui.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match state.access.pick_file!(capture_types) {
-			Ok(Chosen(selection)) => OpenedFile(first_pages!(Capture.open_file!(selection.file, selection.name)))
+			Ok(Chosen(selection)) => {
+				loaded = first_pages!(Capture.open_file!(selection.file, selection.name))
+				OpenedFile({ loaded, source: Chosen({ file: selection.file, name: selection.name }) })
+			}
 			Ok(Canceled) => FileCanceled
 			Err(PickFileErr(Unsupported)) => FileRefused("Only .rgstats files are captures.")
 			Err(_) => FileRefused("The host granted no file to read. Start Observatory with --host-cap-file <capture>, or choose a .rgstats file this process may read.")
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				OpenedFile(Ok(opened)) => Gui.update(show(latest, opened, id))
-				OpenedFile(Err(message)) => Gui.update({ ..latest, capture: None, status: failure(message, unreadable_remedy) })
+				OpenedFile(opened) => match opened.loaded {
+					Ok(loaded) => begin_live(show({ ..latest, source: opened.source }, loaded, id), loaded.live, id)
+					Err(message) => Gui.update({ ..latest, capture: None, source: None, live: idle, status: failure(message, unreadable_remedy) })
+				}
 				FileCanceled => Gui.update({ ..latest, status: Ready })
 				FileRefused(remedy) => Gui.update({ ..latest, status: failure("Could not open the capture file", remedy) })
 			}
@@ -783,8 +838,12 @@ choose_file = |state| {
 	})
 }
 
-## A capture as it opens: the capture and the first page of each long list.
-Loaded : { opened : Capture.Opened, phase : Str, run : I64, cycles : List(Capture.Cycle), steps : List(Capture.Step) }
+## A capture as it opens: the capture, the first page of each long list, and
+## the watch of a capture still being recorded.
+Loaded : { opened : Capture.Opened, phase : Str, run : I64, cycles : List(Capture.Cycle), steps : List(Capture.Step), live : Watched }
+
+## A capture being recorded as it opens: its watch and how far it was read.
+Watched : [None, Some({ watch : Gui.FilesWatch, progress : Capture.Progress })]
 
 ## Read the first page of the cycles of the phase a capture opens at, and of
 ## the steps of its first run, in the task that opened it.
@@ -795,7 +854,24 @@ first_pages! = |outcome| {
 	run = first_run(opened)
 	cycles = Capture.cycles!(opened.database, { phase, only: All, offset: 0 })?
 	steps = Capture.run_steps!(opened.database, run, 0)?
-	Ok({ opened, phase, run, cycles, steps })
+	live = watch_recording!(opened)
+	Ok({ opened, phase, run, cycles, steps, live })
+}
+
+## A capture its recorder has not finalised may still be written, so it is
+## watched and its progress noted. A finalised capture never changes again.
+watch_recording! : Capture.Opened => Watched
+watch_recording! = |opened| if Capture.finalised(opened) {
+	None
+} else {
+	database = opened.database
+	match database.watch!() {
+		Err(_) => None
+		Ok(watch) => match Capture.progress!(database) {
+			Ok(progress) => Some({ watch, progress })
+			Err(_) => None
+		}
+	}
 }
 
 ## An opened capture replaces the one on screen, at its overview.
@@ -829,6 +905,7 @@ show = |latest, loaded, id| {
 		family_focus: None,
 		history: History.empty,
 		status: Ready,
+		changed: False,
 	}
 }
 
@@ -851,8 +928,8 @@ open_capture = |state, directory, name| {
 		run: || first_pages!(Capture.open!(directory, name)),
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Ok(opened) => Gui.update(show(latest, opened, id))
-				Err(message) => Gui.update({ ..latest, capture: None, status: failure(message, unreadable_remedy) })
+				Ok(loaded) => begin_live(show({ ..latest, source: InFolder({ directory, name }) }, loaded, id), loaded.live, id)
+				Err(message) => Gui.update({ ..latest, capture: None, source: None, live: idle, status: failure(message, unreadable_remedy) })
 			}
 			_ => Gui.none
 		},
@@ -1236,4 +1313,339 @@ read_annotation! = |opened, mode| {
 		Median => None
 	}
 	Ok({ marks, steps })
+}
+
+## Watching (US-33, US-34)
+
+## Start waiting on a capture being recorded, or stop waiting on the one this
+## replaced.
+begin_live : State, Watched, U64 -> Gui.Action(State)
+begin_live = |state, live, id| match live {
+	None => Gui.update({ ..state, live: idle })
+	Some(found) => {
+		# Request identities start at zero, and zero means no watch.
+		generation = id + 1
+		wait_capture({ ..state, live: { generation, progress: found.progress } }, found.watch, generation)
+	}
+}
+
+## Wait for the recorder to commit. The task holds only the watch, so a
+## capture closed while it waits releases its database, which ends the watch.
+wait_capture : State, Gui.FilesWatch, U64 -> Gui.Action(State)
+wait_capture = |state, watch, generation| Gui.task({
+	pending: state,
+	run: || watch.next!(),
+	resolve: |latest, change| if latest.live.generation != generation {
+		Gui.none
+	} else {
+		match change {
+			Changed(changes) => if changes.replaced or changes.overflowed recheck(latest, watch, generation) else grow(latest, watch, generation)
+			_ => Gui.update({ ..latest, live: idle })
+		}
+	},
+})
+
+## Where the lists on screen are, so a capture read again fills them at the
+## same places.
+Places : { phase : Str, only : Filter, cycle_offset : U64, run : I64, step_offset : U64 }
+
+places : State -> Places
+places = |state| { phase: state.phase, only: state.filter, cycle_offset: state.cycles.window.offset, run: state.steps.run, step_offset: state.steps.window.offset }
+
+## What reading a capture being recorded found: nothing past what was read, or
+## the capture again with the pages on screen.
+Growth : [Same, Grew({ opened : Capture.Opened, progress : Capture.Progress, at : Places, cycles : List(Capture.Cycle), steps : List(Capture.Step) })]
+
+## Read the capture again only when a row past the last one read, an ended
+## run, or its finalisation has been committed.
+grow! : Capture.Opened, Capture.Progress, Places => Try(Growth, Str)
+grow! = |held, read_to, at| {
+	database = held.database
+	progress = Capture.progress!(database)?
+	if progress == read_to {
+		Ok(Same)
+	} else {
+		opened = Capture.read!(database, held.name)?
+		cycles = Capture.cycles!(database, { phase: at.phase, only: at.only, offset: at.cycle_offset })?
+		steps = Capture.run_steps!(database, at.run, at.step_offset)?
+		Ok(Grew({ opened, progress, at, cycles, steps }))
+	}
+}
+
+## New cycles, frames, and steps appear where the person is: the pages on
+## screen are replaced only if they still show the phase, filter, and run they
+## were read for. A finalised capture is not watched again.
+grow : State, Gui.FilesWatch, U64 -> Gui.Action(State)
+grow = |state, watch, generation| match state.capture {
+	None => Gui.update({ ..state, live: idle })
+	Some(held) => {
+		id = state.next_request
+		read_to = state.live.progress
+		at = places(state)
+		Gui.task({
+			pending: { ..state, next_request: id + 1 },
+			run: || grow!(held, read_to, at),
+			resolve: |latest, outcome| if latest.live.generation != generation {
+				Gui.none
+			} else {
+				match outcome {
+					Ok(Same) => wait_capture(latest, watch, generation)
+					Ok(Grew(fresh)) => {
+						grown = regrown(latest, fresh, id)
+						if Capture.finalised(fresh.opened) Gui.update({ ..grown, live: idle }) else wait_capture(grown, watch, generation)
+					}
+					Err(message) => Gui.update({ ..latest, live: idle, status: failure(message, "The capture being recorded could not be read again.") })
+				}
+			},
+		})
+	}
+}
+
+regrown : State, { opened : Capture.Opened, progress : Capture.Progress, at : Places, cycles : List(Capture.Cycle), steps : List(Capture.Step) }, U64 -> State
+regrown = |latest, fresh, id| {
+	opened = { ..fresh.opened, revision: id }
+	cycles = if latest.cycles.phase == fresh.at.phase and latest.cycles.filter == fresh.at.only {
+		{ phase: fresh.at.phase, filter: fresh.at.only, window: { offset: fresh.at.cycle_offset, rows: fresh.cycles, read: id } }
+	} else {
+		latest.cycles
+	}
+	steps = if latest.steps.run == fresh.at.run { run: fresh.at.run, window: { offset: fresh.at.step_offset, rows: fresh.steps, read: id } } else latest.steps
+	{ ..latest, capture: Some(opened), cycles, steps, strip: { strip: opened.strip, read: id }, live: { ..latest.live, progress: fresh.progress } }
+}
+
+## The file's name may now name another capture. Its identity says which: the
+## same capture is read on, another one is offered for reloading.
+recheck : State, Gui.FilesWatch, U64 -> Gui.Action(State)
+recheck = |state, watch, generation| match state.capture {
+	None => Gui.update({ ..state, live: idle })
+	Some(held) => {
+		source = state.source
+		Gui.task({
+			pending: state,
+			run: || identity_at!(source),
+			resolve: |latest, outcome| if latest.live.generation != generation {
+				Gui.none
+			} else {
+				match outcome {
+					Ok(found) if found == Capture.metadata(held, "capture_id") => grow(latest, watch, generation)
+					_ => Gui.update({ ..latest, changed: True, live: idle })
+				}
+			},
+		})
+	}
+}
+
+## Open the capture a source names now, through a connection of its own.
+open_source! : Source => Try(Capture.Opened, Str)
+open_source! = |source| match source {
+	InFolder(held) => Capture.open!(held.directory, held.name)
+	Chosen(held) => Capture.open_file!(held.file, held.name)
+	None => Err("No capture is open")
+}
+
+identity_at! : Source => Try(Str, Str)
+identity_at! = |source| {
+	opened = match source {
+		InFolder(held) => Gui.Sqlite.open_read!(held.directory, held.name)
+		Chosen(held) => Gui.Sqlite.open_file_read!(held.file)
+		None => Err(OpenDatabaseErr(InvalidCapability("No capture is open")))
+	}
+	match opened {
+		Ok(database) => Capture.identity!(database)
+		Err(error) => Err(Gui.Sqlite.detail(error))
+	}
+}
+
+## Only `.rgstats` names change the capture list; a reader's log and index
+## beside a capture do not.
+is_capture_name : Str -> Bool
+is_capture_name = |name| Str.ends_with(name, ".rgstats")
+
+## Wait until a capture of the folder is created, removed, renamed, or
+## written. The task holds only the watch, and changes to anything else in
+## the folder are waited through rather than delivered.
+wait_folder : State, Gui.FilesWatch, U64 -> Gui.Action(State)
+wait_folder = |state, watch, generation| Gui.task({
+	pending: { ..state, folder_watch: generation },
+	run: || captures_changed!(watch),
+	resolve: |latest, outcome| if latest.folder_watch != generation {
+		Gui.none
+	} else {
+		match outcome {
+			Relevant(changes) => relist(latest, watch, generation, changes)
+			Ended => Gui.update({ ..latest, folder_watch: 0 })
+		}
+	},
+})
+
+captures_changed! : Gui.FilesWatch => [Relevant(Gui.FilesChanges), Ended]
+captures_changed! = |watch| match watch.next!() {
+	Changed(changes) => if changes.overflowed or changes.names.any(is_capture_name) Relevant(changes) else captures_changed!(watch)
+	_ => Ended
+}
+
+## List the folder again. Only the captures the watch named, and any new ones,
+## are read again; every other listing is kept.
+relist : State, Gui.FilesWatch, U64, Gui.FilesChanges -> Gui.Action(State)
+relist = |state, watch, generation, changes| match state.folder {
+	None => Gui.update({ ..state, folder_watch: 0 })
+	Some(folder) => {
+		id = state.next_request
+		directory = folder.directory
+		held = folder.captures
+		Gui.task({
+			pending: { ..state, next_request: id + 1 },
+			run: || match directory.list!() {
+				Ok(entries) => Relisted(relist_captures!(directory, entries, held, changes))
+				Err(_) => Unlisted
+			},
+			resolve: |latest, outcome| if latest.folder_watch != generation {
+				Gui.none
+			} else {
+				match (outcome, latest.folder) {
+					(Relisted(captures), Some(current)) => wait_folder(noticed({ ..latest, folder: Some({ ..current, revision: id, captures }) }), watch, generation)
+					_ => wait_folder(latest, watch, generation)
+				}
+			},
+		})
+	}
+}
+
+relist_captures! : Gui.FilesDirRead, List(Gui.FilesEntry), List(Capture.Listing), Gui.FilesChanges => List(Capture.Listing)
+relist_captures! = |directory, entries, held, changes| {
+	var $listed = []
+	for entry in entries.keep_if(is_capture) {
+		kept = if changes.overflowed or changes.names.contains(entry.name) Err(NotFound) else held.find_first(|listing| listing.name == entry.name)
+		listing = match kept {
+			Ok(found) => found
+			Err(_) => Capture.summarize!(directory, entry.name)
+		}
+		$listed = $listed.append(listing)
+	}
+	$listed
+}
+
+## A capture opened from the folder whose file now holds another capture.
+noticed : State -> State
+noticed = |state| match (state.source, state.capture, state.folder) {
+	(InFolder(held), Some(opened), Some(folder)) => match folder.captures.find_first(|listing| listing.name == held.name) {
+		Ok(listing) if listing.capture_id != Capture.metadata(opened, "capture_id") => { ..state, changed: True, live: idle }
+		_ => state
+	}
+	_ => state
+}
+
+## The place a reload keeps, by keys that survive the file changing: the view,
+## the phase, a trigger filter, a run by its phase and sample, and a cycle by
+## its run, trigger, and ordinal.
+Kept : {
+	view : View,
+	phase : Str,
+	filter : Filter,
+	run : [None, Some({ phase : Str, sample : [None, Some(I64)] })],
+	inspected : [None, Some({ phase : Str, sample : [None, Some(I64)], trigger : Str, ordinal : I64 })],
+	step_focus : [None, Some(I64)],
+	family_focus : [None, Some(Str)],
+}
+
+run_key : Capture.Opened, I64 -> [None, Some({ phase : Str, sample : [None, Some(I64)] })]
+run_key = |opened, id| match opened.runs.find_first(|run| run.id == id) {
+	Ok(run) => Some({ phase: run.phase, sample: run.sample })
+	Err(_) => None
+}
+
+kept : State, Capture.Opened -> Kept
+kept = |state, opened| {
+	view: state.view,
+	phase: state.phase,
+	filter: state.filter,
+	run: run_key(opened, state.steps.run),
+	inspected: match state.inspected {
+		Some(found) => match run_key(opened, found.cycle.run_id) {
+			Some(key) => Some({ phase: key.phase, sample: key.sample, trigger: found.cycle.trigger, ordinal: found.cycle.ordinal })
+			None => None
+		}
+		None => None
+	},
+	step_focus: state.step_focus,
+	family_focus: state.family_focus,
+}
+
+## A capture read again, placed where the person was.
+Reloaded : { loaded : Loaded, filter : Filter, inspected : [None, Some(Capture.Inspected)], step_focus : [None, Some(I64)] }
+
+run_matching : Capture.Opened, { phase : Str, sample : [None, Some(I64)] } -> [None, Some(I64)]
+run_matching = |opened, key| match opened.runs.find_first(|run| run.phase == key.phase and run.sample == key.sample) {
+	Ok(run) => Some(run.id)
+	Err(_) => None
+}
+
+reopen! : Source, Kept => Try(Reloaded, Str)
+reopen! = |source, place| {
+	opened = open_source!(source)?
+	database = opened.database
+	phase = if opened.triggers.any(|found| found.phase == place.phase) place.phase else default_phase(opened)
+	filter = match within(place.filter) {
+		Only(chosen) if opened.triggers.any(|found| found.phase == phase and found.trigger == chosen.trigger and found.patch_kind == chosen.patch_kind) => Only(chosen)
+		_ => All
+	}
+	run_found = match place.run {
+		Some(key) => run_matching(opened, key)
+		None => None
+	}
+	run = match run_found {
+		Some(id) => id
+		None => first_run(opened)
+	}
+	inspected = match place.inspected {
+		None => None
+		Some(key) => match run_matching(opened, { phase: key.phase, sample: key.sample }) {
+			None => None
+			Some(run_id) => match Capture.cycle_at!(database, run_id, key.ordinal)? {
+				Some(cycle) if cycle.trigger == key.trigger => Some(Capture.inspect!(database, cycle)?)
+				_ => None
+			}
+		}
+	}
+	cycles = Capture.cycles!(database, { phase, only: filter, offset: 0 })?
+	steps = Capture.run_steps!(database, run, 0)?
+	live = watch_recording!(opened)
+	step_focus = if run_found == None None else place.step_focus
+	Ok({ loaded: { opened, phase, run, cycles, steps, live }, filter, inspected, step_focus })
+}
+
+## Read the replaced capture from where it was opened, keeping the person's
+## place.
+reload : State -> Gui.Action(State)
+reload = |state| match state.capture {
+	None => Gui.update(state)
+	Some(opened) => {
+		id = state.next_request
+		source = state.source
+		place = kept(state, opened)
+		Gui.task({
+			pending: { ..state, next_request: id + 1, status: Busy(id), live: idle },
+			run: || reopen!(source, place),
+			resolve: |latest, outcome| match latest.status {
+				Busy(active) if active == id => match outcome {
+					Ok(reloaded) => {
+						shown = show(latest, reloaded.loaded, id)
+						window = { offset: 0, rows: reloaded.loaded.cycles, read: id }
+						placed = {
+							..shown,
+							view: place.view,
+							filter: reloaded.filter,
+							cycles: { phase: reloaded.loaded.phase, filter: reloaded.filter, window },
+							inspected: reloaded.inspected,
+							step_focus: reloaded.step_focus,
+							family_focus: place.family_focus,
+						}
+						begin_live(placed, reloaded.loaded.live, id)
+					}
+					Err(message) => Gui.update({ ..latest, status: failure(message, "The replaced capture could not be read. The capture on screen is the one read before.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
 }

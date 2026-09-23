@@ -8,7 +8,7 @@
     (await-task)
     (click (role button :name "Health"))
     (expect-visible (within (role row :name "Verdict") (text "complete")))
-    (expect-visible (text-prefix "Untrusted when the capture is not finalised"))
+    (expect-visible (text-prefix "Withheld until the capture is finalised"))
     (expect-visible (within (role column :name "Measurement families") (text "host_cycles")))
     (expect-visible (within (role column :name "Measurement families") (text "gpui_presentation")))
     (expect-count (within (role column :name "Measurement families") (text "complete")) 9)
