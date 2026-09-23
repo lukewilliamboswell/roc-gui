@@ -14,6 +14,7 @@ import ScalingView
 import SourceView
 import Theme
 import TimelineView
+import Widgets
 
 View := [].{
 	render : Observatory.State -> Gui.Elem(Observatory.State)
@@ -89,7 +90,7 @@ meta = |caption| Gui.row(
 )
 
 note : Str -> Gui.Elem(Observatory.State)
-note = |caption| Gui.row(
+note = |caption| Gui.col(
 	{ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta },
 	[Gui.text(caption)],
 )
@@ -1070,23 +1071,49 @@ cycles_section = |state, opened| {
 
 ## The cycle inspector (W3)
 
+## The width the inspector gives a detail inside its card: the pane's size
+## less the pane's and the card's padding and the card's and table's borders.
+inspector_content : Observatory.State -> U32
+inspector_content = |state| {
+	overhead = 2 * Theme.inset + 2 * Theme.inset + 4 + Theme.inset
+	if state.inspector.size > overhead + 120 state.inspector.size - overhead else 120
+}
+
+## How a waterfall shares the inspector's width: a column of names, one of
+## durations, and the rest for the bars, which grow with the inspector up to
+## the width they have below a view.
+WaterfallColumns : { name : U32, figure : U32, bars : U32 }
+
+waterfall_columns : U32 -> WaterfallColumns
+waterfall_columns = |content| {
+	figure = 72
+	# The row's own left padding and the figure; the name column holds the
+	# indent, so the deepest names keep 148 pixels of it.
+	fixed = Theme.inset + figure
+	names = 180
+	room = if content > fixed + names + 40 content - fixed - names else 40
+	bars = if room > 420 420 else room
+	name = if content > fixed + bars + 64 content - fixed - bars else 64
+	{ name, figure, bars }
+}
+
 ## One waterfall row: a name indented by depth, its duration, and its bar at
 ## its offset within the cycle.
-waterfall_row : { name : Str, depth : U32, part : I64, offset : I64, whole : I64, color : Gui.Color } -> Gui.Elem(Observatory.State)
+waterfall_row : { name : Str, depth : U32, part : I64, offset : I64, whole : I64, color : Gui.Color, columns : WaterfallColumns } -> Gui.Elem(Observatory.State)
 waterfall_row = |props| Gui.row(
 	{ label: "Waterfall ${props.name}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset + props.depth * 16), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 	[
-		cell(props.name, 220 - props.depth * 16, Theme.ink),
-		figure_cell(Format.ms(props.part), 110),
-		offset_bar({ offset: props.offset, part: props.part, whole: props.whole, span: 420, color: props.color }),
+		cell(props.name, props.columns.name - props.depth * 16, Theme.ink),
+		figure_cell(Format.ms(props.part), props.columns.figure),
+		offset_bar({ offset: props.offset, part: props.part, whole: props.whole, span: props.columns.bars, color: props.color }),
 	],
 )
 
 ## A waterfall row whose value is absent: its `—` and why.
-waterfall_absent : { name : Str, depth : U32, family : Str, reason : Str } -> Gui.Elem(Observatory.State)
+waterfall_absent : { name : Str, depth : U32, family : Str, reason : Str, columns : WaterfallColumns } -> Gui.Elem(Observatory.State)
 waterfall_absent = |props| Gui.row(
 	{ label: "Waterfall ${props.name}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset + props.depth * 16), gap: 0, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
-	[cell(props.name, 220 - props.depth * 16, Theme.ink), dash_cell(props.family, props.reason, 110), rest_cell(props.reason, Theme.dim)],
+	[cell(props.name, props.columns.name - props.depth * 16, Theme.ink), dash_cell(props.family, props.reason, props.columns.figure), rest_cell(props.reason, Theme.dim)],
 )
 
 ## Span evidence is shown only for a callback whose spans were recorded validly
@@ -1100,14 +1127,14 @@ spans_absence = |opened, inspected| if !Capture.complete(opened, "roc_work_spans
 	Shown
 }
 
-waterfall : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
-waterfall = |opened, inspected| {
+waterfall : Capture.Opened, Capture.Inspected, WaterfallColumns -> List(Gui.Elem(Observatory.State))
+waterfall = |opened, inspected, columns| {
 	cycle = inspected.cycle
 	parts = Capture.decompose(inspected)
 	whole = cycle.duration
-	row = |name, depth, part, offset, color| waterfall_row({ name, depth, part, offset, whole, color })
+	row = |name, depth, part, offset, color| waterfall_row({ name, depth, part, offset, whole, color, columns })
 	span_rows = match spans_absence(opened, inspected) {
-		Absent(reason) => [waterfall_absent({ name: "spans", depth: 2, family: "roc_work_spans", reason })]
+		Absent(reason) => [waterfall_absent({ name: "spans", depth: 2, family: "roc_work_spans", reason, columns })]
 		Shown => {
 			var $offset = 0
 			var $drawn = []
@@ -1128,11 +1155,11 @@ waterfall = |opened, inspected| {
 			row("gpui apply", 2, gpui, apply_at + inspected.graph_apply, Theme.apply),
 			match parts.apply_rest {
 				Some(rest) => row("unattributed", 2, rest, apply_at + inspected.graph_apply + gpui, Theme.unattributed)
-				None => waterfall_absent({ name: "unattributed", depth: 2, family: "gpui_application", reason: Capture.absence(opened, "gpui_application") })
+				None => waterfall_absent({ name: "unattributed", depth: 2, family: "gpui_application", reason: Capture.absence(opened, "gpui_application"), columns })
 			},
 		]
 		None => [
-			waterfall_absent({ name: "gpui apply", depth: 2, family: "gpui_application", reason: Capture.absence(opened, "gpui_application") }),
+			waterfall_absent({ name: "gpui apply", depth: 2, family: "gpui_application", reason: Capture.absence(opened, "gpui_application"), columns }),
 		]
 	}
 	check = if parts.balanced {
@@ -1165,8 +1192,8 @@ waterfall = |opened, inspected| {
 }
 
 ## US-14: every kind, `—` when the cycle has no component work observation.
-component_work : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
-component_work = |opened, inspected| {
+component_work : Capture.Opened, Capture.Inspected, U32 -> List(Gui.Elem(Observatory.State))
+component_work = |opened, inspected, name_width| {
 	absent = if !Capture.complete(opened, "component_work") {
 		Some(Capture.absence(opened, "component_work"))
 	} else if !inspected.component_work_recorded {
@@ -1205,14 +1232,14 @@ component_work = |opened, inspected| {
 	}
 	[heading("COMPONENT WORK")]
 		.concat(reason)
-		.concat([table("Component work", [table_head("Component work columns", [head_cell("kind", 190), head_figure("count", 70), head_rest("")])].concat(rows)), note(skip)])
+		.concat([table("Component work", [table_head("Component work columns", [head_cell("kind", name_width), head_figure("count", 70), head_rest("")])].concat(rows)), note(skip)])
 }
 
 ## US-15
-graph_work : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
-graph_work = |opened, inspected| {
+graph_work : Capture.Opened, Capture.Inspected, U32 -> List(Gui.Elem(Observatory.State))
+graph_work = |opened, inspected, name_width| {
 	present = Capture.complete(opened, "patch_accounting")
-	counter_row = |counter| labelled_row("Graph ${counter.name}", [cell(counter.name, 190, Theme.ink), family_cell(opened, "patch_accounting", counter.value.to_str(), 70), rest_cell("", Theme.dim)])
+	counter_row = |counter| labelled_row("Graph ${counter.name}", [cell(counter.name, name_width, Theme.ink), family_cell(opened, "patch_accounting", counter.value.to_str(), 70), rest_cell("", Theme.dim)])
 	reason = if present [] else [absence_note(opened, "patch_accounting")]
 	[heading("GRAPH WORK")]
 		.concat(reason)
@@ -1220,7 +1247,7 @@ graph_work = |opened, inspected| {
 			[
 				table(
 					"Graph work",
-					[table_head("Graph work columns", [head_cell("counter", 190), head_figure("count", 70), head_rest("")])]
+					[table_head("Graph work columns", [head_cell("counter", name_width), head_figure("count", 70), head_rest("")])]
 						.concat(inspected.graph.map(counter_row))
 						.concat(inspected.keyed.map(counter_row)),
 				),
@@ -1228,37 +1255,60 @@ graph_work = |opened, inspected| {
 		)
 }
 
-## US-16
-span_allocations : Capture.Opened, Capture.Inspected -> List(Gui.Elem(Observatory.State))
-span_allocations = |opened, inspected| {
+## US-16. The five figures share one table where the inspector is wide
+## enough for them beside a span's name; otherwise a span's allocations, its
+## releases, and its reallocations are a table each, so no figure is cut off.
+span_allocations : Capture.Opened, Capture.Inspected, U32 -> List(Gui.Elem(Observatory.State))
+span_allocations = |opened, inspected, content| {
 	shown = spans_absence(opened, inspected)
-	figures = |kind| match (shown, Capture.span(inspected, kind)) {
-		(Shown, Found(found)) => [
-			figure_cell(found.alloc_calls.to_str(), 80),
-			figure_cell(Format.bytes(found.allocated_bytes), 100),
-			figure_cell(found.dealloc_calls.to_str(), 80),
-			figure_cell(found.realloc_calls.to_str(), 80),
-			figure_cell(Format.bytes(found.reallocated_bytes), 100),
+	whole = [{ index: 0, caption: "allocs", width: 64 }, { index: 1, caption: "bytes", width: 84 }, { index: 2, caption: "deallocs", width: 72 }, { index: 3, caption: "reallocs", width: 72 }, { index: 4, caption: "realloc bytes", width: 104 }]
+	tables = if content >= whole.fold(Theme.inset + 150, |total, found| total + found.width) {
+		[span_table({ inspected, shown, content, label: "Allocations", row_label: "Allocation", name_head: "span", columns: whole })]
+	} else {
+		[
+			span_table({ inspected, shown, content, label: "Allocations", row_label: "Allocation", name_head: "allocations", columns: [{ index: 0, caption: "calls", width: 56 }, { index: 1, caption: "bytes", width: 84 }] }),
+			span_table({ inspected, shown, content, label: "Releases", row_label: "Release", name_head: "releases", columns: [{ index: 2, caption: "calls", width: 56 }] }),
+			span_table({ inspected, shown, content, label: "Reallocations", row_label: "Reallocation", name_head: "reallocations", columns: [{ index: 3, caption: "calls", width: 56 }, { index: 4, caption: "bytes", width: 84 }] }),
 		]
-		(Shown, Missing) => [figure_cell("0", 80), figure_cell(Format.bytes(0), 100), figure_cell("0", 80), figure_cell("0", 80), figure_cell(Format.bytes(0), 100)]
-		(Absent(why), _) => [dash_cell("roc_work_spans", why, 80), dash_cell("roc_work_spans", why, 100), dash_cell("roc_work_spans", why, 80), dash_cell("roc_work_spans", why, 80), dash_cell("roc_work_spans", why, 100)]
 	}
 	reason = match shown {
 		Absent(why) => [absence_line("roc_work_spans", why)]
 		Shown => []
 	}
-	[heading("ALLOCATIONS BY SPAN")]
-		.concat(reason)
-		.concat(
-			[
-				table(
-					"Allocations",
-					[table_head("Allocation columns", [head_cell("span", 190), head_figure("allocs", 80), head_figure("bytes", 100), head_figure("deallocs", 80), head_figure("reallocs", 80), head_figure("realloc bytes", 100), head_rest("")])].concat(
-						Capture.span_kinds.map(|kind| labelled_row("Allocation ${kind}", [cell(kind, 190, Theme.ink)].concat(figures(kind)).append(rest_cell("", Theme.dim)))),
-					),
-				),
-			],
-		)
+	[heading("ALLOCATIONS BY SPAN")].concat(reason).concat(tables)
+}
+
+## A span's allocation figures, by the index `span_allocations` gives them:
+## calls and bytes allocated, calls released, and calls and bytes
+## reallocated.
+allocation_figure : [Missing, Found(Capture.Span)], U64 -> Str
+allocation_figure = |found_span, index| {
+	texts = match found_span {
+		Found(found) => [found.alloc_calls.to_str(), Format.bytes(found.allocated_bytes), found.dealloc_calls.to_str(), found.realloc_calls.to_str(), Format.bytes(found.reallocated_bytes)]
+		Missing => ["0", Format.bytes(0), "0", "0", Format.bytes(0)]
+	}
+	texts.get(index) ?? ""
+}
+
+## Some of a span's allocation figures beside each span's name, which takes
+## what they leave of the inspector. A figure is `—` with its reason when the
+## spans are absent.
+span_table : { inspected : Capture.Inspected, shown : [Shown, Absent(Str)], content : U32, label : Str, row_label : Str, name_head : Str, columns : List({ index : U64, caption : Str, width : U32 }) } -> Gui.Elem(Observatory.State)
+span_table = |props| {
+	used = props.columns.fold(Theme.inset, |total, found| total + found.width)
+	name = if props.content > used + 190 190 else if props.content > used + 40 props.content - used else 40
+	figures = |kind| props.columns.map(
+		|column| match props.shown {
+			Shown => figure_cell(allocation_figure(Capture.span(props.inspected, kind), column.index), column.width)
+			Absent(why) => dash_cell("roc_work_spans", why, column.width)
+		},
+	)
+	table(
+		props.label,
+		[table_head("${props.row_label} columns", [head_cell(props.name_head, name)].concat(props.columns.map(|column| head_figure(column.caption, column.width))).append(head_rest("")))].concat(
+			Capture.span_kinds.map(|kind| labelled_row("${props.row_label} ${kind}", [cell(kind, name, Theme.ink)].concat(figures(kind)).append(rest_cell("", Theme.dim)))),
+		),
+	)
 }
 
 inspector : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
@@ -1276,13 +1326,17 @@ inspector = |state, opened| match state.inspected {
 		title = Gui.col(
 			{ label: "Inspector title", width: Fill, padding: 0, gap: 6 },
 			[
-				Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("CYCLE ${cycle_name(cycle)} · ${cycle.trigger} · ${cycle.patch_kind} · ${cycle.phase}")]),
+				Gui.col({ width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("CYCLE ${cycle_name(cycle)} · ${cycle.trigger} · ${cycle.patch_kind} · ${cycle.phase}")]),
 				Gui.row({ padding: 0, gap: Theme.inset }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.delegate(Observatory.close_inspector(current)) }))),
 			],
 		)
+		content = inspector_content(state)
+		# A counter's name takes what its count leaves, up to the width it has
+		# below a view.
+		work_name = if content > Theme.inset + 70 + 190 190 else if content > Theme.inset + 70 + 40 content - Theme.inset - 70 else 40
 		timed = Capture.complete(opened, "host_cycles")
 		timing = if timed {
-			[table("Waterfall", waterfall(opened, inspected))]
+			[table("Waterfall", waterfall(opened, inspected, waterfall_columns(content)))]
 		} else {
 			[absence_note(opened, "host_cycles")]
 		}
@@ -1290,7 +1344,7 @@ inspector = |state, opened| match state.inspected {
 		[
 			Gui.col(
 				{ label: "Cycle inspector", width: Fill, padding: Theme.inset, gap: 6, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
-				[title, Gui.row({ label: "Cycle target", width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body, font_face: Theme.face }, [Gui.text("TARGET ${Capture.target_caption(cycle)}")])]
+				[title, Widgets.labelled_note("Cycle target", "TARGET ${Capture.target_caption(cycle)}", Theme.dim)]
 					.concat(CompareView.cycle_line(CompareView.mode(state), opened, cycle))
 					.append(waterfall_heading)
 					.concat(timing)
@@ -1299,13 +1353,13 @@ inspector = |state, opened| match state.inspected {
 							Gui.col(
 								{ label: "Cycle work", width: Fill, padding: 0, gap: Theme.inset },
 								[
-									Gui.col({ width: Px(300), padding: 0, gap: 4 }, component_work(opened, inspected)),
-									Gui.col({ width: Px(300), padding: 0, gap: 4 }, graph_work(opened, inspected)),
+									Gui.col({ width: Fill, padding: 0, gap: 4 }, component_work(opened, inspected, work_name)),
+									Gui.col({ width: Fill, padding: 0, gap: 4 }, graph_work(opened, inspected, work_name)),
 								],
 							),
 						],
 					)
-					.concat(span_allocations(opened, inspected)),
+					.concat(span_allocations(opened, inspected, content)),
 			),
 		]
 	}
@@ -2176,7 +2230,9 @@ frame_detail = |state, opened| match state.frame {
 	Some(detail) => {
 		total = detail.layout + detail.prepaint + detail.paint
 		budget = Capture.budget_ns(state.budget)
-		figure = |name, value| labelled_row("Frame ${name}", [cell(name, 110, Theme.dim), figure_cell(value, 110)])
+		# The name takes what the figure leaves, so the figures keep the right
+		# edge however wide the inspector is.
+		figure = |name, value| labelled_row("Frame ${name}", [rest_cell(name, Theme.dim), figure_cell(value, 150)])
 		count = |metric| match detail.work.find_first(|found| found.metric == metric) {
 			Ok(found) => found.count.to_str()
 			Err(_) => "—"
@@ -2533,7 +2589,8 @@ same_inspector = |a, b| {
 	and same_capture(a, b)
 	and (
 		match shown {
-			Interactions => a.inspected == b.inspected and a.inspector_focus == b.inspector_focus and CompareView.same_comparison(a, b)
+			# An inspected cycle lays its waterfall out for the inspector's width.
+			Interactions => a.inspected == b.inspected and a.inspector_focus == b.inspector_focus and CompareView.same_comparison(a, b) and (a.inspected == None or a.inspector.size == b.inspector.size)
 			Frames => a.budget == b.budget and same_frame(a, b)
 			Timeline => TimelineView.same_view(a, b)
 			Spec => a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and SourceView.same(a, b)

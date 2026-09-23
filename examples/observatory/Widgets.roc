@@ -13,11 +13,12 @@ Widgets := [].{
 	meta = |caption| Gui.row({ padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.text(caption)])
 
 	note : Str -> Elem
-	note = |caption| Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Gui.text(caption)])
+	note = |caption| Gui.col({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta }, [Gui.text(caption)])
 
-	## A line a specification can name.
+	## A line a specification can name. It wraps to the width it is given,
+	## so a narrow inspector keeps all of it.
 	labelled_note : Str, Str, Gui.Color -> Elem
-	labelled_note = |label, caption, ink| Gui.row({ label, width: Fill, padding: 0, gap: 0, fg: ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text(caption)])
+	labelled_note = |label, caption, ink| Gui.row({ label, width: Fill, padding: 0, gap: 0, fg: ink, font_size: Theme.body, font_face: Theme.face }, [Gui.col({ width: Fill, grow: True, min_width: Px(0), padding: 0, gap: 0 }, [Gui.text(caption)])])
 
 	heading : Str -> Elem
 	heading = |caption| Gui.row({ width: Fill, padding: 0, padding_top: Px(Theme.inset), gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.text(caption)])

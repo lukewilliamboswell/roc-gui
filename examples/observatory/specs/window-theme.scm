@@ -1,6 +1,7 @@
 ;; The real window in both schemes: the capture list, a capture's overview,
 ;; its cycles with their targets, and the Timeline, photographed light and
-;; then dark, so both palettes can be reviewed against each other.
+;; then dark, so both palettes can be reviewed against each other; the dark
+;; scheme also photographs Frames, Memory, and Health.
 (test "the window presents its key views in both themes"
   (grants
     (directory "fixture/window")
@@ -34,6 +35,17 @@
     (click (role button :name "Overview"))
     (settle)
     (screenshot "dark-overview")
+    (click (role button :name "Frames"))
+    (settle)
+    (screenshot "dark-frames")
+    (click (role button :name "Memory"))
+    (settle)
+    (screenshot "dark-memory")
+    (click (role button :name "Health"))
+    (settle)
+    (screenshot "dark-health")
+    (click (role button :name "Overview"))
+    (settle)
     (click (role button :name "Back to captures"))
     (settle)
     (screenshot "dark-captures")))

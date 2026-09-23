@@ -36,7 +36,9 @@
     (settle)
     (expect-value (role separator :name "Inspector divider") "560")
     (expect-bounds (role column :name "Inspector") :min-width 555 :max-width 565)
-    (expect-component-work :rendered 1 :skipped 7 :mounted 0 :retired 0)
+    ; the window renders the new size, and the inspector, whose cycle lays its
+    ; waterfall out for its width, renders once with it; every view is kept
+    (expect-component-work :rendered 2 :skipped 6 :mounted 0 :retired 0)
     (screenshot "wide-inspector")
     (focus (role separator :name "Inspector divider"))
     (key "enter")
@@ -48,4 +50,16 @@
     (key "enter")
     (settle)
     (expect-on-screen (role column :name "Inspector"))
-    (expect-bounds (role column :name "Inspector") :min-width 555 :max-width 565)))
+    (expect-bounds (role column :name "Inspector") :min-width 555 :max-width 565)
+    ; at its narrowest the inspector lays the cycle out for its width: names
+    ; give way to the figures and bars, and a span's allocations, releases,
+    ; and reallocations are a table each
+    (key "end")
+    (settle)
+    (expect-value (role separator :name "Inspector divider") "240")
+    (expect-on-screen (role row :name "Waterfall cycle"))
+    (screenshot "narrow-inspector")
+    (scroll (role scroll :name "Inspector scroll") :to (role row :name "Reallocation platform_lowering"))
+    (settle)
+    (expect-on-screen (role row :name "Reallocation platform_lowering"))
+    (screenshot "narrow-allocations")))
