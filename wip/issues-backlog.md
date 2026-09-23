@@ -497,12 +497,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   the capture privacy rules, then record the target of each interactive cycle
   and per-component work.
 
-- [ ] **Interactive canvas pointer events are never recorded (E6).** The canvas
-  dispatch path in `crates/host/src/lib.rs` applies its patch with
-  `apply_unrecorded` even when recording is enabled, so drags in an interactive
-  session leave no cycle. Route it through the recorded path used by other
-  interactive events.
-
 - [ ] **No capture identity or live-read contract (E7).** Record a random
   `capture_id`, and document which tables a reader may trust before
   `final_state` is `complete`, so a viewer can distinguish a growing capture

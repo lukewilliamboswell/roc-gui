@@ -3108,8 +3108,26 @@ impl Runtime {
             y,
             target: resolved_target,
         };
-        let patch = dispatch_canvas(id, event);
-        self.apply_unrecorded(patch, cx);
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_canvas(id, event);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "drag",
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_canvas(id, event);
+            self.apply_unrecorded(patch, cx);
+        }
         if phase == 2 {
             self.canvas_drag = None;
         }
@@ -6838,6 +6856,81 @@ mod tests {
         );
         let timed: i64 = db.query_row("SELECT count(*) FROM cycles WHERE trigger='task' AND roc_callback_ns <= duration_ns", [], |row| row.get(0)).unwrap();
         assert_eq!(timed, 2);
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[gpui::test]
+    fn live_canvas_pointer_phases_record_drag_cycles(cx: &mut TestAppContext) {
+        let _guard = observatory::RECORDER_TEST.lock().unwrap();
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: vec![Node {
+                        id: 1000,
+                        kind: NodeKind::Canvas {
+                            label: "Board".into(),
+                            primitives: vec![],
+                            style: Box::new(Style::default()),
+                        },
+                        children: vec![],
+                    }],
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-live-canvas-{}-{}.rgstats",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        observatory::start(observatory::Config {
+            path: path.clone(),
+            detail: observatory::Detail::Full,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-test",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        observatory::run_start(1, "interactive", None, 0, 1);
+        let seen: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
+        let recorded = seen.clone();
+        install_test_dispatcher(move |_| {
+            observatory::start_roc_work(0);
+            let phase = super::CANVAS_EVENT.with(|slot| slot.borrow().map(|event| event.phase));
+            recorded.borrow_mut().push(phase.unwrap());
+            observatory::end_roc_work(0);
+            Patch::NoChange
+        });
+        runtime.update(cx, |runtime, cx| {
+            for phase in 0..3 {
+                runtime.canvas_pointer_for_node(1000, phase, 5, 5, 0, cx);
+            }
+        });
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(*seen.borrow(), vec![0, 1, 2]);
+        observatory::run_end(1, "pass", 0, None);
+        observatory::finish("success").unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        let rows: i64 = db
+            .query_row(
+                "SELECT count(*) FROM cycles WHERE trigger='drag' AND roc_work_valid AND roc_callback_ns <= duration_ns",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 3);
         drop(db);
         std::fs::remove_file(path).unwrap();
     }
