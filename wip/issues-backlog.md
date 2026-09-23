@@ -986,6 +986,17 @@ names the evidence so a fix can be verified against the same case.
 
 ## Compiler and toolchain defects
 
+- [ ] **Observatory's arm64 dev build overruns ld64.lld's thunk range.** On
+  macOS 15 (arm64), `roc build --opt=dev examples/observatory/main.roc` fails in
+  the final link with `ld64.lld: error: finalize: FIXME: thunk range overrun`
+  (linker-input producer run 35925205033). The Linux dev build shows why: its
+  `.text` is 201 MB, against about 80 MB for a whole Database Browser binary,
+  and arm64 branches reach only ±128 MB. The Roc dev backend emits far more code
+  for Observatory's many memoized boundaries and closures than its source
+  suggests. The LLVM backend cannot be used instead on the pinned nightly (see
+  the speed-backend entry). Find what the dev backend duplicates, report it
+  upstream, and until then the arm64 producer and CI cannot run Observatory.
+
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.
 
