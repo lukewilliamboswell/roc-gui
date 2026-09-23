@@ -424,6 +424,12 @@ opens `.rgstats` captures and queries their tables directly. It is also the
 pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
 ideal and the repository. P- and E-numbers refer to that document.
 
+- [ ] **A flat scaling result reads as "sub-linear".** When every step ratio of
+  a trigger and metric lies within the A/A noise band of 1, Scaling reports
+  `sub-linear`, which is true but hides the stronger finding that the cost did
+  not grow with the workload (as for Database Browser's on-demand rows). Report
+  `constant within noise` for that case.
+
 - [ ] **The long-capture case stops at 10,000 cycles and records no frames
   (US-40).** `scale-session.scm` opens one generated 10,000-cycle Database
   Browser session and jumps through its cycle list, and `window-session.scm`
