@@ -683,14 +683,18 @@ identity = |opened| {
 		"0" => ""
 		_ => " (dirty unknown)"
 	}
+	spec_name = m("spec_name")
+	spec = if Str.is_empty(spec_name) "no specification" else "spec \"${spec_name}\""
 	samples = m("benchmark_samples")
-	benchmark = if samples == "0" or Str.is_empty(samples) {
+	benchmark = if Str.is_empty(spec_name) {
+		"interactive session: no test run"
+	} else if samples == "0" or Str.is_empty(samples) {
 		"not a benchmark: one test run"
 	} else {
 		"benchmark: ${m("benchmark_warmups")} warmups · ${samples} samples · ${m("benchmark_iterations")} iterations · scale ${m("benchmark_scale")}"
 	}
 	[
-		line("${m("app_name")} · spec \"${m("spec_name")}\" · ${m("target_profile")}"),
+		line("${m("app_name")} · ${spec} · ${m("target_profile")}"),
 		line("commit ${short}${dirty} · ${m("cpu_model")} ×${m("logical_cpu_count")} · ${m("host_os")} ${m("host_arch")}"),
 		line(benchmark),
 	]
