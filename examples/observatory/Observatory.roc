@@ -5,6 +5,7 @@
 import pf.Gui
 import Capture
 import Scaling
+import Timeline
 
 ## What the application holds over the filesystem. Nothing chosen yet, a
 ## dismissed chooser, and a host refusal call for different next steps.
@@ -16,7 +17,7 @@ Folder : { revision : U64, name : Str, directory : Gui.FilesDirRead, captures : 
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
-View : [Overview, Interactions, Frames, Spec, Memory, Health, Compare, Scaling]
+View : [Overview, Interactions, Frames, Timeline, Spec, Memory, Health, Compare, Scaling]
 
 ## A table's order: the column index and its direction.
 Sort : { column : U64, descending : Bool }
@@ -43,6 +44,10 @@ Reading : [None, Some({ id : U64, offset : U64 })]
 ## The frame strip on screen and the request that read it, which a memoized
 ## chart compares instead of its bars.
 Strip : { strip : Capture.Strip, read : U64 }
+
+## The span of the clock the timeline shows, the capture it was read from, and
+## the request that read it.
+Clock : { of : U64, window : Timeline.Window, read : U64 }
 
 ## What a view inside a component boundary asks of the application as a whole:
 ## work that needs a handle only the root holds, or a change a sibling view
@@ -78,6 +83,10 @@ Request : [
 	SelectFrame(Capture.Bar),
 	## Read the frame strip of a span of frames from a row.
 	ShowFrames(I64, I64),
+	## Read the timeline of a span of the clock, in nanoseconds from an instant.
+	ShowTimeline(I64, I64),
+	## Open a cycle in the Interactions inspector from another view.
+	InspectCycle(Capture.Cycle),
 ]
 
 State : {
@@ -116,6 +125,10 @@ State : {
 	frame_hover : [None, Some(I64)],
 	bucket_hover : [None, Some(I64)],
 	frame : [None, Some(Capture.FrameDetail)],
+	## The timeline on screen, and the mark under the pointer.
+	clock : Clock,
+	clock_reading : Reading,
+	clock_hover : [None, Some(I64)],
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
@@ -135,6 +148,7 @@ Observatory := [].{
 	Steps : Steps
 	Reading : Reading
 	Strip : Strip
+	Clock : Clock
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -168,6 +182,9 @@ Observatory := [].{
 		frame_hover: None,
 		bucket_hover: None,
 		frame: None,
+		clock: no_clock,
+		clock_reading: None,
+		clock_hover: None,
 		request: None,
 	}
 
@@ -267,6 +284,9 @@ Observatory := [].{
 empty_window : Window(a)
 empty_window = { offset: 0, rows: [], read: 0 }
 
+no_clock : Clock
+no_clock = { of: 0, window: Timeline.empty, read: 0 }
+
 ## Rows either side of the viewport a window should still hold before the
 ## list reads again, so a person scrolling steadily meets rows already read.
 margin : U64
@@ -356,6 +376,9 @@ fulfil = |asked| {
 		}
 		Some(SelectRun(run_id)) => read_steps({ ..state, step_focus: None }, run_id, 0, None)
 		Some(Show(view)) => list_cycles({ ..state, view, step_focus: None, family_focus: None })
+		Some(ShowTimeline(start, span)) => read_clock(state, start, span)
+		## A cycle pressed elsewhere opens in Interactions, in its own phase.
+		Some(InspectCycle(cycle)) => inspect({ ..state, view: Interactions, phase: cycle.phase, filter: if state.phase == cycle.phase state.filter else All, step_focus: None, family_focus: None }, cycle)
 		## A phase chosen in Interactions reads the cycles the list then shows.
 		Some(SetPhase(phase)) => list_cycles({ ..state, phase, filter: All, cycle_scroll: None })
 		## Pressing the selected trigger again shows every trigger.
@@ -411,7 +434,7 @@ close_capture = |state| {
 		Busy(active) => Busy(active)
 		_ => Ready
 	}
-	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None }
+	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -478,7 +501,7 @@ capture_types : List(Gui.FilesFileType)
 capture_types = [{ label: "roc-gui captures", extensions: ["rgstats"], mime_types: [] }]
 
 unreadable_remedy : Str
-unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 20 captures written by the roc-gui recorder."
+unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 21 captures written by the roc-gui recorder."
 
 ## Open one capture the person chooses, without a folder. The folder grant, if
 ## any, is kept: a single file is a separate grant beside it.
@@ -542,6 +565,9 @@ show = |latest, loaded, id| {
 		frame_hover: None,
 		bucket_hover: None,
 		frame: None,
+		clock: no_clock,
+		clock_reading: None,
+		clock_hover: None,
 		steps: { run: loaded.run, window: steps },
 		steps_reading: None,
 		step_scroll: None,
@@ -588,7 +614,7 @@ inspect = |state, cycle| match state.capture {
 			run: || Capture.inspect!(opened.database, cycle),
 			resolve: |latest, outcome| match latest.status {
 				Busy(active) if active == id => match outcome {
-					Ok(inspected) => Gui.update({ ..latest, inspected: Some(inspected), status: Ready })
+					Ok(inspected) => list_cycles({ ..latest, inspected: Some(inspected), status: Ready })
 					Err(message) => Gui.update({ ..latest, status: failure(message, "This cycle's detail could not be read from the open capture.") })
 				}
 				_ => Gui.none
@@ -598,9 +624,45 @@ inspect = |state, cycle| match state.capture {
 }
 
 ## Read the first page of the cycle list when Interactions shows a phase or
-## filter whose cycles it does not hold.
+## filter whose cycles it does not hold, and the whole clock when the Timeline
+## shows a capture it has not read.
 list_cycles : State -> Gui.Action(State)
-list_cycles = |state| if state.view == Interactions and !holds_cycles(state) read_cycles(state, 0) else Gui.update(state)
+list_cycles = |state| if state.view == Interactions and !holds_cycles(state) {
+	read_cycles(state, 0)
+} else if state.view == Timeline and Some(state.clock.of) != opened_revision(state) and state.clock_reading == None {
+	read_clock(state, 0, 0)
+} else {
+	Gui.update(state)
+}
+
+opened_revision : State -> [None, Some(U64)]
+opened_revision = |state| match state.capture {
+	Some(opened) => Some(opened.revision)
+	None => None
+}
+
+## The timeline of a span of the clock, read through the connection the open
+## capture holds. A read superseded by a later one is discarded, and the mark
+## under the pointer is forgotten, since the marks now stand for other work.
+read_clock : State, I64, I64 -> Gui.Action(State)
+read_clock = |state, start, span| match state.capture {
+	None => Gui.update(state)
+	Some(opened) => {
+		id = state.next_request
+		of = opened.revision
+		Gui.task({
+			pending: { ..state, next_request: id + 1, clock_reading: Some({ id, offset: 0 }) },
+			run: || Timeline.read!(opened.database, start, span),
+			resolve: |latest, outcome| match latest.clock_reading {
+				Some(reading) if reading.id == id => match outcome {
+					Ok(window) => Gui.update({ ..latest, clock: { of, window, read: id }, clock_reading: None, clock_hover: None })
+					Err(message) => Gui.update({ ..latest, clock_reading: None, status: failure(message, "The timeline could not be read from the open capture.") })
+				}
+				_ => Gui.none
+			},
+		})
+	}
+}
 
 ## A page of the listed cycles, read through the connection the open capture
 ## holds. A page read for another phase or filter, or superseded by a later

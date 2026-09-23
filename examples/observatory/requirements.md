@@ -57,7 +57,7 @@ Unfinished work is tracked in `wip/issues-backlog.md` under "Observatory example
 ## 4. Key questions
 
 Each question maps to the evidence that answers it and the view where the answer lives. Evidence
-names tables and columns of capture schema 20, as defined by the recorder in
+names tables and columns of capture schema 21, as defined by the recorder in
 `crates/host/src/observatory.rs` and described in `docs/observatory.adoc`. Items marked
 **E*n*** need recorder evidence listed in [§8](#8-evidence-requests).
 
@@ -115,7 +115,7 @@ window, so that opening two captures from a pull request takes one gesture.
 **US-5 [shared] Refuse unsupported schemas.** As any user, I want an unsupported capture refused
 with a clear reason, so that I never read numbers through the wrong schema.
 - Opening a capture with a different `schema_version` shows
-  "Schema 4 is not supported; Observatory reads schema 20". Nothing is partially rendered.
+  "Schema 4 is not supported; Observatory reads schema 21". Nothing is partially rendered.
 
 ### J2: Trust
 
@@ -404,7 +404,7 @@ Serves US-1 to US-5.
 │   ● enter-100.rgstats          nested-hover-grid · enter-100 · headless · ✓ complete     │
 │   ● 1790122330-main.rgstats    database-browser · interactive · gpui-wayland · ✓         │
 │   ○ bench-out/ (folder)        34 captures                                               │
-│   ⚠ old.rgstats                schema 4 is not supported; Observatory reads schema 20    │
+│   ⚠ old.rgstats                schema 4 is not supported; Observatory reads schema 21    │
 │                                                                                          │
 │   CAPTURES in bench-out/                          sort: [time ▾] app spec scale health   │
 │   file                     app               spec        backend    scale  detail  ✓     │
@@ -420,7 +420,7 @@ Serves US-1 to US-5.
 Serves Q1, Q2, US-6. Each tile opens the view that explains it.
 
 ```
-┌ enter-100.rgstats ◆ │ + ─ [headless] [summary] [schema 20] [✓ final] [gaps 0] [isolated] ┐
+┌ enter-100.rgstats ◆ │ + ─ [headless] [summary] [schema 21] [✓ final] [gaps 0] [isolated] ┐
 ├──────────┬──────────────────────────────────────────────────────────┬────────────────────┤
 │▸Overview │ nested-hover-grid · spec enter-100 · release             │ INSPECTOR          │
 │ Interact.│ commit 3d2c7f1 (dirty) · Ryzen 7 9700X ×16 · linux x86_64│                    │
@@ -581,7 +581,7 @@ Serves US-31 and US-32. The baseline is applied everywhere. This is the comparab
 ```
 ┌ COMPARABILITY  A: main.rgstats ◆ baseline   B: branch.rgstats ────────────────────────────┐
 │ key               A                 B                 ✓                                   │
-│ schema_version    20                20                ✓                                   │
+│ schema_version    21                21                ✓                                   │
 │ spec_hash         9f3a…             9f3a…             ✓                                   │
 │ backend           semantic-headless semantic-headless ✓                                   │
 │ cpu_model         Ryzen 7 9700X     Ryzen 7 9700X     ✓                                   │
@@ -633,7 +633,7 @@ version bump (see `AGENTS.md`). Until then, the corresponding UI shows "not reco
 | # | Request | Needed by | Privacy |
 |---|---|---|---|
 | E1 | A shared monotonic timestamp (start, end) on `cycles`, `gpui_frames`, and `virtual_list_frames` | US-26 Timeline, US-33 | Process-relative clock only |
-| E2 | Frame-to-cycle linkage recorded by the owner that knows it, with an explicit "unattributable" value when an event loop coalesces updates | US-22, US-26 | None |
+| E2 | Frame-to-cycle linkage recorded by the owner that knows it, as a link table so a frame the event loop coalesced several cycles into names each, and a frame that drew no new cycle names none | US-22, US-26 | None |
 | E3 | `virtual_list_frames` linked to the frame (or cycle) that produced the pass | US-25, US-26 | None |
 | E4 | Target of an interactive cycle: node kind plus a stable, non-textual node identity | US-12, US-26 | Labels and text are application text and stay excluded |
 | E5 | Component work attributed per component instance by a stable, non-textual identity | US-18 | Component keys may derive from application state; identity must be opaque |

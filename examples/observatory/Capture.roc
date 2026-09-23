@@ -76,8 +76,9 @@ NativeTotal : { metric : I64, kind : I64, total : I64, max : I64 }
 ## One metric of `gpui_frame_work` over every drawn frame.
 WorkTotal : { metric : I64, total : I64, max : I64 }
 
-## One drawn frame and the native and GPUI-owned work recorded for it. A
-## missing native row is zero only because the frame itself was recorded.
+## One drawn frame, the native and GPUI-owned work recorded for it, and the
+## cycles its owner recorded it was the first to draw. A missing native row is
+## zero only because the frame itself was recorded.
 FrameDetail : {
 	id : I64,
 	run_id : I64,
@@ -87,6 +88,7 @@ FrameDetail : {
 	paint : I64,
 	native : List({ metric : I64, kind : I64, count : I64 }),
 	work : List({ metric : I64, count : I64 }),
+	causes : List(Cycle),
 }
 
 ## One virtual list: its number of recorded passes, its last pass, and the most
@@ -284,13 +286,13 @@ Capture := [].{
 
 	## The one schema this application reads.
 	supported_schema : Str
-	supported_schema = "20"
+	supported_schema = "21"
 
 	## Read enough of one file to list it: identity and a verdict.
 	summarize! : Gui.FilesDirRead, Str => Listing
 	summarize! = summarize!
 
-	## Open one capture, refuse it unless it is schema 20, and read every table
+	## Open one capture, refuse it unless it is schema 21, and read every table
 	## the views present.
 	open! : Gui.FilesDirRead, Str => Try(Opened, Str)
 	open! = open!
@@ -498,12 +500,12 @@ expect work_count(sample_inspected, 2) == Some(0)
 expect work_count({ ..sample_inspected, component_work_recorded: False }, 0) == None
 
 schema_gate : Str -> Try({}, Str)
-schema_gate = |version| if version == "20" {
+schema_gate = |version| if version == "21" {
 	Ok({})
 } else if Str.is_empty(version) {
-	Err("This file records no schema version; Observatory reads schema 20")
+	Err("This file records no schema version; Observatory reads schema 21")
 } else {
-	Err("Schema ${version} is not supported; Observatory reads schema 20")
+	Err("Schema ${version} is not supported; Observatory reads schema 21")
 }
 
 metadata : Opened, Str -> Str
@@ -549,9 +551,10 @@ judge = |trust| {
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Complete
 expect judge({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("not finalised (recording); unclean shutdown")
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "timing_environment", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Partial("partial families: timing_environment")
-expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 20")
+expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 21")
+expect schema_gate("20") == Err("Schema 20 is not supported; Observatory reads schema 21")
 
-## Cells. Every column read through these is declared by schema 20; a nullable
+## Cells. Every column read through these is declared by schema 21; a nullable
 ## column is read as an option so an absent value never becomes zero.
 text_at : List(Gui.SqliteValue), U64 -> Str
 text_at = |row, index| match row.get(index) {
@@ -633,6 +636,9 @@ work_totals_sql = "SELECT metric, sum(count), max(count) FROM gpui_frame_work GR
 frame_native_sql = "SELECT metric, kind, count FROM gpui_native_work WHERE frame_id = ? ORDER BY metric, kind"
 
 frame_work_sql = "SELECT metric, count FROM gpui_frame_work WHERE frame_id = ? ORDER BY metric"
+
+## Only the recorded link says which cycles a frame drew.
+frame_causes_sql = "SELECT c.id, c.run_id, c.ordinal, c.step_ordinal, c.measurement_phase, c.trigger, c.patch_kind, c.duration_ns, c.roc_callback_ns, c.validate_ns, c.apply_ns FROM gpui_frame_cycles l JOIN cycles c ON c.id = l.cycle_id WHERE l.frame_id = ? ORDER BY c.run_id, c.ordinal"
 
 lists_sql = "WITH l AS (SELECT list_id, count(*) AS n, max(id) AS last, max(materialized_entities) AS most FROM virtual_list_frames GROUP BY list_id) SELECT l.list_id, l.n, v.visible_items, v.materialized_entities, v.recycled_entities, v.live_entities, l.most FROM l JOIN virtual_list_frames v ON v.id = l.last ORDER BY l.list_id"
 
@@ -1055,6 +1061,7 @@ frame! : Gui.SqliteDb, Bar => Try(FrameDetail, Str)
 frame! = |database, bar| {
 	native = bound_rows!(database, frame_native_sql, bar.id)?
 	work = bound_rows!(database, frame_work_sql, bar.id)?
+	causes = bound_rows!(database, frame_causes_sql, bar.id)?
 	Ok({
 		id: bar.id,
 		run_id: bar.run_id,
@@ -1064,6 +1071,7 @@ frame! = |database, bar| {
 		paint: bar.paint,
 		native: native.map(|row| { metric: int_at(row, 0), kind: int_at(row, 1), count: int_at(row, 2) }),
 		work: work.map(|row| { metric: int_at(row, 0), count: int_at(row, 1) }),
+		causes: causes.map(decode_cycle),
 	})
 }
 

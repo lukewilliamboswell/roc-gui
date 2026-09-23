@@ -39,6 +39,6 @@
     (expect-visible (role canvas-item :name "Selected frame"))
     (expect-visible (role row :name "Frame layout request"))
     (expect-visible (role row :name "Frame replay share"))
-    (expect-visible (text "cause not recorded: a frame carries no link to the cycle that caused it"))
+    (expect-visible (role row :name "Frame cause"))
     (click (role button :name "Budget 120 Hz"))
     (expect-value (role canvas-item :name "Budget caption") "8.333 ms")))

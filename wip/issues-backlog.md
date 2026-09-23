@@ -461,7 +461,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   frames per scroll at the display's rate, so 100,000 frames would hold the
   screen for many minutes and exceed the window runner's 600-second watchdog. US-40 asks for 100,000 cycles and 100,000 frames in one
   capture; it needs a window session split across the watchdog, or a watchdog
-  that measures progress rather than elapsed time, and the timeline (E1).
+  that measures progress rather than elapsed time.
 
 - [ ] **Two honest-absence paths are reached only by unit expectations.** No
   fixture capture has a cycle with `roc_work_valid = 0` or
@@ -582,12 +582,19 @@ ideal and the repository. P- and E-numbers refer to that document.
 - [ ] **No theme query (P14).** Add a light/dark query so chart scales stay
   readable in both themes.
 
-- [ ] **Captures have no shared clock or causal linkage (E1, E2, E3).**
-  `cycles`, `gpui_frames`, and `virtual_list_frames` carry no timestamps and no
-  links to each other, so no timeline can be drawn and no frame can be tied to
-  its action. Record a process-relative monotonic interval on each, and a
-  frame-to-cycle and list-pass-to-frame link from the owner that knows it, with
-  an explicit unattributable value where the event loop coalesces updates.
+- [ ] **A timeline mark cannot be followed to what it links.** Pressing a
+  list pass on the Timeline does nothing: the pass names its frame or cycle by
+  ordinal, but the view reads only frames and cycles as marks, so it cannot
+  select the linked frame or open the linked cycle. Read the linked row's key
+  with the pass and route it through `SelectFrame` or `InspectCycle`.
+
+- [ ] **No specification presses a frame on the Timeline itself.** A frame's
+  place on the Timeline follows the capture's own timing, which changes each
+  time the fixture is regenerated, so `timeline-cause.scm` presses the frame in
+  the Frames strip, whose columns are ordinal, and then follows its cause from
+  the Timeline. Only the init cycle, which starts the clock, has a stable place.
+  A specification step that presses a canvas primitive by its semantic label
+  would let a specification press any mark.
 
 - [ ] **Interactive cycles do not identify their target or components (E4,
   E5).** A cycle records only its trigger, and component work is a per-cycle
@@ -625,7 +632,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   counts those rows among `visible_items` but has no column saying how many of
   them were blank, so a capture cannot show how often a fast scroll outran the
   list. Add an owner-populated column at the next schema version, together with
-  the Observatory and `analyze_stats.py`, which gate on schema 20.
+  the Observatory and `analyze_stats.py`, which gate on schema 21.
 
 - [ ] **Window benchmark warmup and sample orchestration.** Real-window
   hover-grid runs can record schema-14 captures containing native frames and

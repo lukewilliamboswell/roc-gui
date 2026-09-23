@@ -9,7 +9,7 @@
     (click (role button :name "Capture schema-4.rgstats"))
     (await-task)
     (expect-visible (role panel :name "Capture error"))
-    (expect-visible (within (role panel :name "Capture error") (text "Schema 4 is not supported; Observatory reads schema 20")))
+    (expect-visible (within (role panel :name "Capture error") (text "Schema 4 is not supported; Observatory reads schema 21")))
     (expect-not-visible (role row :name "Capture bar"))
     (expect-not-visible (role column :name "Views"))
     (expect-visible (text "no capture open"))

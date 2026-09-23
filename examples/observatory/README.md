@@ -8,11 +8,11 @@ a health badge, and opens one. Either way the capture is read through the
 platform's ordinary SQLite capability. It queries the capture's tables itself and depends on no other
 tool.
 
-A capture of any schema other than 20 is refused with its reason before a single
+A capture of any schema other than 21 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be
-trusted. Eight views follow:
+trusted. Nine views follow:
 
 - **Overview**: identity from `metadata`, and tiles for outcome, slowest
   trigger, median cycle, frames over budget, skip rate, and verdict.
@@ -40,13 +40,26 @@ trusted. Eight views follow:
   frame of each column, so a slow frame is never averaged away, and the wheel
   zooms into the frames around the pointer. Layout solve and presentation are
   drawn as unavailable bands with their reasons. Hovering a frame reads out its
-  stages; pressing it opens its own work. Below the strip: native renders and
+  stages; pressing it opens its own work and the cycles its owner recorded it
+  was the first to draw, each of which opens in the inspector. Below the strip: native renders and
   elements created for every node kind, including the keyed container; GPUI's
   nineteen frame-work counts grouped as cached and replayed, fresh, and moved
   and rebased, with the share of scene operations replayed; and each virtual
   list's last pass, flagged when it materialised more than three times what it
   showed, with a chart of its passes. A semantic-headless capture draws no
   frame, and the view says so with the family's status and reason.
+- **Timeline**: what happened, in order. Lanes of cycles by trigger, drawn
+  frames, and virtual-list passes share the capture's one process-relative
+  clock. Each lane divides the span on screen into 360 columns and keeps the
+  longest cycle, costliest frame, or largest pass of each, so a capture of any
+  length draws the same number of marks. The wheel zooms around the instant
+  under the pointer and pans sideways, hovering a mark reads it out, pressing a
+  frame lists the cycles it was the first to draw and marks them in their
+  lanes, and pressing a cycle opens it in the inspector. A frame with no
+  recorded link says "cause not recorded", with the linkage family's status
+  when it is not complete, and is never tied to the nearest cycle. A
+  semantic-headless capture draws its cycles and shows the frame and list
+  lanes as not recorded, with their reasons.
 - **Spec**: the runs, a run selector, and the selected run's steps with their
   status, duration, and expected and observed values, in a list read a page at
   a time as it scrolls.
@@ -144,14 +157,15 @@ platform, or the host's sources and locks.
 ## Not yet built
 
 - One capture opens at a time; there is no drop target or recent list.
-- No timeline, and the scaling charts have no metric selector.
+- The scaling charts have no metric selector.
+- The timeline cannot name the node an interactive cycle targeted (E4).
 - A `—` shows its family's status and reason beside it, not on hover.
 - Steps are listed by line number and kind; the specification source is not
   shown beside them.
 
 ## Specifications
 
-Thirty-three specifications run on the semantic runner. They cover the first
+Thirty-seven specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
@@ -161,6 +175,9 @@ the cycle list and its trigger filter, the cycle inspector with a dash that
 opens Health, a cycle's step in the Spec view, the memory view, the duration
 distribution and its bucket filter, the Frames view of a window capture with
 its hover and a pressed frame, the Frames view of a headless capture, the
+Timeline of a window capture with its hover, zoom, and a pressed cycle, a
+frame's recorded causes followed from the strip to the inspector, the
+Timeline of a headless capture, the
 comparability sheet of an A/A pair and of a contended run, a baseline's deltas
 in every view and the A/A capture that bounds them, and a scaling set with its
 refusals and its noise band. The comparison and scaling specifications also
@@ -176,7 +193,9 @@ them.
 10,000-cycle session and jumps from one end of its cycle list to the other, and
 `session-step.scm` opens a step ten thousand steps into its run.
 `frames-scale.scm` is the scaling case for the frame strip: it opens the
-session of at least 1,000 frames and zooms into it with the wheel.
+session of at least 1,000 frames and zooms into it with the wheel, and
+`timeline-scale.scm` opens the same session on the Timeline and zooms and pans
+it.
 `window-session.scm` scrolls the same list four thousand cycles down in the
 real window and photographs the late step. `window-tour.scm` drives
 the real window through every view and photographs each, and
@@ -185,4 +204,5 @@ a single file. `window-compare.scm` photographs the comparability sheet of a
 comparable and an incomparable pair, the triggers table with its deltas, and
 a scaling set's gate, ratios, and chart. `window-frames.scm` moves the
 window's own pointer over the frame strip and the distribution and scrolls its
-wheel, and photographs each.
+wheel, and photographs each, and `window-timeline.scm` does the same over the
+Timeline.

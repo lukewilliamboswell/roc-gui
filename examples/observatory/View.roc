@@ -10,6 +10,7 @@ import Format
 import Observatory
 import ScalingView
 import Theme
+import TimelineView
 
 View := [].{
 	render : Observatory.State -> Gui.Elem(Observatory.State)
@@ -555,7 +556,7 @@ nav = |state| {
 	entry = |caption, view| key({ caption, label: caption, selected: state.view == view, on_press: |current, _| Observatory.ask(current, Show(view)) })
 	Gui.col(
 		{ label: "Views", width: Px(Theme.nav_width), height: Fill, padding: Theme.inset, gap: 6, bg: Theme.rail, border_color: Theme.line, border_width: 0, border_right: Px(1) },
-		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Frames", Frames), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health), entry("Compare", Compare), entry("Scaling", Scaling)],
+		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Frames", Frames), entry("Timeline", Timeline), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health), entry("Compare", Compare), entry("Scaling", Scaling)],
 	)
 }
 
@@ -2011,7 +2012,7 @@ budget_bar = |state, opened| {
 
 ## The frame a press opened: its stages against the budget, and its own work.
 frame_detail : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
-frame_detail = |state, _opened| match state.frame {
+frame_detail = |state, opened| match state.frame {
 	None => [note("Press a frame in the strip to inspect it.")]
 	Some(detail) => {
 		total = detail.layout + detail.prepaint + detail.paint
@@ -2034,13 +2035,15 @@ frame_detail = |state, _opened| match state.frame {
 				{ label: "Frame verdict", width: Fill, padding: 0, gap: 0, fg: if total > budget Theme.alarm_ink else Theme.good, font_size: Theme.body, font_face: Theme.face },
 				[Gui.text(if total > budget "= ${Format.ms(total)} ✗ over ${Format.ms(budget)}" else "= ${Format.ms(total)} ✓ within ${Format.ms(budget)}")],
 			),
-			note("cause not recorded: a frame carries no link to the cycle that caused it"),
+		]
+			.concat(TimelineView.causes(opened, detail))
+			.concat([
 			heading("FRAME WORK"),
 			figure("replay share", share),
 			figure("fresh scene ops", count(14)),
 			figure("replayed scene ops", count(6)),
 			figure("cached paint", count(5)),
-		]
+		])
 	}
 }
 
@@ -2322,6 +2325,7 @@ main_view = |state| match state.view {
 	## The strip's hover is compared only by the strip, which a hover updates
 	## in place.
 	Frames => view_boundary("Frames", |a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and same_frame(a, b), |current| with_capture(current, |s, o| scrolled("Frames scroll", frames_view(s, o))))
+	Timeline => view_boundary("Timeline", TimelineView.same_view, |current| with_capture(current, |s, o| scrolled("Timeline scroll", TimelineView.timeline(s, o))))
 	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and a.step_scroll == b.step_scroll, |current| with_capture(current, spec))
 	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase and CompareView.same_comparison(a, b), |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
 	Health => view_boundary("Health", |a, b| same_capture(a, b) and a.family_focus == b.family_focus, |current| with_capture(current, |s, o| scrolled("Health scroll", health(s, o))))
