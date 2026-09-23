@@ -751,6 +751,35 @@ pub(crate) fn resource_claim(
                 ],
             )
         }
+        Command::ExpectTaskCounters(expected) => {
+            let observed = crate::tasks::counters();
+            let constrained = expected
+                .iter()
+                .zip(observed)
+                .all(|(expected, observed)| expected.is_none_or(|value| value == observed));
+            let counts = Some((
+                expected.iter().flatten().sum(),
+                expected
+                    .iter()
+                    .zip(observed)
+                    .filter(|(expected, _)| expected.is_some())
+                    .map(|(_, observed)| observed)
+                    .sum(),
+            ));
+            let shown =
+                |value: &Option<u64>| value.map_or("_".to_string(), |value| value.to_string());
+            (
+                if constrained {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected task counters [{}], observed {observed:?}",
+                        expected.iter().map(shown).collect::<Vec<_>>().join(", ")
+                    ))
+                },
+                counts,
+            )
+        }
         Command::ExpectWatchCounters(expected) => {
             let observed = crate::watch::counters();
             let constrained = expected
@@ -1578,7 +1607,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             }
             Command::AwaitTask => {
-                let before = task_counts();
+                let before = crate::tasks::delivered();
                 let cycle_started = Instant::now();
                 observatory::reset_roc_work();
                 let completion = await_task_completion()?;
@@ -1586,7 +1615,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 let patch = complete(completion);
                 let roc_ns = elapsed_ns(roc_started);
                 let after = task_counts();
-                if after.1 != before.1 + 1 || after.1 > after.0 {
+                if crate::tasks::delivered() != before + 1 || after.1 > after.0 {
                     return Err("task completion counters violated ownership invariants".into());
                 }
                 let (roc_work, roc_work_valid) = observatory::take_roc_work();
@@ -1610,7 +1639,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::AwaitCount(locator, expected) => {
                 // A wait can deliver several production turns. Record each callback
                 // and its own graph decision, never combine work with another patch.
-                let before = task_counts();
+                let before = crate::tasks::delivered();
                 let deadline = Instant::now() + crate::TASK_BUDGET;
                 let mut completions = 0u64;
                 let outcome = loop {
@@ -1659,7 +1688,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     completions += 1;
                 };
                 let after = task_counts();
-                if after.1 != before.1 + completions || after.1 > after.0 {
+                if crate::tasks::delivered() != before + completions || after.1 > after.0 {
                     return Err("task completion counters violated ownership invariants".into());
                 }
                 count_evidence = Some((*expected as u64, matches(&graph, locator).len() as u64));
@@ -1667,6 +1696,27 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             }
             Command::ClipboardText(text) => crate::clipboard::inject_fixture(text.clone())
                 .map_err(|message| format!("line {}: {message}", step.line)),
+            // A worker blocking is not a turn: nothing is delivered and no
+            // cycle is recorded. The step only lets a later cancellation find
+            // the wait it is meant to interrupt, rather than a queued task.
+            Command::AwaitTaskWaits(expected) => {
+                let deadline = Instant::now() + crate::TASK_BUDGET;
+                loop {
+                    let waiting = crate::tasks::waiting();
+                    if waiting == *expected {
+                        count_evidence = Some((*expected, waiting));
+                        break Ok(());
+                    }
+                    if Instant::now() >= deadline {
+                        break Err(format!(
+                            "line {}: expected {expected} blocked task waits within {} seconds, observed {waiting}",
+                            step.line,
+                            crate::TASK_BUDGET.as_secs(),
+                        ));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+            }
             Command::AwaitTicks(count) => {
                 if *count == 0 {
                     return Err(format!(
@@ -1733,6 +1783,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectFileAccess(_)
             | Command::ExpectDocumentCounters(_)
             | Command::ExpectWatchCounters(_)
+            | Command::ExpectTaskCounters(_)
             | Command::ExpectAssetCounters(_)
             | Command::ExpectHashCounters(_)
             | Command::ExpectGrants(_)

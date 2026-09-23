@@ -679,7 +679,8 @@ HostGlue := [].{
 	assets_read! : Resource.AssetStore, Str => Try(List(U8), U8)
 	apply! : Patch => {}
 	set_dispatch! : Box((U64 => {})) => {}
-	enqueue_task! : U64, Box((U64 => {})) => {}
+	enqueue_task! : U64, Str, Box((U64 => {})) => {}
+	cancel_task! : U64, Str => {}
 	task_complete! : Box((U64 => {})) => {}
 	timer_start! : U64 => Resource.Timer
 	timer_next! : Resource.Timer => Bool

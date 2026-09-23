@@ -84,12 +84,21 @@ pub fn next(handle: *mut u64) -> bool {
     let timer = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let Some(timer) = timer else { return false };
+    // Declared before the state guard so it is released after it: the wake
+    // takes the state lock while holding the task's.
+    let interrupt = {
+        let timer = timer.clone();
+        crate::tasks::Interrupt::arm(move || {
+            let _held = timer.state.lock();
+            timer.wake.notify_all();
+        })
+    };
     let mut state = timer.state.lock().expect("timer state poisoned");
     if state.canceled || state.waiting {
         return false;
     }
     state.waiting = true;
-    while !state.canceled {
+    while !state.canceled && !interrupt.requested() {
         let now = Instant::now();
         if now >= state.next {
             break;
@@ -103,6 +112,9 @@ pub fn next(handle: *mut u64) -> bool {
     }
     state.waiting = false;
     if state.canceled {
+        false
+    } else if interrupt.requested() {
+        // The task waiting ended; the timer itself runs on for the next one.
         false
     } else {
         state.next = Instant::now() + state.interval;

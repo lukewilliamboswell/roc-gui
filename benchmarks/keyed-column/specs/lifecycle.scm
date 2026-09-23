@@ -16,6 +16,8 @@
     (click (role button :name "Task 1"))
     (click (role button :name "Remove 1"))
     (expect-not-visible (text "item 1 value 0"))
-    (await-task)
+    ; Item 1's task was cancelled with it, so its result is never delivered.
+    (await-task-waits 0)
+    (expect-task-counters 2 _ 1 0 1 0)
     (expect-not-visible (text "item 1 value 10"))
     (expect-visible (text "item 3 value 0"))))

@@ -29,6 +29,7 @@ mod screenshot;
 mod spec;
 mod sqlite;
 mod system_monitor;
+mod tasks;
 mod tcp;
 mod timers;
 mod watch;
@@ -104,6 +105,10 @@ struct TaskEnvelope {
     callable: usize,
     owner: u64,
     epoch: u64,
+    /// The supersede key; empty for a task that supersedes nothing.
+    key: String,
+    /// The task's lifetime, issued when its transaction commits.
+    slot: Option<Arc<tasks::TaskSlot>>,
 }
 
 impl TaskEnvelope {
@@ -185,8 +190,6 @@ struct TaskRuntime {
     jobs: async_channel::Sender<TaskEnvelope>,
     pending_jobs: async_channel::Receiver<TaskEnvelope>,
     completions: async_channel::Receiver<TaskEnvelope>,
-    accepted: AtomicU64,
-    completed: AtomicU64,
     /// The process-lived allocator remains valid after UI session retirement.
     allocator_host: usize,
 }
@@ -217,11 +220,29 @@ fn task_runtime() -> &'static TaskRuntime {
                         if task.epoch != TASK_EPOCH.load(Ordering::Acquire) {
                             continue;
                         }
+                        // A task superseded or cancelled while it was queued
+                        // never runs; dropping it releases its captures.
+                        let slot = task.slot.clone();
+                        if slot.as_ref().is_some_and(|slot| !tasks::begin(slot)) {
+                            continue;
+                        }
                         let completion = collect_task_completion(|| unsafe {
                             roc_gui_run_task(task.take_callable())
                         })
                         .expect("Roc worker must publish exactly one completion");
-                        task.callable = completion as usize;
+                        // A tracked completion waits in its task's slot, so a
+                        // task that ends before the UI thread takes it releases
+                        // its result at once rather than when it is taken.
+                        match &slot {
+                            Some(slot) => {
+                                let owned =
+                                    tasks::Owned::new(completion as usize, release_callable);
+                                if !tasks::finish(slot, owned) {
+                                    continue;
+                                }
+                            }
+                            None => task.callable = completion as usize,
+                        }
                         let _publication = TASK_PUBLICATION.lock().expect("task publication gate");
                         if task.epoch == TASK_EPOCH.load(Ordering::Acquire) {
                             let _ = completions.send_blocking(task);
@@ -234,8 +255,6 @@ fn task_runtime() -> &'static TaskRuntime {
             jobs: job_sender,
             pending_jobs: job_receiver,
             completions: completion_receiver,
-            accepted: AtomicU64::new(0),
-            completed: AtomicU64::new(0),
             allocator_host: ROC_HOST.load(Ordering::Acquire) as usize,
         }
     })
@@ -247,6 +266,7 @@ static ROC_HOST: AtomicPtr<RocHost> = AtomicPtr::new(core::ptr::null_mut());
 struct StagedTurn {
     dispatcher: Option<RocErasedCallable>,
     jobs: Vec<TaskEnvelope>,
+    cancels: Vec<(u64, String)>,
 }
 
 thread_local! {
@@ -1543,15 +1563,28 @@ pub extern "C" fn roc_http_acquire() -> HostGlueHttpAcquireResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_enqueue_task(owner: u64, task: RocErasedCallable) {
+pub extern "C" fn roc_gui_enqueue_task(owner: u64, key: RocStr, task: RocErasedCallable) {
     assert!(!task.is_null(), "Roc enqueued a null task");
+    let key_text = key.as_str().to_owned();
+    unsafe { key.decref(roc_host()) };
     STAGED_TURN.with(|turn| {
         turn.borrow_mut().jobs.push(TaskEnvelope {
             callable: task as usize,
             owner,
             epoch: TASK_EPOCH.load(Ordering::Acquire),
+            key: key_text,
+            slot: None,
         })
     });
+}
+
+/// Stage a cancellation of `owner`'s task with `key`. Like the jobs of the
+/// same turn, it takes effect only if the turn's transaction commits.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_cancel_task(owner: u64, key: RocStr) {
+    let key_text = key.as_str().to_owned();
+    unsafe { key.decref(roc_host()) };
+    STAGED_TURN.with(|turn| turn.borrow_mut().cancels.push((owner, key_text)));
 }
 
 /// Publish a turn only after the mounted graph accepted its patch. Jobs cannot
@@ -1570,23 +1603,52 @@ pub(crate) fn accept_transaction(graph: &MountedGraph, applied: &bridge::GraphAp
         }
     });
     observatory::commit_component_work();
-    rows::retire(
-        applied
-            .removed_instances
-            .iter()
-            .copied()
-            .filter(|instance| graph.boundary_root(*instance).is_none()),
-    );
-    for job in turn.jobs {
+    let removed: Vec<u64> = applied
+        .removed_instances
+        .iter()
+        .copied()
+        .filter(|instance| graph.boundary_root(*instance).is_none())
+        .collect();
+    rows::retire(removed.iter().copied());
+    // A removed component's tasks end with it, then the turn's own
+    // cancellations apply, then its tasks are issued, each superseding its
+    // key's predecessor.
+    tasks::unmount(&removed);
+    for (owner, key) in &turn.cancels {
+        tasks::cancel(*owner, key);
+    }
+    for mut job in turn.jobs {
         if job.owner == 0 || graph.boundary_root(job.owner).is_some() {
-            let runtime = task_runtime();
-            runtime.accepted.fetch_add(1, Ordering::Relaxed);
-            runtime
+            job.slot = Some(tasks::issue(job.owner, std::mem::take(&mut job.key)));
+            task_runtime()
                 .jobs
                 .send_blocking(job)
                 .expect("Roc task runtime stopped");
         }
     }
+}
+
+/// The UI thread took a completion from the queue. It is delivered unless its
+/// session ended or its task was superseded or cancelled after it was queued;
+/// an undelivered completion is dropped here and records no cycle.
+fn deliverable(completion: &mut TaskEnvelope) -> bool {
+    if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+        return false;
+    }
+    match &completion.slot {
+        None => true,
+        Some(slot) => match tasks::deliver(slot) {
+            Some(owned) => {
+                completion.callable = owned.into_raw();
+                true
+            }
+            None => false,
+        },
+    }
+}
+
+fn release_callable(callable: usize) {
+    unsafe { decref_erased_callable(callable as RocErasedCallable, roc_host()) };
 }
 
 pub(crate) fn reject_transaction() {
@@ -1623,11 +1685,10 @@ fn await_task_completion() -> Result<TaskEnvelope, String> {
     let deadline = started + TASK_BUDGET;
     loop {
         match runtime.completions.try_recv() {
-            Ok(value) => {
-                if value.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+            Ok(mut value) => {
+                if !deliverable(&mut value) {
                     continue;
                 }
-                runtime.completed.fetch_add(1, Ordering::Relaxed);
                 return Ok(value);
             }
             Err(async_channel::TryRecvError::Closed) => return Err("task runtime stopped".into()),
@@ -1655,12 +1716,11 @@ fn await_task_completion() -> Result<TaskEnvelope, String> {
     }
 }
 
+/// Tasks issued, and tasks that have ended by delivery, supersession, or
+/// cancellation. A task that ended undelivered is settled at the moment it
+/// ended, so nothing waits on work whose result nobody will see.
 fn task_counts() -> (u64, u64) {
-    let runtime = task_runtime();
-    (
-        runtime.accepted.load(Ordering::Relaxed),
-        runtime.completed.load(Ordering::Relaxed),
-    )
+    tasks::issued_and_settled()
 }
 
 #[unsafe(no_mangle)]
@@ -1820,11 +1880,10 @@ fn clear_bridge() {
             while let Ok(pending) = runtime.pending_jobs.try_recv() {
                 retired.push(pending);
             }
-            runtime.accepted.store(0, Ordering::Relaxed);
-            runtime.completed.store(0, Ordering::Relaxed);
         }
         retired
     };
+    tasks::reset();
     drop(retired);
     reject_transaction();
     observatory::clear_component_work();
@@ -3639,11 +3698,10 @@ impl Runtime {
         }
         let completions = task_runtime().completions.clone();
         cx.spawn(async move |runtime, cx| {
-            while let Ok(completion) = completions.recv().await {
-                if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+            while let Ok(mut completion) = completions.recv().await {
+                if !deliverable(&mut completion) {
                     continue;
                 }
-                task_runtime().completed.fetch_add(1, Ordering::Relaxed);
                 if runtime
                     .update(cx, |runtime, cx| {
                         runtime.complete_live_task(completion, cx);
@@ -7508,6 +7566,8 @@ mod tests {
             callable: completion as usize,
             owner: 71,
             epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+            key: String::new(),
+            slot: None,
         };
         assert_eq!(envelope.owner, 71);
         assert!(matches!(super::complete(envelope), Patch::NoChange));
@@ -7529,6 +7589,8 @@ mod tests {
             callable: current as usize,
             owner: 71,
             epoch: super::TASK_EPOCH.load(Ordering::Acquire),
+            key: String::new(),
+            slot: None,
         };
         assert!(matches!(super::complete(envelope), Patch::NoChange));
         super::TEST_COMPLETION_DISPATCHER.with(|slot| slot.borrow_mut().take());
@@ -7549,7 +7611,7 @@ mod tests {
         let old = counted_callable(&old_drops);
         super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher = Some(old));
         super::roc_gui_set_dispatch(counted_callable(&next_drops));
-        super::roc_gui_enqueue_task(0, counted_callable(&task_drops));
+        super::roc_gui_enqueue_task(0, super::RocStr::empty(), counted_callable(&task_drops));
 
         super::reject_transaction();
         super::reject_transaction();
@@ -7572,7 +7634,7 @@ mod tests {
         let drops = Arc::new(AtomicU64::new(0));
         let mut graph = MountedGraph::default();
         let applied = graph.apply(Patch::NoChange).expect("empty accepted turn");
-        super::roc_gui_enqueue_task(42, counted_callable(&drops));
+        super::roc_gui_enqueue_task(42, super::RocStr::empty(), counted_callable(&drops));
 
         super::accept_transaction(&graph, &applied);
 
@@ -7591,6 +7653,8 @@ mod tests {
             callable: counted_callable(&drops) as usize,
             owner: 0,
             epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+            key: String::new(),
+            slot: None,
         };
 
         assert!(matches!(super::complete(completion), Patch::NoChange));
@@ -8082,6 +8146,8 @@ mod tests {
                         callable: 0,
                         owner,
                         epoch: super::TASK_EPOCH.load(std::sync::atomic::Ordering::Acquire),
+                        key: String::new(),
+                        slot: None,
                     },
                     cx,
                 );

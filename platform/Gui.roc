@@ -220,6 +220,16 @@ Gui := [].{
 	task : { pending : a, run : (() => result), resolve : (a, result -> Action.Action(a)) } -> Action.Action(a)
 	task = |config| Action.task(config)
 
+	## A task that supersedes this component's previous task with the same
+	## `key`: the superseded task is cancelled and its completion is never
+	## delivered.
+	keyed_task : { key : Str, pending : a, run : (() => result), resolve : (a, result -> Action.Action(a)) } -> Action.Action(a)
+	keyed_task = |config| Action.keyed_task(config)
+
+	## Install `state` and cancel this component's task with `key`.
+	cancel : a, Str -> Action.Action(a)
+	cancel = |state, key| Action.cancel(state, key)
+
 	## Construct a fixed per-side inset.
 	inset : U32 -> Style.Inset
 	inset = |value| Px(value)

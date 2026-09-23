@@ -16,7 +16,7 @@ import Work
 Action(a) := {
 	# Keep recursive callable signatures explicit and pointer-sized at each
 	# dynamic argument boundary; the compiler cannot expand recursive aliases here.
-	value : [NoChange, Refresh, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) })],
+	value : [NoChange, Refresh, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ key : Str, pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) }), Cancel({ key : Str, state : a })],
 	levels : U64,
 }.{
 
@@ -54,9 +54,18 @@ Action(a) := {
 	## state immediately before completion (`prev_state`) and the worker result.
 	## Capture only the request data needed by `run`; derive the completion action
 	## from `prev_state` so intervening edits survive. Removing the owning component
-	## discards its completion, but does not cancel the external operation.
+	## cancels the task: its completion is never delivered, and a capability wait
+	## it is blocked in is interrupted.
 	task : { pending : a, run : (() => result), resolve : (a, result -> Action(a)) } -> Action(a)
-	task = |config| {
+	task = |config| keyed_task({ key: "", pending: config.pending, run: config.run, resolve: config.resolve })
+
+	## A task that supersedes the owning component's previous task with the same
+	## non-empty `key`. The superseded task is cancelled: its completion is never
+	## delivered, a query, watch, or timer wait it is blocked in is interrupted,
+	## and if it has not started it never runs. Keys are scoped to the component
+	## that accepts the task, so two components may use the same key.
+	keyed_task : { key : Str, pending : a, run : (() => result), resolve : (a, result -> Action(a)) } -> Action(a)
+	keyed_task = |config| {
 		run! = config.run
 		resolve = config.resolve
 		worker_box = worker(
@@ -68,8 +77,14 @@ Action(a) := {
 				},
 			),
 		)
-		Action.{ value: Task({ pending: config.pending, run: worker_box }), levels: 0 }
+		Action.{ value: Task({ key: config.key, pending: config.pending, run: worker_box }), levels: 0 }
 	}
+
+	## Install `state` and cancel the owning component's task with this `key`,
+	## as a newer task with that key would. Cancelling a key with no task in
+	## flight only installs `state`.
+	cancel : a, Str -> Action(a)
+	cancel = |state, key| Action.{ value: Cancel({ key, state }), levels: 0 }
 
 	## Platform helper deferring action adaptation onto the work executor.
 	## This is not an asynchronous task; application I/O belongs in `task`.
@@ -154,7 +169,7 @@ Action(a) := {
 	)
 
 	## Reveal the transition for platform dispatch; constructing it has no effect.
-	inspect : Action(a) -> [NoChange, Refresh, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) })]
+	inspect : Action(a) -> [NoChange, Refresh, Update(a), Delegate(a), Deferred(Box(Box((Box(Action(a)) -> Work)) -> Work)), Task({ key : Str, pending : a, run : Box(Box((Box((Box(a), Box((Box(Action(a)) -> Work)) -> Work)) -> Work)) -> Work) }), Cancel({ key : Str, state : a })]
 	inspect = |Action.(action)| action.value
 
 	## Platform delegation depth used to find the boundary accepting an action.
@@ -192,7 +207,8 @@ Action(a) := {
 				}
 			}
 			Deferred(_) => deferred(|done!| adapt_work!(action, parent, project!, write, delegated, done!))
-			Task(task_value) => Action.{ value: Task({ pending: set(parent, task_value.pending), run: adapt_worker(task_value.run, project!, write, delegated) }), levels }
+			Task(task_value) => Action.{ value: Task({ key: task_value.key, pending: set(parent, task_value.pending), run: adapt_worker(task_value.run, project!, write, delegated) }), levels }
+			Cancel(canceled) => with_levels(cancel(set(parent, canceled.state), canceled.key), levels)
 		}
 	}
 
@@ -249,7 +265,13 @@ Action(a) := {
 				Task(task_value) => Work.set(
 					|| match set(parent, task_value.pending) {
 						Err(_) => Work.next(|| done!(none))
-						Ok(pending) => Work.next(|| done!(Action.{ value: Task({ pending, run: adapt_worker(task_value.run, get!, set, delegated) }), levels }))
+						Ok(pending) => Work.next(|| done!(Action.{ value: Task({ key: task_value.key, pending, run: adapt_worker(task_value.run, get!, set, delegated) }), levels }))
+					},
+				)
+				Cancel(canceled) => Work.set(
+					|| match set(parent, canceled.state) {
+						Err(_) => Work.next(|| done!(none))
+						Ok(next) => Work.next(|| done!(with_levels(cancel(next, canceled.key), levels)))
 					},
 				)
 				Deferred(_) => crash "unresolved action reached adapter"
@@ -304,6 +326,15 @@ expect {
 	outer = Action.through_boundary(inner, { child: { value: 1.I64 } }, |state| state.child, |state, child| { ..state, child }, |_| Action.none)
 	match Action.inspect(outer) {
 		NoChange => True
+		_ => False
+	}
+}
+
+expect {
+	parent = { child: 1.I64, loading: False }
+	lifted = Action.lift(Action.cancel(2.I64, "query"), parent, |state| state.child, |state, child| { ..state, child })
+	match Action.inspect(lifted) {
+		Cancel(canceled) => canceled.state.child == 2 and canceled.key == "query"
 		_ => False
 	}
 }

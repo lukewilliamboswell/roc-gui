@@ -220,6 +220,9 @@ pub enum Command {
     AwaitCount(Locator, usize),
     ClipboardText(String),
     AwaitTicks(u32),
+    /// Wait until exactly this many running tasks are blocked in a capability
+    /// wait that ending them would interrupt: a timer, a watch, or a query.
+    AwaitTaskWaits(u64),
     ExpectSubscriptions(usize),
     ExpectTcpStreams(usize),
     ExpectProcesses(usize),
@@ -251,6 +254,10 @@ pub enum Command {
     /// Watches started, changes delivered, watches cancelled, and watches
     /// ended by revocation, then the watches held; `_` leaves one unconstrained.
     ExpectWatchCounters([Option<u64>; 5]),
+    /// Tasks issued, completions published, completions delivered, tasks
+    /// superseded, tasks cancelled, and capability waits interrupted; `_`
+    /// leaves one unconstrained.
+    ExpectTaskCounters([Option<u64>; 6]),
     /// The document owner's picks, chosen files, cancellations, refusals, and
     /// reads, then the live document handles.
     ExpectDocumentCounters([u64; 6]),
@@ -446,6 +453,7 @@ impl Command {
             Self::AwaitCount(_, _) => "await-count",
             Self::ClipboardText(_) => "clipboard-text",
             Self::AwaitTicks(_) => "await-ticks",
+            Self::AwaitTaskWaits(_) => "await-task-waits",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
             Self::ExpectTcpStreams(_) => "expect-tcp-streams",
             Self::ExpectProcesses(_) => "expect-processes",
@@ -468,6 +476,7 @@ impl Command {
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ReplaceFile { .. } => "replace-file",
             Self::ExpectWatchCounters(_) => "expect-watch-counters",
+            Self::ExpectTaskCounters(_) => "expect-task-counters",
             Self::ExpectDocumentCounters(_) => "expect-document-counters",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
@@ -611,7 +620,9 @@ impl Command {
             // than about the application.
             Self::Drag(..)
             | Self::ReplaceText(_, _)
-            | Self::Submit(_) => Capability::Semantic,
+            | Self::Submit(_)
+            | Self::AwaitTaskWaits(_)
+            | Self::ExpectTaskCounters(_) => Capability::Semantic,
         }
     }
 
@@ -851,6 +862,7 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
         let verifies_scale = steps.iter().any(|step| {
             matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectCanvasPrimitives(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
                 || matches!(step.command, Command::ExpectRows(_, RowsExpectation { count: Some(count), .. }) if count == policy.scale)
+                || matches!(step.command, Command::ExpectTaskCounters(counters) if counters[3] == Some(policy.scale))
         });
         if !verifies_scale {
             return Err(error(
@@ -1451,6 +1463,14 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 .ok_or_else(|| error(&values[1], "clipboard-text requires a string"))?
                 .to_owned(),
         ),
+        "await-task-waits" if values.len() == 2 => Command::AwaitTaskWaits(
+            values[1]
+                .atom()
+                .and_then(|atom| atom.parse().ok())
+                .ok_or_else(|| {
+                    error(&values[1], "await-task-waits requires a non-negative integer")
+                })?,
+        ),
         "await-ticks" if values.len() == 2 => Command::AwaitTicks(
             values[1]
                 .atom()
@@ -1766,6 +1786,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectWatchCounters(expected)
         }
+        "expect-task-counters" if values.len() == 7 => {
+            let mut expected = [None; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                let atom = value
+                    .atom()
+                    .ok_or_else(|| error(value, "task counters must be integers or _"))?;
+                expected[index] = if atom == "_" {
+                    None
+                } else {
+                    Some(atom.parse().map_err(|_| {
+                        error(value, "task counters must be non-negative integers or _")
+                    })?)
+                };
+            }
+            Command::ExpectTaskCounters(expected)
+        }
         "expect-document-counters" if values.len() == 7 => {
             let mut expected = [0u64; 6];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1983,6 +2019,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "await-count"
         | "clipboard-text"
         | "await-ticks"
+        | "await-task-waits"
         | "expect-subscriptions"
         | "expect-tcp-streams"
         | "expect-processes"
@@ -2006,6 +2043,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-access"
         | "revoke-file-grants"
         | "expect-document-counters"
+        | "expect-task-counters"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
         | "expect-hash-counters"

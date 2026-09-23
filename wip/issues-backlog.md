@@ -512,15 +512,13 @@ ideal and the repository. P- and E-numbers refer to that document.
   are exercised only through `--host-cap-file`; certify them with a person
   choosing, as for Open Project.
 
-- [ ] **SQLite cannot join two databases or cancel a query (P7).** Databases
+- [ ] **SQLite cannot join two databases (P7).** Databases
   open in place, read a live write-ahead log, bind parameters, and page past
   the row limit. Observatory compares captures through a connection each and
   joins their rows in Roc, which serves a baseline and a scaling set; a query
   that must join two captures in one statement still needs a
   capability-scoped `ATTACH` of a second granted database (plain `ATTACH` is
-  refused, because it names a path). A long statement cannot be interrupted: add cancellation
-  through `sqlite3_interrupt` tied to task supersede (P13), with a counter for
-  interrupted statements. Opening in place derives the directory's path from
+  refused, because it names a path). Opening in place derives the directory's path from
   its descriptor on Linux, macOS, and Windows; only the Linux path has been
   exercised, so verify macOS and Windows, including a verbatim `\\?\UNC` share,
   which is refused.
@@ -598,10 +596,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   several window runs draws them end to end with no mark where one run ends.
   No fixture has more than one window run; when one does, draw a rule and a
   caption at each run's first column.
-
-- [ ] **A task cannot be cancelled (P13).** Stale queries run to completion and
-  are discarded in `resolve`. Add cancellation and supersede so a moved
-  selection stops its superseded query.
 
 - [ ] **A finalised capture chosen as one file is not watched.** Observatory
   watches the folder it lists, and a capture still being recorded, but not a

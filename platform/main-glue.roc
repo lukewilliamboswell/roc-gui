@@ -96,6 +96,7 @@ platform ""
 		"roc_gui_apply": HostGlue.apply!,
 		"roc_gui_set_dispatch": HostGlue.set_dispatch!,
 		"roc_gui_enqueue_task": HostGlue.enqueue_task!,
+		"roc_gui_cancel_task": HostGlue.cancel_task!,
 		"roc_gui_task_complete": HostGlue.task_complete!,
 		"roc_gui_timer_start": HostGlue.timer_start!,
 		"roc_gui_timer_next": HostGlue.timer_next!,

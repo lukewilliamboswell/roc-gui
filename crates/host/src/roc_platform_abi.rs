@@ -12929,13 +12929,24 @@ pub struct HostGlueSetDispatchArgs {
 }
 
 /// Arguments for HostGlue.enqueue_task!
-/// Roc signature: U64, Box(U64 => {}) => {}
+/// Roc signature: U64, Str, Box(U64 => {}) => {}
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueEnqueueTaskArgs {
     pub arg0: u64,
-    pub arg1: RocErasedCallable,
+    pub arg1: RocStr,
+    pub arg2: RocErasedCallable,
+}
+
+/// Arguments for HostGlue.cancel_task!
+/// Roc signature: U64, Str => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueCancelTaskArgs {
+    pub arg0: u64,
+    pub arg1: RocStr,
 }
 
 /// Arguments for HostGlue.task_complete!
@@ -18289,11 +18300,19 @@ unsafe extern "C" {
     pub fn roc_gui_set_dispatch(arg0: RocErasedCallable);
 
     /// Hosted symbol for HostGlue.enqueue_task!
-    /// Roc signature: U64, Box(U64 => {}) => {}
+    /// Roc signature: U64, Str, Box(U64 => {}) => {}
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
-    ///     unsafe { decref_erased_callable(arg1, roc_host); }
-    pub fn roc_gui_enqueue_task(arg0: u64, arg1: RocErasedCallable);
+    ///     unsafe { arg1.decref(roc_host); }
+    ///     unsafe { decref_erased_callable(arg2, roc_host); }
+    pub fn roc_gui_enqueue_task(arg0: u64, arg1: RocStr, arg2: RocErasedCallable);
+
+    /// Hosted symbol for HostGlue.cancel_task!
+    /// Roc signature: U64, Str => {}
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg1.decref(roc_host); }
+    pub fn roc_gui_cancel_task(arg0: u64, arg1: RocStr);
 
     /// Hosted symbol for HostGlue.task_complete!
     /// Roc signature: Box(U64 => {}) => {}

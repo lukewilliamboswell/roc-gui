@@ -390,6 +390,21 @@ watch owner's totals: watches started, changes delivered, watches cancelled,
 and watches ended because their grant was withdrawn, then the watches the
 application still holds. `_` leaves one unconstrained, for a count that follows
 another process's writing rather than the application.
+`(expect-task-counters ISSUED COMPLETED DELIVERED SUPERSEDED CANCELLED INTERRUPTED)`::
+Require the task owner's totals: tasks issued, completions their workers
+published, completions delivered to the application, tasks superseded by a
+newer task with the same key, tasks cancelled explicitly or with their
+component, and capability waits interrupted by a task ending. `_` leaves one
+unconstrained, for a count that depends on whether a worker reached its wait
+before it was superseded. A benchmark's `:scale` is verified by a superseded
+count equal to it. Semantic runs only.
+`(await-task-waits N)`:: Wait until exactly `N` running tasks hold a worker
+that only their end, or their capability, can move on: blocked in a wait that
+ending them would interrupt (a timer tick, a watch, or a SQLite statement), or
+ended and still unwinding. It delivers nothing and records no cycle. With a
+positive count it lets a later cancellation find a task that is certainly
+blocked; with zero it waits until every ended task has released what it
+held. Semantic runs only.
 `(expect-file-picks N)`, `(expect-file-lists N)`, `(expect-file-opens N)`, and
 `(expect-file-reads N)`:: Require exact cumulative counts recorded by the Files
 owner.
@@ -513,7 +528,8 @@ them silently:
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
 which depend on the semantic runner's per-iteration mount, and the
 `(file recording)` grant, since only the semantic runner records a capture. Also every step the
-window runner does not implement: `drag`, `replace-text`, `submit`, and the
+window runner does not implement: `drag`, `replace-text`, `submit`, `await-task-waits`,
+`expect-task-counters`, and the
 repository fixture steps the Contributing chapter describes.
 
 `window-only`:: `settle`, `screenshot`, `type`, `resize`, `scroll`,

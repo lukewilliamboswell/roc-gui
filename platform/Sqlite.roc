@@ -49,7 +49,7 @@ Sqlite := [].{
 	Page : { columns : List(Str), rows : List(List(Value)), more : Bool }
 
 	## Portable failure categories with the native SQLite diagnostic retained.
-	Reason : [AccessDenied(Str), Busy(Str), Corrupt(Str), InvalidCapability(Str), InvalidName(Str), InvalidQuery(Str), Io(Str), NotDatabase(Str), ResourceLimit(Str), Revoked(Str), Unsupported(Str)]
+	Reason : [AccessDenied(Str), Busy(Str), Corrupt(Str), Interrupted(Str), InvalidCapability(Str), InvalidName(Str), InvalidQuery(Str), Io(Str), NotDatabase(Str), ResourceLimit(Str), Revoked(Str), Unsupported(Str)]
 	SqliteErr : [OpenDatabaseErr(Reason), QueryDatabaseErr(Reason), WatchDatabaseErr(Reason)]
 
 	## Open a direct child database in place as a read-only connection. The
@@ -105,6 +105,7 @@ Sqlite := [].{
 		8 => ResourceLimit(raw.message)
 		9 => Unsupported(raw.message)
 		10 => Revoked(raw.message)
+		11 => Interrupted(raw.message)
 		_ => Unsupported(raw.message)
 	}
 
@@ -123,6 +124,7 @@ Sqlite := [].{
 		InvalidCapability(message) => message
 		InvalidName(message) => message
 		InvalidQuery(message) => message
+		Interrupted(message) => message
 		Io(message) => message
 		NotDatabase(message) => message
 		ResourceLimit(message) => message

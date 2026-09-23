@@ -335,6 +335,15 @@ pub fn next(handle: *mut u64) -> Report {
         return Report::ended(CANCELED);
     };
     end_if_withdrawn(id, &watch);
+    // Declared before the state guard so it is released after it: the wake
+    // takes the state lock while holding the task's.
+    let interrupt = {
+        let watch = watch.clone();
+        crate::tasks::Interrupt::arm(move || {
+            let _held = watch.state.lock();
+            watch.wake.notify_all();
+        })
+    };
     let mut state = watch.state.lock().expect("watch state poisoned");
     if let Some(why) = state.ended {
         return Report::ended(code(why));
@@ -348,6 +357,11 @@ pub fn next(handle: *mut u64) -> Report {
     let report = loop {
         if let Some(why) = state.ended {
             break Report::ended(code(why));
+        }
+        // The task waiting ended. The watch itself goes on, keeping what it
+        // has gathered for the next wait.
+        if interrupt.requested() {
+            break Report::ended(CANCELED);
         }
         let now = Instant::now();
         if state.pending() {

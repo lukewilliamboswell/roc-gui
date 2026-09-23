@@ -89,6 +89,7 @@ platform ""
 		"roc_gui_apply": Host.apply!,
 		"roc_gui_set_dispatch": Host.set_dispatch!,
 		"roc_gui_enqueue_task": Host.enqueue_task!,
+		"roc_gui_cancel_task": Host.cancel_task!,
 		"roc_gui_task_complete": Host.task_complete!,
 		"roc_gui_timer_start": Host.timer_start!,
 		"roc_gui_timer_next": Host.timer_next!,

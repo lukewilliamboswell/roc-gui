@@ -13,7 +13,7 @@ use std::{
     mem::ManuallyDrop,
     path::{Path, PathBuf},
     sync::{
-        Mutex, OnceLock,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicU64, Ordering},
     },
     time::Duration,
@@ -32,10 +32,22 @@ const BUSY_WAIT: Duration = Duration::from_millis(100);
 
 /// A portable reason code and a bounded diagnostic.
 type Failure = (u8, &'static str);
+/// The statement's task ended while it ran.
+const INTERRUPTED: Failure = (11, "query was interrupted");
+/// Virtual machine steps between SQLite's polls of a running statement's task.
+const PROGRESS_STEPS: std::ffi::c_int = 10_000;
+
+/// SQLite's progress callback: nonzero stops the statement as interrupted.
+extern "C" fn ended(interrupt: *mut std::ffi::c_void) -> std::ffi::c_int {
+    let interrupt = unsafe { &*(interrupt as *const crate::tasks::Interrupt) };
+    std::ffi::c_int::from(interrupt.requested())
+}
 
 struct Store {
     next: u64,
-    connections: HashMap<u64, Connection>,
+    /// Each connection has a lock of its own, so a statement holds only its
+    /// connection while it runs, never the store every release consults.
+    connections: HashMap<u64, Arc<Mutex<Connection>>>,
     allocations: HashMap<usize, u64>,
 }
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
@@ -96,6 +108,7 @@ fn classify(err: &rusqlite::Error) -> Failure {
         Some(ErrorCode::CannotOpen | ErrorCode::SystemIoFailure) => {
             (6, "could not read database file")
         }
+        Some(ErrorCode::OperationInterrupted) => INTERRUPTED,
         _ => (5, "invalid SQLite query"),
     }
 }
@@ -121,7 +134,9 @@ fn capability(connection: Connection, parent: grant::Grant) -> *mut u64 {
     };
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
-    guard.connections.insert(id, connection);
+    guard
+        .connections
+        .insert(id, Arc::new(Mutex::new(connection)));
     crate::register_resource_allocation(
         crate::resource_domain::SQLITE,
         &mut guard.allocations,
@@ -370,11 +385,12 @@ fn value_bytes(value: &ValueRef<'_>) -> usize {
 /// for the whole result, which must fit in [`MAX_ROWS`]; otherwise at most
 /// `page_rows` rows are returned and `more` records whether the result goes
 /// on. Callers page with `LIMIT`/`OFFSET` or a keyset bound as parameters.
-fn run(
+fn run_statement(
     connection: &Connection,
     sql: &str,
     params: &[Value],
     page_rows: u64,
+    interrupted: &dyn Fn() -> bool,
 ) -> Result<Page, Failure> {
     if sql.is_empty() || sql.len() > MAX_QUERY_BYTES || sql.as_bytes().contains(&0) {
         return Err((5, "query text is empty or exceeds its limit"));
@@ -419,6 +435,11 @@ fn run(
     let mut total = 0usize;
     let mut more = false;
     while let Some(row) = cursor.next().map_err(|e| classify(&e))? {
+        // An interrupt that lands between steps, when SQLite has no statement
+        // running to stop, is caught here.
+        if interrupted() {
+            return Err(INTERRUPTED);
+        }
         if rows.len() == limit {
             if page_rows == 0 {
                 return Err((8, "query exceeds the row limit"));
@@ -526,11 +547,14 @@ pub extern "C" fn roc_sqlite_watch(cap: *mut u64) -> HostGlueSqliteWatchResult {
             let guard = store()
                 .lock()
                 .map_err(|_| (6, "SQLite capability store unavailable"))?;
-            let connection = guard
+            let held = guard
                 .connections
                 .get(&id)
+                .cloned()
                 .ok_or((3, "invalid SQLite capability"))?;
-            connection
+            drop(guard);
+            held.lock()
+                .map_err(|_| (6, "SQLite connection unavailable"))?
                 .path()
                 .map(PathBuf::from)
                 .ok_or((9, "the database has no file to watch"))?
@@ -633,19 +657,53 @@ pub extern "C" fn roc_sqlite_query(
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| -> Result<Page, Failure> {
         let params: Vec<Value> = params?;
-        let mut guard = store()
+        let held = {
+            let guard = store()
+                .lock()
+                .map_err(|_| (6, "SQLite capability store unavailable"))?;
+            let id = id.ok_or((3, "invalid SQLite capability"))?;
+            grant::accept(grant::Kind::Sqlite, id, Rights::READ).map_err(
+                |refusal| match refusal {
+                    grant::Refusal::Revoked => (10, "SQLite authority was withdrawn"),
+                    _ => (3, "invalid SQLite capability"),
+                },
+            )?;
+            guard
+                .connections
+                .get(&id)
+                .cloned()
+                .ok_or((3, "invalid SQLite capability"))?
+        };
+        // Only this connection is held while the statement runs: a release,
+        // or any other database's statement, does not wait for it.
+        let connection = held
             .lock()
-            .map_err(|_| (6, "SQLite capability store unavailable"))?;
-        let id = id.ok_or((3, "invalid SQLite capability"))?;
-        grant::accept(grant::Kind::Sqlite, id, Rights::READ).map_err(|refusal| match refusal {
-            grant::Refusal::Revoked => (10, "SQLite authority was withdrawn"),
-            _ => (3, "invalid SQLite capability"),
-        })?;
-        let connection = guard
-            .connections
-            .get_mut(&id)
-            .ok_or((3, "invalid SQLite capability"))?;
-        run(connection, &sql, &params, page_rows)
+            .map_err(|_| (6, "SQLite connection unavailable"))?;
+        let connection = &*connection;
+        // A task that ends while its statement runs interrupts the statement
+        // through this connection's own handle.
+        let interrupt = {
+            let handle = connection.get_interrupt_handle();
+            crate::tasks::Interrupt::arm(move || handle.interrupt())
+        };
+        let outcome = if interrupt.requested() {
+            Err(INTERRUPTED)
+        } else {
+            // `sqlite3_interrupt` stops only a statement already running; a
+            // task that ends between this check and the first step is caught
+            // by the progress handler, which SQLite polls as the statement runs.
+            let db = unsafe { connection.handle() };
+            let polled = &interrupt as *const crate::tasks::Interrupt as *mut std::ffi::c_void;
+            unsafe {
+                rusqlite::ffi::sqlite3_progress_handler(db, PROGRESS_STEPS, Some(ended), polled)
+            };
+            let outcome = run_statement(connection, &sql, &params, page_rows, &|| {
+                interrupt.requested()
+            });
+            unsafe { rusqlite::ffi::sqlite3_progress_handler(db, 0, None, std::ptr::null_mut()) };
+            outcome
+        };
+        outcome
     })();
     match result {
         Ok(page) => {
@@ -686,6 +744,49 @@ pub extern "C" fn roc_sqlite_query(
 mod tests {
     use super::*;
     use cap_std::ambient_authority;
+
+    fn run(
+        connection: &Connection,
+        sql: &str,
+        params: &[Value],
+        page_rows: u64,
+    ) -> Result<Page, Failure> {
+        run_statement(connection, sql, params, page_rows, &|| false)
+    }
+
+    #[test]
+    fn ending_the_task_interrupts_its_running_statement() {
+        let connection = Connection::open_in_memory().unwrap();
+        let owner = 0x5e11_0000_0001;
+        let slot = crate::tasks::issue(owner, "count".into());
+        assert!(crate::tasks::begin(&slot));
+        let interrupt = {
+            let handle = connection.get_interrupt_handle();
+            crate::tasks::Interrupt::arm(move || handle.interrupt())
+        };
+        let canceller = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            crate::tasks::cancel(owner, "count");
+        });
+        let started = std::time::Instant::now();
+        // Counting to a billion takes far longer than the cancellation.
+        let outcome = run_statement(
+            &connection,
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1000000000) SELECT count(*) FROM n",
+            &[],
+            0,
+            &|| interrupt.requested(),
+        );
+        canceller.join().unwrap();
+        assert_eq!(outcome.unwrap_err(), INTERRUPTED);
+        assert!(started.elapsed() < Duration::from_secs(10));
+        assert!(interrupt.requested());
+        drop(interrupt);
+        assert!(!crate::tasks::finish(
+            &slot,
+            crate::tasks::Owned::new(0, |_| {})
+        ));
+    }
 
     fn scratch(label: &str) -> (PathBuf, Dir) {
         let path = std::env::temp_dir().join(format!(

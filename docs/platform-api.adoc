@@ -107,9 +107,39 @@ resolver's argument. Resource operations require the grants described in the
 resource access chapter.
 
 Tasks belong to the component that accepts them. Removing that component
-suppresses completion delivery, but does not necessarily cancel the external
-operation. The local-state section explains how a parent can own work that must
-survive a child closing.
+cancels its tasks. The local-state section explains how a parent can own work
+that must survive a child closing.
+
+=== Superseding and cancelling tasks
+
+`Gui.keyed_task({ key, pending, run, resolve })` is a task that supersedes the
+component's previous task with the same `key`. A person moving a selection,
+paging a list, or running a statement again wants the newest answer only; the
+older task is cancelled, and its `resolve` is never called.
+`Gui.cancel(state, key)` installs `state` and cancels the component's task with
+`key`, for an explicit Cancel control or for closing what a task watches.
+
+A cancelled task that has not started never runs. One that is running is
+interrupted where the capability allows: a `Gui.Timer` or `Gui.FilesWatch` wait
+returns `Canceled`, and a SQLite statement stops with `Interrupted`. The timer
+or watch itself keeps running, so a later task may wait on it again. Other work,
+such as an HTTP request, runs to its end, and its result is dropped.
+
+[source,roc]
+----
+run_query = |state, database, sql| Gui.keyed_task({
+	key: "query",
+	pending: { ..state, status: Querying },
+	run: || database.query!(sql),
+	resolve: |latest, outcome| Gui.update(show(latest, outcome)),
+})
+
+cancel_query = |state| Gui.cancel({ ..state, status: Canceled }, "query")
+----
+
+Keys are scoped to the component that accepts the task, so two instances of
+one component never supersede each other. Cancelling a key with nothing in
+flight only installs the state.
 
 === Timers and subscriptions
 

@@ -1350,7 +1350,7 @@ Internal := [].{
 		$steps
 	}
 
-	update_keyed! : BoundaryInfo(a), Elem.Frame, a, [None, Some(Box(Action.Worker(a)))], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_keyed! : BoundaryInfo(a), Elem.Frame, a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
 	update_keyed! = |owner, props, state, task, task_owner, render, routes, boundaries| {
 		Host.work_start!(2)
 		Host.component_work!(0, 1)
@@ -1599,7 +1599,11 @@ Internal := [].{
 				Refresh => update_boundary!(state, None, owner, owner, render, routes, $dirty)
 				Update(next) => update_boundary!(next, None, owner, owner, render, routes, $dirty)
 				Delegate(next) => update_boundary!(next, None, 0, 0, render, routes, $dirty)
-				Task(task) => update_boundary!(task.pending, Some(task.run), owner, owner, render, routes, $dirty)
+				Task(task) => update_boundary!(task.pending, Some({ key: task.key, run: task.run }), owner, owner, render, routes, $dirty)
+				Cancel(canceled) => {
+					Host.cancel_task!(owner, canceled.key)
+					update_boundary!(canceled.state, None, owner, owner, render, routes, $dirty)
+				}
 				_ => crash "action changed during dispatch"
 			}
 		}
@@ -1614,11 +1618,12 @@ Internal := [].{
 		}
 	}
 
-	enqueue_work! = |owner, worker| Host.enqueue_task!(
+	enqueue_work! = |owner, task| Host.enqueue_task!(
 		owner,
+		task.key,
 		Box.box(
 			|| Action.worker_work!(
-				worker,
+				task.run,
 				|completion| Work.next(
 					|| {
 						Host.task_complete!(completion)
@@ -1629,7 +1634,7 @@ Internal := [].{
 		),
 	)
 
-	update_boundary! : a, [None, Some(Box(Action.Worker(a)))], U64, U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_boundary! : a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
 	update_boundary! = |state, task, task_owner, render_owner, render, routes, boundaries| {
 		owner = Index.get(boundaries, render_owner) ?? crash "missing render owner"
 		keyed = match owner.keyed {

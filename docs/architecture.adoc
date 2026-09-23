@@ -442,13 +442,46 @@ still exist. A removed owner's completion is discarded; it never recreates
 child state and never falls back to the root. To outlive a child, work must be
 started by a surviving ancestor, including through `on_delegate`.
 
-Discarding a completion releases its result and captured resources through
-normal reference counting. It revokes delivery, not arbitrary running effects:
-a blocked worker can still own a resource until its operation finishes or an
-explicit capability cancellation wakes it. Request identities in application
-state handle superseded work within one live instance; component lifetime does
-not imply a latest-request-wins policy. Roc values cross threads only as owned
-erased callables; generic state and actions remain boxed across the ABI.
+=== Task lifetime, supersession, and cancellation
+
+The host issues each task when the transaction that proposed it commits, and
+records it against its owner and an optional key. Every issued task ends in
+exactly one way:
+
+delivered:: its worker published a completion and the UI thread applied it;
+superseded:: the same owner committed a newer `Gui.keyed_task` with the same
+key;
+cancelled:: the owner committed a `Gui.cancel` for its key, the owner was
+removed from the mounted graph, or the session ended.
+
+Supersession and cancellation are staged with the turn that asks for them and
+take effect only when its transaction commits, like the task launches of the
+same turn: a removed owner's tasks end first, then the turn's cancellations,
+then its new tasks are issued. A task that ends undelivered never reaches the
+application. If a worker has not started it, it never runs. If it is running,
+a capability wait it is blocked in is interrupted: a timer's `next!` and a
+watch's `next!` return `Canceled`, leaving the timer or watch itself running
+for a later task, and a SQLite statement stops through its connection's
+`sqlite3_interrupt`, backed by a progress handler for a statement that had not
+yet begun to step. If its completion is already queued, the UI thread drops it
+where it takes it. No undelivered completion enters Roc, so none records a
+cycle.
+
+The task owner keeps six deterministic counters: tasks issued, completions
+published, completions delivered, tasks superseded, tasks cancelled, and
+capability waits interrupted. Issued tasks minus delivered, superseded, and
+cancelled ones are the work still outstanding; that difference is what a
+window run's settling waits on. A gauge of the running tasks blocked in an
+interruptible wait, or ended and still unwinding, lets a specification cancel a
+task that is certainly blocked rather than one still queued, and then wait
+until it has released what it held.
+
+Keys are scoped to the owning boundary instance, so two instances of one
+component never supersede each other. An unkeyed `Gui.task` supersedes nothing
+and is cancelled only with its owner. Discarding a completion releases its
+result and captured resources through normal reference counting. Roc values
+cross threads only as owned erased callables; generic state and actions remain
+boxed across the ABI.
 
 Periodic subscriptions use the same route. A timer has at most one waiting
 `Gui.TimerHandle` `next!` task. Its wait parks on a worker and returns a normal boxed

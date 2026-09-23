@@ -702,7 +702,8 @@ Host := [].{
 	set_dispatch! : Box((Session(a) => {})) => {}
 
 	task_complete! : Box(Action.Completion(a)) => {}
-	enqueue_task! : U64, Box(() => Work) => {}
+	enqueue_task! : U64, Str, Box(() => Work) => {}
+	cancel_task! : U64, Str => {}
 
 	timer_start! : U64 => Resource.Timer
 
