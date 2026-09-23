@@ -2349,6 +2349,11 @@ pub(crate) fn canvas_target(primitives: &[CanvasPrimitive], x: i32, y: i32) -> O
     })
 }
 
+/// The most lines a wrapping popover surface shows. It stands in for no limit:
+/// GPUI truncates an inherited ellipsis at one line's width unless a line
+/// count scales it.
+const SURFACE_LINES: usize = 64;
+
 const FOCUS_RING: u32 = 0xf2a65a;
 const DISABLED_BG: u32 = 0x24333c;
 const DISABLED_FG: u32 = 0x6d7d87;
@@ -2884,6 +2889,14 @@ impl Render for NodeView {
                             .cloned()
                             .map(|view| native_node_view(view, _cx)),
                     );
+                    // The surface floats outside its anchor's layout, so it
+                    // must not take the anchor's text truncation with it: a
+                    // note in a clipped table cell wraps within the surface
+                    // unless the surface's own style says otherwise.
+                    if style.text_overflow == TextOverflow::Wrap {
+                        surface = surface.whitespace_normal();
+                        surface.text_style().line_clamp = Some(SURFACE_LINES);
+                    }
                     // The popover's recorded bounds are its surface's.
                     if probe::enabled() {
                         surface = surface.child(probe::marker(self.node.id));

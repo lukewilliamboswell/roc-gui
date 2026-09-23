@@ -268,7 +268,9 @@ region's clipping, and blocks nothing: its content is read, not operated.
 `label` names the surface as a `tooltip` for specifications and assistive
 technology; a closed surface is not presented, so nothing in it can be found.
 The style fields dress the surface, and a modifier applied to a popover applies
-to its anchor. `on_hover_enter` and `on_hover_exit` are optional handlers for
+to its anchor. The surface's text wraps within the surface, whatever
+truncation its anchor's container applies, unless the surface's own
+`text_overflow` says otherwise. `on_hover_enter` and `on_hover_exit` are optional handlers for
 the anchor's pointer edges. The host owns when a surface presents, so opening
 and closing one runs no application code.
 `Gui.tooltip(anchor, text)`:: Annotate an element with a popover presenting
