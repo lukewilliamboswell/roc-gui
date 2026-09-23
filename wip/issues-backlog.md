@@ -444,22 +444,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   produces such a cycle (a rejected turn, or a callback whose span stack does
   not close) should become a fixture.
 
-- [ ] **`text_overflow: Ellipsis` never shortens text in a row (platform).** A
-  fixed-width cell with `text_overflow: Ellipsis` and `overflow_x: Clip` clips
-  its text at the column edge and draws no ellipsis, so a long spec name in
-  Observatory's capture list ends mid-word (`window-tour.scm`, shot
-  `captures`), whose cells have the shape `Gui.row({ width: Px(260),
-  overflow_x: Clip, text_overflow: Ellipsis }, [Gui.text(long)])`.
-  The host adds `Gui.text` as a bare string child of its parent's div
-  (`crates/host/src/lib.rs`, `NodeKind::Text`), so the text is a flex item whose
-  minimum width is its content: it is laid out at full width and the parent
-  clips it, and GPUI's truncation never sees a narrower width. Laying the cell
-  out as a column does not help, and neither does making GPUI's text measure
-  skip its cached size when truncating (`vendor/gpui/src/elements/text.rs`).
-  Close by giving a text child of an `Ellipsis` container a zero minimum width
-  (or its own shrinkable wrapper) and proving it with a window specification
-  that photographs a clipped cell.
-
 - [ ] **A single capture file cannot be opened (P9).** Access offers only a
   directory chooser. Add a type-filtered single-file chooser, dropping files onto
   the window, and recent documents backed by remembered grants, as one trusted

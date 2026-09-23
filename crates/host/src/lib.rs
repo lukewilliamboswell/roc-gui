@@ -2250,8 +2250,22 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
     }
 }
 
+/// Text is its own flex item, and a flex item is never narrower than its
+/// content unless told otherwise. Under a container that keeps text on one
+/// line (`NoWrap` or `Ellipsis`), that floor would lay the string out at full
+/// width and leave the container to clip it, so truncation would never see the
+/// narrower width. Such text may shrink to its container and clips itself.
+/// Wrapping text keeps its floor, the width of its longest word.
+fn single_line_text(element: Stateful<Div>, window: &Window) -> Stateful<Div> {
+    if window.text_style().white_space == WhiteSpace::Nowrap {
+        element.min_w_0().flex_shrink().overflow_x_hidden()
+    } else {
+        element
+    }
+}
+
 impl Render for NodeView {
-    fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         observatory::note_native_render(if self.keyed_children.is_some() {
             observatory::KEYED_CONTAINER_NATIVE_KIND
         } else {
@@ -2491,7 +2505,7 @@ impl Render for NodeView {
                     });
             }
             NodeKind::Text(value) => {
-                element = element.child(value.clone());
+                element = single_line_text(element, window).child(value.clone());
             }
             // A typographic step is about the string alone, so it costs no
             // container: the colour, size, weight, and face are the text
@@ -2503,7 +2517,7 @@ impl Render for NodeView {
                 font_weight,
                 font_face,
             } => {
-                element = element.child(value.clone());
+                element = single_line_text(element, window).child(value.clone());
                 if let Some(color) = fg {
                     element = element.text_color(rgb(*color));
                 }
