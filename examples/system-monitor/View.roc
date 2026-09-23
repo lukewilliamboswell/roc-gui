@@ -2,8 +2,8 @@
 ##
 ## The layout is built around one rule: a figure that changes must never move
 ## anything. Every tile is a fixed height, the status strip is a fixed height,
-## the state pill has a floor on its width, the plot is a fixed surface, and
-## every number is set in the fixed-pitch face. What is left free to change is
+## the state pill has a floor on its width, the plot is a fixed height and is
+## drawn for the width it is given, and every number is set in the fixed-pitch face. What is left free to change is
 ## the numbers themselves, which is the only thing a person is watching.
 import pf.Gui
 import Chart
@@ -277,7 +277,15 @@ plot = |state| Theme.panel(
 		),
 		Gui.row(
 			{ label: "Plot", width: Fill, padding: 0, gap: 8, align: Start },
-			[axis, Chart.render(Chart.loads(state.history), Monitor.capacity)],
+			[
+				axis,
+				Chart.render({
+					history: Chart.loads(state.history),
+					capacity: Monitor.capacity,
+					width: state.plot_width,
+					on_size: |current, laid_out| if laid_out.width == current.plot_width Gui.none else Gui.update({ ..current, plot_width: laid_out.width }),
+				}),
+			],
 		),
 	],
 )

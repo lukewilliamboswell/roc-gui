@@ -24,7 +24,7 @@ Monitor := [].{
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
 	init : Gui.Access -> State
-	init = |access| { access, filter: "", generation: 0, history: [], latest: None, run_state: Paused, selected: None, sort: ByCpu, status: Idle }
+	init = |access| { access, filter: "", generation: 0, history: [], latest: None, plot_width: 0, run_state: Paused, selected: None, sort: ByCpu, status: Idle }
 
 	## Begin a session. Acquisition is the whole authority question: if the host
 	## refuses, nothing is opened and nothing is read.
@@ -53,6 +53,8 @@ State : {
 	generation : U64,
 	history : List(Gui.SystemMonitorSnapshot),
 	latest : [None, Some(Gui.SystemMonitorSnapshot)],
+	## The width the window laid the CPU plot out at, zero until it has.
+	plot_width : U32,
 	run_state : RunState,
 	selected : [None, Some(U64)],
 	sort : Processes.Sort,
