@@ -5379,7 +5379,8 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                     }),
                     ..Default::default()
                 },
-                move |_window, cx| {
+                move |window, cx| {
+                    window.observe_frame_work(observatory::gpui_frame_work);
                     cx.new(|cx| Runtime::new(initial, cx))
                 },
             )
@@ -5561,7 +5562,7 @@ mod tests {
     fn native_cache_retains_siblings_and_refreshes_changed_buttons(cx: &mut TestAppContext) {
         let events = recording_dispatcher();
         let nodes = fixed_hover_buttons(1000);
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
         });
         cx.run_until_parked();
@@ -5868,7 +5869,7 @@ mod tests {
             kind: NodeKind::Boundary { instance: 9 },
             children: vec![1000],
         });
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(initial_mount(Patch::Mount { root: 900, nodes }), cx)
         });
         cx.run_until_parked();
@@ -6599,7 +6600,7 @@ mod tests {
 
     #[gpui::test]
     fn keyed_native_move_preserves_entities_and_remove_retires_routes(cx: &mut TestAppContext) {
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1,
@@ -6705,7 +6706,7 @@ mod tests {
 
     #[gpui::test]
     fn keyed_native_move_work_is_independent_of_ten_thousand_items(cx: &mut TestAppContext) {
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1,
@@ -6776,7 +6777,7 @@ mod tests {
     #[gpui::test]
     fn live_task_completion_records_its_own_patch_and_callback(cx: &mut TestAppContext) {
         let _guard = observatory::RECORDER_TEST.lock().unwrap();
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -6934,6 +6935,27 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
+    /// Open a runtime window whose pointer starts outside it.
+    ///
+    /// The test platform reports the pointer at the window origin, and GPUI
+    /// delivers hover to whatever a stationary pointer rests on once it is
+    /// painted. Tests that count hover edges start from a pointer that has
+    /// left the window; the edges of that setup reach a discarding
+    /// dispatcher, and any dispatcher the test installed is restored after.
+    fn open_with_pointer_outside(
+        cx: &mut TestAppContext,
+        build: impl FnOnce(&mut gpui::Window, &mut gpui::Context<Runtime>) -> Runtime,
+    ) -> (gpui::Entity<Runtime>, &mut VisualTestContext) {
+        let installed = super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        install_test_dispatcher(|_| Patch::NoChange);
+        let (runtime, cx) = cx.add_window_view(build);
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        super::TEST_DISPATCHER.with(|slot| *slot.borrow_mut() = installed);
+        (runtime, cx)
+    }
+
     fn recording_dispatcher() -> Rc<RefCell<Vec<u64>>> {
         let clicks: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
         let recorded = clicks.clone();
@@ -7017,7 +7039,7 @@ mod tests {
                 nodes: two_hover_buttons(root),
             }
         });
-        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -7069,7 +7091,7 @@ mod tests {
                 nodes,
             }
         });
-        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -7215,8 +7237,7 @@ mod tests {
     ) {
         let events = recording_dispatcher();
         let (root, nodes) = hover_tree(1000);
-        let (runtime, cx) = cx
-            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
         cx.run_until_parked();
         cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
         cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());
