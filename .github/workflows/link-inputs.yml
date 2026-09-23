@@ -129,12 +129,13 @@ jobs:
             cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
           done
           cmp "$RUNNER_TEMP/resource-candidate/roc-gui.res" "$RUNNER_TEMP/resource-rebuild/roc-gui.res"
+          mkdir "$RUNNER_TEMP/windows-components"
+          cp "$RUNNER_TEMP/candidate"/*.tar "$RUNNER_TEMP/windows-components/"
+          cp "$RUNNER_TEMP/resource-candidate/roc-gui.res" "$RUNNER_TEMP/windows-components/"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: link-input-components-windows
-          path: |
-            ${{ runner.temp }}/candidate/*.tar
-            ${{ runner.temp }}/resource-candidate/roc-gui.res
+          path: ${{ runner.temp }}/windows-components/*
           retention-days: 30
 
   assemble:
