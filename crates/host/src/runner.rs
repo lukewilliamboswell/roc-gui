@@ -876,6 +876,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     let mut timer_fired_seen = crate::timers::fired_count();
     let mut dialog_return_focus: Option<(u8, String)> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
+        // The control focused before the step, by the identity that survives
+        // a rebuild renumbering it.
+        let focus_before = focused
+            .and_then(|id| graph.node(id))
+            .and_then(|node| node.kind.focus_identity());
         let role = match &step.command {
             Command::MarkMetrics => "boundary",
             command if command.is_operation() && marked => "operation",
@@ -1496,6 +1501,12 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         // would happen either.
                         None => Ok(()),
                         Some(found) => {
+                            // The focused control opened any dialog the shortcut
+                            // shows, and gets focus back when it closes.
+                            let previous_dialog = graph.active_dialog();
+                            let opener = focused
+                                .and_then(|id| graph.node(id))
+                                .and_then(|node| node.kind.focus_identity());
                             let cycle_started = Instant::now();
                             observatory::reset_roc_work();
                             let roc_started = Instant::now();
@@ -1503,6 +1514,18 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             let roc_ns = elapsed_ns(roc_started);
                             let (roc_work, roc_work_valid) = observatory::take_roc_work();
                             let facts = apply_transaction(&mut graph, patch)?;
+                            match (previous_dialog, graph.active_dialog()) {
+                                (None, Some(dialog)) => {
+                                    dialog_return_focus = opener;
+                                    focused = graph.first_focusable_in(dialog);
+                                }
+                                (Some(_), None) => {
+                                    focused = dialog_return_focus
+                                        .take()
+                                        .and_then(|identity| graph.find_focus_identity(&identity));
+                                }
+                                _ => {}
+                            }
                             last_patch = Some(facts);
                             pending_cycles.push(make_cycle(
                                 run_id,
@@ -1794,6 +1817,11 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             },
         };
+        // The same control under a new id keeps focus, as it does in the
+        // window, where focus follows a rebuilt control by its identity.
+        if focused.is_some_and(|id| graph.node(id).is_none()) {
+            focused = focus_before.and_then(|identity| graph.find_focus_identity(&identity));
+        }
         // A region that asked for focus with a new serial takes it once the
         // step's patches are applied, as the window's does after a patch.
         if let Some(target) = graph.take_focus_request() {

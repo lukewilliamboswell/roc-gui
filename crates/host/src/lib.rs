@@ -4099,6 +4099,8 @@ impl Runtime {
         ) else {
             return false;
         };
+        // A dialog the shortcut opens returns focus here when it closes.
+        self.last_trigger_focus = focused.and_then(|id| self.identities.get(&id).cloned());
         if observatory::active() {
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
