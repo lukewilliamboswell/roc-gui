@@ -236,6 +236,9 @@ pub enum Command {
     /// refused reads, and bytes read. All six are numeric; no path, file name,
     /// or asset content ever becomes evidence.
     ExpectAssetCounters([u64; 6]),
+    /// The file hash owner's totals, in order: files hashed, hashes refused,
+    /// and bytes hashed. No name, path, or digest ever becomes evidence.
+    ExpectHashCounters([u64; 3]),
     /// Every live grant, each rendered by `grant::Grant::describe`, in registry
     /// order. The claim a person most wants to make about authority is not a
     /// number but a list: this is what this application is holding, and nothing
@@ -443,6 +446,7 @@ impl Command {
             Self::ExpectDocumentCounters(_) => "expect-document-counters",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
+            Self::ExpectHashCounters(_) => "expect-hash-counters",
             Self::ExpectGrants(_) => "expect-grants",
             Self::ExpectGrantCounters(_) => "expect-grant-counters",
             Self::ExpectAppAccess(_) => "expect-app-access",
@@ -570,6 +574,7 @@ impl Command {
             | Self::ExpectDocumentCounters(_)
             | Self::ExpectImageOwnerCounters(_)
             | Self::ExpectAssetCounters(_)
+            | Self::ExpectHashCounters(_)
             | Self::ExpectGrants(_)
             | Self::ExpectGrantCounters(_) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
@@ -1646,6 +1651,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectAssetCounters(expected)
         }
+        "expect-hash-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-hash-counters")? as u64;
+            }
+            Command::ExpectHashCounters(expected)
+        }
         "expect-file-selection-counters" if values.len() == 8 => {
             let mut expected = [0u64; 7];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1920,6 +1932,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-document-counters"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
+        | "expect-hash-counters"
         // `expect-grants` is deliberately absent: it takes any number of
         // descriptions, so it can never be the known-step-wrong-arity case this
         // list exists to report.
@@ -2811,6 +2824,13 @@ mod tests {
             Command::ExpectAssetCounters([1, 0, 1, 2, 0, 4096])
         );
         assert!(parse(r#"(test "assets" (steps (expect-asset-counters 1 2 3)))"#).is_err());
+        let case = parse(r#"(test "hashes" (steps (expect-hash-counters 2 1 4096)))"#)
+            .expect("hash counters parse");
+        assert_eq!(
+            case.steps[0].command,
+            Command::ExpectHashCounters([2, 1, 4096])
+        );
+        assert!(parse(r#"(test "hashes" (steps (expect-hash-counters 1 2)))"#).is_err());
     }
 
     #[test]

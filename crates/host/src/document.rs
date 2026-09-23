@@ -525,6 +525,32 @@ pub extern "C" fn roc_files_file_read(cap: *mut u64) -> InternalFilesFileReadRes
     }
 }
 
+/// Hash the chosen file under the host's hash bound, without following a link.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_file_sha256(cap: *mut u64) -> InternalFilesDirSha256Result {
+    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
+    let opened = lookup_accepted(cap);
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    let outcome = match opened {
+        Err(Refused::Invalid) => {
+            files::note_hash_refused();
+            Err(R::InvalidCapability)
+        }
+        Err(Refused::Revoked) => {
+            files::note_hash_refused();
+            Err(R::Revoked)
+        }
+        Ok((file, _)) => {
+            let hashed = files::hash_child_bounded(&file.dir, &file.name, files::MAX_HASH_BYTES);
+            files::note_hash(&hashed);
+            hashed
+                .map(|(digest, _)| digest)
+                .map_err(files::child_reason)
+        }
+    };
+    files::hash_result(outcome)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

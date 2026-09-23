@@ -455,6 +455,129 @@ pub(crate) fn read_child_bounded(
     }
 }
 
+/// The largest file the host hashes. A hash streams the file and holds none of
+/// it, so the bound is on the time one task may spend rather than on memory.
+pub(crate) const MAX_HASH_BYTES: u64 = 1024 * 1024 * 1024;
+
+/// Files hashed, hashes refused, and bytes hashed, in that order.
+static HASHES: [std::sync::atomic::AtomicU64; 3] = [
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+];
+
+/// The hash owner's totals: files hashed, hashes refused, and bytes hashed.
+pub fn hash_counters() -> [u64; 3] {
+    [0, 1, 2].map(|index| HASHES[index].load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// Count one hash's outcome where it was decided.
+pub(crate) fn note_hash(outcome: &Result<(String, u64), ChildReadError>) {
+    use std::sync::atomic::Ordering::Relaxed;
+    match outcome {
+        Ok((_, bytes)) => {
+            HASHES[0].fetch_add(1, Relaxed);
+            HASHES[2].fetch_add(*bytes, Relaxed);
+        }
+        Err(_) => {
+            HASHES[1].fetch_add(1, Relaxed);
+        }
+    }
+}
+
+/// Count a hash refused before any file was reached.
+pub(crate) fn note_hash_refused() {
+    HASHES[1].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The SHA-256 digest of one direct ordinary child file of `dir`, as lowercase
+/// hexadecimal, and the number of bytes hashed. It follows no link, streams
+/// the file in fixed chunks, and answers `ResourceLimit` for a file longer
+/// than `max_bytes`, whether its metadata says so or it grows while read.
+pub(crate) fn hash_child_bounded(
+    dir: &Dir,
+    name: &str,
+    max_bytes: u64,
+) -> Result<(String, u64), ChildReadError> {
+    use sha2::{Digest, Sha256};
+    if !valid_name(name) {
+        return Err(ChildReadError::InvalidName);
+    }
+    let metadata = dir.symlink_metadata(name).map_err(|io| match io.kind() {
+        std::io::ErrorKind::NotFound => ChildReadError::NotFound,
+        std::io::ErrorKind::PermissionDenied => ChildReadError::AccessDenied,
+        std::io::ErrorKind::NotADirectory => ChildReadError::NotDirectory,
+        _ => ChildReadError::Io,
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(ChildReadError::Unsupported);
+    }
+    if metadata.len() > max_bytes {
+        return Err(ChildReadError::ResourceLimit);
+    }
+    let mut options = OpenOptions::new();
+    options.read(true).follow(FollowSymlinks::No);
+    let file = dir
+        .open_with(name, &options)
+        .map_err(|io| match io.kind() {
+            std::io::ErrorKind::NotFound => ChildReadError::NotFound,
+            std::io::ErrorKind::PermissionDenied => ChildReadError::AccessDenied,
+            _ => ChildReadError::Io,
+        })?;
+    let mut limited = file.take(max_bytes + 1);
+    let mut hash = Sha256::new();
+    let mut buffer = vec![0u8; 64 * 1024];
+    let mut total = 0u64;
+    loop {
+        let read = limited.read(&mut buffer).map_err(|_| ChildReadError::Io)?;
+        if read == 0 {
+            break;
+        }
+        total += read as u64;
+        if total > max_bytes {
+            return Err(ChildReadError::ResourceLimit);
+        }
+        hash.update(&buffer[..read]);
+    }
+    Ok((format!("{:x}", hash.finalize()), total))
+}
+
+/// The hosted answer to a hash: the digest, or the operation-tagged failure.
+pub(crate) fn hash_result(
+    outcome: Result<String, AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+) -> InternalFilesDirSha256Result {
+    match outcome {
+        Ok(digest) => InternalFilesDirSha256Result {
+            payload: InternalFilesDirSha256ResultPayload {
+                ok: ManuallyDrop::new(RocStr::from_str(&digest, roc_host())),
+            },
+            tag: InternalFilesDirSha256ResultTag::Ok,
+        },
+        Err(reason) => InternalFilesDirSha256Result {
+            payload: InternalFilesDirSha256ResultPayload {
+                err: ManuallyDrop::new(read_file_err(reason)),
+            },
+            tag: InternalFilesDirSha256ResultTag::Err,
+        },
+    }
+}
+
+/// A child read's failure, spelled as the host exchanges it.
+pub(crate) fn child_reason(
+    error: ChildReadError,
+) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported{
+    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
+    match error {
+        ChildReadError::InvalidName => R::InvalidName,
+        ChildReadError::NotFound => R::NotFound,
+        ChildReadError::NotDirectory => R::NotDirectory,
+        ChildReadError::AccessDenied => R::AccessDenied,
+        ChildReadError::Unsupported => R::Unsupported,
+        ChildReadError::ResourceLimit => R::ResourceLimit,
+        ChildReadError::Io => R::Io,
+    }
+}
+
 pub(crate) enum BoundedReadError {
     InvalidCapability,
     InvalidName,
@@ -922,6 +1045,36 @@ pub extern "C" fn roc_files_dir_read(cap: *mut u64, name: RocStr) -> InternalFil
     }
 }
 
+/// Hash one direct ordinary child of a granted directory. A revoked or
+/// invalid handle is refused like a read.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_dir_sha256(
+    cap: *mut u64,
+    name: RocStr,
+) -> InternalFilesDirSha256Result {
+    use AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported as R;
+    let owned_name = name.as_str().to_owned();
+    unsafe { name.decref(roc_host()) };
+    let dir = lookup_state(cap);
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    let outcome = match dir {
+        Err(LookupError::Invalid) => {
+            note_hash_refused();
+            Err(R::InvalidCapability)
+        }
+        Err(LookupError::Revoked) => {
+            note_hash_refused();
+            Err(R::Revoked)
+        }
+        Ok(dir) => {
+            let hashed = hash_child_bounded(&dir, &owned_name, MAX_HASH_BYTES);
+            note_hash(&hashed);
+            hashed.map(|(digest, _)| digest).map_err(child_reason)
+        }
+    };
+    hash_result(outcome)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -981,6 +1134,47 @@ mod tests {
         assert!(!valid_name("../outside"));
         assert!(!valid_name("nested/child"));
         assert!(!valid_name("/absolute"));
+    }
+
+    #[test]
+    fn a_hash_streams_one_child_and_refuses_links_and_oversized_files() {
+        let root = std::env::temp_dir().join(format!("roc-gui-hash-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("inner")).unwrap();
+        std::fs::write(root.join("spec.scm"), b"abc").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(root.join("spec.scm"), root.join("link.scm")).unwrap();
+        let dir = Dir::open_ambient_dir(&root, ambient_authority()).unwrap();
+        let (digest, bytes) = hash_child_bounded(&dir, "spec.scm", MAX_HASH_BYTES)
+            .ok()
+            .unwrap();
+        assert_eq!(
+            digest,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(bytes, 3);
+        assert!(matches!(
+            hash_child_bounded(&dir, "spec.scm", 2),
+            Err(ChildReadError::ResourceLimit)
+        ));
+        assert!(matches!(
+            hash_child_bounded(&dir, "inner", MAX_HASH_BYTES),
+            Err(ChildReadError::Unsupported)
+        ));
+        #[cfg(unix)]
+        assert!(matches!(
+            hash_child_bounded(&dir, "link.scm", MAX_HASH_BYTES),
+            Err(ChildReadError::Unsupported)
+        ));
+        assert!(matches!(
+            hash_child_bounded(&dir, "../spec.scm", MAX_HASH_BYTES),
+            Err(ChildReadError::InvalidName)
+        ));
+        assert!(matches!(
+            hash_child_bounded(&dir, "missing.scm", MAX_HASH_BYTES),
+            Err(ChildReadError::NotFound)
+        ));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

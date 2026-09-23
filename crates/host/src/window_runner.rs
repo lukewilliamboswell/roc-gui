@@ -1159,6 +1159,7 @@ async fn run_step(
         | Command::ExpectFileAccess(_)
         | Command::ExpectDocumentCounters(_)
         | Command::ExpectAssetCounters(_)
+        | Command::ExpectHashCounters(_)
         | Command::ExpectGrants(_)
         | Command::ExpectGrantCounters(_)
         | Command::ExpectImageOwnerCounters(_) => window

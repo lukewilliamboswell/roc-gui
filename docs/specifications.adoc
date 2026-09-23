@@ -376,6 +376,9 @@ matching enabled control. This proves the host's dialog focus policy, not a
 compositor-delivered focus event.
 `(expect-http-counters LIVE ACQUIRE SEND DENIED)`:: Require the owner-recorded
 live client count, operation attempts, and authority denials.
+`(expect-hash-counters HASHED REFUSED BYTES)`:: Require the file hash owner's
+three totals, in that order: files hashed, hashes refused, and bytes hashed. No
+file name, path, or digest becomes evidence.
 `(expect-image-bytes LOCATOR N)`:: Require an image node to own exactly `N`
 encoded bytes, and record expected and observed deterministic counts without
 persisting image content.

@@ -761,7 +761,15 @@ directory without following the final symlink; names containing traversal or
 multiple path components are rejected. `directory.read!(name)` reads
 one direct ordinary file as a bounded `List(U8)` without following links. The
 64 MiB bound returns `ResourceLimit` instead of constructing an unbounded
-application value. Run filesystem operations inside `Gui.task`, as
+application value. `directory.sha256!(name)` answers the SHA-256 digest of one
+direct ordinary file as 64 lowercase hexadecimal digits. The host streams the
+file in fixed chunks without following links, so none of its bytes becomes an
+application value; a file over 1 GiB answers `ResourceLimit`, and every other
+failure is the same `ReadFileErr` a read of that file would give. An
+application compares a file with a recorded identity this way, such as a
+specification with the `spec_hash` of its capture, without reading it. The
+host counts files hashed, hashes refused, and bytes hashed, which
+`expect-hash-counters` asserts; no name, path, or digest is evidence. Run filesystem operations inside `Gui.task`, as
 `examples/folder-browser/main.roc` shows.
 
 == Single-file capabilities
@@ -784,7 +792,8 @@ rule and refusal cooldown as Open Project. A chosen file is
 `Chosen({ name, file })`, where `file` is an opaque, reference-counted
 `Gui.FilesFileRead`. It names the file and not its folder, so it reveals no
 sibling and takes no name from the application. `file.read!()` reads the whole
-file under the same 64 MiB bound and without following a link, and
+file under the same 64 MiB bound and without following a link, `file.sha256!()`
+hashes it as `directory.sha256!(name)` hashes a child, and
 `Gui.Sqlite.open_file_read!(file)` opens it in place as a read-only database.
 
 The grant is recorded as a `document` root with `read` and `derive`, with its

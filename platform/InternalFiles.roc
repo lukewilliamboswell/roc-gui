@@ -38,12 +38,14 @@ InternalFiles := [].{
 	dir_list! : Resource.DirRead => Try(List(Entry), FileErr)
 	dir_open_read! : Resource.DirRead, Str => Try(Resource.DirRead, FileErr)
 	dir_read! : Resource.DirRead, Str => Try(List(U8), FileErr)
+	dir_sha256! : Resource.DirRead, Str => Try(Str, FileErr)
 
 	## One offered file type, spelled as the host exchanges it.
 	FileType : { label : Str, extensions : List(Str), mime_types : List(Str) }
 
 	pick_file! : List(FileType) => Try([Canceled, Chosen({ name : Str, file : Resource.FileRead })], FileErr)
 	file_read! : Resource.FileRead => Try(List(U8), FileErr)
+	file_sha256! : Resource.FileRead => Try(Str, FileErr)
 
 	app_data! : () => Try(Resource.DirReadWrite, { code : U8, message : Str })
 	read_utf8! : Resource.DirReadWrite, Str => Try({ found : Bool, value : Str }, { code : U8, message : Str })

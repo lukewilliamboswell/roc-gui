@@ -103,6 +103,8 @@ platform ""
 		"roc_files_dir_read": InternalFiles.dir_read!,
 		"roc_files_pick_file": InternalFiles.pick_file!,
 		"roc_files_file_read": InternalFiles.file_read!,
+		"roc_files_dir_sha256": InternalFiles.dir_sha256!,
+		"roc_files_file_sha256": InternalFiles.file_sha256!,
 	}
 	targets: {
 		inputs_dir: "targets/",

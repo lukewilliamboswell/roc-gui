@@ -84,6 +84,9 @@ opens, refused opens, manifest checks, reads, refused reads, and bytes read.
 Asset paths, file names, and asset content are not capture evidence.
 `expect-document-counters`:: The document owner's picks, chosen files,
 cancellations, refusals, and reads, then its live handles.
+`expect-hash-counters`:: The file hash owner's files hashed, hashes refused, and
+bytes hashed, across directory and single-file grants. File names, paths, and
+digests are not capture evidence.
 `revoke-file-grants`:: Invokes the trusted-host revocation seam for every chosen
 folder and file. It is not an
 application event or a Roc capability API.

@@ -597,9 +597,6 @@ ideal and the repository. P- and E-numbers refer to that document.
 - [ ] **Granted files cannot be watched (P8).** Add change notification on
   granted files so a replaced or growing capture reloads.
 
-- [ ] **No content hash (P10).** Add a hash of granted file bytes so a
-  specification source can be matched against `metadata.spec_hash`.
-
 - [ ] **A task cannot be cancelled (P13).** Stale queries run to completion and
   are discarded in `resolve`. Add cancellation and supersede so a moved
   selection stops its superseded query.

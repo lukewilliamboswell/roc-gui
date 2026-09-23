@@ -774,6 +774,9 @@ pub(crate) fn resource_claim(
         Command::ExpectAssetCounters(expected) => {
             exact("asset counters", expected, crate::assets::counters())
         }
+        Command::ExpectHashCounters(expected) => {
+            exact("hash counters", expected, crate::files::hash_counters())
+        }
         // The whole list, in order, compared as a list. A claim that counted
         // grants instead would pass for an application holding entirely
         // different authority than the one the specification names.
@@ -1701,6 +1704,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectFileAccess(_)
             | Command::ExpectDocumentCounters(_)
             | Command::ExpectAssetCounters(_)
+            | Command::ExpectHashCounters(_)
             | Command::ExpectGrants(_)
             | Command::ExpectGrantCounters(_)
             | Command::ExpectImageOwnerCounters(_) => {

@@ -70,6 +70,13 @@ Files := [].{
 			read! : Read, Str => Try(List(U8), FileErr)
 			read! = |Read.(handle), name| InternalFiles.dir_read!(handle, name)
 
+			## The SHA-256 digest of one direct ordinary child file, as 64
+			## lowercase hexadecimal digits. The host streams the file without
+			## following links, so no byte of it becomes an application value;
+			## a file over the host's hash bound answers `ResourceLimit`.
+			sha256! : Read, Str => Try(Str, FileErr)
+			sha256! = |Read.(handle), name| InternalFiles.dir_sha256!(handle, name)
+
 			## The shared representation behind this handle. It is the seam the
 			## platform's own modules use to hand a directory to the host, as
 			## `Sqlite` and `Audio` do. The representation is itself opaque, so
@@ -109,6 +116,12 @@ Files := [].{
 			## value.
 			read! : Read => Try(List(U8), FileErr)
 			read! = |Read.(handle)| InternalFiles.file_read!(handle)
+
+			## The SHA-256 digest of the file, as 64 lowercase hexadecimal
+			## digits, streamed by the host under the same bound as a
+			## directory's `sha256!`.
+			sha256! : Read => Try(Str, FileErr)
+			sha256! = |Read.(handle)| InternalFiles.file_sha256!(handle)
 
 			## The shared representation behind this handle, for the platform's
 			## own modules, as `Sqlite` uses it. It grants nothing an
