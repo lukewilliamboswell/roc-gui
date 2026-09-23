@@ -168,6 +168,9 @@ Request : [
 	## Read a replaced capture again, keeping the view, its filters, and its
 	## selection by keys that survive the file changing.
 	Reload,
+	## The recent list: reopen a remembered capture or folder.
+	Reopen(U64),
+	ReopenFolder(U64),
 ]
 
 State : {
@@ -237,6 +240,12 @@ State : {
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
+	## The captures and folders the host remembers for Observatory, most
+	## recent first, as last read.
+	recent : List(Gui.FilesRecent),
+	## A capture dropped on an open capture, waiting for the person to open
+	## it or compare it with the capture on screen.
+	offer : [None, Some(Gui.FilesFileSelection)],
 }
 
 Observatory := [].{
@@ -310,7 +319,49 @@ Observatory := [].{
 		tabs: [],
 		inspector: { size: 360, collapsed: False, pinned: None },
 		request: None,
+		recent: [],
+		offer: None,
 	}
+
+	## As the window opens, read the recent list the first screen shows. The
+	## host checks each entry against what is at its place now, so an entry
+	## that cannot be reopened is listed with its reason.
+	opened! : State => Gui.Action(State)
+	opened! = |state| Gui.update({ ..state, recent: state.access.recent!() })
+
+	## Captures dropped on the window. On the start page every dropped capture
+	## opens, each in a tab; on an open capture one dropped capture waits for
+	## the person to open it or compare it with the capture on screen.
+	dropped : State, Gui.EventDrop -> Gui.Action(State)
+	dropped = dropped
+
+	## Open the capture waiting after a drop, or compare it with the capture
+	## on screen, which becomes the baseline; or put it down.
+	open_offered : State -> Gui.Action(State)
+	open_offered = |state| match state.offer {
+		Some(offered) => open_files({ ..state, offer: None }, [offered], Overview)
+		None => Gui.none
+	}
+
+	compare_offered : State -> Gui.Action(State)
+	compare_offered = |state| match state.offer {
+		Some(offered) => open_files(set_baseline({ ..state, offer: None }), [offered], Compare)
+		None => Gui.none
+	}
+
+	dismiss_offer : State -> Gui.Action(State)
+	dismiss_offer = |state| Gui.update({ ..state, offer: None })
+
+	## Forget one entry of the recent list, and read the list again.
+	forget! : State, U64 => Gui.Action(State)
+	forget! = |state, key| {
+		_ = state.access.forget_recent!(key)
+		Gui.update({ ..state, recent: state.access.recent!() })
+	}
+
+	## Why a recent entry cannot be reopened, in words.
+	unavailable_reason : Gui.FilesUnavailable -> Str
+	unavailable_reason = unavailable_reason
 
 	## Ask the root for something a boundary cannot do itself.
 	ask : State, Request -> Gui.Action(State)
@@ -394,6 +445,11 @@ Observatory := [].{
 
 	choose_file : State -> Gui.Action(State)
 	choose_file = choose_file
+
+	## The kinds of file Observatory opens, offered by its chooser and
+	## accepted by its drop target.
+	capture_types : List(Gui.FilesFileType)
+	capture_types = capture_types
 
 	## The triggers table's |Δ| column, its order while a baseline applies.
 	delta_column : U64
@@ -890,6 +946,8 @@ fulfil = |asked| {
 			Some(folder) => build_scaling(state, folder.directory)
 			None => Gui.update(state)
 		}
+		Some(Reopen(key)) => reopen(state, key)
+		Some(ReopenFolder(key)) => reopen_folder(state, key)
 	}
 }
 
@@ -954,53 +1012,220 @@ list_captures! = |directory, entries| {
 choose : State -> Gui.Action(State)
 choose = |state| {
 	id = state.next_request
+	access = state.access
 	Gui.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match state.access.pick_directory!() {
-			Ok(Chosen(selection)) => match selection.directory.list!() {
-				Ok(entries) => {
-					# The listing is bound before the record is built. Written inline
-					# beside `directory: selection.directory`, an optimized build loses
-					# a reference to the capability: see "A value used twice in one
-					# record literal" in wip/issues-backlog.md.
-					captures = list_captures!(selection.directory, entries)
-					# A folder that cannot be watched is still read; it is
-					# just not read again when it changes.
-					watch = match selection.directory.watch!() {
-						Ok(started) => Some(started)
-						Err(_) => None
-					}
-					ChosenFolder({ revision: id, name: selection.name, directory: selection.directory, captures, watch })
-				}
-				Err(_) => ChooseFailed
-			}
+		run: || match access.pick_directory!() {
+			Ok(Chosen(selection)) => list_folder!(access, selection, id)
 			Ok(Canceled) => ChooseCanceled
 			Err(_) => ChooseFailed
 		},
 		resolve: |latest, result| match latest.status {
+			Busy(active) if active == id => folder_listed(latest, result, id)
+			_ => Gui.none
+		},
+	})
+}
+
+## What choosing or reopening a folder found.
+Listed : [ChosenFolder({ revision : U64, name : Str, directory : Gui.FilesDirRead, captures : List(Capture.Listing), watch : [None, Some(Gui.FilesWatch)], recent : List(Gui.FilesRecent) }), ChooseCanceled, ChooseFailed, ReopenFailed({ name : Str, reason : Gui.FilesUnavailable, recent : List(Gui.FilesRecent) })]
+
+## List a folder the person chose or reopened, remember it, and read the
+## recent list it now heads.
+list_folder! : Gui.Access, Gui.FilesSelection, U64 => Listed
+list_folder! = |access, selection, id| match selection.directory.list!() {
+	Ok(entries) => {
+		# The listing is bound before the record is built. Written inline
+		# beside `directory: selection.directory`, an optimized build loses
+		# a reference to the capability: see "A value used twice in one
+		# record literal" in wip/issues-backlog.md.
+		captures = list_captures!(selection.directory, entries)
+		# A folder that cannot be watched is still read; it is
+		# just not read again when it changes.
+		watch = match selection.directory.watch!() {
+			Ok(started) => Some(started)
+			Err(_) => None
+		}
+		_ = access.remember_directory!(selection.directory)
+		recent = access.recent!()
+		ChosenFolder({ revision: id, name: selection.name, directory: selection.directory, captures, watch, recent })
+	}
+	Err(_) => ChooseFailed
+}
+
+folder_listed : State, Listed, U64 -> Gui.Action(State)
+folder_listed = |latest, result, id| match result {
+	ChosenFolder(chosen) => {
+		folder = { revision: chosen.revision, name: chosen.name, directory: chosen.directory, captures: chosen.captures }
+		listed = { ..latest, folder: Some(folder), grant: Granted(chosen.name), capture: None, status: Ready, source: None, live: idle, changed: False, recent: chosen.recent }
+		match chosen.watch {
+			# Request identities start at zero, and zero means no watch.
+			Some(watch) => wait_folder(listed, watch, id + 1)
+			None => Gui.update({ ..listed, folder_watch: 0 })
+		}
+	}
+	ChooseCanceled => Gui.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
+	ChooseFailed => Gui.update({
+		..latest,
+		grant: Refused,
+		status: failure(
+			"Could not open the capture folder",
+			"The host granted no folder to read. Start Observatory with --host-cap-dir <folder>, or choose one this process may read.",
+		),
+	})
+	ReopenFailed(refused) => Gui.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason(refused.reason)) })
+}
+
+## Reopen a remembered folder, after the host checks it is still the folder
+## that was remembered, and list it as a chosen folder is listed.
+reopen_folder : State, U64 -> Gui.Action(State)
+reopen_folder = |state, key| {
+	id = state.next_request
+	access = state.access
+	name = recent_name(state, key)
+	Gui.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || match access.reopen_directory!(key) {
+			Ok(selection) => list_folder!(access, selection, id)
+			Err(reason) => ReopenFailed({ name, reason, recent: access.recent!() })
+		},
+		resolve: |latest, result| match latest.status {
+			Busy(active) if active == id => folder_listed(latest, result, id)
+			_ => Gui.none
+		},
+	})
+}
+
+## Reopen a remembered capture, after the host checks it is still the file
+## that was remembered, and open it as a chosen capture opens.
+reopen : State, U64 -> Gui.Action(State)
+reopen = |state, key| {
+	id = state.next_request
+	access = state.access
+	name = recent_name(state, key)
+	Gui.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || match access.reopen_file!(key) {
+			Ok(selection) => Opened(open_selections!(access, [selection]))
+			Err(reason) => Unopened({ name, reason, recent: access.recent!() })
+		},
+		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				ChosenFolder(chosen) => {
-					folder = { revision: chosen.revision, name: chosen.name, directory: chosen.directory, captures: chosen.captures }
-					listed = { ..latest, folder: Some(folder), grant: Granted(chosen.name), capture: None, status: Ready, source: None, live: idle, changed: False }
-					match chosen.watch {
-						# Request identities start at zero, and zero means no watch.
-						Some(watch) => wait_folder(listed, watch, id + 1)
-						None => Gui.update({ ..listed, folder_watch: 0 })
-					}
-				}
-				ChooseCanceled => Gui.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
-				ChooseFailed => Gui.update({
-					..latest,
-					grant: Refused,
-					status: failure(
-						"Could not open the capture folder",
-						"The host granted no folder to read. Start Observatory with --host-cap-dir <folder>, or choose one this process may read.",
-					),
-				})
+				Opened(opened) => shown_files(latest, opened, id, Overview)
+				Unopened(refused) => Gui.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason(refused.reason)) })
 			}
 			_ => Gui.none
 		},
 	})
+}
+
+recent_name : State, U64 -> Str
+recent_name = |state, key| match state.recent.find_first(|entry| entry.key == key) {
+	Ok(entry) => entry.name
+	Err(_) => "the remembered capture"
+}
+
+unavailable_reason : Gui.FilesUnavailable -> Str
+unavailable_reason = |reason| match reason {
+	AccessDenied => "Observatory may no longer read it."
+	Forgotten => "It is no longer remembered."
+	Missing => "Nothing is at its place any more."
+	Replaced => "Another file has taken its place, so it is not the one you opened."
+	Revoked => "Its grant was withdrawn."
+	Unreadable => "It could not be reached."
+	Unsupported => "It cannot be remembered."
+}
+
+## Captures dropped on the window. Anything else dropped is named with why it
+## was not opened.
+dropped : State, Gui.EventDrop -> Gui.Action(State)
+dropped = |state, event| {
+	note = refusal(event.refused)
+	match event.files {
+		[] => Gui.update({ ..state, status: note })
+		[one] => match state.capture {
+			Some(_) => Gui.update({ ..state, offer: Some(one), status: note })
+			None => open_files({ ..state, status: note }, [one], Overview)
+		}
+		many => open_files({ ..state, status: note }, many, Overview)
+	}
+}
+
+## What a drop did not open, and why, or nothing when it opened everything.
+refusal : List(Gui.EventRefused) -> Status
+refusal = |refused| if refused.is_empty() {
+	Ready
+} else {
+	names = Str.join_with(refused.map(|item| item.name), ", ")
+	failure("Not opened: ${names}", "Only .rgstats files are captures, and only a file can be dropped, not a folder.")
+}
+
+## What opening chosen, dropped, or reopened captures read: each capture with
+## where it came from, and the recent list the opened ones now head.
+OpenedFiles : { opened : List({ loaded : Try(Loaded, Str), source : Source }), recent : List(Gui.FilesRecent) }
+
+## Open each capture in turn, remembering those that open, and read the
+## recent list once they are remembered.
+open_selections! : Gui.Access, List(Gui.FilesFileSelection) => OpenedFiles
+open_selections! = |access, selections| {
+	var $opened = []
+	for selection in selections {
+		loaded = first_pages!(Capture.open_file!(selection.file, selection.name))
+		match loaded {
+			Ok(_) => {
+				_ = access.remember_file!(selection.file)
+			}
+			Err(_) => {}
+		}
+		source = Chosen({ file: selection.file, name: selection.name })
+		$opened = $opened.append({ loaded, source })
+	}
+	{ opened: $opened, recent: access.recent!() }
+}
+
+## Open captures, each in a tab of its own, and show the last at `view`.
+open_files : State, List(Gui.FilesFileSelection), View -> Gui.Action(State)
+open_files = |state, selections, view| {
+	id = state.next_request
+	access = state.access
+	# A drop that refused something says so once the captures it did take
+	# are open.
+	note = state.status
+	Gui.task({
+		pending: { ..state, next_request: id + selections.len(), status: Busy(id) },
+		run: || open_selections!(access, selections),
+		resolve: |latest, opened| match latest.status {
+			Busy(active) if active == id => shown_files({ ..latest, status: note }, opened, id, view)
+			_ => Gui.none
+		},
+	})
+}
+
+## Give each capture read a tab, in the order read, and watch the last shown
+## if it is still being recorded. One that could not be read is reported and
+## leaves the others open.
+shown_files : State, OpenedFiles, U64, View -> Gui.Action(State)
+shown_files = |latest, opened, id, view| {
+	start = { state: { ..latest, recent: opened.recent }, live: None, failed: None, at: id }
+	walked = opened.opened.fold(
+		start,
+		|held, item| match item.loaded {
+			Ok(loaded) => {
+				shown = enlist(show({ ..stash(held.state), source: item.source }, loaded, held.at), held.at)
+				{ state: shown, live: Some({ watched: loaded.live, at: held.at }), failed: held.failed, at: held.at + 1 }
+			}
+			Err(message) => { ..held, failed: Some(message), at: held.at + 1 }
+		},
+	)
+	settled = match (walked.failed, latest.status) {
+		(Some(message), _) => { ..walked.state, status: failure(message, unreadable_remedy) }
+		(None, Failed(note)) => { ..walked.state, status: Failed(note) }
+		(None, _) => { ..walked.state, status: Ready }
+	}
+	match walked.live {
+		Some(last) => begin_live({ ..settled, view }, last.watched, last.at)
+		None => Gui.update(settled)
+	}
 }
 
 ## The file chooser offers captures only, and the host refuses any other file.
@@ -1018,23 +1243,18 @@ idle = { generation: 0, progress: { cycles: 0, frames: 0, steps: 0, ended: 0, fi
 choose_file : State -> Gui.Action(State)
 choose_file = |state| {
 	id = state.next_request
+	access = state.access
 	Gui.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match state.access.pick_file!(capture_types) {
-			Ok(Chosen(selection)) => {
-				loaded = first_pages!(Capture.open_file!(selection.file, selection.name))
-				OpenedFile({ loaded, source: Chosen({ file: selection.file, name: selection.name }) })
-			}
+		run: || match access.pick_file!(capture_types) {
+			Ok(Chosen(selection)) => OpenedFile(open_selections!(access, [selection]))
 			Ok(Canceled) => FileCanceled
 			Err(PickFileErr(Unsupported)) => FileRefused("Only .rgstats files are captures.")
 			Err(_) => FileRefused("The host granted no file to read. Start Observatory with --host-cap-file <capture>, or choose a .rgstats file this process may read.")
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				OpenedFile(opened) => match opened.loaded {
-					Ok(loaded) => begin_live(enlist(show({ ..stash(latest), source: opened.source }, loaded, id), id), loaded.live, id)
-					Err(message) => Gui.update({ ..latest, capture: None, source: None, live: idle, status: failure(message, unreadable_remedy) })
-				}
+				OpenedFile(opened) => shown_files(latest, opened, id, Overview)
 				FileCanceled => Gui.update({ ..latest, status: Ready })
 				FileRefused(remedy) => Gui.update({ ..latest, status: failure("Could not open the capture file", remedy) })
 			}

@@ -15,14 +15,14 @@
     ; Observatory keeps the file as well as the database opened from it, so
     ; a replaced capture can be read again from the same grant.
     (expect-grants
-      "document provisioned/consent-only root read,derive"
-      "sqlite provisioned/consent-only derived read,derive")
+      "document provisioned/consent-only root read,derive remembered"
+      "sqlite provisioned/consent-only derived read,derive remembered")
     (expect-document-counters 1 1 0 0 0 1)
     (revoke-file-grants)
     ; Withdrawing file grants reaches the connection through its lineage.
     (expect-grants
-      "document provisioned/consent-only root read,derive revoked"
-      "sqlite provisioned/consent-only derived read,derive revoked")
+      "document provisioned/consent-only root read,derive remembered revoked"
+      "sqlite provisioned/consent-only derived read,derive remembered revoked")
     (click (role button :name "Interactions"))
     (click (role button :name "Cycle r4 #7"))
     (await-task)

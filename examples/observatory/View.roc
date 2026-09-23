@@ -543,6 +543,114 @@ captures_rows = |sorted| Gui.virtual_rows({
 	},
 })
 
+## The recent list (US-3)
+
+## How many recent entries the start page shows before its list scrolls.
+recent_shown : U64
+recent_shown = 8
+
+recent_row : Gui.FilesRecent -> Gui.Elem(Observatory.State)
+recent_row = |entry| {
+	key_value = entry.key
+	available = entry.status == Available
+	glyph = match (entry.status, entry.kind) {
+		(Available, File) => "●"
+		(Available, Directory) => "○"
+		(Unavailable(_), _) => "⚠"
+	}
+	detail = match (entry.status, entry.kind) {
+		(Available, File) => { text: "capture", ink: Theme.dim }
+		(Available, Directory) => { text: "folder", ink: Theme.dim }
+		(Unavailable(reason), _) => { text: Observatory.unavailable_reason(reason), ink: Theme.alarm_ink }
+	}
+	reopen = match entry.kind {
+		File => Reopen(key_value)
+		Directory => ReopenFolder(key_value)
+	}
+	shown_name = match entry.kind {
+		File => entry.name
+		Directory => "${entry.name}/"
+	}
+	Gui.row(
+		{ label: "Recent row ${entry.name}", width: Fill, height: Px(Theme.row_height), padding: 0, padding_left: Px(Theme.inset), padding_right: Px(Theme.inset), gap: Theme.inset, align: Center, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
+		[
+			Gui.row({ width: Px(14), min_width: Px(14), padding: 0, gap: 0, fg: if available Theme.accent else Theme.alarm_ink }, [Gui.text(glyph)]),
+			Gui.row(
+				{ width: Px(300), min_width: Px(300), max_width: Px(300), overflow_x: Clip, padding: 0, gap: 0 },
+				[
+					Gui.button({
+						caption: shown_name,
+						label: "Recent ${entry.name}",
+						enabled: available,
+						on_press: |current, _| Observatory.ask(current, reopen),
+						width: Fill,
+						padding: 0,
+						font_size: Theme.body,
+						font_face: Theme.face,
+						radius: Theme.radius,
+						bg: Theme.card,
+						hover_bg: Theme.quiet_hover,
+						active_bg: Theme.quiet_active,
+						fg: Theme.accent,
+						disabled_bg: Theme.card,
+						disabled_fg: Theme.dim,
+						border_width: 0,
+						text_overflow: Ellipsis,
+						justify: Start,
+					}),
+				],
+			),
+			Gui.row({ grow: True, min_width: Px(0), padding: 0, gap: 0, fg: detail.ink, font_size: Theme.meta, text_overflow: Ellipsis }, [Gui.text(detail.text)]),
+			Gui.button({
+				caption: "Forget",
+				label: "Forget ${entry.name}",
+				on_press: |current, _| Observatory.forget!(current, key_value),
+				padding: 2,
+				padding_left: Px(6),
+				padding_right: Px(6),
+				font_size: Theme.meta,
+				radius: Theme.radius,
+				bg: Theme.quiet,
+				hover_bg: Theme.quiet_hover,
+				active_bg: Theme.quiet_active,
+				fg: Theme.dim,
+				border_color: Theme.line,
+				border_width: 1,
+			}),
+		],
+	)
+}
+
+## The captures and folders opened before, most recent first. Only the rows
+## near the list's viewport are built, however many are remembered.
+recent_list : List(Gui.FilesRecent) -> List(Gui.Elem(Observatory.State))
+recent_list = |recent| if recent.is_empty() {
+	[]
+} else {
+	shown = if recent.len() < recent_shown recent.len() else recent_shown
+	[
+		meta("RECENT · ${recent.len().to_str()}"),
+		Gui.col(
+			{ label: "Recent table", width: Fill, height: Px(shown.to_u32_wrap() * Theme.row_height), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+			[
+				Gui.virtual_rows({
+					label: "Recent",
+					row_height: Theme.row_height,
+					count: recent.len(),
+					render_row: |index| match recent.get(index) {
+						Ok(entry) => recent_row(entry)
+						Err(_) => table_row([])
+					},
+					row_key: |index| match recent.get(index) {
+						Ok(entry) => entry.key
+						Err(_) => index
+					},
+				}),
+			],
+		),
+	]
+}
+
 capture_list : Observatory.State -> Gui.Elem(Observatory.State)
 capture_list = |state| {
 	body = match state.folder {
@@ -564,8 +672,37 @@ capture_list = |state| {
 	}
 	Gui.col(
 		{ label: "Start", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },
-		body,
+		[meta("Drop .rgstats files anywhere to open them.")].concat(recent_list(state.recent)).concat(body),
 	)
+}
+
+## A capture dropped on an open capture: open it beside this one, or compare
+## it with this one, which becomes the baseline (US-4).
+offer_dialog : Observatory.State -> List(Gui.Elem(Observatory.State))
+offer_dialog = |state| match state.offer {
+	None => []
+	Some(offered) => [
+		Gui.dialog(
+			{ label: "Dropped capture", on_dismiss: |current, _| Observatory.dismiss_offer(current), width: Px(520), padding: 16, gap: 12, bg: Theme.card, fg: Theme.ink, border_color: Theme.edge, radius: Theme.radius },
+			[
+				Gui.col(
+					{ width: Fill, padding: 0, gap: 4 },
+					[
+						Gui.row({ padding: 0, gap: 0, font_size: Theme.body, font_face: Theme.face }, [Gui.text(offered.name)]),
+						note("Open it in a tab of its own, or compare it with the capture on screen, which becomes the baseline."),
+					],
+				),
+				Gui.row(
+					{ label: "Dropped capture choices", width: Fill, padding: 0, gap: Theme.inset, justify: End },
+					[
+						key({ caption: "Cancel", label: "Cancel drop", selected: False, on_press: |current, _| Observatory.dismiss_offer(current) }),
+						key({ caption: "Open", label: "Open", selected: False, on_press: |current, _| Observatory.open_offered(current) }),
+						key({ caption: "Compare with this capture", label: "Compare with this capture", selected: True, on_press: |current, _| Observatory.compare_offered(current) }),
+					],
+				),
+			],
+		),
+	]
 }
 
 ## The capture bar and the health banner (US-6)
@@ -2758,8 +2895,8 @@ render = |state| {
 		Open(_) => [view_boundary("Palette", PaletteView.same_view, PaletteView.palette)]
 		Closed => []
 	}
-	Gui.col(
-		{ label: "Observatory", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.paper, fg: Theme.ink, font_size: Theme.body },
+	Gui.drop_target(
+		{ label: "Observatory", types: Observatory.capture_types, on_drop: |current, event| Observatory.dropped(current, event), width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.paper, fg: Theme.ink, font_size: Theme.body, drop_bg: Theme.selected, drop_border: Theme.accent },
 		[
 			header(state),
 			authority_bar(state),
@@ -2769,10 +2906,11 @@ render = |state| {
 			.concat([
 			match state.capture {
 				Some(_) => workspace(state)
-				None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort, capture_list)
+				None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort and a.recent == b.recent, capture_list)
 			},
 		])
-			.concat(palette),
+			.concat(palette)
+			.concat(offer_dialog(state)),
 	)
 		.shortcuts(window_keys)
 }

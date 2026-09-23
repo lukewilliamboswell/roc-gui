@@ -8,6 +8,23 @@ a health badge, and opens one. Either way the capture is read through the
 platform's ordinary SQLite capability. It queries the capture's tables itself and depends on no other
 tool.
 
+Captures dropped on the window open too: each dropped `.rgstats` file is
+granted on its own, as a chosen file is, and opens in a tab of its own, and a
+file of another type or a folder dropped with them is named and refused. A
+capture dropped on an open capture waits for a choice: Open puts it in a tab
+of its own, and Compare with this capture makes the capture on screen the
+baseline and opens the dropped one at Compare. The window shows that it would
+take the files while they are dragged over it, and nothing for files it would
+refuse.
+
+The start page lists what was opened before, most recent first: every capture
+and folder Observatory opened is remembered by the host, which keeps the list
+outside Observatory's own storage, and the list is read as the window opens.
+Pressing an entry reopens it without choosing it again. The host checks what
+is at the entry's place first, so a capture that was deleted, one another file
+was moved over, or one Observatory may no longer read is shown as unavailable
+with that reason, and is not reopened; any entry can be forgotten.
+
 A capture of any schema other than 25 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
@@ -259,8 +276,9 @@ platform, or the host's sources and locks.
 
 ## Not yet built
 
-- There is no drop target or recent list, and tabs cannot be dragged into
-  another order.
+- Tabs cannot be dragged into another order, and a folder cannot be dropped.
+- A recent capture is listed without its application, specification, and
+  verdict.
 - The scaling charts have no metric selector.
 - Only six tables have Copy; the Overview tiles, the inspector's work and
   allocation sections, the run lifecycle and process resources, the Frames and
@@ -273,8 +291,12 @@ platform, or the host's sources and locks.
 
 ## Specifications
 
-Fifty-five specifications run on the semantic runner. They cover the first
-frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
+Fifty-nine specifications run on the semantic runner. They cover the first
+frame, a single chosen capture and its withdrawal, captures dropped on the start
+page and refused files dropped with them (`drop.scm`), a capture dropped on an
+open capture opened or compared with it (`drop-compare.scm`), the recent list
+reopening a capture and a folder, refusing a deleted and a replaced capture
+with their reasons, and forgetting one (`recent.scm`), a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
 honest tiles, an unfinalised capture's withheld verdicts on every view, a
@@ -307,6 +329,9 @@ Sorting, choosing a trigger or phase, opening a view, and inspecting a cycle
 also pin which boundaries render, and how many nodes the host restages.
 `watch-scale.scm` is the scaling case for a watched folder: one capture of a
 folder of 100 is replaced, and only it is read again.
+`scale-recent-100.scm` is the scaling case for the recent list: it forgets one
+of 101 remembered captures, and the host checks the hundred left, while only
+the rows near the list's viewport are built.
 `scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases for a
 folder: each opens a benchmark output folder of that many real captures, and
 `scale-compare.scm` compares two of a thousand and chooses a scaling set among
@@ -330,7 +355,11 @@ it.
 real window and photographs the late step. `window-tour.scm` drives
 the real window through every view and photographs each, and
 `window-open-capture.scm` photographs the start page and a capture opened from
-a single file. `window-replaced.scm` photographs the capture bar's offer to
+a single file. `window-recent.scm` photographs the start page's recent list,
+and its deleted and replaced entries with their reasons. `window-drop.scm`
+drops captures through GPUI's own file-drop events and photographs the start
+page answering files dragged over it, the capture a drop opens, the choice a
+drop on an open capture offers, and the comparison it makes. `window-replaced.scm` photographs the capture bar's offer to
 reload a replaced capture and the capture read again in the same place. `window-compare.scm` photographs the comparability sheet of a
 comparable and an incomparable pair, the triggers table with its deltas, and
 a scaling set's gate, ratios, and chart. `window-frames.scm` moves the

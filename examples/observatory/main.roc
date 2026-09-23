@@ -10,4 +10,5 @@ main = Gui.run({
 	init: Observatory.init,
 	render: View.render,
 	window: { title: "Observatory", width: 1440, height: 820 },
+	on_open: Some(Observatory.opened!),
 })

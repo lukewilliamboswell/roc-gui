@@ -51,7 +51,9 @@
     (settle)
     (expect-on-screen (text "Press a cycle to inspect it."))
     ; the nine characters typed into the query were offered and left to it;
-    ; Enter went to the query itself, and the five chords were answered. The
-    ; closing palette leaves focus on the inspector's divider, whose own keys
-    ; each chord is compared with first
-    (expect-keyboard-counters 14 5 51 1)))
+    ; Enter went to the query itself, and the five chords were answered, each
+    ; compared with the shortcuts of the regions around focus and then with
+    ; the window's. The folder is remembered, so the start page the palette
+    ; closes over lists it, and focus does not come back to the inspector's
+    ; divider, whose own keys a chord would be compared with first
+    (expect-keyboard-counters 14 5 12 1)))
