@@ -74,6 +74,99 @@ Verdict : [Complete, Partial(Str), Untrusted(Str), Unsupported(Str)]
 ## What the capture list shows for one file.
 Listing : { name : Str, application : Str, spec : Str, backend : Str, scale : Str, detail : Str, verdict : Verdict }
 
+## One cycle in the slowest-cycles list. Durations are nanoseconds and every
+## one is NOT NULL in the schema.
+Cycle : {
+	id : I64,
+	run_id : I64,
+	ordinal : I64,
+	step_ordinal : [None, Some(I64)],
+	phase : Str,
+	trigger : Str,
+	patch_kind : Str,
+	duration : I64,
+	callback : I64,
+	validate : I64,
+	apply : I64,
+}
+
+## One `roc_work_spans` row: a span's time and the allocations made inside it.
+Span : {
+	kind : Str,
+	duration : I64,
+	alloc_calls : I64,
+	allocated_bytes : I64,
+	dealloc_calls : I64,
+	realloc_calls : I64,
+	reallocated_bytes : I64,
+}
+
+## A positive `component_work_counts` row.
+Work : { kind : I64, count : I64 }
+
+## A named graph counter of one cycle.
+Counter : { name : Str, value : I64 }
+
+## Everything the cycle inspector shows about one cycle.
+Inspected : {
+	cycle : Cycle,
+	graph_apply : I64,
+	gpui_apply : [None, Some(I64)],
+	roc_work_valid : Bool,
+	component_work_recorded : Bool,
+	graph : List(Counter),
+	keyed : List(Counter),
+	spans : List(Span),
+	work : List(Work),
+	step_line : [None, Some(I64)],
+}
+
+## The waterfall's derived parts. `callback_rest` is the callback not covered
+## by a span, `apply_rest` the apply not covered by graph or GPUI apply (absent
+## when GPUI apply was not recorded), and `cycle_rest` the cycle not covered by
+## callback, validate, or apply.
+Decomposition : {
+	spans_total : I64,
+	callback_rest : I64,
+	apply_rest : [None, Some(I64)],
+	cycle_rest : I64,
+	sum : I64,
+	balanced : Bool,
+}
+
+## Allocations inside one span kind over the cycles of one trigger. Means are
+## over every cycle of the trigger with valid spans, so a cycle that never
+## entered the span counts as zero.
+TriggerAlloc : {
+	phase : Str,
+	trigger : Str,
+	span : Str,
+	cycles : I64,
+	calls_mean : I64,
+	calls_max : I64,
+	calls_total : I64,
+	bytes_mean : I64,
+	bytes_max : I64,
+	bytes_total : I64,
+}
+
+## One run's process resources and Roc allocation lifecycle, each the change
+## from the run's start to its end. A run that never ended has none.
+Resources : {
+	run_id : I64,
+	phase : Str,
+	sample : [None, Some(I64)],
+	cpu_user : [None, Some(I64)],
+	cpu_system : [None, Some(I64)],
+	peak_rss : [None, Some(I64)],
+	current_rss : [None, Some(I64)],
+	alloc_calls : [None, Some(I64)],
+	alloc_bytes : [None, Some(I64)],
+	dealloc_calls : [None, Some(I64)],
+	realloc_calls : [None, Some(I64)],
+	realloc_bytes : [None, Some(I64)],
+}
+
 ## A capture that passed the schema gate. Everything but the steps is read
 ## when it opens; steps are read one run at a time through the held connection.
 Opened : {
@@ -90,6 +183,9 @@ Opened : {
 	medians : List(PhaseMedian),
 	skips : List(SkipRate),
 	frames : Frames,
+	cycles : List(Cycle),
+	allocations : List(TriggerAlloc),
+	resources : List(Resources),
 	verdict : Verdict,
 }
 
@@ -108,6 +204,14 @@ Capture := [].{
 	Verdict : Verdict
 	Listing : Listing
 	Opened : Opened
+	Cycle : Cycle
+	Span : Span
+	Work : Work
+	Counter : Counter
+	Inspected : Inspected
+	Decomposition : Decomposition
+	TriggerAlloc : TriggerAlloc
+	Resources : Resources
 
 	## The one schema this application reads.
 	supported_schema : Str
@@ -129,6 +233,39 @@ Capture := [].{
 
 	step_page : U64
 	step_page = step_page
+
+	## How many of the slowest cycles of each phase, trigger, and patch kind are
+	## read when a capture opens.
+	cycle_page : I64
+	cycle_page = cycle_page
+
+	## Read one cycle's spans, component work, graph work, and step.
+	inspect! : Gui.SqliteDb, Cycle => Try(Inspected, Str)
+	inspect! = inspect!
+
+	## The five Roc work spans, in the order the callback decomposes into them.
+	span_kinds : List(Str)
+	span_kinds = ["routing", "application_update", "application_render", "component_comparison", "platform_lowering"]
+
+	## The eleven component work kinds, indexed by their numeric kind.
+	work_kinds : List(Str)
+	work_kinds = ["rendered", "compared", "skipped", "mounted", "retired", "registry_visits", "ancestor_invalidations", "projection_gets", "projection_sets", "keyed_order_visits", "keyed_snapshot_items"]
+
+	## A span's recorded row. In a cycle whose span evidence is valid, a span
+	## with no row did not run.
+	span : Inspected, Str -> [Missing, Found(Span)]
+	span = |inspected, kind| match inspected.spans.find_first(|found| found.kind == kind) {
+		Ok(found) => Found(found)
+		Err(_) => Missing
+	}
+
+	## A component work count. Absent is zero only when the cycle's component
+	## work was recorded.
+	work_count : Inspected, I64 -> [None, Some(I64)]
+	work_count = work_count
+
+	decompose : Inspected -> Decomposition
+	decompose = decompose
 
 	## The rule on the Health sheet.
 	judge : Trust -> Verdict
@@ -178,6 +315,62 @@ Capture := [].{
 	schema_gate : Str -> Try({}, Str)
 	schema_gate = schema_gate
 }
+
+work_count : Inspected, I64 -> [None, Some(I64)]
+work_count = |inspected, kind| if inspected.component_work_recorded {
+	match inspected.work.find_first(|found| found.kind == kind) {
+		Ok(found) => Some(found.count)
+		Err(_) => Some(0)
+	}
+} else {
+	None
+}
+
+## The parts balance when no remainder is negative, so that callback, validate,
+## apply, and the unattributed rest sum exactly to the cycle, and the spans fit
+## inside the callback.
+decompose : Inspected -> Decomposition
+decompose = |inspected| {
+	cycle = inspected.cycle
+	spans_total = inspected.spans.fold(0, |total, found| total + found.duration)
+	callback_rest = cycle.callback - spans_total
+	apply_rest = match inspected.gpui_apply {
+		Some(gpui) => Some(cycle.apply - inspected.graph_apply - gpui)
+		None => None
+	}
+	cycle_rest = cycle.duration - cycle.callback - cycle.validate - cycle.apply
+	spans_fit = !inspected.roc_work_valid or callback_rest >= 0
+	apply_fits = match apply_rest {
+		Some(rest) => rest >= 0
+		None => inspected.graph_apply <= cycle.apply
+	}
+	sum = cycle.callback + cycle.validate + cycle.apply + cycle_rest
+	{ spans_total, callback_rest, apply_rest, cycle_rest, sum, balanced: spans_fit and apply_fits and cycle_rest >= 0 and sum == cycle.duration }
+}
+
+## An initialization cycle as a GPUI window records it: most of the cycle is
+## outside the callback, validate, and apply, and that remainder is explicit.
+sample_inspected : Inspected
+sample_inspected = {
+	cycle: { id: 1, run_id: 1, ordinal: 0, step_ordinal: None, phase: "interactive", trigger: "init", patch_kind: "mount", duration: 47776342, callback: 521128, validate: 17894, apply: 39546 },
+	graph_apply: 7555,
+	gpui_apply: Some(31991),
+	roc_work_valid: True,
+	component_work_recorded: True,
+	graph: [],
+	keyed: [],
+	spans: [{ kind: "platform_lowering", duration: 222282, alloc_calls: 77, allocated_bytes: 41432, dealloc_calls: 84, realloc_calls: 0, reallocated_bytes: 0 }],
+	work: [{ kind: 0, count: 1 }],
+	step_line: None,
+}
+
+expect decompose(sample_inspected) == { spans_total: 222282, callback_rest: 298846, apply_rest: Some(0), cycle_rest: 47197774, sum: 47776342, balanced: True }
+expect decompose({ ..sample_inspected, gpui_apply: None }).apply_rest == None
+expect decompose({ ..sample_inspected, spans: [{ kind: "routing", duration: 600000, alloc_calls: 0, allocated_bytes: 0, dealloc_calls: 0, realloc_calls: 0, reallocated_bytes: 0 }] }).balanced == False
+expect decompose({ ..sample_inspected, roc_work_valid: False, spans: [] }).balanced == True
+expect work_count(sample_inspected, 0) == Some(1)
+expect work_count(sample_inspected, 2) == Some(0)
+expect work_count({ ..sample_inspected, component_work_recorded: False }, 0) == None
 
 schema_gate : Str -> Try({}, Str)
 schema_gate = |version| if version == "19" {
@@ -291,6 +484,131 @@ medians_sql = "WITH c AS (SELECT measurement_phase AS phase, duration_ns AS d, r
 skips_sql = "SELECT c.measurement_phase, coalesce(sum(CASE w.kind WHEN 2 THEN w.count END), 0), coalesce(sum(CASE w.kind WHEN 1 THEN w.count END), 0) FROM cycles c LEFT JOIN component_work_counts w ON w.cycle_id = c.id WHERE c.component_work_recorded = 1 AND c.run_id IN (SELECT id FROM runs WHERE phase <> 'warmup') GROUP BY c.measurement_phase ORDER BY c.measurement_phase"
 
 frames_sql = "SELECT count(*), coalesce(sum(CASE WHEN layout_request_ns + prepaint_ns + paint_ns > 16666667 THEN 1 ELSE 0 END), 0) FROM gpui_frames"
+
+cycle_page : I64
+cycle_page = 1000
+
+## Warmups are excluded, as in every cycle statistic.
+cycles_sql = "SELECT id, run_id, ordinal, step_ordinal, phase, trigger, patch_kind, d, callback, validate, apply FROM (SELECT id, run_id, ordinal, step_ordinal, measurement_phase AS phase, trigger, patch_kind, duration_ns AS d, roc_callback_ns AS callback, validate_ns AS validate, apply_ns AS apply, row_number() OVER (PARTITION BY measurement_phase, trigger, patch_kind ORDER BY duration_ns DESC, id) AS rank FROM cycles WHERE run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')) WHERE rank <= ? ORDER BY phase, d DESC, id"
+
+detail_sql = "SELECT graph_apply_ns, gpui_apply_ns, roc_work_valid, component_work_recorded, staged_nodes, removed_nodes, live_nodes, retained_nodes, parent_nodes_scanned, validation_visits, keyed_graph_visits, keyed_original_reads, keyed_first_touches, keyed_native_edits, keyed_item_entities_created, keyed_item_entities_retired, keyed_item_entities_moved, (SELECT s.source_line FROM steps s WHERE s.run_id = c.run_id AND s.ordinal = c.step_ordinal) FROM cycles c WHERE c.id = ?"
+
+spans_sql = "SELECT kind, duration_ns, alloc_calls, allocated_bytes, dealloc_calls, realloc_calls, reallocated_bytes FROM roc_work_spans WHERE cycle_id = ?"
+
+work_sql = "SELECT kind, count FROM component_work_counts WHERE cycle_id = ? ORDER BY kind"
+
+## Only cycles whose span evidence is valid are summed, and a mean divides by
+## every such cycle of the trigger.
+allocations_sql = "WITH v AS (SELECT id, measurement_phase AS phase, trigger FROM cycles WHERE roc_work_valid = 1 AND run_id IN (SELECT id FROM runs WHERE phase <> 'warmup')), n AS (SELECT phase, trigger, count(*) AS cycles FROM v GROUP BY phase, trigger) SELECT v.phase, v.trigger, s.kind, n.cycles, CAST(round(sum(s.alloc_calls) * 1.0 / n.cycles) AS INTEGER), max(s.alloc_calls), sum(s.alloc_calls), CAST(round(sum(s.allocated_bytes) * 1.0 / n.cycles) AS INTEGER), max(s.allocated_bytes), sum(s.allocated_bytes) FROM roc_work_spans s JOIN v ON v.id = s.cycle_id JOIN n ON n.phase = v.phase AND n.trigger = v.trigger GROUP BY v.phase, v.trigger, s.kind ORDER BY v.phase, sum(s.allocated_bytes) DESC, v.trigger, s.kind"
+
+## An end column is NULL until its run ends, and so is every difference taken
+## from it.
+resources_sql = "SELECT id, phase, sample_index, end_cpu_user_ns - start_cpu_user_ns, end_cpu_system_ns - start_cpu_system_ns, end_max_rss_bytes, end_current_rss_bytes, end_roc_alloc_calls - start_roc_alloc_calls, end_roc_alloc_requested_bytes - start_roc_alloc_requested_bytes, end_roc_dealloc_calls - start_roc_dealloc_calls, end_roc_realloc_calls - start_roc_realloc_calls, end_roc_realloc_requested_bytes - start_roc_realloc_requested_bytes FROM runs ORDER BY id"
+
+bound_rows! : Gui.SqliteDb, Str, I64 => Try(List(List(Gui.SqliteValue)), Str)
+bound_rows! = |database, sql, value| match database.query_with!(sql, [Integer(value)]) {
+	Ok(result) => Ok(result.rows)
+	Err(error) => Err(Gui.Sqlite.detail(error))
+}
+
+read_cycles! : Gui.SqliteDb => Try(List(Cycle), Str)
+read_cycles! = |database| {
+	found = bound_rows!(database, cycles_sql, cycle_page)?
+	Ok(found.map(decode_cycle))
+}
+
+decode_cycle : List(Gui.SqliteValue) -> Cycle
+decode_cycle = |row| {
+	id: int_at(row, 0),
+	run_id: int_at(row, 1),
+	ordinal: int_at(row, 2),
+	step_ordinal: option_at(row, 3),
+	phase: text_at(row, 4),
+	trigger: text_at(row, 5),
+	patch_kind: text_at(row, 6),
+	duration: int_at(row, 7),
+	callback: int_at(row, 8),
+	validate: int_at(row, 9),
+	apply: int_at(row, 10),
+}
+
+counters : List(Gui.SqliteValue), U64, List(Str) -> List(Counter)
+counters = |row, start, names| names.map_with_index(|name, index| { name, value: int_at(row, start + index) })
+
+decode_span : List(Gui.SqliteValue) -> Span
+decode_span = |row| {
+	kind: text_at(row, 0),
+	duration: int_at(row, 1),
+	alloc_calls: int_at(row, 2),
+	allocated_bytes: int_at(row, 3),
+	dealloc_calls: int_at(row, 4),
+	realloc_calls: int_at(row, 5),
+	reallocated_bytes: int_at(row, 6),
+}
+
+inspect! : Gui.SqliteDb, Cycle => Try(Inspected, Str)
+inspect! = |database, cycle| {
+	details = bound_rows!(database, detail_sql, cycle.id)?
+	spans = bound_rows!(database, spans_sql, cycle.id)?
+	work = bound_rows!(database, work_sql, cycle.id)?
+	match details.first() {
+		Err(_) => Err("Cycle ${cycle.id.to_str()} is not in this capture")
+		Ok(row) => Ok({
+			cycle,
+			graph_apply: int_at(row, 0),
+			gpui_apply: option_at(row, 1),
+			roc_work_valid: int_at(row, 2) == 1,
+			component_work_recorded: int_at(row, 3) == 1,
+			graph: counters(row, 4, ["staged", "removed", "live", "retained", "parent scanned", "validation visits"]),
+			keyed: counters(row, 10, ["keyed graph visits", "original reads", "first touches", "native edits", "items created", "items retired", "items moved"]),
+			spans: spans.map(decode_span),
+			work: work.map(|found| { kind: int_at(found, 0), count: int_at(found, 1) }),
+			step_line: option_at(row, 17),
+		})
+	}
+}
+
+decode_allocation : List(Gui.SqliteValue) -> TriggerAlloc
+decode_allocation = |row| {
+	phase: text_at(row, 0),
+	trigger: text_at(row, 1),
+	span: text_at(row, 2),
+	cycles: int_at(row, 3),
+	calls_mean: int_at(row, 4),
+	calls_max: int_at(row, 5),
+	calls_total: int_at(row, 6),
+	bytes_mean: int_at(row, 7),
+	bytes_max: int_at(row, 8),
+	bytes_total: int_at(row, 9),
+}
+
+read_allocations! : Gui.SqliteDb => Try(List(TriggerAlloc), Str)
+read_allocations! = |database| {
+	found = rows!(database, allocations_sql)?
+	Ok(found.map(decode_allocation))
+}
+
+decode_resources : List(Gui.SqliteValue) -> Resources
+decode_resources = |row| {
+	run_id: int_at(row, 0),
+	phase: text_at(row, 1),
+	sample: option_at(row, 2),
+	cpu_user: option_at(row, 3),
+	cpu_system: option_at(row, 4),
+	peak_rss: option_at(row, 5),
+	current_rss: option_at(row, 6),
+	alloc_calls: option_at(row, 7),
+	alloc_bytes: option_at(row, 8),
+	dealloc_calls: option_at(row, 9),
+	realloc_calls: option_at(row, 10),
+	realloc_bytes: option_at(row, 11),
+}
+
+read_resources! : Gui.SqliteDb => Try(List(Resources), Str)
+read_resources! = |database| {
+	found = rows!(database, resources_sql)?
+	Ok(found.map(decode_resources))
+}
 
 read_metadata! : Gui.SqliteDb => Try(List(Entry), Str)
 read_metadata! = |database| {
@@ -457,5 +775,8 @@ open! = |directory, name| {
 	medians = read_medians!(database)?
 	skips = read_skips!(database)?
 	frames = read_frames!(database)?
-	Ok({ name, database, metadata: entries, families, gaps, health, runs, steps: first.steps, steps_more: first.more, triggers, medians, skips, frames, verdict: judge(trust) })
+	cycles = read_cycles!(database)?
+	allocations = read_allocations!(database)?
+	resources = read_resources!(database)?
+	Ok({ name, database, metadata: entries, families, gaps, health, runs, steps: first.steps, steps_more: first.more, triggers, medians, skips, frames, cycles, allocations, resources, verdict: judge(trust) })
 }

@@ -29,8 +29,12 @@ Format := [].{
 	percent = |part, whole| if whole == 0 "—" else "${(part * 100 / whole).to_str()}%"
 }
 
+## A negative duration is a remainder that does not balance, and keeps its sign.
 ms : I64 -> Str
-ms = |ns| {
+ms = |ns| if ns < 0 "-${magnitude_ms(-ns)}" else magnitude_ms(ns)
+
+magnitude_ms : I64 -> Str
+magnitude_ms = |ns| {
 	micros = ns / 1000
 	whole = micros / 1000
 	fraction = micros % 1000
@@ -52,4 +56,5 @@ bytes = |count| if count >= 1048576 {
 
 expect ms(530000) == "0.530 ms"
 expect ms(12345678) == "12.345 ms"
+expect ms(-250000) == "-0.250 ms"
 expect bytes(159744) == "156.0 KiB"
