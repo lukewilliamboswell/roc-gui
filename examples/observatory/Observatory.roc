@@ -674,7 +674,7 @@ fulfil = |asked| {
 		}
 		## Open Health at the family a `—` belongs to.
 		Some(ShowFamily(name)) => Gui.update({ ..state, view: Health, family_focus: Some(name) })
-		Some(CloseCapture) => Gui.update(close_capture(state))
+		Some(CloseCapture) => Gui.cancel(close_capture(state), live_key)
 		Some(SetBaseline) => Gui.update(set_baseline(state))
 		Some(ClearBaseline) => Gui.update(clear_baseline(state))
 		Some(ChooseNoise(name)) => match state.folder {
@@ -713,6 +713,32 @@ fulfil = |asked| {
 		}
 	}
 }
+
+## Each kind of read has a key of its own, so a newer read of that kind
+## supersedes the one in flight: the host interrupts its query, and its result
+## never arrives.
+inspect_key : Str
+inspect_key = "inspect"
+clock_key : Str
+clock_key = "clock"
+cycles_key : Str
+cycles_key = "cycles"
+steps_key : Str
+steps_key = "steps"
+frame_key : Str
+frame_key = "frame"
+strip_key : Str
+strip_key = "strip"
+
+## The watch of the capture on screen, and the reads it starts, share a key:
+## opening another capture supersedes it, and closing this one cancels it, so
+## a closed capture's watch ends without a completion.
+live_key : Str
+live_key = "live"
+
+## The watch of the folder listed, and the listings it starts.
+folder_key : Str
+folder_key = "folder"
 
 ## A read still in flight keeps its request, so its result is still accepted
 ## or superseded as it would be with the capture open.
@@ -942,7 +968,8 @@ inspect = |state, cycle| match state.capture {
 	None => Gui.none
 	Some(opened) => {
 		id = state.next_request
-		Gui.task({
+		Gui.keyed_task({
+			key: inspect_key,
 			pending: { ..state, next_request: id + 1, status: Busy(id) },
 			run: || Capture.inspect!(opened.database, cycle),
 			resolve: |latest, outcome| match latest.status {
@@ -985,7 +1012,8 @@ read_clock = |state, start, span| match state.capture {
 	Some(opened) => {
 		id = state.next_request
 		of = opened.revision
-		Gui.task({
+		Gui.keyed_task({
+			key: clock_key,
 			pending: { ..state, next_request: id + 1, clock_reading: Some({ id, offset: 0 }) },
 			run: || Timeline.read!(opened.database, start, span),
 			resolve: |latest, outcome| match latest.clock_reading {
@@ -1009,7 +1037,8 @@ read_cycles = |state, offset| match state.capture {
 		id = state.next_request
 		phase = state.phase
 		filter = state.filter
-		Gui.task({
+		Gui.keyed_task({
+			key: cycles_key,
 			pending: { ..state, next_request: id + 1, cycles_reading: Some({ id, offset }) },
 			run: || Capture.cycles!(opened.database, { phase, only: filter, offset }),
 			resolve: |latest, outcome| match latest.cycles_reading {
@@ -1030,7 +1059,8 @@ read_steps = |state, run_id, offset, focus| match state.capture {
 	None => Gui.update(state)
 	Some(opened) => {
 		id = state.next_request
-		Gui.task({
+		Gui.keyed_task({
+			key: steps_key,
 			pending: { ..state, next_request: id + 1, steps_reading: Some({ id, offset }) },
 			run: || Capture.run_steps!(opened.database, run_id, offset),
 			resolve: |latest, outcome| match latest.steps_reading {
@@ -1120,7 +1150,8 @@ read_frame = |state, bar| match state.capture {
 	None => Gui.update(state)
 	Some(opened) => {
 		id = state.next_request
-		Gui.task({
+		Gui.keyed_task({
+			key: frame_key,
 			pending: { ..state, next_request: id + 1, status: Busy(id) },
 			run: || Capture.frame!(opened.database, bar),
 			resolve: |latest, outcome| match latest.status {
@@ -1142,7 +1173,8 @@ read_strip = |state, start, span| match state.capture {
 	None => Gui.update(state)
 	Some(opened) => {
 		id = state.next_request
-		Gui.task({
+		Gui.keyed_task({
+			key: strip_key,
 			pending: { ..state, next_request: id + 1, strip_reading: Some({ id, offset: start.to_u64_wrap() }) },
 			run: || Capture.strip!(opened.database, start, span),
 			resolve: |latest, outcome| match latest.strip_reading {
@@ -1321,7 +1353,7 @@ read_annotation! = |opened, mode| {
 ## replaced.
 begin_live : State, Watched, U64 -> Gui.Action(State)
 begin_live = |state, live, id| match live {
-	None => Gui.update({ ..state, live: idle })
+	None => Gui.cancel({ ..state, live: idle }, live_key)
 	Some(found) => {
 		# Request identities start at zero, and zero means no watch.
 		generation = id + 1
@@ -1332,7 +1364,8 @@ begin_live = |state, live, id| match live {
 ## Wait for the recorder to commit. The task holds only the watch, so a
 ## capture closed while it waits releases its database, which ends the watch.
 wait_capture : State, Gui.FilesWatch, U64 -> Gui.Action(State)
-wait_capture = |state, watch, generation| Gui.task({
+wait_capture = |state, watch, generation| Gui.keyed_task({
+	key: live_key,
 	pending: state,
 	run: || watch.next!(),
 	resolve: |latest, change| if latest.live.generation != generation {
@@ -1382,7 +1415,8 @@ grow = |state, watch, generation| match state.capture {
 		id = state.next_request
 		read_to = state.live.progress
 		at = places(state)
-		Gui.task({
+		Gui.keyed_task({
+			key: live_key,
 			pending: { ..state, next_request: id + 1 },
 			run: || grow!(held, read_to, at),
 			resolve: |latest, outcome| if latest.live.generation != generation {
@@ -1420,7 +1454,8 @@ recheck = |state, watch, generation| match state.capture {
 	None => Gui.update({ ..state, live: idle })
 	Some(held) => {
 		source = state.source
-		Gui.task({
+		Gui.keyed_task({
+			key: live_key,
 			pending: state,
 			run: || identity_at!(source),
 			resolve: |latest, outcome| if latest.live.generation != generation {
@@ -1465,7 +1500,8 @@ is_capture_name = |name| Str.ends_with(name, ".rgstats")
 ## written. The task holds only the watch, and changes to anything else in
 ## the folder are waited through rather than delivered.
 wait_folder : State, Gui.FilesWatch, U64 -> Gui.Action(State)
-wait_folder = |state, watch, generation| Gui.task({
+wait_folder = |state, watch, generation| Gui.keyed_task({
+	key: folder_key,
 	pending: { ..state, folder_watch: generation },
 	run: || captures_changed!(watch),
 	resolve: |latest, outcome| if latest.folder_watch != generation {
@@ -1493,7 +1529,8 @@ relist = |state, watch, generation, changes| match state.folder {
 		id = state.next_request
 		directory = folder.directory
 		held = folder.captures
-		Gui.task({
+		Gui.keyed_task({
+			key: folder_key,
 			pending: { ..state, next_request: id + 1 },
 			run: || match directory.list!() {
 				Ok(entries) => Relisted(relist_captures!(directory, entries, held, changes))

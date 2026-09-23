@@ -600,12 +600,11 @@ ideal and the repository. P- and E-numbers refer to that document.
 - [ ] **A finalised capture chosen as one file is not watched.** Observatory
   watches the folder it lists, and a capture still being recorded, but not a
   finalised capture opened from a single file grant, so replacing that file
-  shows no "Capture changed" until it is opened again. A watch whose capture is
-  closed ends with a stray task completion, and without cancellation (P13) a
-  specification awaiting the next task would take it for the one it awaits;
-  every capture opened from a file is closed or replaced in most
-  specifications. Watch it once a superseded task can be cancelled without
-  completing.
+  shows no "Capture changed" until it is opened again. Closing or replacing
+  the capture now cancels its watch without a completion, so watching one
+  opened from a file no longer disturbs a specification awaiting its next task;
+  what remains is the watch itself, and the grant readouts and counters of the
+  specifications that open a single file.
 
 - [ ] **A growing capture's Timeline keeps its last reading.** While a capture
   being recorded is read again, the capture, its tables, its lists, and its

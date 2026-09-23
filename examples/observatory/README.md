@@ -155,6 +155,14 @@ says "Capture changed" and offers Reload, which reads it where the person was:
 the view, the phase, a trigger filter, the run by its phase and sample, and the
 inspected cycle by its run, trigger, and ordinal.
 
+Every read of the open capture has a task key of its kind: a page of cycles, a
+page of steps, the inspected cycle, a frame, the frame strip, and the timeline.
+Paging or inspecting again supersedes the read in flight, which the host
+interrupts where its query runs, so a quick sweep through a long capture reads
+only where it stops. The watch of a capture being recorded has a key too:
+opening another capture supersedes it, and closing the capture cancels it, so a
+closed capture's watch ends without a completion.
+
 ## Component boundaries
 
 The capture list, the capture bar, the trust banner, the baseline bar, the view rail, and each
@@ -240,13 +248,14 @@ platform, or the host's sources and locks.
 
 ## Specifications
 
-Fifty-one specifications run on the semantic runner. They cover the first
+Fifty-three specifications run on the semantic runner. They cover the first
 frame, a single chosen capture and its withdrawal, a dismissed, a refused, and
 a wrongly typed file choice, a refused folder grant, the capture list with each health badge, the
 schema gate, a file that is not a database, the overview's identity, chips, and
 honest tiles, an unfinalised capture's withheld verdicts on every view, a
 capture being recorded growing as its recorder commits and its watch ending
-when its grant is withdrawn, a replaced capture offered for reloading and
+when its grant is withdrawn or cancelled when it is closed, a folder chosen
+again superseding the watch of the one listed before, a replaced capture offered for reloading and
 reloaded in place, the health sheet,
 spec results across runs, the triggers table across phases, sorting by column,
 the cycle list and its trigger filter, the cycle inspector with a dash that
