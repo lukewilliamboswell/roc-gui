@@ -71,7 +71,8 @@ trusted. Eight views follow:
   span allocation as an observed ratio from scale to scale against the scale
   ratio. A verdict of linear, sub-linear, or super-linear is given only when
   every step has evidence, and an A/A capture at one of the set's scales marks
-  the ratios within its noise band. A bar per scale draws each mean.
+  the ratios within its noise band. A log-log chart per trigger and metric
+  plots each mean against its scale beside a dashed line of linear growth.
 
 Every number belongs to a measurement family. A family whose status is not
 `complete` is shown as `—` with its status and reason, never as zero, and
@@ -143,8 +144,7 @@ platform, or the host's sources and locks.
 ## Not yet built
 
 - One capture opens at a time; there is no drop target or recent list.
-- No timeline; the scaling chart is a bar per scale, not a log-log chart with
-  a linear reference line.
+- No timeline, and the scaling charts have no metric selector.
 - A `—` shows its family's status and reason beside it, not on hover.
 - Steps are listed by line number and kind; the specification source is not
   shown beside them.

@@ -239,49 +239,112 @@ ratios_table = |members, rows| {
 	]
 }
 
-## The chart. Each trigger and metric is a group of bars, one per scale, each
-## the member's mean against the largest mean of the group. This is the hook
-## for the log-log canvas chart (P6): it takes the same members and rows, and
-## a canvas with text replaces the bars without changing anything above it.
+## The chart: for each trigger and metric, a log-log canvas of the member's
+## mean against its scale, one point per scale joined in scale order, with a
+## dashed reference line of slope one through the smallest scale's point, so
+## linear growth runs along the reference and anything steeper rises above it.
 chart : List(Scaling.Member), List(Scaling.Row) -> List(Elem)
 chart = |members, rows| {
 	sorted = Scaling.ordered(members)
-	bar_span = 320
-	group = |row| {
-		values = sorted.map(|member| { member, value: Scaling.value(member, row.trigger, row.metric) })
-		largest = values.fold(0, |most, found| match found.value {
-			Some(number) if number > most => number
-			_ => most
-		})
-		values.map(
-			|found| {
-				scale_text = Capture.metadata(found.member.opened, "benchmark_scale")
-				Gui.row(
-					{ label: "Chart ${row.trigger} ${Scaling.metric_name(row.metric)} ${scale_text}", width: Fill, height: Px(18), padding: 0, gap: Theme.inset, align: Center },
-					[
-						Widgets.cell("${row.trigger} ${Scaling.metric_name(row.metric)}", 280, Theme.dim),
-						Widgets.figure_cell(scale_text, 70, Theme.dim),
-						match found.value {
-							Some(number) => Gui.row({ width: Px(bar_span), padding: 0, gap: 0, align: Center }, [Widgets.block(if largest <= 0 or number <= 0 0 else (if number * bar_span.to_i64() / largest < 1 1 else (number * bar_span.to_i64() / largest).to_u32_wrap()), Theme.callback)])
-							None => Gui.row({ width: Px(bar_span), padding: 0, gap: 0, align: Center }, [Widgets.meta("—")])
-						},
-						Widgets.figure_cell(
-							match found.value {
-								Some(number) => shape(row.metric, number)
-								None => "—"
-							},
-							110,
-							Theme.ink,
-						),
-					],
-				)
-			},
-		)
+	plotted = rows.map(|row| plot(sorted, row))
+	[Widgets.heading("SCALING CHART · mean per measured sample cycle against scale, log-log · dashed: linear growth from the smallest scale")].concat(plotted)
+}
+
+## Hundredths of a base-two logarithm, exact at powers of two and linear
+## between them, so equal ratios are equal distances.
+log_hundredths : I64 -> I64
+log_hundredths = |value| if value <= 1 {
+	0
+} else {
+	var $power = 1
+	var $octaves = 0
+	while $power * 2 <= value {
+		$power = $power * 2
+		$octaves = $octaves + 1
 	}
-	[
-		Widgets.heading("SCALING CHART · mean per measured sample cycle by scale, each bar against the largest of its group"),
-		Gui.col({ label: "Scaling chart", width: Fill, padding: Theme.inset, gap: 2, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius }, rows.fold([], |drawn, row| drawn.concat(group(row)))),
-	]
+	$octaves * 100 + (value - $power) * 100 / $power
+}
+
+expect log_hundredths(1024) == 1000
+expect log_hundredths(1536) == 1050
+
+plot_left : I64
+plot_left = 64
+
+plot_width : I64
+plot_width = 360
+
+plot_top : I64
+plot_top = 18
+
+plot_height : I64
+plot_height = 100
+
+## A position along one axis of `span` pixels, from `low` to `high` hundredths.
+along : I64, I64, I64, I64 -> I64
+along = |value, low, high, span| if high <= low span / 2 else (value - low) * span / (high - low)
+
+plot : List(Scaling.Member), Scaling.Row -> Elem
+plot = |sorted, row| {
+	name = "${row.trigger} ${Scaling.metric_name(row.metric)}"
+	points = sorted.keep_oks(
+		|member| match (Scaling.scale(member), Scaling.value(member, row.trigger, row.metric)) {
+			(Some(scale), Some(value)) if scale > 0 and value > 0 => Ok({ scale, value, x: log_hundredths(scale), y: log_hundredths(value) })
+			_ => Err(Absent)
+		},
+	)
+	low_x = points.fold(1000000, |least, found| if found.x < least found.x else least)
+	high_x = points.fold(0, |most, found| if found.x > most found.x else most)
+	first_y = match points.first() {
+		Ok(found) => found.y
+		Err(_) => 0
+	}
+	# The reference line's far end, where linear growth from the first point
+	# reaches the largest scale.
+	reference_y = first_y + (high_x - low_x)
+	low_y = points.fold(first_y, |least, found| if found.y < least found.y else least)
+	high_y = points.fold(reference_y, |most, found| if found.y > most found.y else most)
+	px_x = |value| plot_left + along(value, low_x, high_x, plot_width)
+	px_y = |value| plot_top + plot_height - along(value, low_y, high_y, plot_height)
+	dots = points.map_with_index(
+		|found, index| Gui.ellipse({ key: (index + 1).to_u64_wrap(), label: "Point ${name} ${found.scale.to_str()}", x: (px_x(found.x) - 3).to_i32_wrap(), y: (px_y(found.y) - 3).to_i32_wrap(), width: 7, height: 7, fill: Theme.callback }),
+	)
+	joins = List.map2(points, points.drop_first(1), |from, to| { from, to }).map_with_index(
+		|pair, index| Gui.line({ key: (100 + index).to_u64_wrap(), label: "Join ${name} ${index.to_str()}", x1: px_x(pair.from.x).to_i32_wrap(), y1: px_y(pair.from.y).to_i32_wrap(), x2: px_x(pair.to.x).to_i32_wrap(), y2: px_y(pair.to.y).to_i32_wrap(), stroke: Theme.callback, stroke_width: 2 }),
+	)
+	# A dashed line: short segments along the reference.
+	dashes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(
+		|segment| {
+			from = low_x + (high_x - low_x) * segment * 2 / 24
+			to = low_x + (high_x - low_x) * (segment * 2 + 1) / 24
+			Gui.line({ key: (200 + segment).to_u64_wrap(), label: "Reference ${name} ${segment.to_str()}", x1: px_x(from).to_i32_wrap(), y1: px_y(first_y + from - low_x).to_i32_wrap(), x2: px_x(to).to_i32_wrap(), y2: px_y(first_y + to - low_x).to_i32_wrap(), stroke: Theme.edge, stroke_width: 1 })
+		},
+	)
+	scale_captions = points.map_with_index(
+		|found, index| Gui.canvas_text({ key: (300 + index).to_u64_wrap(), label: "Scale ${name} ${found.scale.to_str()}", x: (px_x(found.x) - 40).to_i32_wrap(), y: (plot_top + plot_height + 6).to_i32_wrap(), width: 80, value: found.scale.to_str(), color: Theme.dim, size: 10, align: Center }),
+	)
+	value_captions = points.map_with_index(
+		|found, index| Gui.canvas_text({ key: (400 + index).to_u64_wrap(), label: "Value ${name} ${found.scale.to_str()}", x: (px_x(found.x) + 6).to_i32_wrap(), y: (px_y(found.y) - 14).to_i32_wrap(), width: 90, value: shape(row.metric, found.value), color: Theme.ink, size: 10, align: Start }),
+	)
+	title = Gui.canvas_text({ key: 500, label: "Title ${name}", x: 0, y: 0, width: (plot_left + plot_width).to_i32_wrap().to_u32_wrap(), value: name, color: Theme.dim, size: 11, align: Start })
+	primitives = if points.len() < 2 {
+		[title, Gui.canvas_text({ key: 501, label: "Absent ${name}", x: plot_left.to_i32_wrap(), y: 50, width: plot_width.to_u32_wrap(), value: "fewer than two scales have this value", color: Theme.dim, size: 11, align: Start })]
+	} else {
+		[title].concat(dashes).concat(joins).concat(dots).concat(scale_captions).concat(value_captions)
+	}
+	Gui.canvas({
+		label: "Scaling chart ${name}",
+		primitives,
+		on_pointer: |_, _| Gui.none,
+		width: Px((plot_left + plot_width + 110).to_u32_wrap()),
+		height: Px((plot_top + plot_height + 24).to_u32_wrap()),
+		min_width: Px((plot_left + plot_width + 110).to_u32_wrap()),
+		min_height: Px((plot_top + plot_height + 24).to_u32_wrap()),
+		bg: Theme.card,
+		border_color: Theme.line,
+		border_width: 1,
+		radius: Theme.radius,
+	})
 }
 
 result : Observatory.State -> List(Elem)

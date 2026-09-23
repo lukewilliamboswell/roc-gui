@@ -23,7 +23,7 @@
     (click (role button :name "Build scaling set"))
     (await-task)
     ; each capture of the set is read through a connection of its own
-    (expect-sqlite-counters 4 10 68)
+    (expect-sqlite-counters 4 10 96)
     (expect-visible (within (role row :name "Scaling verdict") (text "✓ 3 captures at scales 100 · 1000 · 10000")))
     (expect-count (within (role column :name "Scaling gate") (text "✓")) 14)
     (expect-visible (within (role row :name "Scale check browse-10k.rgstats") (text "✓")))
@@ -38,7 +38,7 @@
     ; every timing step has evidence, so every timing metric has a verdict
     (expect-not-visible (within (role row :name "Ratio task callback") (text "—")))
     (expect-not-visible (within (role row :name "Ratio click graph apply") (text "—")))
-    (expect-visible (role row :name "Chart task callback 10000"))
+    (expect-visible (role canvas-item :name "Point task callback 10000"))
     (expect-visible (within (role row :name "Scaling A/A verdict") (text "No A/A capture: ratios carry no noise band.")))
     ; a contended run fails isolation and job count, and repeats a scale
     (click (role button :name "Scaling set browse-100-jobs-2.rgstats"))

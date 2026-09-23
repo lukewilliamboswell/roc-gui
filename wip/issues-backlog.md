@@ -515,12 +515,11 @@ ideal and the repository. P- and E-numbers refer to that document.
   panes and capture tabs. This is shared with the HTTP Workbench and Terminal
   Workspace entries.
 
-- [ ] **The scaling chart is a bar per scale, not a log-log chart (US-29).**
-  `ScalingView.chart` draws each trigger and metric as one bar per scale
-  against the largest mean of its group. W7 asks for a log-log chart per
-  trigger with a linear reference line and a metric selector, which needs
-  canvas text (P6). `chart` takes the set's members and ratio rows, so the
-  canvas replaces it without changing the gate, checks, or ratios.
+- [ ] **The scaling charts have no metric selector (US-29).**
+  `ScalingView.chart` draws a log-log canvas for every trigger and metric,
+  with a dashed line of linear growth through the smallest scale. W7 asks for
+  one chart per trigger with a metric selector, and for hovering a point to
+  read out its ratio; the charts have neither.
 
 - [ ] **A baseline applies to three views, and no chart overlays it (US-32).**
   The triggers table, the cycle inspector, and Memory's allocations by trigger
@@ -528,7 +527,8 @@ ideal and the repository. P- and E-numbers refer to that document.
   lifecycle and process resources, and the Spec step durations show no delta,
   and no chart draws the baseline in a secondary style. Each needs a baseline
   value joined to its row (runs and steps have no key shared across captures
-  beyond phase and ordinal) and, for charts, P6. The baseline is also one
+  beyond phase and ordinal) and, for charts, a second series drawn in a
+  secondary style. The baseline is also one
   capture beside the open one, named in the baseline bar, rather than a capture
   tab marked `◆` (P5).
 
@@ -551,6 +551,14 @@ ideal and the repository. P- and E-numbers refer to that document.
   and the host's live canvas tests have run only on Linux (Wayland). Run them
   on macOS and Windows, where a trackpad reports pixel deltas and a wheel
   reports lines.
+
+- [ ] **A generated window session occasionally stalls.** Observatory's
+  fixture scrolls the Database Browser's ten thousand rows a few hundred times
+  in a real window. Twice in development the run stopped drawing and reached
+  the host watchdog with its last milestone `driver-started`, while the same
+  session passed in about thirty seconds on other runs. The generator now caps
+  the run at ninety seconds and retries once. Find the step that waits: the
+  window report of a stalled run names it.
 
 - [ ] **The frame strip draws one run's frames as one sequence.** Frames number
   in run and ordinal order across every run of a capture, so a capture of
