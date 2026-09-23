@@ -11,22 +11,41 @@ A capture of any schema other than 19 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be
-trusted. Four views follow:
+trusted. Five views follow:
 
 - **Overview**: identity from `metadata`, and tiles for outcome, slowest
   trigger, median cycle, frames over budget, skip rate, and verdict.
 - **Interactions**: the triggers table, cycles grouped by trigger and patch kind
   within one measurement phase, with count, minimum, median, maximum, and
-  interquartile range. Warmup runs are excluded.
+  interquartile range. Below it, the slowest cycles of the phase in a virtual
+  list, each with a bar of callback, validate, apply, and unattributed time;
+  choosing a trigger narrows the list to its cycles. Pressing a cycle opens the
+  inspector: a waterfall of the cycle's time through the Roc callback and its
+  five work spans, validate, and apply with graph and GPUI apply, where the time
+  no owner attributed is shown as `unattributed` and a Σ check proves the parts
+  sum to the cycle; the eleven component work kinds; graph and keyed work; and
+  the allocations of each span. A cycle driven by a specification step opens
+  the Spec view at that step. Warmup runs are excluded.
 - **Spec**: the runs, a run selector, and the selected run's steps with their
   status, duration, and expected and observed values, in a virtual list.
+- **Memory**: allocations by trigger and span (calls and bytes, mean, maximum,
+  and total), each run's Roc allocation lifecycle, and each run's user and
+  system CPU and peak and current RSS, with a bar of peak RSS per run.
 - **Health**: the verdict and the rule that produced it, every measurement
   family, recording gaps, recorder health, every identity key, and the declared
   unavailable sources.
 
 Every number belongs to a measurement family. A family whose status is not
-`complete` is shown as `—` with its status and reason, never as zero. The
-verdict is `untrusted` when a capture is not finalised, shut down uncleanly,
+`complete` is shown as `—` with its status and reason, never as zero, and
+pressing a `—` opens Health at that family. Values the capture records per
+cycle follow the same rule: spans and their allocations are `—` for a callback
+whose spans were not valid, component work is `—` for a cycle with no component
+observation (and an absent kind is zero only for one with it), GPUI apply is
+`—` when it was not recorded, and a run with no end snapshot has no CPU, RSS,
+or allocation change. The capture list and the triggers table sort by any
+column.
+
+The verdict is `untrusted` when a capture is not finalised, shut down uncleanly,
 omitted events, reached its output limit, had a writer failure, or recorded a
 gap; `partial` when any family is partial; otherwise `complete`.
 
@@ -54,21 +73,21 @@ regenerates it when the recorder schema or the generator's inputs change.
 
 - One capture opens at a time, only from a granted folder; there is no single
   file chooser, drop target, or recent list.
-- No sorting of the capture list or the triggers table, and no cycle list,
-  cycle inspector, distribution chart, frames, timeline, memory, scaling, or
-  comparison view.
-- A `—` shows its family's status and reason beside it, not on hover, and does
-  not open Health at that family.
+- No distribution chart, frames, timeline, scaling, or comparison view.
+- A `—` shows its family's status and reason beside it, not on hover.
 - Steps are listed by line number and kind; the specification source is not
-  shown beside them.
+  shown beside them, and "Show step" marks the step rather than scrolling the
+  list to it.
 
 ## Specifications
 
-Thirteen specifications run on the semantic runner. They cover the first frame,
-a refused folder grant, the capture list with each health badge, the schema
-gate, a file that is not a database, the overview's identity, chips, and honest
-tiles, an untrusted capture's banner on every view, the health sheet, spec
-results across runs, and the triggers table across phases. `scale-10.scm`,
-`scale-100.scm`, and `scale-1000.scm` are the scaling cases: each opens a
+Eighteen specifications run on the semantic runner. They cover the first
+frame, a refused folder grant, the capture list with each health badge, the
+schema gate, a file that is not a database, the overview's identity, chips, and
+honest tiles, an untrusted capture's banner on every view, the health sheet,
+spec results across runs, the triggers table across phases, sorting by column,
+the cycle list and its trigger filter, the cycle inspector with a dash that
+opens Health, a cycle's step in the Spec view, and the memory view.
+`scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases: each opens a
 benchmark output folder of that many real captures. `window-tour.scm` drives
 the real window through every view and photographs each.

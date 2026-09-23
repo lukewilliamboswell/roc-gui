@@ -426,16 +426,34 @@ opens `.rgstats` captures and queries their tables directly. It is also the
 pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
 ideal and the repository. P- and E-numbers refer to that document.
 
-- [ ] **The first slice is not sortable and has no large-capture case.** Folder
-  open, the capture list, the schema gate, Overview, Health, spec results, and
-  the triggers table exist with specifications, and the scaling case opens
-  folders of 10, 100, and 1,000 real captures. Still missing from I1: sorting
-  the capture list and the triggers table by each column (US-2, US-9); pressing
-  a `—` value to open Health at its family (US-7); and a scaling case that opens
-  one long interactive-session capture at 10k and 100k cycles, which needs a
-  real recorded session driven through the ordinary window path as its fixture.
-  The photographs `window-tour.scm` takes have not been reviewed against the
-  wireframes.
+- [ ] **No large-capture case.** I1 and I2 exist with specifications: folder
+  open, a sortable capture list, the schema gate, Overview, Health, spec
+  results, the sortable triggers table, the slowest-cycles list, the cycle
+  inspector, and Memory. The scaling case opens folders of 10, 100, and 1,000
+  real captures, but no case opens one long interactive-session capture at 10k
+  and 100k cycles, which needs a real recorded session driven through the
+  ordinary window path as its fixture. The cycle list reads at most 1,000 of
+  the slowest cycles of each trigger and patch kind and builds every row up
+  front (see P1).
+
+- [ ] **Two honest-absence paths are reached only by unit expectations.** No
+  fixture capture has a cycle with `roc_work_valid = 0` or
+  `component_work_recorded = 0`, so the inspector's `—` for invalid spans and
+  unobserved component work is proved by `expect` on `Capture.decompose` and
+  `Capture.work_count`, not by a specification. A real application path that
+  produces such a cycle (a rejected turn, or a callback whose span stack does
+  not close) should become a fixture.
+
+- [ ] **Every Observatory interaction replaces the whole tree.** A capture of
+  the window tour shows each click as a `replace` patch staging every live node
+  (148 to 430) with only the root rendered: the application has no component
+  boundaries, so opening a cycle re-renders the capture list, the triggers
+  table, and the inspector alike. Give each view and the inspector a
+  `translate` boundary and confirm locality with the capture's `staged_nodes`.
+
+- [ ] **Table cells clip without an ellipsis.** A fixed-width cell with
+  `text_overflow: Ellipsis` clips its text at the column edge but draws no
+  ellipsis, so a long spec name in the capture list ends mid-word.
 
 - [ ] **A single capture file cannot be opened (P9).** Access offers only a
   directory chooser. Add a type-filtered single-file chooser, dropping files onto
