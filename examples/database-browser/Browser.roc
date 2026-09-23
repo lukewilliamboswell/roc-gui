@@ -15,7 +15,9 @@ Grant : [Ungranted, Declined, Granted(Str), Refused]
 
 Folder : { name : Str, directory : Gui.FilesDirRead, entries : List(Gui.FilesEntry) }
 
-Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
+## `Querying` is a statement or page read in flight, which a person may
+## cancel; `Canceled` is the note that they did.
+Status : [Busy(U64), Canceled, Failed({ message : Str, remedy : Str }), Querying(U64), Ready]
 
 ## One page of a query's result, and where it sits in the whole: the statement
 ## that produced it (not the editor's current text, which may since have
@@ -77,6 +79,13 @@ Browser := [].{
 	## Fetch the page of the shown result that starts at `offset`.
 	turn_page : State, Gui.SqliteDb, Shown, U64 -> Gui.Action(State)
 	turn_page = |state, database, shown, offset| run_page(state, database, shown.sql, offset)
+	## Stop the statement in flight. The host interrupts it where it runs, and
+	## its result, if one was already on its way, is never delivered.
+	cancel_query : State -> Gui.Action(State)
+	cancel_query = |state| match state.status {
+		Querying(_) => Gui.cancel({ ..state, status: Canceled }, query_key)
+		_ => Gui.none
+	}
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
 
@@ -183,14 +192,19 @@ page_request = |sql, offset| if offset == 0 {
 	{ sql: "SELECT * FROM (${body}) LIMIT -1 OFFSET ?", params: [Integer(offset.to_i64_wrap())], rows: Browser.page_rows }
 }
 
+## Every statement and page read shares one key, so a newer one supersedes
+## the one in flight: the host interrupts it, and its result never arrives.
+query_key = "query"
+
 run_page : State, Gui.SqliteDb, Str, U64 -> Gui.Action(State)
 run_page = |state, database, sql, offset| {
 	id = state.next_request
-	Gui.task({
-		pending: { ..state, next_request: id + 1, status: Busy(id) },
+	Gui.keyed_task({
+		key: query_key,
+		pending: { ..state, next_request: id + 1, status: Querying(id) },
 		run: || database.page!(page_request(sql, offset)),
 		resolve: |latest, outcome| match latest.status {
-			Busy(active) if active == id => match outcome {
+			Querying(active) if active == id => match outcome {
 				Ok(page) => Gui.update({ ..latest, result: Some({ sql, offset, page }), rows_scroll: Some({ row: 0, align: Start, serial: id }), on_screen: None, status: Ready })
 				Err(error) => Gui.update({
 					..latest,

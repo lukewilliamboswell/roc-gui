@@ -16,8 +16,10 @@ statement as written, and the next and previous pages bind their offset as a
 query parameter. The file is read in place, so a database of any size opens,
 and one another program is still writing shows its latest committed rows.
 Successful schema and result state stay visible while a worker task is running,
-and monotonic request identities mean a superseded open or query cannot
-overwrite a newer one.
+and monotonic request identities mean a superseded open cannot overwrite a
+newer one. Statements and page reads share one task key: running another
+supersedes the one in flight, which the host interrupts where it runs, and a
+Cancel key stops a long statement outright. Neither result is ever delivered.
 
 A standing bar names the folder held, and distinguishes nothing asked for yet
 from a dismissed chooser from a refusal, because each calls for a different next
@@ -63,16 +65,22 @@ browser names the grant that would answer it.
 
 ## Specifications
 
-Fourteen specifications run on the semantic runner and cover the first frame,
+Sixteen specifications run on the semantic runner and cover the first frame,
 schema browsing, typed results, an empty result, an invalid database, a rejected
 write, recovery after each kind of failure, a refused folder grant, the
-authority readout, reopening, a superseded query, a result turned page by page,
-and a result that fits one page. Each asserts the SQLite capability counters, so
-a query that never reached the host cannot pass by looking right.
+authority readout, reopening, a superseded query, a running statement cancelled
+and one superseded where it runs, a result turned page by page, and a result
+that fits one page. Each asserts the SQLite capability counters or the task
+counters, so a query that never reached the host, or a superseded one whose
+result arrived anyway, cannot pass by looking right.
+`scale-supersede-10.scm`, `scale-supersede-100.scm`, and
+`scale-supersede-1k.scm` run the statement again that many times in a row over
+a 10,000-row result and prove that each run superseded the last.
 `scale-100.scm`, `scale-1k.scm`, and `scale-10k.scm` scale the rows in a result
 and prove with `expect-rows` that the same 64 rows are built at every size;
 `scale-pages-20k.scm`, `scale-pages-50k.scm`, and `scale-pages-100k.scm` keep one
 page resident and scale how deep in the result it lies. `window-ledger.scm`
 drives the real window and photographs the ledger, and `window-rows.scm`
 scrolls ten thousand rows, jumps to the last and first rows, and photographs
-each.
+each. `window-cancel-query.scm` types a statement that would run for minutes,
+photographs its Cancel key, and cancels it.

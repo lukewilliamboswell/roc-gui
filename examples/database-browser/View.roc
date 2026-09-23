@@ -374,17 +374,29 @@ query_bench = |state| {
 						active_bg: Theme.accent_active,
 						fg: Theme.on_accent,
 					}),
-					trailing_meta(
+				]
+					.concat(
 						match state.status {
-							Busy(_) => "running…"
-							_ => "read-only handle on ${state.open_name}"
+							Querying(_) => [quiet_key({ caption: "Cancel", label: "Cancel query", on_press: |current, _| Browser.cancel_query(current), width: Auto })]
+							_ => []
 						},
+					)
+					.concat(
+						[
+							trailing_meta(
+								match state.status {
+									Busy(_) => "running…"
+									Querying(_) => "running…"
+									Canceled => "query cancelled"
+									_ => "read-only handle on ${state.open_name}"
+								},
+							),
+						],
 					),
-				],
 			),
 		]
 	}
-	result = match state.result {
+	result =match state.result {
 		None => [
 			Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body }, [Gui.text("Run a query to inspect rows")]),
 		]
