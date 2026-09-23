@@ -58,8 +58,19 @@ inputs = |state| {
 gutter : I64
 gutter = 96
 
-plot : I64
-plot = 720
+## The plot: the width the window laid the chart out at, less its gutter and
+## margin, and never narrower than a readable plot. Before the window has laid
+## the chart out it is drawn at the width it had below a view.
+plot_of : Observatory.State -> I64
+plot_of = |state| if state.chart_width == 0 {
+	720
+} else {
+	laid_out = state.chart_width.to_i64() - gutter - 6
+	if laid_out < least_plot least_plot else laid_out
+}
+
+least_plot : I64
+least_plot = 240
 
 lanes_top : I64
 lanes_top = 40
@@ -107,8 +118,8 @@ lane_y = |lane| lanes_top + lane * lane_pitch
 
 ## Where an interval falls on the plot: clipped to the window, and at least two
 ## pixels wide so an instant is still a mark.
-extent : Timeline.Window, I64, I64 -> { x : I64, width : I64 }
-extent = |window, start, end| {
+extent : Timeline.Window, I64, I64, I64 -> { x : I64, width : I64 }
+extent = |window, plot, start, end| {
 	stop = window.start + window.span
 	from = if start < window.start window.start else start
 	to = if end > stop stop else end
@@ -168,11 +179,11 @@ lane_of = |window, hit| {
 	}
 }
 
-hit_extent : Timeline.Window, Hit -> { x : I64, width : I64 }
-hit_extent = |window, hit| match hit {
-	OnCycle(mark) => extent(window, mark.start, mark.end)
-	OnFrame(mark) => extent(window, mark.start, mark.end)
-	OnPass(mark) => extent(window, mark.start, mark.end)
+hit_extent : Timeline.Window, I64, Hit -> { x : I64, width : I64 }
+hit_extent = |window, plot, hit| match hit {
+	OnCycle(mark) => extent(window, plot, mark.start, mark.end)
+	OnFrame(mark) => extent(window, plot, mark.start, mark.end)
+	OnPass(mark) => extent(window, plot, mark.start, mark.end)
 }
 
 hit_color : Hit -> Gui.Color
@@ -183,8 +194,8 @@ hit_color = |hit| match hit {
 }
 
 ## A lane whose family was not recorded is a band that says so, never empty.
-absent_band : Capture.Opened, I64, Str, Str -> List(Gui.CanvasPrimitive)
-absent_band = |opened, lane, name, family_name| if Capture.complete(opened, family_name) {
+absent_band : Capture.Opened, I64, I64, Str, Str -> List(Gui.CanvasPrimitive)
+absent_band = |opened, plot, lane, name, family_name| if Capture.complete(opened, family_name) {
 	[]
 } else {
 	y = lane_y(lane)
@@ -200,6 +211,7 @@ lane_caption = |lane, name| caption({ key: painted(2, lane), label: "Lane ${name
 chart : Observatory.State, Capture.Opened -> List(Elem)
 chart = |state, opened| {
 	window = state.clock.window
+	plot = plot_of(state)
 	hits = hits_of(window)
 	count = hits.len().to_i64_wrap()
 	triggers = window.triggers.len().to_i64_wrap()
@@ -207,7 +219,7 @@ chart = |state, opened| {
 	bottom = lane_y(lanes)
 	marks = hits.map_with_index(
 		|hit, index| {
-			place = hit_extent(window, hit)
+			place = hit_extent(window, plot, hit)
 			box({ key: (index + 1), label: hit_name(hit), x: place.x, y: lane_y(lane_of(window, hit)), width: place.width, height: lane_height, fill: hit_color(hit) })
 		},
 	)
@@ -222,7 +234,7 @@ chart = |state, opened| {
 	## up with the hovered mark.
 	highlight = match hovered {
 		Some(hit) => {
-			place = hit_extent(window, hit)
+			place = hit_extent(window, plot, hit)
 			[box({ key: painted(5, 1), label: "Hovered mark", x: place.x - 1, y: lanes_top - 2, width: place.width + 2, height: bottom - lanes_top, fill: Theme.selected })]
 		}
 		None => []
@@ -233,13 +245,13 @@ chart = |state, opened| {
 		Some(detail) => {
 			frame = window.frames.keep_if(|mark| mark.bar.id == detail.id).map(
 				|mark| {
-					place = extent(window, mark.start, mark.end)
+					place = extent(window, plot, mark.start, mark.end)
 					rule({ key: painted(6, 1), label: "Selected frame", x1: place.x, y1: lanes_top - 4, x2: place.x, y2: bottom, stroke: Theme.alarm_ink })
 				},
 			)
 			linked = window.cycles.keep_if(|mark| detail.causes.any(|cause| cause.id == mark.cycle.id)).map_with_index(
 				|mark, index| {
-					place = extent(window, mark.start, mark.end)
+					place = extent(window, plot, mark.start, mark.end)
 					y = lane_y(lane_of(window, OnCycle(mark))) + lane_height + 1
 					rule({ key: painted(7, index.to_i64_wrap()), label: "Linked cycle ${cycle_name(mark.cycle)}", x1: place.x, y1: y, x2: place.x + place.width, y2: y, stroke: Theme.alarm_ink })
 				},
@@ -262,7 +274,7 @@ chart = |state, opened| {
 	labels = window.triggers.map_with_index(|trigger, index| lane_caption(index.to_i64_wrap(), "cycles ${trigger}"))
 		.append(lane_caption(triggers, "frames"))
 		.append(lane_caption(triggers + 1, "lists"))
-	bands = absent_band(opened, triggers, "frames", "gpui_frame_spans").concat(absent_band(opened, triggers + 1, "lists", "virtual_list_materialization"))
+	bands = absent_band(opened, plot, triggers, "frames", "gpui_frame_spans").concat(absent_band(opened, plot, triggers + 1, "lists", "virtual_list_materialization"))
 	hit_at : I64 -> [None, Some(Hit)]
 	hit_at = |index| match hits.get(index.to_u64_wrap()) {
 		Ok(hit) => Some(hit)
@@ -278,7 +290,6 @@ chart = |state, opened| {
 		Some(index) => hit_at(index)
 		None => None
 	}
-	width = gutter + plot + 8
 	height = bottom + 4
 	span_caption = if window.start == window.first and stop == window.last "the whole capture" else "${Format.ms(window.span)} of ${Format.ms(window.last - window.first)}"
 	whole = if window.span < window.last - window.first [Widgets.key({ caption: "Whole capture", label: "Show the whole timeline", selected: False, on_press: |current, _| Observatory.ask(current, ShowTimeline(0, 0)) })] else []
@@ -308,14 +319,15 @@ chart = |state, opened| {
 				},
 			),
 			on_wheel: Some(
-				|current, wheel| match Timeline.zoomed(current.clock.window, wheel.x.to_i64() - gutter, plot, wheel.dx, wheel.dy) {
+				|current, wheel| match Timeline.zoomed(current.clock.window, wheel.x.to_i64() - gutter, plot_of(current), wheel.dx, wheel.dy) {
 					Some(next) => Observatory.ask(current, ShowTimeline(next.start, next.span))
 					None => Gui.none
 				},
 			),
-			width: Px(width.to_u32_wrap()),
+			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
+			width: Fill,
 			height: Px(height.to_u32_wrap()),
-			min_width: Px(width.to_u32_wrap()),
+			min_width: Px((gutter + least_plot + 8).to_u32_wrap()),
 			min_height: Px(height.to_u32_wrap()),
 			bg: Theme.card,
 			border_color: Theme.line,
@@ -381,7 +393,7 @@ timeline = |state, opened| {
 	} else if window.span <= 0 {
 		[Widgets.labelled_note("Timeline empty", "This capture records no interval on its clock.", Theme.dim)]
 	} else {
-		[part("Timeline chart", |a, b| inputs(a) == inputs(b) and a.clock_hover == b.clock_hover, chart)]
+		[part("Timeline chart", |a, b| inputs(a) == inputs(b) and a.clock_hover == b.clock_hover and a.chart_width == b.chart_width, chart)]
 	}
 	Gui.col({ label: "Timeline", width: Fill, padding: Theme.inset, gap: Theme.inset }, body)
 }

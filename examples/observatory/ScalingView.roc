@@ -17,7 +17,7 @@ ScalingView := [].{
 	## The folder to choose from, the set as chosen and as read, and the A/A
 	## capture.
 	same_view : Observatory.State, Observatory.State -> Bool
-	same_view = |a, b| inputs(a) == inputs(b)
+	same_view = |a, b| inputs(a) == inputs(b) and a.chart_width == b.chart_width
 
 	scaling : Observatory.State -> Elem
 	scaling = scaling
@@ -243,10 +243,11 @@ ratios_table = |members, rows| {
 ## mean against its scale, one point per scale joined in scale order, with a
 ## dashed reference line of slope one through the smallest scale's point, so
 ## linear growth runs along the reference and anything steeper rises above it.
-chart : List(Scaling.Member), List(Scaling.Row) -> List(Elem)
-chart = |members, rows| {
+chart : Observatory.State, List(Scaling.Member), List(Scaling.Row) -> List(Elem)
+chart = |state, members, rows| {
 	sorted = Scaling.ordered(members)
-	plotted = rows.map(|row| plot(sorted, row))
+	plot_width = plot_width_of(state)
+	plotted = rows.map(|row| plot(sorted, row, plot_width))
 	[Widgets.heading("SCALING CHART · mean per measured sample cycle against scale, log-log · dashed: linear growth from the smallest scale")].concat(plotted)
 }
 
@@ -271,8 +272,20 @@ expect log_hundredths(1536) == 1050
 plot_left : I64
 plot_left = 64
 
-plot_width : I64
-plot_width = 360
+## The plot's width: what the window laid the chart out at, less the axis on
+## its left and the captions on its right, and never narrower than a readable
+## plot. Before the window has laid the chart out it is drawn at the width it
+## had below a view.
+plot_width_of : Observatory.State -> I64
+plot_width_of = |state| if state.chart_width == 0 {
+	360
+} else {
+	laid_out = state.chart_width.to_i64() - plot_left - 108
+	if laid_out < least_plot least_plot else laid_out
+}
+
+least_plot : I64
+least_plot = 240
 
 plot_top : I64
 plot_top = 18
@@ -284,8 +297,8 @@ plot_height = 100
 along : I64, I64, I64, I64 -> I64
 along = |value, low, high, span| if high <= low span / 2 else (value - low) * span / (high - low)
 
-plot : List(Scaling.Member), Scaling.Row -> Elem
-plot = |sorted, row| {
+plot : List(Scaling.Member), Scaling.Row, I64 -> Elem
+plot = |sorted, row, plot_width| {
 	name = "${row.trigger} ${Scaling.metric_name(row.metric)}"
 	points = sorted.keep_oks(
 		|member| match (Scaling.scale(member), Scaling.value(member, row.trigger, row.metric)) {
@@ -344,9 +357,10 @@ plot = |sorted, row| {
 		label: "Scaling chart ${name}",
 		primitives,
 		on_pointer: |_, _| Gui.none,
-		width: Px((plot_left + plot_width + 110).to_u32_wrap()),
+		on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
+		width: Fill,
 		height: Px((plot_top + plot_height + 36).to_u32_wrap()),
-		min_width: Px((plot_left + plot_width + 110).to_u32_wrap()),
+		min_width: Px((plot_left + least_plot + 110).to_u32_wrap()),
 		min_height: Px((plot_top + plot_height + 36).to_u32_wrap()),
 		bg: Theme.card,
 		border_color: Theme.line,
@@ -384,7 +398,7 @@ result = |state| {
 					.concat(checks_table(Scaling.ordered(members)))
 					.concat([Widgets.heading("A/A NOISE BAND"), Widgets.note(Scaling.noise_rule), Widgets.labelled_note("Scaling A/A verdict", noise.text, noise.ink)])
 					.concat(ratios_table(members, rows))
-					.concat(chart(members, rows))
+					.concat(chart(state, members, rows))
 			}
 		}
 	}

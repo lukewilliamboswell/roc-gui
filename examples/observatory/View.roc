@@ -1384,7 +1384,7 @@ interactions = |state, _opened| Gui.col(
 		),
 		part_boundary(
 			"Distribution",
-			|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and a.bucket_hover == b.bucket_hover,
+			|a, b| same_capture(a, b) and a.phase == b.phase and a.filter == b.filter and a.bucket_hover == b.bucket_hover and a.chart_width == b.chart_width,
 			section(distribution),
 		),
 		part_boundary(
@@ -1842,10 +1842,10 @@ caption = |props| Gui.canvas_text({
 
 ## A chart marker's label: it reads rightward from the marker, and leftward
 ## where reading rightward would leave the plot.
-marker_label : { key : U64, label : Str, at : I64, y : I64, value : Str, color : Gui.Color } -> Gui.CanvasPrimitive
+marker_label : { key : U64, label : Str, at : I64, y : I64, value : Str, color : Gui.Color, plot : I64 } -> Gui.CanvasPrimitive
 marker_label = |props| {
 	label_width = 160
-	if props.at + 4 + label_width > chart_gutter + chart_plot {
+	if props.at + 4 + label_width > chart_gutter + props.plot {
 		caption({ key: props.key, label: props.label, x: props.at - 4 - label_width, y: props.y, width: label_width, value: props.value, color: props.color, align: End })
 	} else {
 		caption({ key: props.key, label: props.label, x: props.at + 4, y: props.y, width: label_width, value: props.value, color: props.color, align: Start })
@@ -1913,8 +1913,46 @@ range_text = |bucket| {
 chart_gutter : I64
 chart_gutter = 56
 
-chart_plot : I64
-chart_plot = 720
+## A chart's plot: the width the chart was laid out at, less its gutter and
+## margin, and never narrower than a readable plot. Before the window has laid
+## a chart out it is drawn at the width it had below a view.
+chart_plot : Observatory.State -> I64
+chart_plot = |state| if state.chart_width == 0 {
+	720
+} else {
+	plot = state.chart_width.to_i64() - chart_gutter - 6
+	if plot < least_plot least_plot else plot
+}
+
+least_plot : I64
+least_plot = 240
+
+## A chart fills the width of its view, no narrower than its least plot, and
+## is drawn for the width it hears it was laid out at.
+chart_width : Gui.Length
+chart_width = Fill
+
+chart_min_width : Gui.Length
+chart_min_width = Px((chart_gutter + least_plot + 8).to_u32_wrap())
+
+## Where a chart drawn in `Capture.columns` columns places a column: the
+## columns share the whole plot, so a wide plot has no empty margin.
+column_x : I64, I64 -> I64
+column_x = |plot, column| chart_gutter + column * plot / Capture.columns
+
+## How wide a column is: up to the next column.
+column_width : I64, I64 -> I64
+column_width = |plot, column| {
+	width = column_x(plot, column + 1) - column_x(plot, column)
+	if width < 1 1 else width
+}
+
+## A column's mark leaves a pixel between it and the next where it can.
+column_mark : I64, I64 -> I64
+column_mark = |plot, column| {
+	width = column_width(plot, column)
+	if width > 1 width - 1 else 1
+}
 
 ## Where a duration falls on the distribution's logarithmic axis, from the
 ## first shown bucket, each `width` pixels wide.
@@ -1944,7 +1982,8 @@ distribution = |state, opened| {
 			Err(_) => 0
 		}
 		shown = counts.keep_if(|found| found.bucket >= first and found.bucket <= last)
-		width = chart_plot / (last - first + 1)
+		plot = chart_plot(state)
+		width = plot / (last - first + 1)
 		tallest = shown.fold(0, |most, found| if found.count > most found.count else most)
 		median_row = 18
 		max_row = 32
@@ -1984,9 +2023,9 @@ distribution = |state, opened| {
 		# its marker and reads leftward where it would leave the plot.
 		markers = [
 			rule({ key: painted(3, 1), label: "Median marker", x1: median_x, y1: median_row, x2: median_x, y2: bottom, stroke: Theme.ink }),
-			marker_label({ key: painted(3, 2), label: "Median caption", at: median_x, y: median_row, value: "median ${Format.ms(median)}", color: Theme.ink }),
+			marker_label({ key: painted(3, 2), label: "Median caption", at: median_x, y: median_row, value: "median ${Format.ms(median)}", color: Theme.ink, plot }),
 			rule({ key: painted(3, 3), label: "Max marker", x1: max_x, y1: max_row, x2: max_x, y2: bottom, stroke: Theme.alarm_ink }),
-			marker_label({ key: painted(3, 4), label: "Max caption", at: max_x, y: max_row, value: "max ${Format.ms(slowest)}", color: Theme.alarm_ink }),
+			marker_label({ key: painted(3, 4), label: "Max caption", at: max_x, y: max_row, value: "max ${Format.ms(slowest)}", color: Theme.alarm_ink, plot }),
 		]
 		readout_text = match state.bucket_hover {
 			Some(bucket) => {
@@ -2002,9 +2041,9 @@ distribution = |state, opened| {
 			Some(bucket) if bucket >= first and bucket <= last => [box({ key: painted(6, 1), label: "Hovered bucket", x: chart_gutter + (bucket - first) * width, y: top, width, height: bottom - top, fill: Theme.selected })]
 			_ => []
 		}
-		readout = caption({ key: painted(4, 1), label: "Distribution readout", x: chart_gutter, y: 2, width: chart_plot, value: readout_text, color: Theme.ink, align: Start })
+		readout = caption({ key: painted(4, 1), label: "Distribution readout", x: chart_gutter, y: 2, width: plot, value: readout_text, color: Theme.ink, align: Start })
 		axis = [
-			rule({ key: painted(5, 1), label: "Distribution axis", x1: chart_gutter, y1: bottom, x2: chart_gutter + chart_plot, y2: bottom, stroke: Theme.edge }),
+			rule({ key: painted(5, 1), label: "Distribution axis", x1: chart_gutter, y1: bottom, x2: chart_gutter + plot, y2: bottom, stroke: Theme.edge }),
 			caption({ key: painted(5, 2), label: "Distribution count", x: 0, y: top - 2, width: chart_gutter - 6, value: tallest.to_str(), color: Theme.dim, align: End }),
 		]
 		# Hit rectangles last, so they are the topmost targets.
@@ -2036,9 +2075,10 @@ distribution = |state, opened| {
 						if hovered == current.bucket_hover Gui.none else Gui.update({ ..current, bucket_hover: hovered })
 					},
 				),
-				width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
+				width: chart_width,
 				height: Px(166),
-				min_width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				min_width: chart_min_width,
 				min_height: Px(166),
 				bg: Theme.card,
 				border_color: Theme.line,
@@ -2058,11 +2098,11 @@ strip_bottom : I64
 strip_bottom = 172
 
 ## One stage of a bar, stacked on the stages below it.
-stage : { layer : I64, column : I64, below : I64, part : I64, scale : I64, color : Gui.Color, name : Str } -> Gui.CanvasPrimitive
+stage : { layer : I64, column : I64, below : I64, part : I64, scale : I64, color : Gui.Color, name : Str, plot : I64 } -> Gui.CanvasPrimitive
 stage = |props| {
 	base = pixels(props.below, props.scale, strip_bottom - strip_top)
 	top = pixels(props.below + props.part, props.scale, strip_bottom - strip_top)
-	box({ key: painted(props.layer, props.column), label: "${props.name} ${props.column.to_str()}", x: chart_gutter + props.column * 3, y: strip_bottom - top, width: 2, height: top - base, fill: props.color })
+	box({ key: painted(props.layer, props.column), label: "${props.name} ${props.column.to_str()}", x: column_x(props.plot, props.column), y: strip_bottom - top, width: column_mark(props.plot, props.column), height: top - base, fill: props.color })
 }
 
 frame_name : I64, I64 -> Str
@@ -2073,30 +2113,30 @@ bar_total = |bar| bar.layout + bar.prepaint + bar.paint
 
 ## Layout solve and presentation happen inside GPUI, outside any host-owned
 ## element. They are drawn as bands that say so, never as zero.
-unavailable_band : Capture.Opened, I64, Str, Str -> List(Gui.CanvasPrimitive)
-unavailable_band = |opened, row, name, family_name| {
+unavailable_band : Capture.Opened, I64, I64, Str, Str -> List(Gui.CanvasPrimitive)
+unavailable_band = |opened, plot, row, name, family_name| {
 	y = strip_bottom + 8 + row * 18
 	reason = match Capture.family(opened, family_name) {
 		Found(found) => "${found.status}: ${found.reason}"
 		Missing => "not recorded in this capture"
 	}
 	[
-		box({ key: painted(7, row), label: "Unavailable ${name}", x: chart_gutter, y, width: chart_plot, height: 14, fill: Theme.rail }),
-		caption({ key: painted(8, row), label: "Reason ${name}", x: chart_gutter + 6, y: y + 1, width: chart_plot - 12, value: "${name} ${reason}", color: Theme.dim, align: Start }),
+		box({ key: painted(7, row), label: "Unavailable ${name}", x: chart_gutter, y, width: plot, height: 14, fill: Theme.rail }),
+		caption({ key: painted(8, row), label: "Reason ${name}", x: chart_gutter + 6, y: y + 1, width: plot - 12, value: "${name} ${reason}", color: Theme.dim, align: Start }),
 	]
 }
 
 ## Zooming halves or doubles the span of frames around the pointer's frame,
 ## and a sideways scroll pans by an eighth of it.
-zoomed : Capture.Strip, Gui.EventCanvasWheel -> [None, Some({ start : I64, span : I64 })]
-zoomed = |strip, wheel| {
+zoomed : Capture.Strip, I64, Gui.EventCanvasWheel -> [None, Some({ start : I64, span : I64 })]
+zoomed = |strip, plot, wheel| {
 	smallest = if strip.total < Capture.columns strip.total else Capture.columns
-	offset = if wheel.x.to_i64() < chart_gutter 0 else if wheel.x.to_i64() > chart_gutter + chart_plot chart_plot else wheel.x.to_i64() - chart_gutter
-	anchor = strip.start + offset * strip.span / chart_plot
+	offset = if wheel.x.to_i64() < chart_gutter 0 else if wheel.x.to_i64() > chart_gutter + plot plot else wheel.x.to_i64() - chart_gutter
+	anchor = strip.start + offset * strip.span / plot
 	requested = if wheel.dy < 0 strip.span / 2 else if wheel.dy > 0 strip.span * 2 else strip.span
 	span = if requested < smallest smallest else if requested > strip.total strip.total else requested
 	panned = if wheel.dx > 0 span / 8 else if wheel.dx < 0 -(span / 8) else 0
-	unclamped = anchor - offset * span / chart_plot + panned
+	unclamped = anchor - offset * span / plot + panned
 	start = if unclamped < 0 0 else if unclamped > strip.total - span strip.total - span else unclamped
 	if start == strip.start and span == strip.span None else Some({ start, span })
 }
@@ -2109,16 +2149,17 @@ frame_strip = |state, opened| {
 	scale = if budget * 3 / 2 > slowest budget * 3 / 2 else slowest
 	budget_y = strip_bottom - pixels(budget, scale, strip_bottom - strip_top)
 	columns = strip.bars.len().to_i64_wrap()
+	plot = chart_plot(state)
 	bars = strip.bars.fold(
 		[],
 		|drawn, bar| {
-			over = if bar_total(bar) > budget [box({ key: painted(4, bar.column), label: "Over budget ${bar.column.to_str()}", x: chart_gutter + bar.column * 3, y: strip_top - 6, width: 2, height: 3, fill: Theme.alarm_ink })] else []
+			over = if bar_total(bar) > budget [box({ key: painted(4, bar.column), label: "Over budget ${bar.column.to_str()}", x: column_x(plot, bar.column), y: strip_top - 6, width: column_mark(plot, bar.column), height: 3, fill: Theme.alarm_ink })] else []
 			drawn
 				.concat(
 					[
-						stage({ layer: 1, column: bar.column, below: 0, part: bar.layout, scale, color: Theme.callback, name: "Layout request" }),
-						stage({ layer: 2, column: bar.column, below: bar.layout, part: bar.prepaint, scale, color: Theme.span, name: "Prepaint" }),
-						stage({ layer: 3, column: bar.column, below: bar.layout + bar.prepaint, part: bar.paint, scale, color: Theme.validate, name: "Paint" }),
+						stage({ layer: 1, column: bar.column, below: 0, part: bar.layout, scale, color: Theme.callback, name: "Layout request", plot }),
+						stage({ layer: 2, column: bar.column, below: bar.layout, part: bar.prepaint, scale, color: Theme.span, name: "Prepaint", plot }),
+						stage({ layer: 3, column: bar.column, below: bar.layout + bar.prepaint, part: bar.paint, scale, color: Theme.validate, name: "Paint", plot }),
 					],
 				)
 				.concat(over)
@@ -2140,25 +2181,25 @@ frame_strip = |state, opened| {
 		None => "Hover a frame for its stages; press it to inspect; scroll to zoom."
 	}
 	highlight = match state.frame_hover {
-		Some(column) => [box({ key: painted(9, 1), label: "Hovered column", x: chart_gutter + column * 3 - 1, y: strip_top, width: 4, height: strip_bottom - strip_top, fill: Theme.selected })]
+		Some(column) => [box({ key: painted(9, 1), label: "Hovered column", x: column_x(plot, column) - 1, y: strip_top, width: column_width(plot, column) + 1, height: strip_bottom - strip_top, fill: Theme.selected })]
 		None => []
 	}
 	selected = match state.frame {
 		Some(detail) => match strip.bars.find_first(|bar| bar.id == detail.id) {
-			Ok(bar) => [rule({ key: painted(9, 2), label: "Selected frame", x1: chart_gutter + bar.column * 3 + 1, y1: strip_top - 10, x2: chart_gutter + bar.column * 3 + 1, y2: strip_bottom, stroke: Theme.accent })]
+			Ok(bar) => [rule({ key: painted(9, 2), label: "Selected frame", x1: column_x(plot, bar.column) + column_mark(plot, bar.column) / 2, y1: strip_top - 10, x2: column_x(plot, bar.column) + column_mark(plot, bar.column) / 2, y2: strip_bottom, stroke: Theme.accent })]
 			Err(_) => []
 		}
 		None => []
 	}
 	guides = [
-		rule({ key: painted(5, 1), label: "Frame axis", x1: chart_gutter, y1: strip_bottom, x2: chart_gutter + chart_plot, y2: strip_bottom, stroke: Theme.edge }),
-		rule({ key: painted(5, 2), label: "Budget line", x1: chart_gutter, y1: budget_y, x2: chart_gutter + chart_plot, y2: budget_y, stroke: Theme.alarm_ink }),
+		rule({ key: painted(5, 1), label: "Frame axis", x1: chart_gutter, y1: strip_bottom, x2: chart_gutter + plot, y2: strip_bottom, stroke: Theme.edge }),
+		rule({ key: painted(5, 2), label: "Budget line", x1: chart_gutter, y1: budget_y, x2: chart_gutter + plot, y2: budget_y, stroke: Theme.alarm_ink }),
 		caption({ key: painted(5, 3), label: "Budget caption", x: 0, y: budget_y - 7, width: chart_gutter - 6, value: Format.ms(budget), color: Theme.alarm_ink, align: End }),
 		caption({ key: painted(5, 4), label: "Scale caption", x: 0, y: strip_top - 6, width: chart_gutter - 6, value: Format.ms(scale), color: Theme.dim, align: End }),
-		caption({ key: painted(5, 5), label: "Frame readout", x: chart_gutter, y: 2, width: chart_plot, value: readout_text, color: Theme.ink, align: Start }),
+		caption({ key: painted(5, 5), label: "Frame readout", x: chart_gutter, y: 2, width: plot, value: readout_text, color: Theme.ink, align: Start }),
 	]
-	bands = unavailable_band(opened, 0, "layout solve", "gpui_layout_solve").concat(unavailable_band(opened, 1, "presentation", "gpui_presentation"))
-	hits = strip.bars.map(|bar| box({ key: (bar.column + 1).to_u64_wrap(), label: "Frame ${frame_name(bar.run_id, bar.ordinal)}", x: chart_gutter + bar.column * 3, y: strip_top, width: 3, height: strip_bottom - strip_top, fill: Default }))
+	bands = unavailable_band(opened, plot, 0, "layout solve", "gpui_layout_solve").concat(unavailable_band(opened, plot, 1, "presentation", "gpui_presentation"))
+	hits = strip.bars.map(|bar| box({ key: (bar.column + 1).to_u64_wrap(), label: "Frame ${frame_name(bar.run_id, bar.ordinal)}", x: column_x(plot, bar.column), y: strip_top, width: column_width(plot, bar.column), height: strip_bottom - strip_top, fill: Default }))
 	bar_at : I64 -> [None, Some(Capture.Bar)]
 	bar_at = |column| match strip.bars.get(column.to_u64_wrap()) {
 		Ok(bar) => Some(bar)
@@ -2192,14 +2233,15 @@ frame_strip = |state, opened| {
 				},
 			),
 			on_wheel: Some(
-				|current, wheel| match zoomed(current.strip.strip, wheel) {
+				|current, wheel| match zoomed(current.strip.strip, chart_plot(current), wheel) {
 					Some(next) => Observatory.ask(current, ShowFrames(next.start, next.span))
 					None => Gui.none
 				},
 			),
-			width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
+			width: chart_width,
 			height: Px(214),
-			min_width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+			min_width: chart_min_width,
 			min_height: Px(214),
 			bg: Theme.card,
 			border_color: Theme.line,
@@ -2403,7 +2445,7 @@ list_flag = |found| if found.visible > 0 and found.materialized > 3 * found.visi
 
 ## US-25: every virtual list's last pass, and its passes over time.
 virtual_lists : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
-virtual_lists = |_state, opened| {
+virtual_lists = |state, opened| {
 	present = Capture.complete(opened, "virtual_list_materialization")
 	rows = opened.lists.map(
 		|found| {
@@ -2424,23 +2466,24 @@ virtual_lists = |_state, opened| {
 		},
 	)
 	tallest = opened.passes.fold(0, |most, found| if found.materialized > most found.materialized else most)
+	plot = chart_plot(state)
 	top = 8
 	bottom = 88
 	pass_bars = opened.passes.map(
 		|found| {
 			height = pixels(found.materialized, tallest, bottom - top)
-			box({ key: painted(1, found.column), label: "Pass ${found.column.to_str()}", x: chart_gutter + found.column * 3, y: bottom - height, width: 2, height, fill: Theme.span })
+			box({ key: painted(1, found.column), label: "Pass ${found.column.to_str()}", x: column_x(plot, found.column), y: bottom - height, width: column_mark(plot, found.column), height, fill: Theme.span })
 		},
 	)
 	visible_marks = opened.passes.map(
 		|found| {
 			y = bottom - pixels(found.visible, tallest, bottom - top)
-			box({ key: painted(2, found.column), label: "Pass visible ${found.column.to_str()}", x: chart_gutter + found.column * 3, y, width: 3, height: 1, fill: Theme.ink })
+			box({ key: painted(2, found.column), label: "Pass visible ${found.column.to_str()}", x: column_x(plot, found.column), y, width: column_width(plot, found.column), height: 1, fill: Theme.ink })
 		},
 	)
 	chart_captions = [
 		caption({ key: painted(3, 1), label: "Pass scale", x: 0, y: top - 4, width: chart_gutter - 6, value: tallest.to_str(), color: Theme.dim, align: End }),
-		caption({ key: painted(3, 2), label: "Pass legend", x: chart_gutter, y: bottom + 4, width: chart_plot, value: "materialised entities per pass, oldest first; the dark tick is the rows visible", color: Theme.dim, align: Start }),
+		caption({ key: painted(3, 2), label: "Pass legend", x: chart_gutter, y: bottom + 4, width: plot, value: "materialised entities per pass, oldest first; the dark tick is the rows visible", color: Theme.dim, align: Start }),
 	]
 	body = if !present {
 		[absence_note(opened, "virtual_list_materialization")]
@@ -2454,9 +2497,10 @@ virtual_lists = |_state, opened| {
 				label: "List passes",
 				primitives: pass_bars.concat(visible_marks).concat(chart_captions),
 				on_pointer: |_, _| Gui.none,
-				width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
+				width: chart_width,
 				height: Px(110),
-				min_width: Px((chart_gutter + chart_plot + 8).to_u32_wrap()),
+				min_width: chart_min_width,
 				min_height: Px(110),
 				bg: Theme.card,
 				border_color: Theme.line,
@@ -2506,12 +2550,12 @@ frames_view = |_state, opened| if !Capture.complete(opened, "gpui_frame_spans") 
 			part_boundary("Frame budget", |a, b| same_capture(a, b) and a.budget == b.budget, section(|current, captured| [budget_bar(current, captured)])),
 			part_boundary(
 				"Frame strip",
-				|a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and a.frame_hover == b.frame_hover and same_frame(a, b),
+				|a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and a.frame_hover == b.frame_hover and same_frame(a, b) and a.chart_width == b.chart_width,
 				section(frame_strip),
 			),
 			part_boundary("Native work", |a, b| same_capture(a, b) and same_frame(a, b), section(native_work)),
 			part_boundary("Frame work", |a, b| same_capture(a, b) and same_frame(a, b), section(frame_work)),
-			part_boundary("Virtual lists", same_capture, section(virtual_lists)),
+			part_boundary("Virtual lists", |a, b| same_capture(a, b) and a.chart_width == b.chart_width, section(virtual_lists)),
 		],
 	)
 }
@@ -2525,13 +2569,13 @@ main_view = |state| match state.view {
 	Overview => view_boundary("Overview", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Overview scroll", overview(s, o))))
 	Interactions => view_boundary(
 		"Interactions",
-		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and same_cycles(a, b) and CompareView.same_comparison(a, b),
+		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and same_cycles(a, b) and CompareView.same_comparison(a, b) and a.chart_width == b.chart_width,
 		|current| with_capture(current, |s, o| scrolled("Interactions scroll", interactions(s, o))),
 	)
 	## The strip's hover is compared only by the strip, which a hover updates
 	## in place.
-	Frames => view_boundary("Frames", |a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and same_frame(a, b), |current| with_capture(current, |s, o| scrolled("Frames scroll", frames_view(s, o))))
-	Timeline => view_boundary("Timeline", TimelineView.same_view, |current| with_capture(current, |s, o| scrolled("Timeline scroll", TimelineView.timeline(s, o))))
+	Frames => view_boundary("Frames", |a, b| same_capture(a, b) and a.budget == b.budget and a.strip.read == b.strip.read and same_frame(a, b) and a.chart_width == b.chart_width, |current| with_capture(current, |s, o| scrolled("Frames scroll", frames_view(s, o))))
+	Timeline => view_boundary("Timeline", |a, b| TimelineView.same_view(a, b) and a.chart_width == b.chart_width, |current| with_capture(current, |s, o| scrolled("Timeline scroll", TimelineView.timeline(s, o))))
 	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and a.step_scroll == b.step_scroll and SourceView.same(a, b), |current| with_capture(current, spec))
 	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase and CompareView.same_comparison(a, b), |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
 	Health => view_boundary("Health", |a, b| same_capture(a, b) and a.family_focus == b.family_focus, |current| with_capture(current, |s, o| scrolled("Health scroll", health(s, o))))

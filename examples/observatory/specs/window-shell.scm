@@ -36,9 +36,13 @@
     (settle)
     (expect-value (role separator :name "Inspector divider") "560")
     (expect-bounds (role column :name "Inspector") :min-width 555 :max-width 565)
-    ; the window renders the new size, and the inspector, whose cycle lays its
-    ; waterfall out for its width, renders once with it; every view is kept
-    (expect-component-work :rendered 2 :skipped 6 :mounted 0 :retired 0)
+    ; the drag renders the window and the inspector, whose cycle lays its
+    ; waterfall out for its width; every view is kept. The view beside it is
+    ; narrower, so after the frame the duration distribution hears its new
+    ; width, and that last turn renders the Interactions view and the
+    ; distribution and keeps the triggers table and the cycle list
+    (expect-canvas-size (role canvas :name "Duration distribution") 712 164)
+    (expect-component-work :rendered 2 :skipped 2 :mounted 0 :retired 0)
     (screenshot "wide-inspector")
     (focus (role separator :name "Inspector divider"))
     (key "enter")

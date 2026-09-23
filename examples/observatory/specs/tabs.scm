@@ -30,9 +30,12 @@
     ; shares, beside the one on screen
     (expect-sqlite-counters 2 8 57)
     ; the first capture comes back where it was left, and nothing is read:
-    ; its view mounts again from the pages its tab held
+    ; its view mounts again from the pages its tab held. The distribution
+    ; mounted again hears its width once more, the width it was drawn for, so
+    ; the last turn renders nothing.
     (click (role tab :name "◆ browse-100.rgstats"))
-    (expect-component-work :rendered 18 :skipped 0 :mounted 11 :retired 1)
+    (expect-canvas-size (role canvas :name "Duration distribution") 1438 164)
+    (expect-component-work :rendered 0 :compared 0 :mounted 0 :retired 0)
     (expect-selected (role tab :name "◆ browse-100.rgstats"))
     (expect-visible (text "CYCLE r4 #7 · task · replace · measured"))
     (expect-visible (text "INSPECTOR · Interactions"))

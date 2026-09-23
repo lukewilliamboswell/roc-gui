@@ -545,14 +545,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   Keep a watch per open capture, bounded in number, and mark a parked tab that
   has grown.
 
-- [ ] **Observatory's charts keep a fixed width beside a wide inspector.** The
-  duration distribution, the Frames strip, and the Timeline are canvases of
-  fixed pixel width, so widening the inspector past about 500 pixels clips
-  their right-hand side, where the max marker sits. Neither the view nor a
-  canvas learns the width the window gives it, so a chart cannot lay itself
-  out for it. Close by letting a canvas report its laid-out size to its
-  owner, or scale its primitives to it, and drawing each chart for that width.
-
 - [ ] **Copy covers six tables (US-37).** The triggers, cycles, waterfall,
   allocations by trigger, steps, and measurement families tables copy their
   rows as Markdown with each value's family, status, and reason. The Overview

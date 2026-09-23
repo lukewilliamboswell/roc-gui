@@ -210,6 +210,10 @@ State : {
 	clock : Clock,
 	clock_reading : Reading,
 	clock_hover : [None, Some(I64)],
+	## The width, inside its border, the window last laid a chart out at, or
+	## zero before it has. Every chart fills the width of the view it is in,
+	## so the charts share it.
+	chart_width : U32,
 	palette : Palette,
 	## The places jumped from, for Back and Forward.
 	history : History.Trail(Place),
@@ -293,6 +297,7 @@ Observatory := [].{
 		clock: no_clock,
 		clock_reading: None,
 		clock_hover: None,
+		chart_width: 0,
 		palette: Closed,
 		history: History.empty,
 		inspector_focus: 0,
@@ -319,6 +324,12 @@ Observatory := [].{
 		Some(_) => Gui.delegate(state)
 		None => Gui.update(state)
 	}
+
+	## A chart's answer to the size it was laid out at: a new width is the
+	## root's, since every view's charts are drawn for it, and the width it
+	## already has changes nothing.
+	size_charts : State, Gui.EventCanvasSize -> Gui.Action(State)
+	size_charts = |current, laid_out| if laid_out.width == current.chart_width Gui.none else Gui.delegate({ ..current, chart_width: laid_out.width })
 
 	## The policy of a boundary directly under the root: perform the request,
 	## or accept the change as a root update.
