@@ -27,6 +27,12 @@ Access :: Resource.Access.{
 	pick_directory! : Access => Try(Files.Choice(Files.Selection), Files.FileErr)
 	pick_directory! = |Access.(raw)| Files.pick_directory!(raw)
 
+	## Acquire a read-only grant for one file the person chooses in the
+	## operating system's file chooser, offering only `types`. Canceling is
+	## `Ok(Canceled)`. The handle reads that file and nothing beside it.
+	pick_file! : Access, List(Files.FileType) => Try(Files.Choice(Files.FileSelection), Files.FileErr)
+	pick_file! = |Access.(raw), types| Files.pick_file!(raw, types)
+
 	## Acquire the private read-write application-data directory granted by the host.
 	app_data! : Access => Try(Files.Dir.ReadWrite, Files.FileErr)
 	app_data! = |Access.(raw)| Files.app_data!(raw)

@@ -28,6 +28,12 @@ pub enum Grant {
     /// and an application that cannot be shown cancelling cannot be shown
     /// treating it as one.
     DirectoryCanceled,
+    /// Read access to one file, relative to the application directory. It is
+    /// what `pick_file!` answers with.
+    File(String),
+    /// A file chooser the person dismisses without choosing: `(file canceled)`,
+    /// the file counterpart of `(directory canceled)`.
+    FileCanceled,
     /// Private application-data storage seeded from this directory.
     AppData(String),
     /// The content directory an `Assets.content_directory` store resolves to.
@@ -59,6 +65,7 @@ impl Grant {
     pub fn name(&self) -> &'static str {
         match self {
             Self::Directory(_) | Self::DirectoryCanceled => "directory",
+            Self::File(_) | Self::FileCanceled => "file",
             Self::AppData(_) => "app-data",
             Self::Assets(_) => "assets",
             Self::Clipboard { .. } => "clipboard",
@@ -80,6 +87,7 @@ impl Grant {
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::Directory(path)
+            | Self::File(path)
             | Self::AppData(path)
             | Self::Assets(path)
             | Self::Server { script: path, .. } => Some(path),
@@ -206,6 +214,9 @@ pub enum Command {
     ExpectFileLifecycleCounters([u64; 6]),
     ExpectFileAccess([u64; 3]),
     RevokeFileGrants,
+    /// The document owner's picks, chosen files, cancellations, refusals, and
+    /// reads, then the live document handles.
+    ExpectDocumentCounters([u64; 6]),
     ExpectImageOwnerCounters([u64; 4]),
     /// Asset-store owner counters: opens, refused opens, manifest checks, reads,
     /// refused reads, and bytes read. All six are numeric; no path, file name,
@@ -404,6 +415,7 @@ impl Command {
             Self::ExpectFileLifecycleCounters(_) => "expect-file-lifecycle-counters",
             Self::ExpectFileAccess(_) => "expect-file-access",
             Self::RevokeFileGrants => "revoke-file-grants",
+            Self::ExpectDocumentCounters(_) => "expect-document-counters",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
             Self::ExpectGrants(_) => "expect-grants",
@@ -517,6 +529,7 @@ impl Command {
             | Self::ExpectFileSelectionCounters(_)
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
+            | Self::ExpectDocumentCounters(_)
             | Self::ExpectImageOwnerCounters(_)
             | Self::ExpectAssetCounters(_)
             | Self::ExpectGrants(_)
@@ -807,6 +820,8 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
         // forms cannot be confused for one another.
         ("directory", 2) if list[1].atom() == Some("canceled") => Ok(Grant::DirectoryCanceled),
         ("directory", 2) => Ok(Grant::Directory(grant_path(&list[1], "directory")?)),
+        ("file", 2) if list[1].atom() == Some("canceled") => Ok(Grant::FileCanceled),
+        ("file", 2) => Ok(Grant::File(grant_path(&list[1], "file")?)),
         ("app-data", 2) => Ok(Grant::AppData(grant_path(&list[1], "app-data")?)),
         ("assets", 2) => Ok(Grant::Assets(grant_path(&list[1], "assets")?)),
         ("clipboard", 2) => match list[1].atom() {
@@ -1553,6 +1568,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             Command::ExpectFileAccess(expected)
         }
         "revoke-file-grants" if values.len() == 1 => Command::RevokeFileGrants,
+        "expect-document-counters" if values.len() == 7 => {
+            let mut expected = [0u64; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-document-counters")? as u64;
+            }
+            Command::ExpectDocumentCounters(expected)
+        }
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
@@ -1780,6 +1802,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-lifecycle-counters"
         | "expect-file-access"
         | "revoke-file-grants"
+        | "expect-document-counters"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
         // `expect-grants` is deliberately absent: it takes any number of
@@ -2706,6 +2729,32 @@ mod tests {
                 .expect("quoted path parses")
                 .grants,
             vec![Grant::Directory("canceled".into())]
+        );
+    }
+
+    /// A file grant mirrors the directory vocabulary and occupies its own slot,
+    /// so a case may hold a folder and a file at once.
+    #[test]
+    fn a_file_grant_mirrors_the_directory_vocabulary() {
+        let case = parse(
+            r#"(test "f" (grants (file "fixture/one.rgstats") (directory "fixture")) (steps (await-ticks 1)))"#,
+        )
+        .expect("file and directory grants parse together");
+        assert_eq!(case.grants[0], Grant::File("fixture/one.rgstats".into()));
+        assert_eq!(case.grants[0].name(), "file");
+        assert_eq!(case.grants[0].path(), Some("fixture/one.rgstats"));
+        let canceled = parse(r#"(test "f" (grants (file canceled)) (steps (await-ticks 1)))"#)
+            .expect("canceled file chooser parses");
+        assert_eq!(canceled.grants, vec![Grant::FileCanceled]);
+        assert_eq!(canceled.grants[0].path(), None);
+        let duplicate = parse(
+            r#"(test "f" (grants (file canceled) (file "fixture/x")) (steps (await-ticks 1)))"#,
+        )
+        .unwrap_err();
+        assert!(duplicate.message.contains("duplicate file grant"));
+        assert!(
+            parse(r#"(test "f" (grants (file "../outside")) (steps (await-ticks 1)))"#).is_err(),
+            "a file path is held inside the application directory like any other"
         );
     }
 

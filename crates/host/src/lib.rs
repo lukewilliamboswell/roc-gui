@@ -9,6 +9,7 @@ mod audio;
 mod bridge;
 mod clipboard;
 mod device;
+mod document;
 mod files;
 mod frame_spans;
 mod grant;
@@ -394,6 +395,9 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
         if mask & domain::HTTP != 0 {
             http::route_dealloc(pointer);
         }
+        if mask & domain::DOCUMENT != 0 {
+            document::route_dealloc(pointer);
+        }
     }
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
@@ -413,6 +417,7 @@ pub(crate) mod resource_domain {
     pub const PROCESS: u32 = 1 << 9;
     pub const TIMERS: u32 = 1 << 10;
     pub const HTTP: u32 = 1 << 11;
+    pub const DOCUMENT: u32 = 1 << 12;
 }
 
 /// Monotonic per domain: registration enables that domain's routing before the
@@ -3031,8 +3036,8 @@ impl Runtime {
             while let Ok(request) = chooser_pending.recv().await {
                 let prompt = cx.update(|cx| {
                     cx.prompt_for_paths(PathPromptOptions {
-                        files: false,
-                        directories: true,
+                        files: !request.directories,
+                        directories: request.directories,
                         multiple: false,
                         prompt: Some("Open".into()),
                     })
@@ -4555,6 +4560,8 @@ struct HostArgs {
     stats_job_count: usize,
     cap_dir: Option<PathBuf>,
     cap_dir_canceled: bool,
+    cap_file: Option<PathBuf>,
+    cap_file_canceled: bool,
     cap_http_origin: Option<String>,
     cap_app_data: Option<PathBuf>,
     cap_assets: Option<PathBuf>,
@@ -4595,6 +4602,8 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_job_count: 1,
         cap_dir: None,
         cap_dir_canceled: false,
+        cap_file: None,
+        cap_file_canceled: false,
         cap_http_origin: None,
         cap_app_data: None,
         cap_assets: None,
@@ -4685,6 +4694,17 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_dir = Some(path.into());
         } else if argument == "--host-cap-dir-canceled" {
             parsed.cap_dir_canceled = true;
+        } else if argument == "--host-cap-file" {
+            parsed.cap_file = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-cap-file requires a file path".to_string())?
+                    .into(),
+            );
+        } else if let Some(path) = argument.strip_prefix("--host-cap-file=") {
+            parsed.cap_file = Some(path.into());
+        } else if argument == "--host-cap-file-canceled" {
+            parsed.cap_file_canceled = true;
         } else if argument == "--host-cap-http-origin" {
             parsed.cap_http_origin = Some(
                 pending
@@ -4903,6 +4923,15 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
                 flags.push(path.display().to_string());
             }
             spec::Grant::DirectoryCanceled => flags.push("--host-cap-dir-canceled".into()),
+            spec::Grant::File(_) => {
+                let path = resolved.expect("file grant names a path");
+                if !path.is_file() {
+                    return Err(format!("file grant does not exist: {}", path.display()));
+                }
+                flags.push("--host-cap-file".into());
+                flags.push(path.display().to_string());
+            }
+            spec::Grant::FileCanceled => flags.push("--host-cap-file-canceled".into()),
             spec::Grant::AppData(_) => {
                 let path = resolved.expect("app-data grant names a path");
                 if !path.is_dir() {
@@ -5033,6 +5062,8 @@ fn print_host_help(app_name: &str) {
            --host-help                         Show this help and exit\n\
            --host-cap-dir PATH                 Grant read access to one directory\n\
            --host-cap-dir-canceled             Answer the directory chooser with a cancellation\n\
+           --host-cap-file PATH                Grant read access to one file\n\
+           --host-cap-file-canceled            Answer the file chooser with a cancellation\n\
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-assets PATH              Provision the application content directory\n\
@@ -5216,6 +5247,15 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         args.cap_dir.as_deref(),
         args.spec_path.is_none() && args.window_spec_path.is_none() && !args.host_smoke,
         args.cap_dir_canceled,
+    ) {
+        eprintln!("roc-gui capability error: {message}");
+        set_roc_host(core::ptr::null_mut());
+        return 2;
+    }
+    if let Err(message) = document::configure(
+        args.cap_file.as_deref(),
+        args.spec_path.is_none() && args.window_spec_path.is_none() && !args.host_smoke,
+        args.cap_file_canceled,
     ) {
         eprintln!("roc-gui capability error: {message}");
         set_roc_host(core::ptr::null_mut());

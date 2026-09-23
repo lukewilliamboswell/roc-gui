@@ -1,5 +1,6 @@
 ## Capability-scoped, read-only SQLite access. Connections can only be opened
-## from one ordinary direct child of a granted directory.
+## from one ordinary direct child of a granted directory, or from one granted
+## file.
 import Files
 import Host
 import Resource
@@ -48,6 +49,12 @@ Sqlite := [].{
 	## counting.
 	open_read! : Files.Dir.Read, Str => Try(Db, SqliteErr)
 	open_read! = |directory, name| Host.sqlite_open_read!(directory.resource(), name).map_ok(|database| Db.(database)).map_err(|raw| OpenDatabaseErr(decode_reason(raw)))
+
+	## Open a granted file in place as a read-only connection, exactly as
+	## `open_read!` opens a directory's child. The connection is derived from
+	## the file grant, so withdrawing the file withdraws the connection.
+	open_file_read! : Files.File.Read => Try(Db, SqliteErr)
+	open_file_read! = |file| Host.sqlite_open_file_read!(file.resource()).map_ok(|database| Db.(database)).map_err(|raw| OpenDatabaseErr(decode_reason(raw)))
 
 	run! : Resource.SqliteRead, Str, List(Value), U64 => Try(Page, SqliteErr)
 	run! = |database, sql, params, page_rows| Host.sqlite_query!(database, { sql, params: params.map(encode_value), page_rows }).map_ok(

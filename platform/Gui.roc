@@ -122,6 +122,9 @@ Gui := [].{
 	FilesDirReadWrite : Files.Dir.ReadWrite
 	FilesDirReadUtf8 : Files.Dir.ReadUtf8
 	FilesSelection : Files.Selection
+	FilesFileRead : Files.File.Read
+	FilesFileSelection : Files.FileSelection
+	FilesFileType : Files.FileType
 
 	# Types exchanged with `Http`.
 	HttpClient : Http.Client

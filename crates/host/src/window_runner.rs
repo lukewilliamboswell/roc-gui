@@ -1091,6 +1091,7 @@ async fn run_step(
         | Command::ExpectFileSelectionCounters(_)
         | Command::ExpectFileLifecycleCounters(_)
         | Command::ExpectFileAccess(_)
+        | Command::ExpectDocumentCounters(_)
         | Command::ExpectAssetCounters(_)
         | Command::ExpectGrants(_)
         | Command::ExpectGrantCounters(_)

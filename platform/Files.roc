@@ -1,6 +1,7 @@
-## Host-provisioned directory capabilities. Interactive hosts source project
-## grants from trusted selection; development and automation may provision the
-## same registry explicitly. Every later operation requires the opaque handle.
+## Host-provisioned directory and file capabilities. Interactive hosts source
+## project and document grants from trusted selection; development and
+## automation may provision the same registry explicitly. Every later operation
+## requires the opaque handle.
 
 import InternalFiles
 import Resource
@@ -39,6 +40,7 @@ Files := [].{
 		ListDirectoryErr(Reason),
 		OpenReadDirectoryErr(Reason),
 		PickDirectoryErr(Reason),
+		PickFileErr(Reason),
 		ReadFileErr(Reason),
 		WriteFileErr(Reason),
 	]
@@ -94,8 +96,40 @@ Files := [].{
 		ReadUtf8 : [Missing, Value(Str)]
 	}
 
+	## Operations requiring read authority for one particular file.
+	File := [].{
+
+		## An opaque, typed handle granting read access to exactly one file. It
+		## names no directory, so it reveals no sibling, and it can be retained
+		## in application state but not constructed by applications.
+		Read := Resource.FileRead.{
+
+			## Read the whole file. Reads are bounded by the host and return
+			## `ResourceLimit` when the file is too large for one in-memory
+			## value.
+			read! : Read => Try(List(U8), FileErr)
+			read! = |Read.(handle)| InternalFiles.file_read!(handle)
+
+			## The shared representation behind this handle, for the platform's
+			## own modules, as `Sqlite` uses it. It grants nothing an
+			## application can act on.
+			resource : Read -> Resource.FileRead
+			resource = |Read.(handle)| handle
+		}
+	}
+
 	## A chosen directory's display name and read authority.
 	Selection : { name : Str, directory : Dir.Read }
+
+	## A chosen file's display name and read authority.
+	FileSelection : { name : Str, file : File.Read }
+
+	## One kind of file the chooser offers. `extensions` are written without a
+	## leading dot, such as `"rgstats"`; `mime_types` are full types such as
+	## `"application/vnd.sqlite3"`. The host checks a chosen file against the
+	## extensions of every type offered, so a file of any other extension is
+	## refused with `PickFileErr(Unsupported)` whichever chooser produced it.
+	FileType : { label : Str, extensions : List(Str), mime_types : List(Str) }
 
 	## Acquire the read-only project grant provisioned by the host. This function
 	## does not display trusted UI; interactive hosts must source the grant from
@@ -105,6 +139,17 @@ Files := [].{
 		|choice| match choice {
 			Canceled => Canceled
 			Chosen(selection) => Chosen({ name: selection.name, directory: Dir.Read.(selection.directory) })
+		},
+	)
+
+	## Acquire a read-only grant for one file the person chooses, offering only
+	## `types`. An empty list offers every file. Without trusted selection or a
+	## provisioned file it returns `AccessDenied`.
+	pick_file! : Resource.Access, List(FileType) => Try(Choice(FileSelection), FileErr)
+	pick_file! = |_access, types| InternalFiles.pick_file!(types).map_ok(
+		|choice| match choice {
+			Canceled => Canceled
+			Chosen(selection) => Chosen({ name: selection.name, file: File.Read.(selection.file) })
 		},
 	)
 

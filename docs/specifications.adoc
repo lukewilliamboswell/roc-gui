@@ -106,6 +106,12 @@ produced and `access.pick_directory!()` answers `Ok(Canceled)`. Cancelling is no
 failure, so this is its own provisioning rather than an absent grant, and it is
 how a case shows that an application returns to rest instead of accusing the
 person of a denial. It cannot be combined with `(directory "PATH")`.
+`(file "PATH")`:: Read access to one file, which `access.pick_file!(types)`
+answers with. The host checks it against the offered types exactly as it checks
+a file chosen in the operating system's chooser.
+`(file canceled)`:: A file chooser the person dismisses without choosing, so
+`access.pick_file!(types)` answers `Ok(Canceled)`. It cannot be combined with
+`(file "PATH")`; either may be combined with a directory grant.
 `(http-origin "ORIGIN")`:: HTTP access to exactly one origin. A request to any
 other origin is denied by the host.
 `(process local-shell)` and `(process test-program)`:: One PTY child profile.
@@ -309,6 +315,10 @@ observed counts.
 connection handles.
 `(expect-device-transactions N)`:: Require exactly `N` completed host-owned
 device transactions.
+`(expect-document-counters PICKS CHOSEN CANCELED REFUSED READS LIVE)`:: Require
+the document owner's totals for single-file grants: `pick_file!` calls, chosen
+files, cancellations, refused picks of any reason, whole-file reads, and then
+the document handles the application still holds.
 `(expect-file-picks N)`, `(expect-file-lists N)`, `(expect-file-opens N)`, and
 `(expect-file-reads N)`:: Require exact cumulative counts recorded by the Files
 owner.
@@ -430,7 +440,7 @@ could not photograph one. The value and ordering assertions read the mounted
 graph, which both runners hold, and both call the same code to answer them, so
 one window case can assert a semantic truth and photograph it in the same run.
 
-Also `revoke-file-grants` and the live-resource and capability counter
+Also `revoke-file-grants`, which withdraws every chosen folder and file, and the live-resource and capability counter
 assertions. The host owns one files registry, one clipboard, one audio device
 table; both runners read them through the same shared implementation, and
 revocation acts on that one registry. A windowed case can therefore photograph a

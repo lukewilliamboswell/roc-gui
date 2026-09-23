@@ -6,6 +6,7 @@ Resource := [].{
 
 	DirRead : Handle([DirReadResource])
 	DirReadWrite : Handle([DirReadWriteResource])
+	FileRead : Handle([FileReadResource])
 	Timer : Handle([TimerResource])
 	SqliteRead : Handle([SqliteReadResource])
 	HttpClient : Handle([HttpClientResource])

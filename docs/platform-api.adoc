@@ -39,7 +39,7 @@ because the task that acquires runs after `init` has returned. The Resource
 access chapter explains why the platform is built this way.
 
 Every acquisition is a question asked of that value, from inside a task:
-`access.pick_directory!()`, `access.app_data!()`, `access.assets!(config)`,
+`access.pick_directory!()`, `access.pick_file!(types)`, `access.app_data!()`, `access.assets!(config)`,
 `access.audio!()`, `access.clipboard!()`, `access.device!()`, `access.http!()`,
 `access.process!()`, `access.system_monitor!()`, and `access.tcp_connect!()`.
 Each answers with a handle only for what the host has granted, and the handle
@@ -605,8 +605,39 @@ one direct ordinary file as a bounded `List(U8)` without following links. The
 application value. Run filesystem operations inside `Gui.task`, as
 `examples/folder-browser/main.roc` shows.
 
+== Single-file capabilities
+
+`access.pick_file!(types)` asks the person for one file in the same trusted
+surface Open Project uses, and grants read authority for exactly that file.
+Each `Gui.FilesFileType` is a `label`, a list of `extensions` written without
+a leading dot, and a list of `mime_types`; an empty list offers every file. On
+Linux Wayland the XDG Desktop Portal is asked for one file with one filter per
+type. On macOS the window's native panel is asked for one file. Whatever
+presented the choice, the host then checks the chosen name against every
+offered extension and answers `PickFileErr(Unsupported)` for any other file, so
+the filter is a guarantee rather than advice. A type offered only by MIME type
+is left to the chooser, because the host does not sniff content. An extension
+that is a pattern rather than a name, or a type that offers nothing, is
+`PickFileErr(InvalidName)`.
+
+Cancellation is `Ok(Canceled)`, and the chooser follows the same one-at-a-time
+rule and refusal cooldown as Open Project. A chosen file is
+`Chosen({ name, file })`, where `file` is an opaque, reference-counted
+`Gui.FilesFileRead`. It names the file and not its folder, so it reveals no
+sibling and takes no name from the application. `file.read!()` reads the whole
+file under the same 64 MiB bound and without following a link, and
+`Gui.Sqlite.open_file_read!(file)` opens it in place as a read-only database.
+
+The grant is recorded as a `document` root with `read` and `derive`, with its
+origin and session lifetime, and a database opened from it is derived from it.
+Withdrawing the file withdraws the database, even after the application has
+released the file handle and kept only the connection. `--host-cap-file PATH`
+provisions the file the chooser answers with, and `--host-cap-file-canceled`
+answers it with a cancellation; both are development and automation
+provisioning and never represent consent.
+
 Filesystem failures use the `Gui.FilesFileErr` tag union. Its
-`ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, and
+`ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, `PickFileErr`, and
 `ReadFileErr` tags identify the failed operation directly; each carries a
 portable `Gui.FilesReason` value.
 
@@ -915,6 +946,8 @@ is checked to be the one the directory grant names. The returned
 `Gui.SqliteDb` is an opaque, reference-counted `Box(U64)` handle whose final
 release closes the native connection. The connection is derived from the
 directory grant, so withdrawing the folder withdraws the database with it.
+`Gui.Sqlite.open_file_read!(file)` opens a granted file the same way, derived
+from the file grant.
 
 The connection is read-only and cannot attach another database. It is not
 opened as immutable: a database in write-ahead-log mode is read through its log,

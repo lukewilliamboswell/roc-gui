@@ -641,6 +641,14 @@ pub(crate) fn resource_claim(
                 ],
             )
         }
+        Command::ExpectDocumentCounters(expected) => {
+            let [picks, chosen, canceled, refused, reads] = crate::document::counters();
+            exact(
+                "document counters",
+                expected,
+                [picks, chosen, canceled, refused, reads, crate::document::live() as u64],
+            )
+        }
         Command::ExpectImageOwnerCounters(expected) => exact(
             "image owner counters",
             expected,
@@ -1336,6 +1344,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectFileSelectionCounters(_)
             | Command::ExpectFileLifecycleCounters(_)
             | Command::ExpectFileAccess(_)
+            | Command::ExpectDocumentCounters(_)
             | Command::ExpectAssetCounters(_)
             | Command::ExpectGrants(_)
             | Command::ExpectGrantCounters(_)

@@ -39,6 +39,19 @@ This opens the operating system's own folder chooser. If the person picks a
 folder, you are handed a value that reads that folder. If they cancel, you are
 handed nothing, and cancelling is an ordinary outcome rather than a failure.
 
+When one file is all you need, ask for one file:
+
+[source,roc]
+----
+access.pick_file!([{ label: "Captures", extensions: ["rgstats"], mime_types: [] }])
+----
+
+The person picks a file of a type you offered, and you are handed a
+`Gui.FilesFileRead` that reads that file and nothing beside it: not its
+siblings, not its folder. Ask for the smallest thing that does the job; a
+document viewer that asks for a folder has asked for every other document in
+it.
+
 There is no second step. No "this application would like to access your files"
 dialog appears before or after, because the choosing *was* the permission.
 Someone who picked `~/Photos/2026` has said everything that needs saying, and

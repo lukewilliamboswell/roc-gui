@@ -99,9 +99,9 @@ fn classify(err: &rusqlite::Error) -> Failure {
     }
 }
 
-/// The connection is derived from the directory grant the database file was
-/// opened through, so revoking that project revokes every database opened from
-/// it. Deriving it makes that true by construction rather than by a rule
+/// The connection is derived from the directory or file grant the database
+/// file was opened through, so revoking that grant revokes every database
+/// opened from it. Deriving it makes that true by construction rather than by a rule
 /// written twice.
 fn capability(connection: Connection, parent: grant::Grant) -> *mut u64 {
     let mut guard = store().lock().expect("SQLite capability store poisoned");
@@ -470,6 +470,36 @@ pub extern "C" fn roc_sqlite_open_read(
                 err: ManuallyDrop::new(open_error(code, message)),
             },
             tag: HostGlueSqliteOpenReadResultTag::Err,
+        },
+    }
+}
+
+/// Open a granted file in place. The connection is derived from the document
+/// grant, so withdrawing the file withdraws the connection, exactly as a
+/// connection opened from a folder follows that folder.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_sqlite_open_file_read(cap: *mut u64) -> HostGlueSqliteOpenFileReadResult {
+    OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
+    let opened = crate::document::lookup_accepted(cap);
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    let result = match opened {
+        Err(crate::document::Refused::Revoked) => Err((10, "file authority was withdrawn")),
+        Err(crate::document::Refused::Invalid) => Err((3, "invalid file capability")),
+        Ok((file, parent)) => open_in_place(&file.dir, &file.name)
+            .map(|connection| capability(connection, parent)),
+    };
+    match result {
+        Ok(handle) => HostGlueSqliteOpenFileReadResult {
+            payload: HostGlueSqliteOpenFileReadResultPayload {
+                ok: ManuallyDrop::new(handle),
+            },
+            tag: HostGlueSqliteOpenFileReadResultTag::Ok,
+        },
+        Err((code, message)) => HostGlueSqliteOpenFileReadResult {
+            payload: HostGlueSqliteOpenFileReadResultPayload {
+                err: ManuallyDrop::new(open_error(code, message)),
+            },
+            tag: HostGlueSqliteOpenFileReadResultTag::Err,
         },
     }
 }

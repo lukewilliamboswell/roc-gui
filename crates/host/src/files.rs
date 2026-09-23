@@ -34,7 +34,7 @@ struct Store {
     lifecycle: [u64; 6],
 }
 
-const REFUSAL_COOLDOWN: Duration = Duration::from_secs(2);
+pub(crate) const REFUSAL_COOLDOWN: Duration = Duration::from_secs(2);
 
 /// What a directory handle may do: read its files, enumerate its children, and
 /// derive a child directory. Never write — the only read-write directory this
@@ -56,9 +56,9 @@ const DIRECTORY_RIGHTS: Rights = Rights::READ.union(Rights::LIST).union(Rights::
 ///
 /// This becomes [`Enforcement::Brokered`] when the confined-process work lands
 /// and the broker returns a descriptor. Nothing in the Roc API changes with it.
-const SELECTION_ENFORCEMENT: Enforcement = Enforcement::ConsentOnly;
+pub(crate) const SELECTION_ENFORCEMENT: Enforcement = Enforcement::ConsentOnly;
 
-fn prompt_is_allowed(
+pub(crate) fn prompt_is_allowed(
     portal_enabled: bool,
     in_flight: bool,
     refusal_until: Option<Instant>,
@@ -182,6 +182,9 @@ pub fn revoke_all_roots() -> usize {
         })
         .count();
     grant::revoke_kind(grant::Kind::Directory);
+    // A chosen file is withdrawn by the same seam. It keeps its own counters,
+    // so the directory lifecycle still counts only folders.
+    crate::document::revoke_all_roots();
     if changed > 0 {
         store().lock().expect("capability store poisoned").lifecycle[4] += 1;
     }
@@ -317,10 +320,10 @@ fn reason(error: &std::io::Error) -> AccessDeniedOrInvalidCapabilityOrInvalidNam
     }
 }
 
-type FileReason = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-type FileErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
-type FileErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
-type FileErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub(crate) type FileReason = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub(crate) type FileErr = InternalFilesPickDirectoryErr;
+type FileErrPayload = InternalFilesPickDirectoryErrPayload;
+type FileErrTag = InternalFilesPickDirectoryErrTag;
 
 fn list_directory_err(reason: FileReason) -> FileErr {
     FileErr {
@@ -349,7 +352,7 @@ fn pick_directory_err(reason: FileReason) -> FileErr {
     }
 }
 
-fn read_file_err(reason: FileReason) -> FileErr {
+pub(crate) fn read_file_err(reason: FileReason) -> FileErr {
     FileErr {
         payload: FileErrPayload {
             read_file_err: ManuallyDrop::new(reason),
@@ -479,11 +482,11 @@ fn chosen(dir: Arc<Dir>, name: &str, origin: Origin) -> InternalFilesPickDirecto
     };
     InternalFilesPickDirectoryResult {
         payload: InternalFilesPickDirectoryResultPayload {
-            ok: ManuallyDrop::new(CanceledOrChosen {
-                payload: CanceledOrChosenPayload {
+            ok: ManuallyDrop::new(InternalFilesPickDirectoryOk {
+                payload: InternalFilesPickDirectoryOkPayload {
                     chosen: ManuallyDrop::new(value),
                 },
-                tag: CanceledOrChosenTag::Chosen,
+                tag: InternalFilesPickDirectoryOkTag::Chosen,
             }),
         },
         tag: InternalFilesPickDirectoryResultTag::Ok,
@@ -493,9 +496,9 @@ fn chosen(dir: Arc<Dir>, name: &str, origin: Origin) -> InternalFilesPickDirecto
 fn canceled() -> InternalFilesPickDirectoryResult {
     InternalFilesPickDirectoryResult {
         payload: InternalFilesPickDirectoryResultPayload {
-            ok: ManuallyDrop::new(CanceledOrChosen {
-                payload: CanceledOrChosenPayload { canceled: [] },
-                tag: CanceledOrChosenTag::Canceled,
+            ok: ManuallyDrop::new(InternalFilesPickDirectoryOk {
+                payload: InternalFilesPickDirectoryOkPayload { canceled: [] },
+                tag: InternalFilesPickDirectoryOkTag::Canceled,
             }),
         },
         tag: InternalFilesPickDirectoryResultTag::Ok,
@@ -512,6 +515,8 @@ enum PortalSelection {
 /// One outstanding trusted-chooser request. The platform window thread owns the
 /// native panel, so a task thread hands it a reply channel and waits.
 pub struct ChooserRequest {
+    /// A folder chooser when set, otherwise a chooser of one file.
+    pub directories: bool,
     pub reply: std::sync::mpsc::SyncSender<Option<std::path::PathBuf>>,
 }
 
@@ -552,28 +557,48 @@ fn open_selected(path: std::path::PathBuf) -> PortalSelection {
     }
 }
 
-/// Ask the running window for a directory through the operating system's own
-/// chooser. Used where the host has no portal broker to ask.
+/// What the window's native chooser answered.
 #[cfg(not(target_os = "linux"))]
-fn native_directory() -> PortalSelection {
+pub(crate) enum NativeAnswer {
+    Chosen(std::path::PathBuf),
+    Canceled,
+    Unavailable,
+}
+
+/// Ask the running window for a folder, or for one file, through the operating
+/// system's own chooser. Used where the host has no portal broker to ask.
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn native_path(directories: bool) -> NativeAnswer {
     let requests = {
         let guard = chooser().lock().expect("chooser seam poisoned");
         match guard.as_ref() {
-            None => return PortalSelection::Unavailable,
+            None => return NativeAnswer::Unavailable,
             Some(seam) if seam.window_thread == std::thread::current().id() => {
-                return PortalSelection::Unavailable;
+                return NativeAnswer::Unavailable;
             }
             Some(seam) => seam.requests.clone(),
         }
     };
     let (reply, answer) = std::sync::mpsc::sync_channel(1);
-    if requests.send_blocking(ChooserRequest { reply }).is_err() {
-        return PortalSelection::Unavailable;
+    if requests
+        .send_blocking(ChooserRequest { directories, reply })
+        .is_err()
+    {
+        return NativeAnswer::Unavailable;
     }
     match answer.recv() {
-        Err(_) => PortalSelection::Unavailable,
-        Ok(None) => PortalSelection::Canceled,
-        Ok(Some(path)) => open_selected(path),
+        Err(_) => NativeAnswer::Unavailable,
+        Ok(None) => NativeAnswer::Canceled,
+        Ok(Some(path)) => NativeAnswer::Chosen(path),
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn native_directory() -> PortalSelection {
+    match native_path(true) {
+        NativeAnswer::Unavailable => PortalSelection::Unavailable,
+        NativeAnswer::Canceled => PortalSelection::Canceled,
+        NativeAnswer::Chosen(path) => open_selected(path),
     }
 }
 
