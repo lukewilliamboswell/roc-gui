@@ -20,8 +20,8 @@ rodio = { version = "=0.22.2", default-features = false, features = ["playback",
 
 # GPUI's Wayland backend is the supported Linux presentation layer.
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
-gpui = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.2.2", default-features = false, features = ["wayland"] }
-gpui_platform = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.1.0", default-features = false, features = ["wayland"] }
+gpui = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.2.2", default-features = false, features = ["wayland"] }
+gpui_platform = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.1.0", default-features = false, features = ["wayland"] }
 libc = "=0.2.189"
 hidapi = { version = "=2.6.5", default-features = false, features = ["linux-native-basic-udev"] }
 
@@ -33,19 +33,19 @@ ashpd = { version = "=0.12.3", default-features = false, features = ["async-std"
 # Windows uses GPUI's DirectX/DirectWrite backend. The manifest is embedded
 # through crates/host/windows because Roc, not Cargo, performs the final link.
 [target.'cfg(target_os = "windows")'.dependencies]
-gpui = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.2.2", default-features = false }
-gpui_platform = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.1.0", default-features = false }
+gpui = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.2.2", default-features = false }
+gpui_platform = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.1.0", default-features = false }
 hidapi = { version = "=2.6.5", default-features = false, features = ["windows-native"] }
 raw-window-handle = "=0.6.2"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Storage_FileSystem", "Win32_Storage_Xps", "Win32_System_Console", "Win32_System_IO", "Win32_System_Pipes", "Win32_System_ProcessStatus", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dev-dependencies]
-gpui = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.2.2", default-features = false, features = ["wayland", "test-support"] }
-gpui_platform = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.1.0", default-features = false, features = ["wayland", "test-support"] }
+gpui = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.2.2", default-features = false, features = ["wayland", "test-support"] }
+gpui_platform = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.1.0", default-features = false, features = ["wayland", "test-support"] }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
-gpui = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.2.2", default-features = false, features = ["test-support"] }
-gpui_platform = { git = "https://github.com/zed-industries/zed.git", rev = "7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff", version = "=0.1.0", default-features = false, features = ["test-support"] }
+gpui = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.2.2", default-features = false, features = ["test-support"] }
+gpui_platform = { git = "https://github.com/lukewilliamboswell/zed.git", rev = "bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3", version = "=0.1.0", default-features = false, features = ["test-support"] }
 
 [lib]
 name = "host"

@@ -2241,10 +2241,12 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyElement {
             // Mounted children own their data and notifications. Bounds,
             // clipping and inherited text are tracked by GPUI's cache key;
             // the host does not expose implicit group-hover style contexts.
-            // Upstream GPUI has no independent-child cache policy. Retain its
-            // conservative cache until that local patch is reviewed.
-            let _ = independent_children;
-            view.cached(layout.style().clone()).into_any_element()
+            if independent_children {
+                view.cached_with_independent_children(layout.style().clone())
+                    .into_any_element()
+            } else {
+                view.cached(layout.style().clone()).into_any_element()
+            }
         }
         None => view.into_any_element(),
     }

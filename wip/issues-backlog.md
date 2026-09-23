@@ -1074,12 +1074,15 @@ names the reproduction so the workaround can be removed when the fix lands.
 ## Release infrastructure
 
 - [ ] **Complete the GPUI HEAD migration from the reproducible upstream baseline.**
-  The migration worktree pins Zed commit
-  `7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff` and compiles the production host
+  The migration worktree starts from Zed commit
+  `7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff` and pins the reviewed GPUI fork
+  commit `bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3`. It compiles the production host
   against the split `gpui`/`gpui_platform` crates. Review the former vendored
   changes separately: accessed-entity scope composition; routed hover, press,
   and window-exit dispatch; deterministic frame-work observation; independent
-  child caching plus replay relocation; and privacy-safe Metal debug paths.
+  replay relocation; routed input; deterministic frame-work observation; and
+  privacy-safe Metal debug paths. Independent-child caching and accessed-entity
+  scope composition have been reviewed and ported.
   Until those reviews land, GPUI-owned frame work is unavailable and mounted
   fixed-size views use upstream's conservative cache.
 
