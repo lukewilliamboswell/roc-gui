@@ -4,8 +4,11 @@
 ## `complete` is drawn as `—` with its status and reason beside it.
 import pf.Gui
 import Capture
+import Compare
+import CompareView
 import Format
 import Observatory
+import ScalingView
 import Theme
 
 View := [].{
@@ -552,7 +555,7 @@ nav = |state| {
 	entry = |caption, view| key({ caption, label: caption, selected: state.view == view, on_press: |current, _| Observatory.ask(current, Show(view)) })
 	Gui.col(
 		{ label: "Views", width: Px(Theme.nav_width), height: Fill, padding: Theme.inset, gap: 6, bg: Theme.rail, border_color: Theme.line, border_width: 0, border_right: Px(1) },
-		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health)],
+		[meta("VIEWS"), entry("Overview", Overview), entry("Interactions", Interactions), entry("Spec", Spec), entry("Memory", Memory), entry("Health", Health), entry("Compare", Compare), entry("Scaling", Scaling)],
 	)
 }
 
@@ -690,39 +693,43 @@ trigger_columns = [
 	{ caption: "IQR", width: Px(110), figure: True },
 ]
 
-trigger_key : Capture.Trigger, U64 -> SortKey
-trigger_key = |trigger, column| match column {
+## Past the columns above, the order is |Δ| against the baseline, which
+## `magnitude` measures.
+trigger_key : Capture.Trigger, U64, (Capture.Trigger -> I64) -> SortKey
+trigger_key = |trigger, column, magnitude| match column {
 	0 => Text(trigger.trigger)
 	1 => Text(trigger.patch_kind)
 	2 => Number(trigger.count)
 	3 => Number(trigger.min)
 	4 => Number(trigger.median)
 	5 => Number(trigger.max)
-	_ => Number(trigger.iqr)
+	6 => Number(trigger.iqr)
+	_ => Number(magnitude(trigger))
 }
 
-sorted_triggers : List(Capture.Trigger), Observatory.Sort -> List(Capture.Trigger)
-sorted_triggers = |triggers, sort| List.sort_with(
+sorted_triggers : List(Capture.Trigger), Observatory.Sort, (Capture.Trigger -> I64) -> List(Capture.Trigger)
+sorted_triggers = |triggers, sort, magnitude| List.sort_with(
 	triggers,
 	|left, right| {
-		order = compare_keys(trigger_key(left, sort.column), trigger_key(right, sort.column))
+		order = compare_keys(trigger_key(left, sort.column, magnitude), trigger_key(right, sort.column, magnitude))
 		if sort.descending reverse_order(order) else order
 	},
 )
 
-trigger_heads : Observatory.Sort -> List(Gui.Elem(Observatory.State))
-trigger_heads = |sort| trigger_columns
+trigger_heads : Observatory.State -> List(Gui.Elem(Observatory.State))
+trigger_heads = |state| trigger_columns
 	.map_with_index(
 		|column, index| sort_head({
 			caption: column.caption,
 			label: "Sort triggers by ${column.caption}",
 			width: column.width,
 			figure: column.figure,
-			sort,
+			sort: CompareView.trigger_sort(state),
 			column: index,
 			on_press: |current| Observatory.sort_triggers(current, index),
 		}),
 	)
+	.concat(CompareView.trigger_heads(state))
 	.append(head_rest("cycle list"))
 
 ## Pressing a trigger's filter shows only its cycles; pressing it again shows
@@ -756,27 +763,33 @@ triggers_table : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.
 triggers_table = |state, opened| {
 	timed = Capture.complete(opened, "host_cycles")
 	shown = |ns, width| family_cell(timed, "host_cycles", Format.ms(ns), width)
-	rows = sorted_triggers(opened.triggers.keep_if(|trigger| trigger.phase == state.phase), state.trigger_sort)
+	compared = CompareView.mode(state)
+	rows = sorted_triggers(opened.triggers.keep_if(|trigger| trigger.phase == state.phase), CompareView.trigger_sort(state), |trigger| Compare.magnitude(Compare.trigger_delta(compared, opened, trigger)))
 	body = if rows.is_empty() {
 		[note("No cycles were recorded in the ${state.phase} phase.")]
 	} else {
 		rows.map(
-			|trigger| table_row([
-				cell(trigger.trigger, 180, Theme.ink),
-				cell(trigger.patch_kind, 110, Theme.dim),
-				family_cell(timed, "host_cycles", trigger.count.to_str(), 70),
-				shown(trigger.min, 110),
-				shown(trigger.median, 110),
-				shown(trigger.max, 110),
-				shown(trigger.iqr, 110),
-				trigger_filter(state, trigger),
-			]),
+			|trigger| table_row(
+				[
+					cell(trigger.trigger, 180, Theme.ink),
+					cell(trigger.patch_kind, 110, Theme.dim),
+					family_cell(timed, "host_cycles", trigger.count.to_str(), 70),
+					shown(trigger.min, 110),
+					shown(trigger.median, 110),
+					shown(trigger.max, 110),
+					shown(trigger.iqr, 110),
+				]
+					.concat(CompareView.trigger_cells(compared, opened, trigger))
+					.append(trigger_filter(state, trigger)),
+			),
 		)
 	}
 	absence = if timed [] else [absence_note(opened, "host_cycles")]
-	[heading("TRIGGERS · ${state.phase} · by ${sort_caption(trigger_columns, state.trigger_sort)} · warmups excluded")]
+	sort = CompareView.trigger_sort(state)
+	order = if sort.column == Observatory.delta_column "|Δ|" else sort_caption(trigger_columns, sort)
+	[heading("TRIGGERS · ${state.phase} · by ${order} · warmups excluded")]
 		.concat(absence)
-		.concat([table("Triggers", [table_head("Trigger columns", trigger_heads(state.trigger_sort))].concat(body))])
+		.concat([table("Triggers", [table_head("Trigger columns", trigger_heads(state))].concat(body))])
 }
 
 ## The slowest cycles (US-10)
@@ -1152,7 +1165,9 @@ inspector = |state, opened| match state.inspected {
 		[
 			Gui.col(
 				{ label: "Cycle inspector", width: Fill, padding: Theme.inset, gap: 6, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
-				[title, heading("WATERFALL")]
+				[title]
+					.concat(CompareView.cycle_line(CompareView.mode(state), opened, cycle))
+					.append(heading("WATERFALL"))
 					.concat(timing)
 					.concat(
 						[
@@ -1185,7 +1200,7 @@ interactions = |state, _opened| Gui.col(
 		phase_selector(state, |current, phase| Observatory.ask(current, SetPhase(phase))),
 		part_boundary(
 			"Triggers",
-			|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter,
+			|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and CompareView.same_comparison(a, b),
 			section(triggers_table),
 		),
 		part_boundary(
@@ -1196,7 +1211,7 @@ interactions = |state, _opened| Gui.col(
 		heading("CYCLE"),
 		part_boundary(
 			"Inspector",
-			|a, b| same_capture(a, b) and a.inspected == b.inspected,
+			|a, b| same_capture(a, b) and a.inspected == b.inspected and CompareView.same_comparison(a, b),
 			section(inspector),
 		),
 	],
@@ -1207,6 +1222,7 @@ interactions = |state, _opened| Gui.col(
 allocations_by_trigger : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
 allocations_by_trigger = |state, opened| {
 	present = Capture.complete(opened, "roc_work_spans")
+	compared = CompareView.mode(state)
 	rows = opened.allocations.keep_if(|found| found.phase == state.phase)
 	body = if !present {
 		[]
@@ -1214,18 +1230,22 @@ allocations_by_trigger = |state, opened| {
 		[table_row([rest_cell("No ${state.phase} cycles with valid spans.", Theme.dim)])]
 	} else {
 		rows.map(
-			|found| labelled_row("Allocation ${found.trigger} ${found.span}", [
-				cell(found.trigger, 130, Theme.ink),
-				cell(found.span, 180, Theme.dim),
-				figure_cell(found.cycles.to_str(), 60),
-				figure_cell(found.calls_mean.to_str(), 70),
-				figure_cell(found.calls_max.to_str(), 70),
-				figure_cell(found.calls_total.to_str(), 80),
-				figure_cell(Format.bytes(found.bytes_mean), 90),
-				figure_cell(Format.bytes(found.bytes_max), 90),
-				figure_cell(Format.bytes(found.bytes_total), 90),
-				rest_cell("", Theme.dim),
-			]),
+			|found| labelled_row(
+				"Allocation ${found.trigger} ${found.span}",
+				[
+					cell(found.trigger, 130, Theme.ink),
+					cell(found.span, 180, Theme.dim),
+					figure_cell(found.cycles.to_str(), 60),
+					figure_cell(found.calls_mean.to_str(), 70),
+					figure_cell(found.calls_max.to_str(), 70),
+					figure_cell(found.calls_total.to_str(), 80),
+					figure_cell(Format.bytes(found.bytes_mean), 90),
+					figure_cell(Format.bytes(found.bytes_max), 90),
+					figure_cell(Format.bytes(found.bytes_total), 90),
+				]
+					.concat(CompareView.allocation_cells(compared, opened, found))
+					.append(rest_cell("", Theme.dim)),
+			),
 		)
 	}
 	reason = if present [] else [absence_note(opened, "roc_work_spans")]
@@ -1238,7 +1258,7 @@ allocations_by_trigger = |state, opened| {
 					[
 						table_head(
 							"Allocation by trigger columns",
-							[head_cell("trigger", 130), head_cell("span", 180), head_figure("cycles", 60), head_figure("calls x̄", 70), head_figure("max", 70), head_figure("total", 80), head_figure("bytes x̄", 90), head_figure("max", 90), head_figure("total", 90), head_rest("")],
+							[head_cell("trigger", 130), head_cell("span", 180), head_figure("cycles", 60), head_figure("calls x̄", 70), head_figure("max", 70), head_figure("total", 80), head_figure("bytes x̄", 90), head_figure("max", 90), head_figure("total", 90)].concat(CompareView.allocation_heads(compared)).append(head_rest("")),
 						),
 					].concat(body),
 				),
@@ -1585,12 +1605,14 @@ main_view = |state| match state.view {
 	Overview => view_boundary("Overview", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Overview scroll", overview(s, o))))
 	Interactions => view_boundary(
 		"Interactions",
-		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and same_cycles(a, b),
+		|a, b| same_capture(a, b) and a.phase == b.phase and a.trigger_sort == b.trigger_sort and a.filter == b.filter and a.inspected == b.inspected and same_cycles(a, b) and CompareView.same_comparison(a, b),
 		|current| with_capture(current, |s, o| scrolled("Interactions scroll", interactions(s, o))),
 	)
 	Spec => view_boundary("Spec", |a, b| same_capture(a, b) and a.run == b.run and a.step_focus == b.step_focus and a.steps.window.read == b.steps.window.read and a.step_scroll == b.step_scroll, |current| with_capture(current, spec))
-	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase, |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
+	Memory => view_boundary("Memory", |a, b| same_capture(a, b) and a.phase == b.phase and CompareView.same_comparison(a, b), |current| with_capture(current, |s, o| scrolled("Memory scroll", memory(s, o))))
 	Health => view_boundary("Health", |a, b| same_capture(a, b) and a.family_focus == b.family_focus, |current| with_capture(current, |s, o| scrolled("Health scroll", health(s, o))))
+	Compare => view_boundary("Compare", CompareView.same_view, |current| scrolled("Compare scroll", CompareView.compare(current)))
+	Scaling => view_boundary("Scaling", ScalingView.same_view, |current| scrolled("Scaling scroll", ScalingView.scaling(current)))
 }
 
 workspace : Observatory.State -> Gui.Elem(Observatory.State)
@@ -1599,6 +1621,7 @@ workspace = |state| Gui.col(
 	[
 		view_boundary("Capture bar", same_capture, |current| with_capture(current, |_, opened| capture_bar(opened))),
 		view_boundary("Trust banner", same_capture, |current| with_capture(current, |_, opened| banner(opened))),
+		view_boundary("Baseline bar", CompareView.same_comparison, CompareView.baseline_bar),
 		Gui.row(
 			{ label: "Workspace", width: Fill, height: Fill, grow: True, min_height: Px(0), overflow_y: Clip, padding: 0, gap: 0, bg: Theme.paper },
 			[view_boundary("Views", |a, b| a.view == b.view, nav), main_view(state)],

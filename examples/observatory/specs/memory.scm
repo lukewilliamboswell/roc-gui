@@ -9,8 +9,8 @@
     (click (role button :name "Capture database-browser-scale-100.rgstats"))
     (await-task)
     (click (role button :name "Memory"))
-    ; a new view mounts; the capture bar and trust banner are kept
-    (expect-component-work :rendered 3 :skipped 2 :mounted 1 :retired 1)
+    ; a new view mounts; the capture bar, trust banner, and baseline bar are kept
+    (expect-component-work :rendered 3 :skipped 3 :mounted 1 :retired 1)
     (expect-visible (text "ALLOCATIONS BY TRIGGER · measured · per cycle with valid spans · warmups excluded"))
     (expect-visible (role row :name "Allocation task platform_lowering"))
     (expect-visible (role row :name "Allocation click routing"))

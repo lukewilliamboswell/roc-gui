@@ -4,6 +4,7 @@
 ## The mounted presentation lives in `View.roc`.
 import pf.Gui
 import Capture
+import Scaling
 
 ## What the application holds over the filesystem. Nothing chosen yet, a
 ## dismissed chooser, and a host refusal call for different next steps.
@@ -15,7 +16,7 @@ Folder : { revision : U64, name : Str, directory : Gui.FilesDirRead, captures : 
 
 Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
 
-View : [Overview, Interactions, Spec, Memory, Health]
+View : [Overview, Interactions, Spec, Memory, Health, Compare, Scaling]
 
 ## A table's order: the column index and its direction.
 Sort : { column : U64, descending : Bool }
@@ -57,6 +58,14 @@ Request : [
 	ReadSteps(U64),
 	## Bring a row of the cycle list into view, reading its page if needed.
 	JumpToCycle(U64, Gui.RowAlign),
+	## Comparison and scaling: the open capture becomes the baseline, a
+	## capture of the folder becomes the A/A capture, or the chosen captures
+	## are read as a scaling set.
+	SetBaseline,
+	ClearBaseline,
+	ChooseNoise(Str),
+	ClearNoise,
+	BuildScaling,
 ]
 
 State : {
@@ -82,6 +91,11 @@ State : {
 	steps_reading : Reading,
 	step_scroll : [None, Some(Gui.ScrollRequest)],
 	family_focus : [None, Some(Str)],
+	## The capture every view is compared against, the A/A capture that
+	## bounds noise, and the scaling set. Each holds a connection of its own.
+	baseline : [None, Some(Capture.Opened)],
+	noise : [None, Some(Scaling.Member)],
+	scaling : Scaling.Selection,
 	## Set only between a handler and the root that fulfils it; a rendered
 	## state never carries one.
 	request : [None, Some(Request)],
@@ -124,6 +138,9 @@ Observatory := [].{
 		steps_reading: None,
 		step_scroll: None,
 		family_focus: None,
+		baseline: None,
+		noise: None,
+		scaling: Scaling.empty,
 		request: None,
 	}
 
@@ -205,6 +222,14 @@ Observatory := [].{
 
 	choose_file : State -> Gui.Action(State)
 	choose_file = choose_file
+
+	## The triggers table's |Δ| column, its order while a baseline applies.
+	delta_column : U64
+	delta_column = delta_column
+
+	## Add a capture of the folder to the scaling set, or take it out.
+	toggle_scaling : State, Str -> State
+	toggle_scaling = |state, name| { ..state, scaling: Scaling.toggle(state.scaling, name) }
 }
 
 empty_window : Window(a)
@@ -308,6 +333,17 @@ fulfil = |asked| {
 		## Open Health at the family a `—` belongs to.
 		Some(ShowFamily(name)) => Gui.update({ ..state, view: Health, family_focus: Some(name) })
 		Some(CloseCapture) => Gui.update(close_capture(state))
+		Some(SetBaseline) => Gui.update(set_baseline(state))
+		Some(ClearBaseline) => Gui.update(clear_baseline(state))
+		Some(ChooseNoise(name)) => match state.folder {
+			Some(folder) => choose_noise(state, folder.directory, name)
+			None => Gui.update(state)
+		}
+		Some(ClearNoise) => Gui.update({ ..state, noise: None })
+		Some(BuildScaling) => match state.folder {
+			Some(folder) => build_scaling(state, folder.directory)
+			None => Gui.update(state)
+		}
 	}
 }
 
@@ -554,4 +590,68 @@ read_steps = |state, run_id, offset, focus| match state.capture {
 			},
 		})
 	}
+}
+
+## Comparison and scaling (US-29 to US-32)
+
+## The triggers table's column for |Δ|, by which a compared table is ordered.
+delta_column : U64
+delta_column = 7
+
+## The open capture becomes the baseline, and tables order by |Δ|.
+set_baseline : State -> State
+set_baseline = |state| match state.capture {
+	Some(opened) => { ..state, baseline: Some(opened), trigger_sort: { column: delta_column, descending: True } }
+	None => state
+}
+
+clear_baseline : State -> State
+clear_baseline = |state| {
+	sort = if state.trigger_sort.column == delta_column { column: 4, descending: True } else state.trigger_sort
+	{ ..state, baseline: None, trigger_sort: sort }
+}
+
+## A capture read by one request carries it as its revision, as an opened
+## capture does, so a view compares readings rather than rows.
+read_by : Scaling.Member, U64 -> Scaling.Member
+read_by = |member, id| {
+	opened = { ..member.opened, revision: id }
+	{ ..member, opened }
+}
+
+## Read one capture of the folder as the A/A capture. Whether it may bound a
+## comparison or a scaling set is judged where it is applied.
+choose_noise : State, Gui.FilesDirRead, Str -> Gui.Action(State)
+choose_noise = |state, directory, name| {
+	id = state.next_request
+	Gui.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || Scaling.load!(directory, name),
+		resolve: |latest, outcome| match latest.status {
+			Busy(active) if active == id => match outcome {
+				Ok(member) => Gui.update({ ..latest, noise: Some(read_by(member, id)), status: Ready })
+				Err(message) => Gui.update({ ..latest, status: failure(message, "The A/A capture could not be read.") })
+			}
+			_ => Gui.none
+		},
+	})
+}
+
+## Read every chosen capture of the folder, each through a connection of its
+## own. The set's gate is judged from what was read.
+build_scaling : State, Gui.FilesDirRead -> Gui.Action(State)
+build_scaling = |state, directory| {
+	id = state.next_request
+	names = state.scaling.chosen
+	Gui.task({
+		pending: { ..state, next_request: id + 1, status: Busy(id) },
+		run: || Scaling.load_all!(directory, names),
+		resolve: |latest, outcome| match latest.status {
+			Busy(active) if active == id => match outcome {
+				Ok(members) => Gui.update({ ..latest, scaling: { chosen: names, members: members.map(|member| read_by(member, id)), read: id }, status: Ready })
+				Err(message) => Gui.update({ ..latest, status: failure(message, "A capture of the scaling set could not be read.") })
+			}
+			_ => Gui.none
+		},
+	})
 }
