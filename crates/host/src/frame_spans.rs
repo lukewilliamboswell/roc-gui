@@ -7,7 +7,7 @@
 //! durations recorded here are therefore the element's own work, not a stage
 //! timed from outside and attributed inward.
 //!
-//! What GPUI 0.2.2 does not let the host own, this element does not claim:
+//! What GPUI does not let the host own, this element does not claim:
 //!
 //! - **Layout solve.** `Window::compute_layout` runs taffy once for the window,
 //!   from `AnyElement::prepaint_as_root` on GPUI's root element, between this

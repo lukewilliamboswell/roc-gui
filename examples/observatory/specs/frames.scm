@@ -17,7 +17,7 @@
     (expect-value (role canvas-item :name "Budget caption") "16.666 ms")
     (expect-value (role canvas-item :name "Frame readout") "Hover a frame for its stages; press it to inspect; scroll to zoom.")
     (expect-value (role canvas-item :name "Reason layout solve") "layout solve unavailable: taffy solves layout inside GPUI's root element, outside any host-owned element")
-    (expect-value (role canvas-item :name "Reason presentation") "presentation unavailable: GPUI 0.2.2 keeps window present and frame completion private to the crate")
+    (expect-value (role canvas-item :name "Reason presentation") "presentation unavailable: GPUI keeps window presentation and frame completion private to the crate")
     (expect-visible (role row :name "Native canvas"))
     (expect-visible (role row :name "Native keyed container"))
     (expect-visible (role row :name "Native popover"))

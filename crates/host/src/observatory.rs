@@ -1339,7 +1339,7 @@ fn open_and_initialize(config: &Config) -> Result<Connection, String> {
             "gpui_presentation",
             "summary",
             "unavailable",
-            "GPUI 0.2.2 keeps window present and frame completion private to the crate",
+            "GPUI keeps window presentation and frame completion private to the crate",
         ),
         (
             "gpu_timing",
