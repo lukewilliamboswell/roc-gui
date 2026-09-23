@@ -657,11 +657,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   until the window closes. Remember it in application data and choose it again
   at startup.
 
-- [ ] **Observatory's lightest cycle parts are faint in the light scheme.**
-  Validate and apply bars measure 2.2:1 and 1.6:1 against the card, below the
-  3:1 a graphic needs, where the dark scheme's measure 3.6:1 and 2.4:1. Darken
-  the light ramp without losing its order from the ground outward.
-
 - [ ] **A timeline mark cannot be followed to what it links.** Pressing a
   list pass on the Timeline does nothing: the pass names its frame or cycle by
   ordinal, but the view reads only frames and cycles as marks, so it cannot

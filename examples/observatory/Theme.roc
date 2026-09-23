@@ -57,17 +57,18 @@ Theme := [].{
 	alarm_line = Gui.adaptive(0xebcbc3, 0x6b3a30)
 
 	## Measured parts of a cycle, from the Roc callback outward, and the time
-	## no owner attributed.
+	## no owner attributed. Each measures at least 3:1 against the card in
+	## both schemes, the contrast a graphic needs to be seen.
 	callback : Gui.Color
 	callback = Gui.adaptive(0x1f5f8b, 0x8cc6f0)
 	span : Gui.Color
-	span = Gui.adaptive(0x4f86ad, 0x5f9fd0)
+	span = Gui.adaptive(0x457496, 0x65a3d2)
 	validate : Gui.Color
-	validate = Gui.adaptive(0x8fb3cf, 0x3f7eaf)
+	validate = Gui.adaptive(0x3d7fb0, 0x3d8ad0)
 	apply : Gui.Color
-	apply = Gui.adaptive(0xbdd2e2, 0x33607f)
+	apply = Gui.adaptive(0x7896b0, 0x5f7890)
 	unattributed : Gui.Color
-	unattributed = Gui.adaptive(0xd8c9a8, 0x8c7a52)
+	unattributed = Gui.adaptive(0xac8f4d, 0x8c7a52)
 	selected : Gui.Color
 	selected = Gui.adaptive(0xe6eef5, 0x233646)
 

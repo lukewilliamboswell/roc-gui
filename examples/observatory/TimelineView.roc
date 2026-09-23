@@ -178,7 +178,7 @@ hit_extent = |window, hit| match hit {
 hit_color : Hit -> Gui.Color
 hit_color = |hit| match hit {
 	OnCycle(_) => Theme.callback
-	OnFrame(mark) => if mark.causes > 0 Theme.span else Theme.validate
+	OnFrame(mark) => if mark.causes > 0 Theme.span else Theme.apply
 	OnPass(_) => Theme.unattributed
 }
 
@@ -322,7 +322,7 @@ chart = |state, opened| {
 			border_width: 1,
 			radius: Theme.radius,
 		}),
-		Widgets.note("A darker frame was the first to draw one or more recorded cycles; a lighter one drew no new cycle. Each column shows the longest cycle, costliest frame, or largest list pass that starts in it."),
+		Widgets.note("A frame that stands out from the ground was the first to draw one or more recorded cycles; a fainter one drew no new cycle. Each column shows the longest cycle, costliest frame, or largest list pass that starts in it."),
 		linkage_line(opened, "frame_cycle_linkage"),
 		linkage_line(opened, "virtual_list_linkage"),
 	]
