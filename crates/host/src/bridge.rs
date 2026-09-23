@@ -5159,7 +5159,11 @@ mod tests {
             ]
         };
         assert!(validate_tree(5, &rows(list(998, 1000, 9))).is_ok());
-        for refused in [list(999, 1000, 9), list(u64::MAX, 1000, 9), list(0, 1000, 0)] {
+        for refused in [
+            list(999, 1000, 9),
+            list(u64::MAX, 1000, 9),
+            list(0, 1000, 0),
+        ] {
             assert!(
                 validate_tree(5, &rows(refused))
                     .unwrap_err()

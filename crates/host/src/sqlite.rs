@@ -485,8 +485,9 @@ pub extern "C" fn roc_sqlite_open_file_read(cap: *mut u64) -> HostGlueSqliteOpen
     let result = match opened {
         Err(crate::document::Refused::Revoked) => Err((10, "file authority was withdrawn")),
         Err(crate::document::Refused::Invalid) => Err((3, "invalid file capability")),
-        Ok((file, parent)) => open_in_place(&file.dir, &file.name)
-            .map(|connection| capability(connection, parent)),
+        Ok((file, parent)) => {
+            open_in_place(&file.dir, &file.name).map(|connection| capability(connection, parent))
+        }
     };
     match result {
         Ok(handle) => HostGlueSqliteOpenFileReadResult {

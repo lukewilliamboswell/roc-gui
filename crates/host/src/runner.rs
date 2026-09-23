@@ -292,7 +292,8 @@ pub(crate) fn graph_claim(
                         if let Some(wanted) = wanted
                             && wanted != actual
                         {
-                            differences.push(format!("expected {wanted} {name}; observed {actual}"));
+                            differences
+                                .push(format!("expected {wanted} {name}; observed {actual}"));
                         }
                     }
                     (
@@ -711,7 +712,14 @@ pub(crate) fn resource_claim(
             exact(
                 "document counters",
                 expected,
-                [picks, chosen, canceled, refused, reads, crate::document::live() as u64],
+                [
+                    picks,
+                    chosen,
+                    canceled,
+                    refused,
+                    reads,
+                    crate::document::live() as u64,
+                ],
             )
         }
         Command::ExpectImageOwnerCounters(expected) => exact(

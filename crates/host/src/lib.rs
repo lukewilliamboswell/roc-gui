@@ -2770,7 +2770,10 @@ impl Render for NodeView {
                         rows::Align::Center => ScrollStrategy::Center,
                         rows::Align::End => ScrollStrategy::Bottom,
                     };
-                    handle.scroll_to_item_strict(usize::try_from(row).unwrap_or(usize::MAX), strategy);
+                    handle.scroll_to_item_strict(
+                        usize::try_from(row).unwrap_or(usize::MAX),
+                        strategy,
+                    );
                 }
                 let runtime = self.runtime.clone();
                 let height = *row_height;
@@ -3366,7 +3369,9 @@ impl Runtime {
             loop {
                 executor.timer(std::time::Duration::from_millis(100)).await;
                 cx.update(|cx| {
-                    clipboard::observe_system(cx.read_from_clipboard().and_then(|item| item.text()));
+                    clipboard::observe_system(
+                        cx.read_from_clipboard().and_then(|item| item.text()),
+                    );
                     if let Some(text) = clipboard::take_system_write() {
                         cx.write_to_clipboard(ClipboardItem::new_string(text));
                     }
@@ -8117,9 +8122,7 @@ mod tests {
         let heard: Rc<RefCell<Vec<(u64, crate::rows::RowsEvent)>>> = Rc::default();
         let recorded = heard.clone();
         install_test_dispatcher(move |event_id| {
-            recorded
-                .borrow_mut()
-                .push((event_id, crate::rows::event()));
+            recorded.borrow_mut().push((event_id, crate::rows::event()));
             Patch::NoChange
         });
         let (root, mut nodes) = queue_tree(1000);
@@ -8149,7 +8152,11 @@ mod tests {
             // place until the route builds them.
             assert_eq!(elements.len(), 4);
             assert_eq!(
-                runtime.virtual_lists[&1001].rows.iter().copied().collect::<Vec<_>>(),
+                runtime.virtual_lists[&1001]
+                    .rows
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>(),
                 vec![1002]
             );
             runtime.finish_virtual_frame(1001, cx);

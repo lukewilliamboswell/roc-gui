@@ -298,15 +298,7 @@ pub enum ScrollMotion {
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
-const CHORD_MODIFIERS: [&str; 7] = [
-    "ctrl",
-    "alt",
-    "shift",
-    "cmd",
-    "super",
-    "fn",
-    "secondary",
-];
+const CHORD_MODIFIERS: [&str; 7] = ["ctrl", "alt", "shift", "cmd", "super", "fn", "secondary"];
 
 /// Check a chord's shape without reimplementing GPUI's parser.
 ///
@@ -3143,10 +3135,7 @@ mod tests {
 
     #[test]
     fn typing_and_chords_parse() {
-        let spec =
-            parse(
-                r#"(test "s" (steps (type "hello") (key "secondary-a") (key "escape")))"#,
-            )
+        let spec = parse(r#"(test "s" (steps (type "hello") (key "secondary-a") (key "escape")))"#)
             .unwrap();
         assert_eq!(spec.steps[0].command, Command::Type("hello".to_owned()));
         assert_eq!(

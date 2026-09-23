@@ -730,7 +730,7 @@ impl Element for TextElement {
             window,
             cx,
         )
-            .unwrap();
+        .unwrap();
         if focus.is_focused(window)
             && let Some(cursor) = prepaint.cursor.take()
         {
