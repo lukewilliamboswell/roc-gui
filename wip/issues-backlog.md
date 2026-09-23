@@ -1077,14 +1077,12 @@ names the reproduction so the workaround can be removed when the fix lands.
   The migration worktree starts from Zed commit
   `7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff` and pins the reviewed GPUI fork
   commit `bf8bd46ad21c78cceb117bc7400e1cf9b3490bd3`. It compiles the production host
-  against the split `gpui`/`gpui_platform` crates. Review the former vendored
-  changes separately: accessed-entity scope composition; routed hover, press,
-  and window-exit dispatch; deterministic frame-work observation; independent
-  replay relocation; routed input; deterministic frame-work observation; and
-  privacy-safe Metal debug paths. Independent-child caching and accessed-entity
-  scope composition have been reviewed and ported.
-  Until those reviews land, GPUI-owned frame work is unavailable and mounted
-  fixed-size views use upstream's conservative cache.
+  against the split `gpui`/`gpui_platform` crates. Independent-child caching
+  and accessed-entity scope composition have been reviewed and ported. Review
+  the remaining former vendored changes separately: cached replay relocation;
+  routed hover, press, and window-exit dispatch; deterministic frame-work
+  observation; and privacy-safe Metal debug paths. Until those reviews land,
+  GPUI-owned frame work is unavailable.
 
 - [ ] **Teach GUI-host source companions to admit immutable Git Cargo sources.**
   Current build evidence rejects GPUI HEAD because Cargo.lock correctly gives
