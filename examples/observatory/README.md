@@ -289,7 +289,8 @@ it.
 real window and photographs the late step. `window-tour.scm` drives
 the real window through every view and photographs each, and
 `window-open-capture.scm` photographs the start page and a capture opened from
-a single file. `window-compare.scm` photographs the comparability sheet of a
+a single file. `window-replaced.scm` photographs the capture bar's offer to
+reload a replaced capture and the capture read again in the same place. `window-compare.scm` photographs the comparability sheet of a
 comparable and an incomparable pair, the triggers table with its deltas, and
 a scaling set's gate, ratios, and chart. `window-frames.scm` moves the
 window's own pointer over the frame strip and the distribution and scrolls its
