@@ -137,44 +137,10 @@ def verified_hosts(lock_path, cache, root=ROOT, targets=None):
 
 
 def stage_candidate_dependencies(target, destination, root=ROOT):
-    """Stage the link inputs used by the production platform for admission.
-
-    Once the unified lock exists this is exactly the ordinary installation
-    path. The builders below exist only to admit the host in the PR that
-    introduces the first lock; they can be removed with that bootstrap path.
-    """
+    """Stage the reviewed link inputs used by the production platform."""
     link_lock = root / "link-inputs.lock.json"
-    if link_lock.is_file():
-        from link_input_artifacts import install
-        return install(target, destination, link_lock)
-
-    from prepare_dependencies import (
-        install_alsa, install_freetype, install_glibc, install_unwind, install_windows_gnu, install_xkbcommon,
-    )
-
-    installers = {"x64glibc": (install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon),
-                  "x64mingw": (install_windows_gnu,)}
-    destination.mkdir(parents=True, exist_ok=True)
-    if target == "arm64mac":
-        from build_macos_stubs import generate
-        sysroot = destination.parent / "macos-sysroot"
-        generate(destination, sysroot)
-        shutil.copytree(sysroot, destination / "macos-sysroot")
-        return None
-    if target not in installers:
-        raise ValueError("candidate target has no independent dependency release policy")
-    artifacts = {}
-    for install in installers[target]:
-        receipt = install(destination, lock=root / "dependencies.lock.json")
-        if artifacts.keys() & receipt["artifacts"].keys():
-            raise ValueError("candidate dependency receipts overlap")
-        artifacts.update(receipt["artifacts"])
-    if target == "x64mingw":
-        from build_windows_resource import build
-        resource = build(destination.parent / "windows-resource")
-        shutil.copyfile(resource, destination / "roc-gui.res")
-    (destination / "dependencies.lock.json").write_text(json.dumps({
-        "schema_version": 1, "artifacts": artifacts}, indent=2) + "\n")
+    from link_input_artifacts import install
+    return install(target, destination, link_lock)
 
 
 def check_candidate(archive, target, roc, root=ROOT, source_companion=None):
