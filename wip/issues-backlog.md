@@ -420,6 +420,94 @@ built on top of them; none is a defect in what is there.
 - [ ] Add user-configurable shell-profile grants without exposing executable or
   environment selection as ambient application authority.
 
+## Observatory example
+
+`examples/observatory/requirements.md` describes a roc-gui application that
+opens `.rgstats` captures and queries their tables directly. It is also the
+pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
+ideal and the repository. P- and E-numbers refer to that document.
+
+- [ ] **The application does not exist.** Build the first slice: folder open,
+  capture list, schema gate, Health, Overview, and spec results. Include a
+  README, semantic locators, SCM specifications, fixtures generated at test
+  time from real specification runs, and a scaling case of opening a large real
+  capture. Then add the example to `examples/README.md`.
+
+- [ ] **A single capture file cannot be opened (P9).** Access offers only a
+  directory chooser. Add a type-filtered single-file chooser, dropping files onto
+  the window, and recent documents backed by remembered grants, as one trusted
+  file workflow (see "Trusted file workflows remain incomplete").
+
+- [ ] **SQLite cannot hold a real capture (P7).** The host copies the whole
+  database into memory, refuses files over 64 MiB and results over 10,000 rows,
+  and has no bound parameters, paging, `ATTACH`, cancellation, or reading of a
+  write-ahead log that is still being written. Long interactive captures and
+  two-capture comparison need a read-only, in-place, parameterised capability
+  with paging and cancellation (see "SQLite write transactions and parameters").
+
+- [ ] **The virtual list cannot be driven (P1).** Every item is built in Roc up
+  front, and there is no scroll-to or visible-range event. Add a row provider,
+  programmatic scroll-to, and visible-range events for large tables, jump-to,
+  and history restore.
+
+- [ ] **No keyboard shortcuts or focus control (P3).** Only Tab, Enter, Space,
+  text editing, and Escape reach an application. Add key events with modifiers,
+  window-level shortcuts, and focus control for the command palette and
+  keyboard navigation.
+
+- [ ] **No tooltip or popover (P4).** Hover is available only on buttons. Add an
+  anchored popover available on any element, so every value can show its
+  evidence status and reason on hover.
+
+- [ ] **No split panes or tabs (P5).** The shell needs resizable, collapsible
+  panes and capture tabs. This is shared with the HTTP Workbench and Terminal
+  Workspace entries.
+
+- [ ] **Canvas cannot label or explore a chart (P6).** The canvas draws
+  rectangles, ellipses, and lines only, reports pointer events only while a
+  button is pressed, and has no wheel. Add text, hover movement, and wheel/zoom
+  for histograms, the frame strip, the timeline, and scaling charts.
+
+- [ ] **Granted files cannot be watched (P8).** Add change notification on
+  granted files so a replaced or growing capture reloads.
+
+- [ ] **No content hash (P10).** Add a hash of granted file bytes so a
+  specification source can be matched against `metadata.spec_hash`.
+
+- [ ] **A text element has one style (P2).** Add styled runs within one line for
+  annotated specification source.
+
+- [ ] **A task cannot be cancelled (P13).** Stale queries run to completion and
+  are discarded in `resolve`. Add cancellation and supersede so a moved
+  selection stops its superseded query.
+
+- [ ] **No theme query (P14).** Add a light/dark query so chart scales stay
+  readable in both themes.
+
+- [ ] **Captures have no shared clock or causal linkage (E1, E2, E3).**
+  `cycles`, `gpui_frames`, and `virtual_list_frames` carry no timestamps and no
+  links to each other, so no timeline can be drawn and no frame can be tied to
+  its action. Record a process-relative monotonic interval on each, and a
+  frame-to-cycle and list-pass-to-frame link from the owner that knows it, with
+  an explicit unattributable value where the event loop coalesces updates.
+
+- [ ] **Interactive cycles do not identify their target or components (E4,
+  E5).** A cycle records only its trigger, and component work is a per-cycle
+  total. Define a stable, non-textual node and component identity that satisfies
+  the capture privacy rules, then record the target of each interactive cycle
+  and per-component work.
+
+- [ ] **Interactive canvas pointer events are never recorded (E6).** The canvas
+  dispatch path in `crates/host/src/lib.rs` applies its patch with
+  `apply_unrecorded` even when recording is enabled, so drags in an interactive
+  session leave no cycle. Route it through the recorded path used by other
+  interactive events.
+
+- [ ] **No capture identity or live-read contract (E7).** Record a random
+  `capture_id`, and document which tables a reader may trust before
+  `final_state` is `complete`, so a viewer can distinguish a growing capture
+  from a replaced one.
+
 ## Trust: measurements that can mislead a decision
 
 - [ ] **Memoization measurements do not isolate every ownership or equality
