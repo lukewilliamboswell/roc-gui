@@ -1017,6 +1017,15 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Runner: test what we fly
 
+- [ ] **Two window specifications fail intermittently on the GPUI fork.**
+  `benchmarks/nested-hover-grid/specs/window-trail.scm` line 20 sometimes
+  observes 8 button renders in one completed frame against its bound of 7
+  (passes on a rerun), and `examples/terminal-workspace/specs/gallery.scm`
+  sometimes exits before "Command sent" appears. The first appeared with the
+  move to the fork, whose hover reaches a stationary pointer once painted;
+  find which button renders the eighth time and whether it is routed hover or
+  a frame boundary, then fix the cause rather than widening the bound.
+
 - [ ] **The window runner cannot drag a canvas.** `drag` is semantic-only
   (`crates/host/src/spec.rs`), so no window specification exercises the
   interactive canvas pointer path or its recorded `drag` cycles end to end.
