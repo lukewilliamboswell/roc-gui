@@ -654,7 +654,7 @@ names the evidence so a fix can be verified against the same case.
 
   Close this gap by retaining native subtree records across frames, not merely
   suppressing `NodeView::render`. The production owners are
-  `vendor/gpui/src/view.rs` (cached subtree lifetime), `window.rs` (frame records,
+  the GPUI fork's `crates/gpui/src/view.rs` (cached subtree lifetime), `window.rs` (frame records,
   replay ranges, transactional prepaint, hitboxes and listener ownership),
   `scene.rs` (primitive insertion, overlap order and batching),
   `key_dispatch.rs`, `tab_stop.rs`, `text_system/line_layout.rs`, and the Blade,
@@ -1157,7 +1157,7 @@ names the reproduction so the workaround can be removed when the fix lands.
 - [ ] **Capture the window, not the screen region, on macOS.** Linux reads back
   the presented frame from the Blade renderer and Windows uses `PrintWindow`;
   the equivalent on macOS is a readback from the Metal renderer's drawable,
-  which the vendored GPUI does not yet offer. `screencapture -R` takes a
+  which GPUI does not yet offer. `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a
   1280x800 window on a display with the dock visible photographs the dock. A
   window-targeted capture (`screencapture -l<windowid>`, which reads the
