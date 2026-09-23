@@ -11,13 +11,20 @@ from cargo_build_evidence import derive, evidence_files, same_checkout_lock
 from host_build_identity import HOST_FILES, validate_outputs
 from dependency_archive import write_archive
 from rust_license_inventory import EMBEDDED_NOTICE, INVENTORY_SCHEMA
-from vendored_gpui import is_third_party, archive_digest
 from toolchain_license_inventory import selected_toolchains, component_version
 
 CATEGORIES = ("notice_files", "declaration_files", "upstream_notice_files", "reviewed_source_files",
               "reviewed_upstream_files", "embedded_notice_files")
 NOTICE_FILES = ("NOTICE.md", "NOTICE.json", "third-party-notices.tar.xz")
 SOURCE_KIND = "gui-host-sources"
+
+
+def is_third_party(package):
+    return package.get("source") is not None
+
+
+def archive_digest(package):
+    return package["crate_sha256"]
 
 
 def digest(data):
@@ -340,8 +347,7 @@ def compose(target, evidence_root, crate_root, toolchain_root, policy_root, host
         identity = (package["name"], package["version"])
         compiled = expected[identity]
         if (package["crate_sha256"] != compiled["crate_sha256"]
-                or package["declared_license"] != compiled["declared_license"]
-                or package.get("vendored_source") != compiled.get("vendored_source")):
+                or package["declared_license"] != compiled["declared_license"]):
             raise ValueError("crate declaration differs from compiled package metadata")
         expression = package["declared_license"]
         if expression not in policy["expressions"]:

@@ -1092,11 +1092,31 @@ names the reproduction so the workaround can be removed when the fix lands.
   Metal and DirectX renderers and verify it on each platform.
 
 - [ ] **Teach GUI-host source companions to admit immutable Git Cargo sources.**
-  Current build evidence rejects GPUI HEAD because Cargo.lock correctly gives
-  an exact Git revision but no registry archive checksum. Define a bounded
-  source-archive and notice contract for the compiled files at each locked Git
-  revision, then make host release composition reproduce and verify it. Do not
-  treat a Git revision as an archive digest or omit its corresponding source.
+  The host compiles 18 Apache-2.0 crates (`gpui`, `gpui_platform`,
+  `gpui_linux`, `gpui_wgpu`, `collections`, `sum_tree`, and their support
+  crates) from `git+https://github.com/lukewilliamboswell/zed.git` at one locked
+  revision. Cargo.lock gives that revision but no archive checksum, so
+  `cargo_build_evidence.derive` rejects every such package ("compiled package
+  has no Cargo.lock identity") and `prepare_gui_host_release.crate_cache` accepts
+  only registry crates. Release composition is therefore blocked for every
+  target. The reviewed notices in `dependencies/gui-host-notices` also still
+  name crates the fork no longer compiles (Blade, naga 25, `dtor`,
+  `stacksafe`, `spirv`), so `scripts/test_rust_license_inventory.py` fails
+  until the review is regenerated against the new lock.
+
+  Contract to implement: admit a Git package only when its repository and
+  revision appear in a reviewed policy under `dependencies/gui-host-notices`.
+  Derive its in-repository path from the metadata manifest path without
+  recording the checkout location. Build the source archive from Git objects
+  at the locked commit in Cargo's Git database (`git ls-tree -r` and
+  `git cat-file`), resolving in-repository symlinks such as `LICENSE-APACHE`
+  and rejecting submodules and escapes, together with the workspace manifest
+  the package inherits from. Record repository, revision, path, tree digest
+  and archive digest in build evidence, so composition in a later job can
+  reproduce and compare them. Teach the notice inventory and
+  `host_notice_payload` to verify that digest, and cover it with a fixture Git
+  repository in the script tests. Do not treat a Git revision as an archive
+  digest or omit its corresponding source.
 
 - [ ] **Bootstrap the first unified linker-input lock.** After the infrastructure
   publisher reaches the default branch, open the adoption pull request and
