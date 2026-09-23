@@ -4441,11 +4441,19 @@ impl Runtime {
             self.focus_after_render = Some(target);
         }
         if self.active_dialog != next_dialog {
-            for (id, view) in self.views.iter().chain(
-                self.virtual_entities
-                    .iter()
-                    .map(|(id, cached)| (id, &cached.view)),
-            ) {
+            // Only live nodes: a retired id still indexes the view a rebuilt
+            // control reclaimed until the retirement below, and must not
+            // disable the control that now owns it.
+            for (id, view) in self
+                .views
+                .iter()
+                .chain(
+                    self.virtual_entities
+                        .iter()
+                        .map(|(id, cached)| (id, &cached.view)),
+                )
+                .filter(|(id, _)| self.graph.node(**id).is_some())
+            {
                 let enabled =
                     next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
                 view.update(cx, |view, cx| {
@@ -4635,11 +4643,19 @@ impl Runtime {
             self.focus_after_render = Some(target);
         }
         if self.active_dialog != next_dialog {
-            for (id, view) in self.views.iter().chain(
-                self.virtual_entities
-                    .iter()
-                    .map(|(id, cached)| (id, &cached.view)),
-            ) {
+            // Only live nodes: a retired id still indexes the view a rebuilt
+            // control reclaimed until the retirement below, and must not
+            // disable the control that now owns it.
+            for (id, view) in self
+                .views
+                .iter()
+                .chain(
+                    self.virtual_entities
+                        .iter()
+                        .map(|(id, cached)| (id, &cached.view)),
+                )
+                .filter(|(id, _)| self.graph.node(**id).is_some())
+            {
                 let enabled =
                     next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
                 view.update(cx, |view, cx| {
@@ -9163,6 +9179,130 @@ mod tests {
         nodes.push(region(1021, 1001, "down", ShortcutScope::Focus, 0));
         nodes.push(region(1020, 1000, "ctrl-k", ShortcutScope::Window, serial));
         nodes
+    }
+
+    /// A column 1 holding a dialog 2 around a text input 3; ids from `base`.
+    fn dialog_with_input(base: u64, value: &str) -> Vec<Node> {
+        vec![
+            Node {
+                id: base + 1,
+                kind: NodeKind::Column {
+                    label: "Page".into(),
+                    style: Box::default(),
+                },
+                children: vec![base + 2],
+            },
+            Node {
+                id: base + 2,
+                kind: NodeKind::Dialog {
+                    label: "Palette".into(),
+                    style: Box::default(),
+                },
+                children: vec![base + 3],
+            },
+            Node {
+                id: base + 3,
+                kind: NodeKind::TextInput {
+                    label: "Query".into(),
+                    value: value.into(),
+                    placeholder: String::new(),
+                    enabled: true,
+                    style: Box::default(),
+                },
+                children: vec![],
+            },
+        ]
+    }
+
+    /// A page 1 holding a boundary 9 around a dialog 2, whose region 4 holds a
+    /// column 5 of a text input 3 and buttons 6 and 7.
+    fn palette_like(base: u64, value: &str, first: &str, second: &str) -> Vec<Node> {
+        let button = |id, label: &str| Node {
+            id,
+            kind: NodeKind::Button {
+                caption: label.into(),
+                label: label.into(),
+                enabled: true,
+                hover_enter: false,
+                hover_exit: false,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let mut nodes = dialog_with_input(base, value);
+        nodes[0].children = vec![base + 9];
+        nodes[1].children = vec![base + 4];
+        nodes.push(Node {
+            id: base + 9,
+            kind: NodeKind::Boundary { instance: 77 },
+            children: vec![base + 2],
+        });
+        nodes.push(Node {
+            id: base + 4,
+            kind: NodeKind::Popover {
+                label: String::new(),
+                placement: crate::bridge::Placement::Below,
+                delay_ms: 0,
+                hover_enter: false,
+                hover_exit: false,
+                shortcuts: vec![],
+                focus_serial: 0,
+                style: Box::default(),
+            },
+            children: vec![base + 5],
+        });
+        nodes.push(Node {
+            id: base + 5,
+            kind: NodeKind::Column {
+                label: "Palette".into(),
+                style: Box::default(),
+            },
+            children: vec![base + 3, base + 6, base + 7],
+        });
+        nodes.push(button(base + 6, first));
+        nodes.push(button(base + 7, second));
+        nodes
+    }
+
+    #[gpui::test]
+    fn a_dialog_rebuilt_below_its_boundary_keeps_every_control_enabled(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1001,
+                    nodes: palette_like(1000, "", "Alpha", "Beta"),
+                }),
+                cx,
+            )
+        });
+        let mut nodes = palette_like(2000, "s", "Beta", "Alpha");
+        nodes.retain(|node| ![2001, 2009].contains(&node.id));
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1002,
+                    root: 2002,
+                    nodes,
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            for id in [2003, 2006, 2007] {
+                assert!(runtime.views[&id].read(cx).input_enabled, "node {id}");
+            }
+            assert!(
+                runtime.views[&2003]
+                    .read(cx)
+                    .input
+                    .as_ref()
+                    .unwrap()
+                    .read(cx)
+                    .is_enabled()
+            );
+        });
     }
 
     #[gpui::test]

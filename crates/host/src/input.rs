@@ -121,6 +121,11 @@ impl TextInput {
         self.focus.clone()
     }
 
+    #[cfg(test)]
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
     /// The text the native editor displays, including an uncommitted preedit.
     #[cfg(test)]
     pub fn displayed_value(&self) -> &str {
