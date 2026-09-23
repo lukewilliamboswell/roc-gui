@@ -182,6 +182,7 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # --roc-opt allows intentional compiler diagnostics without an automatic retry
 # or fallback. The Rust host's build profile is independent of this option.
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
+SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
@@ -197,7 +198,8 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
         [sys.executable, str(ROOT / "scripts/bootstrap.py")],
         cwd=ROOT,
         check=True,
-        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1"},
+        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1",
+             SELECTED_APPS: os.pathsep.join(sorted({case.app.parent.relative_to(ROOT).as_posix() for case in cases}))},
     )
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
