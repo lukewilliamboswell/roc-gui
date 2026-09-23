@@ -37,6 +37,7 @@ pub enum Kind {
     Sqlite,
     SystemMonitor,
     Tcp,
+    Watch,
 }
 
 impl Kind {
@@ -56,6 +57,7 @@ impl Kind {
             Self::Sqlite => "sqlite",
             Self::SystemMonitor => "system-monitor",
             Self::Tcp => "tcp",
+            Self::Watch => "watch",
         }
     }
 }
@@ -435,6 +437,26 @@ pub fn accept(kind: Kind, id: u64, needs: Rights) -> Result<Grant, Refusal> {
         }
         outcome
     })
+}
+
+/// Whether a grant, or its root, has been revoked, without accepting an
+/// operation against it. A resource that waits on behalf of a grant — a watch
+/// blocked until its file changes — asks this to end the wait, and a question
+/// asked while waiting is not a denied operation, so it counts nothing.
+pub fn is_revoked(kind: Kind, id: u64) -> bool {
+    with(
+        |registry| match registry.grants.get(&GrantId::new(kind, id)) {
+            Some(grant) => !grant.is_live() || registry.revoked_roots.contains(&grant.root),
+            None => false,
+        },
+    )
+}
+
+/// Whether a grant is still recorded: neither released by its handle's owner
+/// nor forgotten with its configuration. A watch asks this of what it watches,
+/// so a watch outlives nothing it could still report on.
+pub fn is_held(kind: Kind, id: u64) -> bool {
+    with(|registry| registry.grants.contains_key(&GrantId::new(kind, id)))
 }
 
 /// Revoke a grant and everything derived from it, at one instant. Operations

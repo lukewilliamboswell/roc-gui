@@ -413,13 +413,23 @@ def run_case(
             f"--host-stats-detail={detail}",
         ]
     command.extend(grants["flags"])
-    with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary, \
+            tempfile.TemporaryDirectory(prefix="roc-gui-copy-") as scratch:
         storage = Path(temporary)
         # Application data is granted as a fresh private copy, so a case writes
         # through the production capability without mutating checked-in data.
         if seed := grants["app_data_seed"]:
             shutil.copytree(seed, storage, dirs_exist_ok=True)
             command.extend(["--host-cap-app-data", str(storage)])
+        # A directory a case may change is granted as a disposable copy of its
+        # files, beside which the host stages every replacement it makes.
+        if source := grants.get("directory_copy"):
+            copy = Path(scratch) / Path(source).name
+            copy.mkdir()
+            for entry in Path(source).iterdir():
+                if entry.is_file() and not entry.is_symlink():
+                    shutil.copy2(entry, copy / entry.name)
+            command.extend(["--host-cap-dir-copy", str(copy)])
         try:
             completed = subprocess.run(
                 command,

@@ -19,7 +19,7 @@
     (await-task)
     (expect-grants
       "directory provisioned/consent-only root read,list,derive"
-      "sqlite provisioned/consent-only derived read")
+      "sqlite provisioned/consent-only derived read,derive")
     (click (role button :name "Run query"))
     (await-task)
     (expect-visible (text "Rows: 100"))
@@ -27,7 +27,7 @@
     (revoke-file-grants)
     (expect-grants
       "directory provisioned/consent-only root read,list,derive revoked"
-      "sqlite provisioned/consent-only derived read revoked")
+      "sqlite provisioned/consent-only derived read,derive revoked")
     ; The rows already returned are still here, because revocation cannot
     ; recall what an application was already given.
     (expect-visible (text "Rows: 100"))

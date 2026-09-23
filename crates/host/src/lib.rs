@@ -31,6 +31,7 @@ mod sqlite;
 mod system_monitor;
 mod tcp;
 mod timers;
+mod watch;
 mod watchdog;
 mod window_runner;
 
@@ -411,6 +412,9 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
         if mask & domain::DOCUMENT != 0 {
             document::route_dealloc(pointer);
         }
+        if mask & domain::WATCH != 0 {
+            watch::route_dealloc(pointer);
+        }
     }
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
@@ -431,6 +435,7 @@ pub(crate) mod resource_domain {
     pub const TIMERS: u32 = 1 << 10;
     pub const HTTP: u32 = 1 << 11;
     pub const DOCUMENT: u32 = 1 << 12;
+    pub const WATCH: u32 = 1 << 13;
 }
 
 /// Monotonic per domain: registration enables that domain's routing before the
@@ -5639,8 +5644,13 @@ struct HostArgs {
     stats_job_count: usize,
     cap_dir: Option<PathBuf>,
     cap_dir_canceled: bool,
+    /// The granted directory is a disposable copy a `replace-file` step may
+    /// change.
+    cap_dir_copy: bool,
     cap_file: Option<PathBuf>,
     cap_file_canceled: bool,
+    /// The file chooser answers with the capture this run is recording.
+    cap_file_recording: bool,
     cap_http_origin: Option<String>,
     cap_app_data: Option<PathBuf>,
     cap_assets: Option<PathBuf>,
@@ -5681,8 +5691,10 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_job_count: 1,
         cap_dir: None,
         cap_dir_canceled: false,
+        cap_dir_copy: false,
         cap_file: None,
         cap_file_canceled: false,
+        cap_file_recording: false,
         cap_http_origin: None,
         cap_app_data: None,
         cap_assets: None,
@@ -5773,6 +5785,14 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_dir = Some(path.into());
         } else if argument == "--host-cap-dir-canceled" {
             parsed.cap_dir_canceled = true;
+        } else if argument == "--host-cap-dir-copy" {
+            parsed.cap_dir = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-cap-dir-copy requires a directory path".to_string())?
+                    .into(),
+            );
+            parsed.cap_dir_copy = true;
         } else if argument == "--host-cap-file" {
             parsed.cap_file = Some(
                 pending
@@ -5784,6 +5804,8 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_file = Some(path.into());
         } else if argument == "--host-cap-file-canceled" {
             parsed.cap_file_canceled = true;
+        } else if argument == "--host-cap-file-recording" {
+            parsed.cap_file_recording = true;
         } else if argument == "--host-cap-http-origin" {
             parsed.cap_http_origin = Some(
                 pending
@@ -5983,6 +6005,7 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
 
     let mut flags: Vec<String> = Vec::new();
     let mut app_data_seed: Option<String> = None;
+    let mut directory_copy: Option<String> = None;
     let mut servers: Vec<(String, u32)> = Vec::new();
     for grant in &case.grants {
         let resolved = match grant.path() {
@@ -6011,6 +6034,17 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
                 flags.push(path.display().to_string());
             }
             spec::Grant::FileCanceled => flags.push("--host-cap-file-canceled".into()),
+            spec::Grant::FileRecording => flags.push("--host-cap-file-recording".into()),
+            spec::Grant::DirectoryCopy(_) => {
+                let path = resolved.expect("directory grant names a path");
+                if !path.is_dir() {
+                    return Err(format!(
+                        "directory grant does not exist: {}",
+                        path.display()
+                    ));
+                }
+                directory_copy = Some(path.display().to_string());
+            }
             spec::Grant::AppData(_) => {
                 let path = resolved.expect("app-data grant names a path");
                 if !path.is_dir() {
@@ -6081,6 +6115,11 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
         Some(seed) => json.push_str(&json_string(seed)),
         None => json.push_str("null"),
     }
+    json.push_str(",\"directory_copy\":");
+    match &directory_copy {
+        Some(source) => json.push_str(&json_string(source)),
+        None => json.push_str("null"),
+    }
     json.push_str(",\"servers\":[");
     for (index, (script, port)) in servers.iter().enumerate() {
         if index > 0 {
@@ -6099,7 +6138,10 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
 /// A path that leaves the application directory is refused here, before it can
 /// reach a capability. Both sides are canonicalized, so a symbolic link cannot
 /// step outside what the textual path promised.
-fn resolve_grant_path(application: &std::path::Path, relative: &str) -> Result<PathBuf, String> {
+pub(crate) fn resolve_grant_path(
+    application: &std::path::Path,
+    relative: &str,
+) -> Result<PathBuf, String> {
     let root = application
         .canonicalize()
         .map_err(|error| format!("cannot resolve application directory: {error}"))?;
@@ -6143,6 +6185,8 @@ fn print_host_help(app_name: &str) {
            --host-cap-dir-canceled             Answer the directory chooser with a cancellation\n\
            --host-cap-file PATH                Grant read access to one file\n\
            --host-cap-file-canceled            Answer the file chooser with a cancellation\n\
+           --host-cap-file-recording           Answer the file chooser with this run's own capture\n\
+           --host-cap-dir-copy PATH            Grant a disposable directory replace-file may change\n\
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-assets PATH              Provision the application content directory\n\
@@ -6361,6 +6405,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     tcp::configure(args.cap_tcp);
     process::configure(args.cap_process);
     sqlite::configure();
+    watch::configure();
     audio::configure(args.cap_audio);
     device::configure(args.cap_device);
     system_monitor::configure(args.cap_system_monitor);
@@ -6402,6 +6447,31 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
             return 2;
         }
     };
+    // The recorder has created its capture by now, so the file it is writing
+    // can be the file the chooser answers with.
+    if args.cap_file_recording {
+        let granted = match stats_path.as_deref() {
+            Some(path) => document::configure(Some(path), false, false),
+            None => Err("--host-cap-file-recording requires a capture being recorded".into()),
+        };
+        if let Err(message) = granted {
+            eprintln!("roc-gui capability error: {message}");
+            set_roc_host(core::ptr::null_mut());
+            return 2;
+        }
+    }
+    if args.cap_dir_copy {
+        // A `replace-file` source is named relative to the application, as
+        // every other path a specification supplies is.
+        let application = args
+            .spec_path
+            .as_deref()
+            .or(args.window_spec_path.as_deref())
+            .and_then(std::path::Path::parent)
+            .and_then(std::path::Path::parent)
+            .map(std::path::Path::to_path_buf);
+        files::set_private_copy(args.cap_dir.clone(), application);
+    }
 
     if let Some((case, _)) = parsed_spec.as_ref() {
         let result = runner::run(case);

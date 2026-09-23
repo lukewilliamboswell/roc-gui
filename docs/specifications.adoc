@@ -106,12 +106,20 @@ produced and `access.pick_directory!()` answers `Ok(Canceled)`. Cancelling is no
 failure, so this is its own provisioning rather than an absent grant, and it is
 how a case shows that an application returns to rest instead of accusing the
 person of a denial. It cannot be combined with `(directory "PATH")`.
+`(directory copy "PATH")`:: Read access to a private copy of one directory's
+files, made for the run and discarded after it, in place of
+`(directory "PATH")`. It is the grant a case needs to change what the
+application reads with `replace-file`, without touching the directory it names.
 `(file "PATH")`:: Read access to one file, which `access.pick_file!(types)`
 answers with. The host checks it against the offered types exactly as it checks
 a file chosen in the operating system's chooser.
 `(file canceled)`:: A file chooser the person dismisses without choosing, so
 `access.pick_file!(types)` answers `Ok(Canceled)`. It cannot be combined with
 `(file "PATH")`; either may be combined with a directory grant.
+`(file recording)`:: The capture this run is recording, as the file
+`access.pick_file!(types)` answers with. The production recorder is writing it
+while the application reads it, which is how a case watches a recording grow.
+It is semantic-only, because only the semantic runner records a capture.
 `(http-origin "ORIGIN")`:: HTTP access to exactly one origin. A request to any
 other origin is denied by the host.
 `(process local-shell)` and `(process test-program)`:: One PTY child profile.
@@ -296,6 +304,12 @@ route.
 With no dialog, close every presenting popover; with neither, the step fails.
 `(press-key Space)`:: Activate the focused button, or toggle the focused enabled
 checkbox, through the normal Roc event route.
+`(replace-file "NAME" "SOURCE")`:: Replace the direct child `NAME` of the
+`(directory copy ...)` grant with a copy of `SOURCE`, a file named relative to
+the application directory. The copy is written beside the folder and renamed
+over the child in one step, as a person moving a new file into place does, so
+the application sees one name bound to a different file. It changes only the
+private copy, and a specification without that grant is refused.
 `(replace-text LOCATOR "value")`:: Replace the complete controlled value of one
 editable text input or textarea through its production Roc input route. A text
 input delivers `Gui.EventTextChange`; a textarea delivers `Gui.EventInput`. A
@@ -368,6 +382,11 @@ device transactions.
 the document owner's totals for single-file grants: `pick_file!` calls, chosen
 files, cancellations, refused picks of any reason, whole-file reads, and then
 the document handles the application still holds.
+`(expect-watch-counters STARTED CHANGES CANCELED REVOKED LIVE)`:: Require the
+watch owner's totals: watches started, changes delivered, watches cancelled,
+and watches ended because their grant was withdrawn, then the watches the
+application still holds. `_` leaves one unconstrained, for a count that follows
+another process's writing rather than the application.
 `(expect-file-picks N)`, `(expect-file-lists N)`, `(expect-file-opens N)`, and
 `(expect-file-reads N)`:: Require exact cumulative counts recorded by the Files
 owner.
@@ -489,7 +508,8 @@ honest, and each runner refuses the other's steps by name rather than skipping
 them silently:
 
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
-which depend on the semantic runner's per-iteration mount. Also every step the
+which depend on the semantic runner's per-iteration mount, and the
+`(file recording)` grant, since only the semantic runner records a capture. Also every step the
 window runner does not implement: `drag`, `replace-text`, `submit`, and the
 repository fixture steps the Contributing chapter describes.
 
@@ -510,7 +530,8 @@ could not photograph one. The value and ordering assertions read the mounted
 graph, which both runners hold, and both call the same code to answer them, so
 one window case can assert a semantic truth and photograph it in the same run.
 
-Also `revoke-file-grants`, which withdraws every chosen folder and file, and the live-resource and capability counter
+Also `revoke-file-grants`, which withdraws every chosen folder and file,
+`replace-file`, which changes what a copied folder holds, and the live-resource and capability counter
 assertions. The host owns one files registry, one clipboard, one audio device
 table; both runners read them through the same shared implementation, and
 revocation acts on that one registry. A windowed case can therefore photograph a

@@ -129,10 +129,11 @@ than to the application: the application cannot draw it, suppress it, or tell
 that it is open, which is the only way a withdrawal control is worth anything.
 
 When a grant is withdrawn, everything derived from it stops at the same moment:
-the subfolder handles, the database opened from that folder, the connection
-opened through that device. You do not have to hunt them down and close them.
-They refuse their next use with a typed error that says the authority was
-withdrawn, rather than one that says something went wrong.
+the subfolder handles, the database opened from that folder, the watch waiting
+for that database to change, the connection opened through that device. You do
+not have to hunt them down and close them. They refuse their next use with a
+typed error that says the authority was withdrawn, rather than one that says
+something went wrong, and a watch that is waiting wakes to say so.
 
 Two limits, stated plainly because a model that overpromises here is worse than
 one that does not try:

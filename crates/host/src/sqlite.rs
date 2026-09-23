@@ -40,9 +40,10 @@ struct Store {
 }
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
 static OPERATIONS: [AtomicU64; 2] = [const { AtomicU64::new(0) }; 2];
-/// What an open database may do. The connection is read-only and cannot attach
-/// another file, so there is nothing to write and nothing narrower to derive.
-const DATABASE_RIGHTS: Rights = Rights::READ;
+/// What an open database may do: read, and derive a watch of itself. The
+/// connection is read-only and cannot attach another file, so there is nothing
+/// to write, and a watch is the one narrower thing it hands out.
+const DATABASE_RIGHTS: Rights = Rights::READ.union(Rights::DERIVE);
 
 fn store() -> &'static Mutex<Store> {
     STORE.get_or_init(|| {
@@ -501,6 +502,74 @@ pub extern "C" fn roc_sqlite_open_file_read(cap: *mut u64) -> HostGlueSqliteOpen
                 err: ManuallyDrop::new(open_error(code, message)),
             },
             tag: HostGlueSqliteOpenFileReadResultTag::Err,
+        },
+    }
+}
+
+/// Watch the database a connection reads: the folder that holds it, filtered
+/// to its file and its write-ahead log. The watch is derived from the
+/// connection, and so from the grant the connection was opened through.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_sqlite_watch(cap: *mut u64) -> HostGlueSqliteWatchResult {
+    let id = unsafe { cap.as_ref().copied() };
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    let result = (|| -> Result<*mut u64, Failure> {
+        let id = id.ok_or((3, "invalid SQLite capability"))?;
+        let parent =
+            grant::accept(grant::Kind::Sqlite, id, Rights::READ).map_err(
+                |refusal| match refusal {
+                    grant::Refusal::Revoked => (10, "SQLite authority was withdrawn"),
+                    _ => (3, "invalid SQLite capability"),
+                },
+            )?;
+        let path = {
+            let guard = store()
+                .lock()
+                .map_err(|_| (6, "SQLite capability store unavailable"))?;
+            let connection = guard
+                .connections
+                .get(&id)
+                .ok_or((3, "invalid SQLite capability"))?;
+            connection
+                .path()
+                .map(PathBuf::from)
+                .ok_or((9, "the database has no file to watch"))?
+        };
+        let (Some(folder), Some(name)) = (
+            path.parent(),
+            path.file_name().and_then(|name| name.to_str()),
+        ) else {
+            return Err((9, "the database has no file to watch"));
+        };
+        crate::watch::start(
+            folder,
+            crate::watch::Target::Database {
+                name: name.to_owned(),
+            },
+            parent,
+        )
+        .map_err(|refusal| match refusal {
+            crate::watch::Refusal::Revoked => (10, "SQLite authority was withdrawn"),
+            crate::watch::Refusal::ResourceLimit => (8, "no watch is left to give"),
+            crate::watch::Refusal::Unsupported => (9, "watching is not supported on this platform"),
+            crate::watch::Refusal::Io => (6, "the database could not be watched"),
+        })
+    })();
+    match result {
+        Ok(handle) => HostGlueSqliteWatchResult {
+            payload: HostGlueSqliteWatchResultPayload {
+                ok: ManuallyDrop::new(handle),
+            },
+            tag: HostGlueSqliteWatchResultTag::Ok,
+        },
+        Err((code, message)) => HostGlueSqliteWatchResult {
+            payload: HostGlueSqliteWatchResultPayload {
+                err: ManuallyDrop::new(HostGlueSqliteWatchErr {
+                    code,
+                    message: RocStr::from_str(message, roc_host()),
+                }),
+            },
+            tag: HostGlueSqliteWatchResultTag::Err,
         },
     }
 }

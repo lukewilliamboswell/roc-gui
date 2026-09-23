@@ -113,6 +113,7 @@ fn plain(kind: grant::Kind) -> &'static str {
         grant::Kind::Sqlite => "A database opened from a folder or file",
         grant::Kind::SystemMonitor => "This computer's running processes",
         grant::Kind::Tcp => "A network connection",
+        grant::Kind::Watch => "Changes to a folder or database",
     }
 }
 

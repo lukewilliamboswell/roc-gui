@@ -57,6 +57,7 @@ platform ""
 		"roc_gui_node_text_input": HostGlue.node_text_input!,
 		"roc_sqlite_open_read": HostGlue.sqlite_open_read!,
 		"roc_sqlite_open_file_read": HostGlue.sqlite_open_file_read!,
+		"roc_sqlite_watch": HostGlue.sqlite_watch!,
 		"roc_sqlite_query": HostGlue.sqlite_query!,
 		"roc_files_app_data": InternalFiles.app_data!,
 		"roc_files_dir_read_utf8": InternalFiles.read_utf8!,
@@ -112,6 +113,9 @@ platform ""
 		"roc_files_file_read": InternalFiles.file_read!,
 		"roc_files_dir_sha256": InternalFiles.dir_sha256!,
 		"roc_files_file_sha256": InternalFiles.file_sha256!,
+		"roc_files_dir_watch": InternalFiles.dir_watch!,
+		"roc_files_watch_next": InternalFiles.watch_next!,
+		"roc_files_watch_cancel": InternalFiles.watch_cancel!,
 	}
 	targets: {
 		inputs_dir: "targets/",

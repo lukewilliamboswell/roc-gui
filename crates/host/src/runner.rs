@@ -751,6 +751,35 @@ pub(crate) fn resource_claim(
                 ],
             )
         }
+        Command::ExpectWatchCounters(expected) => {
+            let observed = crate::watch::counters();
+            let constrained = expected
+                .iter()
+                .zip(observed)
+                .all(|(expected, observed)| expected.is_none_or(|value| value == observed));
+            let counts = Some((
+                expected.iter().flatten().sum(),
+                expected
+                    .iter()
+                    .zip(observed)
+                    .filter(|(expected, _)| expected.is_some())
+                    .map(|(_, observed)| observed)
+                    .sum(),
+            ));
+            let shown =
+                |value: &Option<u64>| value.map_or("_".to_string(), |value| value.to_string());
+            (
+                if constrained {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected watch counters [{}], observed {observed:?}",
+                        expected.iter().map(shown).collect::<Vec<_>>().join(", ")
+                    ))
+                },
+                counts,
+            )
+        }
         Command::ExpectDocumentCounters(expected) => {
             let [picks, chosen, canceled, refused, reads] = crate::document::counters();
             exact(
@@ -1703,6 +1732,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectFileLifecycleCounters(_)
             | Command::ExpectFileAccess(_)
             | Command::ExpectDocumentCounters(_)
+            | Command::ExpectWatchCounters(_)
             | Command::ExpectAssetCounters(_)
             | Command::ExpectHashCounters(_)
             | Command::ExpectGrants(_)
@@ -1722,6 +1752,10 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::RevokeFileGrants => {
                 crate::files::revoke_all_roots();
                 Ok(())
+            }
+            Command::ReplaceFile { name, source } => {
+                crate::files::replace_in_private_copy(name, source)
+                    .map_err(|message| format!("line {}: {message}", step.line))
             }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();

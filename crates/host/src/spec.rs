@@ -28,12 +28,23 @@ pub enum Grant {
     /// and an application that cannot be shown cancelling cannot be shown
     /// treating it as one.
     DirectoryCanceled,
+    /// Read access to a private copy of one directory, relative to the
+    /// application directory: `(directory copy "PATH")`. The harness copies
+    /// the directory's files for the run and discards them after it, and the
+    /// host grants the copy, so a `replace-file` step can change what the
+    /// application is reading without touching the original.
+    DirectoryCopy(String),
     /// Read access to one file, relative to the application directory. It is
     /// what `pick_file!` answers with.
     File(String),
     /// A file chooser the person dismisses without choosing: `(file canceled)`,
     /// the file counterpart of `(directory canceled)`.
     FileCanceled,
+    /// The capture this run is recording, as the file the chooser answers
+    /// with: `(file recording)`. The production recorder is writing it while
+    /// the application reads it, which is what a person watching a recording
+    /// does. Only the semantic runner records a capture.
+    FileRecording,
     /// Private application-data storage seeded from this directory.
     AppData(String),
     /// The content directory an `Assets.content_directory` store resolves to.
@@ -64,8 +75,8 @@ impl Grant {
     /// The grant's vocabulary name, which is also its uniqueness key.
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Directory(_) | Self::DirectoryCanceled => "directory",
-            Self::File(_) | Self::FileCanceled => "file",
+            Self::Directory(_) | Self::DirectoryCanceled | Self::DirectoryCopy(_) => "directory",
+            Self::File(_) | Self::FileCanceled | Self::FileRecording => "file",
             Self::AppData(_) => "app-data",
             Self::Assets(_) => "assets",
             Self::Clipboard { .. } => "clipboard",
@@ -87,6 +98,7 @@ impl Grant {
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::Directory(path)
+            | Self::DirectoryCopy(path)
             | Self::File(path)
             | Self::AppData(path)
             | Self::Assets(path)
@@ -228,6 +240,17 @@ pub enum Command {
     ExpectFileLifecycleCounters([u64; 6]),
     ExpectFileAccess([u64; 3]),
     RevokeFileGrants,
+    /// Replace one direct child of the privately copied directory grant with
+    /// a copy of a file, relative to the application directory, by renaming
+    /// it over the child in one step, as a person moving a new recording into
+    /// place does.
+    ReplaceFile {
+        name: String,
+        source: String,
+    },
+    /// Watches started, changes delivered, watches cancelled, and watches
+    /// ended by revocation, then the watches held; `_` leaves one unconstrained.
+    ExpectWatchCounters([Option<u64>; 5]),
     /// The document owner's picks, chosen files, cancellations, refusals, and
     /// reads, then the live document handles.
     ExpectDocumentCounters([u64; 6]),
@@ -443,6 +466,8 @@ impl Command {
             Self::ExpectFileLifecycleCounters(_) => "expect-file-lifecycle-counters",
             Self::ExpectFileAccess(_) => "expect-file-access",
             Self::RevokeFileGrants => "revoke-file-grants",
+            Self::ReplaceFile { .. } => "replace-file",
+            Self::ExpectWatchCounters(_) => "expect-watch-counters",
             Self::ExpectDocumentCounters(_) => "expect-document-counters",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
@@ -552,6 +577,8 @@ impl Command {
             // that produced it in the same run. Revoking grants likewise acts on
             // the one registry; what the application then sees is its next read.
             | Self::RevokeFileGrants
+            | Self::ReplaceFile { .. }
+            | Self::ExpectWatchCounters(_)
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
             | Self::ExpectProcesses(_)
@@ -608,6 +635,7 @@ impl Command {
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
                 | Self::RevokeFileGrants
+                | Self::ReplaceFile { .. }
                 | Self::Scroll { .. }
         )
     }
@@ -834,10 +862,24 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
             ));
         }
     }
+    let grants = grants.unwrap_or_default();
+    // A step that changes files is only ever given a private copy to change.
+    if let Some(step) = steps
+        .iter()
+        .find(|step| matches!(step.command, Command::ReplaceFile { .. }))
+        && !grants
+            .iter()
+            .any(|grant| matches!(grant, Grant::DirectoryCopy(_)))
+    {
+        return Err(ParseError {
+            line: step.line,
+            message: "replace-file requires a (directory copy \"PATH\") grant".into(),
+        });
+    }
     Ok(Spec {
         name,
         benchmark,
-        grants: grants.unwrap_or_default(),
+        grants,
         steps,
     })
 }
@@ -873,7 +915,11 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
         // forms cannot be confused for one another.
         ("directory", 2) if list[1].atom() == Some("canceled") => Ok(Grant::DirectoryCanceled),
         ("directory", 2) => Ok(Grant::Directory(grant_path(&list[1], "directory")?)),
+        ("directory", 3) if list[1].atom() == Some("copy") => {
+            Ok(Grant::DirectoryCopy(grant_path(&list[2], "directory")?))
+        }
         ("file", 2) if list[1].atom() == Some("canceled") => Ok(Grant::FileCanceled),
+        ("file", 2) if list[1].atom() == Some("recording") => Ok(Grant::FileRecording),
         ("file", 2) => Ok(Grant::File(grant_path(&list[1], "file")?)),
         ("app-data", 2) => Ok(Grant::AppData(grant_path(&list[1], "app-data")?)),
         ("assets", 2) => Ok(Grant::Assets(grant_path(&list[1], "assets")?)),
@@ -1690,6 +1736,36 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             Command::ExpectFileAccess(expected)
         }
         "revoke-file-grants" if values.len() == 1 => Command::RevokeFileGrants,
+        "replace-file" if values.len() == 3 => {
+            let name = values[1]
+                .string()
+                .filter(|name| crate::files::valid_name(name))
+                .ok_or_else(|| error(&values[1], "replace-file names one direct child"))?;
+            let source = values[2]
+                .string()
+                .filter(|source| !source.is_empty())
+                .ok_or_else(|| error(&values[2], "replace-file requires a source path"))?;
+            Command::ReplaceFile {
+                name: name.to_owned(),
+                source: source.to_owned(),
+            }
+        }
+        "expect-watch-counters" if values.len() == 6 => {
+            let mut expected = [None; 5];
+            for (index, value) in values[1..].iter().enumerate() {
+                let atom = value
+                    .atom()
+                    .ok_or_else(|| error(value, "watch counters must be integers or _"))?;
+                expected[index] = if atom == "_" {
+                    None
+                } else {
+                    Some(atom.parse().map_err(|_| {
+                        error(value, "watch counters must be non-negative integers or _")
+                    })?)
+                };
+            }
+            Command::ExpectWatchCounters(expected)
+        }
         "expect-document-counters" if values.len() == 7 => {
             let mut expected = [0u64; 6];
             for (index, value) in values[1..].iter().enumerate() {
@@ -2374,6 +2450,11 @@ fn utf8_width(first: u8) -> Option<usize> {
 /// Reports the first offending step so the message names one concrete fix
 /// rather than a list. Shared by both runners and their tests.
 pub fn check_runner(spec: &Spec, runner: Runner) -> Result<(), String> {
+    if runner == Runner::Window && spec.grants.contains(&Grant::FileRecording) {
+        return Err(
+            "(file recording) is semantic-only; the window runner records no capture".to_owned(),
+        );
+    }
     if runner == Runner::Window && spec.benchmark.is_some() {
         return Err(
             "benchmark clauses are semantic-only; the window runner runs one lifecycle".to_owned(),

@@ -805,8 +805,8 @@ answers it with a cancellation; both are development and automation
 provisioning and never represent consent.
 
 Filesystem failures use the `Gui.FilesFileErr` tag union. Its
-`ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, `PickFileErr`, and
-`ReadFileErr` tags identify the failed operation directly; each carries a
+`ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, `PickFileErr`,
+`ReadFileErr`, and `WatchDirectoryErr` tags identify the failed operation directly; each carries a
 portable `Gui.FilesReason` value.
 
 `Revoked` is distinct from an invalid handle. Each directory operation resolves
@@ -826,6 +826,55 @@ Retain a root-to-current list of directory handles to implement Back and
 clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
+
+== Watching granted files
+
+`directory.watch!()` subscribes to changes of a granted directory's direct
+children, and `database.watch!()` to changes of an open database: its file and
+its write-ahead log. Both return an opaque `Gui.FilesWatch` with the pull
+contract of a timer. `watch.next!()` waits for the next change and belongs
+inside `Gui.task`; exactly one wait may be outstanding, and the next is started
+only after the previous completion has been applied.
+
+A wait answers a `Gui.FilesChange`. `Changed({ names, replaced, overflowed })`
+names what changed since the previous wait returned, each name once: the
+children of a watched directory that were created, removed, renamed, or
+written, or a watched database's own name when a writer committed to it or it
+was replaced. `replaced` is set when a name may now refer to a different file,
+because a file was renamed over it or it was removed or created; an open
+database still reads the file it opened, so a replaced database is read by
+opening it again. Nothing beneath a child directory is reported.
+
+Changes are coalesced rather than queued. However fast a file is written, a
+watch holds only the set of names that changed, at most 256; beyond that, or
+when the operating system's own queue overflowed, `overflowed` is set and
+`names` is incomplete, so reread everything the watch covers. A wait returns
+once writing has paused for 10 milliseconds, or 100 milliseconds after the
+first change it reports, so a reader woken by a commit reads that commit and a
+writer that never pauses is still reported. A database reader opening the log
+and index SQLite keeps beside a database is not a change to it.
+
+A watch is derived from the grant it watches and recorded as a `watch` grant
+beneath it. Withdrawing that grant ends the watch with `Revoked`, and releasing
+the directory or database it watches ends it with `Canceled`, as does
+`watch.cancel!()`, which is idempotent, and dropping the last handle. `Gone`
+ends a watch whose directory was itself removed or moved away. Every later
+wait of an ended watch answers the same. A process holds at most 64 watches;
+starting another, or exceeding the operating system's limit, is
+`WatchDirectoryErr(ResourceLimit)` or `WatchDatabaseErr(ResourceLimit(_))`.
+Watching is implemented with inotify on Linux, and is `Unsupported` elsewhere.
+
+[source,roc]
+----
+wait = |state, watch| Gui.task({
+    pending: state,
+    run: || watch.next!(),
+    resolve: |latest, change| match change {
+        Changed(changes) => reread(latest, changes)
+        _ => Gui.update({ ..latest, watching: None })
+    },
+})
+----
 
 == Encoded image data
 
@@ -1132,7 +1181,8 @@ value kinds. Queries are bounded to 64 KiB of SQL, 256 columns, 256
 parameters, 10,000 rows, and 16 MiB of returned text and blob bytes; the same
 16 MiB bounds the bytes of the parameters. Limit violations and invalid,
 corrupt, busy, inaccessible, or non-database resources are typed errors.
-Failures use `OpenDatabaseErr(reason)` and `QueryDatabaseErr(reason)`, so callers
+Failures use `OpenDatabaseErr(reason)`, `QueryDatabaseErr(reason)`, and
+`WatchDatabaseErr(reason)`, so callers
 can distinguish the failed operation before matching the portable reason.
 Every reason retains SQLite's bounded diagnostic string; `Gui.Sqlite.detail`
 extracts it for user-facing status without flattening the public error type.
@@ -1160,6 +1210,10 @@ Open and query calls are blocking capability operations. Run them inside
 `Gui.task`, retain the last successful view while work is pending, and use a
 monotonic request identity in the resolver so an older completion cannot
 replace a newer result. `examples/database-browser` demonstrates this pattern.
+
+`database.watch!()` reports each commit a writer makes to the database, and its
+replacement, as the watching section describes. `examples/observatory` watches
+a capture while its recorder is still writing it.
 
 == TCP endpoint capabilities
 

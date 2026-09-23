@@ -28,6 +28,7 @@ InternalFiles := [].{
 		PickDirectoryErr(Reason),
 		PickFileErr(Reason),
 		ReadFileErr(Reason),
+		WatchDirectoryErr(Reason),
 		WriteFileErr(Reason),
 	]
 
@@ -39,6 +40,9 @@ InternalFiles := [].{
 	dir_open_read! : Resource.DirRead, Str => Try(Resource.DirRead, FileErr)
 	dir_read! : Resource.DirRead, Str => Try(List(U8), FileErr)
 	dir_sha256! : Resource.DirRead, Str => Try(Str, FileErr)
+	dir_watch! : Resource.DirRead => Try(Resource.Watch, { code : U8, message : Str })
+	watch_next! : Resource.Watch => { code : U8, names : List(Str), overflowed : Bool, replaced : Bool }
+	watch_cancel! : Resource.Watch => Bool
 
 	## One offered file type, spelled as the host exchanges it.
 	FileType : { label : Str, extensions : List(Str), mime_types : List(Str) }

@@ -129,6 +129,9 @@ Gui := [].{
 	FilesFileRead : Files.File.Read
 	FilesFileSelection : Files.FileSelection
 	FilesFileType : Files.FileType
+	FilesWatch : Files.Watch
+	FilesChange : Files.Change
+	FilesChanges : Files.Changes
 
 	# Types exchanged with `Http`.
 	HttpClient : Http.Client

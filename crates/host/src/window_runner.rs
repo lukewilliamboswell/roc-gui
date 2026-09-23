@@ -1158,6 +1158,7 @@ async fn run_step(
         | Command::ExpectFileLifecycleCounters(_)
         | Command::ExpectFileAccess(_)
         | Command::ExpectDocumentCounters(_)
+        | Command::ExpectWatchCounters(_)
         | Command::ExpectAssetCounters(_)
         | Command::ExpectHashCounters(_)
         | Command::ExpectGrants(_)
@@ -1179,6 +1180,11 @@ async fn run_step(
                 Ok(())
             })
             .map_err(|_| StepError::WindowClosed)?,
+        // A file moved into place outside the application, which it sees
+        // only through a watch, on its own schedule; the next step waits for it.
+        Command::ReplaceFile { name, source } => {
+            crate::files::replace_in_private_copy(name, source).map_err(StepError::Geometry)
+        }
         Command::AwaitTask => await_completion(window, options.timeout, cx).await,
         // An application that polls — a clipboard watcher rearms its read on
         // every tick — never reaches the quiescence `settle` waits for, because

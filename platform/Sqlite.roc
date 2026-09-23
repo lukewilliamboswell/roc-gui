@@ -32,6 +32,16 @@ Sqlite := [].{
 		} else {
 			run!(database, request.sql, request.params, request.rows)
 		}
+
+		## Watch the database this connection reads: its file and its
+		## write-ahead log. A committed write by any writer is a `Modified`
+		## change, and a file renamed over the database's name, or the name
+		## removed, is `Replaced`; the connection still reads the file it
+		## opened, so a replaced database is read by opening it again. The
+		## watch is derived from this connection, so withdrawing the grant the
+		## database was opened through ends it.
+		watch! : Db => Try(Files.Watch, SqliteErr)
+		watch! = |Db.(database)| Host.sqlite_watch!(database).map_ok(Files.Watch.from_resource).map_err(|raw| WatchDatabaseErr(decode_reason(raw)))
 	}
 
 	Value : [Bytes(List(U8)), Integer(I64), Null, Real(F64), String(Str)]
@@ -40,7 +50,7 @@ Sqlite := [].{
 
 	## Portable failure categories with the native SQLite diagnostic retained.
 	Reason : [AccessDenied(Str), Busy(Str), Corrupt(Str), InvalidCapability(Str), InvalidName(Str), InvalidQuery(Str), Io(Str), NotDatabase(Str), ResourceLimit(Str), Revoked(Str), Unsupported(Str)]
-	SqliteErr : [OpenDatabaseErr(Reason), QueryDatabaseErr(Reason)]
+	SqliteErr : [OpenDatabaseErr(Reason), QueryDatabaseErr(Reason), WatchDatabaseErr(Reason)]
 
 	## Open a direct child database in place as a read-only connection. The
 	## connection reads the file where it lies, including a write-ahead log a
@@ -103,6 +113,7 @@ Sqlite := [].{
 	detail = |error| match error {
 		OpenDatabaseErr(reason) => reason_detail(reason)
 		QueryDatabaseErr(reason) => reason_detail(reason)
+		WatchDatabaseErr(reason) => reason_detail(reason)
 	}
 
 	reason_detail = |reason| match reason {
