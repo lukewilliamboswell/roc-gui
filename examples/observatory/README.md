@@ -8,7 +8,7 @@ a health badge, and opens one. Either way the capture is read through the
 platform's ordinary SQLite capability. It queries the capture's tables itself and depends on no other
 tool.
 
-A capture of any schema other than 24 is refused with its reason before a single
+A capture of any schema other than 25 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
 bar of chips for backend, detail, schema, finalisation, shutdown, recording
 gaps, and timing quality, and a banner on every view when the capture cannot be

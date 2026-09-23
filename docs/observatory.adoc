@@ -327,6 +327,7 @@ completed frame is unavailable rather than zero.
 |16 |Keyed container
 |17 |Popover
 |18 |Split divider
+|19 |Drop target
 |===
 
 Schema 20 adds kind 17. A popover's view renders when its surface opens or
@@ -337,6 +338,9 @@ is counted here too.
 
 Schema 24 adds kind 18. A split's divider renders when the size it carries
 changes; the panes beside it are columns, counted under kind 5.
+
+Schema 25 adds kind 19, and a cycle may target a `drop_target`. A drop target
+renders as a column does; a drop on it is one cycle with the trigger `drop`.
 
 Rows contain positive counts. A missing metric/kind row means measured zero
 only within a recorded frame with complete native-work evidence. A capture
@@ -478,9 +482,11 @@ target.
 
 `target_kind` is the node's kind in the mounted graph: `button`, `checkbox`,
 `text_input`, `textarea`, `canvas`, `region` (a hover or shortcut region with
-no surface of its own), `popover`, `split`, and the containers. A shortcut's
-target is the region that declares it; a canvas gesture's is the canvas; a
-divider's drag, and its keys, target its split. Schema 24 admits `split`.
+no surface of its own), `popover`, `split`, `drop_target`, and the containers.
+A shortcut's target is the region that declares it; a canvas gesture's is the
+canvas; a divider's drag, and its keys, target its split; a drop targets the
+drop target it landed on. Schema 24 admits `split`, and schema 25
+`drop_target`.
 
 `target_identity` is sixteen hexadecimal digits: a 64-bit FNV-1a hash of the
 node's structural path, the kind and display position of each node from the

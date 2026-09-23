@@ -20,6 +20,7 @@ mod keyboard;
 mod observatory;
 mod probe;
 mod process;
+mod recents;
 // Generated glue (scripts/regenerate_glue.py); variant names mirror the Roc types.
 mod appearance;
 #[allow(clippy::enum_variant_names)]
@@ -51,14 +52,15 @@ use roc_platform_abi::{
     HostGlueKeyedEditBeginArgs, HostGlueKeyedInsertBeforeArgs, HostGlueKeyedMoveBeforeArgs,
     HostGlueKeyedSeedArgs, HostGlueKeyedSetArgs, HostGlueNodeActionButton,
     HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
-    HostGlueNodePopover, HostGlueNodePopoverArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs,
-    HostGlueNodeSplit, HostGlueNodeSplitArgs, HostGlueNodeStyledTextArgs,
-    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
-    HostGlueNodeVirtualListArgs, HostGlueResizeEventRetRecord, HostGlueShortcutEvent,
-    HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs, HostGlueVirtualWindowRetRecord,
-    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList, RocListWith, RocStr,
-    decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeDropTargetArgs,
+    HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodePopover, HostGlueNodePopoverArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeSplit, HostGlueNodeSplitArgs,
+    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueResizeEventRetRecord,
+    HostGlueShortcutEvent, HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs,
+    HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
+    RocListWith, RocStr, decref_erased_callable, incref_erased_callable, make_roc_host,
+    roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
@@ -279,6 +281,7 @@ thread_local! {
     static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
     static SHORTCUT_EVENT: RefCell<Option<(u64, String)>> = const { RefCell::new(None) };
     static RESIZE_EVENT: RefCell<Option<bridge::Resize>> = const { RefCell::new(None) };
+    static DROP_EVENT: RefCell<Option<document::Dropped>> = const { RefCell::new(None) };
     static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
 }
 
@@ -395,7 +398,9 @@ pub extern "C" fn roc_gui_window_config(
     height: u32,
     background: u64,
     foreground: u64,
+    opens: bool,
 ) {
+    OPENS.store(opens, Ordering::Release);
     let title_value = title.as_str().to_owned();
     unsafe { title.decref(roc_host()) };
     let config = validate_window_config(WindowConfig {
@@ -407,6 +412,18 @@ pub extern "C" fn roc_gui_window_config(
     })
     .unwrap_or_else(|message| panic!("invalid native window configuration: {message}"));
     WINDOW_CONFIG.with(|current| *current.borrow_mut() = config);
+}
+
+/// Whether the application declared an opening action, which the host sends
+/// once, as the event [`OPEN_EVENT`], after the first state is shown.
+static OPENS: AtomicBool = AtomicBool::new(false);
+
+/// The event an application's opening action answers. No node has id 0.
+pub(crate) const OPEN_EVENT: u64 = 0;
+
+/// Whether the application mounted last declared an opening action.
+pub(crate) fn opens() -> bool {
+    OPENS.load(Ordering::Acquire)
 }
 
 fn set_roc_host(host: *mut RocHost) {
@@ -1610,6 +1627,87 @@ pub extern "C" fn roc_gui_resize_event() -> HostGlueResizeEventRetRecord {
     }
 }
 
+/// Stage one drop target: a column of children already built, and the file
+/// types it accepts. A drop is delivered through the target's own id as its
+/// route.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_drop_target(args: HostGlueNodeDropTargetArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    let offered = args
+        .types
+        .as_slice()
+        .iter()
+        .map(|raw| document::FileType {
+            label: raw.label.as_str().to_owned(),
+            extensions: raw
+                .extensions
+                .as_slice()
+                .iter()
+                .map(|value| value.as_str().to_owned())
+                .collect(),
+            mime_types: raw
+                .mime_types
+                .as_slice()
+                .iter()
+                .map(|value| value.as_str().to_owned())
+                .collect(),
+        })
+        .collect::<Vec<_>>();
+    let drop_bg = decode_color(args.drop_bg);
+    let drop_border = decode_color(args.drop_border);
+    let style = decode_layout_style!(args);
+    let builder = args.builder;
+    unsafe { args.decref(roc_host()) };
+    assert!(!label.is_empty(), "drop target label must not be empty");
+    let types = document::validate(offered).unwrap_or_else(|| {
+        panic!("invalid drop target type: an extension is one name, and a MIME type names a type and a subtype")
+    });
+    stage_node(
+        NodeKind::DropTarget {
+            label,
+            types,
+            drop_bg,
+            drop_border,
+            style,
+        },
+        finish_children(builder),
+    )
+}
+
+/// Grant the files of the drop being dispatched, and hand them to the
+/// application's route with every refused item. The grants are made here, as
+/// the route asks for them, so a drop no route takes grants nothing.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_drop_event() -> roc_platform_abi::AnonStruct5456361a272f3187 {
+    let dropped = DROP_EVENT
+        .with(|slot| slot.borrow_mut().take())
+        .expect("a drop target route ran without a drop");
+    let (granted, refused) = document::grant_drop(dropped);
+    let host = roc_host();
+    let files = granted
+        .into_iter()
+        .map(
+            |(name, file)| roc_platform_abi::AnonStructA295f39559baa24d {
+                file,
+                name: RocStr::from_str(&name, host),
+            },
+        )
+        .collect::<Vec<_>>();
+    let refused = refused
+        .into_iter()
+        .map(
+            |(name, reason)| roc_platform_abi::AnonStruct6fe360748589880f {
+                name: RocStr::from_str(&name, host),
+                reason: reason as u8,
+            },
+        )
+        .collect::<Vec<_>>();
+    roc_platform_abi::AnonStruct5456361a272f3187 {
+        files: unsafe { RocList::from_slice(&files, host) },
+        refused: unsafe { RocList::from_slice(&refused, host) },
+    }
+}
+
 /// Stage one controlled single-line editor and allocate its two event routes.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_text_input(
@@ -1987,6 +2085,23 @@ fn dispatch_resize(event_id: u64, event: bridge::Resize) -> Patch {
     });
     let patch = dispatch(event_id);
     RESIZE_EVENT.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
+/// Deliver one admitted drop through a drop target's route. What the drop
+/// yields is installed for the route to take; anything it did not take is
+/// discarded with the slot, ungranted.
+pub(crate) fn dispatch_drop(event_id: u64, dropped: document::Dropped) -> Patch {
+    DROP_EVENT.with(|slot| {
+        assert!(
+            slot.borrow_mut().replace(dropped).is_none(),
+            "nested drop dispatch"
+        );
+    });
+    let patch = dispatch(event_id);
+    DROP_EVENT.with(|slot| {
         slot.borrow_mut().take();
     });
     patch
@@ -2736,6 +2851,7 @@ fn node_style(kind: &NodeKind) -> Option<&Style> {
         | NodeKind::Scroll { style, .. }
         | NodeKind::VirtualList { style, .. }
         | NodeKind::Split { style, .. }
+        | NodeKind::DropTarget { style, .. }
         | NodeKind::TextInput { style, .. } => Some(style),
         NodeKind::Popover { .. }
         | NodeKind::Boundary { .. }
@@ -3089,6 +3205,48 @@ impl Render for NodeView {
             | NodeKind::KeyedColumn { style, .. }
             | NodeKind::Panel { style, .. } => {
                 element = apply_style(element.flex().flex_col(), style);
+            }
+            NodeKind::DropTarget {
+                types,
+                drop_bg,
+                drop_border,
+                style,
+                ..
+            } => {
+                element = apply_style(element.flex().flex_col(), style);
+                if self.input_enabled {
+                    let node_id = self.node.id;
+                    let accepted = types.clone();
+                    let (drop_bg, drop_border) = (*drop_bg, *drop_border);
+                    let drop_runtime = self.runtime.clone();
+                    element = element
+                        // Feedback only for a drag that carries something the
+                        // target would take: a target that lights up for a
+                        // file it will refuse has told the person the wrong
+                        // thing before they let go.
+                        .drag_over::<ExternalPaths>(move |refinement, dragged, _, _| {
+                            if !dragged.paths().iter().any(|path| {
+                                path.file_name().is_some_and(|name| {
+                                    document::admits(&accepted, &name.to_string_lossy())
+                                })
+                            }) {
+                                return refinement;
+                            }
+                            let mut refinement = refinement;
+                            if let Some(value) = drop_bg {
+                                refinement = refinement.bg(paint(value));
+                            }
+                            if let Some(value) = drop_border {
+                                refinement = refinement.border_2().border_color(paint(value));
+                            }
+                            refinement
+                        })
+                        .on_drop(move |dropped: &ExternalPaths, _, cx| {
+                            let paths = dropped.paths().to_vec();
+                            let _ = drop_runtime
+                                .update(cx, |runtime, cx| runtime.drop_if_live(node_id, paths, cx));
+                        });
+                }
             }
             NodeKind::Dialog { style, .. } => {
                 let dialog_id = self.node.id;
@@ -4061,6 +4219,31 @@ impl Runtime {
         } else {
             runtime.apply_unrecorded(initial.patch, cx);
         }
+        // The application's opening action runs once the first state is
+        // shown and before any input, as one `open` cycle no element caused.
+        if opens() {
+            if observatory::active() {
+                let cycle_started = Instant::now();
+                observatory::reset_roc_work();
+                let roc_started = Instant::now();
+                let patch = dispatch(OPEN_EVENT);
+                let roc_callback_ns = elapsed_ns(roc_started);
+                let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                runtime.apply_recorded(
+                    patch,
+                    "open",
+                    None,
+                    cycle_started,
+                    roc_callback_ns,
+                    roc_work,
+                    roc_work_valid,
+                    cx,
+                );
+            } else {
+                let patch = dispatch(OPEN_EVENT);
+                runtime.apply_unrecorded(patch, cx);
+            }
+        }
         let completions = task_runtime().completions.clone();
         cx.spawn(async move |runtime, cx| {
             while let Ok(mut completion) = completions.recv().await {
@@ -4454,6 +4637,49 @@ impl Runtime {
             self.last_trigger_focus = self.identities.get(&id).cloned();
         }
         self.dispatch_live_event(id, "click", cx);
+    }
+
+    /// Files dropped on a drop target. They are admitted against the types it
+    /// accepts and delivered through its route as one `drop` cycle, whatever
+    /// was dropped: a drop of nothing acceptable is still something the
+    /// person did, and the application says why nothing opened.
+    pub(crate) fn drop_if_live(&mut self, id: u64, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
+        if self
+            .active_dialog
+            .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
+        let Some(NodeKind::DropTarget { types, .. }) = self.graph.node(id).map(|node| &node.kind)
+        else {
+            return;
+        };
+        if paths.is_empty() {
+            return;
+        }
+        let dropped = document::admit_drop(types, &paths);
+        if observatory::active() {
+            let target = self.graph.cycle_target(id);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_drop(id, dropped);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "drop",
+                target,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_drop(id, dropped);
+            self.apply_unrecorded(patch, cx);
+        }
     }
 
     fn hover_if_live(&mut self, id: u64, entered: bool, cx: &mut Context<Self>) {
@@ -6217,6 +6443,19 @@ struct HostArgs {
     cap_system_monitor: system_monitor::Grant,
     /// The system appearance to report instead of the desktop's.
     host_theme: Option<appearance::Settings>,
+    /// The recent list provisioned for this run, in place of the person's.
+    recent_seeds: Vec<RecentArg>,
+}
+
+/// One provisioned recent entry, as a flag names it.
+enum RecentArg {
+    /// `--host-recent PATH`: a file or folder.
+    Path(PathBuf),
+    /// `--host-recent-each DIR EXT`: every ordinary file directly in a folder
+    /// whose extension is `EXT`, or every one when `EXT` is empty.
+    Each(PathBuf, String),
+    /// `--host-recent-copied NAME`: a child of the disposable directory grant.
+    Copied(String),
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -6262,6 +6501,7 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_device: None,
         cap_system_monitor: system_monitor::Grant::Denied,
         host_theme: None,
+        recent_seeds: Vec::new(),
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -6426,6 +6666,26 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_system_monitor = parse_system_monitor_fixture(&pending.next().ok_or_else(|| "--host-cap-system-monitor-fixture requires standard, unavailable, or processes:N".to_string())?)?;
         } else if let Some(value) = argument.strip_prefix("--host-cap-system-monitor-fixture=") {
             parsed.cap_system_monitor = parse_system_monitor_fixture(value)?;
+        } else if argument == "--host-recent" {
+            parsed.recent_seeds.push(RecentArg::Path(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-recent requires a file or folder path".to_string())?
+                    .into(),
+            ));
+        } else if argument == "--host-recent-each" {
+            let usage = "--host-recent-each requires a folder path and an extension, or \"\"";
+            let folder = pending.next().ok_or_else(|| usage.to_string())?;
+            let extension = pending.next().ok_or_else(|| usage.to_string())?;
+            parsed
+                .recent_seeds
+                .push(RecentArg::Each(folder.into(), extension));
+        } else if argument == "--host-recent-copied" {
+            parsed
+                .recent_seeds
+                .push(RecentArg::Copied(pending.next().ok_or_else(|| {
+                    "--host-recent-copied requires a name in the copied folder".to_string()
+                })?));
         } else if let Some(value) = argument.strip_prefix("--host-theme=") {
             parsed.host_theme = Some(appearance::Settings::parse(value)?);
         } else if argument == "--host-theme" {
@@ -6653,6 +6913,33 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
                 flags.push("--host-cap-system-monitor-fixture".into());
                 flags.push(kind.clone());
             }
+            spec::Grant::Recents(seeds) => {
+                for seed in seeds {
+                    match seed {
+                        spec::RecentSeed::Path(relative) => {
+                            let path = resolve_grant_path(application, relative)?;
+                            flags.push("--host-recent".into());
+                            flags.push(path.display().to_string());
+                        }
+                        spec::RecentSeed::Each(relative, extension) => {
+                            let path = resolve_grant_path(application, relative)?;
+                            if !path.is_dir() {
+                                return Err(format!(
+                                    "recents folder does not exist: {}",
+                                    path.display()
+                                ));
+                            }
+                            flags.push("--host-recent-each".into());
+                            flags.push(path.display().to_string());
+                            flags.push(extension.clone().unwrap_or_default());
+                        }
+                        spec::RecentSeed::Copied(name) => {
+                            flags.push("--host-recent-copied".into());
+                            flags.push(name.clone());
+                        }
+                    }
+                }
+            }
             spec::Grant::Theme(settings) => flags.push(format!(
                 "--host-theme={}{}",
                 if settings.dark { "dark" } else { "light" },
@@ -6704,6 +6991,71 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
     }
     json.push_str("]}");
     Ok(json)
+}
+
+/// Read the recent list this run starts with. Provisioned entries replace
+/// the person's list for the run and are never written; otherwise an
+/// interactive run reads and keeps the person's list in their state folder,
+/// and a specification or smoke run keeps an empty list of its own.
+fn configure_recents(args: &HostArgs) -> Result<(), String> {
+    let mut seeds = Vec::new();
+    for seed in &args.recent_seeds {
+        match seed {
+            RecentArg::Path(path) => seeds.push(path.clone()),
+            RecentArg::Each(folder, extension) => {
+                let mut files = std::fs::read_dir(folder)
+                    .map_err(|error| format!("cannot list {}: {error}", folder.display()))?
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+                    .map(|entry| entry.path())
+                    .filter(|path| {
+                        extension.is_empty()
+                            || path
+                                .extension()
+                                .is_some_and(|found| found == extension.as_str())
+                    })
+                    .collect::<Vec<_>>();
+                files.sort();
+                seeds.extend(files);
+            }
+            RecentArg::Copied(name) => {
+                let folder = args
+                    .cap_dir
+                    .as_ref()
+                    .filter(|_| args.cap_dir_copy)
+                    .ok_or_else(|| {
+                        "--host-recent-copied requires --host-cap-dir-copy".to_string()
+                    })?;
+                if !files::valid_name(name) {
+                    return Err("--host-recent-copied names one direct child".into());
+                }
+                seeds.push(folder.join(name));
+            }
+        }
+    }
+    let scripted = args.spec_path.is_some() || args.window_spec_path.is_some() || args.host_smoke;
+    let backing = if scripted {
+        None
+    } else {
+        recents::default_store(&args.app_name)
+    };
+    recents::configure(backing, &seeds)
+}
+
+/// The application directory of the specification this run executes, which
+/// the paths a `drop` step names are relative to.
+static SPEC_APPLICATION: OnceLock<PathBuf> = OnceLock::new();
+
+/// Resolve the paths a `drop` step names, each inside the application
+/// directory, as every path a specification supplies is.
+pub(crate) fn spec_drop_paths(paths: &[String]) -> Result<Vec<PathBuf>, String> {
+    let application = SPEC_APPLICATION
+        .get()
+        .ok_or_else(|| "drop has no application directory".to_string())?;
+    paths
+        .iter()
+        .map(|relative| resolve_grant_path(application, relative))
+        .collect()
 }
 
 /// Resolve one specification-supplied path against the application directory.
@@ -6770,6 +7122,9 @@ fn print_host_help(app_name: &str) {
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
 		   --host-cap-system-monitor           Grant read-only local system sampling\n\
            --host-theme=light|dark[,reduced-motion]  Report this appearance instead of the desktop's\n\
+           --host-recent PATH                  Provision a recent file or folder (repeatable)\n\
+           --host-recent-each DIR EXT          Provision every file in DIR with extension EXT (\"\" for all) as recent\n\
+           --host-recent-copied NAME           Provision a child of the copied directory as recent\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-run-window-spec PATH         Run one .scm specification against the real window\n\
            --host-window-report=PATH           Write the window run's JSON report here\n\
@@ -7054,6 +7409,21 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
             .and_then(std::path::Path::parent)
             .map(std::path::Path::to_path_buf);
         files::set_private_copy(args.cap_dir.clone(), application);
+    }
+
+    if let Err(message) = configure_recents(&args) {
+        eprintln!("roc-gui capability error: {message}");
+        set_roc_host(core::ptr::null_mut());
+        return 2;
+    }
+    if let Some(application) = args
+        .spec_path
+        .as_deref()
+        .or(args.window_spec_path.as_deref())
+        .and_then(std::path::Path::parent)
+        .and_then(std::path::Path::parent)
+    {
+        let _ = SPEC_APPLICATION.set(application.to_path_buf());
     }
 
     if let Some((case, _)) = parsed_spec.as_ref() {
@@ -10117,6 +10487,100 @@ mod tests {
             &[live_button],
             "a press inside a virtual list was lost across the rebuilds"
         );
+    }
+
+    /// Files dropped through GPUI's own file-drop events reach the target's
+    /// route, admitted against its types, and nothing is granted before the
+    /// route asks: the slot the route reads holds what was admitted.
+    #[gpui::test]
+    fn files_dropped_through_gpui_reach_the_targets_route_admitted(cx: &mut TestAppContext) {
+        let folder = std::env::temp_dir().join(format!("roc-gui-gpui-drop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("one.rgstats"), b"one").unwrap();
+        std::fs::write(folder.join("notes.txt"), b"notes").unwrap();
+        type Seen = Rc<RefCell<Vec<(u64, Vec<String>, usize)>>>;
+        let seen: Seen = Rc::new(RefCell::new(Vec::new()));
+        let recorded = seen.clone();
+        install_test_dispatcher(move |event_id| {
+            let (granted, refused) = super::DROP_EVENT.with(|slot| {
+                slot.borrow()
+                    .as_ref()
+                    .map(|dropped| {
+                        (
+                            dropped
+                                .granted
+                                .iter()
+                                .map(|file| file.name.clone())
+                                .collect(),
+                            dropped.refused.len(),
+                        )
+                    })
+                    .unwrap_or_default()
+            });
+            recorded.borrow_mut().push((event_id, granted, refused));
+            Patch::NoChange
+        });
+        let fill = Box::new(Style {
+            width: Length::Fill,
+            height: Length::Fill,
+            ..Style::default()
+        });
+        let types = crate::document::validate(vec![crate::document::FileType {
+            label: "Captures".into(),
+            extensions: vec!["rgstats".into()],
+            mime_types: vec![],
+        }])
+        .unwrap();
+        let nodes = vec![
+            Node {
+                id: 1,
+                kind: NodeKind::DropTarget {
+                    label: "Target".into(),
+                    types,
+                    drop_bg: None,
+                    drop_border: None,
+                    style: fill,
+                },
+                children: vec![2],
+            },
+            Node {
+                id: 2,
+                kind: NodeKind::Text("Drop here".into()),
+                children: vec![],
+            },
+        ];
+        let initial = initial_mount(Patch::Mount { root: 1, nodes });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        cx.run_until_parked();
+        let position = point(px(40.0), px(40.0));
+        let paths = gpui::ExternalPaths(
+            [folder.join("one.rgstats"), folder.join("notes.txt")]
+                .into_iter()
+                .collect(),
+        );
+        for event in [
+            gpui::FileDropEvent::Entered { position, paths },
+            gpui::FileDropEvent::Pending { position },
+            gpui::FileDropEvent::Submit { position },
+            gpui::FileDropEvent::Exited,
+            gpui::FileDropEvent::Ended,
+        ] {
+            cx.update(|window, cx| {
+                window.dispatch_event(gpui::PlatformInput::FileDrop(event), cx);
+            });
+            cx.run_until_parked();
+        }
+        assert_eq!(
+            seen.borrow().as_slice(),
+            &[(1, vec!["one.rgstats".to_owned()], 1)],
+            "one drop, through the target's own route, of the one capture"
+        );
+        assert!(
+            super::DROP_EVENT.with(|slot| slot.borrow().is_none()),
+            "what the route did not take is discarded, ungranted"
+        );
+        std::fs::remove_dir_all(&folder).unwrap();
     }
 
     /// The other half of the rule: element identity is semantic, so a press on

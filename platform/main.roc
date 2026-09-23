@@ -46,6 +46,8 @@ platform ""
 		"roc_gui_shortcut_event": Host.shortcut_event!,
 		"roc_gui_node_split": Host.node_split!,
 		"roc_gui_resize_event": Host.resize_event!,
+		"roc_gui_node_drop_target": Host.node_drop_target!,
+		"roc_gui_drop_event": Host.drop_event!,
 		"roc_gui_virtual_window": Host.virtual_window!,
 		"roc_gui_virtual_rows_event": Host.virtual_rows_event!,
 		"roc_gui_input_value": Host.input_value!,
@@ -115,6 +117,12 @@ platform ""
 		"roc_files_dir_watch": InternalFiles.dir_watch!,
 		"roc_files_watch_next": InternalFiles.watch_next!,
 		"roc_files_watch_cancel": InternalFiles.watch_cancel!,
+		"roc_files_recent": InternalFiles.recent!,
+		"roc_files_reopen_file": InternalFiles.reopen_file!,
+		"roc_files_reopen_directory": InternalFiles.reopen_directory!,
+		"roc_files_forget_recent": InternalFiles.forget_recent!,
+		"roc_files_remember_file": InternalFiles.remember_file!,
+		"roc_files_remember_directory": InternalFiles.remember_directory!,
 	}
 	targets: {
 		inputs_dir: "targets/",

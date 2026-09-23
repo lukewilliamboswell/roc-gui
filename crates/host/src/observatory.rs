@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: u32 = 24;
+pub const SCHEMA_VERSION: u32 = 25;
 static CLOCK_ORIGIN: OnceLock<Instant> = OnceLock::new();
 // This process-wide flag is the hot-path gate. The recorder mutex and its
 // queue are only consulted after this overwhelmingly predictable branch.
@@ -29,7 +29,7 @@ pub const ROC_WORK_KINDS: usize = 5;
 
 /// Counts reported by the production native operations, indexed by NodeKind::tag.
 /// These are renders and view-element construction, not inferred cache outcomes.
-pub const NATIVE_NODE_KINDS: usize = 19;
+pub const NATIVE_NODE_KINDS: usize = 20;
 pub const KEYED_CONTAINER_NATIVE_KIND: u8 = 16;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1902,7 +1902,7 @@ const SCHEMA: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 PRAGMA foreign_keys=ON;
-PRAGMA user_version=24;
+PRAGMA user_version=25;
 CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE measurement_status(
     name TEXT PRIMARY KEY,
@@ -2031,7 +2031,7 @@ CREATE TABLE cycles(
     keyed_item_entities_moved INTEGER NOT NULL,
     roc_work_valid INTEGER NOT NULL CHECK(roc_work_valid IN (0,1)),
     component_work_recorded INTEGER NOT NULL CHECK(component_work_recorded IN (0,1)),
-    target_kind TEXT CHECK(target_kind IN ('boundary','button','canvas','checkbox','column','dialog','image','panel','popover','region','row','scroll','split','text','text_input','textarea','virtual_item','virtual_list')),
+    target_kind TEXT CHECK(target_kind IN ('boundary','button','canvas','checkbox','column','dialog','drop_target','image','panel','popover','region','row','scroll','split','text','text_input','textarea','virtual_item','virtual_list')),
     target_identity TEXT CHECK(length(target_identity) = 16 AND target_identity NOT GLOB '*[^0-9a-f]*'),
     CHECK((target_kind IS NULL) = (target_identity IS NULL)),
     UNIQUE(run_id,ordinal),
@@ -2064,7 +2064,7 @@ CREATE TABLE gpui_frames(
 CREATE TABLE gpui_native_work(
     frame_id INTEGER NOT NULL REFERENCES gpui_frames(id),
     metric INTEGER NOT NULL CHECK(metric BETWEEN 0 AND 1),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 18),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 19),
     count INTEGER NOT NULL CHECK(count > 0),
     PRIMARY KEY(frame_id,metric,kind)
 );

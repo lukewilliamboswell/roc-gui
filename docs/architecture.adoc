@@ -193,7 +193,8 @@ Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
 and columns become flex containers, panels become styled surfaces, dialogs
 become centred modal layers with input-blocking scrims, popovers become an
 anchor wrapper with a floating surface, splits become two pane holders either
-side of a focusable divider, text becomes a text
+side of a focusable divider, drop targets become flex columns that take GPUI's
+external file drops, text becomes a text
 child, and enabled action buttons add focus, keyboard, and pointer
 listeners. A boundary marker materialises as a transparent single-child view,
 not a synthetic row, column, or styled surface. Retained marker subtrees retain
@@ -315,6 +316,14 @@ one rule both runners call, and asks Roc only for a size the divider does not
 already show. The divider's keys are shortcuts of the split, live only while
 the divider itself holds focus, so they reach Roc through the same shortcut
 route every region uses.
+
+A drop target carries the file types it accepts, so the host admits a drop
+without asking Roc: GPUI delivers the operating system's file drop to the
+target it hit-tests, the host checks each dropped item as it checks a chosen
+file, and the target's route asks for the grants as it runs. A window
+specification drops through those same GPUI events; the semantic runner admits
+the same paths and takes the same route. The files a drop grants are made only
+when that route asks, so a drop that reaches no live route grants nothing.
 
 Shortcuts are declared by elements, so the graph knows every live one and the
 component that owns it. GPUI offers a keystroke to its keymap's actions along

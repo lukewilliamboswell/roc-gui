@@ -126,6 +126,8 @@ Gui := [].{
 	EventKey : Event.Key
 	EventResize : Event.Resize
 	EventTab : Event.Tab
+	EventDrop : Event.Drop
+	EventRefused : Event.Refused
 
 	# Types exchanged with `Files`.
 	FilesChoice(a) : Files.Choice(a)
@@ -143,6 +145,8 @@ Gui := [].{
 	FilesWatch : Files.Watch
 	FilesChange : Files.Change
 	FilesChanges : Files.Changes
+	FilesRecent : Files.Recent
+	FilesUnavailable : Files.Unavailable
 
 	# Types exchanged with `Http`.
 	HttpClient : Http.Client
@@ -325,6 +329,11 @@ Gui := [].{
 	## A strip of selectable tabs, each with an optional close button.
 	tabs : Elem.TabsProps(a) -> Elem.Elem(a)
 	tabs = |props| Elem.tabs(props)
+
+	## Lay children out in a column that accepts files dropped on it, each
+	## granted to the application as a read-only file of an accepted type.
+	drop_target : Elem.DropTargetProps(a), List(Elem.Elem(a)) -> Elem.Elem(a)
+	drop_target = |props, children| Elem.drop_target(props, children)
 
 	## Annotate an anchor with a non-modal surface that opens on hover and focus.
 	popover : Elem.PopoverProps(a), Elem.Elem(a), List(Elem.Elem(a)) -> Elem.Elem(a)

@@ -11,7 +11,7 @@
     (expect-selected (role tab :name "database-browser-scale-100.rgstats"))
     (expect-visible (within (role row :name "Capture bar") (text "semantic-headless")))
     (expect-visible (within (role row :name "Capture bar") (text "summary")))
-    (expect-visible (within (role row :name "Capture bar") (text "schema 24")))
+    (expect-visible (within (role row :name "Capture bar") (text "schema 25")))
     (expect-visible (within (role row :name "Capture bar") (text "✓ final")))
     (expect-visible (within (role row :name "Capture bar") (text "clean shutdown")))
     (expect-visible (within (role row :name "Capture bar") (text "gaps 0")))

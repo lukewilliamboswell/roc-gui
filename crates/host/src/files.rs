@@ -19,7 +19,7 @@ const MAX_NAME_BYTES: usize = 4 * 1024 * 1024;
 const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 struct Store {
     next: u64,
-    initial: Option<(Arc<Dir>, String)>,
+    initial: Option<(Arc<Dir>, String, PathBuf)>,
     dirs: HashMap<u64, Arc<Dir>>,
     allocations: HashMap<usize, u64>,
     operations: [u64; 4],
@@ -105,7 +105,9 @@ pub fn configure(
                 .and_then(|value| value.to_str())
                 .unwrap_or("directory")
                 .to_owned();
-            Some((Arc::new(dir), name))
+            let resolved = std::fs::canonicalize(path)
+                .map_err(|error| format!("cannot grant directory: {error}"))?;
+            Some((Arc::new(dir), name, resolved))
         }
     };
     let mut guard = store().lock().expect("capability store poisoned");
@@ -163,7 +165,9 @@ pub fn access_snapshot() -> AccessSnapshot {
             snapshot.revoked += 1;
         } else {
             match entry.origin() {
-                Origin::TrustedSelection(_) => snapshot.portal_session_read += 1,
+                Origin::TrustedSelection(_) | Origin::Dropped(_) => {
+                    snapshot.portal_session_read += 1
+                }
                 Origin::Provisioned | Origin::Automatic => snapshot.provisioned_session_read += 1,
             }
         }
@@ -200,7 +204,14 @@ fn record_operation(index: usize) {
 /// handle is. `parent` is the handle this one was derived from, absent for a
 /// root; `origin` is consulted only for a root, because a derived grant inherits
 /// how its parent's authority arrived rather than asserting its own.
-fn capability(dir: Arc<Dir>, parent: Option<grant::Grant>, origin: Origin) -> *mut u64 {
+/// A root's place, when it has one, is noted for the recent list; `lifetime`
+/// is a root's own, as a derived grant shares its parent's.
+fn capability(
+    dir: Arc<Dir>,
+    parent: Option<grant::Grant>,
+    origin: Origin,
+    place: Option<(&Path, Lifetime)>,
+) -> *mut u64 {
     let mut guard = store().lock().expect("capability store poisoned");
     let id = guard.next;
     guard.next = guard
@@ -231,13 +242,23 @@ fn capability(dir: Arc<Dir>, parent: Option<grant::Grant>, origin: Origin) -> *m
     guard.lifecycle[2] += 1;
     drop(guard);
     match parent {
-        None => grant::record_root(
-            grant::Kind::Directory,
-            id,
-            DIRECTORY_RIGHTS,
-            origin,
-            Lifetime::Session,
-        ),
+        None => {
+            let lifetime = place.map_or(Lifetime::Session, |(_, lifetime)| lifetime);
+            grant::record_root(
+                grant::Kind::Directory,
+                id,
+                DIRECTORY_RIGHTS,
+                origin,
+                lifetime,
+            );
+            if let Some((path, _)) = place {
+                crate::recents::note_source(
+                    grant::GrantId::new(grant::Kind::Directory, id),
+                    crate::recents::EntryKind::Directory,
+                    path,
+                );
+            }
+        }
         Some(parent) => {
             grant::record_descendant(grant::Kind::Directory, id, DIRECTORY_RIGHTS, parent);
         }
@@ -307,6 +328,7 @@ pub fn route_dealloc(allocation_base: *mut std::ffi::c_void) {
     // revoking, and the kernel counts the two separately on purpose.
     if let Some(id) = released {
         grant::release(grant::Kind::Directory, id);
+        crate::recents::release_source(grant::GrantId::new(grant::Kind::Directory, id));
     }
 }
 
@@ -597,8 +619,13 @@ pub(crate) fn read_bounded(handle: *mut u64, name: &str) -> Result<Vec<u8>, Boun
     })
 }
 
-fn chosen(dir: Arc<Dir>, name: &str, origin: Origin) -> InternalFilesPickDirectoryResult {
-    let directory = capability(dir, None, origin);
+fn chosen(
+    dir: Arc<Dir>,
+    name: &str,
+    path: &Path,
+    origin: Origin,
+) -> InternalFilesPickDirectoryResult {
+    let directory = capability(dir, None, origin, Some((path, Lifetime::Session)));
     let value = InternalFilesPickDirectoryOkChosen {
         directory,
         name: RocStr::from_str(name, roc_host()),
@@ -629,7 +656,7 @@ fn canceled() -> InternalFilesPickDirectoryResult {
 }
 
 enum PortalSelection {
-    Chosen(Arc<Dir>, String),
+    Chosen(Arc<Dir>, String, PathBuf),
     Canceled,
     Denied,
     Unavailable,
@@ -705,8 +732,15 @@ fn open_selected(path: std::path::PathBuf) -> PortalSelection {
         .and_then(|value| value.to_str())
         .unwrap_or("directory")
         .to_owned();
-    match Dir::open_ambient_dir(path, ambient_authority()) {
-        Ok(dir) => PortalSelection::Chosen(Arc::new(dir), name),
+    let resolved = match std::fs::canonicalize(&path) {
+        Ok(resolved) => resolved,
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            return PortalSelection::Denied;
+        }
+        Err(_) => return PortalSelection::Unavailable,
+    };
+    match Dir::open_ambient_dir(&resolved, ambient_authority()) {
+        Ok(dir) => PortalSelection::Chosen(Arc::new(dir), name, resolved),
         Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
             PortalSelection::Denied
         }
@@ -814,7 +848,7 @@ pub extern "C" fn roc_files_pick_directory() -> InternalFilesPickDirectoryResult
         .initial
         .clone();
     match initial {
-        Some((dir, name)) => chosen(dir, &name, Origin::Provisioned),
+        Some((dir, name, path)) => chosen(dir, &name, &path, Origin::Provisioned),
         None => select_portal(),
     }
 }
@@ -872,9 +906,12 @@ fn select_portal() -> InternalFilesPickDirectoryResult {
     }
     drop(guard);
     match result {
-        PortalSelection::Chosen(dir, name) => {
-            chosen(dir, &name, Origin::TrustedSelection(SELECTION_ENFORCEMENT))
-        }
+        PortalSelection::Chosen(dir, name, path) => chosen(
+            dir,
+            &name,
+            &path,
+            Origin::TrustedSelection(SELECTION_ENFORCEMENT),
+        ),
         PortalSelection::Canceled => canceled(),
         PortalSelection::Denied => InternalFilesPickDirectoryResult {
             payload: InternalFilesPickDirectoryResultPayload {
@@ -994,7 +1031,7 @@ pub extern "C" fn roc_files_dir_open_read(
                 // `lookup_state` already accepted the parent, so the handle is
                 // live and this child is derived from it. A child with no
                 // readable parent handle cannot arise here.
-                ok: ManuallyDrop::new(capability(dir, parent, Origin::Provisioned)),
+                ok: ManuallyDrop::new(capability(dir, parent, Origin::Provisioned, None)),
             },
             tag: InternalFilesDirOpenReadResultTag::Ok,
         },
@@ -1073,6 +1110,66 @@ pub extern "C" fn roc_files_dir_sha256(
         }
     };
     hash_result(outcome)
+}
+
+/// Remember the chosen folder `cap` names in the recent list.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_remember_directory(cap: *mut u64) -> u8 {
+    let id = unsafe { cap.as_ref().copied() };
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    match id {
+        None => crate::recents::Unavailable::Revoked as u8,
+        Some(id) => match crate::recents::remember(grant::Kind::Directory, id) {
+            Ok(()) => 0,
+            Err(reason) => reason as u8,
+        },
+    }
+}
+
+/// Reopen a remembered folder as a new grant, after the recent list checks it
+/// is still the folder that was remembered.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_reopen_directory(key: u64) -> InternalFilesReopenDirectoryResult {
+    use crate::recents::{EntryKind, Unavailable};
+    let refused = |reason: Unavailable| InternalFilesReopenDirectoryResult {
+        payload: InternalFilesReopenDirectoryResultPayload {
+            err: ManuallyDrop::new(AnonStruct45708337b22b1f51 { code: reason as u8 }),
+        },
+        tag: InternalFilesReopenDirectoryResultTag::Err,
+    };
+    let (path, origin) = match crate::recents::reopen(key, EntryKind::Directory) {
+        Ok(found) => found,
+        Err(reason) => return refused(reason),
+    };
+    let dir = match Dir::open_ambient_dir(&path, ambient_authority()) {
+        Ok(dir) => Arc::new(dir),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            return refused(Unavailable::AccessDenied);
+        }
+        Err(_) => return refused(Unavailable::Missing),
+    };
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("directory")
+        .to_owned();
+    let directory = capability(dir, None, origin, Some((&path, Lifetime::Remembered)));
+    let id = unsafe { directory.as_ref().copied() }.expect("a new handle holds its id");
+    crate::recents::reopened(
+        key,
+        grant::GrantId::new(grant::Kind::Directory, id),
+        EntryKind::Directory,
+        &path,
+    );
+    InternalFilesReopenDirectoryResult {
+        payload: InternalFilesReopenDirectoryResultPayload {
+            ok: ManuallyDrop::new(AnonStruct4869dafad3498788 {
+                directory,
+                name: RocStr::from_str(&name, roc_host()),
+            }),
+        },
+        tag: InternalFilesReopenDirectoryResultTag::Ok,
+    }
 }
 
 #[cfg(test)]
@@ -1290,6 +1387,23 @@ pub fn set_private_copy(directory: Option<PathBuf>, application: Option<PathBuf>
         .lock()
         .unwrap_or_else(|error| error.into_inner()) =
         directory.map(|directory| (directory, application));
+}
+
+/// Remove one direct child of the disposable directory grant, as a person
+/// deleting a file does.
+pub fn remove_in_private_copy(name: &str) -> Result<(), String> {
+    let held = PRIVATE_COPY
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone();
+    let Some((directory, _)) = held else {
+        return Err("remove-file requires a disposable directory grant".into());
+    };
+    if !valid_name(name) {
+        return Err("remove-file names one direct child".into());
+    }
+    std::fs::remove_file(directory.join(name))
+        .map_err(|error| format!("cannot remove {name}: {error}"))
 }
 
 /// Replace one direct child of the disposable directory grant with a copy of

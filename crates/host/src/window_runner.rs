@@ -68,6 +68,10 @@ pub enum StepError {
     NoClickRoute(String),
     /// A `drag` step named something a pointer cannot drag.
     NotDraggable(String),
+    /// A `drop` step named something that is not a drop target.
+    NotDropTarget(String),
+    /// A `drop` step named a file outside the application, or none at all.
+    DropPath(String),
     /// A modal dialog is capturing interaction.
     BehindDialog(String),
     /// A `scroll` step named something that does not scroll.
@@ -128,6 +132,10 @@ impl StepError {
             Self::NotDraggable(locator) => {
                 format!("{locator} is neither a canvas nor a separator, so it cannot be dragged")
             }
+            Self::NotDropTarget(locator) => {
+                format!("{locator} is not a drop target, so nothing can be dropped on it")
+            }
+            Self::DropPath(detail) => format!("cannot drop: {detail}"),
             Self::BehindDialog(locator) => {
                 format!("{locator} is behind an active dialog and cannot be clicked")
             }
@@ -1000,6 +1008,65 @@ async fn run_step(
             }
             await_painted(window, options.timeout, cx).await
         }
+        Command::Drop(locator, paths) | Command::DragFiles(locator, paths) => {
+            let dropping = matches!(step.command, Command::Drop(..));
+            // The files arrive the way the operating system's drag-and-drop
+            // delivers them: GPUI's own file-drop events, entering the window
+            // over the target, moving there, and dropping, so GPUI hit-tests
+            // the drop and the target's production drop listener takes it.
+            let paths = crate::spec_drop_paths(paths).map_err(StepError::DropPath)?;
+            await_painted(window, options.timeout, cx).await?;
+            let viewport = viewport_rect(window, cx)?;
+            let position = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    if runtime
+                        .graph
+                        .active_dialog()
+                        .is_some_and(|dialog| !runtime.graph.is_descendant_of(id, dialog))
+                    {
+                        return Err(StepError::BehindDialog(describe(locator)));
+                    }
+                    if !matches!(
+                        runtime.graph.node(id).map(|node| &node.kind),
+                        Some(crate::bridge::NodeKind::DropTarget { .. })
+                    ) {
+                        return Err(StepError::NotDropTarget(describe(locator)));
+                    }
+                    let bounds = visible_rect(runtime, locator, viewport)?;
+                    Ok(point(
+                        px((bounds.left + bounds.right) / 2.0),
+                        px((bounds.top + bounds.bottom) / 2.0),
+                    ))
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            let dragged = gpui::ExternalPaths(paths.into_iter().collect());
+            // Files already held over the window by `drag-files` stay the
+            // drag GPUI holds; entering again moves them, as a pointer does.
+            let mut gesture = vec![
+                gpui::FileDropEvent::Entered {
+                    position,
+                    paths: dragged,
+                },
+                gpui::FileDropEvent::Pending { position },
+            ];
+            if dropping {
+                gesture.extend([
+                    gpui::FileDropEvent::Submit { position },
+                    gpui::FileDropEvent::Exited,
+                    gpui::FileDropEvent::Ended,
+                ]);
+            }
+            for event in gesture {
+                // Release the Runtime borrow before GPUI delivers callbacks
+                // into it, and let each event land before the next.
+                cx.update_window(window.into(), |_, window, cx| {
+                    window.dispatch_event(gpui::PlatformInput::FileDrop(event), cx);
+                })
+                .map_err(|_| StepError::WindowClosed)?;
+            }
+            await_painted(window, options.timeout, cx).await
+        }
         Command::Click(locator) => {
             // Only a drawn control can be pressed, and a completion the
             // previous step accounted for may not have been drawn yet.
@@ -1264,6 +1331,8 @@ async fn run_step(
         | Command::ExpectWatchCounters(_)
         | Command::ExpectAssetCounters(_)
         | Command::ExpectHashCounters(_)
+        | Command::ExpectDropCounters(_)
+        | Command::ExpectRecentCounters(_)
         | Command::ExpectGrants(_)
         | Command::ExpectGrantCounters(_)
         | Command::ExpectImageOwnerCounters(_) => window
@@ -1287,6 +1356,9 @@ async fn run_step(
         // only through a watch, on its own schedule; the next step waits for it.
         Command::ReplaceFile { name, source } => {
             crate::files::replace_in_private_copy(name, source).map_err(StepError::Geometry)
+        }
+        Command::RemoveFile(name) => {
+            crate::files::remove_in_private_copy(name).map_err(StepError::Geometry)
         }
         Command::AwaitTask => await_completion(window, options.timeout, cx).await,
         // An application that polls — a clipboard watcher rearms its read on

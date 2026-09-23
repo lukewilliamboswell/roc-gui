@@ -778,6 +778,16 @@ pub enum NodeKind {
         /// The divider's colours; its size fields size the split.
         style: Box<Style>,
     },
+    /// A column that accepts files dropped on it. It carries the file types it
+    /// accepts, already validated, so a drop is admitted without asking Roc,
+    /// and the colours it shows while acceptable files are dragged over it.
+    DropTarget {
+        label: String,
+        types: Vec<crate::document::FileType>,
+        drop_bg: Option<crate::Paint>,
+        drop_border: Option<crate::Paint>,
+        style: Box<Style>,
+    },
     /// Text that carries its own type: colour, size, weight, and face, with no
     /// container element to hold them. `runs` is empty for text of one style;
     /// otherwise the runs cover `value` exactly, in order, and each restyles
@@ -1035,6 +1045,7 @@ impl NodeKind {
             Self::Popover { label, .. } if label.is_empty() => "region",
             Self::Popover { .. } => "popover",
             Self::Split { .. } => "split",
+            Self::DropTarget { .. } => "drop_target",
         }
     }
 
@@ -1063,6 +1074,7 @@ impl NodeKind {
             Self::Boundary { .. } => 15,
             Self::Popover { .. } => 17,
             Self::Split { .. } => 18,
+            Self::DropTarget { .. } => 19,
         }
     }
 
@@ -1087,6 +1099,7 @@ impl NodeKind {
             | Self::Panel { label, .. }
             | Self::Row { label, .. }
             | Self::Split { label, .. }
+            | Self::DropTarget { label, .. }
             | Self::TextInput { label, .. } => label.as_str().into(),
             Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.as_str().into(),
             Self::VirtualItem { key } => key.to_string().into(),

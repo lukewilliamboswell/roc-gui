@@ -311,13 +311,13 @@ Capture := [].{
 
 	## The one schema this application reads.
 	supported_schema : Str
-	supported_schema = "24"
+	supported_schema = "25"
 
 	## Read enough of one file to list it: identity and a verdict.
 	summarize! : Gui.FilesDirRead, Str => Listing
 	summarize! = summarize!
 
-	## Open one capture, refuse it unless it is schema 24, and read every table
+	## Open one capture, refuse it unless it is schema 25, and read every table
 	## the views present.
 	open! : Gui.FilesDirRead, Str => Try(Opened, Str)
 	open! = open!
@@ -373,10 +373,10 @@ Capture := [].{
 	frame! : Gui.SqliteDb, Bar => Try(FrameDetail, Str)
 	frame! = frame!
 
-	## The native node kinds, the keyed container, the popover, and the split
-	## divider, by numeric kind.
+	## The native node kinds, the keyed container, the popover, the split
+	## divider, and the drop target, by numeric kind.
 	node_kinds : List(Str)
-	node_kinds = ["canvas", "button", "checkbox", "textarea", "image", "column", "dialog", "panel", "row", "scroll", "virtual item", "virtual list", "text input", "text", "styled text", "boundary", "keyed container", "popover", "split divider"]
+	node_kinds = ["canvas", "button", "checkbox", "textarea", "image", "column", "dialog", "panel", "row", "scroll", "virtual item", "virtual list", "text input", "text", "styled text", "boundary", "keyed container", "popover", "split divider", "drop target"]
 
 	## The nineteen GPUI frame-work metrics, by numeric metric, and the group
 	## each belongs to.
@@ -565,12 +565,12 @@ expect work_count(sample_inspected, 2) == Some(0)
 expect work_count({ ..sample_inspected, component_work_recorded: False }, 0) == None
 
 schema_gate : Str -> Try({}, Str)
-schema_gate = |version| if version == "24" {
+schema_gate = |version| if version == "25" {
 	Ok({})
 } else if Str.is_empty(version) {
-	Err("This file records no schema version; Observatory reads schema 24")
+	Err("This file records no schema version; Observatory reads schema 25")
 } else {
-	Err("Schema ${version} is not supported; Observatory reads schema 24")
+	Err("Schema ${version} is not supported; Observatory reads schema 25")
 }
 
 metadata : Opened, Str -> Str
@@ -623,10 +623,10 @@ expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalize
 expect judge({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Withheld("capture not yet finalised")
 expect judge({ final_state: "complete", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("unclean shutdown")
 expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "timing_environment", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Partial("partial families: timing_environment")
-expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 24")
-expect schema_gate("23") == Err("Schema 23 is not supported; Observatory reads schema 24")
+expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 25")
+expect schema_gate("24") == Err("Schema 24 is not supported; Observatory reads schema 25")
 
-## Cells. Every column read through these is declared by schema 24; a nullable
+## Cells. Every column read through these is declared by schema 25; a nullable
 ## column is read as an option so an absent value never becomes zero.
 text_at : List(Gui.SqliteValue), U64 -> Str
 text_at = |row, index| match row.get(index) {

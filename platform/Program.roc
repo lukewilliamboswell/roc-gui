@@ -1,3 +1,4 @@
+import Action
 import Elem
 import Style
 import Internal
@@ -16,14 +17,22 @@ Program(state) := Config(state).{
 	## closures need it where they run.
 	Access : Access.Access
 
-	## Initial application data, renderer, and optional native window properties.
+	## Initial application data, renderer, optional native window properties,
+	## and what the application does as its window opens.
 	##
 	## `init` takes the application's authority rather than being a plain value,
 	## because that is the only place it can enter an application from.
+	##
+	## `on_open` runs once, after the first state is shown and before any
+	## input, exactly as an event handler runs: it may act, and the action it
+	## returns is applied. It is how an application acquires what its first
+	## screen shows, such as the files it remembered, without waiting for a
+	## person to ask.
 	Config(state) := {
 		init : Access -> state,
 		render : state -> Elem(state),
 		window : WindowProps ?? {},
+		on_open : [None, Some((state => Action.Action(state)))] ?? None,
 	}
 
 	## Initial native-window identity and logical size. The window remains
@@ -49,6 +58,6 @@ Program(state) := Config(state).{
 	start! : Program(state) => {}
 	start! = |Program.(Config.(config))| {
 		init = config.init
-		Internal.start!(init(Access.mint(Resource.mint_access({}))), config.render, config.window)
+		Internal.start!(init(Access.mint(Resource.mint_access({}))), config.render, config.window, config.on_open)
 	}
 }

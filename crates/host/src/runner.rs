@@ -614,6 +614,11 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (Locator::DropTargetName(expected), NodeKind::DropTarget { label, .. })
+                if expected == label =>
+            {
+                Some(node.id)
+            }
             (Locator::CheckboxName(expected), NodeKind::Checkbox { label, .. })
                 if expected == label =>
             {
@@ -1007,6 +1012,12 @@ pub(crate) fn resource_claim(
         Command::ExpectHashCounters(expected) => {
             exact("hash counters", expected, crate::files::hash_counters())
         }
+        Command::ExpectDropCounters(expected) => {
+            exact("drop counters", expected, crate::document::drop_counters())
+        }
+        Command::ExpectRecentCounters(expected) => {
+            exact("recent counters", expected, crate::recents::counters())
+        }
         // The whole list, in order, compared as a list. A claim that counted
         // grants instead would pass for an application holding entirely
         // different authority than the one the specification names.
@@ -1099,8 +1110,33 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         roc_work_valid,
     ));
 
-    let mut marked = spec.benchmark.is_none();
     let mut cycle_ordinal = 1u64;
+    // The application's opening action, once the first state is mounted and
+    // before the first step, as the window sends it.
+    if crate::opens() {
+        let cycle_started = Instant::now();
+        observatory::reset_roc_work();
+        let roc_started = Instant::now();
+        let patch = crate::dispatch(crate::OPEN_EVENT);
+        let roc_ns = elapsed_ns(roc_started);
+        let (roc_work, roc_work_valid) = observatory::take_roc_work();
+        let facts = apply_transaction(&mut graph, patch)?;
+        observatory::cycle(make_cycle(
+            run_id,
+            cycle_ordinal,
+            None,
+            "initialization",
+            "open",
+            None,
+            cycle_started,
+            roc_ns,
+            roc_work,
+            &facts,
+            roc_work_valid,
+        ));
+        cycle_ordinal += 1;
+    }
+
     for cycle in settle_canvas_sizes(
         &mut graph,
         run_id,
@@ -1110,6 +1146,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
     )? {
         observatory::cycle(cycle);
     }
+    let mut marked = spec.benchmark.is_none();
     let mut last_patch: Option<ApplyFacts> = None;
     let mut focused: Option<u64> = None;
     // The canvas an unpressed pointer is over and the last point delivered.
@@ -1156,6 +1193,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::Screenshot(_)
             | Command::Type(_)
             | Command::Resize { .. }
+            | Command::DragFiles(..)
             | Command::Scroll { .. } => Err(format!(
                 "line {}: step `{}` is window-only; run this specification with --host-run-window-spec",
                 step.line,
@@ -2029,6 +2067,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectTaskCounters(_)
             | Command::ExpectAssetCounters(_)
             | Command::ExpectHashCounters(_)
+            | Command::ExpectDropCounters(_)
+            | Command::ExpectRecentCounters(_)
             | Command::ExpectGrants(_)
             | Command::ExpectGrantCounters(_)
             | Command::ExpectImageOwnerCounters(_) => {
@@ -2050,6 +2090,60 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::ReplaceFile { name, source } => {
                 crate::files::replace_in_private_copy(name, source)
                     .map_err(|message| format!("line {}: {message}", step.line))
+            }
+            Command::RemoveFile(name) => crate::files::remove_in_private_copy(name)
+                .map_err(|message| format!("line {}: {message}", step.line)),
+            Command::Drop(locator, paths) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: drop locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if graph
+                    .active_dialog()
+                    .is_some_and(|dialog| !graph.is_descendant_of(found[0], dialog))
+                {
+                    Err(format!(
+                        "line {}: the drop target is behind an active dialog",
+                        step.line
+                    ))
+                } else if let Some(NodeKind::DropTarget { types, .. }) =
+                    graph.node(found[0]).map(|node| &node.kind)
+                {
+                    let resolved = crate::spec_drop_paths(paths)
+                        .map_err(|message| format!("line {}: {message}", step.line))?;
+                    // The admission and the route the window's drop handler
+                    // takes, as one `drop` cycle.
+                    let dropped = crate::document::admit_drop(types, &resolved);
+                    let drop_target = graph.cycle_target(found[0]);
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
+                    let roc_started = Instant::now();
+                    let patch = crate::dispatch_drop(found[0], dropped);
+                    let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    let facts = apply_transaction(&mut graph, patch)?;
+                    last_patch = Some(facts);
+                    pending_cycles.push(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "drop",
+                        drop_target,
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
+                    Ok(())
+                } else {
+                    Err(format!("line {}: drop takes a drop target", step.line))
+                }
             }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();

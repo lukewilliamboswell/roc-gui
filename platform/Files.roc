@@ -189,6 +189,13 @@ Files := [].{
 			## application can act on.
 			resource : Read -> Resource.FileRead
 			resource = |Read.(handle)| handle
+
+			## Wrap the shared representation, for the platform's own modules
+			## that hand a file to an application, as a drop target does. An
+			## application cannot produce the representation, so this grants
+			## nothing.
+			from_resource : Resource.FileRead -> Read
+			from_resource = |handle| Read.(handle)
 		}
 	}
 
@@ -226,6 +233,81 @@ Files := [].{
 			Chosen(selection) => Chosen({ name: selection.name, file: File.Read.(selection.file) })
 		},
 	)
+
+	## Why a remembered file or folder cannot be reopened, or a grant cannot
+	## be remembered.
+	##
+	## * `AccessDenied`: the application may no longer read it.
+	## * `Forgotten`: no recent entry has this key, because it was forgotten
+	##   or the list outgrew its bound.
+	## * `Missing`: nothing is at its place any more.
+	## * `Replaced`: something else is at its place now: another file renamed
+	##   over it, or a folder where a file was. It is not what was chosen.
+	## * `Revoked`: the grant being remembered was withdrawn.
+	## * `Unreadable`: it could not be reached for another reason.
+	## * `Unsupported`: only a file or folder a person chose, dropped, or was
+	##   provisioned can be remembered, not one derived from another grant.
+	Unavailable : [AccessDenied, Forgotten, Missing, Replaced, Revoked, Unreadable, Unsupported]
+
+	## One file or folder the application remembered, most recent first.
+	## `key` names it for `reopen_file!`, `reopen_directory!`, and
+	## `forget_recent!`, and stays the same across restarts. `status` is what
+	## the host found when the list was read: whether it can be reopened now.
+	## No path is ever part of an entry.
+	Recent : { key : U64, name : Str, kind : [Directory, File], status : [Available, Unavailable(Unavailable)] }
+
+	## The application's recent files and folders, most recent first, each
+	## checked against what is at its place now.
+	recent! : Resource.Access => List(Recent)
+	recent! = |_access| InternalFiles.recent!().map(
+		|raw| {
+			kind = if raw.directory Directory else File
+			status = if raw.status == 0 Available else Unavailable(decode_unavailable(raw.status))
+			{ key: raw.key, name: raw.name, kind, status }
+		},
+	)
+
+	## Reopen a remembered file as a new read-only grant, after the host
+	## checks it is still the file that was remembered.
+	reopen_file! : Resource.Access, U64 => Try(FileSelection, Unavailable)
+	reopen_file! = |_access, key| match InternalFiles.reopen_file!(key) {
+		Ok(chosen) => Ok({ name: chosen.name, file: File.Read.(chosen.file) })
+		Err(raw) => Err(decode_unavailable(raw.code))
+	}
+
+	## Reopen a remembered folder as a new read-only grant, after the host
+	## checks it is still the folder that was remembered.
+	reopen_directory! : Resource.Access, U64 => Try(Selection, Unavailable)
+	reopen_directory! = |_access, key| match InternalFiles.reopen_directory!(key) {
+		Ok(chosen) => Ok({ name: chosen.name, directory: Dir.Read.(chosen.directory) })
+		Err(raw) => Err(decode_unavailable(raw.code))
+	}
+
+	## Remove one entry from the recent list. Its grants held this session
+	## are not withdrawn. `Forgotten` when no entry has the key.
+	forget_recent! : Resource.Access, U64 => Try({}, Unavailable)
+	forget_recent! = |_access, key| if InternalFiles.forget_recent!(key) Ok({}) else Err(Forgotten)
+
+	## Remember a chosen or dropped file, so it is listed by `recent!` in this
+	## and later runs until it is forgotten or withdrawn.
+	remember_file! : Resource.Access, File.Read => Try({}, Unavailable)
+	remember_file! = |_access, file| decode_remembered(InternalFiles.remember_file!(File.Read.resource(file)))
+
+	## Remember a chosen folder, as `remember_file!` remembers a file.
+	remember_directory! : Resource.Access, Dir.Read => Try({}, Unavailable)
+	remember_directory! = |_access, directory| decode_remembered(InternalFiles.remember_directory!(Dir.Read.resource(directory)))
+
+	decode_remembered = |code| if code == 0 Ok({}) else Err(decode_unavailable(code))
+
+	decode_unavailable = |code| match code {
+		1 => AccessDenied
+		2 => Forgotten
+		3 => Missing
+		4 => Replaced
+		5 => Revoked
+		7 => Unsupported
+		_ => Unreadable
+	}
 
 	## Acquire the private read-write application-data directory granted by the host.
 	app_data! : Resource.Access => Try(Dir.ReadWrite, FileErr)

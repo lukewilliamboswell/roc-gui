@@ -52,6 +52,21 @@ siblings, not its folder. Ask for the smallest thing that does the job; a
 document viewer that asks for a folder has asked for every other document in
 it.
 
+Dropping is choosing too. A person who drags a file from their file manager and
+lets go of it over your window has chosen it as surely as one who picked it in a
+chooser, in a gesture the operating system delivers rather than your
+application. Declare where a drop may land and what it may be:
+
+[source,roc]
+----
+Gui.drop_target({ label: "Captures", types: capture_types, on_drop: open_dropped }, children)
+----
+
+Each dropped file of a type you declared arrives in `on_drop` as a
+`Gui.FilesFileRead`, exactly as a chosen file does, and everything else dropped
+is named and refused. The grant records that it arrived by a drop rather than a
+chooser, so the evidence can say which.
+
 There is no second step. No "this application would like to access your files"
 dialog appears before or after, because the choosing *was* the permission.
 Someone who picked `~/Photos/2026` has said everything that needs saying, and
@@ -141,7 +156,37 @@ one that does not try:
 * Work already finished stays finished. Bytes you have read are in your
   application's memory, and withdrawing a grant cannot reach in and remove them.
 * A grant given for a session ends with the session. Nothing carries over to the
-  next run unless the person asked for it to be remembered.
+  next run unless it was remembered, which the next section describes.
+
+== Remembering what you were given
+
+A person who opened a document yesterday expects to find it again today without
+choosing it again. Your application may remember a file or folder it was
+given:
+
+[source,roc]
+----
+access.remember_file!(chosen.file)
+----
+
+What is remembered is a record, not authority, and it is kept by the platform,
+not by your application: the place the person chose and what was there. Your
+application sees each entry of its recent list only as a key, a name, and
+whether it can be reopened now. Reopening asks the platform to grant the entry
+again, and the platform first checks that the thing at that place is still the
+thing that was chosen. A file that is missing, one that something else was
+renamed over, or one your application may no longer read is refused with that
+reason, never reopened: a name is not an identity, and the person chose a file,
+not whatever later takes its name.
+
+Remembering takes your `Access`, not only the handle. A library you hand a file
+to can read it, but it cannot keep it for next time; only the application a
+person gave it to can.
+
+A remembered grant is listed in the App access surface as remembered, beside a
+list of everything remembered. Withdrawing a remembered grant forgets it, and
+each remembered entry can be forgotten there directly, with no help from your
+application — which is the point of offering it there.
 
 == Why it is built this way
 

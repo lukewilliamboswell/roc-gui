@@ -87,6 +87,23 @@ architecture chapter records that origin and the reasoning behind it.
 initial state and a pure renderer. `window` is optional. Resource acquisition
 and window-dependent interactions belong in actions.
 
+`on_open: Some(opened!)` is what the application does as its window opens.
+The platform calls `opened!(state)` once, after the first state is shown and
+before any input, exactly as it calls an event handler: it may act, and the
+action it returns is applied. It is how a first screen shows something only an
+effect can learn, such as the files the application remembered, without
+waiting for a person to ask. Its turn is one cycle with the trigger `open`,
+which no element caused. An application without `on_open` has no such turn.
+
+[source,roc]
+----
+main = Gui.run({
+    init: Observatory.init,
+    render: View.render,
+    on_open: Some(|state| Gui.update({ ..state, recent: state.access.recent!() })),
+})
+----
+
 Reusable modules export ordinary render functions such as
 `Workspace.render : Workspace.State -> Gui.Elem(Workspace.State)`. A parent
 composes them through `Gui.translate` or `Gui.translate_with`; no setup-time
@@ -359,6 +376,21 @@ chosen. While keyboard focus is in the strip, Left and Right choose the tab
 before and after the selected one, Home and End the first and last, and Delete
 asks to close the selected tab when it is closable. The strip's colours,
 `font_size`, `font_face`, and `max_tab_width` dress it.
+`Gui.drop_target({ label, types, on_drop, ... }, children)`:: Lay children
+out as `Gui.col` does, in a column that accepts files a person drags from
+outside the application and drops on it. `types` are the kinds of file it
+accepts, written as `access.pick_file!` offers them; an empty list accepts
+every file. A drop is delivered to `on_drop` with a `Gui.EventDrop`,
+`{ files, refused }`: `files` holds each dropped file of an accepted type, in
+the order dropped, each a `{ name, file }` granted to the application exactly
+as a chosen file is, and `refused` names every other item dropped with its
+reason, `NotFile` for a folder or anything that is not an ordinary file,
+`Unsupported` for a file of another type, `AccessDenied`, or `Unavailable`.
+While files it would accept are dragged over it the target shows `drop_bg`
+and `drop_border`; files it would refuse change nothing, so it never invites a
+drop it will not take. A drop behind a modal dialog is not delivered. `label`
+names it as a `drop-target` for specifications, and each drop is one `drop`
+cycle, whatever it held. The section on dropped files says what the grant is.
 
 [source,roc]
 ----
@@ -386,8 +418,8 @@ behind the scrim stop answering input but keep their own enabled or disabled
 appearance; the dialog does not restyle them as disabled. Render at
 most one dialog at a time.
 
-Row, column, panel, dialog, popover, scroll, virtual-list, and button props share
-the native
+Row, column, panel, dialog, popover, drop-target, scroll, virtual-list, and
+button props share the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
 radius, shadow, font size, font weight, per-axis overflow, and the two axis
 placements.
@@ -869,7 +901,8 @@ provisioned development grant never prompts and is not affected by that
 cooldown.
 
 Every root grant records whether its source was trusted chooser selection or
-development provisioning and has session lifetime. Derived child handles carry
+development provisioning, and has session lifetime until the application
+remembers it. Derived child handles carry
 their immediate parent and inherited source. This metadata is host-private; no
 path or grant identity enters captures. `--host-cap-dir` remains development
 and automation provisioning and never represents consent.
@@ -917,7 +950,7 @@ hashes it as `directory.sha256!(name)` hashes a child, and
 `Gui.Sqlite.open_file_read!(file)` opens it in place as a read-only database.
 
 The grant is recorded as a `document` root with `read` and `derive`, with its
-origin and session lifetime, and a database opened from it is derived from it.
+origin and its lifetime, and a database opened from it is derived from it.
 Withdrawing the file withdraws the database, even after the application has
 released the file handle and kept only the connection. `--host-cap-file PATH`
 provisions the file the chooser answers with, and `--host-cap-file-canceled`
@@ -946,6 +979,77 @@ Retain a root-to-current list of directory handles to implement Back and
 clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
+
+== Dropped files
+
+A file a person drags onto the window and drops on a `Gui.drop_target` is
+granted exactly as a file chosen with `access.pick_file!` is: one
+`Gui.FilesFileRead` that reads that file and nothing beside it. The drop is the
+choice, made in a gesture the operating system's drag-and-drop delivers rather
+than the application, so no further question is asked. The host admits each
+dropped item against the target's `types` with the check a chosen file passes
+— an ordinary file, resolved so the handle never follows a link, whose name
+carries an accepted extension — and grants only what passes. Grants are made
+as the target's route asks for them, so a drop that reaches no live route
+grants nothing.
+
+Each granted file is a `document` root whose origin is `drop`, recorded apart
+from a chooser's `trusted-selection` so evidence says which it was, and with
+the same consent-only enforcement. It is listed, withdrawn, and described
+exactly as a chosen file is. The document owner counts drops delivered, files
+they granted, and items they refused, which `expect-drop-counters` asserts; no
+name or path is evidence.
+
+== Recent files and folders
+
+An application may remember a file or folder a person gave it, so a later run
+can reopen it without asking again. `access.remember_file!(file)` and
+`access.remember_directory!(directory)` remember a root the person chose,
+dropped, or was provisioned; a handle derived from another, such as a
+subfolder, names no place a person chose and answers `Err(Unsupported)`, and
+a withdrawn one `Err(Revoked)`. Remembering takes the application's `Access`,
+not only the handle, so a library handed a file can read it but cannot keep
+it. The grant and everything derived from it are then recorded with a
+`remembered` lifetime.
+
+`access.recent!()` lists what was remembered, most recent first, as
+`Gui.FilesRecent` entries `{ key, name, kind, status }`. The host keeps the
+list, outside the application's own storage and outside every capture; the
+application sees an entry's `key`, which stays the same across restarts, its
+`name`, whether it is a `File` or a `Directory`, and whether it can be
+reopened now. No path is ever part of an entry. The list holds at most 128
+entries; remembering an entry again moves it first, and one more than the
+bound forgets the oldest.
+
+The host checks every entry against what is at its place as it lists it, and
+again before it reopens one. `status` is `Available`, or `Unavailable(reason)`
+with a `Gui.FilesUnavailable`: `Missing` when nothing is at its place,
+`Replaced` when something else is — another file renamed over it, or a folder
+where a file was — `AccessDenied` when the application may no longer read it,
+and `Unreadable` for any other failure. A replaced file has the remembered
+name and is still refused, because it is not the file the person chose.
+
+`access.reopen_file!(key)` and `access.reopen_directory!(key)` grant what an
+entry names again, as a new root with its original origin and a `remembered`
+lifetime, or answer why not; an entry that is not in the list is `Forgotten`,
+and one of the other kind is `Unsupported`. `access.forget_recent!(key)`
+removes an entry; the grants it produced this session are not withdrawn.
+Withdrawing a remembered grant in the trusted App access surface forgets its
+entry too, and the surface lists every remembered entry with a control that
+forgets it, so a person can forget without the application's help.
+
+Listing checks each entry, so it is bounded work rather than free: an
+application reads it where blocking briefly is acceptable, such as its
+`on_open`, or in a task. The recent-list owner counts grants remembered,
+entries reopened, reopens and remembers refused, entries forgotten, and the
+entries it holds, which `expect-recent-counters` asserts.
+
+An interactive run keeps the list in the user's state folder, beneath
+`roc-gui` and the application's name. `--host-recent PATH`,
+`--host-recent-each DIR EXT`, and `--host-recent-copied NAME` provision a list for
+the run instead, most recent first, recorded as provisioned; a provisioned
+list is never written back. A specification or smoke run without them starts
+with an empty list of its own.
 
 == Watching granted files
 

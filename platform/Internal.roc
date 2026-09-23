@@ -1,6 +1,8 @@
 import Host
 import Action
 import Elem
+import Event
+import Files
 import Key
 import KeyedSeq
 import Style
@@ -280,6 +282,33 @@ Internal := [].{
 		Host.node_split!({ builder, label: props.label, axis, side, size: props.size, min: props.min, max: props.max, collapsible: props.collapsible, collapsed: props.collapsed, thickness: props.thickness, keys, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 	}
 
+	finish_drop_target! = |builder, props| {
+		style = style_args(props.style)
+		types = props.types.map(|offered| { label: offered.label, extensions: offered.extensions, mime_types: offered.mime_types })
+		Host.node_drop_target!({ builder, label: props.label, types, drop_bg: color(props.drop_bg), drop_border: color(props.drop_border), gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+	}
+
+	## The files a drop delivers, as the application receives them: each
+	## granted file wrapped as the typed handle it is, and each refused item
+	## with its reason.
+	drop_event! : {} => Event.Drop
+	drop_event! = |{}| {
+		event = Host.drop_event!()
+		files = event.files.map(|dropped| { name: dropped.name, file: Files.File.Read.from_resource(dropped.file) })
+		refused = event.refused.map(
+			|item| {
+				reason = match item.reason {
+					0 => AccessDenied
+					1 => NotFile
+					3 => Unsupported
+					_ => Unavailable
+				}
+				{ name: item.name, reason }
+			},
+		)
+		{ files, refused }
+	}
+
 	finish_panel! = |builder, props| {
 		style = style_args(props.style)
 		Host.node_panel!({ builder, label: props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
@@ -430,6 +459,7 @@ Internal := [].{
 		CloseDialog(U64, Elem.DialogNode(a)),
 		ClosePopover(U64, Elem.PopoverNode(a)),
 		CloseSplit(U64, Elem.SplitNode(a)),
+		CloseDropTarget(U64, Elem.DropTargetNode(a)),
 		ClosePanel(U64, Elem.PanelNode),
 		CloseScroll(Elem.ScrollNode(a)),
 		CloseList(U64, Elem.VirtualListNode(a), U64),
@@ -510,6 +540,11 @@ Internal := [].{
 							Host.scope_enter!(9, value.props.label, child_position)
 							builder = Host.children_begin!()
 							$work = queue_children($work.push(CloseSplit(builder, value.props)), value.children, builder)
+						}
+						DropTarget(value) => {
+							Host.scope_enter!(10, value.props.label, child_position)
+							builder = Host.children_begin!()
+							$work = queue_children($work.push(CloseDropTarget(builder, value.props)), value.children, builder)
 						}
 						Panel(value) => {
 							Host.scope_enter!(3, value.props.label, child_position)
@@ -721,6 +756,18 @@ Internal := [].{
 						$routes = Index.set($routes, key_route.id, key_route)
 						$boundaries = record_route($boundaries, $active_boundary, key_route.id)
 					}
+					Host.scope_exit!()
+				}
+				CloseDropTarget(builder, props) => {
+					$root = finish_drop_target!(builder, props)
+					route = {
+						id: $root,
+						boundary: $active_boundary,
+						revision: (Box.unbox($boundaries.active)).revision,
+						fire: |current, _| (props.on_drop)(current, drop_event!({})),
+					}
+					$routes = Index.set($routes, route.id, route)
+					$boundaries = record_route($boundaries, $active_boundary, route.id)
 					Host.scope_exit!()
 				}
 				CloseScroll(props) => {
@@ -1841,9 +1888,17 @@ Internal := [].{
 		Host.set_dispatch!(Box.box(dispatch!))
 	}
 
-	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Style.Color, foreground : Style.Color } => {}
-	start! = |initial, render, window| {
-		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
+	## The event the host sends once, as the window opens. No node has id 0.
+	open_route : U64
+	open_route = 0
+
+	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Style.Color, foreground : Style.Color }, [None, Some((a => Action(a)))] => {}
+	start! = |initial, render, window, on_open| {
+		opens = match on_open {
+			None => False
+			Some(_) => True
+		}
+		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground), opens)
 		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty, keyed: None }
 		Host.begin_render!(0)
 		run_work!(
@@ -1855,7 +1910,14 @@ Internal := [].{
 				|lowered| Work.flush(
 					|| {
 						Host.apply!(Mount({ root: lowered.root }))
-						install!(initial, render, lowered.routes, lowered.boundaries)
+						# The opening action answers the one event the host sends
+						# once the first state is shown, as the root's own route
+						# at its first revision: it can never be sent again.
+						routes = match on_open {
+							None => lowered.routes
+							Some(handler) => Index.set(lowered.routes, open_route, { id: open_route, boundary: 0, revision: revision(lowered.boundaries, 0), fire: |current, _| handler(current) })
+						}
+						install!(initial, render, routes, lowered.boundaries)
 						Work.done
 					},
 				),

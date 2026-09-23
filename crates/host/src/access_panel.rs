@@ -16,7 +16,7 @@
 
 use gpui::{
     Context, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
-    div, px, rgb,
+    div, prelude::FluentBuilder, px, rgb,
 };
 
 use crate::grant;
@@ -72,6 +72,7 @@ struct Row {
     kind: grant::Kind,
     id: u64,
     origin: grant::Origin,
+    remembered: bool,
     description: String,
     revoked: bool,
     is_root: bool,
@@ -84,6 +85,7 @@ fn rows(entries: Vec<grant::Grant>) -> Vec<Row> {
             kind: entry.kind(),
             id: entry.number(),
             origin: entry.origin(),
+            remembered: entry.lifetime() == grant::Lifetime::Remembered,
             description: entry.describe(),
             revoked: entry.is_revoked(),
             is_root: entry.is_root(),
@@ -126,6 +128,10 @@ fn arrival(origin: grant::Origin) -> &'static str {
         grant::Origin::TrustedSelection(grant::Enforcement::ConsentOnly) => {
             "you chose it — this build cannot enforce the limit"
         }
+        grant::Origin::Dropped(grant::Enforcement::Brokered) => "you dropped it here",
+        grant::Origin::Dropped(grant::Enforcement::ConsentOnly) => {
+            "you dropped it here — this build cannot enforce the limit"
+        }
         grant::Origin::Provisioned => "provided by a command-line flag",
         grant::Origin::Automatic => "provided automatically; it holds nothing of yours",
     }
@@ -142,6 +148,8 @@ pub fn render(
     let count = listed.len();
     let empty = listed.is_empty();
     let entity = runtime_entity.clone();
+    let remembered = crate::recents::entries_for_access();
+    let forget_entity = runtime_entity.clone();
     let _ = cx;
 
     div()
@@ -199,7 +207,14 @@ pub fn render(
                                     div()
                                         .text_sm()
                                         .text_color(rgb(QUIET))
-                                        .child(arrival(row.origin).to_owned()),
+                                        .child(if row.remembered {
+                                            format!(
+                                                "{} · remembered for later runs",
+                                                arrival(row.origin)
+                                            )
+                                        } else {
+                                            arrival(row.origin).to_owned()
+                                        }),
                                 )
                                 // The exact grant, in the same words the
                                 // evidence uses, under the sentence a person
@@ -248,6 +263,49 @@ pub fn render(
                                 .child("with its parent")
                                 .into_any_element()
                         })
+                }))
+                // What the application may reopen in a later run without
+                // asking. Forgetting here needs nothing from the application,
+                // which is the point of offering it here.
+                .when(!remembered.is_empty(), |panel| {
+                    panel
+                        .child(div().pt(px(8.0)).child("Remembered"))
+                        .child(div().text_sm().text_color(rgb(QUIET)).child(
+                            "The application may reopen these in later runs without asking.",
+                        ))
+                })
+                .children(remembered.into_iter().map(move |(key, name, kind)| {
+                    let entity = forget_entity.clone();
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(12.0))
+                        .py(px(6.0))
+                        .border_b_1()
+                        .border_color(rgb(EDGE))
+                        .child(div().flex_grow(1.0).child(format!(
+                            "{} {name}",
+                            match kind {
+                                crate::recents::EntryKind::File => "A document:",
+                                crate::recents::EntryKind::Directory => "A folder:",
+                            }
+                        )))
+                        .child(
+                            div()
+                                .id(("remembered", key))
+                                .px(px(12.0))
+                                .py(px(4.0))
+                                .rounded(px(6.0))
+                                .border_1()
+                                .border_color(rgb(ALARM))
+                                .text_sm()
+                                .text_color(rgb(ALARM))
+                                .child("Forget")
+                                .on_click(move |_, _, cx| {
+                                    crate::recents::forget(key);
+                                    entity.update(cx, |_, cx| cx.notify());
+                                }),
+                        )
                 }))
                 .child(
                     div()

@@ -69,9 +69,19 @@ the change lands; do not soften the docs to match the gap.
   becomes `Brokered` with no change to the Roc API.
 
   Open Document's single-file read grant (`pick_file!`, recorded as a
-  `document` root) shares the same `ConsentOnly` enforcement. Add persistent
-  grants, edit grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
+  `document` root) shares the same `ConsentOnly` enforcement, as does a dropped
+  file (origin `drop`): the host takes the path GPUI's drag-and-drop reports and
+  opens it with the process's own authority. A remembered grant is reopened the
+  same way, after the recent list compares the file's identity (device and
+  inode) with the one remembered; a file swapped in between that check and the
+  open is reached by name, not by the identity checked. Brokered reopening needs
+  a descriptor or a document-portal identity kept by the broker. Add edit
+  grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
   cancellation and retry semantics.
+
+  Drag-and-drop is exercised through GPUI's own file-drop events on Linux
+  Wayland, from a specification; certify a person dragging from a file manager
+  on Wayland and macOS, including a drag that leaves the window and returns.
 
 - [ ] **Portal parenting and protected consent need external certification.**
   GPUI does not expose an xdg-foreign Wayland surface handle to this host,
@@ -492,13 +502,20 @@ ideal and the repository. P- and E-numbers refer to that document.
   produces such a cycle (a rejected turn, or a callback whose span stack does
   not close) should become a fixture.
 
-- [ ] **Files cannot be dropped or reopened from a recent list (P9).**
-  `access.pick_file!(types)` grants one type-checked file, and Observatory opens
-  a capture with it. Still missing, as one trusted file workflow (see "Trusted
-  file workflows remain incomplete"): dropping files onto the window as a
-  trusted grant (US-4), and recent documents backed by remembered grants, which
-  need a persistent `Lifetime` in `grant.rs` (US-3). Both were left out as each
-  is its own host surface.
+- [ ] **A recent capture is listed without its summary (US-3, W0).** The start
+  page lists each remembered capture and folder with whether it can be
+  reopened and why not, from the host's check of what is at its place. W0 also
+  shows each capture's application, specification, backend, and verdict, and a
+  capture of an unsupported schema as unavailable with that reason. That needs
+  each entry reopened and its metadata read, which `on_open` must not do for
+  128 entries on the window thread: read the summaries in a task after the
+  list is shown, as the folder list is read.
+
+- [ ] **A folder cannot be dropped (US-4).** A dropped folder is refused as
+  `NotFile`. W0's "drop .rgstats files anywhere" covers files; dropping a
+  benchmark output folder to list it is the folder counterpart, and needs a
+  drop target that declares it accepts folders and an event that grants a
+  `Gui.FilesDirRead`.
 
 - [ ] **No application reads a chosen file's bytes.** `Files.File.Read.read!`
   shares its bounded, no-follow read with `Dir.Read.read!` and is covered by
@@ -695,7 +712,7 @@ ideal and the repository. P- and E-numbers refer to that document.
   counts those rows among `visible_items` but has no column saying how many of
   them were blank, so a capture cannot show how often a fast scroll outran the
   list. Add an owner-populated column at the next schema version, together with
-  the Observatory and `analyze_stats.py`, which gate on schema 24.
+  the Observatory and `analyze_stats.py`, which gate on schema 25.
 
 - [ ] **Window benchmark warmup and sample orchestration.** Real-window
   hover-grid runs can record schema-14 captures containing native frames and

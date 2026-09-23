@@ -1,5 +1,6 @@
 import Action
 import Event
+import Files
 import Host
 import Key
 import KeyedSeq
@@ -27,6 +28,7 @@ Elem(a) :: [
 	VirtualList(VirtualListNode(a)),
 	TextInput(TextInputNode(a)),
 	Split({ children : List(Elem(a)), props : SplitNode(a) }),
+	DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 	StyledText(TextNode),
 	Text(Str),
 ].{
@@ -258,6 +260,20 @@ Elem(a) :: [
 	## One tab of a tab strip: the key its events carry, the caption it shows,
 	## which also names it, and whether it offers a close button.
 	TabItem : { key : Str, title : Str, closable : Bool }
+
+	## Platform representation of a drop target: a column whose children are
+	## laid out as `col` lays them out, which accepts files dropped on it. It
+	## carries the file types it accepts, the colours it shows while files it
+	## would accept are dragged over it, and the handler a drop is delivered
+	## to.
+	DropTargetNode(a) := {
+		label : Str,
+		types : List(Files.FileType),
+		on_drop : (a, Event.Drop => Action(a)),
+		drop_bg : Style.Color,
+		drop_border : Style.Color,
+		style : Style,
+	}
 
 	## Platform representation of a single-line text editor.
 	TextInputNode(a) := {
@@ -715,6 +731,60 @@ Elem(a) :: [
 		accent : Style.Color ?? Rgb(0x5fb3a1),
 		border_color : Style.Color ?? Rgb(0x2a3a40),
 		focus_color : Style.Color ?? Default,
+	}
+
+	## Properties for `drop_target`. `label` names the target, its locator as a
+	## drop target. `types` are the kinds of file it accepts, as `pick_file!`
+	## offers them; an empty list accepts every file. `on_drop` receives the
+	## files a person drops on it, each granted to the application as a
+	## read-only file, and names everything else that was dropped. While files
+	## it would accept are dragged over it, its ground becomes `drop_bg` and
+	## its border `drop_border`. The remaining fields lay it out as `col` does.
+	DropTargetProps(a) := {
+		label : Str,
+		types : List(Files.FileType),
+		on_drop : (a, Event.Drop => Action(a)),
+		drop_bg : Style.Color ?? Rgb(0x1b2a30),
+		drop_border : Style.Color ?? Rgb(0x5fb3a1),
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
+		border_width : U32 ?? 0,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Style.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
 	}
 
 	## Properties for `action_button`. `caption` is visible text and `label` is
@@ -1347,6 +1417,7 @@ Elem(a) :: [
 		VirtualList(value) => VirtualList({ ..value, style: change(value.style) })
 		TextInput(value) => TextInput({ ..value, style: change(value.style) })
 		Split(value) => Split({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		DropTarget(value) => DropTarget({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Component(bound) => through_boundary(bound, |rendered| with_style(rendered, change))
 	}
 
@@ -1384,6 +1455,7 @@ Elem(a) :: [
 		VirtualList(value) => VirtualList({ ..value, label: name })
 		TextInput(value) => TextInput({ ..value, label: name })
 		Split(value) => Split({ ..value, props: { ..value.props, label: name } })
+		DropTarget(value) => DropTarget({ ..value, props: { ..value.props, label: name } })
 		Component(bound) => through_boundary(bound, |rendered| label(rendered, name))
 		_ => elem
 	}
@@ -1961,6 +2033,21 @@ Elem(a) :: [
 		props: { label: props.label, heading: props.heading, heading_size: props.heading_size, heading_weight: props.heading_weight, heading_color: props.heading_color, style: style_of(props) },
 	})
 
+	## Lay children out in a column that accepts files a person drops on it.
+	## Each dropped file of an accepted type is granted to the application as
+	## a read-only file and delivered to `on_drop`, with every other item
+	## dropped named and refused. The target shows `drop_bg` and
+	## `drop_border` while files it would accept are dragged over it.
+	drop_target : DropTargetProps(a), List(Elem(a)) -> Elem(a)
+	drop_target = |props, children| if props.label == "" {
+		crash "Gui drop_target label must not be empty"
+	} else {
+		DropTarget({
+			children,
+			props: { label: props.label, types: props.types, on_drop: props.on_drop, drop_bg: props.drop_bg, drop_border: props.drop_border, style: style_of(props) },
+		})
+	}
+
 	## Constrain `content` to the available space and allow scrolling.
 	scroll : ScrollProps(a) -> Elem(a)
 	scroll = |props| Scroll({ axis: props.axis, content: props.content, label: props.label, style: style_of(props) })
@@ -2048,6 +2135,7 @@ Elem(a) :: [
 		Dialog(value) => { shell: Dialog({ ..value, children: [] }), children: value.children }
 		Popover(value) => { shell: Popover({ ..value, children: [] }), children: value.children }
 		Split(value) => { shell: Split({ ..value, children: [] }), children: value.children }
+		DropTarget(value) => { shell: DropTarget({ ..value, children: [] }), children: value.children }
 		Panel(value) => { shell: Panel({ ..value, children: [] }), children: value.children }
 		Scroll(value) => { shell: Scroll({ ..value, content: Text("") }), children: [value.content] }
 		VirtualList(value) => {
@@ -2064,6 +2152,7 @@ Elem(a) :: [
 		Dialog(value) => Dialog({ ..value, children })
 		Popover(value) => Popover({ ..value, children })
 		Split(value) => Split({ ..value, children })
+		DropTarget(value) => DropTarget({ ..value, children })
 		Panel(value) => Panel({ ..value, children })
 		Scroll(value) => Scroll({ ..value, content: children.first() ?? crash "missing lifted scroll content" })
 		VirtualList(value) => {
@@ -2161,6 +2250,11 @@ Elem(a) :: [
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
 			keys = value.props.keys.map(|binding| { keys: binding.keys, on_press: |parent, event| adapt_event(binding.on_press, parent, event, project, adapt_action) })
 			Split({ children: [], props: { label: value.props.label, axis: value.props.axis, side: value.props.side, size: value.props.size, min: value.props.min, max: value.props.max, collapsible: value.props.collapsible, collapsed: value.props.collapsed, thickness: value.props.thickness, on_resize: parent_handler!, keys, style: value.props.style } })
+		}
+		DropTarget(value) => {
+			child_handler = value.props.on_drop
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
+			DropTarget({ children: [], props: { label: value.props.label, types: value.props.types, on_drop: parent_handler!, drop_bg: value.props.drop_bg, drop_border: value.props.drop_border, style: value.props.style } })
 		}
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
@@ -2297,6 +2391,7 @@ Elem(a) :: [
 		VirtualList(VirtualListNode(a)),
 		TextInput(TextInputNode(a)),
 		Split({ children : List(Elem(a)), props : SplitNode(a) }),
+		DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 		StyledText(TextNode),
 		Text(Str),
 	]
@@ -2317,6 +2412,7 @@ Elem(a) :: [
 		VirtualList(list_value) => VirtualList(list_value)
 		TextInput(input_value) => TextInput(input_value)
 		Split(split_value) => Split(split_value)
+		DropTarget(drop_value) => DropTarget(drop_value)
 		StyledText(styled_value) => StyledText(styled_value)
 		Text(text_value) => Text(text_value)
 	}

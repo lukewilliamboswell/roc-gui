@@ -51,6 +51,16 @@ InternalFiles := [].{
 	file_read! : Resource.FileRead => Try(List(U8), FileErr)
 	file_sha256! : Resource.FileRead => Try(Str, FileErr)
 
+	## One remembered file or folder, spelled as the host exchanges it.
+	## `status` is 0 when it can be reopened, otherwise the code of the reason
+	## it cannot, as `Files.decode_unavailable` reads it.
+	recent! : () => List({ key : U64, name : Str, directory : Bool, status : U8 })
+	reopen_file! : U64 => Try({ name : Str, file : Resource.FileRead }, { code : U8 })
+	reopen_directory! : U64 => Try({ name : Str, directory : Resource.DirRead }, { code : U8 })
+	forget_recent! : U64 => Bool
+	remember_file! : Resource.FileRead => U8
+	remember_directory! : Resource.DirRead => U8
+
 	app_data! : () => Try(Resource.DirReadWrite, { code : U8, message : Str })
 	read_utf8! : Resource.DirReadWrite, Str => Try({ found : Bool, value : Str }, { code : U8, message : Str })
 	write_utf8_atomic! : Resource.DirReadWrite, Str, Str => Try({}, { code : U8, message : Str })

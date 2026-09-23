@@ -73,6 +73,25 @@ pub enum Grant {
     /// `reduced-motion`. It is not authority, only what the desktop reports;
     /// a case without it sees a light scheme with full motion.
     Theme(crate::appearance::Settings),
+    /// The application's recent list, provisioned for the run in place of the
+    /// person's own: `(recents ITEM...)`, the first most recent. Each item is
+    /// a file or folder relative to the application directory, `(each "DIR")`
+    /// for every file directly in a folder by name, or `(copied "NAME")` for
+    /// a child of the `(directory copy ...)` grant, which a later step may
+    /// replace or remove.
+    Recents(Vec<RecentSeed>),
+}
+
+/// One provisioned entry of the recent list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RecentSeed {
+    /// A file or folder relative to the application directory.
+    Path(String),
+    /// Every ordinary file directly in a folder relative to the application
+    /// directory, in name order, or only those with one extension.
+    Each(String, Option<String>),
+    /// A direct child of the privately copied directory grant.
+    Copied(String),
 }
 
 impl Grant {
@@ -92,6 +111,7 @@ impl Grant {
             Self::Device(_) => "device",
             Self::SystemMonitor(_) => "system-monitor",
             Self::Theme(_) => "theme",
+            Self::Recents(_) => "recents",
         }
     }
 
@@ -260,6 +280,21 @@ pub enum Command {
         name: String,
         source: String,
     },
+    /// Remove one direct child of the privately copied directory grant, as a
+    /// person deleting a file does.
+    RemoveFile(String),
+    /// Drop files, named relative to the application directory, on a drop
+    /// target: through GPUI's own file-drop path in a window, and through the
+    /// same admission and route the window's drop handler calls otherwise.
+    Drop(Locator, Vec<String>),
+    /// Drag files over a drop target and hold them there without dropping,
+    /// so the window shows how the target answers them.
+    DragFiles(Locator, Vec<String>),
+    /// Drops delivered, files they granted, and items they refused.
+    ExpectDropCounters([u64; 3]),
+    /// Grants remembered, entries reopened, reopens and remembers refused,
+    /// entries forgotten, and the entries the recent list holds.
+    ExpectRecentCounters([u64; 5]),
     /// Watches started, changes delivered, watches cancelled, and watches
     /// ended by revocation, then the watches held; `_` leaves one unconstrained.
     ExpectWatchCounters([Option<u64>; 5]),
@@ -491,6 +526,11 @@ impl Command {
             Self::ExpectFileAccess(_) => "expect-file-access",
             Self::RevokeFileGrants => "revoke-file-grants",
             Self::ReplaceFile { .. } => "replace-file",
+            Self::RemoveFile(_) => "remove-file",
+            Self::Drop(..) => "drop",
+            Self::DragFiles(..) => "drag-files",
+            Self::ExpectDropCounters(_) => "expect-drop-counters",
+            Self::ExpectRecentCounters(_) => "expect-recent-counters",
             Self::ExpectWatchCounters(_) => "expect-watch-counters",
             Self::ExpectTaskCounters(_) => "expect-task-counters",
             Self::ExpectDocumentCounters(_) => "expect-document-counters",
@@ -551,6 +591,8 @@ impl Command {
             | Self::Screenshot(_)
             | Self::Type(_)
             | Self::Resize { .. }
+            // Feedback for files held over a target is something drawn.
+            | Self::DragFiles(..)
             // Scrolling is a fact about a viewport and a content size, neither
             // of which the semantic runner has: without layout there is no
             // fold for content to be below.
@@ -568,6 +610,10 @@ impl Command {
             // Both runners measure a drag from the press through one shared
             // rule; a window run presses, moves, and releases its own pointer.
             | Self::Drag(..)
+            // A window run drops through GPUI's own file-drop events; a
+            // semantic run admits the same paths and takes the same route the
+            // window's drop handler calls.
+            | Self::Drop(..)
             | Self::Focus(_)
             | Self::PressKey(_)
             // A semantic run resolves the chord's shortcut through the graph
@@ -616,6 +662,9 @@ impl Command {
             // the one registry; what the application then sees is its next read.
             | Self::RevokeFileGrants
             | Self::ReplaceFile { .. }
+            | Self::RemoveFile(_)
+            | Self::ExpectDropCounters(_)
+            | Self::ExpectRecentCounters(_)
             | Self::ExpectWatchCounters(_)
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
@@ -676,6 +725,9 @@ impl Command {
                 | Self::Submit(_)
                 | Self::RevokeFileGrants
                 | Self::ReplaceFile { .. }
+                | Self::RemoveFile(_)
+                | Self::Drop(..)
+                | Self::DragFiles(..)
                 | Self::Scroll { .. }
         )
     }
@@ -716,6 +768,8 @@ pub enum Locator {
     SeparatorName(String),
     /// One tab of a tab strip, by its title.
     TabName(String),
+    /// A drop target, by its label.
+    DropTargetName(String),
 }
 
 impl Locator {
@@ -747,6 +801,7 @@ impl fmt::Display for Locator {
             Self::TooltipName(value) => ("(role tooltip :name", value),
             Self::SeparatorName(value) => ("(role separator :name", value),
             Self::TabName(value) => ("(role tab :name", value),
+            Self::DropTargetName(value) => ("(role drop-target :name", value),
             Self::Shortcut(value) => ("(shortcut", value),
             Self::PanelName(value) => ("(role panel :name", value),
             Self::RowName(value) => ("(role row :name", value),
@@ -911,17 +966,32 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
     }
     let grants = grants.unwrap_or_default();
     // A step that changes files is only ever given a private copy to change.
-    if let Some(step) = steps
+    let copied = grants
         .iter()
-        .find(|step| matches!(step.command, Command::ReplaceFile { .. }))
-        && !grants
-            .iter()
-            .any(|grant| matches!(grant, Grant::DirectoryCopy(_)))
+        .any(|grant| matches!(grant, Grant::DirectoryCopy(_)));
+    if let Some(step) = steps.iter().find(|step| {
+        matches!(
+            step.command,
+            Command::ReplaceFile { .. } | Command::RemoveFile(_)
+        )
+    }) && !copied
     {
         return Err(ParseError {
             line: step.line,
-            message: "replace-file requires a (directory copy \"PATH\") grant".into(),
+            message: format!(
+                "{} requires a (directory copy \"PATH\") grant",
+                step.command.kind()
+            ),
         });
+    }
+    if grants.iter().any(|grant| {
+        matches!(grant, Grant::Recents(seeds) if seeds.iter().any(|seed| matches!(seed, RecentSeed::Copied(_))))
+    }) && !copied
+    {
+        return Err(error(
+            root,
+            "a (copied \"NAME\") recent requires a (directory copy \"PATH\") grant",
+        ));
     }
     Ok(Spec {
         name,
@@ -1036,16 +1106,49 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
             )),
         },
         ("theme", 2 | 3) => Ok(Grant::Theme(parse_theme(node, &list[1..])?)),
+        ("recents", count) if count >= 2 => {
+            let mut seeds = Vec::new();
+            for item in &list[1..] {
+                seeds.push(match item.list() {
+                    None => RecentSeed::Path(grant_path(item, "recents")?),
+                    Some([head, path]) if head.atom() == Some("each") => {
+                        RecentSeed::Each(grant_path(path, "recents")?, None)
+                    }
+                    Some([head, path, extension]) if head.atom() == Some("each") => {
+                        let extension = grant_string(extension, "recents")?;
+                        if !crate::files::valid_name(&extension) || extension.contains('.') {
+                            return Err(error(item, "an extension is one name, without a dot"));
+                        }
+                        RecentSeed::Each(grant_path(path, "recents")?, Some(extension))
+                    }
+                    Some([head, name]) if head.atom() == Some("copied") => {
+                        let name = grant_string(name, "recents")?;
+                        if !crate::files::valid_name(&name) {
+                            return Err(error(item, "a copied recent names one direct child"));
+                        }
+                        RecentSeed::Copied(name)
+                    }
+                    Some(_) => {
+                        return Err(error(
+                            item,
+                            "a recent is a path, (each \"DIR\" [\"EXT\"]), or (copied \"NAME\")",
+                        ));
+                    }
+                });
+            }
+            Ok(Grant::Recents(seeds))
+        }
         (
             "directory" | "app-data" | "assets" | "clipboard" | "audio" | "http-origin" | "tcp"
-            | "server" | "process" | "device" | "system-monitor" | "theme",
+            | "server" | "process" | "device" | "system-monitor" | "theme" | "recents",
             _,
         ) => Err(error(node, format!("malformed {name} grant"))),
         _ => Err(error(
             node,
             format!(
                 "unsupported grant {name}; supported grants are app-data, audio, clipboard, \
-                 device, directory, http-origin, process, server, system-monitor, tcp, and theme"
+                 device, directory, file, http-origin, process, recents, server, system-monitor, \
+                 tcp, and theme"
             ),
         )),
     }
@@ -1843,6 +1946,39 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 source: source.to_owned(),
             }
         }
+        "remove-file" if values.len() == 2 => {
+            let name = values[1]
+                .string()
+                .filter(|name| crate::files::valid_name(name))
+                .ok_or_else(|| error(&values[1], "remove-file names one direct child"))?;
+            Command::RemoveFile(name.to_owned())
+        }
+        "drop" | "drag-files" if values.len() >= 3 => {
+            let locator = parse_locator(&values[1])?;
+            let paths = values[2..]
+                .iter()
+                .map(|value| grant_path(value, head))
+                .collect::<Result<Vec<_>, _>>()?;
+            if head == "drop" {
+                Command::Drop(locator, paths)
+            } else {
+                Command::DragFiles(locator, paths)
+            }
+        }
+        "expect-drop-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-drop-counters")? as u64;
+            }
+            Command::ExpectDropCounters(expected)
+        }
+        "expect-recent-counters" if values.len() == 6 => {
+            let mut expected = [0u64; 5];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-recent-counters")? as u64;
+            }
+            Command::ExpectRecentCounters(expected)
+        }
         "expect-watch-counters" if values.len() == 6 => {
             let mut expected = [None; 5];
             for (index, value) in values[1..].iter().enumerate() {
@@ -2141,6 +2277,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-lifecycle-counters"
         | "expect-file-access"
         | "revoke-file-grants"
+        | "replace-file"
+        | "remove-file"
+        | "drop"
+        | "drag-files"
+        | "expect-drop-counters"
+        | "expect-recent-counters"
         | "expect-document-counters"
         | "expect-task-counters"
         | "expect-image-owner-counters"
@@ -2289,6 +2431,16 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .string()
                 .map(|value| Locator::SeparatorName(value.to_owned()))
                 .ok_or_else(|| error(node, "separator name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("drop-target")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::DropTargetName(value.to_owned()))
+                .ok_or_else(|| error(node, "drop target name must be a string"))
         }
         Some("role")
             if values.len() == 4
@@ -2638,6 +2790,67 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+
+    #[test]
+    fn drops_and_recent_lists_are_spoken_by_both_runners() {
+        let parsed = parse(
+            r#"(test "drop" (grants
+              (directory copy "fixture")
+              (recents "fixture/a.rgstats" (each "fixture") (each "fixture" "rgstats") (copied "b.rgstats")))
+            (steps
+              (drop (role drop-target :name "Window") "fixture/a.rgstats" "fixture/b.rgstats")
+              (drag-files (role drop-target :name "Window") "fixture/a.rgstats")
+              (remove-file "b.rgstats")
+              (expect-drop-counters 1 2 0)
+              (expect-recent-counters 1 0 0 0 3)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            parsed.grants[1],
+            Grant::Recents(vec![
+                RecentSeed::Path("fixture/a.rgstats".into()),
+                RecentSeed::Each("fixture".into(), None),
+                RecentSeed::Each("fixture".into(), Some("rgstats".into())),
+                RecentSeed::Copied("b.rgstats".into()),
+            ])
+        );
+        assert_eq!(
+            parsed.steps[0].command,
+            Command::Drop(
+                Locator::DropTargetName("Window".into()),
+                vec!["fixture/a.rgstats".into(), "fixture/b.rgstats".into()]
+            )
+        );
+        let capabilities: Vec<Capability> = parsed
+            .steps
+            .iter()
+            .map(|step| step.command.capability())
+            .collect();
+        assert_eq!(
+            capabilities,
+            vec![
+                Capability::Both,
+                Capability::Window,
+                Capability::Both,
+                Capability::Both,
+                Capability::Both
+            ]
+        );
+        for bad in [
+            // a dropped path stays inside the application
+            r#"(test "t" (steps (drop (role drop-target :name "W") "../x.rgstats")))"#,
+            r#"(test "t" (steps (drop (role drop-target :name "W"))))"#,
+            // changing files is for a private copy only
+            r#"(test "t" (steps (remove-file "a.rgstats")))"#,
+            r#"(test "t" (grants (recents (copied "a.rgstats"))) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (grants (recents)) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (grants (recents (twice "a"))) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (grants (recents (each "a" ".x"))) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (steps (expect-drop-counters 1 2)))"#,
+        ] {
+            assert!(parse(bad).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn native_work_limits_are_window_only_and_strictly_parsed() {

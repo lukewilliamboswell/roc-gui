@@ -7,7 +7,7 @@ WITH metrics(metric,name) AS (
            (4,'image'),(5,'column'),(6,'dialog'),(7,'panel'),(8,'row'),
            (9,'scroll'),(10,'virtual_item'),(11,'virtual_list'),
            (12,'text_input'),(13,'text'),(14,'styled_text'),(15,'boundary'),
-           (16,'keyed_container'),(17,'popover'),(18,'split_divider')
+           (16,'keyed_container'),(17,'popover'),(18,'split_divider'),(19,'drop_target')
 ), source AS (
     SELECT coalesce(max(status),'unavailable') AS status,
            coalesce(max(reason),'native work observation status is absent') AS reason

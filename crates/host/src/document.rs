@@ -31,10 +31,12 @@ const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 /// It lists nothing, because it has no children to list.
 const DOCUMENT_RIGHTS: Rights = Rights::READ.union(Rights::DERIVE);
 
-/// The chosen file, held as the folder it lies in and its one name there.
+/// The chosen file, held as the folder it lies in and its one name there,
+/// and the resolved place it was chosen at, which only the recent list reads.
 pub(crate) struct Chosen {
     pub(crate) dir: Dir,
     pub(crate) name: String,
+    pub(crate) path: PathBuf,
 }
 
 struct Store {
@@ -47,6 +49,7 @@ struct Store {
     in_flight: bool,
     refusal_until: Option<Instant>,
     counters: [u64; 5],
+    drops: [u64; 3],
 }
 
 /// Indices into the counters, which are reported in this order.
@@ -70,6 +73,7 @@ fn store() -> &'static Mutex<Store> {
             in_flight: false,
             refusal_until: None,
             counters: [0; 5],
+            drops: [0; 3],
         })
     })
 }
@@ -98,7 +102,11 @@ fn locate(path: &Path) -> std::io::Result<Chosen> {
         .parent()
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "no parent"))?;
     let dir = Dir::open_ambient_dir(parent, ambient_authority())?;
-    Ok(Chosen { dir, name })
+    Ok(Chosen {
+        dir,
+        name,
+        path: resolved.clone(),
+    })
 }
 
 pub fn configure(
@@ -122,6 +130,7 @@ pub fn configure(
         store.in_flight = false;
         store.refusal_until = None;
         store.counters = [0; 5];
+        store.drops = [0; 3];
     });
     grant::forget_kind(grant::Kind::Document);
     Ok(())
@@ -132,6 +141,12 @@ pub fn configure(
 /// error the application received.
 pub fn counters() -> [u64; 5] {
     with(|store| store.counters)
+}
+
+/// Drops delivered, files they granted, and items they refused, in that
+/// order.
+pub fn drop_counters() -> [u64; 3] {
+    with(|store| store.drops)
 }
 
 /// Live document handles the application is holding.
@@ -156,7 +171,7 @@ fn count(index: usize) {
     with(|store| store.counters[index] = store.counters[index].saturating_add(1));
 }
 
-fn capability(file: Arc<Chosen>, origin: Origin) -> *mut u64 {
+fn capability(file: Arc<Chosen>, origin: Origin, lifetime: Lifetime) -> (*mut u64, u64) {
     let mut guard = store().lock().expect("document store poisoned");
     let id = guard.next;
     guard.next = guard
@@ -173,6 +188,7 @@ fn capability(file: Arc<Chosen>, origin: Origin) -> *mut u64 {
     };
     unsafe { handle.write(id) };
     let base = unsafe { (handle as *mut u8).sub(core::mem::size_of::<isize>()) };
+    let path = file.path.clone();
     guard.files.insert(id, file);
     crate::register_resource_allocation(
         crate::resource_domain::DOCUMENT,
@@ -181,14 +197,13 @@ fn capability(file: Arc<Chosen>, origin: Origin) -> *mut u64 {
         id,
     );
     drop(guard);
-    grant::record_root(
-        grant::Kind::Document,
-        id,
-        DOCUMENT_RIGHTS,
-        origin,
-        Lifetime::Session,
+    grant::record_root(grant::Kind::Document, id, DOCUMENT_RIGHTS, origin, lifetime);
+    crate::recents::note_source(
+        grant::GrantId::new(grant::Kind::Document, id),
+        crate::recents::EntryKind::File,
+        &path,
     );
-    handle
+    (handle, id)
 }
 
 pub fn route_dealloc(base: *mut std::ffi::c_void) {
@@ -201,6 +216,7 @@ pub fn route_dealloc(base: *mut std::ffi::c_void) {
     });
     if let Some(id) = released {
         grant::release(grant::Kind::Document, id);
+        crate::recents::release_source(grant::GrantId::new(grant::Kind::Document, id));
     }
 }
 
@@ -227,17 +243,17 @@ pub(crate) fn lookup_accepted(handle: *mut u64) -> Result<(Arc<Chosen>, grant::G
 
 /// One offered type, as the host reads it from Roc.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct FileType {
-    label: String,
-    extensions: Vec<String>,
-    mime_types: Vec<String>,
+pub(crate) struct FileType {
+    pub(crate) label: String,
+    pub(crate) extensions: Vec<String>,
+    pub(crate) mime_types: Vec<String>,
 }
 
 /// Normalize and check the offered types. An extension is one ordinary name
 /// component and never a pattern, and a MIME type names a type and a subtype;
 /// anything else is refused rather than passed to a chooser that would read it
 /// as a glob.
-fn validate(types: Vec<FileType>) -> Option<Vec<FileType>> {
+pub(crate) fn validate(types: Vec<FileType>) -> Option<Vec<FileType>> {
     types
         .into_iter()
         .map(|mut offered| {
@@ -270,7 +286,7 @@ fn validate(types: Vec<FileType>) -> Option<Vec<FileType>> {
 /// advice to the person; this is the check, and it is the same whichever
 /// chooser — or flag — produced the file. Types offered only by MIME type are
 /// left to the chooser, because the host does not sniff content.
-fn admits(types: &[FileType], name: &str) -> bool {
+pub(crate) fn admits(types: &[FileType], name: &str) -> bool {
     let extensions: Vec<&str> = types
         .iter()
         .flat_map(|offered| offered.extensions.iter().map(String::as_str))
@@ -452,7 +468,7 @@ pub extern "C" fn roc_files_pick_file(
     match outcome {
         Ok(Some((file, origin))) => {
             let name = RocStr::from_str(&file.name, roc_host());
-            let handle = capability(file, origin);
+            let (handle, _) = capability(file, origin, Lifetime::Session);
             InternalFilesPickFileResult {
                 payload: InternalFilesPickFileResultPayload {
                     ok: ManuallyDrop::new(InternalFilesPickFileOk {
@@ -551,6 +567,145 @@ pub extern "C" fn roc_files_file_sha256(cap: *mut u64) -> InternalFilesDirSha256
     files::hash_result(outcome)
 }
 
+/// Why a dropped item was not granted, as `Event.Refused` reads the code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DropRefusal {
+    AccessDenied = 0,
+    NotFile = 1,
+    Unavailable = 2,
+    Unsupported = 3,
+}
+
+/// What one drop on a drop target yields: each dropped file of an accepted
+/// type, ready to be granted, and every other item with its reason, all in
+/// the order they were dropped.
+#[derive(Default)]
+pub(crate) struct Dropped {
+    pub(crate) granted: Vec<Arc<Chosen>>,
+    pub(crate) refused: Vec<(String, DropRefusal)>,
+}
+
+/// Admit the items of one drop against the types a target accepts. The check
+/// is the one a chosen file passes: an ordinary file, resolved so the grant
+/// never follows a link, of an accepted type. Nothing is granted here; the
+/// grants are made when the application's route asks for them, so a drop no
+/// route takes grants nothing.
+pub(crate) fn admit_drop(types: &[FileType], paths: &[PathBuf]) -> Dropped {
+    let mut dropped = Dropped::default();
+    for path in paths {
+        let shown = path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let refused = match std::fs::metadata(path) {
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                Some(DropRefusal::AccessDenied)
+            }
+            Err(_) => Some(DropRefusal::Unavailable),
+            Ok(metadata) if !metadata.is_file() => Some(DropRefusal::NotFile),
+            Ok(_) => None,
+        };
+        if let Some(reason) = refused {
+            dropped.refused.push((shown, reason));
+            continue;
+        }
+        // The type is the resolved file's, as a chosen file's is: a link
+        // named like a capture that points at something else is not one.
+        match locate(path) {
+            Ok(chosen) if !admits(types, &chosen.name) => {
+                dropped.refused.push((shown, DropRefusal::Unsupported))
+            }
+            Ok(chosen) => dropped.granted.push(Arc::new(chosen)),
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                dropped.refused.push((shown, DropRefusal::AccessDenied))
+            }
+            Err(_) => dropped.refused.push((shown, DropRefusal::Unavailable)),
+        }
+    }
+    dropped
+}
+
+/// What granting a drop hands the application: each granted file's name and
+/// handle, then each refused item's name and reason.
+type GrantedDrop = (Vec<(String, *mut u64)>, Vec<(String, DropRefusal)>);
+
+/// Grant the files of one admitted drop, each a root recorded as dropped,
+/// and count the drop. Answers each file's name and handle, then each refused
+/// item's name and reason.
+pub(crate) fn grant_drop(dropped: Dropped) -> GrantedDrop {
+    with(|store| {
+        store.drops[0] += 1;
+        store.drops[1] += dropped.granted.len() as u64;
+        store.drops[2] += dropped.refused.len() as u64;
+    });
+    let granted = dropped
+        .granted
+        .into_iter()
+        .map(|file| {
+            let name = file.name.clone();
+            let (handle, _) = capability(
+                file,
+                Origin::Dropped(files::SELECTION_ENFORCEMENT),
+                Lifetime::Session,
+            );
+            (name, handle)
+        })
+        .collect();
+    (granted, dropped.refused)
+}
+
+/// Remember the chosen or dropped file `cap` names in the recent list.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_remember_file(cap: *mut u64) -> u8 {
+    let id = unsafe { cap.as_ref().copied() };
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    match id {
+        None => crate::recents::Unavailable::Revoked as u8,
+        Some(id) => match crate::recents::remember(grant::Kind::Document, id) {
+            Ok(()) => 0,
+            Err(reason) => reason as u8,
+        },
+    }
+}
+
+/// Reopen a remembered file as a new grant, after the recent list checks it is
+/// still the file that was remembered.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_reopen_file(key: u64) -> InternalFilesReopenFileResult {
+    let refused = |reason: crate::recents::Unavailable| InternalFilesReopenFileResult {
+        payload: InternalFilesReopenFileResultPayload {
+            err: ManuallyDrop::new(AnonStruct45708337b22b1f51 { code: reason as u8 }),
+        },
+        tag: InternalFilesReopenFileResultTag::Err,
+    };
+    let (path, origin) = match crate::recents::reopen(key, crate::recents::EntryKind::File) {
+        Ok(found) => found,
+        Err(reason) => return refused(reason),
+    };
+    let chosen = match locate(&path) {
+        Ok(chosen) if chosen.path == path => chosen,
+        Ok(_) => return refused(crate::recents::Unavailable::Replaced),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            return refused(crate::recents::Unavailable::AccessDenied);
+        }
+        Err(_) => return refused(crate::recents::Unavailable::Missing),
+    };
+    let name = RocStr::from_str(&chosen.name, roc_host());
+    let (handle, id) = capability(Arc::new(chosen), origin, Lifetime::Remembered);
+    crate::recents::reopened(
+        key,
+        grant::GrantId::new(grant::Kind::Document, id),
+        crate::recents::EntryKind::File,
+        &path,
+    );
+    InternalFilesReopenFileResult {
+        payload: InternalFilesReopenFileResultPayload {
+            ok: ManuallyDrop::new(AnonStructA295f39559baa24d { file: handle, name }),
+        },
+        tag: InternalFilesReopenFileResultTag::Ok,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -611,6 +766,46 @@ mod tests {
         assert!(DOCUMENT_RIGHTS.contains(Rights::DERIVE));
         assert!(!DOCUMENT_RIGHTS.contains(Rights::LIST));
         assert!(!DOCUMENT_RIGHTS.contains(Rights::WRITE));
+    }
+
+    #[test]
+    fn a_drop_grants_only_ordinary_files_of_an_accepted_type() {
+        let root = std::env::temp_dir().join(format!("roc-gui-drop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("folder")).unwrap();
+        std::fs::write(root.join("one.rgstats"), b"one").unwrap();
+        std::fs::write(root.join("notes.txt"), b"notes").unwrap();
+        std::fs::write(root.join("data.bin"), b"bin").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(root.join("data.bin"), root.join("link.rgstats")).unwrap();
+        let types = validate(vec![offered(&["rgstats"], &[])]).unwrap();
+        let mut paths = vec![
+            root.join("one.rgstats"),
+            root.join("notes.txt"),
+            root.join("folder"),
+            root.join("absent.rgstats"),
+        ];
+        #[cfg(unix)]
+        paths.push(root.join("link.rgstats"));
+        let dropped = admit_drop(&types, &paths);
+        assert_eq!(
+            dropped
+                .granted
+                .iter()
+                .map(|file| file.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["one.rgstats"]
+        );
+        let mut refused = vec![
+            ("notes.txt".to_owned(), DropRefusal::Unsupported),
+            ("folder".to_owned(), DropRefusal::NotFile),
+            ("absent.rgstats".to_owned(), DropRefusal::Unavailable),
+        ];
+        // A link named like a capture is judged by what it names.
+        #[cfg(unix)]
+        refused.push(("link.rgstats".to_owned(), DropRefusal::Unsupported));
+        assert_eq!(dropped.refused, refused);
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

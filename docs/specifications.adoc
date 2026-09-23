@@ -109,7 +109,8 @@ person of a denial. It cannot be combined with `(directory "PATH")`.
 `(directory copy "PATH")`:: Read access to a private copy of one directory's
 files, made for the run and discarded after it, in place of
 `(directory "PATH")`. It is the grant a case needs to change what the
-application reads with `replace-file`, without touching the directory it names.
+application reads with `replace-file` and `remove-file`, without touching the
+directory it names.
 `(file "PATH")`:: Read access to one file, which `access.pick_file!(types)`
 answers with. The host checks it against the offered types exactly as it checks
 a file chosen in the operating system's chooser.
@@ -125,6 +126,15 @@ other origin is denied by the host.
 `(process local-shell)` and `(process test-program)`:: One PTY child profile.
 `test-program` is the fixed deterministic child; `local-shell` is the user's
 shell.
+`(recents ITEM...)`:: The application's recent list for the run, in place of
+the person's own, the first item most recent. An item is a file or folder
+relative to the application directory, `(each "DIR")` for every ordinary file
+directly in a folder, in name order, `(each "DIR" "EXT")` for those whose
+extension is `EXT`, or `(copied "NAME")` for a direct child of
+the `(directory copy ...)` grant, which a `remove-file` or `replace-file` step
+can then take away or replace. Each entry is recorded as provisioned, and a
+provisioned list is never written anywhere the next run would read. A case
+without this grant starts with an empty list.
 `(server "PATH" PORT)`:: A loopback service the runner starts before the case
 and stops after it. `PATH` names a script beside the application, and `PORT` is
 the port it reports readiness on. This grants the harness, not the application:
@@ -165,6 +175,8 @@ stable semantic label.
 `(role column :name "name")`:: A column identified by its semantic name.
 `(role dialog :name "label")`:: The active modal dialog identified by its
 semantic label.
+`(role drop-target :name "label")`:: A drop target identified by the label
+`Gui.drop_target` gave it.
 `(role image :name "name")`:: An encoded image identified by its
 application-supplied semantic name. Neither encoded bytes nor source filenames
 are captured.
@@ -286,6 +298,14 @@ pointer, and GPUI hit-tests the press; the semantic runner delivers what that
 gesture delivers. A canvas receives its three pointer phases, each a `drag`
 cycle. A divider asks for the size the move measures from the press, one `drag`
 cycle, and nothing when the divider already shows that size.
+`(drop LOCATOR "PATH"...)`:: Drop files on a drop target, each named relative
+to the application directory and staying inside it, in the order a person
+dragged them. The window runner delivers the drop through GPUI's own file-drop
+events — the files enter the window over the target, are held there, and are
+dropped — so GPUI hit-tests the drop and the target's production listener takes
+it. The semantic runner admits the same paths against the target's types and
+takes the same route that listener calls. Either way the drop is one `drop`
+cycle, and the files it grants are grants the application holds.
 `(pointer-move LOCATOR X Y)`:: Move an unpressed pointer to a point of a canvas,
 in canvas coordinates. The window runner moves the window's own pointer to that
 point of the painted surface; the semantic runner delivers the event that
@@ -326,6 +346,9 @@ route.
 With no dialog, close every presenting popover; with neither, the step fails.
 `(press-key Space)`:: Activate the focused button, or toggle the focused enabled
 checkbox, through the normal Roc event route.
+`(remove-file "NAME")`:: Delete the direct child `NAME` of the
+`(directory copy ...)` grant, as a person deleting a file does. It changes only
+the private copy, and a specification without that grant is refused.
 `(replace-file "NAME" "SOURCE")`:: Replace the direct child `NAME` of the
 `(directory copy ...)` grant with a copy of `SOURCE`, a file named relative to
 the application directory. The copy is written beside the folder and renamed
@@ -362,8 +385,10 @@ did not have its authority taken away.
 `(expect-grants DESCRIPTION...)`:: Require exactly these grants, in registry
 order, each written as `KIND ORIGIN/ENFORCEMENT LINEAGE RIGHTS` with ` revoked`
 appended once its authority has been taken away — for example
-`"directory provisioned/consent-only root read,list,derive"`. `ORIGIN` is
-`trusted-selection`, `provisioned`, or `automatic`; `ENFORCEMENT` is `brokered`
+`"directory provisioned/consent-only root read,list,derive"`. A grant the
+application remembered, and every grant derived from it, carries
+` remembered` before ` revoked`. `ORIGIN` is `trusted-selection`, `drop`,
+`provisioned`, or `automatic`; `ENFORCEMENT` is `brokered`
 when the broker returned authority the process could not obtain for itself and
 `consent-only` when a person chose in a trusted surface but nothing outside the
 process enforces the scope. `LINEAGE` is `root` or `derived`. No step means the
@@ -410,6 +435,13 @@ device transactions.
 the document owner's totals for single-file grants: `pick_file!` calls, chosen
 files, cancellations, refused picks of any reason, whole-file reads, and then
 the document handles the application still holds.
+`(expect-drop-counters DROPS GRANTED REFUSED)`:: Require the document owner's
+totals for drops: drops delivered to a drop target's route, files they granted,
+and dropped items they refused. No name or path becomes evidence.
+`(expect-recent-counters REMEMBERED REOPENED REFUSED FORGOTTEN ENTRIES)`::
+Require the recent list's totals: grants remembered, entries reopened, reopens
+and remembers refused, and entries forgotten, then the entries it holds now.
+No name or path becomes evidence.
 `(expect-theme light)` and `(expect-theme dark)`:: The scheme adaptive colours
 now resolve to: the system's, or the one the application chose with
 `Gui.Appearance.prefer!`. An `expect-background` on an adaptive colour compares
@@ -565,12 +597,12 @@ window runner does not implement: `replace-text`, `submit`, `await-task-waits`,
 `expect-task-counters`, and the
 repository fixture steps the Contributing chapter describes.
 
-`window-only`:: `settle`, `screenshot`, `type`, `resize`, `scroll`,
+`window-only`:: `settle`, `screenshot`, `type`, `resize`, `scroll`, `drag-files`,
 `expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
 mean anything without a presented frame: without layout there is no fold for
 content to be below, and no size a window could be resized from.
 
-`both`:: `click`, `drag`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
+`both`:: `click`, `drag`, `drop`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
 `system-theme`, `expect-theme`, `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
 `expect-count`, `expect-component-work`, `expect-canvas-size`, and the value and ordering assertions — `expect-value`,
 `expect-selected`, `expect-not-selected`,
@@ -584,7 +616,7 @@ graph, which both runners hold, and both call the same code to answer them, so
 one window case can assert a semantic truth and photograph it in the same run.
 
 Also `revoke-file-grants`, which withdraws every chosen folder and file,
-`replace-file`, which changes what a copied folder holds, and the live-resource and capability counter
+`replace-file` and `remove-file`, which change what a copied folder holds, and the live-resource and capability counter
 assertions. The host owns one files registry, one clipboard, one audio device
 table; both runners read them through the same shared implementation, and
 revocation acts on that one registry. A windowed case can therefore photograph a
@@ -602,6 +634,10 @@ means two different things.
 
 Input steps first, then waiting, then assertions in alphabetical order.
 
+`(drag-files LOCATOR "PATH"...)`:: Drag files over a drop target and hold them
+there without dropping, through the same GPUI file-drop events `drop` begins
+with, so a screenshot shows how the target answers files it would take. A
+following `drop` of the same files lets go of them.
 `(type "TEXT")`:: Send each character as a real keystroke into the focused
 element, through GPUI's own keystroke dispatch. The semantic `replace-text`
 sets a value directly and exercises none of the editing path.

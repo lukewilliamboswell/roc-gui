@@ -1,4 +1,6 @@
 ## Values delivered to element event handlers.
+import Files
+
 Event := [].{
 
 	## A button press. It carries no additional data.
@@ -78,4 +80,16 @@ Event := [].{
 
 	## A tab chosen or closed in a tab strip, named by the key it was given.
 	Tab : { key : Str }
+
+	## Files a person dropped on a drop target. `files` holds each dropped
+	## file of a type the target accepts, in the order they were dropped,
+	## granted to the application as a read-only file exactly as `pick_file!`
+	## grants a chosen one. `refused` names every other item dropped, and why
+	## it was not granted: a folder or anything else that is not an ordinary
+	## file, a file of a type the target does not accept, a file the
+	## application may not read, or one that could not be reached.
+	Drop : { files : List(Files.FileSelection), refused : List(Refused) }
+
+	## One dropped item that was not granted.
+	Refused : { name : Str, reason : [AccessDenied, NotFile, Unavailable, Unsupported] }
 }

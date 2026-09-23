@@ -651,6 +651,57 @@ HostGlue := [].{
 		justify : U8,
 	} => { id : U64, shortcut : U64 }
 	resize_event! : () => { size : U32, collapsed : Bool }
+	node_drop_target! : {
+		builder : U64,
+		label : Str,
+		types : List({ label : Str, extensions : List(Str), mime_types : List(Str) }),
+		drop_bg : U64,
+		drop_border : U64,
+		gap : U32,
+		padding_top : U32,
+		padding_right : U32,
+		padding_bottom : U32,
+		padding_left : U32,
+		width_kind : U8,
+		width : U32,
+		height_kind : U8,
+		height : U32,
+		min_width_kind : U8,
+		min_width : U32,
+		min_height_kind : U8,
+		min_height : U32,
+		max_width_kind : U8,
+		max_width : U32,
+		max_height_kind : U8,
+		max_height : U32,
+		grow : Bool,
+		bg : U64,
+		hover_bg : U64,
+		active_bg : U64,
+		disabled_bg : U64,
+		disabled_fg : U64,
+		focus_color : U64,
+		fg : U64,
+		border_color : U64,
+		border_top : U32,
+		border_right : U32,
+		border_bottom : U32,
+		border_left : U32,
+		radius : U32,
+		font_size : U32,
+		font_weight : U32,
+		shadow : U32,
+		shadow_y : U32,
+		shadow_color : U64,
+		shadow_alpha : U32,
+		font_face : U8,
+		text_overflow : U8,
+		overflow_x : U8,
+		overflow_y : U8,
+		align : U8,
+		justify : U8,
+	} => U64
+	drop_event! : () => { files : List({ name : Str, file : Resource.FileRead }), refused : List({ name : Str, reason : U8 }) }
 	input_value! : () => Str
 	node_text_input! : {
 		label : Str,
@@ -748,7 +799,7 @@ HostGlue := [].{
 	http_send! : InternalHttp.HostRequest => Try(InternalHttp.HostResponse, [AccessDenied, BodyTooLarge, ConnectFailed, InvalidCapability, InvalidHeader, InvalidRequest, InvalidUrl, RedirectLimit, Revoked, Timeout, UnsupportedScheme])
 	work_start! : U8 => {}
 	work_end! : U8 => {}
-	window_config! : Str, U32, U32, U64, U64 => {}
+	window_config! : Str, U32, U32, U64, U64, Bool => {}
 
 	appearance_current! : () => U8
 
