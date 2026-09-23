@@ -67,6 +67,59 @@ fn store() -> &'static Mutex<Store> {
     })
 }
 
+/// A database open here never stops another program deleting or renaming over
+/// it, on any platform. POSIX has no such lock; SQLite's Windows VFS opens every
+/// file without `FILE_SHARE_DELETE`, so a reader would hold a capture against
+/// the recorder or person replacing it. The VFS takes its `CreateFileW` from a
+/// replaceable system-call table, and the replacement adds that one share
+/// right. A rename over an open database then binds the name to the new file,
+/// as on Linux, and the watch reports it.
+#[cfg(target_os = "windows")]
+pub fn share_files_like_posix() {
+    use windows_sys::Win32::{
+        Foundation::HANDLE,
+        Security::SECURITY_ATTRIBUTES,
+        Storage::FileSystem::{
+            CreateFileW, FILE_CREATION_DISPOSITION, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_DELETE,
+            FILE_SHARE_MODE,
+        },
+    };
+    unsafe extern "system" fn create(
+        name: *const u16,
+        access: u32,
+        share: FILE_SHARE_MODE,
+        security: *const SECURITY_ATTRIBUTES,
+        disposition: FILE_CREATION_DISPOSITION,
+        flags: FILE_FLAGS_AND_ATTRIBUTES,
+        template: HANDLE,
+    ) -> HANDLE {
+        unsafe { CreateFileW(name, access, share | FILE_SHARE_DELETE, security, disposition, flags, template) }
+    }
+    static INSTALLED: OnceLock<()> = OnceLock::new();
+    INSTALLED.get_or_init(|| unsafe {
+        let vfs = rusqlite::ffi::sqlite3_vfs_find(std::ptr::null());
+        let installed = vfs.as_ref().and_then(|vfs| vfs.xSetSystemCall).is_some_and(|set| {
+            let replacement: rusqlite::ffi::sqlite3_syscall_ptr = Some(std::mem::transmute::<
+                unsafe extern "system" fn(
+                    *const u16,
+                    u32,
+                    FILE_SHARE_MODE,
+                    *const SECURITY_ATTRIBUTES,
+                    FILE_CREATION_DISPOSITION,
+                    FILE_FLAGS_AND_ATTRIBUTES,
+                    HANDLE,
+                ) -> HANDLE,
+                unsafe extern "C" fn(),
+            >(create));
+            set(vfs, c"CreateFileW".as_ptr(), replacement) == rusqlite::ffi::SQLITE_OK
+        });
+        assert!(installed, "SQLite's Windows VFS refused its CreateFileW replacement");
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn share_files_like_posix() {}
+
 pub fn configure() {
     grant::forget_kind(grant::Kind::Sqlite);
     for counter in &OPERATIONS {
@@ -185,7 +238,7 @@ fn directory_path(dir: &Dir) -> std::io::Result<PathBuf> {
 }
 
 #[cfg(target_os = "windows")]
-fn directory_path(dir: &Dir) -> std::io::Result<PathBuf> {
+pub(crate) fn directory_path(dir: &Dir) -> std::io::Result<PathBuf> {
     use std::os::windows::{ffi::OsStringExt, io::AsRawHandle};
     use windows_sys::Win32::Storage::FileSystem::{
         FILE_NAME_NORMALIZED, GetFinalPathNameByHandleW, VOLUME_NAME_DOS,
@@ -296,8 +349,10 @@ fn open_in_place(dir: &Dir, name: &str) -> Result<Connection, Failure> {
         .join(name);
     let uri = database_uri(&path).ok_or((9, "the granted folder has no path SQLite can open"))?;
     let reached = || {
+        // Through cap-std, so the identity compared is the same kind on every
+        // host: device and inode, or volume serial and file index on Windows.
         std::fs::File::open(&path)
-            .and_then(|file| file.metadata())
+            .and_then(|file| cap_std::fs::File::from_std(file).metadata())
             .is_ok_and(|opened| same_file(&granted, &opened))
     };
     if !reached() {
