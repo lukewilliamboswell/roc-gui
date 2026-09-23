@@ -1027,6 +1027,14 @@ impl PlatformWindow for WaylandWindow {
         state.surface.commit();
     }
 
+    fn request_frame_capture(&self) -> bool {
+        self.borrow_mut().renderer.request_frame_capture()
+    }
+
+    fn take_captured_frame(&self) -> Option<crate::CapturedFrame> {
+        self.borrow_mut().renderer.take_captured_frame()
+    }
+
     fn sprite_atlas(&self) -> Arc<dyn PlatformAtlas> {
         let state = self.borrow();
         state.renderer.sprite_atlas().clone()

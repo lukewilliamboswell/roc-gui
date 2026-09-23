@@ -61,6 +61,13 @@ Local changes:
   from this comparison. The same native regression verifies that fast path, grows and
   shrinks preceding siblings, checks real hover delivery and scene primitives,
   and aborts a prepaint replay transaction before successful rendering.
+- `src/platform/blade/blade_renderer.rs`, `src/platform.rs`, `src/window.rs`,
+  and the Linux Wayland and X11 windows: `Window::request_frame_capture` asks
+  the Blade renderer to copy the next presented frame into a shared buffer,
+  and `Window::take_captured_frame` returns it as RGBA. The swapchain gains
+  copy-source usage only on the first request, so windows that never capture
+  keep a presentation-only surface. Other platforms report no support. The host
+  uses this for window-specification screenshots on Linux.
 - `build.rs`: remaps Metal line-table paths from the host source root to the
   neutral `/workspace` prefix. The production shader archive therefore retains
   useful line information without recording checkout or user identity.

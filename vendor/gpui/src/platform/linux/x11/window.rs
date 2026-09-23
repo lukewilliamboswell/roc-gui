@@ -1475,6 +1475,14 @@ impl PlatformWindow for X11Window {
         inner.renderer.draw(scene);
     }
 
+    fn request_frame_capture(&self) -> bool {
+        self.0.state.borrow_mut().renderer.request_frame_capture()
+    }
+
+    fn take_captured_frame(&self) -> Option<crate::CapturedFrame> {
+        self.0.state.borrow_mut().renderer.take_captured_frame()
+    }
+
     fn sprite_atlas(&self) -> Arc<dyn PlatformAtlas> {
         let inner = self.0.state.borrow();
         inner.renderer.sprite_atlas().clone()

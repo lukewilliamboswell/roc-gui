@@ -4774,6 +4774,20 @@ impl Window {
         self.platform_window.gpu_specs()
     }
 
+    /// Ask for the next presented frame to be read back. Scheduling that frame
+    /// is the caller's business, so a capture does not force a refresh that
+    /// bypasses view caches. Returns false when this platform's renderer
+    /// cannot read back.
+    pub fn request_frame_capture(&self) -> bool {
+        self.platform_window.request_frame_capture()
+    }
+
+    /// The frame read back after [`Self::request_frame_capture`], once one has
+    /// been presented.
+    pub fn take_captured_frame(&self) -> Option<crate::CapturedFrame> {
+        self.platform_window.take_captured_frame()
+    }
+
     /// Perform titlebar double-click action.
     /// This is macOS specific.
     pub fn titlebar_double_click(&self) {

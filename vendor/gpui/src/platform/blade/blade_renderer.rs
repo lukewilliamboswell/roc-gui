@@ -3,8 +3,8 @@
 
 use super::{BladeAtlas, BladeContext};
 use crate::{
-    Background, Bounds, DevicePixels, GpuSpecs, MonochromeSprite, Path, Point, PolychromeSprite,
-    PrimitiveBatch, Quad, ScaledPixels, Scene, Shadow, Size, Underline,
+    Background, Bounds, CapturedFrame, DevicePixels, GpuSpecs, MonochromeSprite, Path, Point,
+    PolychromeSprite, PrimitiveBatch, Quad, ScaledPixels, Scene, Shadow, Size, Underline,
 };
 use blade_graphics as gpu;
 use blade_util::{BufferBelt, BufferBeltDescriptor};
@@ -341,6 +341,9 @@ pub struct BladeRenderer {
     path_intermediate_msaa_texture: Option<gpu::Texture>,
     path_intermediate_msaa_texture_view: Option<gpu::TextureView>,
     rendering_parameters: RenderingParameters,
+    /// The next presented frame is copied back to the CPU.
+    capture_requested: bool,
+    captured_frame: Option<CapturedFrame>,
 }
 
 impl BladeRenderer {
@@ -427,7 +430,30 @@ impl BladeRenderer {
             path_intermediate_msaa_texture,
             path_intermediate_msaa_texture_view,
             rendering_parameters,
+            capture_requested: false,
+            captured_frame: None,
         })
+    }
+
+    /// Read back the next presented frame. The surface gains copy-source usage
+    /// the first time this is asked, so windows that never capture keep the
+    /// presentation-only swapchain.
+    pub fn request_frame_capture(&mut self) -> bool {
+        if !self.surface_config.usage.contains(gpu::TextureUsage::COPY) {
+            self.wait_for_gpu();
+            self.surface_config.usage |= gpu::TextureUsage::COPY;
+            self.gpu
+                .reconfigure_surface(&mut self.surface, self.surface_config);
+        }
+        self.captured_frame = None;
+        self.capture_requested = true;
+        true
+    }
+
+    /// The frame read back after [`Self::request_frame_capture`], if one has
+    /// been presented since.
+    pub fn take_captured_frame(&mut self) -> Option<CapturedFrame> {
+        self.captured_frame.take()
     }
 
     fn wait_for_gpu(&mut self) {
@@ -906,8 +932,55 @@ impl BladeRenderer {
         }
         drop(pass);
 
+        let capture = if std::mem::take(&mut self.capture_requested) {
+            let size = self.surface_config.size;
+            let bytes_per_row = size.width * 4;
+            let buffer = self.gpu.create_buffer(gpu::BufferDesc {
+                name: "frame capture",
+                size: u64::from(bytes_per_row) * u64::from(size.height),
+                memory: gpu::Memory::Shared,
+            });
+            let mut transfer = self.command_encoder.transfer("frame capture");
+            transfer.copy_texture_to_buffer(
+                frame.texture().into(),
+                buffer.into(),
+                bytes_per_row,
+                gpu::Extent {
+                    width: size.width,
+                    height: size.height,
+                    depth: 1,
+                },
+            );
+            drop(transfer);
+            Some((buffer, size))
+        } else {
+            None
+        };
+
         self.command_encoder.present(frame);
         let sync_point = self.gpu.submit(&mut self.command_encoder);
+
+        if let Some((buffer, size)) = capture {
+            // The copy must finish before the CPU reads it; this is a frame
+            // someone asked to photograph, not one on the hot path.
+            let _ = self.gpu.wait_for(&sync_point, MAX_FRAME_TIME_MS);
+            let length = size.width as usize * size.height as usize * 4;
+            let mut rgba = unsafe { std::slice::from_raw_parts(buffer.data(), length) }.to_vec();
+            match self.surface.info().format {
+                gpu::TextureFormat::Bgra8Unorm | gpu::TextureFormat::Bgra8UnormSrgb => {
+                    for pixel in rgba.chunks_exact_mut(4) {
+                        pixel.swap(0, 2);
+                    }
+                }
+                _ => {}
+            }
+            self.gpu.destroy_buffer(buffer);
+            self.captured_frame = Some(CapturedFrame {
+                width: size.width,
+                height: size.height,
+                rgba,
+            });
+        }
 
         profiling::scope!("finish");
         self.instance_belt.flush(&sync_point);
