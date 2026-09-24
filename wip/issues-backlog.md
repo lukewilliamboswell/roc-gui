@@ -1507,26 +1507,11 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Release infrastructure
 
-- [ ] **Publish the Windows inputs the host now derives.** The x64mingw
-  linker-input archive composes only the GNU runtime and `roc-gui.res`, and the
-  Windows host releases `windows-imports.lib` with a schema 2 normalization
-  receipt. `link-inputs.lock.json` is already stale for this checkout (its
-  fingerprint predates the change to `.github/workflows/link-inputs.yml`), so
-  development builds select source inputs until the linker-input producer is
-  dispatched and the lock adopted. Release packaging still requires that lock. The Windows GUI host release
-  (`prepare_host_build.py`, `host_notice_payload.py`) has been changed but not
-  yet run; run it on a Windows runner before the next host release.
-
-- [ ] **Publish macOS interfaces that cover the CoreText text system.** The
-  host enables `gpui_platform/font-kit`, without which `gpui_macos` installs
-  `NoopTextSystem` and draws no glyphs. The text system references seven
-  symbols the released `deps-macos-interfaces-1-20260915.1` archive lacks
-  (`CFURLGetFileSystemRepresentation`, `CFURLGetTypeID`,
-  `CFPreferencesCopyAppValue`, `kCFPreferencesCurrentApplication`,
-  `CGContextSetShouldSmoothFonts`, `kCTFontURLAttribute`,
-  `kCTFontTraitsAttribute`). The catalog now records their evidence, so
-  `--source-inputs` builds link; release a new macOS interface archive and
-  adopt it in `dependencies.lock.json` so released-input builds link too.
+- [ ] **Validate Windows GUI-host release packaging.** The unified linker-input
+  release supplies the GNU runtime and `roc-gui.res`; the host derives its own
+  `windows-imports.lib` with a schema 2 normalization receipt. The Windows GUI
+  host release (`prepare_host_build.py`, `host_notice_payload.py`) has been
+  changed but not yet run; run it on a Windows runner before the next host release.
 
 - [ ] **Keep Metal shader debug paths free of build-machine identity.**
   The host pins the GPUI fork at
@@ -1570,8 +1555,8 @@ names the reproduction so the workaround can be removed when the fix lands.
   repository in the script tests. Do not treat a Git revision as an archive
   digest or omit its corresponding source.
 
-- [ ] **Bootstrap the first unified linker-input lock.** After the infrastructure
-  publisher reaches the default branch, open the adoption pull request and
-  dispatch it by number. Its GitHub-signed lock-only commit supplies
-  `link-inputs.lock.json`; remove the superseded component lock, migration
-  fallback, and legacy publication helpers after that commit lands.
+- [ ] **Remove superseded linker-input migration machinery.** The unified
+  `link-inputs.lock.json` is published and adopted. Remove the superseded
+  component lock, migration fallback, and legacy publication helpers after
+  migrating every remaining build-time consumer; retain the independently
+  required host and notice inputs.
