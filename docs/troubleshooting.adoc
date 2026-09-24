@@ -20,9 +20,9 @@ directory it examined.
 
 == The Roc compiler version does not match
 
-Use the nightly named in the `app` header and in `platform/main.roc`. The
-example applications pin the same nightly as the platform. A different compiler
-may fail before it checks application code.
+Use `blueprint shell` for a checkout: `.roc-version` selects its compiler.
+For archived release examples, use the tag in the `app` header. A different
+compiler may fail before it checks application code.
 
 == The executable rejects an argument
 

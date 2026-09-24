@@ -1,5 +1,5 @@
 name: Install pinned Roc compiler
-description: Validate platform roots and install only their exact Roc compiler.
+description: Validate .roc-version and install its exact Roc compiler.
 runs:
   using: composite
   steps:

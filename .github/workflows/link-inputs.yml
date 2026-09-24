@@ -29,27 +29,55 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
         with:
-          version: 0.16.0
-      - name: Install interface provider and ELF tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2-dev binutils
+          extra-conf: |
+            sandbox = true
+      - name: Require sandboxed production
+        run: test "$(nix config show sandbox)" = true
       - name: Build every Linux component twice
         run: |
           for script in build_alsa_interface build_freetype build_glibc build_unwind build_xkbcommon; do
             python3 "scripts/$script.py" --output "$RUNNER_TEMP/candidate"
-            python3 "scripts/$script.py" --output "$RUNNER_TEMP/rebuild"
+            python3 "scripts/$script.py" --rebuild --output "$RUNNER_TEMP/rebuild"
           done
           for archive in "$RUNNER_TEMP/candidate"/*.tar; do
             cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
           done
+      - name: Reproduce derivations from corresponding sources
+        run: python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate/*.tar
           retention-days: 30
+
+  linux-validate:
+    name: Final-link exact Linux inputs and run outside Nix
+    needs: linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+      - uses: ./.github/actions/setup-toolchain
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: link-input-components-linux
+          path: ${{ runner.temp }}/candidate
+      - name: Build the production host
+        run: |
+          nix develop github:lukewilliamboswell/roc-blueprint/739739aa285ff60ea0e6b74ad1e80d9469832eee --command bash -euc '
+            blueprint run build -- --skip-inputs
+          '
+      - name: Install native desktop runtime for portability validation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig xvfb
+      - name: Final-link and exercise the exact candidate outside Nix
+        run: xvfb-run -a python3 scripts/test_linux_link_inputs.py "$RUNNER_TEMP/candidate" --output "$RUNNER_TEMP/counter"
 
   macos:
     name: Build and validate macOS interfaces
@@ -138,7 +166,7 @@ jobs:
 
   assemble:
     name: Assemble and attest exact target archives
-    needs: [linux, macos, windows-build, windows-validate]
+    needs: [linux, linux-validate, macos, windows-build, windows-validate]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

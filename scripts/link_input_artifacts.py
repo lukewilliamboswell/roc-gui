@@ -33,6 +33,9 @@ COMPONENTS = {
     "x64mingw": (("windows-gnu-runtime", "x64mingw"),),
 }
 SOURCE_PATHS = (
+    "Blueprint.lock", "scripts/nix_link_inputs.py", "scripts/dependency_artifacts.py",
+    "test/dependencies", "scripts/test_unwind_rust.py", "scripts/test_linux_link_inputs.py",
+    "scripts/check_linux_reproduction.py",
     "dependencies/alsa-interface.json", "dependencies/freetype.json", "dependencies/glibc",
     "dependencies/glibc.json", "dependencies/linux", "dependencies/macos-interfaces",
     "dependencies/unwind", "dependencies/unwind.json", "dependencies/windows-gnu-runtime",
@@ -46,13 +49,39 @@ SOURCE_PATHS = (
 )
 
 
+class StaleLinkInputs(ValueError):
+    """A valid release lock describes different producer inputs."""
+
+
+class UncommittedLinkInputs(ValueError):
+    """Local producer edits cannot be represented by a release fingerprint."""
+
+
+def development_requires_source_inputs(root=ROOT):
+    """Select local recipes only for absent or out-of-date development inputs.
+
+    Release consumers continue to use read_lock directly. Malformed locks and
+    artifact verification failures must never become a source-build fallback.
+    """
+    path = root / "link-inputs.lock.json"
+    if not path.exists() and not path.is_symlink():
+        return True
+    try:
+        read_lock(path, root=root)
+    except (StaleLinkInputs, UncommittedLinkInputs):
+        return True
+    return False
+
+
 def source_fingerprint(root=ROOT):
     """Hash the committed tree records for every input that may affect the set."""
     changed = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS], cwd=root).returncode
+    if changed not in (0, 1):
+        raise ValueError("could not inspect linker-input producer changes")
     untracked = subprocess.check_output(
         ["git", "ls-files", "--others", "--exclude-standard", "-z", "--", *SOURCE_PATHS], cwd=root)
     if changed or untracked:
-        raise ValueError("linker-input releases require clean committed producer inputs")
+        raise UncommittedLinkInputs("linker-input releases require clean committed producer inputs")
     tree = subprocess.check_output(
         ["git", "ls-tree", "-r", "-z", "--full-tree", "HEAD", "--", *SOURCE_PATHS], cwd=root)
     if not tree:
@@ -155,7 +184,7 @@ def read_lock(path=LOCK, *, root=ROOT):
                 or type(record["size"]) is not int or not 0 < record["size"] <= 2 * 1024 ** 3):
             raise ValueError("invalid unified linker-input target record")
     if source["input_fingerprint"] != source_fingerprint(root):
-        raise ValueError("linker-input lock is stale for this checkout")
+        raise StaleLinkInputs("linker-input lock is stale for this checkout")
     return value
 
 

@@ -9,11 +9,12 @@ import argparse
 from contextlib import contextmanager
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
 
-from dependency_artifacts import materialize
+from dependency_artifacts import materialize, component_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "dependencies.lock.json"
@@ -64,7 +65,7 @@ def verified_alsa(lock=LOCK, cache=CACHE):
         manifest = json.loads((destination / ALSA / "dependency.json").read_text())
         expected = {"targets/x64glibc/libasound.so"}
         expected.update("sources/alsa/" + name for name in ALSA_SOURCE_FILES)
-        if set(manifest["files"]) != expected:
+        if set(manifest["files"]) != component_inventory(expected, manifest):
             raise ValueError("incomplete or unexpected ALSA interface inputs")
         yield destination
 
@@ -105,8 +106,11 @@ def cargo_environment(environment, target, lock=LOCK, cache=CACHE):
             "Libs: -L${libdir} -lasound\n"
             "Cflags:\n"
         )
-        environment["PKG_CONFIG_PATH"] = str(pkgconfig)
-        environment["LIBRARY_PATH"] = str(library)
+        # Keep the verified ALSA interface first while retaining the shell
+        # paths needed by other native dependencies (for example Fontconfig).
+        for name, path in (("PKG_CONFIG_PATH", pkgconfig), ("LIBRARY_PATH", library)):
+            existing = environment.get(name)
+            environment[name] = str(path) + (os.pathsep + existing if existing else "")
         yield environment
 
 
@@ -157,7 +161,7 @@ def verified_unwind(lock=LOCK, cache=CACHE):
         manifest = json.loads((destination / UNWIND / "dependency.json").read_text())
         expected = {"targets/x64glibc/libunwind.a", "licenses/unwind/LICENSE.TXT", "licenses/unwind/LICENSE-ZIG"}
         expected.update("sources/unwind/" + name for name in UNWIND_SOURCE_FILES)
-        if set(manifest["files"]) != expected:
+        if set(manifest["files"]) != component_inventory(expected, manifest):
             raise ValueError("incomplete or unexpected LLVM unwinder inputs")
         yield destination
 
@@ -187,7 +191,7 @@ def verified_glibc(lock=LOCK, cache=CACHE):
         expected = {"targets/x64glibc/" + name for name in GLIBC_LIBRARIES}
         expected.update("licenses/glibc/" + name for name in GLIBC_LICENSES)
         expected.update("sources/glibc/" + name for name in GLIBC_SOURCE_FILES)
-        if set(manifest["files"]) != expected:
+        if set(manifest["files"]) != component_inventory(expected, manifest):
             raise ValueError("incomplete or unexpected glibc inputs")
         yield destination
 
@@ -217,7 +221,7 @@ def verified_xkbcommon(lock=LOCK, cache=CACHE):
         manifest = json.loads((destination / XKBCOMMON / "dependency.json").read_text())
         expected = {"targets/x64glibc/" + name for name in XKBCOMMON_LIBRARIES}
         expected.add("licenses/xkbcommon/LICENSE")
-        if set(manifest["files"]) != expected:
+        if set(manifest["files"]) != component_inventory(expected, manifest):
             raise ValueError("incomplete or unexpected xkbcommon inputs")
         yield destination
 
@@ -246,7 +250,7 @@ def verified_freetype(lock=LOCK, cache=CACHE):
         expected = {"targets/x64glibc/libfreetype.so"}
         expected.update("licenses/freetype/" + name for name in
                         ("LICENSE.TXT", "FTL.TXT", "GPLv2.TXT", "NOTICE"))
-        if set(manifest["files"]) != expected:
+        if set(manifest["files"]) != component_inventory(expected, manifest):
             raise ValueError("incomplete or unexpected FreeType inputs")
         yield destination
 

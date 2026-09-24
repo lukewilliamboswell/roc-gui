@@ -2,6 +2,7 @@
 """Serve an exact platform bundle and exercise every maintained application."""
 
 import argparse
+import json
 from functools import partial
 import http.server
 import os
@@ -14,13 +15,17 @@ import tempfile
 import threading
 
 from host_build_identity import TARGETS
-from toolchain import replace_platform
+from toolchain import replace_platform, pin_release_app, verify_compiler
 from run_specs import Case, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def check(directory: Path, roc: str) -> None:
+    manifest = json.loads((directory / "release-manifest.json").read_text())
+    if manifest["schema_version"] != 2:
+        raise ValueError("unsupported release manifest")
+    verify_compiler(roc, manifest["compiler"])
     bundles = [path for path in directory.iterdir() if path.name.endswith(".tar.zst")]
     if len(bundles) != 1:
         raise ValueError("release directory must contain exactly one platform bundle")
@@ -47,7 +52,7 @@ def check(directory: Path, roc: str) -> None:
                 app = stage / source.parent.parent.name / source.parent.name
                 shutil.copytree(source.parent, app)
                 main = app / "main.roc"
-                main.write_text(replace_platform(main.read_text(), url))
+                main.write_text(pin_release_app(replace_platform(main.read_text(), url), manifest["compiler"]))
                 executable = stage / "bin" / source.parent.parent.name / source.parent.name
                 executable.parent.mkdir(parents=True, exist_ok=True)
                 subprocess.run([roc, "build", "--opt=dev", "--no-cache", f"--target={target}",

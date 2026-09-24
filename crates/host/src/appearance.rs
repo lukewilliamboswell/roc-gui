@@ -157,10 +157,10 @@ pub fn effective_dark() -> bool {
 /// Install `state` and tell the window when what it paints has changed.
 fn publish(state: &State) {
     let dark = effective(state);
-    if EFFECTIVE_DARK.swap(dark, Ordering::AcqRel) != dark {
-        if let Some(repaint) = REPAINT.get() {
-            let _ = repaint.try_send(());
-        }
+    if EFFECTIVE_DARK.swap(dark, Ordering::AcqRel) != dark
+        && let Some(repaint) = REPAINT.get()
+    {
+        let _ = repaint.try_send(());
     }
 }
 

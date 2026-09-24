@@ -1,41 +1,7 @@
 {
-  "workflows": ["ci.yml", "release.yml"],
-  "auto_merge": true,
-  "compiler_roots": [
-    "platform/main.roc",
-    "benchmarks/animation-canvas/main.roc",
-    "benchmarks/checkboxes/main.roc",
-    "benchmarks/click-grid/main.roc",
-    "benchmarks/density-matrix/main.roc",
-    "benchmarks/hover-grid/main.roc",
-    "benchmarks/image/main.roc",
-    "benchmarks/incident-queue/main.roc",
-    "benchmarks/keyed-column/main.roc",
-    "benchmarks/nested-hover-grid/main.roc",
-    "benchmarks/row-boundaries/main.roc",
-    "benchmarks/rows/main.roc",
-    "benchmarks/scroll/main.roc",
-    "benchmarks/sparklines/main.roc",
-    "benchmarks/text-input/main.roc",
-    "benchmarks/text-rows/main.roc",
-    "benchmarks/textarea/main.roc",
-    "benchmarks/tree-shape/main.roc",
-    "benchmarks/virtual-list/main.roc",
-    "examples/animation-studio/main.roc",
-    "examples/clipboard-history/main.roc",
-    "examples/counter/main.roc",
-    "examples/database-browser/main.roc",
-    "examples/device-configurator/main.roc",
-    "examples/file-explorer/main.roc",
-    "examples/folder-browser/main.roc",
-    "examples/http-workbench/main.roc",
-    "examples/image-library/main.roc",
-    "examples/music-player/main.roc",
-    "examples/observatory/main.roc",
-    "examples/redis-explorer/main.roc",
-    "examples/review-queue/main.roc",
-    "examples/settings-center/main.roc",
-    "examples/system-monitor/main.roc",
-    "examples/terminal-workspace/main.roc"
-  ]
+  "workflows": [
+    "ci.yml",
+    "release.yml"
+  ],
+  "auto_merge": true
 }

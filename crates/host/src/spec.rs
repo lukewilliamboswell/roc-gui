@@ -1583,7 +1583,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     .ok_or_else(|| {
                         error(
                             &values[index],
-                            &format!("resize {name} is 64 to 8192 logical pixels"),
+                            format!("resize {name} is 64 to 8192 logical pixels"),
                         )
                     })
             };

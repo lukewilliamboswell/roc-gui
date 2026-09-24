@@ -1,6 +1,7 @@
 """The ALSA interface release must preserve its reviewed ABI and producer identity."""
 
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -44,11 +45,15 @@ class AlsaDependencyTests(unittest.TestCase):
             destination.mkdir(parents=True)
             (destination / "libasound.so").write_bytes(b"verified interface")
 
-        environment = {}
+        environment = {"PKG_CONFIG_PATH": "/nix/fontconfig/lib/pkgconfig",
+                       "LIBRARY_PATH": "/nix/fontconfig/lib"}
         with patch.object(prepare_dependencies, "install_alsa", side_effect=install), \
                 prepare_dependencies.cargo_environment(environment, "x64glibc") as configured:
-            pkgconfig = Path(configured["PKG_CONFIG_PATH"])
-            self.assertEqual(configured["LIBRARY_PATH"], str(pkgconfig.parent))
+            pkgconfig_paths = configured["PKG_CONFIG_PATH"].split(os.pathsep)
+            pkgconfig = Path(pkgconfig_paths[0])
+            self.assertEqual(pkgconfig_paths[1:], ["/nix/fontconfig/lib/pkgconfig"])
+            self.assertEqual(configured["LIBRARY_PATH"].split(os.pathsep),
+                             [str(pkgconfig.parent), "/nix/fontconfig/lib"])
             self.assertIn("-lasound", (pkgconfig / "alsa.pc").read_text())
             self.assertEqual((pkgconfig.parent / "libasound.so").read_bytes(), b"verified interface")
         self.assertFalse(pkgconfig.exists())

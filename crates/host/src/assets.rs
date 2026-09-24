@@ -381,12 +381,11 @@ fn verify_manifest(directory: &Dir, expected: &Expectation) -> Result<(), Failur
 
 fn open_store(root: Root, expected: Option<Expectation>) -> Result<*mut u64, Failure> {
     // An unusable expectation is answered before any file is touched.
-    if let Some(expectation) = &expected {
-        if let Some(digest) = &expectation.content_sha256 {
-            if normalized_digest(digest).as_deref() != Some(digest.as_str()) {
-                return Err(Failure::InvalidExpectation);
-            }
-        }
+    if let Some(expectation) = &expected
+        && let Some(digest) = &expectation.content_sha256
+        && normalized_digest(digest).as_deref() != Some(digest.as_str())
+    {
+        return Err(Failure::InvalidExpectation);
     }
     let directory = open_root(&root)?;
     if let Some(expectation) = &expected {

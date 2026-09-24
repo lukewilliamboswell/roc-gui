@@ -6,6 +6,7 @@ requires inspection and recovery of the same tested bytes, not another build.
 """
 
 import argparse
+
 import hashlib
 import json
 import os
@@ -15,7 +16,7 @@ import subprocess
 import tempfile
 import time
 
-from dependency_artifacts import sha256, unpack_verified, verify_archive, read_lock
+from dependency_artifacts import component_inventory, sha256, unpack_verified, verify_archive, read_lock
 
 REPOSITORY = "lukewilliamboswell/roc-gui"
 KINDS = {
@@ -152,7 +153,7 @@ def prepare(directory, tag, environment, kind="musl"):
             required = {f"targets/{target}/{name}" for name in release_files(kind, policy)}
             required.update(f"licenses/{kind}/{name}" for name in policy["licenses"])
             required.update(policy.get("extra_files", ()))
-            if set(manifest["files"]) != required:
+            if set(manifest["files"]) != component_inventory(required, manifest):
                 raise ValueError(f"{kind} release has an incomplete or unexpected file set")
             artifacts[f"{kind}-{target}"] = entry
     lock = directory / "dependencies.lock.json"
