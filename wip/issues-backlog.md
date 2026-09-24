@@ -1057,6 +1057,17 @@ names the evidence so a fix can be verified against the same case.
     backends, apparently on a cyclic closure capture type. This also blocks
     the nightly upgrade (PR #30). Bisect `220fd47..c7de7cf9b1` and add the
     result to the issue.
+    On `nightly-2026-09-23-c7852fd` `roc build --opt=dev` overflows the stack
+    on Observatory on arm64 macOS, so `scripts/run_specs.py` lists it in
+    `COMPILER_BLOCKED` and skips its specifications on every target. Remove
+    the entry once a nightly builds it.
+
+- [ ] **Redis Explorer does not compile on `nightly-2026-09-23-c7852fd`.**
+  Both `roc check` and `roc build --opt=dev examples/redis-explorer/main.roc`
+  run at 100% CPU with no output for over five minutes. `scripts/run_specs.py`
+  lists it in `COMPILER_BLOCKED`, which skips its specifications and its
+  README gallery GIF. Reduce it with a local compiler build, file the
+  upstream issue, and remove the entry once a nightly compiles it.
 
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.

@@ -24,7 +24,8 @@ class ApplicationBuildTests(unittest.TestCase):
         for requested, expected in ((None, "dev"), ("speed", "speed")):
             with self.subTest(mode=requested), tempfile.TemporaryDirectory() as temporary:
                 cases = discover(["examples/counter/specs/counting.scm"], Path(temporary))
-                with patch.object(run_specs.subprocess, "run") as run:
+                done = subprocess.CompletedProcess([], 0, "", "")
+                with patch.object(run_specs.subprocess, "run", return_value=done) as run:
                     if requested is None:
                         run_specs.build(cases, "selected-roc", True)
                     else:

@@ -160,6 +160,11 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
             for spec in specs
             if not any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in excludes)
         ]
+    blocked = [spec for spec in specs if spec.parent.parent.relative_to(ROOT).as_posix() in COMPILER_BLOCKED]
+    for directory in sorted({spec.parent.parent.relative_to(ROOT).as_posix() for spec in blocked}):
+        count = sum(spec.parent.parent.relative_to(ROOT).as_posix() == directory for spec in blocked)
+        print(f"SKIP {directory}: {count} specs ({COMPILER_BLOCKED[directory]})", flush=True)
+    specs = [spec for spec in specs if spec not in blocked]
     cases = []
     for spec in specs:
         app = spec.parent.parent / "main.roc"
@@ -183,6 +188,13 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # or fallback. The Rust host's build profile is independent of this option.
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
 SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
+# Applications the pinned compiler cannot build. Their specifications are
+# skipped and named on every run; each is tracked in wip/issues-backlog.md
+# under "Compiler and toolchain defects" and removed when its fix lands.
+COMPILER_BLOCKED = {
+    "examples/observatory": "roc-lang/roc#11641 compiler stack overflow",
+    "examples/redis-explorer": "roc build does not terminate",
+}
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
