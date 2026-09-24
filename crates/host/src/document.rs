@@ -779,6 +779,7 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(root.join("data.bin"), root.join("link.rgstats")).unwrap();
         let types = validate(vec![offered(&["rgstats"], &[])]).unwrap();
+        #[cfg_attr(not(unix), allow(unused_mut))]
         let mut paths = vec![
             root.join("one.rgstats"),
             root.join("notes.txt"),
@@ -796,6 +797,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["one.rgstats"]
         );
+        #[cfg_attr(not(unix), allow(unused_mut))]
         let mut refused = vec![
             ("notes.txt".to_owned(), DropRefusal::Unsupported),
             ("folder".to_owned(), DropRefusal::NotFile),
