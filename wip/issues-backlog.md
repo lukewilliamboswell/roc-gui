@@ -1536,3 +1536,13 @@ names the reproduction so the workaround can be removed when the fix lands.
   component lock, migration fallback, and legacy publication helpers after
   migrating every remaining build-time consumer; retain the independently
   required host and notice inputs.
+
+## Continuous integration
+
+- [ ] **Publish CI's tested host candidate instead of rebuilding it.** A host
+  release dispatch runs the same host workflow and producer as CI, but rebuilds
+  rather than publishing the `gui-host-<target>` candidate that a green CI run
+  on the default branch already composed and exercised. Publishing that run's
+  artifacts requires the attestation's signer workflow and the host lock's
+  trust policy to admit CI as the signer; until then, confirm byte equality
+  between a dispatch build and CI's candidate at the same commit.

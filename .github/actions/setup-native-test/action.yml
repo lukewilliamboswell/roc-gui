@@ -1,5 +1,9 @@
 name: Prepare native test target
-description: Install target dependencies and admit the tested production host
+description: Install target dependencies and admit this run's sealed native host
+inputs:
+  target:
+    description: The host target produced by this run's host workflow
+    required: true
 runs:
   using: composite
   steps:
@@ -9,22 +13,12 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev
-    - name: Install the Windows GNU host target
-      if: runner.os == 'Windows'
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: ci-host-${{ inputs.target }}
+        path: ${{ runner.temp }}/ci-host
+    # Admission verifies the committed source fingerprint and every staged
+    # byte, and never builds: a job exercises exactly the sealed host.
+    - name: Admit the sealed host
       shell: bash
-      run: |
-        rustup toolchain install 1.95.0 --profile minimal
-        rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
-    - name: Admit released host or test changed host
-      shell: bash
-      run: |
-        status=0
-        python3 scripts/install_released_host.py || status=$?
-        case "$status" in
-          0) echo "Released host matches the committed host inputs; Cargo build skipped." ;;
-          3)
-            python3 scripts/run_cargo.py test --locked --package roc-gui-host
-            python3 build.py
-            ;;
-          *) exit "$status" ;;
-        esac
+      run: python3 scripts/ci_host.py admit "$RUNNER_TEMP/ci-host"

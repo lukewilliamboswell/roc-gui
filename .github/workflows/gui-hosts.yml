@@ -1,36 +1,8 @@
 name: GUI host link inputs
 
 on:
-  pull_request:
-    paths:
-      - crates/host/**
-      - .gitattributes
-      - Cargo.toml
-      - Cargo.lock
-      - rust-toolchain.toml
-      - .cargo/config.toml
-      - build.py
-      - dependencies/gui-host-notices/**
-      - scripts/cargo_build_evidence.py
-      - scripts/git_cargo_sources.py
-      - scripts/gui_host_artifacts.py
-      - scripts/host_notice_payload.py
-      - scripts/host_build_identity.py
-      - scripts/prepare_gui_host_release.py
-      - scripts/prepare_host_build.py
-      - scripts/normalize_host_archive.py
-      - scripts/windows_gnu_build.py
-      - scripts/windows_gnu_coff.py
-      - scripts/rust_license_inventory.py
-      - scripts/toolchain_license_inventory.py
-      - scripts/release_host_artifacts.py
-      - scripts/test_host_release_policy.py
-      - scripts/test_rust_license_inventory.py
-      - scripts/test_toolchain_license_inventory.py
-      - scripts/check_no_tracked_machine_code.py
-      - scripts/test_no_tracked_machine_code.py
-      - .pre-commit-config.yaml
-      - .github/workflows/gui-hosts.yml
+  # Pull requests exercise the same producer through CI's host workflow; this
+  # workflow only publishes, and its publish job is the attested signer.
   workflow_dispatch:
     inputs:
       release_tag:
@@ -42,17 +14,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: gui-hosts-${{ github.event.pull_request.number || github.ref }}
+  group: gui-hosts-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
     name: Build and exercise ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    defaults:
-      run:
-        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -63,56 +30,14 @@ jobs:
             target: arm64mac
           - os: windows-2025
             target: x64mingw
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-toolchain
-      - name: Install Linux test dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev
-      - name: Install the Windows GNU host target
-        if: runner.os == 'Windows'
-        run: |
-          rustup toolchain install 1.95.0 --profile minimal
-          rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
-      - name: Check host evidence and notice admission
-        run: |
-          python3 scripts/check_no_tracked_machine_code.py --all-tracked
-          python3 scripts/test_no_tracked_machine_code.py
-          python3 scripts/test_host_release_policy.py
-          python3 scripts/test_cargo_build_evidence.py
-          python3 scripts/test_git_cargo_sources.py
-          python3 scripts/test_rust_license_inventory.py
-          python3 scripts/test_toolchain_license_inventory.py
-      - name: Test and capture the production host
-        run: |
-          python3 scripts/run_cargo.py test --locked --package roc-gui-host
-          python3 scripts/prepare_host_build.py --evidence "$RUNNER_TEMP/cargo-evidence" --output "$RUNNER_TEMP/host-output"
-      - name: Compose notices, source companion, and tested host archive
-        run: |
-          python3 scripts/prepare_gui_host_release.py \
-            --target ${{ matrix.target }} \
-            --source "$RUNNER_TEMP/host-output" \
-            --cargo-evidence "$RUNNER_TEMP/cargo-evidence" \
-            --output "$RUNNER_TEMP/host" \
-            --roc roc
-      - name: Exercise a real macOS window
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p platform/targets/arm64mac
-          cp "$RUNNER_TEMP/host-output/libhost.a" platform/targets/arm64mac/libhost.a
-          PYTHONPATH=scripts python3 -c 'from pathlib import Path; from link_input_artifacts import install; install("arm64mac", Path("platform/targets/arm64mac"))'
-          roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
-          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: gui-host-${{ matrix.target }}
-          path: ${{ runner.temp }}/host/*.tar
-          retention-days: 30
+    uses: ./.github/workflows/host.yml
+    with:
+      os: ${{ matrix.os }}
+      target: ${{ matrix.target }}
+      release: true
 
+  # The published archives are the candidates composed from the sealed hosts;
+  # CI's native specifications exercise the same producer on every change.
   publish:
     name: Attest and publish tested hosts
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'lukewilliamboswell/roc-gui'

@@ -182,6 +182,28 @@ Native artifacts have three independent release layers:
   supported consumer matrix, and publishes those same tested bytes under Roc's
   content-addressed bundle name.
 
+=== Continuous integration
+
+CI produces each target's native host once per run and exercises those exact
+bytes everywhere. The reusable host workflow decides how the checkout's host is
+produced: a released host that matches the committed sources is admitted as
+published; a host-source change runs the host unit tests once and builds with
+the release producer, `scripts/prepare_host_build.py`; a checkout whose linker
+inputs are not yet released builds against development inputs. The job seals
+the staged `platform/targets/<target>` with its source fingerprint and the
+digest of every file.
+
+Every specification, smoke, window, and gallery job admits that sealed host
+with `scripts/ci_host.py admit`, which refuses a different source fingerprint or
+any changed byte, and runs with `--skip-host-build`. No test job builds a host.
+Each target's tests wait only for that target's host.
+
+When the host sources change, a candidate job composes the notice payload,
+source companion, and release archive from the same sealed build, so the
+archive a release would publish is the one the specifications exercised.
+Publishing a host release dispatches the same host workflow; its publish job
+remains the attested signer.
+
 === Host source companions
 
 Host notice selection comes from Cargo's successful build messages and is

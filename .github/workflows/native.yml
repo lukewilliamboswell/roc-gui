@@ -1,0 +1,197 @@
+name: Native specifications
+
+# Exercises one target's sealed host from this run's host workflow. Every job
+# admits that host and passes --skip-host-build, so none rebuilds it.
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      target:
+        type: string
+        required: true
+      spec_jobs:
+        type: number
+        default: 1
+      smoke_executable:
+        description: Executable name for the native smoke; empty skips it
+        type: string
+        default: ''
+      window:
+        type: boolean
+        default: false
+      missing_shots:
+        type: string
+        default: ''
+      gallery:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  semantics:
+    name: Ordinary semantics (${{ inputs.target }})
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+        with:
+          target: ${{ inputs.target }}
+      - name: Run ordinary application specifications
+        run: >-
+          python3 scripts/run_specs.py "examples/*/specs/*.scm"
+          --exclude "examples/*/specs/*scale*.scm"
+          --jobs ${{ inputs.spec_jobs }} --timeout 180 --only semantic
+          --skip-host-build --output="$RUNNER_TEMP/spec-evidence"
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semantic-failure-${{ inputs.target }}
+          path: |
+            ${{ runner.temp }}/spec-evidence/**/*.failure.json
+            ${{ runner.temp }}/spec-evidence/**/*.failure.rgstats
+            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  scaling:
+    name: Scaling semantics (${{ inputs.target }})
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 100
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+        with:
+          target: ${{ inputs.target }}
+      - name: Run scaling specifications serially
+        run: >-
+          python3 scripts/run_specs.py "benchmarks/*/specs/*.scm"
+          "examples/*/specs/*scale*.scm"
+          --jobs 1 --timeout 300 --only semantic
+          --skip-host-build --output="$RUNNER_TEMP/spec-evidence"
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: scaling-failure-${{ inputs.target }}
+          path: |
+            ${{ runner.temp }}/spec-evidence/**/*.failure.json
+            ${{ runner.temp }}/spec-evidence/**/*.failure.rgstats
+            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  smoke:
+    name: Native smoke (${{ inputs.target }})
+    if: inputs.smoke_executable != ''
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+        with:
+          target: ${{ inputs.target }}
+      - name: Build and exercise a real GPUI window
+        run: |
+          roc build --no-cache --target=${{ inputs.target }} --opt=dev --output="$RUNNER_TEMP/${{ inputs.smoke_executable }}" examples/counter/main.roc
+          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/${{ inputs.smoke_executable }}" --failure-record="$RUNNER_TEMP/smoke-evidence/failure.json"
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: smoke-failure-${{ inputs.target }}
+          path: ${{ runner.temp }}/smoke-evidence/failure.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  window:
+    name: Window specifications (${{ inputs.target }})
+    if: inputs.window
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+        with:
+          target: ${{ inputs.target }}
+      - name: Run real GPUI window specifications
+        run: >-
+          python3 scripts/run_specs.py --only window
+          --exclude "examples/*/specs/gallery.scm"
+          --exclude "examples/clipboard-history/specs/window-*.scm"
+          --exclude "examples/system-monitor/specs/window-plot-width.scm"
+          --timeout 180 --skip-host-build --output="$RUNNER_TEMP/spec-evidence"
+          ${{ inputs.missing_shots }}
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: window-failure-${{ inputs.target }}
+          path: |
+            ${{ runner.temp }}/spec-evidence/**/*.failure.json
+            ${{ runner.temp }}/spec-evidence/**/report.json
+            ${{ runner.temp }}/spec-evidence/**/*.png
+            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  gallery:
+    name: Example gallery (${{ inputs.target }})
+    if: inputs.gallery
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: ./.github/actions/setup-native-test
+        with:
+          target: ${{ inputs.target }}
+      - name: Install the gallery encoder
+        run: python3 -m pip install Pillow==12.3.0
+      - name: Check gallery sources and encoder
+        run: |
+          python3 scripts/build_example_gallery.py --check
+          python3 -m unittest scripts/test_build_example_gallery.py
+      - name: Record production example windows
+        run: python3 scripts/run_specs.py "examples/*/specs/gallery.scm" --only window --window-retries=1 --skip-host-build --output="$RUNNER_TEMP/gallery-captures"
+      - name: Build thumbnail GIFs
+        run: python3 scripts/build_example_gallery.py --captures="$RUNNER_TEMP/gallery-captures" --output="$RUNNER_TEMP/gallery"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: example-gallery
+          path: ${{ runner.temp }}/gallery/*.gif
+          retention-days: 30
