@@ -21,3 +21,12 @@ repos:
         language: system
         files: (\.rs|Cargo\.toml|Cargo\.lock|rust-toolchain\.toml|\.cargo/config\.toml|scripts/(run_cargo|prepare_dependencies)\.py)$
         pass_filenames: false
+      # Code under #[cfg(target_os = ...)] compiles only for that target, so
+      # lint the host for the other operating systems too. Needs zig, and
+      # llvm-rc for Windows; a target this machine cannot check prints SKIP.
+      - id: cargo-clippy-other-targets
+        name: Lint Rust for the other host targets
+        entry: python3 scripts/check_host_targets.py
+        language: system
+        files: (\.rs|Cargo\.toml|Cargo\.lock|rust-toolchain\.toml|\.cargo/config\.toml|scripts/check_host_targets\.py)$
+        pass_filenames: false

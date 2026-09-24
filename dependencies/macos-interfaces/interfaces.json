@@ -1822,6 +1822,23 @@
           ]
         },
         {
+          "name": "_CFPreferencesCopyAppValue",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/cfpreferencescopyappvalue(_:_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/cfpreferencescopyappvalue(_:_:).json",
+              "external_id": "c:@F@CFPreferencesCopyAppValue",
+              "title": "CFPreferencesCopyAppValue(_:_:)",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:51.595963+00:00",
+              "response_sha256": "0dd7084b44110e9a9ea3709410f5dfc79370b7edecc2bac168383e744d2fdfae"
+            }
+          ]
+        },
+        {
           "name": "_CFRelease",
           "sources": [
             {
@@ -2179,6 +2196,40 @@
           ]
         },
         {
+          "name": "_CFURLGetFileSystemRepresentation",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/cfurlgetfilesystemrepresentation(_:_:_:_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/cfurlgetfilesystemrepresentation(_:_:_:_:).json",
+              "external_id": "c:@F@CFURLGetFileSystemRepresentation",
+              "title": "CFURLGetFileSystemRepresentation(_:_:_:_:)",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:44.959574+00:00",
+              "response_sha256": "f24171ce0e7620ae116d8a981a97b4f24653ff32e43262e30fb521c7ebe56887"
+            }
+          ]
+        },
+        {
+          "name": "_CFURLGetTypeID",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/cfurlgettypeid()",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/cfurlgettypeid().json",
+              "external_id": "c:@F@CFURLGetTypeID",
+              "title": "CFURLGetTypeID()",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:47.924691+00:00",
+              "response_sha256": "ff11eb4108a9eb5d3e6554ebe98a15d70500357d1ed98f19d2ec9c1e372a2cb9"
+            }
+          ]
+        },
+        {
           "name": "_CFUUIDGetUUIDBytes",
           "sources": [
             {
@@ -2281,6 +2332,23 @@
               "identifier": "kCFCoreFoundationVersionNumber",
               "source_license": "See linked crate license metadata",
               "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_kCFPreferencesCurrentApplication",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/kcfpreferencescurrentapplication",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/kcfpreferencescurrentapplication.json",
+              "external_id": "c:@kCFPreferencesCurrentApplication",
+              "title": "kCFPreferencesCurrentApplication",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:54.711421+00:00",
+              "response_sha256": "ea79551c10518e7117474b12cef3c5c758d4fc46f8645ecf17c31b8cc0f16652"
             }
           ]
         },
@@ -2526,6 +2594,23 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:40.322313+00:00",
               "response_sha256": "9348ff41074f876b5b504d2c4a8a8a136512d952db1c9caecfcd0721fb579e26"
+            }
+          ]
+        },
+        {
+          "name": "_CGContextSetShouldSmoothFonts",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coregraphics/cgcontext/setshouldsmoothfonts(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coregraphics/cgcontext/setshouldsmoothfonts(_:).json",
+              "external_id": "c:@F@CGContextSetShouldSmoothFonts",
+              "title": "setShouldSmoothFonts(_:)",
+              "documented_modules": [
+                "Core Graphics"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:58.439533+00:00",
+              "response_sha256": "cd3d84e710bdc9d10bddd019bc73a2f4f0e3bc0070d1b2667a7d584017abca0d"
             }
           ]
         },
@@ -3814,6 +3899,40 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:06:10.672885+00:00",
               "response_sha256": "e389cd1dde3e18a9f0f1cbffd15abb6b5d3a6a8a7902d0eb4eb2b7a7936a613d"
+            }
+          ]
+        },
+        {
+          "name": "_kCTFontTraitsAttribute",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coretext/kctfonttraitsattribute",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coretext/kctfonttraitsattribute.json",
+              "external_id": "c:@kCTFontTraitsAttribute",
+              "title": "kCTFontTraitsAttribute",
+              "documented_modules": [
+                "Core Text"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:01:09.962000+00:00",
+              "response_sha256": "e7598a63a37dcc4fdac91e8cd47b747a2911a30d46103006054d3d1d778bd4a3"
+            }
+          ]
+        },
+        {
+          "name": "_kCTFontURLAttribute",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coretext/kctfonturlattribute",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coretext/kctfonturlattribute.json",
+              "external_id": "c:@kCTFontURLAttribute",
+              "title": "kCTFontURLAttribute",
+              "documented_modules": [
+                "Core Text"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:01:05.377084+00:00",
+              "response_sha256": "665368f24d652f01f1d962ff010a0b550d2b1a710a5d2043b2b3a9706ecbe867"
             }
           ]
         },

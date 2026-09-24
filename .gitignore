@@ -8,7 +8,7 @@
 /platform/targets/*/*.tbd
 /platform/targets/*/*.json
 /platform/targets/*/*.def
-/platform/targets/macos-sysroot/
+/platform/targets/*/macos-sysroot/
 /counter
 /main
 /.test-out
