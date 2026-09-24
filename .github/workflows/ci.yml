@@ -59,6 +59,8 @@ jobs:
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \
+            scripts/test_cargo_build_evidence.py \
+            scripts/test_git_cargo_sources.py \
             scripts/test_macos_interfaces.py \
             scripts/test_gpui_smoke.py \
             scripts/test_window_routing.py

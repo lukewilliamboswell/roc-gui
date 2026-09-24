@@ -35,7 +35,7 @@ SOURCE_PATHS = (
     "crates/host", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
     "dependencies/gui-host-notices",
     ".github/actions/setup-toolchain/action.yml", ".github/workflows/gui-hosts.yml",
-    "scripts/cargo_build_evidence.py", "scripts/gui_host_artifacts.py",
+    "scripts/cargo_build_evidence.py", "scripts/git_cargo_sources.py", "scripts/gui_host_artifacts.py",
     "scripts/host_notice_payload.py", "scripts/prepare_gui_host_release.py",
     "scripts/prepare_host_build.py", "scripts/release_host_artifacts.py",
     "scripts/normalize_host_archive.py",
@@ -118,8 +118,8 @@ def validate_outputs(receipt, target, fingerprint, cargo_host, outputs=None):
         raise ValueError("host build receipt differs from Cargo output")
     if target == "arm64mac":
         macos = receipt.get("macos", {})
-        if (macos.get("cargo_host_sha256") != cargo_host["sha256"] or macos.get("fresh_cargo_target") is not True
-                or set(macos.get("outputs", {})) != {"scene.h", "shaders.air", "shaders.metallib"}
+        if (macos.get("schema_version") != 2 or macos.get("cargo_host_sha256") != cargo_host["sha256"] or macos.get("fresh_cargo_target") is not True
+                or set(macos.get("outputs", {})) != {"scene.h", "shaders.metallib"}
                 or set(macos.get("toolchain", {}).get("tools", {})) != {"metal", "metallib"}):
             raise ValueError("Mac shader evidence differs from the captured host")
         for record in (*macos["outputs"].values(), macos.get("shader_source", {})):

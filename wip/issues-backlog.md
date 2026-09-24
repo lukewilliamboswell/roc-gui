@@ -1531,30 +1531,6 @@ names the reproduction so the workaround can be removed when the fix lands.
   existing fallback. Implement the same presented-frame readback in the fork's
   Metal and DirectX renderers and verify it on each platform.
 
-- [ ] **Teach GUI-host source companions to admit immutable Git Cargo sources.**
-  The host compiles 18 Apache-2.0 crates (`gpui`, `gpui_platform`,
-  `gpui_linux`, `gpui_wgpu`, `collections`, `sum_tree`, and their support
-  crates) from `git+https://github.com/lukewilliamboswell/zed.git` at one locked
-  revision. Cargo.lock gives that revision but no archive checksum, so
-  `cargo_build_evidence.derive` rejects every such package ("compiled package
-  has no Cargo.lock identity") and `prepare_gui_host_release.crate_cache` accepts
-  only registry crates. Release composition is therefore blocked for every
-  target.
-
-  Contract to implement: admit a Git package only when its repository and
-  revision appear in a reviewed policy under `dependencies/gui-host-notices`.
-  Derive its in-repository path from the metadata manifest path without
-  recording the checkout location. Build the source archive from Git objects
-  at the locked commit in Cargo's Git database (`git ls-tree -r` and
-  `git cat-file`), resolving in-repository symlinks such as `LICENSE-APACHE`
-  and rejecting submodules and escapes, together with the workspace manifest
-  the package inherits from. Record repository, revision, path, tree digest
-  and archive digest in build evidence, so composition in a later job can
-  reproduce and compare them. Teach the notice inventory and
-  `host_notice_payload` to verify that digest, and cover it with a fixture Git
-  repository in the script tests. Do not treat a Git revision as an archive
-  digest or omit its corresponding source.
-
 - [ ] **Remove superseded linker-input migration machinery.** The unified
   `link-inputs.lock.json` is published and adopted. Remove the superseded
   component lock, migration fallback, and legacy publication helpers after

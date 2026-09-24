@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "git+https://github.com/lukewilliamboswell/zed.git?rev=252b436e332f68c9ac2d6c785dd075fd19b69785#252b436e332f68c9ac2d6c785dd075fd19b69785": {
+      "packages": {
+        "collections@0.1.0": "crates/collections",
+        "derive_refineable@0.1.0": "crates/refineable/derive_refineable",
+        "gpui@0.2.2": "crates/gpui",
+        "gpui_apple@0.1.0": "crates/gpui_apple",
+        "gpui_linux@0.1.0": "crates/gpui_linux",
+        "gpui_macos@0.1.0": "crates/gpui_macos",
+        "gpui_macros@0.1.0": "crates/gpui_macros",
+        "gpui_platform@0.1.0": "crates/gpui_platform",
+        "gpui_shared_string@0.1.0": "crates/gpui_shared_string",
+        "gpui_util@0.1.0": "crates/gpui_util",
+        "gpui_web@0.1.0": "crates/gpui_web",
+        "gpui_wgpu@0.1.0": "crates/gpui_wgpu",
+        "gpui_windows@0.1.0": "crates/gpui_windows",
+        "http_client@0.1.0": "crates/http_client",
+        "perf@0.1.0": "tooling/perf",
+        "refineable@0.1.0": "crates/refineable",
+        "scheduler@0.1.0": "crates/scheduler",
+        "sum_tree@0.1.0": "crates/sum_tree",
+        "util_macros@0.1.0": "crates/util_macros",
+        "zlog@0.1.0": "crates/zlog",
+        "ztracing@0.1.0": "crates/ztracing",
+        "ztracing_macro@0.1.0": "crates/ztracing_macro"
+      }
+    },
+    "git+https://github.com/proptest-rs/proptest?rev=3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b#3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b": {
+      "packages": {
+        "proptest-macro@0.5.0": "proptest-macro",
+        "proptest@1.10.0": "proptest"
+      }
+    },
+    "git+https://github.com/zed-industries/font-kit?rev=94b0f28166665e8fd2f53ff6d268a14955c82269#94b0f28166665e8fd2f53ff6d268a14955c82269": {
+      "packages": {
+        "zed-font-kit@0.14.1-zed": "."
+      }
+    },
+    "git+https://github.com/zed-industries/scap?rev=4afea48c3b002197176fb19cd0f9b180dd36eaac#4afea48c3b002197176fb19cd0f9b180dd36eaac": {
+      "packages": {
+        "zed-scap@0.0.8-zed": "."
+      }
+    },
+    "git+https://github.com/zed-industries/wasm_thread?rev=0cf96c7708dfb97ccf3da50347e25edcf75d6937#0cf96c7708dfb97ccf3da50347e25edcf75d6937": {
+      "packages": {
+        "wasm_thread@0.3.3": "."
+      }
+    }
+  }
+}

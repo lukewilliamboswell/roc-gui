@@ -24,7 +24,7 @@ def is_third_party(package):
 
 
 def archive_digest(package):
-    return package["crate_sha256"]
+    return package["git_source"]["archive_sha256"] if "git_source" in package else package["crate_sha256"]
 
 
 def digest(data):
@@ -101,7 +101,7 @@ def validate_packaged_outputs(build, target, fingerprint, cargo_host, outputs, n
 
 
 def compiler_host_evidence(root, target):
-    return {}
+    return {"git_sources": json.loads((root / "git-sources.json").read_text())}
 
 
 def checked_file(root, name, record):
@@ -357,7 +357,8 @@ def compose(target, evidence_root, crate_root, toolchain_root, policy_root, host
     for package in crates["packages"]:
         identity = (package["name"], package["version"])
         compiled = expected[identity]
-        if (package["crate_sha256"] != compiled["crate_sha256"]
+        if (package.get("git_source") != compiled.get("git_source")
+                or package["crate_sha256"] != compiled["crate_sha256"]
                 or package["declared_license"] != compiled["declared_license"]):
             raise ValueError("crate declaration differs from compiled package metadata")
         expression = package["declared_license"]

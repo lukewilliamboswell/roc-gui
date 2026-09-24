@@ -12,6 +12,7 @@ on:
       - build.py
       - dependencies/gui-host-notices/**
       - scripts/cargo_build_evidence.py
+      - scripts/git_cargo_sources.py
       - scripts/gui_host_artifacts.py
       - scripts/host_notice_payload.py
       - scripts/host_build_identity.py
@@ -82,6 +83,8 @@ jobs:
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
           python3 scripts/test_no_tracked_machine_code.py
           python3 scripts/test_host_release_policy.py
+          python3 scripts/test_cargo_build_evidence.py
+          python3 scripts/test_git_cargo_sources.py
           python3 scripts/test_rust_license_inventory.py
           python3 scripts/test_toolchain_license_inventory.py
       - name: Test and capture the production host
