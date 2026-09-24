@@ -4,6 +4,30 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Blueprint verification and compiler watching
+
+- [ ] **Verify the complete Nix semantic suite.** The source-input host build,
+  both counter semantic specifications, and native GPUI smoke test pass through
+  the pinned Nix environment. Run the complete Blueprint CI suite before treating
+  all applications as Nix-verified. Until the stale unified linker-input lock
+  tracked below is replaced, build with `blueprint run build -- --source-inputs`
+  and run specifications with `--skip-host-build` against that host.
+
+- [ ] **Support NixOS executable loading.** Linux executables select the native
+  system ELF loader. The Nix development shell supplies build dependencies, but
+  running examples requires compatible native desktop runtime libraries. Do
+  not inject newer Nix glibc-dependent libraries into the system loader through
+  `LD_LIBRARY_PATH`; add and verify a coherent NixOS loader/runtime path.
+
+- [ ] **Roc watching traverses unrelated checkout directories.** The Blueprint
+  bootstrap compiler (`nightly-2026-09-19-d025939`) can exhaust Linux inotify
+  watches in checkouts with large `.claude`, `target`, or `.git` trees.
+  An isolated `roc check --watch` reproduction registers every directory in
+  those trees; upstream issue: https://github.com/roc-lang/roc/issues/11644.
+  Fix upstream watch registration to follow relevant inputs while
+  preserving explicitly imported hidden/generated files and atomic replacement,
+  then update the Blueprint bootstrap compiler and verify a large checkout.
+
 ## Resource broker and confinement foundation
 
 - [ ] **The linked process is not an untrusted-application boundary.** Implement

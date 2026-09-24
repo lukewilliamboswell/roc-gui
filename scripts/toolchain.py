@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the selected header pins and check the installed compiler identity."""
+"""Read the repository compiler pin and check the installed compiler identity."""
 
 import argparse
 import json
@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 
-from compiler_pins import TOKEN, discover, local_sources, read_pin, version
+from compiler_pins import TOKEN, PIN, discover, header_pin, local_sources, version
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,20 +59,31 @@ def replace_platform(source: str, reference: str) -> str:
 
 
 def development_pin(root: Path = ROOT) -> str:
-    return read_pin(root / "platform/main.roc")
+    return version(discover(local_sources(root)))
 
 
 def validate_roots(root: Path = ROOT) -> str:
     config = json.loads((root / ".github/roc-nightly.json").read_text())
-    expected = {"platform/main.roc"}
-    for directory in ("examples", "benchmarks"):
-        expected.update(path.relative_to(root).as_posix()
-                        for path in (root / directory).rglob("main.roc"))
-    if set(config["compiler_roots"]) != expected:
-        raise ValueError("compiler_roots must select the platform and every maintained application")
-    if (root / ".roc-version").exists():
-        raise ValueError("remove competing .roc-version authority")
-    return version(discover(local_sources(root, config["compiler_roots"])))
+    if "compiler_roots" in config:
+        raise ValueError("nightly automation must use .roc-version")
+    roots = [root / "Blueprint.roc"]
+    for directory in ("platform", "examples", "benchmarks"):
+        roots.extend((root / directory).rglob("*.roc"))
+    for path in roots:
+        if header_pin(path.read_text()) is not None:
+            raise ValueError(f"branch roots must use .roc-version: {path.relative_to(root)}")
+    return development_pin(root)
+
+
+def pin_release_app(source: str, pin: str) -> str:
+    """Insert the release compiler beside the app's platform dependency."""
+    if not PIN.fullmatch(pin) or header_pin(source) is not None:
+        raise ValueError("release requires an unpinned app and a valid compiler tag")
+    span = app_platform_span(source)
+    if span is None:
+        raise ValueError("release example must be an app")
+    end = span[1] + 1
+    return source[:end] + ', roc: "' + pin + '"' + source[end:]
 
 
 def verify_compiler(roc: str, pin: str) -> None:

@@ -4,6 +4,31 @@ Read `AGENTS.md` before changing the platform. The central constraint is “test
 what we fly”: tests and measurements drive the production implementation and
 never reproduce it.
 
+== Pinned development environment
+
+`blueprint run build` builds the native host. `blueprint run test` builds and
+runs the application specifications through the production host, and
+`blueprint run check` verifies the installed compiler against `.roc-version`.
+Run these commands inside the Blueprint bootstrap environment described in
+Getting started. Commit `Blueprint.roc`, `Blueprint.lock`, and `.roc-version`;
+`.blueprint/` contains generated files.
+
+The Linux shell supplies native build dependencies, including Fontconfig and
+Wayland. The build helper prepends its verified ALSA interface to the shell
+search paths. Executables use the native desktop runtime libraries selected by
+the system ELF loader.
+
+Change `.roc-version` to select another compiler. Run `blueprint update` when
+the locked overlay needs a newer release, and review the lock changes. CI checks
+that every maintained example and benchmark has adjacent specifications and
+runs the semantic suites. A build or semantic failure fails the gate; it is not
+silently skipped. Record unresolved defects in `wip/issues-backlog.md`.
+
+Release packaging verifies the compiler identity and records its exact tag in
+the release manifest. Release validation and example archiving insert that tag
+into app headers alongside the released platform reference. The branch sources
+remain unpinned so the repository has one compiler authority.
+
 == Validate a change
 
 [source,sh]

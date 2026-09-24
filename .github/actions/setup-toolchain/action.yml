@@ -1,5 +1,5 @@
 name: Install pinned Roc GUI toolchain
-description: Validate the header roots and install their exact Roc compiler and Zig.
+description: Validate .roc-version and install its exact Roc compiler and Zig.
 runs:
   using: composite
   steps:

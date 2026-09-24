@@ -34,7 +34,6 @@ jobs:
         uses: lukewilliamboswell/roc-automation/actions/check-release@d2bf9d412dcff12aae3249afde170eab8119253f
         with:
           version: ${{ inputs.version }}
-          compiler-root: platform/main.roc
           allow-default-branch: 'true'
           allow-nightly-bootstrap: 'true'
       - name: Verify locked artifact attestations
