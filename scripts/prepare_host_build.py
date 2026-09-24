@@ -47,7 +47,7 @@ def separate_windows_imports(host, built):
     exits, and name the native libraries and search paths the derivation reads.
     """
     from cargo_build_evidence import reject_private_paths
-    from prepare_dependencies import WINDOWS_GNU_RUNTIME, verified_windows_gnu
+    from link_input_artifacts import install as install_link_inputs
     from windows_gnu_build import zig_toolchain
     from windows_link_imports import OUTPUT, prepare
 
@@ -55,9 +55,11 @@ def separate_windows_imports(host, built):
         zig = zig_toolchain(Path(temporary) / "tools")
         staged = Path(temporary) / "staged"
         staged.mkdir()
-        with verified_windows_gnu() as verified:
-            receipt = prepare(host, built.parent.parent / "cargo.jsonl",
-                              verified / WINDOWS_GNU_RUNTIME / "targets/x64mingw", zig, staged)
+        # The runtime the import library is derived against is the one the
+        # final link uses: the locked, released linker inputs.
+        runtime = Path(temporary) / "runtime"
+        install_link_inputs("x64mingw", runtime)
+        receipt = prepare(host, built.parent.parent / "cargo.jsonl", runtime, zig, staged)
         for name in (host.name, OUTPUT):
             data = (staged / name).read_bytes()
             reject_private_paths(data, ROOT)
