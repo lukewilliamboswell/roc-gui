@@ -1039,6 +1039,7 @@ mod tests {
     #[test]
     fn a_watch_reports_a_replaced_file_once_writing_pauses() {
         let root = std::env::temp_dir().join(format!("roc-gui-watch-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let fd = sys::open().unwrap();
         let descriptor = sys::add(fd, &root).unwrap();
@@ -1054,7 +1055,16 @@ mod tests {
         std::fs::write(root.join("staged"), b"new").unwrap();
         std::fs::rename(root.join("staged"), root.join("live.rgstats")).unwrap();
         let mut buffer = vec![0u8; 4096];
-        let events = sys::read(fd, &mut buffer, Duration::from_secs(1)).unwrap();
+        // Read as the watcher thread does, until a read comes back quiet: a
+        // platform may complete the staged write and the rename separately.
+        let mut events = Vec::new();
+        loop {
+            let read = sys::read(fd, &mut buffer, Duration::from_secs(1)).unwrap();
+            if read.is_empty() {
+                break;
+            }
+            events.extend(read);
+        }
         for event in &events {
             if let Some(name) = &event.name
                 && let Effect::Named { name, rebound } = watch.target.effect(name, event.mask)

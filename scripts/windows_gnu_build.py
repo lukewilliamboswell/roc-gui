@@ -267,7 +267,8 @@ def execute(output, *, jobs=2, cargo_target=None, debug=False, extra_env=None):
                    cwd=ROOT / "crates/host/windows", check=True)
     shaders = output / "shaders"
     shaders.mkdir()
-    for directory in (cargo_target / TRIPLE / profile / "build").glob("gpui-*/out"):
+    # gpui_windows owns the build script that compiles the HLSL shaders.
+    for directory in (cargo_target / TRIPLE / profile / "build").glob("gpui_windows-*/out"):
         for path in directory.iterdir():
             if path.is_file():
                 shutil.copyfile(path, shaders / (directory.parent.name + "-" + path.name))

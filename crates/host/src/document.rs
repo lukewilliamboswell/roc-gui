@@ -807,6 +807,7 @@ mod tests {
         #[cfg(unix)]
         refused.push(("link.rgstats".to_owned(), DropRefusal::Unsupported));
         assert_eq!(dropped.refused, refused);
+        drop(dropped);
         std::fs::remove_dir_all(&root).unwrap();
     }
 
@@ -823,6 +824,7 @@ mod tests {
             Some(b"bytes".to_vec())
         );
         assert!(locate(&root).is_err(), "a folder is not a file");
+        drop(chosen);
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

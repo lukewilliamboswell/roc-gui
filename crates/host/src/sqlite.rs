@@ -917,6 +917,7 @@ mod tests {
         let connection = open_in_place(&dir, "big.db").unwrap();
         let page = run(&connection, "SELECT length(data) FROM padding", &[], 0).unwrap();
         assert_eq!(page.rows, vec![vec![Value::Integer(75_497_472)]]);
+        drop((connection, dir));
         std::fs::remove_dir_all(path).unwrap();
     }
 
@@ -958,6 +959,7 @@ mod tests {
         );
         let too_many = vec![Value::Null; MAX_PARAMS + 1];
         assert_eq!(run(&connection, "SELECT 1", &too_many, 0).unwrap_err().0, 8);
+        drop((connection, dir));
         std::fs::remove_dir_all(path).unwrap();
     }
 
@@ -1011,6 +1013,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!((last.rows.len(), last.more), (500, false));
+        drop((connection, dir));
         std::fs::remove_dir_all(path).unwrap();
     }
 
@@ -1032,6 +1035,7 @@ mod tests {
         assert_eq!(count(&reader), vec![vec![Value::Integer(11)]]);
         drop(writer);
         drop(reader);
+        drop(dir);
         std::fs::remove_dir_all(path).unwrap();
     }
 
@@ -1050,6 +1054,7 @@ mod tests {
         drop(reader);
         assert_eq!(std::fs::read(path.join("done.db")).unwrap(), before);
         assert!(names(&path).iter().all(|name| name.starts_with("done.db")));
+        drop(dir);
         std::fs::remove_dir_all(path).unwrap();
     }
 
@@ -1087,6 +1092,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(open_in_place(&dir, "text.db").unwrap_err().0, 7);
+        drop((connection, dir));
         std::fs::remove_dir_all(path).unwrap();
     }
 
