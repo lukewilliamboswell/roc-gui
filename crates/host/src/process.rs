@@ -562,7 +562,8 @@ mod sys {
 
     impl Terminal {
         pub fn spawn(columns: u16, rows: u16, profile: GrantedProfile) -> io::Result<Self> {
-            let size = libc::winsize {
+            // macOS declares openpty's size as `*mut`, Linux as `*const`.
+            let mut size = libc::winsize {
                 ws_row: rows,
                 ws_col: columns,
                 ws_xpixel: 0,
@@ -576,7 +577,7 @@ mod sys {
                     &mut slave,
                     std::ptr::null_mut(),
                     std::ptr::null_mut(),
-                    &size,
+                    &mut size,
                 )
             } != 0
             {

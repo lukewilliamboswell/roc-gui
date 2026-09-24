@@ -18,7 +18,6 @@ use std::sync::{
     Condvar, Mutex, OnceLock,
     atomic::{AtomicBool, Ordering},
 };
-use std::time::Duration;
 
 /// The default colour's encoding: bit 24 alone.
 const DEFAULT_BITS: u64 = 0x0100_0000;
@@ -245,6 +244,7 @@ type Changes = std::pin::Pin<Box<dyn async_std::stream::Stream<Item = Option<Cha
 #[cfg(target_os = "linux")]
 fn observe_desktop() {
     use async_std::stream::StreamExt;
+    use std::time::Duration;
     let (first, answered) = std::sync::mpsc::channel::<()>();
     let spawned = std::thread::Builder::new()
         .name("roc-gui-appearance".into())
