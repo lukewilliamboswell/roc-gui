@@ -1050,6 +1050,19 @@ names the evidence so a fix can be verified against the same case.
 
 ## Compiler and toolchain defects
 
+- [ ] **Roc's build cache miscompiles one application after another.** With
+  the pinned `nightly-2026-09-23-c7852fd`, building `examples/clipboard-history`
+  with the cache enabled panics (`compiler bug: instantiation widened a closed
+  tag union`), and building `examples/http-workbench` in a cache that
+  clipboard-history or animation-studio has populated succeeds but produces a
+  wrong view: its response column is not drawn and its bench row does not
+  shrink to the window, so the Windows gallery fails. `--no-cache` builds of
+  both are correct. The specification runner therefore builds every
+  application with `--no-cache`. Report the reproduction upstream (see
+  roc-lang/roc#11673 and #11676), move the pin to a fixed nightly, and
+  confirm cached, cold, and warm builds of the suite agree before relying on
+  the cache again.
+
 - [ ] **Move the compiler pin past `cde92d117ac`.** With the pinned
   `nightly-2026-09-12-220fd47`, the default (`--opt=speed`) build of every
   application faults at startup on Windows: the LLVM backend marked an erased
