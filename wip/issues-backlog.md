@@ -1517,6 +1517,17 @@ names the reproduction so the workaround can be removed when the fix lands.
   (`prepare_host_build.py`, `host_notice_payload.py`) has been changed but not
   yet run; run it on a Windows runner before the next host release.
 
+- [ ] **Publish macOS interfaces that cover the CoreText text system.** The
+  host enables `gpui_platform/font-kit`, without which `gpui_macos` installs
+  `NoopTextSystem` and draws no glyphs. The text system references seven
+  symbols the released `deps-macos-interfaces-1-20260915.1` archive lacks
+  (`CFURLGetFileSystemRepresentation`, `CFURLGetTypeID`,
+  `CFPreferencesCopyAppValue`, `kCFPreferencesCurrentApplication`,
+  `CGContextSetShouldSmoothFonts`, `kCTFontURLAttribute`,
+  `kCTFontTraitsAttribute`). The catalog now records their evidence, so
+  `--source-inputs` builds link; release a new macOS interface archive and
+  adopt it in `dependencies.lock.json` so released-input builds link too.
+
 - [ ] **Keep Metal shader debug paths free of build-machine identity.**
   The host pins the GPUI fork at
   `252b436e332f68c9ac2d6c785dd075fd19b69785`, based on Zed commit
