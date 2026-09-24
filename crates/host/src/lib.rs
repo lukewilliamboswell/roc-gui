@@ -4094,6 +4094,7 @@ struct Runtime {
     applying_cycle: Option<u64>,
     active_dialog: Option<u64>,
     dialog_return_focus: Option<ElementIdentity>,
+    focus_root_after_render: bool,
     last_trigger_focus: Option<ElementIdentity>,
     focused_identity: Option<(u64, ElementIdentity)>,
     /// The focused control's position in the focus order when it was last
@@ -4193,6 +4194,7 @@ impl Runtime {
             applying_cycle: None,
             active_dialog: None,
             dialog_return_focus: None,
+            focus_root_after_render: false,
             last_trigger_focus: None,
             focused_identity: None,
             focused_position: None,
@@ -5305,6 +5307,10 @@ impl Runtime {
                     .dialog_return_focus
                     .take()
                     .and_then(|identity| self.find_native_identity(&identity));
+                // A dialog whose opener is gone returns focus to the window,
+                // where the window's shortcuts still reach, rather than
+                // leaving it on the dialog's unmounted field.
+                self.focus_root_after_render = self.focus_after_render.is_none();
             }
             _ => {
                 if let Some((id, identity)) = self.focused_identity.clone() {
@@ -5512,6 +5518,10 @@ impl Runtime {
                     .dialog_return_focus
                     .take()
                     .and_then(|identity| self.find_native_identity(&identity));
+                // A dialog whose opener is gone returns focus to the window,
+                // where the window's shortcuts still reach, rather than
+                // leaving it on the dialog's unmounted field.
+                self.focus_root_after_render = self.focus_after_render.is_none();
             }
             _ => {
                 if let Some((id, identity)) = self.focused_identity.clone()
@@ -6318,6 +6328,9 @@ impl Render for Runtime {
         // What this frame is drawing, so a painted read can tell whether the
         // window has caught up with the graph it is being asked about.
         probe::begin_frame(self.generation);
+        if std::mem::take(&mut self.focus_root_after_render) {
+            self.root_focus.focus(window, _cx);
+        }
         if let Some(target) = self.focus_after_render.take()
             && let Some(handle) = self.focus_handles.get(&target)
         {
@@ -7231,6 +7244,8 @@ fn start_requested_recorder(
 pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let host = Box::leak(Box::new(make_counted_roc_host(core::ptr::null_mut())));
     set_roc_host(host);
+    // Before any database is opened, by the recorder or by the application.
+    sqlite::share_files_like_posix();
 
     let args = match parse_host_args() {
         Ok(args) => args,

@@ -28,19 +28,19 @@ COMPONENTS = {
         ("unwind", "x64glibc"), ("xkbcommon", "x64glibc"),
     ),
     "arm64mac": (("macos-interfaces", "macos-sysroot"),),
-    "x64mingw": (("windows-gnu-runtime", "x64mingw"),
-                   ("windows-system-imports", "x64mingw")),
+    # The Windows host derives its DLL import library from its own link, so
+    # the target's external inputs are only the GNU runtime and its resource.
+    "x64mingw": (("windows-gnu-runtime", "x64mingw"),),
 }
 SOURCE_PATHS = (
     "dependencies/alsa-interface.json", "dependencies/freetype.json", "dependencies/glibc",
     "dependencies/glibc.json", "dependencies/linux", "dependencies/macos-interfaces",
     "dependencies/unwind", "dependencies/unwind.json", "dependencies/windows-gnu-runtime",
-    "dependencies/windows-gnu-runtime.json", "dependencies/windows-system-imports",
-    "dependencies/windows-system-imports.json", "dependencies/xkbcommon", "dependencies/xkbcommon.json",
+    "dependencies/windows-gnu-runtime.json", "dependencies/xkbcommon", "dependencies/xkbcommon.json",
     "crates/host/windows/roc-gui.rc", "crates/host/windows/roc-gui.manifest.xml",
     "scripts/build_alsa_interface.py", "scripts/build_freetype.py", "scripts/build_glibc.py",
     "scripts/build_macos_interfaces.py", "scripts/build_macos_stubs.py", "scripts/build_unwind.py",
-    "scripts/build_windows_gnu_runtime.py", "scripts/build_windows_system_imports.py",
+    "scripts/build_windows_gnu_runtime.py",
     "scripts/build_xkbcommon.py", "scripts/dependency_archive.py", "scripts/link_input_artifacts.py",
     ".github/workflows/link-inputs.yml",
 )

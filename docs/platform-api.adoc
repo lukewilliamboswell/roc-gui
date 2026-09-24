@@ -1394,6 +1394,9 @@ opened as immutable: a database in write-ahead-log mode is read through its log,
 so every query sees the writes another process has committed, including a
 writer that is still running. SQLite keeps a write-ahead-logged database's
 shared index files beside it; the database file itself is never written.
+An open database never stops another program deleting it or moving another
+file over its name, on any operating system; a watch of the database reports
+the replacement.
 
 `database.query!(sql)` prepares and executes one read-only statement.
 `database.query_with!(sql, params)` binds a `List(Gui.Sqlite.Value)` to the

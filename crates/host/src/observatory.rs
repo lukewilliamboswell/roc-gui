@@ -757,6 +757,7 @@ fn executable_hash() -> String {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn cpu_model() -> String {
     let Ok(contents) = std::fs::read_to_string("/proc/cpuinfo") else {
         return "unavailable".into();
@@ -767,6 +768,38 @@ fn cpu_model() -> String {
         .filter(|value| !value.is_empty())
         .map(|value| value.chars().take(256).collect())
         .unwrap_or_else(|| "unavailable".into())
+}
+
+/// Elsewhere on x86-64, the processor's own brand string, which is what Linux
+/// reports as the model name.
+#[cfg(all(not(target_os = "linux"), target_arch = "x86_64"))]
+fn cpu_model() -> String {
+    use std::arch::x86_64::__cpuid;
+    #[allow(unused_unsafe)]
+    let highest = unsafe { __cpuid(0x8000_0000) }.eax;
+    if highest < 0x8000_0004 {
+        return "unavailable".into();
+    }
+    let mut bytes = Vec::with_capacity(48);
+    for leaf in 0x8000_0002u32..=0x8000_0004 {
+        #[allow(unused_unsafe)]
+        let registers = unsafe { __cpuid(leaf) };
+        for register in [registers.eax, registers.ebx, registers.ecx, registers.edx] {
+            bytes.extend_from_slice(&register.to_le_bytes());
+        }
+    }
+    let brand = String::from_utf8_lossy(&bytes);
+    let brand = brand.trim_matches(char::from(0)).trim();
+    if brand.is_empty() {
+        "unavailable".into()
+    } else {
+        brand.chars().take(256).collect()
+    }
+}
+
+#[cfg(all(not(target_os = "linux"), not(target_arch = "x86_64")))]
+fn cpu_model() -> String {
+    "unavailable".into()
 }
 
 fn kernel_release() -> String {

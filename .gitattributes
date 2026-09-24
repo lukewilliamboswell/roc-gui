@@ -8,6 +8,11 @@ examples/image-library/fixture/** text eol=lf
 # deterministic staged-byte counter as the fixture images.
 examples/image-library/icons/unreadable.svg text eol=lf
 
+# A capture identifies the specification it ran by the hash of its bytes, and
+# Observatory finds its source by that hash, so a specification has one byte
+# form on every checkout.
+*.scm text eol=lf
+
 # Dependency recipes and the notices they admit are identified by the hash of
 # their exact bytes. A Windows checkout that rewrote their line endings would
 # compute different digests and could neither reproduce nor publish a host.

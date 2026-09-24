@@ -212,15 +212,17 @@ def write_sources(runs: Path, staging: Path) -> None:
     sources.mkdir()
     for spec in sorted(set(SOURCES.values())):
         shutil.copyfile(ROOT / spec, sources / Path(spec).name)
-    (sources / "session.scm").write_text(session_spec())
+    # Fixture text is byte-exact: specifications are identified by the hash of
+    # their bytes, so every checkout writes them with the same line endings.
+    (sources / "session.scm").write_text(session_spec(), newline="\n")
     regressed = sources / "counter-regressed.scm"
-    regressed.write_text(regressed_spec())
+    regressed.write_text(regressed_spec(), newline="\n")
     record_failing(runs, regressed, staging / FAILING)
     edited = staging / "sources-edited"
     edited.mkdir()
     counting = (ROOT / SOURCES["counter-counting.rgstats"]).read_text()
-    (edited / "counting.scm").write_text(";; Edited after its capture was recorded.\n" + counting)
-    (edited / "notes.txt").write_text("Not a specification; the Spec view reads only .scm files.\n")
+    (edited / "counting.scm").write_text(";; Edited after its capture was recorded.\n" + counting, newline="\n")
+    (edited / "notes.txt").write_text("Not a specification; the Spec view reads only .scm files.\n", newline="\n")
 
 
 def record_session(runs: Path, destination: Path) -> None:
@@ -230,7 +232,7 @@ def record_session(runs: Path, destination: Path) -> None:
     from run_specs import validate_capture
 
     spec = runs / "session.scm"
-    spec.write_text(session_spec())
+    spec.write_text(session_spec(), newline="\n")
     destination.parent.mkdir(parents=True, exist_ok=True)
     command = [
         str(runs / "bin" / "database-browser"),
@@ -246,6 +248,43 @@ def record_session(runs: Path, destination: Path) -> None:
     validate_capture(destination)
     with closing(sqlite3.connect(destination)) as database, database:
         database.execute("PRAGMA journal_mode=DELETE")
+
+
+def record_contended(runs: Path, compare: Path) -> None:
+    """Run the benchmark with two jobs and then alone, with the executable
+    `run_specs.py` built for the other comparison captures.
+
+    Scaling refuses the contended run for its timing, which it can only do if
+    the run is by the same executable as the set: a second build is a
+    different executable wherever the linker stamps the time into it. The
+    contention is real: a second instance runs the same case alongside it.
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from run_specs import validate_capture
+
+    name, spec, jobs = CONTENDED
+    executable = runs / "bin" / "database-browser"
+    scratch = runs / "contended"
+    scratch.mkdir()
+
+    def command(capture: Path, job_count: int) -> list[str]:
+        return [
+            str(executable), "--host-run-spec", str(ROOT / spec),
+            f"--host-stats-output={capture}", f"--host-stats-job-count={job_count}",
+            "--host-stats-detail=summary", "--host-cap-dir", str(ROOT / "examples/database-browser/fixture"),
+        ]
+
+    together = [
+        subprocess.Popen(command(scratch / f"job-{index}.rgstats", jobs), cwd=ROOT)
+        for index in range(jobs)
+    ]
+    if any(process.wait() != 0 for process in together):
+        raise RuntimeError("a contended benchmark run failed")
+    subprocess.run(command(scratch / "alone.rgstats", 1), cwd=ROOT, check=True)
+    for capture in (scratch / "job-0.rgstats", scratch / "alone.rgstats"):
+        validate_capture(capture)
+    shutil.copyfile(scratch / "job-0.rgstats", compare / name)
+    shutil.copyfile(scratch / "alone.rgstats", compare / RERUN)
 
 
 def frame_session_spec() -> str:
@@ -400,7 +439,7 @@ def generate(staging: Path) -> None:
     rewrite_metadata(older, {"schema_version": "4"})
 
     (captures / "truncated.rgstats").write_bytes((captures / "counter-counting.rgstats").read_bytes()[:1024])
-    (captures / "notes.txt").write_text("Not a capture; Observatory lists only .rgstats files.\n")
+    (captures / "notes.txt").write_text("Not a capture; Observatory lists only .rgstats files.\n", newline="\n")
 
     for scale in SCALES:
         folder = staging / f"scale-{scale}"
@@ -414,18 +453,13 @@ def generate(staging: Path) -> None:
         shutil.copyfile(runs / Path(spec).with_suffix(".rgstats"), compare / name)
     twin = Path(COMPARE[AA])
     shutil.copyfile(runs / twin.with_name(f"{twin.stem}-aa.rgstats"), compare / AA.replace(".rgstats", "-aa.rgstats"))
-    name, spec, jobs = CONTENDED
-    contended = staging / "runs-contended"
-    run_specs([spec], contended, "--jobs", str(jobs), "--aa")
-    shutil.copyfile(contended / Path(spec).with_suffix(".rgstats"), compare / name)
-    shutil.copyfile(contended / Path(spec).with_name(f"{Path(spec).stem}-aa.rgstats"), compare / RERUN)
-    shutil.rmtree(contended)
+    record_contended(runs, compare)
 
     record_session(runs, staging / SESSION)
     write_sources(runs, staging)
     record_window(runs, ROOT / WINDOW_SPEC, staging / WINDOW)
     frames_spec = runs / "frames.scm"
-    frames_spec.write_text(frame_session_spec())
+    frames_spec.write_text(frame_session_spec(), newline="\n")
     record_window(runs, frames_spec, staging / FRAME_SESSION, FRAME_SESSION_FRAMES)
     shutil.rmtree(runs)
 
@@ -446,7 +480,7 @@ def main() -> int:
                 shutil.rmtree(child) if child.is_dir() else child.unlink()
         for child in staging.iterdir():
             child.rename(FIXTURE / child.name)
-        STAMP.write_text(stamp_text())
+        STAMP.write_text(stamp_text(), newline="\n")
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     return 0

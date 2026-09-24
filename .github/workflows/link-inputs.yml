@@ -101,11 +101,10 @@ jobs:
         with:
           name: link-input-components-windows
           path: ${{ runner.temp }}/candidate
-      - name: Execute the exact runtime and system imports
+      - name: Execute the exact runtime
         run: |
           rustup toolchain install 1.95.0 --profile minimal --target x86_64-pc-windows-gnullvm
           python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/candidate/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/runtime-evidence'
-          python scripts/test_windows_system_import_artifact.py '${{ runner.temp }}/candidate/windows-system-imports-x64mingw.tar' --require-native
 
   windows-build:
     name: Build Windows inputs twice
@@ -118,11 +117,10 @@ jobs:
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
         with:
           version: 0.16.0
-      - name: Build the runtime, system imports, and resource twice
+      - name: Build the runtime and resource twice
         run: |
           for output in candidate rebuild; do
             python3 scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/$output" --cache "$RUNNER_TEMP/downloads"
-            python3 scripts/build_windows_system_imports.py --output "$RUNNER_TEMP/$output" --cache "$RUNNER_TEMP/downloads"
             python3 scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-$output"
           done
           for archive in "$RUNNER_TEMP/candidate"/*.tar; do
