@@ -19,5 +19,5 @@ repos:
         name: Lint Rust with Clippy
         entry: python3 scripts/run_cargo.py clippy --locked --package roc-gui-host --all-targets --no-deps -- -D warnings
         language: system
-        files: (\.rs|Cargo\.toml|Cargo\.lock)$
+        files: (\.rs|Cargo\.toml|Cargo\.lock|rust-toolchain\.toml|\.cargo/config\.toml|scripts/(run_cargo|prepare_dependencies)\.py)$
         pass_filenames: false

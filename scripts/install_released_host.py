@@ -29,6 +29,9 @@ def install(lock: Path = HOST_LOCK, cache: Path = CACHE, root: Path = ROOT) -> b
     if (not (root / "link-inputs.lock.json").is_file() or not lock.is_file()
             or not lock_matches_sources(lock, root)):
         return False
+    from link_input_artifacts import development_requires_source_inputs
+    if development_requires_source_inputs(root):
+        return False
     target = native_target()
     if f"gui-host-{target}" not in json.loads(lock.read_text())["artifacts"]:
         # A target's first host is built from source until its release lands.

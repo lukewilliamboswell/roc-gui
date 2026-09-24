@@ -9,6 +9,29 @@ permissions:
   contents: read
 
 jobs:
+  blueprint:
+    name: Pinned Nix build and application semantics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+      - name: Install native Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig
+      - name: Build and test through Blueprint
+        run: |
+          nix develop github:lukewilliamboswell/roc-blueprint/739739aa285ff60ea0e6b74ad1e80d9469832eee --command bash -euc '
+            blueprint run check
+            git diff --exit-code -- Blueprint.lock
+            blueprint run lint
+            blueprint run build
+            blueprint run test -- --only semantic --jobs 2 --timeout 300
+          '
+
   policy:
     name: Repository policy and host tests
     runs-on: ubuntu-24.04
@@ -28,6 +51,9 @@ jobs:
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
           python3 -m unittest \
+            scripts/test_compiler_environment.py \
+            scripts/test_alsa_dependencies.py \
+            scripts/test_link_input_artifacts.py \
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \

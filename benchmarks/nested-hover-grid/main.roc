@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc" }
 import pf.Gui
 
 Cell : { id : U64, key : Gui.Key, inside : Bool, lit : Bool, generation : U64 }

@@ -9,6 +9,7 @@ import argparse
 from contextlib import contextmanager
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -105,8 +106,11 @@ def cargo_environment(environment, target, lock=LOCK, cache=CACHE):
             "Libs: -L${libdir} -lasound\n"
             "Cflags:\n"
         )
-        environment["PKG_CONFIG_PATH"] = str(pkgconfig)
-        environment["LIBRARY_PATH"] = str(library)
+        # Keep the verified ALSA interface first while retaining the shell
+        # paths needed by other native dependencies (for example Fontconfig).
+        for name, path in (("PKG_CONFIG_PATH", pkgconfig), ("LIBRARY_PATH", library)):
+            existing = environment.get(name)
+            environment[name] = str(path) + (os.pathsep + existing if existing else "")
         yield environment
 
 

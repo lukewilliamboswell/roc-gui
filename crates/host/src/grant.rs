@@ -167,15 +167,6 @@ pub enum Lifetime {
     Remembered,
 }
 
-impl Lifetime {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Session => "session",
-            Self::Remembered => "remembered",
-        }
-    }
-}
-
 /// What a handle may do. Shared across resources so that "read" means one thing
 /// in evidence whether it is a directory, a document, or a database.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -649,8 +640,8 @@ pub fn forget_kind(kind: Kind) {
     });
 }
 
-/// Forget everything. The semantic runner mounts one application per lifecycle
-/// and a grant from a previous one must not be visible to the next.
+/// Clear process-wide grant state between isolated unit tests.
+#[cfg(test)]
 pub fn reset() {
     with(|registry| *registry = Registry::default());
 }

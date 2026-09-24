@@ -23,9 +23,20 @@ already pointing at that platform, so they build without a checkout.
 
 == Work from a checkout instead
 
-Contributors, and anyone changing the host, build the platform locally. Install
-the Roc nightly named in the application's `app` header and Rust with Cargo, then
-run the commands from the repository root.
+Contributors build the platform locally. On Linux x86-64, install Nix with flakes
+enabled, then enter the development shell from the repository root:
+
+[source,sh]
+----
+nix develop github:lukewilliamboswell/roc-blueprint/739739aa285ff60ea0e6b74ad1e80d9469832eee
+blueprint shell
+----
+
+`Blueprint.roc` selects Roc from `roc-overlay` using `.roc-version`.
+`Blueprint.lock` pins the package sets and overlay. Rustup selects the toolchain
+in `rust-toolchain.toml`. On macOS and Windows, install the same Roc tag from
+`.roc-version` and the Rust toolchain directly. Branch application headers use
+the environment's compiler; release example headers contain the tested tag.
 
 The host archive is part of every Roc GUI executable. Build it first:
 

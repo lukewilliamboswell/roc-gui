@@ -77,6 +77,10 @@ pub enum Refusal {
     Io,
     ResourceLimit,
     Revoked,
+    #[cfg_attr(
+        any(target_os = "linux", target_os = "windows"),
+        expect(dead_code, reason = "constructed by the unsupported-platform backend")
+    )]
     Unsupported,
 }
 
@@ -751,11 +755,15 @@ mod sys {
     }
 
     pub fn open() -> Result<i32, Refusal> {
-        let port = unsafe { CreateIoCompletionPort(INVALID_HANDLE_VALUE, std::ptr::null_mut(), 0, 1) };
+        let port =
+            unsafe { CreateIoCompletionPort(INVALID_HANDLE_VALUE, std::ptr::null_mut(), 0, 1) };
         if port.is_null() {
             return Err(refusal());
         }
-        directories().lock().expect("watch directories poisoned").port = port;
+        directories()
+            .lock()
+            .expect("watch directories poisoned")
+            .port = port;
         Ok(0)
     }
 
@@ -853,7 +861,11 @@ mod sys {
             };
             events.push(Event {
                 descriptor: Some(descriptor),
-                name: Some(std::ffi::OsString::from_wide(&units).to_string_lossy().into_owned()),
+                name: Some(
+                    std::ffi::OsString::from_wide(&units)
+                        .to_string_lossy()
+                        .into_owned(),
+                ),
                 mask,
             });
             if next == 0 {
@@ -865,7 +877,10 @@ mod sys {
 
     /// Wait up to `timeout` for one directory's read to complete and decode it.
     pub fn read(_fd: i32, _buffer: &mut [u8], timeout: Duration) -> Result<Vec<Event>, ()> {
-        let port = directories().lock().expect("watch directories poisoned").port;
+        let port = directories()
+            .lock()
+            .expect("watch directories poisoned")
+            .port;
         let mut transferred = 0u32;
         let mut key = 0usize;
         let mut overlapped: *mut OVERLAPPED = std::ptr::null_mut();
@@ -887,7 +902,11 @@ mod sys {
                 Err(())
             };
         }
-        let error = if completed { 0 } else { unsafe { GetLastError() } };
+        let error = if completed {
+            0
+        } else {
+            unsafe { GetLastError() }
+        };
         let descriptor = key as i32;
         let mut guard = directories().lock().expect("watch directories poisoned");
         let Some(directory) = guard.open.get_mut(&descriptor) else {
@@ -898,7 +917,12 @@ mod sys {
             return Ok(events);
         }
         if completed && transferred > 0 {
-            decode(descriptor, &directory.buffer, transferred as usize, &mut events);
+            decode(
+                descriptor,
+                &directory.buffer,
+                transferred as usize,
+                &mut events,
+            );
         } else if completed || error == ERROR_NOTIFY_ENUM_DIR {
             // More changed than the buffer held: every watch must assume it
             // was touched.

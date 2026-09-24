@@ -510,6 +510,10 @@ pub struct StepResult {
     pub diagnostic: Option<String>,
 }
 
+#[expect(
+    clippy::large_enum_variant,
+    reason = "frame evidence stays inline to avoid an extra allocation on every recorded frame"
+)]
 enum Event {
     RunStart {
         id: i64,

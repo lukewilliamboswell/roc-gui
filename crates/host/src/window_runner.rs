@@ -667,9 +667,8 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
     std::fs::write(path, json)
 }
 
-fn check_native_work_full(
-    work: Option<crate::observatory::NativeFrameWork>,
-    gpui_work: Option<crate::observatory::GpuiFrameWorkObservation>,
+#[derive(Default)]
+struct NativeWorkLimits {
     button_max: Option<u64>,
     boundary_max: Option<u64>,
     boundary_elements_max: Option<u64>,
@@ -679,7 +678,24 @@ fn check_native_work_full(
     fresh_hitboxes_max: Option<u64>,
     fresh_mouse_listeners_max: Option<u64>,
     element_states_moved_min: Option<u64>,
+}
+
+fn check_native_work_full(
+    work: Option<crate::observatory::NativeFrameWork>,
+    gpui_work: Option<crate::observatory::GpuiFrameWorkObservation>,
+    limits: NativeWorkLimits,
 ) -> Result<(), StepError> {
+    let NativeWorkLimits {
+        button_max,
+        boundary_max,
+        boundary_elements_max,
+        cached_prepaint_min,
+        cached_paint_min,
+        replayed_scene_min,
+        fresh_hitboxes_max,
+        fresh_mouse_listeners_max,
+        element_states_moved_min,
+    } = limits;
     let work = work.ok_or_else(|| StepError::Geometry(
         "native work unavailable: mark-native-work and at least one completed frame are required".into()
     ))?;
@@ -781,15 +797,12 @@ fn check_native_work(
     check_native_work_full(
         work,
         None,
-        button_max,
-        boundary_max,
-        boundary_elements_max,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        NativeWorkLimits {
+            button_max,
+            boundary_max,
+            boundary_elements_max,
+            ..NativeWorkLimits::default()
+        },
     )
 }
 
@@ -832,15 +845,17 @@ async fn run_step(
                 check_native_work_full(
                     crate::observatory::native_work_since_mark(),
                     crate::observatory::gpui_frame_work_since_mark(),
-                    *button_renders_max,
-                    *boundary_renders_max,
-                    *boundary_elements_max,
-                    *cached_prepaint_subtrees_min,
-                    *cached_paint_subtrees_min,
-                    *replayed_scene_operations_min,
-                    *fresh_hitboxes_max,
-                    *fresh_mouse_listeners_max,
-                    *element_states_moved_min,
+                    NativeWorkLimits {
+                        button_max: *button_renders_max,
+                        boundary_max: *boundary_renders_max,
+                        boundary_elements_max: *boundary_elements_max,
+                        cached_prepaint_min: *cached_prepaint_subtrees_min,
+                        cached_paint_min: *cached_paint_subtrees_min,
+                        replayed_scene_min: *replayed_scene_operations_min,
+                        fresh_hitboxes_max: *fresh_hitboxes_max,
+                        fresh_mouse_listeners_max: *fresh_mouse_listeners_max,
+                        element_states_moved_min: *element_states_moved_min,
+                    },
                 )
             })
             .map_err(|_| StepError::WindowClosed)?,
@@ -1964,7 +1979,11 @@ fn restore_pointer(window: &mut gpui::Window, cx: &mut App) {
         .unwrap_or_else(|error| error.into_inner())
         .unwrap_or_else(|| point(px(-1.0), px(-1.0)));
     window.dispatch_event(
-        gpui::PlatformInput::MouseMove(MouseMoveEvent { position, pressed_button: None, modifiers: Default::default() }),
+        gpui::PlatformInput::MouseMove(MouseMoveEvent {
+            position,
+            pressed_button: None,
+            modifiers: Default::default(),
+        }),
         cx,
     );
 }
@@ -2000,8 +2019,9 @@ fn own_the_pointer(window: &gpui::Window) {
         }
         unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
     }
-    let owned = native_window(window)
-        .is_some_and(|(hwnd, _)| unsafe { SetWindowSubclass(hwnd as HWND, Some(system_pointer), 1, 0) } != 0);
+    let owned = native_window(window).is_some_and(
+        |(hwnd, _)| unsafe { SetWindowSubclass(hwnd as HWND, Some(system_pointer), 1, 0) } != 0,
+    );
     if !owned {
         eprintln!("window runner: the system pointer still reaches the specification's window");
     }
