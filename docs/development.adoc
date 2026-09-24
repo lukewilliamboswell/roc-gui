@@ -233,13 +233,43 @@ size, manifest, target, provenance, or attestation mismatch is a hard failure an
 must never fall back to a local build. Development builds select native source
 inputs when the unified lock is absent or its producer fingerprint is stale.
 `./build.py --source-inputs` also selects this path explicitly; the linker-input
-producer uses it to final-link the inputs it is about to publish.
+producer stages its exact candidate archives before final-link validation.
 Final platform releases accept only locked, released, and attested inputs.
 
 Change a linker input through its owning recipe and tests, then dispatch the
 trusted linker-input publisher with that pull request number. The resulting
 signed lock commit makes the new symbols available to the same branch. Ordinary
 platform and host changes reuse the locked release and never invoke a producer.
+
+=== Linux producers with Nix
+
+The five Linux component producers use `dependencies/linux/default.nix` and the
+root nixpkgs input in `Blueprint.lock`. Zig 0.16.0 and the build tools come from
+that package set. Meson uses the recipe's fixed-hash 1.12.0 source with the same
+nixpkgs packaging. Upstream source downloads are fixed-output derivations;
+compilation and native probes run inside the network-isolated Nix sandbox.
+
+Run a component producer with an absent output directory, then force a rebuild:
+
+[source,shell]
+----
+python3 scripts/build_freetype.py --output /tmp/candidate
+python3 scripts/build_freetype.py --rebuild --output /tmp/rebuild
+cmp /tmp/candidate/freetype-x64glibc.tar /tmp/rebuild/freetype-x64glibc.tar
+----
+
+`--rebuild` executes Nix's reproducibility check, even when the first result is
+cached. CI requires sandboxing and repeats this for every Linux component.
+Schema-2 archives identify the builder tool derivation, nixpkgs revision and
+content hash, Blueprint lock, and Nix recipe. Corresponding source includes the
+upstream source bytes and reproduction inputs. Consumers also accept the
+schema-1 archives used by other targets and existing reviewed releases.
+
+Published shared libraries have no build search paths or store-qualified
+runtime dependencies. Producer probes use the sandbox's private loader and
+providers. A separate Ubuntu validation job admits the exact candidate archives,
+final-links the production host, and runs the GPUI smoke test outside Nix before
+those archives can be assembled and attested.
 
 === Generated system-library interfaces
 

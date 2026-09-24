@@ -8,8 +8,6 @@ foreach(index RANGE ${last_argument})
   list(APPEND compiler_arguments "${argument}")
 endforeach()
 list(JOIN compiler_arguments " " compiler_arguments)
-set(CMAKE_C_COMPILER /opt/zig/zig)
+find_program(CMAKE_C_COMPILER zig REQUIRED)
 set(CMAKE_C_COMPILER_ARG1 "${compiler_arguments}")
-# Zig's bundled libc search paths do not identify Ubuntu's multiarch directory
-# to CMake. These additional dependencies come from the pinned builder image.
-set(CMAKE_LIBRARY_PATH /usr/lib/x86_64-linux-gnu)
+set(CMAKE_SKIP_RPATH TRUE)

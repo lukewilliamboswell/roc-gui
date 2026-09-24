@@ -34,6 +34,27 @@ class DependencyTests(unittest.TestCase):
                         deps.unpack_verified(archive, self.entry, destination)
                     self.assertFalse(destination.exists())
 
+    def test_nix_manifest_requires_provenance_and_retains_inventory_checks(self):
+        build = {"builder_derivation": "/nix/store/" + "a" * 32 + "-builder.drv",
+                 "nixpkgs_revision": "b" * 40, "nixpkgs_nar_hash": "sha256-" + "A" * 43 + "=",
+                 "blueprint_lock_sha256": hashlib.sha256(b"lock").hexdigest(),
+                 "nix_recipe_sha256": hashlib.sha256(b"recipe").hexdigest()}
+        entry = {"name": "alsa", "target": "x64glibc"}
+        for index, change in enumerate(({}, {"builder_image": "legacy"},
+                                        {"builder_derivation": "unlocked"}, {"nixpkgs_revision": "latest"})):
+            archive = write_archive(self.root / f"nix-{index}.tar", {
+                "schema_version": 2, **entry, "build": dict(build, **change),
+            }, {"targets/x64glibc/libasound.so": b"interface",
+                "sources/alsa/Blueprint.lock": b"lock",
+                "sources/alsa/dependencies/linux/default.nix": b"recipe"})
+            destination = self.root / f"nix-{index}"
+            if index == 0:
+                deps.unpack_verified(archive, entry, destination)
+            else:
+                with self.assertRaisesRegex(ValueError, "Nix dependency provenance"):
+                    deps.unpack_verified(archive, entry, destination)
+                self.assertFalse(destination.exists())
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

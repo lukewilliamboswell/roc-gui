@@ -33,6 +33,8 @@ COMPONENTS = {
     "x64mingw": (("windows-gnu-runtime", "x64mingw"),),
 }
 SOURCE_PATHS = (
+    "Blueprint.lock", "scripts/nix_link_inputs.py", "scripts/dependency_artifacts.py",
+    "test/dependencies", "scripts/test_unwind_rust.py", "scripts/test_linux_link_inputs.py",
     "dependencies/alsa-interface.json", "dependencies/freetype.json", "dependencies/glibc",
     "dependencies/glibc.json", "dependencies/linux", "dependencies/macos-interfaces",
     "dependencies/unwind", "dependencies/unwind.json", "dependencies/windows-gnu-runtime",

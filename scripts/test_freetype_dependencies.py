@@ -1,6 +1,5 @@
 """Source identity and publication failures must not admit substitute FreeType bytes."""
 
-import io
 import json
 from pathlib import Path
 import sys
@@ -23,25 +22,14 @@ class FreeTypeDependencyTests(unittest.TestCase):
         self.source = {"url": "https://example.invalid/source.tar.xz",
                        "size": len(self.bytes), "sha256": digest(self.bytes)}
 
-    def test_source_cache_is_verified_on_every_use(self):
-        with patch.object(producer, "urlopen", return_value=io.BytesIO(self.bytes)):
-            source = producer.fetch_source(self.source, self.root / "cache")
-        with patch.object(producer, "urlopen") as network:
-            self.assertEqual(producer.fetch_source(self.source, source.parent), source)
-            network.assert_not_called()
-            source.write_bytes(b"changed source bytes!")
+    def test_sandbox_source_bytes_still_require_the_reviewed_identity(self):
+        source = self.root / "source.tar"
+        source.write_bytes(self.bytes)
+        producer.verify_source(source, self.source)
+        for data in (self.bytes[:-1], self.bytes + b"x", b"x" * len(self.bytes)):
+            source.write_bytes(data)
             with self.assertRaisesRegex(ValueError, "reviewed recipe"):
-                producer.fetch_source(self.source, source.parent)
-            network.assert_not_called()
-
-    def test_incomplete_oversized_and_wrong_digest_sources_are_not_cached(self):
-        for index, data in enumerate((self.bytes[:-1], self.bytes + b"x", b"x" * len(self.bytes))):
-            with self.subTest(index=index):
-                cache = self.root / str(index)
-                with patch.object(producer, "urlopen", return_value=io.BytesIO(data)):
-                    with self.assertRaises(ValueError):
-                        producer.fetch_source(self.source, cache)
-                self.assertEqual(list(cache.iterdir()), [])
+                producer.verify_source(source, self.source)
 
     def make_archive(self, missing_license=False):
         policy = release_dependencies.KINDS["freetype"]
