@@ -418,7 +418,7 @@ pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostGlueAudioStatusResul
         .and_then(|value| grant::accept(grant::Kind::Audio, value, Rights::READ));
     let Some(track) = readable
         .ok()
-        .and_then(|_| track_id)
+        .and(track_id)
         .and_then(|value| guard.tracks.get(&value))
     else {
         return HostGlueAudioStatusResult {

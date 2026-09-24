@@ -1,8 +1,11 @@
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dependency_archive import write_archive
 from dependency_artifacts import unpack_verified
@@ -69,9 +72,27 @@ class LinkInputArtifactsTests(unittest.TestCase):
             path.write_text(json.dumps(lock))
             with patch.object(links, "source_fingerprint", return_value="f" * 64):
                 self.assertEqual(links.read_lock(path)["release"], lock["release"])
+                self.assertFalse(links.development_requires_source_inputs(path.parent))
             with patch.object(links, "source_fingerprint", return_value="e" * 64):
-                with self.assertRaisesRegex(ValueError, "stale"):
+                self.assertTrue(links.development_requires_source_inputs(path.parent))
+                with self.assertRaisesRegex(links.StaleLinkInputs, "stale"):
                     links.read_lock(path)
+            with patch.object(links, "source_fingerprint", side_effect=links.UncommittedLinkInputs("dirty")):
+                self.assertTrue(links.development_requires_source_inputs(path.parent))
+                with self.assertRaises(links.UncommittedLinkInputs):
+                    links.read_lock(path)
+            with patch.object(links, "source_fingerprint", side_effect=ValueError("cannot inspect producer")):
+                with self.assertRaisesRegex(ValueError, "cannot inspect"):
+                    links.development_requires_source_inputs(path.parent)
+            lock["targets"].pop("x64glibc")
+            path.write_text(json.dumps(lock))
+            with self.assertRaisesRegex(ValueError, "invalid"):
+                links.development_requires_source_inputs(path.parent)
+            path.write_text("not json")
+            with self.assertRaises(json.JSONDecodeError):
+                links.development_requires_source_inputs(path.parent)
+            path.unlink()
+            self.assertTrue(links.development_requires_source_inputs(path.parent))
 
 
 if __name__ == "__main__":

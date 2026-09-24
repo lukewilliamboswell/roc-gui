@@ -20,12 +20,18 @@ from run_specs import ROOT, Case, discover, report_window_failure, window_artifa
 
 
 class ApplicationBuildTests(unittest.TestCase):
+    def test_wrong_compiler_fails_before_building(self) -> None:
+        with patch("toolchain.verify_compiler", side_effect=ValueError("wrong compiler")), patch.object(run_specs.subprocess, "run") as run:
+            with self.assertRaisesRegex(ValueError, "wrong compiler"):
+                run_specs.build([], "wrong-roc", True)
+            run.assert_not_called()
+
     def test_application_backend_is_explicit_and_does_not_depend_on_app_name(self) -> None:
         for requested, expected in ((None, "dev"), ("speed", "speed")):
             with self.subTest(mode=requested), tempfile.TemporaryDirectory() as temporary:
                 cases = discover(["examples/counter/specs/counting.scm"], Path(temporary))
                 done = subprocess.CompletedProcess([], 0, "", "")
-                with patch.object(run_specs.subprocess, "run", return_value=done) as run:
+                with patch("toolchain.verify_compiler"), patch.object(run_specs.subprocess, "run", return_value=done) as run:
                     if requested is None:
                         run_specs.build(cases, "selected-roc", True)
                     else:
@@ -39,7 +45,7 @@ class ApplicationBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             cases = discover(["examples/counter/specs/counting.scm"], Path(temporary))
             failure = subprocess.CalledProcessError(1, ["selected-roc", "build"])
-            with patch.object(run_specs.subprocess, "run", side_effect=[None, failure]) as run:
+            with patch("toolchain.verify_compiler"), patch.object(run_specs.subprocess, "run", side_effect=[None, failure]) as run:
                 with self.assertRaises(subprocess.CalledProcessError):
                     run_specs.build(cases, "selected-roc", True, "speed")
             self.assertEqual(run.call_count, 2)

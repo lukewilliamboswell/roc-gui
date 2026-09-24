@@ -93,27 +93,44 @@ pub fn share_files_like_posix() {
         flags: FILE_FLAGS_AND_ATTRIBUTES,
         template: HANDLE,
     ) -> HANDLE {
-        unsafe { CreateFileW(name, access, share | FILE_SHARE_DELETE, security, disposition, flags, template) }
+        unsafe {
+            CreateFileW(
+                name,
+                access,
+                share | FILE_SHARE_DELETE,
+                security,
+                disposition,
+                flags,
+                template,
+            )
+        }
     }
     static INSTALLED: OnceLock<()> = OnceLock::new();
     INSTALLED.get_or_init(|| unsafe {
         let vfs = rusqlite::ffi::sqlite3_vfs_find(std::ptr::null());
-        let installed = vfs.as_ref().and_then(|vfs| vfs.xSetSystemCall).is_some_and(|set| {
-            let replacement: rusqlite::ffi::sqlite3_syscall_ptr = Some(std::mem::transmute::<
-                unsafe extern "system" fn(
-                    *const u16,
-                    u32,
-                    FILE_SHARE_MODE,
-                    *const SECURITY_ATTRIBUTES,
-                    FILE_CREATION_DISPOSITION,
-                    FILE_FLAGS_AND_ATTRIBUTES,
-                    HANDLE,
-                ) -> HANDLE,
-                unsafe extern "C" fn(),
-            >(create));
-            set(vfs, c"CreateFileW".as_ptr(), replacement) == rusqlite::ffi::SQLITE_OK
-        });
-        assert!(installed, "SQLite's Windows VFS refused its CreateFileW replacement");
+        let installed = vfs
+            .as_ref()
+            .and_then(|vfs| vfs.xSetSystemCall)
+            .is_some_and(|set| {
+                let replacement: rusqlite::ffi::sqlite3_syscall_ptr =
+                    Some(std::mem::transmute::<
+                        unsafe extern "system" fn(
+                            *const u16,
+                            u32,
+                            FILE_SHARE_MODE,
+                            *const SECURITY_ATTRIBUTES,
+                            FILE_CREATION_DISPOSITION,
+                            FILE_FLAGS_AND_ATTRIBUTES,
+                            HANDLE,
+                        ) -> HANDLE,
+                        unsafe extern "C" fn(),
+                    >(create));
+                set(vfs, c"CreateFileW".as_ptr(), replacement) == rusqlite::ffi::SQLITE_OK
+            });
+        assert!(
+            installed,
+            "SQLite's Windows VFS refused its CreateFileW replacement"
+        );
     });
 }
 
@@ -741,7 +758,8 @@ pub extern "C" fn roc_sqlite_query(
             let handle = connection.get_interrupt_handle();
             crate::tasks::Interrupt::arm(move || handle.interrupt())
         };
-        let outcome = if interrupt.requested() {
+
+        if interrupt.requested() {
             Err(INTERRUPTED)
         } else {
             // `sqlite3_interrupt` stops only a statement already running; a
@@ -757,8 +775,7 @@ pub extern "C" fn roc_sqlite_query(
             });
             unsafe { rusqlite::ffi::sqlite3_progress_handler(db, 0, None, std::ptr::null_mut()) };
             outcome
-        };
-        outcome
+        }
     })();
     match result {
         Ok(page) => {

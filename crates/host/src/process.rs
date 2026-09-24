@@ -562,7 +562,7 @@ mod sys {
 
     impl Terminal {
         pub fn spawn(columns: u16, rows: u16, profile: GrantedProfile) -> io::Result<Self> {
-            let mut size = libc::winsize {
+            let size = libc::winsize {
                 ws_row: rows,
                 ws_col: columns,
                 ws_xpixel: 0,
@@ -576,7 +576,7 @@ mod sys {
                     &mut slave,
                     std::ptr::null_mut(),
                     std::ptr::null_mut(),
-                    &mut size,
+                    &size,
                 )
             } != 0
             {

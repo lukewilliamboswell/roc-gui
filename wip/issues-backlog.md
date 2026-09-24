@@ -4,6 +4,23 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Blueprint verification and compiler watching
+
+- [ ] **Support NixOS executable loading.** Linux executables select the native
+  system ELF loader. The Nix development shell supplies build dependencies, but
+  running examples requires compatible native desktop runtime libraries. Do
+  not inject newer Nix glibc-dependent libraries into the system loader through
+  `LD_LIBRARY_PATH`; add and verify a coherent NixOS loader/runtime path.
+
+- [ ] **Roc watching traverses unrelated checkout directories.** The Blueprint
+  bootstrap compiler (`nightly-2026-09-19-d025939`) can exhaust Linux inotify
+  watches in checkouts with large `.claude`, `target`, or `.git` trees.
+  An isolated `roc check --watch` reproduction registers every directory in
+  those trees; upstream issue: https://github.com/roc-lang/roc/issues/11644.
+  Fix upstream watch registration to follow relevant inputs while
+  preserving explicitly imported hidden/generated files and atomic replacement,
+  then update the Blueprint bootstrap compiler and verify a large checkout.
+
 ## Resource broker and confinement foundation
 
 - [ ] **The linked process is not an untrusted-application boundary.** Implement
@@ -1487,8 +1504,8 @@ names the reproduction so the workaround can be removed when the fix lands.
   Windows host releases `windows-imports.lib` with a schema 2 normalization
   receipt. `link-inputs.lock.json` is already stale for this checkout (its
   fingerprint predates the change to `.github/workflows/link-inputs.yml`), so
-  `build.py` needs `--source-inputs` on every target until the linker-input
-  producer is dispatched and the lock adopted. The Windows GUI host release
+  development builds select source inputs until the linker-input producer is
+  dispatched and the lock adopted. Release packaging still requires that lock. The Windows GUI host release
   (`prepare_host_build.py`, `host_notice_payload.py`) has been changed but not
   yet run; run it on a Windows runner before the next host release.
 

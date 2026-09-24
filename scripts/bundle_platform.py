@@ -13,6 +13,8 @@ from gui_host_artifacts import validate_host, validate_publication_notices
 from host_build_identity import HOST_FILES, source_fingerprint
 from link_input_artifacts import TARGETS as LINK_TARGETS, _entry as link_entry, install as install_link_inputs, read_lock as read_link_lock
 
+from toolchain import validate_roots, verify_compiler
+
 ROOT = Path(__file__).resolve().parents[1]
 HOSTS = ("gui-host-x64glibc", "gui-host-arm64mac", "gui-host-x64mingw")
 HOST_SOURCES = (
@@ -22,6 +24,8 @@ HOST_SOURCES = (
 
 
 def assemble(output: Path, roc: str, link_lock: Path, host_lock: Path, cache: Path) -> Path:
+    compiler = validate_roots(ROOT)
+    verify_compiler(roc, compiler)
     external_lock = read_link_lock(link_lock)
     hosts_lock = read_lock(host_lock)
     if external_lock["repository"] != "lukewilliamboswell/roc-gui":
@@ -82,9 +86,9 @@ def assemble(output: Path, roc: str, link_lock: Path, host_lock: Path, cache: Pa
         raise ValueError("roc bundle must emit exactly one content-addressed .tar.zst")
     bundle = bundles[0]
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "bundle": {"name": bundle.name, "sha256": sha256(bundle), "size": bundle.stat().st_size},
-        "compiler": subprocess.check_output([roc, "version"], text=True).strip(),
+        "compiler": compiler,
         "targets": [hosts_lock["artifacts"][identity]["target"] for identity in HOSTS],
         "external_inputs": external_lock,
         "host_inputs": {name: hosts_lock["artifacts"][name] for name in (*HOSTS, *HOST_SOURCES)},

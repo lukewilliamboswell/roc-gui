@@ -93,6 +93,11 @@ def main() -> None:
                         help="build external inputs from their recipes instead of the locked release")
     args = parser.parse_args()
     target = native_target()
+    if not args.skip_inputs and not args.source_inputs:
+        from scripts.link_input_artifacts import development_requires_source_inputs
+        args.source_inputs = development_requires_source_inputs(ROOT)
+        if args.source_inputs:
+            print("Released linker inputs do not match this checkout; staging development inputs from their recipes.", flush=True)
     if target == "x64mingw":
         build_windows(args.debug, args.source_inputs)
         print(f"Built platform/targets/{target}/libhost.a ({'debug' if args.debug else 'release'})")

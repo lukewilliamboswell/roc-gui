@@ -198,6 +198,8 @@ COMPILER_BLOCKED = {
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
+    from toolchain import validate_roots, verify_compiler
+    verify_compiler(roc, validate_roots(ROOT))
     print(f"Roc application build mode: {roc_opt}", flush=True)
     if not skip_host_build:
         sys.path.insert(0, str(ROOT / "scripts"))
@@ -560,7 +562,7 @@ def main() -> int:
         return 2
     try:
         build(cases, args.roc, args.skip_host_build, args.roc_opt)
-    except (OSError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 

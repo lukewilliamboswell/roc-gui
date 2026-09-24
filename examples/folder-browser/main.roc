@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
+app [State, main] { pf: platform "../../platform/main.roc" }
 import pf.Gui
 import Browser
 State : Browser.State
