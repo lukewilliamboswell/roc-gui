@@ -207,6 +207,23 @@ independent of any one application.
 
 ## Element appearance
 
+- [ ] **Windows draw no text on macOS.** Layout, borders and fills draw, but
+  no glyphs do, in every example. Specifications still pass because they read
+  semantic state, not pixels; counter's `screenshots.scm` shows empty buttons
+  and cards. `d6501f5` draws text, and the host after "Migrate host to
+  upstream GPUI HEAD" does not, with either Roc pin. Bisect 6ee3fd6, 874bd2f
+  and e0e8db9, then fix it, and add a screenshot check that fails when a
+  labelled element renders no glyphs.
+
+- [ ] **Three macOS window specifications fail on the migrated GPUI host.**
+  `clipboard-history/specs/window-history.scm` reports "Cancel private next"
+  laid out at x 929–983 but not on screen, locally and on CI.
+  `clipboard-history/specs/window-denied.scm` and
+  `system-monitor/specs/window-plot-width.scm` fail on the hosted arm64 runner
+  (producer run 35943508264) but pass locally. The linker-input producer and
+  the CI window job exclude them. Recheck them once text draws, since text
+  that is not shaped also changes layout widths, then remove the excludes.
+
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
   label from ordinary body text once family is unavailable. `counter`'s per-card

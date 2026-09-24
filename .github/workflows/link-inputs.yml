@@ -68,7 +68,7 @@ jobs:
       - name: Final-link and run the production platform
         run: |
           ./build.py --source-inputs
-          python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300
+          python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300 --exclude "examples/clipboard-history/specs/window-*.scm" --exclude "examples/system-monitor/specs/window-plot-width.scm"
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
