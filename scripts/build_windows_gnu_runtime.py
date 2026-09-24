@@ -90,9 +90,9 @@ def produce(output, toolchain, work, *, native=False):
     link_inputs = {}
     for argument in links[0]:
         if Path(argument).name in recipe['files']:
-            path = (work / argument).resolve()
-            if not path.is_relative_to(work / 'global/o') or not path.is_file() or path.name in link_inputs:
-                raise ValueError('unexpected bootstrap runtime input: ' + argument)
+            path = runtime_input(work, argument)
+            if path.name in link_inputs:
+                raise ValueError('duplicate bootstrap runtime input: ' + argument)
             link_inputs[path.name] = path
     ubsan = work / 'ubsan_rt.lib'
     subprocess.run([zig, 'build-lib', str(distribution / 'lib/ubsan_rt.zig'),
@@ -145,6 +145,18 @@ def link_arguments(line):
     # Zig's verbose COFF command preserves Windows backslashes. Its paths
     # must be whitespace-free, just like the independent runtime probe.
     return line.split() if os.name == 'nt' else shlex.split(line)
+
+
+def runtime_input(work, argument):
+    # Windows runner temporary directories can resolve through junctions.
+    # Compare both sides in the same canonical namespace, while continuing
+    # to reject inputs that escape the private compiler cache.
+    path = (work / argument).resolve()
+    if not path.is_relative_to((work / 'global/o').resolve()):
+        raise ValueError('bootstrap runtime input escapes private cache: ' + argument)
+    if not path.is_file():
+        raise ValueError('missing bootstrap runtime input: ' + argument)
+    return path
 
 
 def build(output, cache, *, rebuild=False):
