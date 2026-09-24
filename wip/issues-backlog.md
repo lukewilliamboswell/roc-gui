@@ -1058,8 +1058,8 @@ names the evidence so a fix can be verified against the same case.
   wrong view: its response column is not drawn and its bench row does not
   shrink to the window, so the Windows gallery fails. `--no-cache` builds of
   both are correct. The specification runner therefore builds every
-  application with `--no-cache`. Report the reproduction upstream (see
-  roc-lang/roc#11673 and #11676), move the pin to a fixed nightly, and
+  application with `--no-cache`. Reported as roc-lang/roc#11678 (possibly
+  the cause #11676 fixes for #11673). Move the pin to a fixed nightly, and
   confirm cached, cold, and warm builds of the suite agree before relying on
   the cache again.
 
