@@ -1303,11 +1303,16 @@ pub fn replace_in_private_copy(name: &str, source: &str) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    /// The chooser seam is one process-wide registration; every test that
+    /// installs a route holds this so none observes another's.
+    static SEAM: Mutex<()> = Mutex::new(());
+
     /// The seam is one process-wide registration, so both of its outcomes are
     /// exercised in one test rather than racing each other.
     #[cfg(not(target_os = "linux"))]
     #[test]
     fn the_native_chooser_answers_a_waiting_task_and_refuses_the_window_thread() {
+        let _seam = SEAM.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let (requests, pending) = async_channel::unbounded();
         let registration = install_chooser(requests);
         assert!(matches!(native_directory(), PortalSelection::Unavailable));
@@ -1336,6 +1341,7 @@ mod tests {
 
     #[test]
     fn replacing_a_chooser_route_does_not_close_the_previous_application_channel() {
+        let _seam = SEAM.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let (first_requests, first_pending) = async_channel::unbounded();
         let first = install_chooser(first_requests);
         let (second_requests, _second_pending) = async_channel::unbounded();
