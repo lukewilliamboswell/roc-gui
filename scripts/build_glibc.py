@@ -63,8 +63,8 @@ def verified_toolchain(source, cache):
 
 def verified_header_search(compiler, distribution, expected, environment, work):
     """Refuse a compiler header search that differs from the reviewed target."""
-    result = subprocess.run([*compiler, "-E", "-v", "-xc", "/dev/null"],
-                            cwd=work, env=environment, check=True, capture_output=True, text=True)
+    result = subprocess.run([*compiler, "-E", "-v", "-xc", "-"],
+                            cwd=work, env=environment, check=True, capture_output=True, text=True, input="")
     try:
         search = result.stderr.split("#include <...> search starts here:\n", 1)[1].split("End of search list.", 1)[0]
         actual = [(work / line.strip()).resolve().relative_to(distribution.resolve()).as_posix()

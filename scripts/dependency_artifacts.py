@@ -127,13 +127,14 @@ def unpack_verified(archive, entry, destination):
         if metadata is None or metadata.size > 1024 ** 2:
             raise ValueError("missing or oversized dependency manifest")
         manifest = json.load(packed.extractfile(metadata))
-        if (manifest.get("schema_version") not in (1, 2) or manifest.get("name") != entry["name"]
+        if (manifest.get("schema_version") not in (1, 2, 3) or manifest.get("name") != entry["name"]
                 or manifest.get("target") != entry["target"]):
             raise ValueError("dependency manifest identity mismatch")
         if manifest["schema_version"] == 2:
             build = manifest.get("build", {})
-            if (entry["target"] != "x64glibc"
-                    or entry["name"] not in {"alsa", "freetype", "glibc", "unwind", "xkbcommon"}
+            if ((entry["name"], entry["target"]) not in {
+                    (name, "x64glibc") for name in ("alsa", "freetype", "glibc", "unwind", "xkbcommon")}
+                    | {("windows-gnu-runtime", "x64mingw")}
                     or not re.fullmatch(r"/nix/store/[a-z0-9]{32}-[^/]+\.drv", build.get("builder_derivation", ""))
                     or not re.fullmatch(r"[0-9a-f]{40}", build.get("nixpkgs_revision", ""))
                     or not re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", build.get("nixpkgs_nar_hash", ""))
@@ -141,6 +142,16 @@ def unpack_verified(archive, entry, destination):
                            ("blueprint_lock_sha256", "nix_recipe_sha256"))
                     or "builder_image" in build or "builder_recipe_sha256" in build):
                 raise ValueError("invalid Nix dependency provenance")
+        if manifest["schema_version"] == 3:
+            build = manifest.get("build", {})
+            source = manifest.get("source", {})
+            pin = source.get("native_toolchain", {})
+            if ((entry["name"], entry["target"]) != ("windows-gnu-runtime", "x64mingw")
+                    or build.get("builder_kind") != "native-windows-zig"
+                    or not HEX256.fullmatch(build.get("toolchain_sha256", ""))
+                    or build["toolchain_sha256"] != pin.get("sha256")
+                    or "builder_image" in build or "builder_derivation" in build):
+                raise ValueError("invalid native Windows dependency provenance")
         files = manifest.get("files")
         if not isinstance(files, dict) or set(files) != set(members) - {"dependency.json"}:
             raise ValueError("dependency file inventory differs from archive")
@@ -157,10 +168,23 @@ def unpack_verified(archive, entry, destination):
                     raise ValueError("dependency file digest mismatch")
         if manifest["schema_version"] == 2:
             for field, relative in (("blueprint_lock_sha256", "Blueprint.lock"),
-                                    ("nix_recipe_sha256", "dependencies/linux/default.nix")):
+                                    ("nix_recipe_sha256", "dependencies/windows-gnu-runtime/default.nix"
+                                     if entry["name"] == "windows-gnu-runtime" else "dependencies/linux/default.nix")):
                 source = files.get(f"sources/{entry['name']}/{relative}")
                 if source is None or source["sha256"] != build[field]:
                     raise ValueError("Nix provenance differs from corresponding source")
+        if manifest["schema_version"] in (2, 3) and entry["name"] == "windows-gnu-runtime":
+            build = manifest["build"]
+            reproduction = build.get("reproduction_sha256", {})
+            if not reproduction or not HEX256.fullmatch(build.get("recipe_sha256", "")):
+                raise ValueError("missing Windows runtime reproduction provenance")
+            for relative, expected in reproduction.items():
+                record = files.get(f"sources/windows-gnu-runtime/{relative}")
+                if record is None or record["sha256"] != expected:
+                    raise ValueError("Windows runtime provenance differs from corresponding source")
+            recipe = files.get("sources/windows-gnu-runtime/dependencies/windows-gnu-runtime.json")
+            if recipe is None or recipe["sha256"] != build["recipe_sha256"]:
+                raise ValueError("Windows runtime recipe differs from corresponding source")
         destination.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".dependency-") as temporary:
             stage = Path(temporary) / "contents"

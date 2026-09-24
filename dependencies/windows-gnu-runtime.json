@@ -83,5 +83,11 @@
     "GETOPT-getopt.c": "f8f745fbf29c8e2e2460e11b6f5e26544f560886f54993be4530315ae944ad6a",
     "FORMAT-mingw_pformat.c": "5db598e84cfd0ac04f927495e809d8a54e06f51eefa449ac0a96f7bf3f3462f0",
     "DISCLAIMER.PD": "87f33608570312a0f2a9745edcb2527275df813b13982e8c3b3f893d88a4141a"
+  },
+  "native_toolchain": {
+    "url": "https://ziglang.org/download/0.16.0/zig-x86_64-windows-0.16.0.zip",
+    "sha256": "68659eb5f1e4eb1437a722f1dd889c5a322c9954607f5edcf337bc3684a75a7e",
+    "size": 97217739,
+    "directory": "zig-x86_64-windows-0.16.0"
   }
 }

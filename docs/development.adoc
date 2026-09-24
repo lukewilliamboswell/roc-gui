@@ -271,6 +271,46 @@ providers. A separate Ubuntu validation job admits the exact candidate archives,
 final-links the production host, and runs the GPUI smoke test outside Nix before
 those archives can be assembled and attested.
 
+=== Windows inputs from Nix and native Windows
+
+On Linux x86-64, the Windows runtime and resource producers use
+`dependencies/windows-gnu-runtime/default.nix`, with nixpkgs pinned by
+`Blueprint.lock`. The runtime compiles with the recipe's hash-verified official
+Zig distribution; the resource compiler comes from pinned nixpkgs. Downloads
+are fixed-output derivations and builds run in the network-isolated sandbox.
+
+[source,shell]
+----
+python3 scripts/build_windows_gnu_runtime.py --output /tmp/windows-candidate
+python3 scripts/build_windows_gnu_runtime.py --rebuild --output /tmp/windows-rebuild
+python3 scripts/build_windows_resource.py --output /tmp/windows-resource
+python3 scripts/check_linux_reproduction.py /tmp/windows-candidate --target x64mingw
+----
+
+On native Windows x86-64, Python 3.12 or newer runs the same runtime compilation
+and packaging code using the recipe's hash-pinned Windows Zig distribution.
+The resource command uses Zig 0.16.0 on `PATH`. Set `TEMP` to a directory without
+spaces, as required by the verbose linker diagnostics used to identify inputs.
+
+[source,powershell]
+----
+python scripts/build_windows_gnu_runtime.py --output candidate
+python scripts/build_windows_resource.py --output resource
+----
+
+Native builds use fresh compiler caches on every invocation; `--cache` stores
+only the verified Zig download. Schema-3 native archives record the Windows
+toolchain digest and reproduction source digests. Schema-2 Nix archives record
+the pinned Nix build environment. Neither archive records the builder's local
+paths or machine identity.
+
+CI requires two identical Nix builds, two identical native Windows builds, and
+matching resource bytes across both hosts. Windows executes the runtime probes
+against each host's candidate, including CRT startup and teardown, thread-local
+destructors, C++ and Rust unwinding, and UBSan failure. The published runtime is
+the Nix candidate that passed native execution; cross-host runtime byte equality
+is not required because the build provenance differs.
+
 === Generated system-library interfaces
 
 When an application links to a library supplied by the target environment, its

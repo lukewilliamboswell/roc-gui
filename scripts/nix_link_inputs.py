@@ -14,12 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 REPRODUCTION_FILES = ("Blueprint.lock", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py")
 
 
-def build(name, output, *, rebuild=False):
-    destination = output / f"{name}-x64glibc.tar"
+def build(name, output, *, rebuild=False, recipe="dependencies/linux/default.nix", filename=None):
+    destination = output / (filename or f"{name}-x64glibc.tar")
     if destination.exists():
         raise FileExistsError(destination)
     command = ["nix", "build", "--impure", "--no-link", "--json", "--option", "sandbox", "true",
-               "--file", str(ROOT / "dependencies/linux/default.nix"), name]
+               "--file", str(ROOT / recipe), name]
     if rebuild:
         command.append("--rebuild")
     result = json.loads(subprocess.check_output(command, text=True))
@@ -32,12 +32,12 @@ def build(name, output, *, rebuild=False):
     return destination
 
 
-def provenance():
+def provenance(recipe="dependencies/linux/default.nix"):
     return {"builder_derivation": os.environ["NIX_BUILDER_ID"],
             "nixpkgs_revision": os.environ["NIXPKGS_REV"],
             "nixpkgs_nar_hash": os.environ["NIXPKGS_NAR_HASH"],
             "blueprint_lock_sha256": sha256(ROOT / "Blueprint.lock"),
-            "nix_recipe_sha256": sha256(ROOT / "dependencies/linux/default.nix")}
+            "nix_recipe_sha256": sha256(ROOT / recipe)}
 
 
 def sources(name):

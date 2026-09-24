@@ -109,8 +109,10 @@ jobs:
     name: Execute exact Windows runtime and import candidates
     needs: windows-build
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
+      - name: Preserve corresponding-source bytes
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -134,6 +136,19 @@ jobs:
           rustup toolchain install 1.95.0 --profile minimal --target x86_64-pc-windows-gnullvm
           python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/candidate/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/runtime-evidence'
 
+      - name: Build native Windows runtime and resource twice
+        shell: bash
+        run: |
+          for output in native-first native-second; do
+            python scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/$output"
+            python scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-$output"
+          done
+          cmp "$RUNNER_TEMP/native-first/windows-gnu-runtime-x64mingw.tar" "$RUNNER_TEMP/native-second/windows-gnu-runtime-x64mingw.tar"
+          cmp "$RUNNER_TEMP/resource-native-first/roc-gui.res" "$RUNNER_TEMP/resource-native-second/roc-gui.res"
+          cmp "$RUNNER_TEMP/candidate/roc-gui.res" "$RUNNER_TEMP/resource-native-first/roc-gui.res"
+      - name: Execute the native-built runtime
+        run: python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/native-first/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/native-runtime-evidence'
+
   windows-build:
     name: Build Windows inputs twice
     runs-on: ubuntu-24.04
@@ -142,15 +157,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
         with:
-          version: 0.16.0
+          extra-conf: |
+            sandbox = true
+      - name: Require sandboxed production
+        run: test "$(nix config show sandbox)" = true
       - name: Build the runtime and resource twice
         run: |
-          for output in candidate rebuild; do
-            python3 scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/$output" --cache "$RUNNER_TEMP/downloads"
-            python3 scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-$output"
-          done
+          python3 scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/candidate"
+          python3 scripts/build_windows_gnu_runtime.py --rebuild --output "$RUNNER_TEMP/rebuild"
+          python3 scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-candidate"
+          python3 scripts/build_windows_resource.py --rebuild --output "$RUNNER_TEMP/resource-rebuild"
+          python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate" --target x64mingw
           for archive in "$RUNNER_TEMP/candidate"/*.tar; do
             cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
           done

@@ -43,7 +43,9 @@ SOURCE_PATHS = (
     "crates/host/windows/roc-gui.rc", "crates/host/windows/roc-gui.manifest.xml",
     "scripts/build_alsa_interface.py", "scripts/build_freetype.py", "scripts/build_glibc.py",
     "scripts/build_macos_interfaces.py", "scripts/build_macos_stubs.py", "scripts/build_unwind.py",
-    "scripts/build_windows_gnu_runtime.py",
+    "scripts/build_windows_gnu_runtime.py", "scripts/build_windows_resource.py",
+    "scripts/windows_runtime_validation.py", "scripts/audit_windows_archive.py",
+    "scripts/test_windows_gnu_runtime_artifact.py",
     "scripts/build_xkbcommon.py", "scripts/dependency_archive.py", "scripts/link_input_artifacts.py",
     ".github/workflows/link-inputs.yml",
 )

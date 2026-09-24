@@ -11,13 +11,18 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_windows_gnu_runtime import corresponding_source, RECIPE
+from build_windows_gnu_runtime import corresponding_source, link_arguments, RECIPE
 from release_windows_gnu_runtime import prepare
 from test_windows_gnu_runtime_artifact import ROC_PROBE_OPT
 from windows_runtime_validation import ucrt_inventory
 
 
 class RuntimeValidationTests(unittest.TestCase):
+    def test_windows_verbose_link_keeps_backslashes(self):
+        with patch('build_windows_gnu_runtime.os.name', 'nt'):
+            self.assertEqual(link_arguments(r'lld-link -OUT:C:\work\seed.exe C:\work\global\o\hash\crt2.obj'),
+                             ['lld-link', r'-OUT:C:\work\seed.exe', r'C:\work\global\o\hash\crt2.obj'])
+
     def test_roc_final_link_probe_uses_the_dev_backend(self):
         self.assertEqual(ROC_PROBE_OPT, '--opt=dev')
 
