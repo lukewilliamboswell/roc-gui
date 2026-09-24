@@ -24,12 +24,13 @@ class GitSourceTests(unittest.TestCase):
         self.git('config', 'core.autocrlf', 'false')
         self.git('config', 'user.name', 'Fixture')
         self.git('config', 'user.email', 'fixture@example.invalid')
-        (self.repo / 'Cargo.toml').write_text('[workspace.package]\nversion="1.0.0"\nlicense="MIT"\n')
+        # Fixture text is written with LF on every platform, as Git stores it.
+        (self.repo / 'Cargo.toml').write_text('[workspace.package]\nversion="1.0.0"\nlicense="MIT"\n', newline='\n')
         (self.repo / 'LICENSE').write_text('original license notice')
         crate = self.repo / 'crates/example'
         crate.mkdir(parents=True)
-        (crate / 'Cargo.toml').write_text('[package]\nname="example"\nversion.workspace=true\nlicense.workspace=true\n')
-        (crate / 'lib.rs').write_text('// Copyright fixture\npub fn example() {}\n')
+        (crate / 'Cargo.toml').write_text('[package]\nname="example"\nversion.workspace=true\nlicense.workspace=true\n', newline='\n')
+        (crate / 'lib.rs').write_text('// Copyright fixture\npub fn example() {}\n', newline='\n')
         self.git('add', '.')
         # Construct links as Git objects so Windows tests need no symlink privilege.
         oid = self.git('hash-object', '-w', '--stdin', input=b'../../LICENSE').strip().decode()
