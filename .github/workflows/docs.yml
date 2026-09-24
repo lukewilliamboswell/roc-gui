@@ -33,6 +33,18 @@ jobs:
           python3 -m unittest scripts/test_build_example_gallery.py
       - name: Record production example windows
         run: python3 scripts/run_specs.py "examples/*/specs/gallery.scm" --only window --window-retries=1 --output="$RUNNER_TEMP/gallery-captures"
+      - name: Upload privacy-safe failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: gallery-failure
+          path: |
+            ${{ runner.temp }}/gallery-captures/**/*.failure.json
+            ${{ runner.temp }}/gallery-captures/**/report.json
+            ${{ runner.temp }}/gallery-captures/**/*.png
+            ${{ runner.temp }}/gallery-captures/**/*.crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build thumbnail GIFs
         run: python3 scripts/build_example_gallery.py --captures="$RUNNER_TEMP/gallery-captures" --output="$RUNNER_TEMP/gallery"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
