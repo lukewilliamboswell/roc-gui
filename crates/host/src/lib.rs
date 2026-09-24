@@ -1852,10 +1852,10 @@ pub(crate) fn accept_transaction(graph: &MountedGraph, applied: &bridge::GraphAp
         if let Some(components) = &mut bridge.components {
             components.commit(graph, applied);
         }
-        if let Some(next) = turn.dispatcher {
-            if let Some(previous) = bridge.dispatcher.replace(next) {
-                unsafe { decref_erased_callable(previous, roc_host()) };
-            }
+        if let Some(next) = turn.dispatcher
+            && let Some(previous) = bridge.dispatcher.replace(next)
+        {
+            unsafe { decref_erased_callable(previous, roc_host()) };
         }
     });
     observatory::commit_component_work();
@@ -2934,7 +2934,7 @@ fn rich_text(value: &str, runs: &[TextRun]) -> gpui::StyledText {
         let highlight = HighlightStyle {
             color: run.fg.map(|color| paint(color).into()),
             background_color: run.bg.map(|color| paint(color).into()),
-            font_weight: (run.font_weight > 0).then(|| FontWeight(run.font_weight as f32)),
+            font_weight: (run.font_weight > 0).then_some(FontWeight(run.font_weight as f32)),
             underline: run.underline.then(|| UnderlineStyle {
                 thickness: px(1.0),
                 color: None,
@@ -2987,7 +2987,7 @@ impl Render for NodeView {
         // Disabled is the application's word for a control. A modal dialog
         // makes the controls behind it inert, not disabled: they keep their
         // own look and only stop answering input.
-        #[cfg_attr(not(test), allow(unused_assignments, unused_variables))]
+        #[cfg(test)]
         let mut shows_disabled = false;
         if self.is_root {
             element = element.size_full().min_h_0().min_w_0();
@@ -3573,7 +3573,10 @@ impl Render for NodeView {
                         });
                 } else if !*enabled {
                     element = apply_disabled(element, style);
-                    shows_disabled = true;
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
                 let _ = label;
             }
@@ -3788,7 +3791,10 @@ impl Render for NodeView {
                 element = apply_style(element.flex().items_center(), style);
                 if !enabled {
                     element = apply_disabled(element, style);
-                    shows_disabled = true;
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
                 if let Some(editor) = &self.input {
                     element = element.child(editor.clone());
@@ -3859,7 +3865,10 @@ impl Render for NodeView {
                         });
                 } else if !*enabled {
                     element = apply_disabled(element, style);
-                    shows_disabled = true;
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
             }
             NodeKind::Checkbox {
@@ -4011,7 +4020,10 @@ impl Render for NodeView {
                         });
                 } else if !*enabled {
                     element = apply_disabled(element, style);
-                    shows_disabled = true;
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
             }
         }
@@ -4321,24 +4333,6 @@ impl Runtime {
         })
         .detach();
         runtime
-    }
-
-    fn canvas_pointer(
-        &mut self,
-        label: &str,
-        phase: u8,
-        x: i32,
-        y: i32,
-        target: u64,
-        cx: &mut Context<Self>,
-    ) {
-        let id = self.graph.nodes_preorder().into_iter().find_map(|node| {
-            matches!(&node.kind, NodeKind::Canvas { label: current, .. } if current == label)
-                .then_some(node.id)
-        });
-        if let Some(id) = id {
-            self.canvas_pointer_for_node(id, phase, x, y, target, cx);
-        }
     }
 
     fn canvas_pointer_for_node(
@@ -5313,18 +5307,17 @@ impl Runtime {
                 self.focus_root_after_render = self.focus_after_render.is_none();
             }
             _ => {
-                if let Some((id, identity)) = self.focused_identity.clone() {
-                    if self.graph.node(id).is_none() {
-                        // The same control under a new id keeps focus. A
-                        // control that is gone hands focus to whatever now
-                        // holds its place, rather than dropping it and
-                        // leaving a person's next Tab starting from nowhere.
-                        self.focus_after_render =
-                            self.find_native_identity(&identity).or_else(|| {
-                                self.focused_position
-                                    .and_then(|was_at| self.graph.focus_destination(was_at))
-                            });
-                    }
+                if let Some((id, identity)) = self.focused_identity.clone()
+                    && self.graph.node(id).is_none()
+                {
+                    // The same control under a new id keeps focus. A
+                    // control that is gone hands focus to whatever now
+                    // holds its place, rather than dropping it and
+                    // leaving a person's next Tab starting from nowhere.
+                    self.focus_after_render = self.find_native_identity(&identity).or_else(|| {
+                        self.focused_position
+                            .and_then(|was_at| self.graph.focus_destination(was_at))
+                    });
                 }
             }
         }
@@ -5772,14 +5765,12 @@ impl Runtime {
             if matches!(
                 self.graph.node(*id).map(|node| &node.kind),
                 Some(NodeKind::TextInput { .. })
-            ) {
-                if let Some(identity) = self
-                    .identities
-                    .get(id)
-                    .filter(|identity| self.editors.contains_key(*identity))
-                {
-                    self.editor_nodes.insert(identity.clone(), *id);
-                }
+            ) && let Some(identity) = self
+                .identities
+                .get(id)
+                .filter(|identity| self.editors.contains_key(*identity))
+            {
+                self.editor_nodes.insert(identity.clone(), *id);
             }
         }
         let eager = node_ids
@@ -9330,7 +9321,7 @@ mod tests {
             },
             children,
         };
-        let heard: Rc<RefCell<Vec<(u64, u8, i32, i32)>>> = Rc::default();
+        let heard = Rc::new(RefCell::new(Vec::<(u64, u8, i32, i32)>::new()));
         let recorded = heard.clone();
         install_test_dispatcher(move |event_id| {
             let event = super::CANVAS_EVENT.with(|slot| *slot.borrow()).unwrap();

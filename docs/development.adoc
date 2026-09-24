@@ -7,7 +7,8 @@ never reproduce it.
 == Pinned development environment
 
 `blueprint run build` builds the native host. `blueprint run test` builds and
-runs the application specifications through the production host, and
+runs the application specifications through the production host.
+`blueprint run lint` runs Clippy with warnings treated as errors.
 `blueprint run check` verifies the installed compiler against `.roc-version`.
 Run these commands inside the Blueprint bootstrap environment described in
 Getting started. Commit `Blueprint.roc`, `Blueprint.lock`, and `.roc-version`;
@@ -17,6 +18,15 @@ The Linux shell supplies native build dependencies, including Fontconfig and
 Wayland. The build helper prepends its verified ALSA interface to the shell
 search paths. Executables use the native desktop runtime libraries selected by
 the system ELF loader.
+
+Development builds select the unified linker-input release when its producer
+inputs match the checkout. Missing or stale releases select the development
+recipes and their verified component inputs. Invalid locks and failed artifact
+verification stop the build. Release packaging requires a matching unified lock.
+
+CI runs the same Clippy command as the local pre-commit hook, including test
+targets, with `-D warnings`. Install the `clippy` component from the repository
+Rust toolchain when running the hook outside the Blueprint environment.
 
 Change `.roc-version` to select another compiler. Run `blueprint update` when
 the locked overlay needs a newer release, and review the lock changes. CI checks
@@ -220,10 +230,10 @@ a cache hit, and download the immutable release only on a miss.
 
 Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
-must never fall back to a local build. Developers may explicitly select a native
-source build when an artifact is absent or its source fingerprint is stale.
-`./build.py --source-inputs` makes that choice; the linker-input producer uses
-it to final-link the inputs it is about to publish.
+must never fall back to a local build. Development builds select native source
+inputs when the unified lock is absent or its producer fingerprint is stale.
+`./build.py --source-inputs` also selects this path explicitly; the linker-input
+producer uses it to final-link the inputs it is about to publish.
 Final platform releases accept only locked, released, and attested inputs.
 
 Change a linker input through its owning recipe and tests, then dispatch the

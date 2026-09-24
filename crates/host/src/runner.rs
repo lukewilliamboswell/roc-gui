@@ -185,6 +185,9 @@ pub(crate) fn canvas_item<'a>(
     found.next().is_none().then_some(first)
 }
 
+type ClaimResult = (Result<(), String>, Option<(u64, u64)>);
+type ResourceClaimResult = (Result<(), String>, Option<(u64, u64)>, CounterEvidence);
+
 /// A claim answered entirely from the mounted graph, and its count evidence.
 ///
 /// These claims are true or false of the same graph on either runner, so they
@@ -193,10 +196,7 @@ pub(crate) fn canvas_item<'a>(
 /// without the two runners drifting into two slightly different meanings of the
 /// same word. The message carries no line number: the caller is what knows
 /// where the step was written.
-pub(crate) fn graph_claim(
-    graph: &MountedGraph,
-    command: &Command,
-) -> Option<(Result<(), String>, Option<(u64, u64)>)> {
+pub(crate) fn graph_claim(graph: &MountedGraph, command: &Command) -> Option<ClaimResult> {
     /// The single node a locator names, or how many it named instead.
     fn only(graph: &MountedGraph, locator: &Locator) -> Result<u64, usize> {
         let found = matches(graph, locator);
@@ -724,7 +724,7 @@ pub(crate) struct CounterEvidence {
 pub(crate) fn resource_claim(
     command: &Command,
     file_baseline: [u64; 4],
-) -> Option<(Result<(), String>, Option<(u64, u64)>, CounterEvidence)> {
+) -> Option<ResourceClaimResult> {
     /// An exact owner reading, reported as the whole array on either side.
     fn exact<const N: usize>(
         name: &str,

@@ -6,13 +6,6 @@ the change lands; do not soften the docs to match the gap.
 
 ## Blueprint verification and compiler watching
 
-- [ ] **Verify the complete Nix semantic suite.** The source-input host build,
-  both counter semantic specifications, and native GPUI smoke test pass through
-  the pinned Nix environment. Run the complete Blueprint CI suite before treating
-  all applications as Nix-verified. Until the stale unified linker-input lock
-  tracked below is replaced, build with `blueprint run build -- --source-inputs`
-  and run specifications with `--skip-host-build` against that host.
-
 - [ ] **Support NixOS executable loading.** Linux executables select the native
   system ELF loader. The Nix development shell supplies build dependencies, but
   running examples requires compatible native desktop runtime libraries. Do
@@ -1483,8 +1476,8 @@ names the reproduction so the workaround can be removed when the fix lands.
   Windows host releases `windows-imports.lib` with a schema 2 normalization
   receipt. `link-inputs.lock.json` is already stale for this checkout (its
   fingerprint predates the change to `.github/workflows/link-inputs.yml`), so
-  `build.py` needs `--source-inputs` on every target until the linker-input
-  producer is dispatched and the lock adopted. The Windows GUI host release
+  development builds select source inputs until the linker-input producer is
+  dispatched and the lock adopted. Release packaging still requires that lock. The Windows GUI host release
   (`prepare_host_build.py`, `host_notice_payload.py`) has been changed but not
   yet run; run it on a Windows runner before the next host release.
 

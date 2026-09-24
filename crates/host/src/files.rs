@@ -671,7 +671,11 @@ pub struct ChooserRequest {
 }
 
 struct ChooserSeam {
+    // Retain the sender for the application lifetime, including Linux where
+    // the portal handles selections instead of reading this channel.
+    #[cfg_attr(target_os = "linux", expect(dead_code))]
     requests: async_channel::Sender<ChooserRequest>,
+    #[cfg(not(target_os = "linux"))]
     window_thread: std::thread::ThreadId,
 }
 
@@ -720,6 +724,7 @@ impl Drop for ChooserRegistration {
 pub fn install_chooser(requests: async_channel::Sender<ChooserRequest>) -> ChooserRegistration {
     let seam = Arc::new(ChooserSeam {
         requests,
+        #[cfg(not(target_os = "linux"))]
         window_thread: std::thread::current().id(),
     });
     *chooser().lock().expect("chooser seam poisoned") = Some(seam.clone());
@@ -1172,6 +1177,128 @@ pub extern "C" fn roc_files_reopen_directory(key: u64) -> InternalFilesReopenDir
     }
 }
 
+/// Watch a granted directory's direct children. The watch is derived from the
+/// directory grant, so withdrawing the folder ends it.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_dir_watch(cap: *mut u64) -> InternalFilesDirWatchResult {
+    let accepted = accepted(cap);
+    unsafe { decref_box(cap as RocBox, roc_host()) };
+    let result = match accepted {
+        Err(LookupError::Revoked) => Err((6, "directory authority was withdrawn")),
+        Err(LookupError::Invalid) => Err((1, "invalid directory capability")),
+        Ok((dir, parent)) => match crate::watch::descriptor_path(&dir) {
+            None => Err((9, "watching is not supported on this platform")),
+            Some(path) => crate::watch::start(&path, crate::watch::Target::Directory, parent)
+                .map_err(|refusal| match refusal {
+                    crate::watch::Refusal::Revoked => (6, "directory authority was withdrawn"),
+                    crate::watch::Refusal::ResourceLimit => (4, "no watch is left to give"),
+                    crate::watch::Refusal::Unsupported => {
+                        (9, "watching is not supported on this platform")
+                    }
+                    crate::watch::Refusal::Io => (3, "the directory could not be watched"),
+                }),
+        },
+    };
+    match result {
+        Ok(handle) => InternalFilesDirWatchResult {
+            payload: InternalFilesDirWatchResultPayload {
+                ok: ManuallyDrop::new(handle),
+            },
+            tag: InternalFilesDirWatchResultTag::Ok,
+        },
+        Err((code, message)) => InternalFilesDirWatchResult {
+            payload: InternalFilesDirWatchResultPayload {
+                err: ManuallyDrop::new(InternalFilesDirWatchErr {
+                    code,
+                    message: RocStr::from_str(message, roc_host()),
+                }),
+            },
+            tag: InternalFilesDirWatchResultTag::Err,
+        },
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_watch_next(handle: *mut u64) -> InternalFilesWatchNext {
+    let report = crate::watch::next(handle);
+    let names: Vec<RocStr> = report
+        .names
+        .iter()
+        .map(|name| RocStr::from_str(name, roc_host()))
+        .collect();
+    InternalFilesWatchNext {
+        names: unsafe { RocList::from_slice(&names, roc_host()) },
+        code: report.code,
+        overflowed: report.overflowed,
+        replaced: report.replaced,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_files_watch_cancel(handle: *mut u64) -> bool {
+    crate::watch::cancel(handle)
+}
+
+/// The disposable copy a specification was granted, and the application
+/// directory its `replace-file` sources are named relative to.
+static PRIVATE_COPY: Mutex<Option<(PathBuf, Option<PathBuf>)>> = Mutex::new(None);
+
+/// Record that the granted directory is a disposable copy. Only then may a
+/// `replace-file` step change it.
+pub fn set_private_copy(directory: Option<PathBuf>, application: Option<PathBuf>) {
+    *PRIVATE_COPY
+        .lock()
+        .unwrap_or_else(|error| error.into_inner()) =
+        directory.map(|directory| (directory, application));
+}
+
+/// Remove one direct child of the disposable directory grant, as a person
+/// deleting a file does.
+pub fn remove_in_private_copy(name: &str) -> Result<(), String> {
+    let held = PRIVATE_COPY
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone();
+    let Some((directory, _)) = held else {
+        return Err("remove-file requires a disposable directory grant".into());
+    };
+    if !valid_name(name) {
+        return Err("remove-file names one direct child".into());
+    }
+    std::fs::remove_file(directory.join(name))
+        .map_err(|error| format!("cannot remove {name}: {error}"))
+}
+
+/// Replace one direct child of the disposable directory grant with a copy of
+/// `source`, as a person moving a new file into place does: the copy is
+/// written beside the directory, never inside it, and renamed over the child in
+/// one step, so what the application sees is one name bound to a new file.
+pub fn replace_in_private_copy(name: &str, source: &str) -> Result<(), String> {
+    let held = PRIVATE_COPY
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone();
+    let Some((directory, application)) = held else {
+        return Err("replace-file requires a disposable directory grant".into());
+    };
+    if !valid_name(name) {
+        return Err("replace-file names one direct child".into());
+    }
+    let application =
+        application.ok_or_else(|| "replace-file has no application directory".to_string())?;
+    let source = crate::resolve_grant_path(&application, source)?;
+    let staging_root = directory
+        .parent()
+        .ok_or_else(|| "the disposable directory has no parent to stage in".to_string())?;
+    let staging = staging_root.join(format!(".replace-{}-{name}", std::process::id()));
+    std::fs::copy(&source, &staging)
+        .map_err(|error| format!("cannot stage {}: {error}", source.display()))?;
+    std::fs::rename(&staging, directory.join(name)).map_err(|error| {
+        let _ = std::fs::remove_file(&staging);
+        format!("cannot replace {name}: {error}")
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1312,126 +1439,4 @@ mod tests {
         assert!(prompt_is_allowed(true, false, Some(now), now));
         assert!(!prompt_is_allowed(false, false, None, now));
     }
-}
-
-/// Watch a granted directory's direct children. The watch is derived from the
-/// directory grant, so withdrawing the folder ends it.
-#[unsafe(no_mangle)]
-pub extern "C" fn roc_files_dir_watch(cap: *mut u64) -> InternalFilesDirWatchResult {
-    let accepted = accepted(cap);
-    unsafe { decref_box(cap as RocBox, roc_host()) };
-    let result = match accepted {
-        Err(LookupError::Revoked) => Err((6, "directory authority was withdrawn")),
-        Err(LookupError::Invalid) => Err((1, "invalid directory capability")),
-        Ok((dir, parent)) => match crate::watch::descriptor_path(&dir) {
-            None => Err((9, "watching is not supported on this platform")),
-            Some(path) => crate::watch::start(&path, crate::watch::Target::Directory, parent)
-                .map_err(|refusal| match refusal {
-                    crate::watch::Refusal::Revoked => (6, "directory authority was withdrawn"),
-                    crate::watch::Refusal::ResourceLimit => (4, "no watch is left to give"),
-                    crate::watch::Refusal::Unsupported => {
-                        (9, "watching is not supported on this platform")
-                    }
-                    crate::watch::Refusal::Io => (3, "the directory could not be watched"),
-                }),
-        },
-    };
-    match result {
-        Ok(handle) => InternalFilesDirWatchResult {
-            payload: InternalFilesDirWatchResultPayload {
-                ok: ManuallyDrop::new(handle),
-            },
-            tag: InternalFilesDirWatchResultTag::Ok,
-        },
-        Err((code, message)) => InternalFilesDirWatchResult {
-            payload: InternalFilesDirWatchResultPayload {
-                err: ManuallyDrop::new(InternalFilesDirWatchErr {
-                    code,
-                    message: RocStr::from_str(message, roc_host()),
-                }),
-            },
-            tag: InternalFilesDirWatchResultTag::Err,
-        },
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn roc_files_watch_next(handle: *mut u64) -> InternalFilesWatchNext {
-    let report = crate::watch::next(handle);
-    let names: Vec<RocStr> = report
-        .names
-        .iter()
-        .map(|name| RocStr::from_str(name, roc_host()))
-        .collect();
-    InternalFilesWatchNext {
-        names: unsafe { RocList::from_slice(&names, roc_host()) },
-        code: report.code,
-        overflowed: report.overflowed,
-        replaced: report.replaced,
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn roc_files_watch_cancel(handle: *mut u64) -> bool {
-    crate::watch::cancel(handle)
-}
-
-/// The disposable copy a specification was granted, and the application
-/// directory its `replace-file` sources are named relative to.
-static PRIVATE_COPY: Mutex<Option<(PathBuf, Option<PathBuf>)>> = Mutex::new(None);
-
-/// Record that the granted directory is a disposable copy. Only then may a
-/// `replace-file` step change it.
-pub fn set_private_copy(directory: Option<PathBuf>, application: Option<PathBuf>) {
-    *PRIVATE_COPY
-        .lock()
-        .unwrap_or_else(|error| error.into_inner()) =
-        directory.map(|directory| (directory, application));
-}
-
-/// Remove one direct child of the disposable directory grant, as a person
-/// deleting a file does.
-pub fn remove_in_private_copy(name: &str) -> Result<(), String> {
-    let held = PRIVATE_COPY
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .clone();
-    let Some((directory, _)) = held else {
-        return Err("remove-file requires a disposable directory grant".into());
-    };
-    if !valid_name(name) {
-        return Err("remove-file names one direct child".into());
-    }
-    std::fs::remove_file(directory.join(name))
-        .map_err(|error| format!("cannot remove {name}: {error}"))
-}
-
-/// Replace one direct child of the disposable directory grant with a copy of
-/// `source`, as a person moving a new file into place does: the copy is
-/// written beside the directory, never inside it, and renamed over the child in
-/// one step, so what the application sees is one name bound to a new file.
-pub fn replace_in_private_copy(name: &str, source: &str) -> Result<(), String> {
-    let held = PRIVATE_COPY
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .clone();
-    let Some((directory, application)) = held else {
-        return Err("replace-file requires a disposable directory grant".into());
-    };
-    if !valid_name(name) {
-        return Err("replace-file names one direct child".into());
-    }
-    let application =
-        application.ok_or_else(|| "replace-file has no application directory".to_string())?;
-    let source = crate::resolve_grant_path(&application, source)?;
-    let staging_root = directory
-        .parent()
-        .ok_or_else(|| "the disposable directory has no parent to stage in".to_string())?;
-    let staging = staging_root.join(format!(".replace-{}-{name}", std::process::id()));
-    std::fs::copy(&source, &staging)
-        .map_err(|error| format!("cannot stage {}: {error}", source.display()))?;
-    std::fs::rename(&staging, directory.join(name)).map_err(|error| {
-        let _ = std::fs::remove_file(&staging);
-        format!("cannot replace {name}: {error}")
-    })
 }

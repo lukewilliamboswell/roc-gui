@@ -38,5 +38,6 @@ config = [
 	),
 	Task("build", [Run(["python3", "build.py"])]),
 	Task("test", [Run(["python3", "scripts/run_specs.py", "--roc", "roc"])]),
+	Task("lint", [Run(["python3", "scripts/run_cargo.py", "clippy", "--locked", "--package", "roc-gui-host", "--all-targets", "--no-deps", "--", "-D", "warnings"])]),
 	Task("check", [Run(["python3", "scripts/toolchain.py", "--check", "--roc-bin", "roc"])]),
 ]
