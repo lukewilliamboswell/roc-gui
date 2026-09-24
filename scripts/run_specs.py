@@ -219,8 +219,11 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
         executable.unlink(missing_ok=True)
+        # Every application is compiled from source, never from Roc's shared
+        # build cache: a result must describe the program the sources define,
+        # not whatever an earlier build left cached (see the backlog).
         result = subprocess.run(
-            [roc, "build", f"--opt={roc_opt}", f"--output={executable}", str(app)],
+            [roc, "build", "--no-cache", f"--opt={roc_opt}", f"--output={executable}", str(app)],
             cwd=ROOT,
             capture_output=True,
             text=True,
