@@ -4,6 +4,14 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Linux producer toolchain verification
+
+- [ ] **Restore Meson's fortify fixture under the Nix compiler wrapper.** Meson
+  1.12.0's `common/282 -D_FORTIFY_SOURCE=2 and -O0` fixture conflicts with the
+  locked nixpkgs wrapper's injected fortify flags. The Nix override excludes
+  this fixture while retaining the other upstream project tests. Adapt the
+  fixture to the wrapper or adopt an upstream fix, then remove the exclusion.
+
 ## Blueprint verification and compiler watching
 
 - [ ] **Support NixOS executable loading.** Linux executables select the native
@@ -223,6 +231,23 @@ independent of any one application.
   names, settle interval, and derived grant.
 
 ## Element appearance
+
+- [ ] **Windows draw no text on macOS.** Layout, borders and fills draw, but
+  no glyphs do, in every example. Specifications still pass because they read
+  semantic state, not pixels; counter's `screenshots.scm` shows empty buttons
+  and cards. `d6501f5` draws text, and the host after "Migrate host to
+  upstream GPUI HEAD" does not, with either Roc pin. Bisect 6ee3fd6, 874bd2f
+  and e0e8db9, then fix it, and add a screenshot check that fails when a
+  labelled element renders no glyphs.
+
+- [ ] **Three macOS window specifications fail on the migrated GPUI host.**
+  `clipboard-history/specs/window-history.scm` reports "Cancel private next"
+  laid out at x 929–983 but not on screen, locally and on CI.
+  `clipboard-history/specs/window-denied.scm` and
+  `system-monitor/specs/window-plot-width.scm` fail on the hosted arm64 runner
+  (producer run 35943508264) but pass locally. The linker-input producer and
+  the CI window job exclude them. Recheck them once text draws, since text
+  that is not shaped also changes layout widths, then remove the excludes.
 
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
@@ -1074,6 +1099,17 @@ names the evidence so a fix can be verified against the same case.
     backends, apparently on a cyclic closure capture type. This also blocks
     the nightly upgrade (PR #30). Bisect `220fd47..c7de7cf9b1` and add the
     result to the issue.
+    On `nightly-2026-09-23-c7852fd` `roc build --opt=dev` overflows the stack
+    on Observatory on arm64 macOS, so `scripts/run_specs.py` lists it in
+    `COMPILER_BLOCKED` and skips its specifications on every target. Remove
+    the entry once a nightly builds it.
+
+- [ ] **Redis Explorer does not compile on `nightly-2026-09-23-c7852fd`.**
+  Both `roc check` and `roc build --opt=dev examples/redis-explorer/main.roc`
+  run at 100% CPU with no output for over five minutes. `scripts/run_specs.py`
+  lists it in `COMPILER_BLOCKED`, which skips its specifications and its
+  README gallery GIF. Reduce it with a local compiler build, file the
+  upstream issue, and remove the entry once a nightly compiles it.
 
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.

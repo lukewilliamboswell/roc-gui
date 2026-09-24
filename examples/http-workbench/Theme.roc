@@ -8,62 +8,45 @@ import pf.Gui
 Theme := [].{
 
 	## The window ground, darkest surface behind every region.
-	ground : Gui.Color
-	ground = 0x0b0e13
+	ground = 0x0b0e13.Gui.Color
 
 	## A raised control region: the header, the authority bar, the footer.
-	region : Gui.Color
-	region = 0x141a21
+	region = 0x141a21.Gui.Color
 
 	## A recessed well: an editable field or a response readout.
-	well : Gui.Color
-	well = 0x080b0f
+	well = 0x080b0f.Gui.Color
 
 	## The hairline that divides one region from the next.
-	line : Gui.Color
-	line = 0x1f2831
+	line = 0x1f2831.Gui.Color
 
 	## A slightly brighter hairline for an editable edge.
-	edge : Gui.Color
-	edge = 0x2b3641
+	edge = 0x2b3641.Gui.Color
 
 	## Primary readable text.
-	text : Gui.Color
-	text = 0xc6cfd8
+	text = 0xc6cfd8.Gui.Color
 
 	## Secondary labels, units, counts, and placeholders.
-	dim : Gui.Color
-	dim = 0x6b7783
+	dim = 0x6b7783.Gui.Color
 
 	## The one signal colour. Reserved for the response readout: a status line, a
 	## header count, the byte size. Nothing a person types is ever signal.
-	signal : Gui.Color
-	signal = 0x4fb3c4
+	signal = 0x4fb3c4.Gui.Color
 
 	## A refusal. A tinted band, never an outline, so it reads as a condition of
 	## the bench rather than a decoration on one control.
-	alarm : Gui.Color
-	alarm = 0x241416
-	alarm_ink : Gui.Color
-	alarm_ink = 0xdb8a7d
-	alarm_line : Gui.Color
-	alarm_line = 0x3d2124
+	alarm = 0x241416.Gui.Color
+	alarm_ink = 0xdb8a7d.Gui.Color
+	alarm_line = 0x3d2124.Gui.Color
 
 	## Key caps at rest, under the pointer, and while pressed.
-	key : Gui.Color
-	key = 0x1a2229
-	key_hover : Gui.Color
-	key_hover = 0x232e37
-	key_active : Gui.Color
-	key_active = 0x121920
+	key = 0x1a2229.Gui.Color
+	key_hover = 0x232e37.Gui.Color
+	key_active = 0x121920.Gui.Color
 
 	## The one emphasised key: sending is the bench's single primary act.
-	send : Gui.Color
-	send = 0x1d4a53
-	send_hover : Gui.Color
-	send_hover = 0x266069
-	send_active : Gui.Color
-	send_active = 0x163a41
+	send = 0x1d4a53.Gui.Color
+	send_hover = 0x266069.Gui.Color
+	send_active = 0x163a41.Gui.Color
 
 	## A URL, a header, a status code, and a response body are all structured
 	## text. A fixed pitch keeps a column aligned and digits a constant width.

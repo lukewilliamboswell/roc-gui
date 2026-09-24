@@ -250,7 +250,7 @@ trigger_heads = |state| match mode(state) {
 					Gui.button({
 						caption: "Δ median${arrow}",
 						label: "Sort triggers by delta",
-						on_press: |current, _| Gui.update(Observatory.sort_triggers(current, Observatory.delta_column)),
+						on_press: |current, _| Gui.Action.update(Observatory.sort_triggers(current, Observatory.delta_column)),
 						padding: 0,
 						font_size: Theme.meta,
 						font_face: Theme.face,

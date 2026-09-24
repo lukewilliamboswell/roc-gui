@@ -5,20 +5,18 @@ import argparse
 import json
 import os
 from pathlib import Path
-import platform
 import shutil
 import subprocess
 import tarfile
-import tempfile
-from urllib.request import urlopen
 
 import dependency_archive
+import nix_link_inputs
 from dependency_archive import digest, write_archive
 from dependency_artifacts import sha256, unpack_verified
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "dependencies/freetype.json"
-BUILDER = ROOT / "dependencies/linux/Dockerfile"
+
 ARCHIVE_NAME = "freetype-x64glibc.tar"
 
 
@@ -28,35 +26,6 @@ def verify_source(path, source):
         raise ValueError("FreeType source differs from the reviewed recipe")
 
 
-def fetch_source(source, cache):
-    """Admit a bounded source download by its reviewed digest, including cache hits."""
-    cache.mkdir(parents=True, exist_ok=True)
-    destination = cache / (source["sha256"] + ".tar.xz")
-    if not destination.exists():
-        with tempfile.NamedTemporaryFile(dir=cache, delete=False) as pending:
-            path = Path(pending.name)
-        try:
-            with urlopen(source["url"], timeout=60) as response, path.open("wb") as output:
-                remaining = source["size"]
-                while remaining:
-                    data = response.read(min(remaining, 1024 * 1024))
-                    if not data:
-                        raise ValueError("truncated FreeType source download")
-                    output.write(data)
-                    remaining -= len(data)
-                if response.read(1):
-                    raise ValueError("FreeType source exceeds its reviewed size")
-            verify_source(path, source)
-            try:
-                os.link(path, destination)
-            except FileExistsError:
-                pass
-        finally:
-            path.unlink(missing_ok=True)
-    verify_source(destination, source)
-    return destination
-
-
 def check_candidate(archive, source, output, compiler):
     """Execute a glyph-rendering probe against the extracted candidate library.
 
@@ -64,7 +33,7 @@ def check_candidate(archive, source, output, compiler):
     this build, and the normal consumer inventory verifier checks extraction.
     The probe's headers come from the same verified upstream source archive.
     """
-    candidate = Path("/tmp/candidate")
+    candidate = output / "candidate"
     unpack_verified(archive, {"name": "freetype", "target": "x64glibc"}, candidate)
     library_dir = candidate / "targets/x64glibc"
     # Only the probe's private runtime search tree needs a SONAME symlink. The
@@ -80,29 +49,30 @@ def check_candidate(archive, source, output, compiler):
     environment = os.environ.copy()
     environment.pop("LD_LIBRARY_PATH", None)
     environment.pop("LD_PRELOAD", None)
-    subprocess.run([str(executable)], check=True, env=environment, timeout=15)
+    subprocess.run(nix_link_inputs.probe_command(executable), check=True, env=environment, timeout=15)
 
 
-def inside_builder(source_archive, output, image_id):
-    """Compile with networking disabled inside the immutable builder image."""
+def inside_builder(source_archive, output):
+    """Compile with networking disabled inside the Nix sandbox."""
     recipe_bytes = RECIPE.read_bytes()
     recipe = json.loads(recipe_bytes)
-    zig = "/opt/zig/zig"
+    zig = "zig"
     version = subprocess.check_output([zig, "version"], text=True).strip()
     if version != recipe["zig_version"]:
         raise ValueError("FreeType producer requires the recipe's exact Zig version")
     compiler = [zig, *recipe["cc_args"]]
     verify_source(source_archive, recipe["source"])
-    source_root = Path("/tmp/source")
+    source_root = Path.cwd() / "source"
     with tarfile.open(source_archive) as packed:
         packed.extractall(source_root, filter="data")
     source = source_root / recipe["source"]["directory"]
-    build = Path("/tmp/build")
+    build = Path.cwd() / "build"
     subprocess.run(["cmake", "-S", str(source), "-B", str(build),
                     "-DCMAKE_TOOLCHAIN_FILE=" + str(ROOT / "dependencies/linux/zig-toolchain.cmake"),
                     *recipe["cmake_options"]], check=True, timeout=120)
     subprocess.run(["cmake", "--build", str(build), "--parallel", "2"],
                    check=True, timeout=900)
+    nix_link_inputs.portable_library(build / "libfreetype.so")
     files = {"targets/x64glibc/libfreetype.so": (build / "libfreetype.so").read_bytes()}
     for name in ("LICENSE.TXT", "docs/FTL.TXT", "docs/GPLv2.TXT"):
         files["licenses/freetype/" + Path(name).name] = (source / name).read_bytes()
@@ -110,14 +80,24 @@ def inside_builder(source_archive, output, image_id):
         "This software is based in part on the work of the FreeType Team.\n"
         "FreeType is distributed here under the FreeType License (FTL.TXT).\n"
     ).encode()
+    files.update(nix_link_inputs.sources("freetype"))
+    files["sources/freetype/source.tar.xz"] = source_archive.read_bytes()
+    for path in (
+        'dependencies/freetype.json',
+        'scripts/build_freetype.py',
+        'scripts/dependency_archive.py',
+        'scripts/dependency_artifacts.py',
+        'test/dependencies/freetype.c',
+        'dependencies/linux/zig-toolchain.cmake',
+    ):
+        files["sources/freetype/" + path] = (ROOT / path).read_bytes()
     metadata = {
-        "schema_version": 1, "name": recipe["name"], "version": recipe["version"],
+        "schema_version": 2, "name": recipe["name"], "version": recipe["version"],
         "target": recipe["target"], "source": recipe["source"],
         "build": {
-            "builder_image": image_id,
-            "builder_recipe_sha256": sha256(BUILDER),
+            **nix_link_inputs.provenance(),
             "toolchain_sha256": sha256(ROOT / "dependencies/linux/zig-toolchain.cmake"),
-            "recipe_sha256": digest(recipe_bytes),
+           "recipe_sha256": digest(recipe_bytes),
             "producer_sha256": sha256(Path(__file__)),
             "archive_writer_sha256": sha256(Path(dependency_archive.__file__)),
             "probe_sha256": sha256(ROOT / "test/dependencies/freetype.c"),
@@ -126,9 +106,6 @@ def inside_builder(source_archive, output, image_id):
             "cmake_options": recipe["cmake_options"],
             "compiler": subprocess.check_output([*compiler, "--version"], text=True).splitlines()[0],
             "cmake": subprocess.check_output(["cmake", "--version"], text=True).splitlines()[0],
-            "packages": subprocess.check_output([
-                "dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n",
-            ], text=True).splitlines(),
         },
     }
     # Keep the candidate private until its exact bytes pass the native probe.
@@ -137,51 +114,17 @@ def inside_builder(source_archive, output, image_id):
     shutil.copyfile(archive, output / ARCHIVE_NAME)
 
 
-def build(output, cache):
-    if platform.system() != "Linux" or platform.machine() != "x86_64":
-        raise ValueError("FreeType production requires native Linux x86_64 and Docker")
-    destination = output / ARCHIVE_NAME
-    if destination.exists():
-        raise ValueError("FreeType candidate already exists; retain or inspect its original bytes")
-    recipe = json.loads(RECIPE.read_bytes())
-    source = fetch_source(recipe["source"], cache)
-    tag = "roc-gui-freetype-builder:" + sha256(BUILDER)[:24]
-    subprocess.run(["docker", "build", "--platform=linux/amd64", "--tag", tag, str(BUILDER.parent)],
-                   check=True, timeout=1800)
-    image_id = subprocess.check_output([
-        "docker", "image", "inspect", "--format", "{{.Id}}", tag,
-    ], text=True).strip()
-    output.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=output, prefix=".freetype-") as temporary:
-        stage = Path(temporary)
-        subprocess.run([
-            "docker", "run", "--platform=linux/amd64", "--rm", "--network=none", "--read-only",
-            "--cap-drop=ALL", "--security-opt=no-new-privileges",
-            "--user", f"{os.getuid()}:{os.getgid()}",
-            "--tmpfs", "/tmp:exec,mode=1777", "--env", "PYTHONDONTWRITEBYTECODE=1",
-            "--env", "ZIG_GLOBAL_CACHE_DIR=/tmp/zig-global",
-            "--env", "ZIG_LOCAL_CACHE_DIR=/tmp/zig-local",
-            "--volume", str(ROOT / "scripts") + ":/repo/scripts:ro",
-            "--volume", str(ROOT / "dependencies") + ":/repo/dependencies:ro",
-            "--volume", str(ROOT / "test/dependencies") + ":/repo/test/dependencies:ro",
-            "--volume", str(source) + ":/source.tar.xz:ro",
-            "--volume", str(stage) + ":/output",
-            image_id, "python3", "/repo/scripts/build_freetype.py", "--inside",
-            "--image-id", image_id, "--output", "/output",
-        ], check=True, timeout=1200)
-        os.link(stage / ARCHIVE_NAME, destination)
-    print(f"{sha256(destination)}  {destination.name}")
-    return destination
+def build(output, *, rebuild=False):
+    return nix_link_inputs.build("freetype", output, rebuild=rebuild)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--cache", type=Path, default=Path.home() / ".cache/roc-gui/sources")
     parser.add_argument("--inside", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--image-id", help=argparse.SUPPRESS)
+    parser.add_argument("--rebuild", action="store_true", help="force Nix to rebuild and check reproducibility")
     args = parser.parse_args()
     if args.inside:
-        inside_builder(Path("/source.tar.xz"), args.output, args.image_id)
+        inside_builder(Path(os.environ["NIX_COMPONENT_SOURCE"]), args.output)
     else:
-        build(args.output.resolve(), args.cache.resolve())
+        build(args.output.resolve(), rebuild=args.rebuild)

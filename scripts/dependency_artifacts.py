@@ -127,9 +127,20 @@ def unpack_verified(archive, entry, destination):
         if metadata is None or metadata.size > 1024 ** 2:
             raise ValueError("missing or oversized dependency manifest")
         manifest = json.load(packed.extractfile(metadata))
-        if (manifest.get("schema_version") != 1 or manifest.get("name") != entry["name"]
+        if (manifest.get("schema_version") not in (1, 2) or manifest.get("name") != entry["name"]
                 or manifest.get("target") != entry["target"]):
             raise ValueError("dependency manifest identity mismatch")
+        if manifest["schema_version"] == 2:
+            build = manifest.get("build", {})
+            if (entry["target"] != "x64glibc"
+                    or entry["name"] not in {"alsa", "freetype", "glibc", "unwind", "xkbcommon"}
+                    or not re.fullmatch(r"/nix/store/[a-z0-9]{32}-[^/]+\.drv", build.get("builder_derivation", ""))
+                    or not re.fullmatch(r"[0-9a-f]{40}", build.get("nixpkgs_revision", ""))
+                    or not re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", build.get("nixpkgs_nar_hash", ""))
+                    or any(not HEX256.fullmatch(build.get(key, "")) for key in
+                           ("blueprint_lock_sha256", "nix_recipe_sha256"))
+                    or "builder_image" in build or "builder_recipe_sha256" in build):
+                raise ValueError("invalid Nix dependency provenance")
         files = manifest.get("files")
         if not isinstance(files, dict) or set(files) != set(members) - {"dependency.json"}:
             raise ValueError("dependency file inventory differs from archive")
@@ -144,6 +155,12 @@ def unpack_verified(archive, entry, destination):
             with packed.extractfile(members[name]) as source:
                 if hashlib.file_digest(source, "sha256").hexdigest() != record["sha256"]:
                     raise ValueError("dependency file digest mismatch")
+        if manifest["schema_version"] == 2:
+            for field, relative in (("blueprint_lock_sha256", "Blueprint.lock"),
+                                    ("nix_recipe_sha256", "dependencies/linux/default.nix")):
+                source = files.get(f"sources/{entry['name']}/{relative}")
+                if source is None or source["sha256"] != build[field]:
+                    raise ValueError("Nix provenance differs from corresponding source")
         destination.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".dependency-") as temporary:
             stage = Path(temporary) / "contents"
@@ -174,6 +191,37 @@ def materialize(lock_path, identities, cache, output):
         (stage / "dependencies.lock.json").write_text(json.dumps(
             {"schema_version": 1, "artifacts": entries}, indent=2) + "\n")
         stage.rename(output)
+
+
+def nix_source_inventory(name):
+    """Exact corresponding-source inventory for the Linux schema-2 archives."""
+    common = {"Blueprint.lock", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py",
+              "scripts/dependency_archive.py", "scripts/dependency_artifacts.py"}
+    common.update({f"scripts/build_{'alsa_interface' if name == 'alsa' else name}.py",
+                   f"dependencies/{'alsa-interface' if name == 'alsa' else name}.json"})
+    if name == "alsa":
+        common.update({"test/dependencies/alsa.c", "PROVENANCE.md"})
+    elif name in {"freetype", "xkbcommon"}:
+        common.update({f"test/dependencies/{name}.c", "source.tar.xz" if name == "freetype" else "source.tar.gz"})
+        common.update({"dependencies/linux/zig-toolchain.cmake"} if name == "freetype" else
+                      {"dependencies/xkbcommon/zig.ini", "dependencies/xkbcommon/cc.sh"})
+    elif name == "glibc":
+        common.update({"source.tar.xz", "test/dependencies/glibc.c", "dependencies/glibc/COPYING.LIB"})
+        common.update("dependencies/glibc/LICENSE-LINUX-" + suffix for suffix in
+                      ("GPL-2.0", "GPL-1.0", "LGPL-2.0", "LGPL-2.1", "Linux-syscall-note", "MIT", "BSD-3-Clause"))
+    elif name == "unwind":
+        common.update({"source.tar.xz", "scripts/build_glibc.py", "scripts/test_unwind_rust.py",
+                       "test/dependencies/unwind.cpp", "test/dependencies/unwind.rs", "test/dependencies/unwind-rust.c"})
+    else:
+        raise ValueError("unknown Nix component")
+    return {f"sources/{name}/{path}" for path in common}
+
+
+def component_inventory(expected, manifest):
+    """Retain legacy inventory rules while admitting the new source payload."""
+    if manifest["schema_version"] == 1:
+        return expected
+    return {path for path in expected if not path.startswith("sources/")} | nix_source_inventory(manifest["name"])
 
 
 if __name__ == "__main__":

@@ -55,7 +55,7 @@ Annotation : { mode : Mode, marks : List(Mark), rows : List(Row), boundary : [No
 ## the capture of revision `of`, the annotation on screen, the line chosen in
 ## it, and where its list was last brought to.
 Shown : {
-	folder : [None, Some({ name : Str, directory : Gui.FilesDirRead })],
+	folder : [None, Some({ name : Str, directory : Gui.Files.Dir.Read })],
 	of : U64,
 	found : Found,
 	annotation : [None, Some(Annotation)],
@@ -106,11 +106,11 @@ SpecSource := [].{
 	}
 
 	## Find the capture's specification in a granted folder of sources.
-	find! : Gui.FilesDirRead, Str, Capture.Opened => Try(Found, Str)
+	find! : Gui.Files.Dir.Read, Str, Capture.Opened => Try(Found, Str)
 	find! = find!
 
 	## Read the steps, cycles, and assertions of the runs a mode shows.
-	annotate! : Gui.SqliteDb, Capture.Opened, Mode => Try(List(Mark), Str)
+	annotate! : Gui.Sqlite.Db, Capture.Opened, Mode => Try(List(Mark), Str)
 	annotate! = annotate!
 
 	## The sample runs of a capture, which the median is taken across.
@@ -143,12 +143,12 @@ SpecSource := [].{
 recorded_hash : Str -> Str
 recorded_hash = |digest| "sha256:${digest}"
 
-is_source : Gui.FilesEntry -> Bool
+is_source : Gui.Files.Entry -> Bool
 is_source = |entry| entry.kind == File and Str.ends_with(entry.name, ".scm")
 
 ## The file hashing to `spec_hash` is the specification that ran. Failing
 ## that, a file declaring the capture's test has changed since the capture.
-find! : Gui.FilesDirRead, Str, Capture.Opened => Try(Found, Str)
+find! : Gui.Files.Dir.Read, Str, Capture.Opened => Try(Found, Str)
 find! = |directory, folder, opened| {
 	hash = Capture.metadata(opened, "spec_hash")
 	name = Capture.metadata(opened, "spec_name")
@@ -215,10 +215,10 @@ expect source_lines("one") == ["one"]
 chunk : U64
 chunk = 5000
 
-all_rows! : Gui.SqliteDb, Str, I64 => Try(List(List(Gui.SqliteValue)), Str)
+all_rows! : Gui.Sqlite.Db, Str, I64 => Try(List(List(Gui.Sqlite.Value)), Str)
 all_rows! = |database, sql, run_id| rows_from!(database, sql, run_id, 0, [])
 
-rows_from! : Gui.SqliteDb, Str, I64, I64, List(List(Gui.SqliteValue)) => Try(List(List(Gui.SqliteValue)), Str)
+rows_from! : Gui.Sqlite.Db, Str, I64, I64, List(List(Gui.Sqlite.Value)) => Try(List(List(Gui.Sqlite.Value)), Str)
 rows_from! = |database, sql, run_id, from, held| {
 	page = database.page!({ sql, params: [Integer(run_id), Integer(from)], rows: chunk }) ? |error| Gui.Sqlite.detail(error)
 	rows = held.concat(page.rows)
@@ -241,29 +241,29 @@ counter_tables = ["audio", "clipboard", "database", "http", "tcp"]
 counter_sql : Str -> Str
 counter_sql = |table| "SELECT s.ordinal, a.* FROM ${table}_counter_assertions a JOIN steps s ON s.id = a.step_id WHERE s.run_id = ? AND s.ordinal >= ? ORDER BY s.ordinal"
 
-text_at : List(Gui.SqliteValue), U64 -> Str
+text_at : List(Gui.Sqlite.Value), U64 -> Str
 text_at = |row, index| match row.get(index) {
 	Ok(String(value)) => value
 	Ok(Integer(value)) => value.to_str()
 	_ => ""
 }
 
-option_at : List(Gui.SqliteValue), U64 -> [None, Some(I64)]
+option_at : List(Gui.Sqlite.Value), U64 -> [None, Some(I64)]
 option_at = |row, index| match row.get(index) {
 	Ok(Integer(value)) => Some(value)
 	_ => None
 }
 
-int_at : List(Gui.SqliteValue), U64 -> I64
+int_at : List(Gui.Sqlite.Value), U64 -> I64
 int_at = |row, index| match row.get(index) {
 	Ok(Integer(value)) => value
 	_ => 0
 }
 
 ## One run's steps, cycles, and assertions, each keyed by step ordinal.
-Read : { run : Capture.Run, steps : List(List(Gui.SqliteValue)), cycles : Dict(I64, { count : I64, patch : Str }), assertions : Dict(I64, List(Assertion)) }
+Read : { run : Capture.Run, steps : List(List(Gui.Sqlite.Value)), cycles : Dict(I64, { count : I64, patch : Str }), assertions : Dict(I64, List(Assertion)) }
 
-read_run! : Gui.SqliteDb, Capture.Run => Try(Read, Str)
+read_run! : Gui.Sqlite.Db, Capture.Run => Try(Read, Str)
 read_run! = |database, run| {
 	steps = all_rows!(database, steps_sql, run.id)?
 	cycle_rows = all_rows!(database, cycles_sql, run.id)?
@@ -290,7 +290,7 @@ add : Dict(I64, List(Assertion)), I64, Assertion -> Dict(I64, List(Assertion))
 add = |found, ordinal, value| found.insert(ordinal, (found.get(ordinal) ?? []).append(value))
 
 ## A counter assertion row's `expected_X` and `observed_X` columns, paired.
-counter_values : Str, List(Str), List(Gui.SqliteValue) -> List(Assertion)
+counter_values : Str, List(Str), List(Gui.Sqlite.Value) -> List(Assertion)
 counter_values = |table, columns, row| {
 	var $values = []
 	var $index = 0.U64
@@ -309,7 +309,7 @@ counter_values = |table, columns, row| {
 }
 
 ## A step as one run recorded it.
-mark_of : Read, List(Gui.SqliteValue) -> Mark
+mark_of : Read, List(Gui.Sqlite.Value) -> Mark
 mark_of = |read, row| {
 	ordinal = int_at(row, 0)
 	cycles = read.cycles.get(ordinal) ?? { count: 0, patch: "" }
@@ -332,7 +332,7 @@ mark_of = |read, row| {
 	}
 }
 
-annotate! : Gui.SqliteDb, Capture.Opened, Mode => Try(List(Mark), Str)
+annotate! : Gui.Sqlite.Db, Capture.Opened, Mode => Try(List(Mark), Str)
 annotate! = |database, opened, mode| match mode {
 	OneRun(run_id) => match opened.runs.find_first(|run| run.id == run_id) {
 		Ok(run) => {
@@ -385,7 +385,7 @@ median_mark = |reads, base| {
 }
 
 ## A run's steps are numbered from zero, so a step's ordinal is its row.
-step_row : List(List(Gui.SqliteValue)), I64 -> [None, Some(List(Gui.SqliteValue))]
+step_row : List(List(Gui.Sqlite.Value)), I64 -> [None, Some(List(Gui.Sqlite.Value))]
 step_row = |steps, ordinal| match steps.get(ordinal.to_u64_wrap()) {
 	Ok(row) if int_at(row, 0) == ordinal => Some(row)
 	_ => match steps.find_first(|row| int_at(row, 0) == ordinal) {

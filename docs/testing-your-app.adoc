@@ -112,7 +112,7 @@ one button:
 
 [source,roc]
 ----
-greet = |_, _| Gui.update({ message: "Hello from Roc" })
+greet = |_, _| Gui.Action.update({ message: "Hello from Roc" })
 
 Gui.col({}, [
     Gui.text(state.message),

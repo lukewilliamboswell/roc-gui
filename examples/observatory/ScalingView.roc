@@ -60,7 +60,7 @@ choice_row = |state, listing| {
 						caption: if chosen "✓ in set" else "Add to set",
 						label: "Scaling set ${listing.name}",
 						selected: chosen,
-						on_press: |current, _| Gui.update(Observatory.toggle_scaling(current, listing.name)),
+						on_press: |current, _| Gui.Action.update(Observatory.toggle_scaling(current, listing.name)),
 					}),
 				],
 			),
@@ -356,7 +356,7 @@ plot = |sorted, row, plot_width| {
 	Gui.canvas({
 		label: "Scaling chart ${name}",
 		primitives,
-		on_pointer: |_, _| Gui.none,
+		on_pointer: |_, _| Gui.Action.none,
 		on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
 		width: Fill,
 		height: Px((plot_top + plot_height + 36).to_u32_wrap()),

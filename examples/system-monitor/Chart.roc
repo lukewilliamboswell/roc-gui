@@ -26,7 +26,7 @@ Chart := [].{
 	## for the width it starts at before the window has laid it out. `capacity`
 	## is the number of samples the history holds, so the horizontal pitch is
 	## the width divided by the bound rather than by how full the history is.
-	render : { history : List(U32), capacity : U64, width : U32, on_size : (a, Gui.EventCanvasSize => Gui.Action(a)) } -> Gui.Elem(a)
+	render : { history : List(U32), capacity : U64, width : U32, on_size : (a, Gui.Event.CanvasSize => Gui.Action(a)) } -> Gui.Elem(a)
 	render = render
 
 	## The reading each gridline marks, top to bottom, for the axis beside it.
@@ -36,7 +36,7 @@ Chart := [].{
 	## The samples a history reduces to: CPU in tenths of a percent, or the
 	## sentinel that means the sample carried no CPU reading.
 	no_reading = 65535.U32
-	loads : List(Gui.SystemMonitorSnapshot) -> List(U32)
+	loads : List(Gui.SystemMonitor.Snapshot) -> List(U32)
 	loads = loads
 }
 
@@ -137,7 +137,7 @@ render = |props| {
 	Gui.canvas({
 		label: "CPU history plot",
 		primitives: gridlines(plot_width).concat(bars(props.history, props.capacity, plot_width)),
-		on_pointer: |_, _| Gui.none,
+		on_pointer: |_, _| Gui.Action.none,
 		on_size: Some(props.on_size),
 		width: Fill,
 		grow: True,

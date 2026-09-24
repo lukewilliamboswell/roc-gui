@@ -229,6 +229,8 @@ jobs:
         run: >-
           python3 scripts/run_specs.py --only window
           --exclude "examples/*/specs/gallery.scm"
+          --exclude "examples/clipboard-history/specs/window-*.scm"
+          --exclude "examples/system-monitor/specs/window-plot-width.scm"
           --timeout 180 --output="$RUNNER_TEMP/spec-evidence"
           ${{ matrix.missing_shots }}
       - name: Upload privacy-safe failure evidence

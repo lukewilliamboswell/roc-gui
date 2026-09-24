@@ -20,9 +20,9 @@ render = |state| Gui.col(
 		Gui.row(
 			{},
 			[
-				Gui.button({ caption: "Load 100 KB image", label: "Load 100000 byte image", on_press: |_, _| Gui.update({ bytes: image_bytes(100000) }) }),
-				Gui.button({ caption: "Load 1 MB image", label: "Load 1000000 byte image", on_press: |_, _| Gui.update({ bytes: image_bytes(1000000) }) }),
-				Gui.button({ caption: "Load 10 MB image", label: "Load 10000000 byte image", on_press: |_, _| Gui.update({ bytes: image_bytes(10000000) }) }),
+				Gui.button({ caption: "Load 100 KB image", label: "Load 100000 byte image", on_press: |_, _| Gui.Action.update({ bytes: image_bytes(100000) }) }),
+				Gui.button({ caption: "Load 1 MB image", label: "Load 1000000 byte image", on_press: |_, _| Gui.Action.update({ bytes: image_bytes(1000000) }) }),
+				Gui.button({ caption: "Load 10 MB image", label: "Load 10000000 byte image", on_press: |_, _| Gui.Action.update({ bytes: image_bytes(10000000) }) }),
 			],
 		),
 		if state.bytes.is_empty() {

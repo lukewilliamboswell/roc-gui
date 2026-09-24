@@ -63,7 +63,7 @@ Timeline := [].{
 
 	## The marks of `span` nanoseconds from `start`; a `span` of zero or less is
 	## the whole capture.
-	read! : Gui.SqliteDb, I64, I64 => Try(Window, Str)
+	read! : Gui.Sqlite.Db, I64, I64 => Try(Window, Str)
 	read! = read!
 
 	## The window a wheel asks for: the vertical wheel halves or doubles the
@@ -76,25 +76,25 @@ Timeline := [].{
 columns : I64
 columns = 360
 
-int_at : List(Gui.SqliteValue), U64 -> I64
+int_at : List(Gui.Sqlite.Value), U64 -> I64
 int_at = |row, index| match row.get(index) {
 	Ok(Integer(value)) => value
 	_ => 0
 }
 
-option_at : List(Gui.SqliteValue), U64 -> [None, Some(I64)]
+option_at : List(Gui.Sqlite.Value), U64 -> [None, Some(I64)]
 option_at = |row, index| match row.get(index) {
 	Ok(Integer(value)) => Some(value)
 	_ => None
 }
 
-text_at : List(Gui.SqliteValue), U64 -> Str
+text_at : List(Gui.Sqlite.Value), U64 -> Str
 text_at = |row, index| match row.get(index) {
 	Ok(String(value)) => value
 	_ => ""
 }
 
-query! : Gui.SqliteDb, Str, List(Gui.SqliteValue) => Try(List(List(Gui.SqliteValue)), Str)
+query! : Gui.Sqlite.Db, Str, List(Gui.Sqlite.Value) => Try(List(List(Gui.Sqlite.Value)), Str)
 query! = |database, sql, values| match database.query_with!(sql, values) {
 	Ok(result) => Ok(result.rows)
 	Err(error) => Err(Gui.Sqlite.detail(error))
@@ -117,7 +117,7 @@ frames_sql = "WITH f AS (SELECT id, run_id, ordinal, layout_request_ns AS l, pre
 
 passes_sql = "WITH v AS (SELECT list_id, origin, (SELECT ordinal FROM gpui_frames g WHERE g.id = virtual_list_frames.frame_id) AS frame, (SELECT ordinal FROM cycles c WHERE c.id = virtual_list_frames.cycle_id) AS cycle, visible_items, materialized_entities, start_ns, end_ns, ${column_expression} AS col FROM virtual_list_frames WHERE ${within}) SELECT col, count(*), max(materialized_entities), list_id, origin, frame, cycle, visible_items, start_ns, end_ns FROM v GROUP BY col ORDER BY col"
 
-decode_cycle : List(Gui.SqliteValue) -> CycleMark
+decode_cycle : List(Gui.Sqlite.Value) -> CycleMark
 decode_cycle = |row| {
 	column: int_at(row, 0),
 	cycles: int_at(row, 1),
@@ -139,7 +139,7 @@ decode_cycle = |row| {
 	end: int_at(row, 15),
 }
 
-decode_frame : List(Gui.SqliteValue) -> FrameMark
+decode_frame : List(Gui.Sqlite.Value) -> FrameMark
 decode_frame = |row| {
 	column: int_at(row, 0),
 	frames: int_at(row, 1),
@@ -149,7 +149,7 @@ decode_frame = |row| {
 	causes: int_at(row, 11),
 }
 
-decode_pass : List(Gui.SqliteValue) -> PassMark
+decode_pass : List(Gui.Sqlite.Value) -> PassMark
 decode_pass = |row| {
 	column: int_at(row, 0),
 	passes: int_at(row, 1),
@@ -163,7 +163,7 @@ decode_pass = |row| {
 	end: int_at(row, 9),
 }
 
-read! : Gui.SqliteDb, I64, I64 => Try(Window, Str)
+read! : Gui.Sqlite.Db, I64, I64 => Try(Window, Str)
 read! = |database, start, span| {
 	extent = query!(database, extent_sql, [])?
 	bounds = match extent.first() {

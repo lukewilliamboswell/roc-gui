@@ -67,7 +67,7 @@ Widgets := [].{
 	table : Str, List(Elem) -> Elem
 	table = |label, children| Gui.col({ label, width: Fill, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius }, children)
 
-	key : { caption : Str, label : Str, selected : Bool, on_press : Observatory.State, Gui.EventPress => Gui.Action(Observatory.State) } -> Elem
+	key : { caption : Str, label : Str, selected : Bool, on_press : Observatory.State, Gui.Event.Press => Gui.Action(Observatory.State) } -> Elem
 	key = |props| Gui.button({
 		caption: props.caption,
 		label: props.label,
@@ -86,7 +86,7 @@ Widgets := [].{
 	})
 
 	## A small key inside a table row.
-	row_key : { caption : Str, label : Str, selected : Bool, on_press : Observatory.State, Gui.EventPress => Gui.Action(Observatory.State) } -> Elem
+	row_key : { caption : Str, label : Str, selected : Bool, on_press : Observatory.State, Gui.Event.Press => Gui.Action(Observatory.State) } -> Elem
 	row_key = |props| Gui.button({
 		caption: props.caption,
 		label: props.label,

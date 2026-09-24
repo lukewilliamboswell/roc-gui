@@ -2,7 +2,7 @@ import pf.Gui
 
 History := [].{
 	Entry : { id : U64, text : Str, pinned : Bool }
-	RunState : [Paused, Running(Gui.TimerHandle, Gui.ClipboardHandle)]
+	RunState : [Paused, Running(Gui.Timer.Handle, Gui.Clipboard.Handle)]
 
 	## A status line is read for its colour before its words. `Live` means the
 	## window is reading the clipboard, `Private` means the discard path did
@@ -37,21 +37,21 @@ History := [].{
 
 	start! : State => Gui.Action(State)
 	start! = |state| match state.access.clipboard!() {
-		Err(error) => Gui.update({ ..state, grant: Denied, tone: Refused, status: describe(error) })
+		Err(error) => Gui.Action.update({ ..state, grant: Denied, tone: Refused, status: describe(error) })
 		Ok(clipboard) => match Gui.Timer.start!({ interval_ms: 25 }) {
-			Err(_) => Gui.update({ ..state, tone: Refused, status: "Clipboard timer could not start" })
+			Err(_) => Gui.Action.update({ ..state, tone: Refused, status: "Clipboard timer could not start" })
 			Ok(timer) => wait_next({ ..state, grant: Held, tone: Live, status: "Capturing clipboard changes" }, timer, clipboard)
 		}
 	}
 
-	wait_next = |state, timer, clipboard| Gui.task({
+	wait_next = |state, timer, clipboard| Gui.Action.task({
 		pending: { ..state, run_state: Running(timer, clipboard) },
 		run: || match timer.next!() {
 			Canceled => Stopped
 			Fired => ReadResult(clipboard.read_text!())
 		},
 		resolve: |latest, result| match result {
-			Stopped => Gui.update({ ..latest, run_state: Paused, tone: Rest, status: "Capture is paused" })
+			Stopped => Gui.Action.update({ ..latest, run_state: Paused, tone: Rest, status: "Capture is paused" })
 			ReadResult(Err(error)) => wait_next({ ..latest, tone: Refused, status: describe(error) }, timer, clipboard)
 			ReadResult(Ok(snapshot)) => wait_next(ingest(latest, snapshot), timer, clipboard)
 		},
@@ -76,7 +76,7 @@ History := [].{
 	## will be discarded" would have been a lie until capture resumed.
 	pause! = |state, timer| {
 		_ = timer.cancel!()
-		Gui.update({ ..state, run_state: Paused, private_next: False, tone: Rest, status: "Capture is paused" })
+		Gui.Action.update({ ..state, run_state: Paused, private_next: False, tone: Rest, status: "Capture is paused" })
 	}
 	toggle_pin = |state, id| {
 		now_pinned = state.entries.keep_if(|entry| entry.id == id).any(|entry| !entry.pinned)
@@ -106,12 +106,12 @@ History := [].{
 			},
 		}
 	}
-	restore = |state, entry, clipboard| Gui.task({
+	restore = |state, entry, clipboard| Gui.Action.task({
 		pending: { ..state, tone: Rest, status: "Restoring selected item" },
 		run: || clipboard.write_text!(entry.text),
 		resolve: |latest, result| match result {
-			Ok({}) => Gui.update({ ..latest, tone: Live, status: "Selected item is now on the clipboard" })
-			Err(error) => Gui.update({ ..latest, tone: Refused, status: describe(error) })
+			Ok({}) => Gui.Action.update({ ..latest, tone: Live, status: "Selected item is now on the clipboard" })
+			Err(error) => Gui.Action.update({ ..latest, tone: Refused, status: describe(error) })
 		},
 	})
 }

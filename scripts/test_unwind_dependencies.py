@@ -21,9 +21,9 @@ class UnwindDependencyTests(unittest.TestCase):
     def test_existing_candidate_is_not_rebuilt_or_overwritten(self):
         candidate = self.root / "unwind-x64glibc.tar"
         candidate.write_bytes(b"original tested bytes")
-        with patch.object(build_unwind, "verified_toolchain") as download:
+        with patch.object(build_unwind.nix_link_inputs.subprocess, "check_output") as download:
             with self.assertRaises(FileExistsError):
-                build_unwind.build(self.root, self.root / "cache")
+                build_unwind.build(self.root)
         download.assert_not_called()
         self.assertEqual(candidate.read_bytes(), b"original tested bytes")
 

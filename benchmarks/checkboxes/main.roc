@@ -13,7 +13,7 @@ render = |state| {
 			Gui.checkbox({
 				label: "Option ${index.to_str()}",
 				checked: state.checked == index,
-				on_change: |_, event| Gui.update({
+				on_change: |_, event| Gui.Action.update({
 					..state,
 					checked: if event.checked {
 						index

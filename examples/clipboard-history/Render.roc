@@ -164,7 +164,7 @@ empty_history = |state| {
 entry_row = |entry, run_state| {
 	restore = match run_state {
 		Paused =>
-			chip("Restore", "Restore item ${entry.id.to_str()}", False, Theme.dim, |_, _| Gui.none)
+			chip("Restore", "Restore item ${entry.id.to_str()}", False, Theme.dim, |_, _| Gui.Action.none)
 		Running(_, clipboard) =>
 			chip("Restore", "Restore item ${entry.id.to_str()}", True, Theme.text, |current, _| History.restore(current, entry, clipboard))
 		}
@@ -238,10 +238,10 @@ entry_row = |entry, run_state| {
 				} else {
 					Theme.dim
 				},
-				|current, _| Gui.update(History.toggle_pin(current, entry.id)),
+				|current, _| Gui.Action.update(History.toggle_pin(current, entry.id)),
 			),
 			restore,
-			chip("Delete", "Delete item ${entry.id.to_str()}", True, Theme.dim, |current, _| Gui.update(History.remove(current, entry.id))),
+			chip("Delete", "Delete item ${entry.id.to_str()}", True, Theme.dim, |current, _| Gui.Action.update(History.remove(current, entry.id))),
 		],
 	)
 }
@@ -319,7 +319,7 @@ render = |state| {
 				"Privacy armed",
 				"The next copied item will be discarded",
 				"It is read to learn that it changed and then dropped. It never enters this window's history, and nothing about its content is recorded.",
-				[chip("Cancel", "Cancel private next", True, Theme.privacy, |current, _| Gui.update(History.cancel_private(current)))],
+				[chip("Cancel", "Cancel private next", True, Theme.privacy, |current, _| Gui.Action.update(History.cancel_private(current)))],
 			),
 		]
 	} else {
@@ -354,8 +354,8 @@ render = |state| {
 				border_color: Theme.edge,
 				border_width: 1,
 				radius: Theme.chip_radius,
-				on_change: |current, event| Gui.update(History.set_search(current, event.value)),
-				on_submit: |_, _| Gui.none,
+				on_change: |current, event| Gui.Action.update(History.set_search(current, event.value)),
+				on_submit: |_, _| Gui.Action.none,
 			}),
 
 			## Arming the discard needs a running capture to mean anything, and
@@ -366,14 +366,14 @@ render = |state| {
 				"Discard next clipboard item",
 				running and !state.private_next,
 				Theme.privacy,
-				|current, _| Gui.update(History.mark_private(current)),
+				|current, _| Gui.Action.update(History.mark_private(current)),
 			),
 			chip(
 				"Clear unpinned",
 				"Clear unpinned history",
 				state.entries.len() > pinned_count,
 				Theme.dim,
-				|current, _| Gui.update(History.clear_unpinned(current)),
+				|current, _| Gui.Action.update(History.clear_unpinned(current)),
 			),
 		],
 	)

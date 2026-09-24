@@ -7,24 +7,21 @@ Tree :: [Node({ key : Gui.Key, id : U64, width : U64, height : U64, depth : U64,
 
 State : { tree : Tree, count : U64, next_identity : U64, inspected : U64 }
 
-idle : Gui.Color
-idle = 0x263247
+idle = 0x263247.Gui.Color
 
-active : Gui.Color
-active = 0x66E0FF
+active = 0x66E0FF.Gui.Color
 
-trailing : Gui.Color
-trailing = 0xD58AFF
+trailing = 0xD58AFF.Gui.Color
 
 enter : Cell -> Gui.Action(Cell)
-enter = |cell| if cell.inside Gui.none else Gui.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
+enter = |cell| if cell.inside Gui.Action.none else Gui.Action.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
 
 leave : Cell -> Gui.Action(Cell)
 leave = |cell| if !cell.inside {
-	Gui.none
+	Gui.Action.none
 } else {
 	generation = cell.generation
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..cell, inside: False },
 		run: || match Gui.Timer.start!({ interval_ms: 200 }) {
 			Ok(timer) => {
@@ -35,9 +32,9 @@ leave = |cell| if !cell.inside {
 			Err(_) => Canceled
 		},
 		resolve: |latest, tick| if tick == Fired and !latest.inside and latest.generation == generation {
-			Gui.update({ ..latest, lit: False })
+			Gui.Action.update({ ..latest, lit: False })
 		} else {
-			Gui.none
+			Gui.Action.none
 		},
 	})
 }
@@ -46,7 +43,7 @@ render_cell : Cell -> Gui.Elem(Cell)
 render_cell = |cell| Gui.button({
 	caption: "",
 	label: "Cell ${cell.id.to_str()}",
-	on_press: |latest, _| Gui.delegate({ ..latest, generation: latest.generation + 1 }),
+	on_press: |latest, _| Gui.Action.delegate({ ..latest, generation: latest.generation + 1 }),
 	on_hover_enter: Some(|latest, _| enter(latest)),
 	on_hover_exit: Some(|latest, _| leave(latest)),
 	width: Px(5),
@@ -99,7 +96,7 @@ create_grid = |count, seed| {
 }
 
 accept : Tree -> Gui.Action(Tree)
-accept = |Node(node)| if node.depth == 1 Gui.update(Node({ ..node, accepted: node.accepted + 1 })) else Gui.delegate(Node(node))
+accept = |Node(node)| if node.depth == 1 Gui.Action.update(Node({ ..node, accepted: node.accepted + 1 })) else Gui.Action.delegate(Node(node))
 
 child_element : U64, Tree -> Gui.Elem(Tree)
 child_element = |id, Node(node)| {
@@ -190,12 +187,12 @@ render = |state| Gui.col(
 		Gui.row(
 			{ gap: 8 },
 			[
-				Gui.button({ caption: "100", label: "Create 100 cells", on_press: |s, _| Gui.update(create_grid(100, s.next_identity)) }),
-				Gui.button({ caption: "1,000", label: "Create 1000 cells", on_press: |s, _| Gui.update(create_grid(1000, s.next_identity)) }),
-				Gui.button({ caption: "10,000", label: "Create 10000 cells", on_press: |s, _| Gui.update(create_grid(10000, s.next_identity)) }),
-				Gui.button({ caption: "Swap", label: "Swap top quadrants", on_press: |s, _| Gui.update(reorder(s)) }),
-				Gui.button({ caption: "Remove", label: "Remove first quadrant", on_press: |s, _| Gui.update(remove_first(s)) }),
-				Gui.button({ caption: "Inspect", label: "Inspect acceptance", on_press: |s, _| Gui.update({ ..s, inspected: sum_accepted(s.tree) }) }),
+				Gui.button({ caption: "100", label: "Create 100 cells", on_press: |s, _| Gui.Action.update(create_grid(100, s.next_identity)) }),
+				Gui.button({ caption: "1,000", label: "Create 1000 cells", on_press: |s, _| Gui.Action.update(create_grid(1000, s.next_identity)) }),
+				Gui.button({ caption: "10,000", label: "Create 10000 cells", on_press: |s, _| Gui.Action.update(create_grid(10000, s.next_identity)) }),
+				Gui.button({ caption: "Swap", label: "Swap top quadrants", on_press: |s, _| Gui.Action.update(reorder(s)) }),
+				Gui.button({ caption: "Remove", label: "Remove first quadrant", on_press: |s, _| Gui.Action.update(remove_first(s)) }),
+				Gui.button({ caption: "Inspect", label: "Inspect acceptance", on_press: |s, _| Gui.Action.update({ ..s, inspected: sum_accepted(s.tree) }) }),
 			],
 		),
 		Gui.text("Accepted: ${state.inspected.to_str()}"),

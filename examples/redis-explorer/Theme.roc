@@ -8,58 +8,43 @@ import pf.Gui
 Theme := [].{
 
 	## The window ground, darkest surface behind every region.
-	ground : Gui.Color
-	ground = 0x0d0c11
+	ground = 0x0d0c11.Gui.Color
 
 	## A raised control region: the header, the endpoint bar, the scan bar.
-	region : Gui.Color
-	region = 0x17161d
+	region = 0x17161d.Gui.Color
 
 	## A recessed well: the key list and the value readout.
-	well : Gui.Color
-	well = 0x0a090d
+	well = 0x0a090d.Gui.Color
 
 	## The hairline that divides one region from the next.
-	line : Gui.Color
-	line = 0x252330
+	line = 0x252330.Gui.Color
 
 	## A slightly brighter hairline for an editable edge.
-	edge : Gui.Color
-	edge = 0x35323f
+	edge = 0x35323f.Gui.Color
 
 	## Primary readable text.
-	text : Gui.Color
-	text = 0xcfccd6
+	text = 0xcfccd6.Gui.Color
 
 	## Secondary labels, counts, types, and TTLs.
-	dim : Gui.Color
-	dim = 0x77737f
+	dim = 0x77737f.Gui.Color
 
 	## The one signal colour. Reserved for the stream: held, or not. Nothing else
 	## in the application is allowed to use it, so its presence always means the
 	## explorer is holding an open connection to the granted endpoint.
-	signal : Gui.Color
-	signal = 0x8f7fe0
+	signal = 0x8f7fe0.Gui.Color
 
 	## The selected key's row, and the surface behind it.
-	selected : Gui.Color
-	selected = 0x1e1b2b
+	selected = 0x1e1b2b.Gui.Color
 
 	## A failure. A tinted band, never an outline.
-	alarm : Gui.Color
-	alarm = 0x241418
-	alarm_ink : Gui.Color
-	alarm_ink = 0xd98b91
-	alarm_line : Gui.Color
-	alarm_line = 0x3b2026
+	alarm = 0x241418.Gui.Color
+	alarm_ink = 0xd98b91.Gui.Color
+	alarm_line = 0x3b2026.Gui.Color
 
 	## Key caps at rest, under the pointer, and while pressed.
-	key : Gui.Color
-	key = 0x1d1b24
-	key_hover : Gui.Color
-	key_hover = 0x27242f
-	key_active : Gui.Color
-	key_active = 0x15131a
+	key = 0x1d1b24.Gui.Color
+	key_hover = 0x27242f.Gui.Color
+	key_active = 0x15131a.Gui.Color
 
 	## Every string on screen came out of Redis or is a glob to match against
 	## one, so the whole console is set at a fixed pitch.

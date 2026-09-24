@@ -28,7 +28,7 @@ all maintained examples and running their native specs.
 
 ## CRT and final application linking
 
-Roc `nightly-2026-09-04-c125b82` calls native Windows SDK/MSVC discovery for
+Roc `nightly-2026-09-23-c7852fd` calls native Windows SDK/MSVC discovery for
 `x64win` before linking, and requires CRT, MSVC and kernel32 library directories.
 It then adds the `kernel32`, `ntdll`, `msvcrt` and `shell32` default libraries;
 `msvcprt` is additionally selected when Roc was built with Tracy support.

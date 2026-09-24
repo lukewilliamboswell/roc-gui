@@ -47,7 +47,7 @@ access.pick_file!([{ label: "Captures", extensions: ["rgstats"], mime_types: [] 
 ----
 
 The person picks a file of a type you offered, and you are handed a
-`Gui.FilesFileRead` that reads that file and nothing beside it: not its
+`Gui.Files.File.Read` that reads that file and nothing beside it: not its
 siblings, not its folder. Ask for the smallest thing that does the job; a
 document viewer that asks for a folder has asked for every other document in
 it.
@@ -63,7 +63,7 @@ Gui.drop_target({ label: "Captures", types: capture_types, on_drop: open_dropped
 ----
 
 Each dropped file of a type you declared arrives in `on_drop` as a
-`Gui.FilesFileRead`, exactly as a chosen file does, and everything else dropped
+`Gui.Files.File.Read`, exactly as a chosen file does, and everything else dropped
 is named and refused. The grant records that it arrived by a drop rather than a
 chooser, so the evidence can say which.
 
@@ -84,15 +84,15 @@ to functions, and store it in a record:
 
 [source,roc]
 ----
-State : { project : [None, Some(Gui.FilesDirRead)] }
+State : { project : [None, Some(Gui.Files.Dir.Read)] }
 ----
 
 Three things are true of it, and between them they are the reason this works.
 
-*You cannot make one up.* There is no constructor. A `Gui.FilesDirRead` exists
+*You cannot make one up.* There is no constructor. A `Gui.Files.Dir.Read` exists
 because someone handed you one.
 
-*Its type says what it is for.* A `Gui.FilesDirRead` reads a directory. There is
+*Its type says what it is for.* A `Gui.Files.Dir.Read` reads a directory. There is
 no permission list to consult alongside it, because the type you are holding is
 the permission, and at every call site you can see exactly what you are handing
 over.

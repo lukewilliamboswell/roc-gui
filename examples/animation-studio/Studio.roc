@@ -18,7 +18,7 @@ Studio := [].{
 	## stack. A press that selects a shape and never moves it has changed
 	## nothing, so it must not leave an entry for Undo to walk back through.
 	Drag : [Idle, Moving({ id : U64, start_x : I32, start_y : I32, origin_x : I32, origin_y : I32, recorded : Bool })]
-	Playback : [Paused, Playing(Gui.TimerHandle)]
+	Playback : [Paused, Playing(Gui.Timer.Handle)]
 	State : { document : Document, selected : [None, Some(U64)], drag : Drag, undo : List(Document), redo : List(Document), next_id : U64, frame : U32, playback : Playback, status : Str }
 
 	## The timeline runs from frame zero through `last_frame`, drawn across a
@@ -135,8 +135,8 @@ Studio := [].{
 		Ok(shape) => shape.name
 		Err(_) => "layer"
 	}
-	pointer : State, Gui.EventCanvasPointer => Gui.Action(State)
-	pointer = |state, event| Gui.update(pointer_state(state, event))
+	pointer : State, Gui.Event.CanvasPointer => Gui.Action(State)
+	pointer = |state, event| Gui.Action.update(pointer_state(state, event))
 
 	scrub_to = |state, x| {
 		frame = frame_from_x(x)
@@ -144,11 +144,11 @@ Studio := [].{
 	}
 
 	## Pressing or dragging on the timeline track scrubs to that frame.
-	timeline_pointer : State, Gui.EventCanvasPointer => Gui.Action(State)
+	timeline_pointer : State, Gui.Event.CanvasPointer => Gui.Action(State)
 	timeline_pointer = |state, event| match event.phase {
-		End => Gui.none
-		Begin => Gui.update(scrub_to(state, event.x))
-		Move => Gui.update(scrub_to(state, event.x))
+		End => Gui.Action.none
+		Begin => Gui.Action.update(scrub_to(state, event.x))
+		Move => Gui.Action.update(scrub_to(state, event.x))
 	}
 
 	undo = |state| match state.undo.last() {
@@ -271,11 +271,11 @@ Studio := [].{
 		}
 	}
 
-	wait_frame = |state, handle| Gui.task({
+	wait_frame = |state, handle| Gui.Action.task({
 		pending: state,
 		run: || handle.next!(),
 		resolve: |latest, result| match result {
-			Canceled => Gui.update({ ..latest, playback: Paused, status: "Paused at ${frame_status(latest.frame)}" })
+			Canceled => Gui.Action.update({ ..latest, playback: Paused, status: "Paused at ${frame_status(latest.frame)}" })
 			Fired => {
 				next = apply_frame({ ..latest, frame: if latest.frame >= last_frame 0 else latest.frame + 1 })
 				wait_frame(next, handle)
@@ -283,11 +283,11 @@ Studio := [].{
 		},
 	})
 	play! = |state| match Gui.Timer.start!({ interval_ms: 50 }) {
-		Err(_) => Gui.update({ ..state, status: "Playback timer unavailable" })
+		Err(_) => Gui.Action.update({ ..state, status: "Playback timer unavailable" })
 		Ok(handle) => wait_frame({ ..state, playback: Playing(handle), status: "Playing" }, handle)
 	}
 	pause! = |state, handle| {
 		_ = handle.cancel!()
-		Gui.update({ ..state, playback: Paused, status: "Paused at ${frame_status(state.frame)}" })
+		Gui.Action.update({ ..state, playback: Paused, status: "Paused at ${frame_status(state.frame)}" })
 	}
 }

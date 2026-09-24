@@ -16,11 +16,11 @@ make_rows = |count| {
 }
 
 row_button : U64 -> Gui.Elem(State)
-row_button = |row| Gui.button({ caption: "Virtual row ${row.to_str()}", label: "Select virtual row ${row.to_str()}", on_press: |current, _| Gui.update({ ..current, selected: row }) })
+row_button = |row| Gui.button({ caption: "Virtual row ${row.to_str()}", label: "Select virtual row ${row.to_str()}", on_press: |current, _| Gui.Action.update({ ..current, selected: row }) })
 
-load = |count| Gui.button({ caption: "Load ${count.to_str()} rows", label: "Load ${count.to_str()} rows", on_press: |_, _| Gui.update({ rows: make_rows(count), provided: 0, on_demand: False, selected: count, jump: None }) })
+load = |count| Gui.button({ caption: "Load ${count.to_str()} rows", label: "Load ${count.to_str()} rows", on_press: |_, _| Gui.Action.update({ rows: make_rows(count), provided: 0, on_demand: False, selected: count, jump: None }) })
 
-provide = |count| Gui.button({ caption: "Provide ${count.to_str()} rows", label: "Provide ${count.to_str()} rows", on_press: |_, _| Gui.update({ rows: [], provided: count, on_demand: True, selected: count, jump: None }) })
+provide = |count| Gui.button({ caption: "Provide ${count.to_str()} rows", label: "Provide ${count.to_str()} rows", on_press: |_, _| Gui.Action.update({ rows: [], provided: count, on_demand: True, selected: count, jump: None }) })
 
 rows_list = |state| if state.on_demand {
 	Gui.virtual_rows({ label: "Rows", row_height: 28, count: state.provided, render_row: row_button, scroll_to: state.jump })
@@ -41,7 +41,7 @@ select = |state, row| {
 		Some(previous) => previous.serial + 1
 	}
 	jump = if state.on_demand Some({ row, align: Nearest, serial }) else state.jump
-	Gui.update({ ..state, selected: row, jump })
+	Gui.Action.update({ ..state, selected: row, jump })
 }
 
 ## The keyboard moves the selection one row, or to either end, wherever focus
@@ -52,7 +52,7 @@ step = |state, move| {
 	count = total(state)
 	chosen = state.selected < count
 	if count == 0 {
-		Gui.none
+		Gui.Action.none
 	} else {
 		row = match move {
 			Next => if !chosen 0 else if state.selected + 1 < count state.selected + 1 else state.selected
@@ -90,9 +90,9 @@ render = |state| Gui.col(
 							None => 0
 							Some(previous) => previous.serial + 1
 						}
-						Gui.update({ ..current, jump: Some({ row: current.provided - 1, align: End, serial }) })
+						Gui.Action.update({ ..current, jump: Some({ row: current.provided - 1, align: End, serial }) })
 					} else {
-						Gui.none
+						Gui.Action.none
 					},
 				}),
 			],

@@ -45,7 +45,7 @@ render = |state| {
 			max: 720,
 			collapsible: True,
 			collapsed: !state.split or state.divider.collapsed,
-			on_resize: |latest, event| Gui.update({ ..latest, split: latest.split or !event.collapsed, divider: event }),
+			on_resize: |latest, event| Gui.Action.update({ ..latest, split: latest.split or !event.collapsed, divider: event }),
 		},
 		primary,
 		secondary,
@@ -53,7 +53,7 @@ render = |state| {
 	Gui.col(
 		{ width: Fill, height: Fill },
 		[
-			Gui.button({ caption: "Split workspace", label: "Split workspace", on_press: |latest, _| Gui.update({ ..latest, split: True, divider: { ..latest.divider, collapsed: False } }) }),
+			Gui.button({ caption: "Split workspace", label: "Split workspace", on_press: |latest, _| Gui.Action.update({ ..latest, split: True, divider: { ..latest.divider, collapsed: False } }) }),
 			Gui.row({ width: Fill, height: Fill, grow: True }, [panes]),
 		],
 	)

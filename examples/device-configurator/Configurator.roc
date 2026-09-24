@@ -42,10 +42,10 @@ Configurator := [].{
 
 	## One transaction carrying the whole configuration, which the device must
 	## acknowledge before the application believes anything changed.
-	apply : State, Gui.DeviceConnection, Protocol.Config -> Gui.Action(State)
+	apply : State, Gui.Device.Connection, Protocol.Config -> Gui.Action(State)
 	apply = apply
 
-	disconnect : State, Gui.DeviceConnection -> Gui.Action(State)
+	disconnect : State, Gui.Device.Connection -> Gui.Action(State)
 	disconnect = disconnect
 
 	change_sensitivity : State, Bool -> State
@@ -74,8 +74,8 @@ Status : [
 State : {
 	access : Gui.Access,
 	config : [None, Some(Protocol.Config)],
-	connected : [None, Some(Gui.DeviceConnection)],
-	devices : List(Gui.DeviceInfo),
+	connected : [None, Some(Gui.Device.Connection)],
+	devices : List(Gui.Device.Info),
 	dirty : Bool,
 	generation : U64,
 	status : Status,
@@ -105,7 +105,7 @@ refusal = |err| match err {
 
 discover = |state| {
 	next = state.generation + 1
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, generation: next, devices: [], status: Discovering },
 		run: || match state.access.device!() {
 			Err(err) => DiscoveryFailed(err)
@@ -114,16 +114,16 @@ discover = |state| {
 				Ok(devices) => Discovered(devices)
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Gui.none else match result {
-			DiscoveryFailed(err) => Gui.update({ ..latest, status: refusal(err) })
-			Discovered(devices) => Gui.update({ ..latest, devices, status: Discovered(List.len(devices)) })
+		resolve: |latest, result| if latest.generation != next Gui.Action.none else match result {
+			DiscoveryFailed(err) => Gui.Action.update({ ..latest, status: refusal(err) })
+			Discovered(devices) => Gui.Action.update({ ..latest, devices, status: Discovered(List.len(devices)) })
 		},
 	})
 }
 
 connect = |state| {
 	next = state.generation + 1
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, generation: next, status: Connecting },
 		run: || match state.access.device!() {
 			Err(err) => ConnectFailed(err)
@@ -138,10 +138,10 @@ connect = |state| {
 				}
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Gui.none else match result {
-			ConnectFailed(err) => Gui.update({ ..latest, status: refusal(err) })
-			ProtocolFailed => Gui.update({ ..latest, status: Lost("Unsupported device protocol") })
-			Connected(value) => Gui.update({
+		resolve: |latest, result| if latest.generation != next Gui.Action.none else match result {
+			ConnectFailed(err) => Gui.Action.update({ ..latest, status: refusal(err) })
+			ProtocolFailed => Gui.Action.update({ ..latest, status: Lost("Unsupported device protocol") })
+			Connected(value) => Gui.Action.update({
 				..latest,
 				config: Some(value.config),
 				connected: Some(value.connection),
@@ -155,7 +155,7 @@ connect = |state| {
 ## A transaction that fails because the device went away leaves a handle that
 ## refers to nothing. Keeping it would offer Disconnect and Apply for hardware
 ## that is no longer there, so the connection is given up with the error.
-apply = |state, connection, config| Gui.task({
+apply = |state, connection, config| Gui.Action.task({
 	pending: { ..state, status: Applying },
 	run: || match connection.transact!(Protocol.apply_request(config)) {
 		Err(err) => ApplyFailed(err)
@@ -165,18 +165,18 @@ apply = |state, connection, config| Gui.task({
 		}
 	},
 	resolve: |latest, result| match result {
-		Applied => Gui.update({ ..latest, dirty: False, status: Applied })
-		ApplyProtocolFailed => Gui.update({ ..latest, status: Lost("The device returned an invalid acknowledgement") })
-		ApplyFailed(err) => Gui.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
+		Applied => Gui.Action.update({ ..latest, dirty: False, status: Applied })
+		ApplyProtocolFailed => Gui.Action.update({ ..latest, status: Lost("The device returned an invalid acknowledgement") })
+		ApplyFailed(err) => Gui.Action.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
 	},
 })
 
-disconnect = |state, connection| Gui.task({
+disconnect = |state, connection| Gui.Action.task({
 	pending: { ..state, status: Disconnecting },
 	run: || connection.close!(),
 	resolve: |latest, result| match result {
-		Err(err) => Gui.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
-		Ok(_) => Gui.update({ ..latest, config: None, connected: None, dirty: False, status: Disconnected })
+		Err(err) => Gui.Action.update({ ..latest, config: None, connected: None, dirty: False, status: Lost(message(err)) })
+		Ok(_) => Gui.Action.update({ ..latest, config: None, connected: None, dirty: False, status: Disconnected })
 	},
 })
 

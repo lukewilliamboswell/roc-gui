@@ -44,7 +44,7 @@ pointer_state = |state, event| match event.phase {
 render = |state| Gui.canvas({
 	label: "Presentation stage",
 	primitives: state.shapes.map(|shape| Gui.rectangle({ key: shape.id, label: "Layer ${shape.id.to_str()}", x: shape.x, y: shape.y, width: 18, height: 14, fill: Rgb(shape.color), radius: 2 })),
-	on_pointer: |current, event| Gui.update(pointer_state(current, event)),
+	on_pointer: |current, event| Gui.Action.update(pointer_state(current, event)),
 	width: Fill,
 	height: Fill,
 })

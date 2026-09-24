@@ -252,7 +252,7 @@ line_row = |state, opened, annotation, lines, number, found| {
 		selected: chosen,
 		# The inspector beside the view shows the line, so the change is the
 		# root's to render.
-		on_press: |current, _| Gui.delegate({ ..current, spec_source: { ..current.spec_source, chosen: Some(number) } }),
+		on_press: |current, _| Gui.Action.delegate({ ..current, spec_source: { ..current.spec_source, chosen: Some(number) } }),
 	})
 	label = "Source line ${number.to_str()}"
 	if found.is_empty() {

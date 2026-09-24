@@ -21,9 +21,9 @@ Browser := [].{
 	ink = ink
 }
 
-Location : { directory : Gui.FilesDirRead, name : Str }
+Location : { directory : Gui.Files.Dir.Read, name : Str }
 
-View : [Empty, Showing({ entries : List(Gui.FilesEntry), trail : List(Location) })]
+View : [Empty, Showing({ entries : List(Gui.Files.Entry), trail : List(Location) })]
 
 Retry : [PickAgain, OpenAgain({ name : Str, parent : Location }), ReturnAgain(U64)]
 
@@ -40,50 +40,36 @@ State : { access : Gui.Access, next_request : U64, show_files : Bool, status : S
 ## Deep teal, lit from one direction: the window's ground is the darkest
 ## surface, panels sit one step above it, and rows one step above those. Nothing
 ## in the browser is brighter than the name of the folder you are looking at.
-ground : Gui.Color
-ground = 0x0e1a21
+ground = 0x0e1a21.Gui.Color
 
-surface : Gui.Color
-surface = 0x14232b
+surface = 0x14232b.Gui.Color
 
-rule : Gui.Color
-rule = 0x2a4753
+rule = 0x2a4753.Gui.Color
 
-row_bg : Gui.Color
-row_bg = 0x17272f
+row_bg = 0x17272f.Gui.Color
 
-row_hover : Gui.Color
-row_hover = 0x27414f
+row_hover = 0x27414f.Gui.Color
 
-link_fg : Gui.Color
-link_fg = 0x9bdcf0
+link_fg = 0x9bdcf0.Gui.Color
 
-ink : Gui.Color
-ink = 0xdbe7ed
+ink = 0xdbe7ed.Gui.Color
 
-muted_fg : Gui.Color
-muted_fg = 0x93a7b2
+muted_fg = 0x93a7b2.Gui.Color
 
-title_fg : Gui.Color
-title_fg = 0xf2f6f8
+title_fg = 0xf2f6f8.Gui.Color
 
-chip_bg : Gui.Color
-chip_bg = 0x203944
+chip_bg = 0x203944.Gui.Color
 
 ## The one action that asks for authority. It is the only saturated surface in
 ## the window, so the press that a grant begins with is the press that looks
 ## like the point of the screen.
-accent : Gui.Color
-accent = 0x2f6f85
+accent = 0x2f6f85.Gui.Color
 
-accent_hover : Gui.Color
-accent_hover = 0x3d8aa3
+accent_hover = 0x3d8aa3.Gui.Color
 
-accent_active : Gui.Color
-accent_active = 0x265a6d
+accent_active = 0x265a6d.Gui.Color
 
-accent_ink : Gui.Color
-accent_ink = 0xf2fbff
+accent_ink = 0xf2fbff.Gui.Color
 
 name_limit : U64
 name_limit = 52
@@ -187,7 +173,7 @@ marker_art = |kind| match kind {
 
 start_pick = |state| {
 	request = begin(state)
-	Gui.task({
+	Gui.Action.task({
 		pending: request.pending,
 		run: || match state.access.pick_directory!() {
 			Err(error) => PickFailed({ hint: hint_for(error), message: describe(error) })
@@ -198,15 +184,15 @@ start_pick = |state| {
 			}
 		},
 		resolve: |latest, result| if !is_current(latest, request.id) {
-			Gui.none
+			Gui.Action.none
 		} else {
 			match result {
-				PickFailed(failure) => Gui.update({ ..latest, status: Failed({ hint: failure.hint, message: failure.message, retry: PickAgain }) })
+				PickFailed(failure) => Gui.Action.update({ ..latest, status: Failed({ hint: failure.hint, message: failure.message, retry: PickAgain }) })
 
 				## Closing the chooser is an answer. It leaves whatever was open
 				## open, and only the first screen says anything about it.
-				PickCanceled => Gui.update({ ..latest, status: Dismissed })
-				Picked(value) => Gui.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: [value.location] }) })
+				PickCanceled => Gui.Action.update({ ..latest, status: Dismissed })
+				Picked(value) => Gui.Action.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: [value.location] }) })
 			}
 		},
 	})
@@ -218,7 +204,7 @@ open_child = |state, parent, name| {
 		Showing(value) => value.trail
 		Empty => []
 	}
-	Gui.task({
+	Gui.Action.task({
 		pending: request.pending,
 		run: || match parent.directory.open_dir!(name) {
 			Err(error) => OpenFailed({ hint: hint_for(error), message: describe(error) })
@@ -228,34 +214,34 @@ open_child = |state, parent, name| {
 			}
 		},
 		resolve: |latest, result| if !is_current(latest, request.id) {
-			Gui.none
+			Gui.Action.none
 		} else {
 			match result {
-				OpenFailed(failure) => Gui.update({ ..latest, status: Failed({ hint: failure.hint, message: "${failure.message}: ${name}", retry: OpenAgain({ parent, name }) }) })
-				Opened(value) => Gui.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: previous_trail.append(value.location) }) })
+				OpenFailed(failure) => Gui.Action.update({ ..latest, status: Failed({ hint: failure.hint, message: "${failure.message}: ${name}", retry: OpenAgain({ parent, name }) }) })
+				Opened(value) => Gui.Action.update({ ..latest, status: Ready, view: Showing({ entries: value.entries, trail: previous_trail.append(value.location) }) })
 			}
 		},
 	})
 }
 
 go_to = |state, depth| match state.view {
-	Empty => Gui.none
+	Empty => Gui.Action.none
 	Showing(view) => {
 		trail = view.trail.take_first(depth + 1)
 		if trail.len() == view.trail.len() {
-			Gui.none
+			Gui.Action.none
 		} else {
 			target = trail.last() ?? crash "non-empty breadcrumb trail"
 			request = begin(state)
-			Gui.task({
+			Gui.Action.task({
 				pending: request.pending,
 				run: || target.directory.list!(),
 				resolve: |latest, result| if !is_current(latest, request.id) {
-					Gui.none
+					Gui.Action.none
 				} else {
 					match result {
-						Err(error) => Gui.update({ ..latest, status: Failed({ hint: hint_for(error), message: "${describe(error)}: ${target.name}", retry: ReturnAgain(depth) }) })
-						Ok(entries) => Gui.update({ ..latest, status: Ready, view: Showing({ entries, trail }) })
+						Err(error) => Gui.Action.update({ ..latest, status: Failed({ hint: hint_for(error), message: "${describe(error)}: ${target.name}", retry: ReturnAgain(depth) }) })
+						Ok(entries) => Gui.Action.update({ ..latest, status: Ready, view: Showing({ entries, trail }) })
 					}
 				},
 			})
@@ -378,7 +364,7 @@ render = |state| {
 			Gui.checkbox({
 				label: "Show files as well as folders",
 				checked: state.show_files,
-				on_change: |current, event| Gui.update({ ..current, show_files: event.checked }),
+				on_change: |current, event| Gui.Action.update({ ..current, show_files: event.checked }),
 				padding: 10,
 				font_size: 14,
 				bg: chip_bg,

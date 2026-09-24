@@ -24,7 +24,6 @@
     "--libdir=lib",
     "-Ddefault_library=shared",
     "-Dbuildtype=release",
-    "-Dc_link_args=-L/usr/lib/x86_64-linux-gnu",
     "-Denable-tools=false",
     "-Denable-docs=false",
     "-Denable-wayland=false",

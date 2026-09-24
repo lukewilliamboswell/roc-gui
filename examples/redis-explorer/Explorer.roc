@@ -5,6 +5,7 @@ import pf.Gui
 import redis.Bytes
 import redis.Client
 import redis.Commands
+import redis.Connection
 import redis.Execute
 import redis.Transport
 import RedisData exposing [Key, Selection]
@@ -24,8 +25,8 @@ import RedisData exposing [Key, Selection]
 Link : [
 	Offline,
 	Opening(U64),
-	Idle(Gui.TcpStream),
-	Busy({ stream : Gui.TcpStream, id : U64, doing : Str }),
+	Idle(Gui.Tcp.Stream),
+	Busy({ stream : Gui.Tcp.Stream, id : U64, doing : Str }),
 	Closing(U64),
 ]
 
@@ -46,16 +47,17 @@ Explorer := [].{
 	init = |access| { access, keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
 	connect : State -> Gui.Action(State)
 	connect = connect
-	disconnect : State, Gui.TcpStream -> Gui.Action(State)
+	disconnect : State, Gui.Tcp.Stream -> Gui.Action(State)
 	disconnect = disconnect
-	scan : State, Gui.TcpStream -> Gui.Action(State)
+	scan : State, Gui.Tcp.Stream -> Gui.Action(State)
 	scan = scan
-	inspect : State, Gui.TcpStream, Key -> Gui.Action(State)
+	inspect : State, Gui.Tcp.Stream, Key -> Gui.Action(State)
 	inspect = inspect
 	set_pattern : State, Str -> State
 	set_pattern = |state, pattern| { ..state, pattern }
 }
 
+connection : Gui.Tcp.Stream -> Connection.Connection(Gui.Tcp.TcpErr, Gui.Tcp.TcpErr)
 connection = |stream| {
 	transport = Transport.from_bytes_io({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
 	Client.{}.attach(transport)
@@ -72,7 +74,7 @@ still_current = |link, id| match link {
 
 connect = |state| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, link: Opening(id), trouble: None },
 		run: || {
 			stream = state.access.tcp_connect!() ? |error| ConnectFailed(tcp_trouble(error))
@@ -85,11 +87,11 @@ connect = |state| {
 		},
 		resolve: |latest, outcome| if still_current(latest.link, id) {
 			match outcome {
-				Ok(stream) => Gui.update({ ..latest, link: Idle(stream), trouble: None })
-				Err(ConnectFailed(trouble)) => Gui.update({ ..latest, link: Offline, trouble: Some(trouble) })
+				Ok(stream) => Gui.Action.update({ ..latest, link: Idle(stream), trouble: None })
+				Err(ConnectFailed(trouble)) => Gui.Action.update({ ..latest, link: Offline, trouble: Some(trouble) })
 			}
 		} else {
-			Gui.none
+			Gui.Action.none
 		},
 	})
 }
@@ -98,16 +100,16 @@ connect = |state| {
 ## the explorer never holds a handle it has already asked the host to shut down.
 disconnect = |state, stream| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, keys: [], next_request: id + 1, selection: None, link: Closing(id), trouble: None },
 		run: || stream.close!(),
 		resolve: |latest, outcome| if still_current(latest.link, id) {
 			match outcome {
-				Ok({}) => Gui.update({ ..latest, link: Offline, trouble: None })
-				Err(error) => Gui.update({ ..latest, link: Offline, trouble: Some(tcp_trouble(error)) })
+				Ok({}) => Gui.Action.update({ ..latest, link: Offline, trouble: None })
+				Err(error) => Gui.Action.update({ ..latest, link: Offline, trouble: Some(tcp_trouble(error)) })
 			}
 		} else {
-			Gui.none
+			Gui.Action.none
 		},
 	})
 }
@@ -132,7 +134,7 @@ scan_pages! = |conn, cursor, pattern, remaining, found| {
 scan = |state, stream| {
 	id = state.next_request
 	pattern = state.pattern
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, selection: None, link: Busy({ stream, id, doing: "scanning" }), trouble: None },
 		run: || scan_pages!(connection(stream), Bytes.from_str("0"), pattern, 10_000, []),
 
@@ -141,15 +143,15 @@ scan = |state, stream| {
 		## borrow ends where it began.
 		resolve: |latest, outcome| match latest.link {
 			Busy(busy) if busy.id == id => match outcome {
-				Ok(keys) => Gui.update({ ..latest, keys, link: Idle(busy.stream), trouble: None })
-				Err(_) => Gui.update({
+				Ok(keys) => Gui.Action.update({ ..latest, keys, link: Idle(busy.stream), trouble: None })
+				Err(_) => Gui.Action.update({
 					..latest,
 					keys: [],
 					link: Idle(busy.stream),
 					trouble: Some({ message: "Redis could not scan that key pattern", remedy: "SCAN takes a glob, for example profile:* or catalog:item:*.", denied: False }),
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }
@@ -182,7 +184,7 @@ inspect_value! = |conn, key, kind| match kind {
 
 inspect = |state, stream, key| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, link: Busy({ stream, id, doing: "reading ${key.name}" }), trouble: None },
 		run: || {
 			conn = connection(stream)
@@ -208,19 +210,19 @@ inspect = |state, stream, key| {
 		},
 		resolve: |latest, outcome| match latest.link {
 			Busy(busy) if busy.id == id => match outcome {
-				Ok(selection) => Gui.update({ ..latest, selection: Some(selection), link: Idle(busy.stream), trouble: None })
-				Err(UnsupportedType) => Gui.update({
+				Ok(selection) => Gui.Action.update({ ..latest, selection: Some(selection), link: Idle(busy.stream), trouble: None })
+				Err(UnsupportedType) => Gui.Action.update({
 					..latest,
 					link: Idle(busy.stream),
 					trouble: Some({ message: "This Redis value type is not supported", remedy: "The explorer reads strings, lists, sets, hashes, and sorted sets.", denied: False }),
 				})
-				Err(_) => Gui.update({
+				Err(_) => Gui.Action.update({
 					..latest,
 					link: Idle(busy.stream),
 					trouble: Some({ message: "Redis could not read the selected key", remedy: "The key may have expired between the scan and this read.", denied: False }),
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }

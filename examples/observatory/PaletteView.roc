@@ -13,7 +13,7 @@ Elem : Gui.Elem(Observatory.State)
 
 ## What choosing a result does: ask the root for a request, open a chooser, or
 ## choose the window's appearance.
-Act : [Ask(Observatory.Request), ChooseFolder, ChooseFile, Prefer(Gui.AppearancePreference)]
+Act : [Ask(Observatory.Request), ChooseFolder, ChooseFile, Prefer(Gui.Appearance.Preference)]
 
 Candidate : Palette.Candidate(Act)
 
@@ -131,7 +131,7 @@ choose = |current, act| {
 		ChooseFolder => Observatory.choose(closed)
 		ChooseFile => Observatory.choose_file(closed)
 		# The window repaints in the chosen scheme; nothing here renders again.
-		Prefer(preference) => Gui.task({ pending: closed, run: || Gui.Appearance.prefer!(preference), resolve: |_, {}| Gui.none })
+		Prefer(preference) => Gui.Action.task({ pending: closed, run: || Gui.Appearance.prefer!(preference), resolve: |_, {}| Gui.Action.none })
 	}
 }
 
@@ -152,9 +152,9 @@ move = |current, delta| match current.palette {
 		count = PaletteView.results(current, open.query).len().to_i64_wrap()
 		wanted = open.highlight.to_i64_wrap() + delta
 		highlight = if count == 0 0 else if wanted < 0 0 else if wanted >= count count - 1 else wanted
-		Gui.update({ ..current, palette: Open({ ..open, highlight: highlight.to_u64_wrap() }) })
+		Gui.Action.update({ ..current, palette: Open({ ..open, highlight: highlight.to_u64_wrap() }) })
 	}
-	Closed => Gui.none
+	Closed => Gui.Action.none
 }
 
 navigation : List(Gui.Shortcut(Observatory.State))
@@ -199,7 +199,7 @@ palette = |state| match state.palette {
 			found.map_with_index(|result, index| result_row(result, index == open.highlight))
 		}
 		Gui.dialog(
-			{ label: "Command palette", on_dismiss: |current, _| Gui.update({ ..current, palette: Closed }), width: Px(680), padding: 12, gap: 8, bg: Theme.card, fg: Theme.ink, border_color: Theme.edge, radius: Theme.radius },
+			{ label: "Command palette", on_dismiss: |current, _| Gui.Action.update({ ..current, palette: Closed }), width: Px(680), padding: 12, gap: 8, bg: Theme.card, fg: Theme.ink, border_color: Theme.edge, radius: Theme.radius },
 			[
 				Gui.col(
 					{ label: "Palette", width: Fill, padding: 0, gap: 6 },
@@ -208,10 +208,10 @@ palette = |state| match state.palette {
 							label: "Palette query",
 							value: open.query,
 							placeholder: "Type a command, view, capture, trigger, cycle N, or step N",
-							on_change: |current, event| Gui.update({ ..current, palette: Open({ query: event.value, highlight: 0 }) }),
+							on_change: |current, event| Gui.Action.update({ ..current, palette: Open({ query: event.value, highlight: 0 }) }),
 							on_submit: |current, _| match highlighted(current) {
 								Some(chosen) => choose(current, chosen.act)
-								None => Gui.none
+								None => Gui.Action.none
 							},
 							width: Fill,
 							font_face: Theme.face,
