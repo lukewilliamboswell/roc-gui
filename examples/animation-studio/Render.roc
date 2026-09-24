@@ -13,59 +13,41 @@ import "icons/shape-ellipse.svg" as ellipse_glyph : List(U8)
 ## The ground is a cold slate, the stage is warm paper, and exactly two accents
 ## carry meaning: amber marks the timeline — the frame counter, the keyframes a
 ## person recorded — and coral is the playhead alone, the one thing that moves.
-ground : Gui.Color
-ground = 0x172126
+ground = 0x172126.Gui.Color
 
-sunken : Gui.Color
-sunken = 0x111c21
+sunken = 0x111c21.Gui.Color
 
-raised : Gui.Color
-raised = 0x1d2c33
+raised = 0x1d2c33.Gui.Color
 
-edge : Gui.Color
-edge = 0x2c4149
+edge = 0x2c4149.Gui.Color
 
-stage_edge : Gui.Color
-stage_edge = 0x48666b
+stage_edge = 0x48666b.Gui.Color
 
-paper : Gui.Color
-paper = 0xf7f3e8
+paper = 0xf7f3e8.Gui.Color
 
-ink : Gui.Color
-ink = 0xf4f1de
+ink = 0xf4f1de.Gui.Color
 
-ink_soft : Gui.Color
-ink_soft = 0xcfe0e5
+ink_soft = 0xcfe0e5.Gui.Color
 
-ink_quiet : Gui.Color
-ink_quiet = 0x9fb4bd
+ink_quiet = 0x9fb4bd.Gui.Color
 
-amber : Gui.Color
-amber = 0xf2cc8f
+amber = 0xf2cc8f.Gui.Color
 
-coral : Gui.Color
-coral = 0xe07a5f
+coral = 0xe07a5f.Gui.Color
 
-control : Gui.Color
-control = 0x24404a
+control = 0x24404a.Gui.Color
 
-control_hover : Gui.Color
-control_hover = 0x2f5462
+control_hover = 0x2f5462.Gui.Color
 
-control_press : Gui.Color
-control_press = 0x1b3039
+control_press = 0x1b3039.Gui.Color
 
-control_off : Gui.Color
-control_off = 0x1a272d
+control_off = 0x1a272d.Gui.Color
 
-control_off_ink : Gui.Color
-control_off_ink = 0x5d747d
+control_off_ink = 0x5d747d.Gui.Color
 
-row_selected : Gui.Color
-row_selected = 0x2b4a57
+row_selected = 0x2b4a57.Gui.Color
 
-row_hover : Gui.Color
-row_hover = 0x35596a
+row_hover = 0x35596a.Gui.Color
 
 ## Type. Nothing is left at the host default size, because a window in which
 ## every caption and every value is whatever size the platform happened to pick
@@ -127,11 +109,11 @@ Render := [].{
 		{ label: "Toolbar", gap: 10, width: Fill, align: Center },
 		[
 			Gui.row({ width: Px(220), padding: 0, font_size: title_size, font_weight: 600, fg: amber, align: Center }, [Gui.text("Animation Studio")]),
-			command("Add rectangle", "Add rectangle", True, Auto, |current, _| Gui.update(Studio.add_rectangle(current))),
-			command("Add ellipse", "Add ellipse", True, Auto, |current, _| Gui.update(Studio.add_ellipse(current))),
+			command("Add rectangle", "Add rectangle", True, Auto, |current, _| Gui.Action.update(Studio.add_rectangle(current))),
+			command("Add ellipse", "Add ellipse", True, Auto, |current, _| Gui.Action.update(Studio.add_ellipse(current))),
 			Gui.row({ width: Px(16) }, []),
-			command("Undo", "Undo", state.undo.len() > 0, Px(72), |current, _| Gui.update(Studio.undo(current))),
-			command("Redo", "Redo", state.redo.len() > 0, Px(72), |current, _| Gui.update(Studio.redo(current))),
+			command("Undo", "Undo", state.undo.len() > 0, Px(72), |current, _| Gui.Action.update(Studio.undo(current))),
+			command("Redo", "Redo", state.redo.len() > 0, Px(72), |current, _| Gui.Action.update(Studio.redo(current))),
 		],
 	)
 
@@ -184,7 +166,7 @@ Render := [].{
 				Gui.button({
 					caption: shape.name,
 					label: "Select ${shape.name}",
-					on_press: |current, _| Gui.update(Studio.select_shape(current, shape.id)),
+					on_press: |current, _| Gui.Action.update(Studio.select_shape(current, shape.id)),
 					width: Fill,
 					justify: Start,
 					padding: 8,
@@ -274,10 +256,10 @@ Render := [].{
 			Gui.row(
 				{ width: Fill, gap: 8, align: Center },
 				[
-					transport("−10", "Scrub backward", |current, _| Gui.update(Studio.scrub_back(current))),
+					transport("−10", "Scrub backward", |current, _| Gui.Action.update(Studio.scrub_back(current))),
 					play_control,
-					transport("+10", "Scrub forward", |current, _| Gui.update(Studio.scrub_forward(current))),
-					command("Add keyframe", "Add keyframe", True, Auto, |current, _| Gui.update(Studio.add_keyframe(current))),
+					transport("+10", "Scrub forward", |current, _| Gui.Action.update(Studio.scrub_forward(current))),
+					command("Add keyframe", "Add keyframe", True, Auto, |current, _| Gui.Action.update(Studio.add_keyframe(current))),
 					Gui.row({ width: Fill, grow: True }, []),
 
 					## The frame counter is the one number in the window that changes

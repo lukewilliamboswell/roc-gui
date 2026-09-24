@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Gui
 
@@ -25,9 +25,9 @@ editor : Str -> Gui.Elem(Str)
 editor = |body| Gui.col(
 	{},
 	[
-		Gui.textarea({ label: "Large request body", value: body, on_input: |_, event| Gui.update(event.value), height: Fill, grow: True }),
-		Gui.button({ caption: "Edit last byte", label: "Edit last byte", on_press: |latest, _| Gui.update(edit_last(latest)) }),
-		Gui.button({ caption: "Append byte", label: "Append byte", on_press: |latest, _| Gui.update(latest.concat("x")) }),
+		Gui.textarea({ label: "Large request body", value: body, on_input: |_, event| Gui.Action.update(event.value), height: Fill, grow: True }),
+		Gui.button({ caption: "Edit last byte", label: "Edit last byte", on_press: |latest, _| Gui.Action.update(edit_last(latest)) }),
+		Gui.button({ caption: "Append byte", label: "Append byte", on_press: |latest, _| Gui.Action.update(latest.concat("x")) }),
 	],
 )
 
@@ -38,13 +38,13 @@ render = |state| Gui.col(
 		Gui.row(
 			{},
 			[
-				Gui.button({ caption: "Load 100 bytes", label: "Load 100 bytes", on_press: |latest, _| Gui.update({ ..latest, body: payload(100), loaded: True }) }),
-				Gui.button({ caption: "Load 1,000 bytes", label: "Load 1000 bytes", on_press: |latest, _| Gui.update({ ..latest, body: payload(1000), loaded: True }) }),
-				Gui.button({ caption: "Load 10,000 bytes", label: "Load 10000 bytes", on_press: |latest, _| Gui.update({ ..latest, body: payload(10000), loaded: True }) }),
-				Gui.button({ caption: "Load 100,000 bytes", label: "Load 100000 bytes", on_press: |latest, _| Gui.update({ ..latest, body: payload(100000), loaded: True }) }),
-				Gui.button({ caption: "Memoized", label: "Use memoized editor", on_press: |latest, _| Gui.update({ ..latest, memoized: True }) }),
-				Gui.button({ caption: "Unmemoized", label: "Use unmemoized editor", on_press: |latest, _| Gui.update({ ..latest, memoized: False }) }),
-				Gui.button({ caption: "Refresh", label: "Refresh editor", on_press: |latest, _| Gui.update(latest) }),
+				Gui.button({ caption: "Load 100 bytes", label: "Load 100 bytes", on_press: |latest, _| Gui.Action.update({ ..latest, body: payload(100), loaded: True }) }),
+				Gui.button({ caption: "Load 1,000 bytes", label: "Load 1000 bytes", on_press: |latest, _| Gui.Action.update({ ..latest, body: payload(1000), loaded: True }) }),
+				Gui.button({ caption: "Load 10,000 bytes", label: "Load 10000 bytes", on_press: |latest, _| Gui.Action.update({ ..latest, body: payload(10000), loaded: True }) }),
+				Gui.button({ caption: "Load 100,000 bytes", label: "Load 100000 bytes", on_press: |latest, _| Gui.Action.update({ ..latest, body: payload(100000), loaded: True }) }),
+				Gui.button({ caption: "Memoized", label: "Use memoized editor", on_press: |latest, _| Gui.Action.update({ ..latest, memoized: True }) }),
+				Gui.button({ caption: "Unmemoized", label: "Use unmemoized editor", on_press: |latest, _| Gui.Action.update({ ..latest, memoized: False }) }),
+				Gui.button({ caption: "Refresh", label: "Refresh editor", on_press: |latest, _| Gui.Action.update(latest) }),
 			],
 		),
 		if state.loaded Gui.translate_with(editor, { key: "body", get: |parent| parent.body, set: |parent, body| { ..parent, body }, memo: if state.memoized Some(|previous, next| previous == next) else None }) else Gui.text("Load a request body"),

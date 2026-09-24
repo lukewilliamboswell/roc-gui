@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 import pf.Gui
 import Workspace
 
@@ -45,7 +45,7 @@ render = |state| {
 			max: 720,
 			collapsible: True,
 			collapsed: !state.split or state.divider.collapsed,
-			on_resize: |latest, event| Gui.update({ ..latest, split: latest.split or !event.collapsed, divider: event }),
+			on_resize: |latest, event| Gui.Action.update({ ..latest, split: latest.split or !event.collapsed, divider: event }),
 		},
 		primary,
 		secondary,
@@ -53,7 +53,7 @@ render = |state| {
 	Gui.col(
 		{ width: Fill, height: Fill },
 		[
-			Gui.button({ caption: "Split workspace", label: "Split workspace", on_press: |latest, _| Gui.update({ ..latest, split: True, divider: { ..latest.divider, collapsed: False } }) }),
+			Gui.button({ caption: "Split workspace", label: "Split workspace", on_press: |latest, _| Gui.Action.update({ ..latest, split: True, divider: { ..latest.divider, collapsed: False } }) }),
 			Gui.row({ width: Fill, height: Fill, grow: True }, [panes]),
 		],
 	)

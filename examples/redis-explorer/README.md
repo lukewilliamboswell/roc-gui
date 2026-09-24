@@ -7,7 +7,7 @@ are read; anything else is reported as unsupported.
 
 The example exercises a long-lived capability-owned stream and package
 interoperability: RESP is encoded and decoded by `jaredramirez/roc-redis`, and
-the bytes travel over `Gui.Tcp` on the ordinary `Gui.task` route. Because RESP
+the bytes travel over `Gui.Tcp` on the ordinary `Gui.Action.task` route. Because RESP
 is a single ordered conversation, the stream is held inside the in-flight
 request rather than beside it, so the render function has no handle with which
 to start a second one. The endpoint bar reports what the explorer holds — no

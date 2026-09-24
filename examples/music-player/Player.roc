@@ -16,9 +16,9 @@ Player := [].{
 ## not about music, and a queue that shows one reads like a directory listing.
 Track : { name : Str, title : Str }
 
-Library : [Empty, Loaded({ directory : Gui.FilesDirRead, output : Gui.AudioOutput, tracks : List(Track) })]
+Library : [Empty, Loaded({ directory : Gui.Files.Dir.Read, output : Gui.Audio.Output, tracks : List(Track) })]
 
-Playback : [Idle, Active({ index : U64, paused : Bool, track : Gui.AudioTrack }), Stopped]
+Playback : [Idle, Active({ index : U64, paused : Bool, track : Gui.Audio.Track }), Stopped]
 
 ## The cover the sleeve shows. A photograph is too large to pay for in
 ## executable size, so it is not a compile-time file import: it lives in the
@@ -103,7 +103,7 @@ audio_error = |err| match err {
 	StopAudioErr(_) => "Stop failed"
 }
 
-scan = |state| Gui.task({
+scan = |state| Gui.Action.task({
 	pending: report(state, "Scanning…"),
 	run: || {
 
@@ -137,18 +137,18 @@ scan = |state| Gui.task({
 	resolve: |latest, result| {
 		dressed = { ..latest, art: result.art }
 		match result.outcome {
-			ScanFailed(message) => Gui.update(alarmed(dressed, message))
-			ScanCanceled => Gui.update(report(dressed, "Folder choice canceled"))
-			Scanned(library) => Gui.update(report({ ..dressed, chosen: Nothing, library: Loaded(library), playback: Idle }, "${U64.to_str(List.len(library.tracks))} tracks"))
+			ScanFailed(message) => Gui.Action.update(alarmed(dressed, message))
+			ScanCanceled => Gui.Action.update(report(dressed, "Folder choice canceled"))
+			Scanned(library) => Gui.Action.update(report({ ..dressed, chosen: Nothing, library: Loaded(library), playback: Idle }, "${U64.to_str(List.len(library.tracks))} tracks"))
 		}
 	},
 })
 
 play_index = |state, library, index| match library.tracks.get(index) {
-	Err(_) => Gui.update(state)
+	Err(_) => Gui.Action.update(state)
 	Ok(item) => {
 		generation = state.generation + 1
-		Gui.task({
+		Gui.Action.task({
 			pending: report({ ..state, chosen: At(index), generation }, "Loading…"),
 			run: || match Gui.Audio.load!(library.output, library.directory, item.name) {
 				Err(err) => PlayFailed(generation, audio_error(err))
@@ -159,14 +159,14 @@ play_index = |state, library, index| match library.tracks.get(index) {
 			},
 			resolve: |latest, result| match result {
 				PlayFailed(request, message) => if request == latest.generation {
-					Gui.update(alarmed(latest, message))
+					Gui.Action.update(alarmed(latest, message))
 				} else {
-					Gui.update(latest)
+					Gui.Action.update(latest)
 				}
 				PlayStarted(request, started_index, track) => if request == latest.generation {
-					Gui.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing"))
+					Gui.Action.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing"))
 				} else {
-					Gui.task({ pending: latest, run: || Gui.Audio.stop!(track), resolve: |current, _| Gui.update(current) })
+					Gui.Action.task({ pending: latest, run: || Gui.Audio.stop!(track), resolve: |current, _| Gui.Action.update(current) })
 				}
 			},
 		})
@@ -174,15 +174,15 @@ play_index = |state, library, index| match library.tracks.get(index) {
 }
 
 stop = |state| match state.playback {
-	Active(current) => Gui.task({
+	Active(current) => Gui.Action.task({
 		pending: report({ ..state, generation: state.generation + 1 }, "Stopping…"),
 		run: || Gui.Audio.stop!(current.track),
 		resolve: |latest, result| match result {
-			Ok(_) => Gui.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
-			Err(_) => Gui.update(alarmed(latest, "Stop failed"))
+			Ok(_) => Gui.Action.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
+			Err(_) => Gui.Action.update(alarmed(latest, "Stop failed"))
 		},
 	})
-	_ => Gui.update(state)
+	_ => Gui.Action.update(state)
 }
 
 ## How far a skip moves. Five seconds is a musical distance rather than a
@@ -194,7 +194,7 @@ skip_ahead_ms = 5000
 ## with an offset that quietly seeks to a fixed millisecond is a lie the first
 ## press hides and the second press exposes.
 skip_forward = |state| match state.playback {
-	Active(current) => Gui.task({
+	Active(current) => Gui.Action.task({
 		pending: report(state, "Skipping…"),
 		run: || match Gui.Audio.status!(current.track) {
 			Err(err) => SkipFailed(audio_error(err))
@@ -207,23 +207,23 @@ skip_forward = |state| match state.playback {
 			}
 		},
 		resolve: |latest, result| match result {
-			SkipFailed(message) => Gui.update(alarmed(latest, message))
-			Skipped(position) => Gui.update(report(latest, "Position ${U64.to_str(position)} ms"))
+			SkipFailed(message) => Gui.Action.update(alarmed(latest, message))
+			Skipped(position) => Gui.Action.update(report(latest, "Position ${U64.to_str(position)} ms"))
 		},
 	})
-	_ => Gui.update(state)
+	_ => Gui.Action.update(state)
 }
 
 show_position = |state| match state.playback {
-	Active(current) => Gui.task({
+	Active(current) => Gui.Action.task({
 		pending: state,
 		run: || Gui.Audio.status!(current.track),
 		resolve: |latest, result| match result {
-			Ok(status) => Gui.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
-			Err(err) => Gui.update(alarmed(latest, audio_error(err)))
+			Ok(status) => Gui.Action.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
+			Err(err) => Gui.Action.update(alarmed(latest, audio_error(err)))
 		},
 	})
-	_ => Gui.update(state)
+	_ => Gui.Action.update(state)
 }
 
 ## The title of a row, for the messages that name it. A transport whose Resume
@@ -239,25 +239,25 @@ row_title = |state, index| match state.library {
 
 toggle = |state| match state.playback {
 	Idle | Stopped => match state.library {
-		Empty => Gui.update(state)
+		Empty => Gui.Action.update(state)
 		Loaded(library) => play_index(state, library, 0)
 	}
 	Active(current) => if current.paused {
-		Gui.task({
+		Gui.Action.task({
 			pending: report(state, "Resuming…"),
 			run: || Gui.Audio.play!(current.track),
 			resolve: |latest, result| match result {
-				Ok(_) => Gui.update(report({ ..latest, playback: Active({ ..current, paused: False }) }, "Playing"))
-				Err(_) => Gui.update(alarmed(latest, "Resume failed"))
+				Ok(_) => Gui.Action.update(report({ ..latest, playback: Active({ ..current, paused: False }) }, "Playing"))
+				Err(_) => Gui.Action.update(alarmed(latest, "Resume failed"))
 			},
 		})
 	} else {
-		Gui.task({
+		Gui.Action.task({
 			pending: report(state, "Pausing…"),
 			run: || Gui.Audio.pause!(current.track),
 			resolve: |latest, result| match result {
-				Ok(_) => Gui.update(report({ ..latest, playback: Active({ ..current, paused: True }) }, "Paused"))
-				Err(_) => Gui.update(alarmed(latest, "Pause failed"))
+				Ok(_) => Gui.Action.update(report({ ..latest, playback: Active({ ..current, paused: True }) }, "Paused"))
+				Err(_) => Gui.Action.update(alarmed(latest, "Pause failed"))
 			},
 		})
 	}
@@ -293,11 +293,11 @@ step_target = |origin, len, delta| match origin {
 }
 
 step = |state, delta| match state.library {
-	Empty => Gui.update(state)
+	Empty => Gui.Action.update(state)
 	Loaded(library) => {
 		len = List.len(library.tracks)
 		if len == 0 {
-			Gui.update(state)
+			Gui.Action.update(state)
 		} else {
 			next = step_target(step_origin(state), len, delta)
 			match state.playback {
@@ -308,18 +308,18 @@ step = |state, delta| match state.library {
 	}
 }
 
-stop_then_play = |state, track, next| Gui.task({
+stop_then_play = |state, track, next| Gui.Action.task({
 	pending: report({ ..state, generation: state.generation + 1 }, "Changing track…"),
 	run: || Gui.Audio.stop!(track),
 	resolve: |latest, result| match result {
-		Err(err) => Gui.update(alarmed(latest, audio_error(err)))
+		Err(err) => Gui.Action.update(alarmed(latest, audio_error(err)))
 
 		## The old track really has stopped, so the transport stops believing it
 		## is sounding. Otherwise a load that then fails leaves a phantom Active
 		## row, and the next step walks away from that instead of from the row
 		## the person is standing on.
 		Ok(_) => match latest.library {
-			Empty => Gui.update({ ..latest, playback: Stopped })
+			Empty => Gui.Action.update({ ..latest, playback: Stopped })
 			Loaded(latest_library) => play_index({ ..latest, playback: Stopped }, latest_library, next)
 		}
 	},
@@ -328,63 +328,45 @@ stop_then_play = |state, track, next| Gui.task({
 ## High-contrast night. A near-black ground, one vivid ember accent reserved
 ## for the primary transport and the track that is sounding, and pill controls
 ## whose hover and press colours are always a visible step apart.
-ground : Gui.Color
-ground = 0x08080b
+ground = 0x08080b.Gui.Color
 
-surface : Gui.Color
-surface = 0x0b0b10
+surface = 0x0b0b10.Gui.Color
 
-row_rest : Gui.Color
-row_rest = 0x15151d
+row_rest = 0x15151d.Gui.Color
 
-row_hover : Gui.Color
-row_hover = 0x23232f
+row_hover = 0x23232f.Gui.Color
 
-row_press : Gui.Color
-row_press = 0x32323f
+row_press = 0x32323f.Gui.Color
 
-hairline : Gui.Color
-hairline = 0x20202b
+hairline = 0x20202b.Gui.Color
 
-ink : Gui.Color
-ink = 0xf2efec
+ink = 0xf2efec.Gui.Color
 
-muted : Gui.Color
-muted = 0x8b8798
+muted = 0x8b8798.Gui.Color
 
-accent : Gui.Color
-accent = 0xff4b12
+accent = 0xff4b12.Gui.Color
 
-accent_hot : Gui.Color
-accent_hot = 0xff7040
+accent_hot = 0xff7040.Gui.Color
 
-accent_deep : Gui.Color
-accent_deep = 0xc2360b
+accent_deep = 0xc2360b.Gui.Color
 
-accent_tint : Gui.Color
-accent_tint = 0x2b1109
+accent_tint = 0x2b1109.Gui.Color
 
-accent_tint_hot : Gui.Color
-accent_tint_hot = 0x3a1710
+accent_tint_hot = 0x3a1710.Gui.Color
 
-accent_tint_press : Gui.Color
-accent_tint_press = 0x4a1d13
+accent_tint_press = 0x4a1d13.Gui.Color
 
 ## Failure is not the accent in a darker shade: the ember means "this is the
 ## music", so a message that borrowed it would say the opposite of what it
 ## means. A cooler red sits far enough from the orange to be told apart at a
 ## glance on a near-black ground.
-alarm : Gui.Color
-alarm = 0xff8ba0
+alarm = 0xff8ba0.Gui.Color
 
-alarm_deep : Gui.Color
-alarm_deep = 0x8d2d40
+alarm_deep = 0x8d2d40.Gui.Color
 
-alarm_tint : Gui.Color
-alarm_tint = 0x2a1118
+alarm_tint = 0x2a1118.Gui.Color
 
-on_accent : Gui.Color
-on_accent = 0x0a0a0c
+on_accent = 0x0a0a0c.Gui.Color
 
 ## A chosen row that is not yet the sounding one is Waiting, which is what makes
 ## a click visible while the next track loads or after one failed to decode.

@@ -46,11 +46,11 @@ Scaling := [].{
 	empty = { chosen: [], members: [], read: 0 }
 
 	## Open one capture of the folder and read its means and scale checks.
-	load! : Gui.FilesDirRead, Str => Try(Member, Str)
+	load! : Gui.Files.Dir.Read, Str => Try(Member, Str)
 	load! = load!
 
 	## Every chosen capture, in the order chosen.
-	load_all! : Gui.FilesDirRead, List(Str) => Try(List(Member), Str)
+	load_all! : Gui.Files.Dir.Read, List(Str) => Try(List(Member), Str)
 	load_all! = |directory, names| {
 		var $members = []
 		for name in names {
@@ -129,13 +129,13 @@ means_sql = "WITH m AS (SELECT c.id, c.trigger, c.roc_callback_ns, c.validate_ns
 ## A count assertion of any run but a warmup, and whether it held.
 checks_sql = "SELECT count(*), coalesce(sum(CASE WHEN s.observed_count IS s.expected_count THEN 0 ELSE 1 END), 0) FROM steps s JOIN runs r ON r.id = s.run_id WHERE r.phase <> 'warmup' AND s.expected_count IS NOT NULL"
 
-int_at : List(Gui.SqliteValue), U64 -> I64
+int_at : List(Gui.Sqlite.Value), U64 -> I64
 int_at = |row, index| match row.get(index) {
 	Ok(Integer(value)) => value
 	_ => 0
 }
 
-load! : Gui.FilesDirRead, Str => Try(Member, Str)
+load! : Gui.Files.Dir.Read, Str => Try(Member, Str)
 load! = |directory, name| {
 	opened = Capture.open!(directory, name)?
 	found = opened.database.query!(means_sql) ? |error| Gui.Sqlite.detail(error)

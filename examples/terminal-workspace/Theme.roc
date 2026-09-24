@@ -6,50 +6,38 @@ import pf.Gui
 Theme := [].{
 
 	## The window ground, darkest surface behind every region.
-	ground : Gui.Color
-	ground = 0x0a0d10
+	ground = 0x0a0d10.Gui.Color
 
 	## A raised control region: toolbars, command bars, the footer.
-	region : Gui.Color
-	region = 0x12171b
+	region = 0x12171b.Gui.Color
 
 	## A recessed data well: scrollback and editable fields.
-	well : Gui.Color
-	well = 0x05080a
+	well = 0x05080a.Gui.Color
 
 	## The hairline that divides one region from the next.
-	line : Gui.Color
-	line = 0x1e252b
+	line = 0x1e252b.Gui.Color
 
 	## A slightly brighter hairline for editable edges.
-	edge : Gui.Color
-	edge = 0x2a333b
+	edge = 0x2a333b.Gui.Color
 
 	## Primary readable text.
-	text : Gui.Color
-	text = 0xc4ccd2
+	text = 0xc4ccd2.Gui.Color
 
 	## Secondary labels, units, and counts.
-	dim : Gui.Color
-	dim = 0x68727a
+	dim = 0x68727a.Gui.Color
 
 	## The one signal colour. Reserved for a session that is live or starting:
 	## amber means the panel is attached to a running child.
-	signal : Gui.Color
-	signal = 0xd2912f
+	signal = 0xd2912f.Gui.Color
 
 	## A refusal or a failure. Distinct from `signal` because "the session is
 	## running" and "the session was refused" must not read the same at a glance.
-	alarm : Gui.Color
-	alarm = 0xc9605a
+	alarm = 0xc9605a.Gui.Color
 
 	## Key caps at rest, under the pointer, and while pressed.
-	key : Gui.Color
-	key = 0x171e24
-	key_hover : Gui.Color
-	key_hover = 0x202932
-	key_active : Gui.Color
-	key_active = 0x101519
+	key = 0x171e24.Gui.Color
+	key_hover = 0x202932.Gui.Color
+	key_active = 0x101519.Gui.Color
 
 	## Scrollback, counts, and readouts are columnar: a fixed pitch keeps digits
 	## from shifting width as they change and lets a column align.

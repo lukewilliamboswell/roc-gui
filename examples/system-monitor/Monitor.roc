@@ -41,7 +41,7 @@ Monitor := [].{
 
 capacity = 120.U64
 
-Session : { sampler : Gui.SystemMonitorSampler, timer : Gui.TimerHandle }
+Session : { sampler : Gui.SystemMonitor.Sampler, timer : Gui.Timer.Handle }
 
 RunState : [Paused, Running(Session)]
 
@@ -51,8 +51,8 @@ State : {
 	access : Gui.Access,
 	filter : Str,
 	generation : U64,
-	history : List(Gui.SystemMonitorSnapshot),
-	latest : [None, Some(Gui.SystemMonitorSnapshot)],
+	history : List(Gui.SystemMonitor.Snapshot),
+	latest : [None, Some(Gui.SystemMonitor.Snapshot)],
 	## The width the window laid the CPU plot out at, zero until it has.
 	plot_width : U32,
 	run_state : RunState,
@@ -79,7 +79,7 @@ sample_status = |err| match err {
 
 ## A session owns its generation, so a cancelled one cannot pause, fail, or
 ## extend the session that replaced it.
-wait_next = |state, session, generation| Gui.task({
+wait_next = |state, session, generation| Gui.Action.task({
 	pending: { ..state, run_state: Running(session), status: Live },
 	run: || match session.timer.next!() {
 		Canceled => Stopped
@@ -88,11 +88,11 @@ wait_next = |state, session, generation| Gui.task({
 			Err(err) => SampleFailed(err)
 		}
 	},
-	resolve: |latest, result| if latest.generation != generation Gui.none else match result {
-		Stopped => Gui.update({ ..latest, run_state: Paused, status: Paused })
-		SampleFailed(err) => Gui.update({ ..latest, run_state: Paused, status: sample_status(err) })
+	resolve: |latest, result| if latest.generation != generation Gui.Action.none else match result {
+		Stopped => Gui.Action.update({ ..latest, run_state: Paused, status: Paused })
+		SampleFailed(err) => Gui.Action.update({ ..latest, run_state: Paused, status: sample_status(err) })
 		Sampled(snapshot) => match latest.run_state {
-			Paused => Gui.update(latest)
+			Paused => Gui.Action.update(latest)
 			Running(_) => {
 				next = latest.history.append(snapshot)
 				bounded = if next.len() > capacity next.drop_first(next.len() - capacity) else next
@@ -105,11 +105,11 @@ wait_next = |state, session, generation| Gui.task({
 start! = |state| {
 	generation = state.generation + 1
 	match state.access.system_monitor!() {
-		Err(err) => Gui.update({ ..state, status: acquire_status(err) })
+		Err(err) => Gui.Action.update({ ..state, status: acquire_status(err) })
 		Ok(sampler) => match Gui.Timer.start!({ interval_ms: 100 }) {
 			Err(_) => {
 				_ = sampler.close!()
-				Gui.update({ ..state, status: Failed("The sampling timer was rejected by the host") })
+				Gui.Action.update({ ..state, status: Failed("The sampling timer was rejected by the host") })
 			}
 			Ok(timer) => wait_next({ ..state, generation }, { sampler, timer }, generation)
 		}
@@ -119,5 +119,5 @@ start! = |state| {
 pause! = |state, session| {
 	_ = session.timer.cancel!()
 	_ = session.sampler.close!()
-	Gui.update({ ..state, generation: state.generation + 1, run_state: Paused, status: Paused })
+	Gui.Action.update({ ..state, generation: state.generation + 1, run_state: Paused, status: Paused })
 }

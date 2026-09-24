@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Gui
 
@@ -81,8 +81,8 @@ line = |service, width| Gui.row(
 		Gui.canvas({
 			label: "Latency ${service.name}",
 			primitives: bars(service, width),
-			on_pointer: |_, _| Gui.none,
-			on_size: Some(|current, laid_out| if laid_out.width == current.width Gui.none else Gui.update({ ..current, width: laid_out.width })),
+			on_pointer: |_, _| Gui.Action.none,
+			on_size: Some(|current, laid_out| if laid_out.width == current.width Gui.Action.none else Gui.Action.update({ ..current, width: laid_out.width })),
 			width: Fill,
 			grow: True,
 			height: Px(line_height + 2),
@@ -99,7 +99,7 @@ size_button : U64 -> Gui.Elem(State)
 size_button = |count| Gui.button({
 	caption: "${count.to_str()} services",
 	label: "Show ${count.to_str()} services",
-	on_press: |current, _| Gui.update({ ..current, services: services(count) }),
+	on_press: |current, _| Gui.Action.update({ ..current, services: services(count) }),
 })
 
 render : State -> Gui.Elem(State)

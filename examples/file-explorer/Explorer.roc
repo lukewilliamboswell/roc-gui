@@ -23,11 +23,11 @@ Explorer := [].{
 	ink = ink
 }
 
-Folder : { directory : Gui.FilesDirRead, entries : List(Gui.FilesEntry), name : Str, trail : List(Str) }
+Folder : { directory : Gui.Files.Dir.Read, entries : List(Gui.Files.Entry), name : Str, trail : List(Str) }
 
 View : [Empty, Showing(Folder)]
 
-Selection : [NoneSelected, Selected(Gui.FilesEntry)]
+Selection : [NoneSelected, Selected(Gui.Files.Entry)]
 
 ## What a failure needs in order to be acted on: what happened, and what the
 ## person can do about it. A message without a next step is an apology.
@@ -49,53 +49,37 @@ State : { access : Gui.Access, back : List(Folder), dialog : Dialog, forward : L
 ## Graphite and amber. The ground is the darkest surface, the chrome sits one
 ## step above it, and a raised row one step above that. Amber is spent on
 ## exactly two things: the project grant, and the entry you have selected.
-ground : Gui.Color
-ground = 0x14161a
+ground = 0x14161a.Gui.Color
 
-surface : Gui.Color
-surface = 0x1c1f25
+surface = 0x1c1f25.Gui.Color
 
-raised : Gui.Color
-raised = 0x252931
+raised = 0x252931.Gui.Color
 
-rule : Gui.Color
-rule = 0x31363f
+rule = 0x31363f.Gui.Color
 
-ink : Gui.Color
-ink = 0xe6e8ec
+ink = 0xe6e8ec.Gui.Color
 
-muted : Gui.Color
-muted = 0x959ba6
+muted = 0x959ba6.Gui.Color
 
-dim : Gui.Color
-dim = 0x757b86
+dim = 0x757b86.Gui.Color
 
-accent : Gui.Color
-accent = 0xd8a13f
+accent = 0xd8a13f.Gui.Color
 
-accent_hover : Gui.Color
-accent_hover = 0xe6b357
+accent_hover = 0xe6b357.Gui.Color
 
-accent_active : Gui.Color
-accent_active = 0xba8830
+accent_active = 0xba8830.Gui.Color
 
-accent_ink : Gui.Color
-accent_ink = 0x1a1408
+accent_ink = 0x1a1408.Gui.Color
 
-danger_bg : Gui.Color
-danger_bg = 0x2a1b18
+danger_bg = 0x2a1b18.Gui.Color
 
-danger_edge : Gui.Color
-danger_edge = 0xa85b4e
+danger_edge = 0xa85b4e.Gui.Color
 
-danger_ink : Gui.Color
-danger_ink = 0xf1cec6
+danger_ink = 0xf1cec6.Gui.Color
 
-danger_button : Gui.Color
-danger_button = 0x6d342c
+danger_button = 0x6d342c.Gui.Color
 
-danger_button_hover : Gui.Color
-danger_button_hover = 0x87423a
+danger_button_hover = 0x87423a.Gui.Color
 
 preview_limit : U64
 preview_limit = 96
@@ -165,25 +149,25 @@ preview_of = |bytes| {
 	}
 }
 
-refresh = |state, folder| Gui.task({
+refresh = |state, folder| Gui.Action.task({
 	pending: { ..state, status: Busy },
 	run: || folder.directory.list!(),
 	resolve: |latest, result| match result {
-		Err(error) => Gui.update({ ..latest, status: fail(error) })
-		Ok(entries) => Gui.update({ ..latest, status: Ready, view: Showing({ ..folder, entries }) })
+		Err(error) => Gui.Action.update({ ..latest, status: fail(error) })
+		Ok(entries) => Gui.Action.update({ ..latest, status: Ready, view: Showing({ ..folder, entries }) })
 	},
 })
 
-read_file = |state, folder, name| Gui.task({
+read_file = |state, folder, name| Gui.Action.task({
 	pending: { ..state, read: Unread, status: Busy },
 	run: || folder.directory.read!(name),
 	resolve: |latest, result| match result {
-		Err(error) => Gui.update({ ..latest, status: fail(error) })
-		Ok(bytes) => Gui.update({ ..latest, read: ReadOf({ bytes: bytes.len(), name, preview: preview_of(bytes) }), status: Ready })
+		Err(error) => Gui.Action.update({ ..latest, status: fail(error) })
+		Ok(bytes) => Gui.Action.update({ ..latest, read: ReadOf({ bytes: bytes.len(), name, preview: preview_of(bytes) }), status: Ready })
 	},
 })
 
-choose_directory = |state| Gui.task({
+choose_directory = |state| Gui.Action.task({
 	pending: { ..state, status: Busy },
 	run: || match state.access.pick_directory!() {
 		Err(error) => LoadFailed({ hint: hint_for(error), message: describe(error) })
@@ -194,15 +178,15 @@ choose_directory = |state| Gui.task({
 		}
 	},
 	resolve: |latest, result| match result {
-		LoadFailed(failure) => Gui.update({ ..latest, status: Failed(failure) })
+		LoadFailed(failure) => Gui.Action.update({ ..latest, status: Failed(failure) })
 
 		## Closing the chooser leaves whatever was open exactly as it was.
-		LoadCanceled => Gui.update({ ..latest, status: Dismissed })
-		Loaded(folder) => Gui.update({ ..latest, back: [], forward: [], read: Unread, root: Some(folder), selection: NoneSelected, status: Ready, view: Showing(folder) })
+		LoadCanceled => Gui.Action.update({ ..latest, status: Dismissed })
+		Loaded(folder) => Gui.Action.update({ ..latest, back: [], forward: [], read: Unread, root: Some(folder), selection: NoneSelected, status: Ready, view: Showing(folder) })
 	},
 })
 
-open_folder = |state, current, name| Gui.task({
+open_folder = |state, current, name| Gui.Action.task({
 	pending: { ..state, status: Busy },
 	run: || match current.directory.open_dir!(name) {
 		Err(error) => LoadFailed({ hint: hint_for(error), message: describe(error) })
@@ -212,25 +196,25 @@ open_folder = |state, current, name| Gui.task({
 		}
 	},
 	resolve: |latest, result| match result {
-		LoadFailed(failure) => Gui.update({ ..latest, status: Failed(failure) })
-		LoadCanceled => Gui.update({ ..latest, status: Dismissed })
-		Loaded(folder) => Gui.update({ ..latest, back: latest.back.append(current), forward: [], read: Unread, selection: NoneSelected, status: Ready, view: Showing(folder) })
+		LoadFailed(failure) => Gui.Action.update({ ..latest, status: Failed(failure) })
+		LoadCanceled => Gui.Action.update({ ..latest, status: Dismissed })
+		Loaded(folder) => Gui.Action.update({ ..latest, back: latest.back.append(current), forward: [], read: Unread, selection: NoneSelected, status: Ready, view: Showing(folder) })
 	},
 })
 
 go_back = |state, current| match state.back.last() {
-	Err(_) => Gui.none
-	Ok(previous) => Gui.update({ ..state, back: state.back.drop_last(1), forward: state.forward.append(current), read: Unread, selection: NoneSelected, view: Showing(previous) })
+	Err(_) => Gui.Action.none
+	Ok(previous) => Gui.Action.update({ ..state, back: state.back.drop_last(1), forward: state.forward.append(current), read: Unread, selection: NoneSelected, view: Showing(previous) })
 }
 
 go_forward = |state, current| match state.forward.last() {
-	Err(_) => Gui.none
-	Ok(next) => Gui.update({ ..state, back: state.back.append(current), forward: state.forward.drop_last(1), read: Unread, selection: NoneSelected, view: Showing(next) })
+	Err(_) => Gui.Action.none
+	Ok(next) => Gui.Action.update({ ..state, back: state.back.append(current), forward: state.forward.drop_last(1), read: Unread, selection: NoneSelected, view: Showing(next) })
 }
 
 go_root = |state, current| match state.root {
-	None => Gui.none
-	Some(root) => if root.trail == current.trail Gui.none else Gui.update({ ..state, back: state.back.append(current), forward: [], read: Unread, selection: NoneSelected, view: Showing(root) })
+	None => Gui.Action.none
+	Some(root) => if root.trail == current.trail Gui.Action.none else Gui.Action.update({ ..state, back: state.back.append(current), forward: [], read: Unread, selection: NoneSelected, view: Showing(root) })
 }
 
 ## One text run in a chosen colour and size. `Elem.text` inherits both.
@@ -326,7 +310,7 @@ entry_row = |folder, entry, selected| {
 	name = Gui.button({
 		caption: entry.name,
 		label: "Select ${label}",
-		on_press: |current, _| Gui.update({ ..current, read: Unread, selection: Selected(entry), status: Ready }),
+		on_press: |current, _| Gui.Action.update({ ..current, read: Unread, selection: Selected(entry), status: Ready }),
 		width: Fill,
 		grow: True,
 		justify: Start,
@@ -540,7 +524,7 @@ selection_panel = |state, entry| {
 close_dialog = |name| Gui.dialog(
 	{
 		label: "Close directory confirmation",
-		on_dismiss: |current, _| Gui.update({ ..current, dialog: Closed }),
+		on_dismiss: |current, _| Gui.Action.update({ ..current, dialog: Closed }),
 		bg: surface,
 		fg: ink,
 		border_color: rule,
@@ -552,11 +536,11 @@ close_dialog = |name| Gui.dialog(
 		Gui.row(
 			{ label: "Close directory actions", gap: 8, justify: End, width: Fill },
 			[
-				toolbar_button("Cancel", "Cancel close directory", True, |current, _| Gui.update({ ..current, dialog: Closed })),
+				toolbar_button("Cancel", "Cancel close directory", True, |current, _| Gui.Action.update({ ..current, dialog: Closed })),
 				Gui.button({
 					caption: "Close project",
 					label: "Confirm close directory",
-					on_press: |current, _| Gui.update({ ..current, back: [], dialog: Closed, forward: [], read: Unread, root: None, selection: NoneSelected, status: Ready, view: Empty }),
+					on_press: |current, _| Gui.Action.update({ ..current, back: [], dialog: Closed, forward: [], read: Unread, root: None, selection: NoneSelected, status: Ready, view: Empty }),
 					padding: 6,
 					padding_left: Px(12),
 					padding_right: Px(12),
@@ -626,7 +610,7 @@ render = |state| {
 							{ label: "Project path", width: Fill, grow: True, gap: 6, align: Center, overflow_x: Clip },
 							path_strip(folder),
 						),
-						toolbar_button("Close project", "Close directory", True, |current, _| Gui.update({ ..current, dialog: ConfirmClose(folder.name) })),
+						toolbar_button("Close project", "Close directory", True, |current, _| Gui.Action.update({ ..current, dialog: ConfirmClose(folder.name) })),
 					],
 				),
 				Gui.virtual_list({ label: "Directory entries", row_height: 34, items: entry_items(state, folder) }),

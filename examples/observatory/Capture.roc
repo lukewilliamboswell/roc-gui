@@ -241,7 +241,7 @@ Resources : {
 Opened : {
 	revision : U64,
 	name : Str,
-	database : Gui.SqliteDb,
+	database : Gui.Sqlite.Db,
 	metadata : List(Entry),
 	families : List(Family),
 	gaps : List(Gap),
@@ -302,7 +302,7 @@ Capture := [].{
 
 	## A cycle's target from its two columns at `index`, as `decode_cycle`
 	## reads it.
-	target_at : List(Gui.SqliteValue), U64 -> Target
+	target_at : List(Gui.Sqlite.Value), U64 -> Target
 	target_at = target_at
 
 	## A cycle's target as every view names it.
@@ -314,16 +314,16 @@ Capture := [].{
 	supported_schema = "25"
 
 	## Read enough of one file to list it: identity and a verdict.
-	summarize! : Gui.FilesDirRead, Str => Listing
+	summarize! : Gui.Files.Dir.Read, Str => Listing
 	summarize! = summarize!
 
 	## Open one capture, refuse it unless it is schema 25, and read every table
 	## the views present.
-	open! : Gui.FilesDirRead, Str => Try(Opened, Str)
+	open! : Gui.Files.Dir.Read, Str => Try(Opened, Str)
 	open! = open!
 
 	## Open one chosen capture file, with the same refusal and reads as `open!`.
-	open_file! : Gui.FilesFileRead, Str => Try(Opened, Str)
+	open_file! : Gui.Files.File.Read, Str => Try(Opened, Str)
 	open_file! = open_file!
 
 	## How many rows one read of a long table returns: several screens of a
@@ -334,16 +334,16 @@ Capture := [].{
 	## At most `page_rows` steps of one run, from the step whose ordinal is
 	## `from`. Ordinals number a run's steps from zero, so a step's ordinal is
 	## its row in the run's list.
-	run_steps! : Gui.SqliteDb, I64, U64 => Try(List(Step), Str)
+	run_steps! : Gui.Sqlite.Db, I64, U64 => Try(List(Step), Str)
 	run_steps! = run_steps!
 
 	## At most `page_rows` cycles of one phase, slowest first, from the
 	## `offset`th: every trigger's, or one trigger and patch kind's.
-	cycles! : Gui.SqliteDb, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
+	cycles! : Gui.Sqlite.Db, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
 	cycles! = cycles!
 
 	## The cycle of a run with an ordinal, whatever its phase, if there is one.
-	cycle_at! : Gui.SqliteDb, I64, I64 => Try([None, Some(Cycle)], Str)
+	cycle_at! : Gui.Sqlite.Db, I64, I64 => Try([None, Some(Cycle)], Str)
 	cycle_at! = |database, run_id, ordinal| {
 		found = database.query_with!(cycle_at_sql, [Integer(run_id), Integer(ordinal)]) ? |error| Gui.Sqlite.detail(error)
 		match found.rows.first() {
@@ -366,11 +366,11 @@ Capture := [].{
 
 	## The frame strip of `span` frames from row `start`; a `span` of zero is
 	## every frame from `start`.
-	strip! : Gui.SqliteDb, I64, I64 => Try(Strip, Str)
+	strip! : Gui.Sqlite.Db, I64, I64 => Try(Strip, Str)
 	strip! = strip!
 
 	## One frame's own work.
-	frame! : Gui.SqliteDb, Bar => Try(FrameDetail, Str)
+	frame! : Gui.Sqlite.Db, Bar => Try(FrameDetail, Str)
 	frame! = frame!
 
 	## The native node kinds, the keyed container, the popover, the split
@@ -403,7 +403,7 @@ Capture := [].{
 	bucket_of = bucket_of
 
 	## Read one cycle's spans, component work, graph work, and step.
-	inspect! : Gui.SqliteDb, Cycle => Try(Inspected, Str)
+	inspect! : Gui.Sqlite.Db, Cycle => Try(Inspected, Str)
 	inspect! = inspect!
 
 	## The five Roc work spans, in the order the callback decomposes into them.
@@ -447,12 +447,12 @@ Capture := [].{
 	finalised = |opened| metadata(opened, "final_state") == "complete"
 
 	## How far a capture has been written, read in one statement.
-	progress! : Gui.SqliteDb => Try(Progress, Str)
+	progress! : Gui.Sqlite.Db => Try(Progress, Str)
 	progress! = progress!
 
 	## The identity of the capture a file holds, read through a connection of
 	## its own.
-	identity! : Gui.SqliteDb => Try(Str, Str)
+	identity! : Gui.Sqlite.Db => Try(Str, Str)
 	identity! = |database| {
 		found = rows!(database, "SELECT value FROM metadata WHERE key = 'capture_id'")?
 		match found.first() {
@@ -462,7 +462,7 @@ Capture := [].{
 	}
 
 	## Read every table the views present again, through a held connection.
-	read! : Gui.SqliteDb, Str => Try(Opened, Str)
+	read! : Gui.Sqlite.Db, Str => Try(Opened, Str)
 	read! = read!
 
 	metadata : Opened, Str -> Str
@@ -628,7 +628,7 @@ expect schema_gate("24") == Err("Schema 24 is not supported; Observatory reads s
 
 ## Cells. Every column read through these is declared by schema 25; a nullable
 ## column is read as an option so an absent value never becomes zero.
-text_at : List(Gui.SqliteValue), U64 -> Str
+text_at : List(Gui.Sqlite.Value), U64 -> Str
 text_at = |row, index| match row.get(index) {
 	Ok(String(value)) => value
 	Ok(Integer(value)) => value.to_str()
@@ -636,20 +636,20 @@ text_at = |row, index| match row.get(index) {
 	_ => ""
 }
 
-option_at : List(Gui.SqliteValue), U64 -> [None, Some(I64)]
+option_at : List(Gui.Sqlite.Value), U64 -> [None, Some(I64)]
 option_at = |row, index| match row.get(index) {
 	Ok(Integer(value)) => Some(value)
 	_ => None
 }
 
 ## A NOT NULL integer column.
-int_at : List(Gui.SqliteValue), U64 -> I64
+int_at : List(Gui.Sqlite.Value), U64 -> I64
 int_at = |row, index| match row.get(index) {
 	Ok(Integer(value)) => value
 	_ => 0
 }
 
-rows! : Gui.SqliteDb, Str => Try(List(List(Gui.SqliteValue)), Str)
+rows! : Gui.Sqlite.Db, Str => Try(List(List(Gui.Sqlite.Value)), Str)
 rows! = |database, sql| match database.query!(sql) {
 	Ok(result) => Ok(result.rows)
 	Err(error) => Err(Gui.Sqlite.detail(error))
@@ -837,13 +837,13 @@ allocations_sql = "WITH v AS (SELECT id, measurement_phase AS phase, trigger FRO
 ## from it.
 resources_sql = "SELECT id, phase, sample_index, end_cpu_user_ns - start_cpu_user_ns, end_cpu_system_ns - start_cpu_system_ns, end_max_rss_bytes, end_current_rss_bytes, end_roc_alloc_calls - start_roc_alloc_calls, end_roc_alloc_requested_bytes - start_roc_alloc_requested_bytes, end_roc_dealloc_calls - start_roc_dealloc_calls, end_roc_realloc_calls - start_roc_realloc_calls, end_roc_realloc_requested_bytes - start_roc_realloc_requested_bytes FROM runs ORDER BY id"
 
-bound_rows! : Gui.SqliteDb, Str, I64 => Try(List(List(Gui.SqliteValue)), Str)
+bound_rows! : Gui.Sqlite.Db, Str, I64 => Try(List(List(Gui.Sqlite.Value)), Str)
 bound_rows! = |database, sql, value| match database.query_with!(sql, [Integer(value)]) {
 	Ok(result) => Ok(result.rows)
 	Err(error) => Err(Gui.Sqlite.detail(error))
 }
 
-cycles! : Gui.SqliteDb, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
+cycles! : Gui.Sqlite.Db, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
 cycles! = |database, scope| {
 	offset = Integer(scope.offset.to_i64_wrap())
 	request = match scope.only {
@@ -861,7 +861,7 @@ cycles! = |database, scope| {
 	Ok(page.rows.map(decode_cycle))
 }
 
-decode_cycle : List(Gui.SqliteValue) -> Cycle
+decode_cycle : List(Gui.Sqlite.Value) -> Cycle
 decode_cycle = |row| {
 	id: int_at(row, 0),
 	run_id: int_at(row, 1),
@@ -879,7 +879,7 @@ decode_cycle = |row| {
 
 ## A cycle's target from its two nullable columns, which the schema requires
 ## to be present or absent together.
-target_at : List(Gui.SqliteValue), U64 -> Target
+target_at : List(Gui.Sqlite.Value), U64 -> Target
 target_at = |row, index| match (row.get(index), row.get(index + 1)) {
 	(Ok(String(kind)), Ok(String(identity))) => Some({ kind, identity })
 	_ => None
@@ -898,10 +898,10 @@ expect target_caption({ ..sample_inspected.cycle, trigger: "click", target: Some
 expect target_caption({ ..sample_inspected.cycle, trigger: "click" }) == "target not recorded"
 expect target_caption(sample_inspected.cycle) == "no target"
 
-counters : List(Gui.SqliteValue), U64, List(Str) -> List(Counter)
+counters : List(Gui.Sqlite.Value), U64, List(Str) -> List(Counter)
 counters = |row, start, names| names.map_with_index(|name, index| { name, value: int_at(row, start + index) })
 
-decode_span : List(Gui.SqliteValue) -> Span
+decode_span : List(Gui.Sqlite.Value) -> Span
 decode_span = |row| {
 	kind: text_at(row, 0),
 	duration: int_at(row, 1),
@@ -912,7 +912,7 @@ decode_span = |row| {
 	reallocated_bytes: int_at(row, 6),
 }
 
-inspect! : Gui.SqliteDb, Cycle => Try(Inspected, Str)
+inspect! : Gui.Sqlite.Db, Cycle => Try(Inspected, Str)
 inspect! = |database, cycle| {
 	details = bound_rows!(database, detail_sql, cycle.id)?
 	spans = bound_rows!(database, spans_sql, cycle.id)?
@@ -934,7 +934,7 @@ inspect! = |database, cycle| {
 	}
 }
 
-decode_allocation : List(Gui.SqliteValue) -> TriggerAlloc
+decode_allocation : List(Gui.Sqlite.Value) -> TriggerAlloc
 decode_allocation = |row| {
 	phase: text_at(row, 0),
 	trigger: text_at(row, 1),
@@ -948,13 +948,13 @@ decode_allocation = |row| {
 	bytes_total: int_at(row, 9),
 }
 
-read_allocations! : Gui.SqliteDb => Try(List(TriggerAlloc), Str)
+read_allocations! : Gui.Sqlite.Db => Try(List(TriggerAlloc), Str)
 read_allocations! = |database| {
 	found = rows!(database, allocations_sql)?
 	Ok(found.map(decode_allocation))
 }
 
-decode_resources : List(Gui.SqliteValue) -> Resources
+decode_resources : List(Gui.Sqlite.Value) -> Resources
 decode_resources = |row| {
 	run_id: int_at(row, 0),
 	phase: text_at(row, 1),
@@ -970,19 +970,19 @@ decode_resources = |row| {
 	realloc_bytes: option_at(row, 11),
 }
 
-read_resources! : Gui.SqliteDb => Try(List(Resources), Str)
+read_resources! : Gui.Sqlite.Db => Try(List(Resources), Str)
 read_resources! = |database| {
 	found = rows!(database, resources_sql)?
 	Ok(found.map(decode_resources))
 }
 
-read_metadata! : Gui.SqliteDb => Try(List(Entry), Str)
+read_metadata! : Gui.Sqlite.Db => Try(List(Entry), Str)
 read_metadata! = |database| {
 	found = rows!(database, metadata_sql)?
 	Ok(found.map(|row| { key: text_at(row, 0), value: text_at(row, 1) }))
 }
 
-read_trust! : Gui.SqliteDb, List(Entry) => Try(Trust, Str)
+read_trust! : Gui.Sqlite.Db, List(Entry) => Try(Trust, Str)
 read_trust! = |database, entries| {
 	found = rows!(database, trust_sql)?
 	base = { final_state: lookup(entries, "final_state"), clean_shutdown: lookup(entries, "clean_shutdown"), gaps: 0, unfinalized: 0, partial: "", health: None }
@@ -1004,7 +1004,7 @@ read_trust! = |database, entries| {
 	}
 }
 
-summarize! : Gui.FilesDirRead, Str => Listing
+summarize! : Gui.Files.Dir.Read, Str => Listing
 summarize! = |directory, name| {
 	blank = { name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unsupported("unreadable") }
 	match Gui.Sqlite.open_read!(directory, name) {
@@ -1033,19 +1033,19 @@ summarize! = |directory, name| {
 	}
 }
 
-read_families! : Gui.SqliteDb => Try(List(Family), Str)
+read_families! : Gui.Sqlite.Db => Try(List(Family), Str)
 read_families! = |database| {
 	found = rows!(database, families_sql)?
 	Ok(found.map(|row| { name: text_at(row, 0), detail: text_at(row, 1), status: text_at(row, 2), reason: text_at(row, 3), rows: int_at(row, 4), omitted: int_at(row, 5) }))
 }
 
-read_gaps! : Gui.SqliteDb => Try(List(Gap), Str)
+read_gaps! : Gui.Sqlite.Db => Try(List(Gap), Str)
 read_gaps! = |database| {
 	found = rows!(database, gaps_sql)?
 	Ok(found.map(|row| { family: text_at(row, 0), lost: int_at(row, 1), reason: text_at(row, 2) }))
 }
 
-read_health! : Gui.SqliteDb => Try([None, Some(Health)], Str)
+read_health! : Gui.Sqlite.Db => Try([None, Some(Health)], Str)
 read_health! = |database| {
 	found = rows!(database, health_sql)?
 	Ok(
@@ -1065,19 +1065,19 @@ read_health! = |database| {
 	)
 }
 
-read_runs! : Gui.SqliteDb => Try(List(Run), Str)
+read_runs! : Gui.Sqlite.Db => Try(List(Run), Str)
 read_runs! = |database| {
 	found = rows!(database, runs_sql)?
 	Ok(found.map(|row| { id: int_at(row, 0), phase: text_at(row, 1), sample: option_at(row, 2), outcome: text_at(row, 3), diagnostic: text_at(row, 4), steps: int_at(row, 5), failed: int_at(row, 6) }))
 }
 
-run_steps! : Gui.SqliteDb, I64, U64 => Try(List(Step), Str)
+run_steps! : Gui.Sqlite.Db, I64, U64 => Try(List(Step), Str)
 run_steps! = |database, run_id, from| {
 	page = database.page!({ sql: steps_sql, params: [Integer(run_id), Integer(from.to_i64_wrap())], rows: page_rows }) ? |error| Gui.Sqlite.detail(error)
 	Ok(decode_steps(page.rows))
 }
 
-decode_steps : List(List(Gui.SqliteValue)) -> List(Step)
+decode_steps : List(List(Gui.Sqlite.Value)) -> List(Step)
 decode_steps = |found| found.map(
 			|row| {
 				run_id: int_at(row, 0),
@@ -1095,25 +1095,25 @@ decode_steps = |found| found.map(
 			},
 		)
 
-read_triggers! : Gui.SqliteDb => Try(List(Trigger), Str)
+read_triggers! : Gui.Sqlite.Db => Try(List(Trigger), Str)
 read_triggers! = |database| {
 	found = rows!(database, triggers_sql)?
 	Ok(found.map(|row| { phase: text_at(row, 0), trigger: text_at(row, 1), patch_kind: text_at(row, 2), count: int_at(row, 3), min: int_at(row, 4), median: int_at(row, 5), max: int_at(row, 6), iqr: int_at(row, 7) }))
 }
 
-read_medians! : Gui.SqliteDb => Try(List(PhaseMedian), Str)
+read_medians! : Gui.Sqlite.Db => Try(List(PhaseMedian), Str)
 read_medians! = |database| {
 	found = rows!(database, medians_sql)?
 	Ok(found.map(|row| { phase: text_at(row, 0), count: int_at(row, 1), median: int_at(row, 2) }))
 }
 
-read_skips! : Gui.SqliteDb => Try(List(SkipRate), Str)
+read_skips! : Gui.Sqlite.Db => Try(List(SkipRate), Str)
 read_skips! = |database| {
 	found = rows!(database, skips_sql)?
 	Ok(found.map(|row| { phase: text_at(row, 0), skipped: int_at(row, 1), compared: int_at(row, 2) }))
 }
 
-read_frames! : Gui.SqliteDb => Try(Frames, Str)
+read_frames! : Gui.Sqlite.Db => Try(Frames, Str)
 read_frames! = |database| {
 	found = rows!(database, frames_sql)?
 	Ok(
@@ -1124,7 +1124,7 @@ read_frames! = |database| {
 	)
 }
 
-read_budgets! : Gui.SqliteDb => Try(List(Budget), Str)
+read_budgets! : Gui.Sqlite.Db => Try(List(Budget), Str)
 read_budgets! = |database| {
 	found = rows!(database, budgets_sql)?
 	Ok(
@@ -1135,10 +1135,10 @@ read_budgets! = |database| {
 	)
 }
 
-decode_bar : List(Gui.SqliteValue) -> Bar
+decode_bar : List(Gui.Sqlite.Value) -> Bar
 decode_bar = |row| { column: int_at(row, 0), frames: int_at(row, 1), id: int_at(row, 3), run_id: int_at(row, 4), ordinal: int_at(row, 5), layout: int_at(row, 6), prepaint: int_at(row, 7), paint: int_at(row, 8) }
 
-strip! : Gui.SqliteDb, I64, I64 => Try(Strip, Str)
+strip! : Gui.Sqlite.Db, I64, I64 => Try(Strip, Str)
 strip! = |database, start, span| {
 	counted = rows!(database, frame_count_sql)?
 	total = match counted.first() {
@@ -1154,7 +1154,7 @@ strip! = |database, start, span| {
 	}
 }
 
-frame! : Gui.SqliteDb, Bar => Try(FrameDetail, Str)
+frame! : Gui.Sqlite.Db, Bar => Try(FrameDetail, Str)
 frame! = |database, bar| {
 	native = bound_rows!(database, frame_native_sql, bar.id)?
 	work = bound_rows!(database, frame_work_sql, bar.id)?
@@ -1172,43 +1172,43 @@ frame! = |database, bar| {
 	})
 }
 
-read_native! : Gui.SqliteDb => Try(List(NativeTotal), Str)
+read_native! : Gui.Sqlite.Db => Try(List(NativeTotal), Str)
 read_native! = |database| {
 	found = rows!(database, native_sql)?
 	Ok(found.map(|row| { metric: int_at(row, 0), kind: int_at(row, 1), total: int_at(row, 2), max: int_at(row, 3) }))
 }
 
-read_work! : Gui.SqliteDb => Try(List(WorkTotal), Str)
+read_work! : Gui.Sqlite.Db => Try(List(WorkTotal), Str)
 read_work! = |database| {
 	found = rows!(database, work_totals_sql)?
 	Ok(found.map(|row| { metric: int_at(row, 0), total: int_at(row, 1), max: int_at(row, 2) }))
 }
 
-read_lists! : Gui.SqliteDb => Try(List(ListRow), Str)
+read_lists! : Gui.Sqlite.Db => Try(List(ListRow), Str)
 read_lists! = |database| {
 	found = rows!(database, lists_sql)?
 	Ok(found.map(|row| { list_id: int_at(row, 0), passes: int_at(row, 1), visible: int_at(row, 2), materialized: int_at(row, 3), recycled: int_at(row, 4), live: int_at(row, 5), most: int_at(row, 6) }))
 }
 
-read_passes! : Gui.SqliteDb => Try(List(Pass), Str)
+read_passes! : Gui.Sqlite.Db => Try(List(Pass), Str)
 read_passes! = |database| {
 	found = rows!(database, passes_sql)?
 	Ok(found.map(|row| { column: int_at(row, 0), materialized: int_at(row, 1), list_id: int_at(row, 2), visible: int_at(row, 3) }))
 }
 
-read_buckets! : Gui.SqliteDb => Try(List(Bucket), Str)
+read_buckets! : Gui.Sqlite.Db => Try(List(Bucket), Str)
 read_buckets! = |database| {
 	found = rows!(database, buckets_sql)?
 	Ok(found.map(|row| { phase: text_at(row, 0), trigger: text_at(row, 1), patch_kind: text_at(row, 2), bucket: int_at(row, 3), count: int_at(row, 4) }))
 }
 
-open! : Gui.FilesDirRead, Str => Try(Opened, Str)
+open! : Gui.Files.Dir.Read, Str => Try(Opened, Str)
 open! = |directory, name| {
 	database = Gui.Sqlite.open_read!(directory, name) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
 	read!(database, name)
 }
 
-open_file! : Gui.FilesFileRead, Str => Try(Opened, Str)
+open_file! : Gui.Files.File.Read, Str => Try(Opened, Str)
 open_file! = |file, name| {
 	database = Gui.Sqlite.open_file_read!(file) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
 	read!(database, name)
@@ -1216,7 +1216,7 @@ open_file! = |file, name| {
 
 progress_sql = "SELECT coalesce((SELECT max(id) FROM cycles), 0), coalesce((SELECT max(id) FROM gpui_frames), 0), coalesce((SELECT max(id) FROM steps), 0), (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL), coalesce((SELECT value FROM metadata WHERE key = 'final_state'), ''), coalesce((SELECT value FROM metadata WHERE key = 'capture_id'), '')"
 
-progress! : Gui.SqliteDb => Try(Progress, Str)
+progress! : Gui.Sqlite.Db => Try(Progress, Str)
 progress! = |database| {
 	found = rows!(database, progress_sql)?
 	match found.first() {
@@ -1225,7 +1225,7 @@ progress! = |database| {
 	}
 }
 
-read! : Gui.SqliteDb, Str => Try(Opened, Str)
+read! : Gui.Sqlite.Db, Str => Try(Opened, Str)
 read! = |database, name| {
 	entries = read_metadata!(database) ? |detail| "${name} is not a capture: ${detail}"
 	schema_gate(lookup(entries, "schema_version"))?

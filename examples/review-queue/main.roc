@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Gui
 
@@ -18,12 +18,12 @@ item_render = |item| Gui.col(
 	{ label: "Review item" },
 	[
 		Gui.text("Draft ${item.value.to_str()}"),
-		button("Edit draft", |latest| if latest.shared Gui.delegate({ ..latest, value: latest.value + item.step }) else Gui.update({ ..latest, value: latest.value + item.step })),
-		button("Revise draft", |latest| Gui.delegate({ ..latest, value: -1 })),
-		button("Propose rejected draft", |latest| Gui.delegate({ ..latest, value: 99 })),
-		button("Accept draft", |latest| Gui.delegate(latest)),
-		button("Archive draft", |latest| Gui.delegate({ ..latest, archived: True })),
-		button("Enrich draft", |latest| Gui.task({ pending: latest, run: || 10.I64, resolve: |current, result| if current.shared Gui.delegate({ ..current, value: current.value + result }) else Gui.update({ ..current, value: current.value + result }) })),
+		button("Edit draft", |latest| if latest.shared Gui.Action.delegate({ ..latest, value: latest.value + item.step }) else Gui.Action.update({ ..latest, value: latest.value + item.step })),
+		button("Revise draft", |latest| Gui.Action.delegate({ ..latest, value: -1 })),
+		button("Propose rejected draft", |latest| Gui.Action.delegate({ ..latest, value: 99 })),
+		button("Accept draft", |latest| Gui.Action.delegate(latest)),
+		button("Archive draft", |latest| Gui.Action.delegate({ ..latest, archived: True })),
+		button("Enrich draft", |latest| Gui.Action.task({ pending: latest, run: || 10.I64, resolve: |current, result| if current.shared Gui.Action.delegate({ ..current, value: current.value + result }) else Gui.Action.update({ ..current, value: current.value + result }) })),
 	],
 )
 
@@ -52,17 +52,17 @@ render : State -> Gui.Elem(State)
 render = |state| Gui.col(
 	{ label: "Review queue", gap: 12 },
 	[
-		button("Lock draft", |latest| Gui.update({ ..latest, board: { ..latest.board, writable: False } })),
-		button("Unlock draft", |latest| Gui.update({ ..latest, board: { ..latest.board, writable: True } })),
-		button("Disable board memo", |latest| Gui.update({ ..latest, memoized: False })),
-		button("Enable board memo", |latest| Gui.update({ ..latest, memoized: True })),
-		button("Use unkeyed board", |latest| Gui.update({ ..latest, unkeyed: True })),
-		button("Reset draft", |latest| Gui.update({ ..latest, board: initial.board })),
-		button("Double step", |latest| Gui.update({ ..latest, board: { ..latest.board, item: { ..latest.board.item, step: 2 } } })),
-		button("Refresh queue", |latest| Gui.update(latest)),
-		button("Toggle board", |latest| Gui.update({ ..latest, visible: !latest.visible })),
-		button("Share total", |latest| Gui.update({ ..latest, shared: True, board: { ..latest.board, item: { ..latest.board.item, shared: True } } })),
-		button("Reopen board", |latest| Gui.update({ ..latest, alternate: !latest.alternate })),
+		button("Lock draft", |latest| Gui.Action.update({ ..latest, board: { ..latest.board, writable: False } })),
+		button("Unlock draft", |latest| Gui.Action.update({ ..latest, board: { ..latest.board, writable: True } })),
+		button("Disable board memo", |latest| Gui.Action.update({ ..latest, memoized: False })),
+		button("Enable board memo", |latest| Gui.Action.update({ ..latest, memoized: True })),
+		button("Use unkeyed board", |latest| Gui.Action.update({ ..latest, unkeyed: True })),
+		button("Reset draft", |latest| Gui.Action.update({ ..latest, board: initial.board })),
+		button("Double step", |latest| Gui.Action.update({ ..latest, board: { ..latest.board, item: { ..latest.board.item, step: 2 } } })),
+		button("Refresh queue", |latest| Gui.Action.update(latest)),
+		button("Toggle board", |latest| Gui.Action.update({ ..latest, visible: !latest.visible })),
+		button("Share total", |latest| Gui.Action.update({ ..latest, shared: True, board: { ..latest.board, item: { ..latest.board.item, shared: True } } })),
+		button("Reopen board", |latest| Gui.Action.update({ ..latest, alternate: !latest.alternate })),
 		if state.shared Gui.text("Shared draft ${state.board.item.value.to_str()}") else Gui.text("Private draft"),
 		if !state.visible Gui.text("No board") else if state.unkeyed Gui.translate(board_render, |parent| parent.board, |parent, board| { ..parent, board }) else Gui.try_translate(board_render, { key: if state.alternate "alternate-board" else "board", get: board_get, set: board_set, memo: if state.memoized Some(|previous, next| previous == next) else None }),
 	],
@@ -70,15 +70,15 @@ render = |state| Gui.col(
 
 accept_or_archive : Board -> Gui.Action(Board)
 accept_or_archive = |candidate| if candidate.item.archived {
-	Gui.task({ pending: { ..candidate, present: False }, run: || 100.I64, resolve: |latest, result| Gui.update({ ..latest, accepted: result }) })
+	Gui.Action.task({ pending: { ..candidate, present: False }, run: || 100.I64, resolve: |latest, result| Gui.Action.update({ ..latest, accepted: result }) })
 } else if candidate.item.shared {
-	Gui.delegate(candidate)
+	Gui.Action.delegate(candidate)
 } else if candidate.item.value < 0 {
-	Gui.update({ ..candidate, item: { ..candidate.item, value: 0 }, accepted: 0 })
+	Gui.Action.update({ ..candidate, item: { ..candidate.item, value: 0 }, accepted: 0 })
 } else if candidate.item.value <= 2 {
-	Gui.update({ ..candidate, accepted: candidate.item.value })
+	Gui.Action.update({ ..candidate, accepted: candidate.item.value })
 } else {
-	Gui.none
+	Gui.Action.none
 }
 
 main : Gui.Program(State)

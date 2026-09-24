@@ -192,7 +192,7 @@ table = |label, children| Gui.col(
 
 ## Controls
 
-key : { caption : Str, label : Str, selected : Bool, on_press : Observatory.State, Gui.EventPress => Gui.Action(Observatory.State) } -> Gui.Elem(Observatory.State)
+key : { caption : Str, label : Str, selected : Bool, on_press : Observatory.State, Gui.Event.Press => Gui.Action(Observatory.State) } -> Gui.Elem(Observatory.State)
 key = |props| Gui.button({
 	caption: props.caption,
 	label: props.label,
@@ -309,7 +309,7 @@ sort_head = |props| {
 	button = Gui.button({
 		caption: "${props.caption}${arrow}",
 		label: props.label,
-		on_press: |current, _| Gui.update(handler(current)),
+		on_press: |current, _| Gui.Action.update(handler(current)),
 		padding: 0,
 		font_size: Theme.meta,
 		font_face: Theme.face,
@@ -402,7 +402,7 @@ travel = |caption, label, enabled, request| Gui.button({
 ## each of Ctrl+1 to Ctrl+9 in the rail's order.
 window_keys : List(Gui.Shortcut(Observatory.State))
 window_keys = [
-	{ keys: "secondary-k", on_press: |current, _| Gui.update(Observatory.open_palette(current)) },
+	{ keys: "secondary-k", on_press: |current, _| Gui.Action.update(Observatory.open_palette(current)) },
 	{ keys: "alt-left", on_press: |current, _| Observatory.fulfil({ ..current, request: Some(Back) }) },
 	{ keys: "alt-right", on_press: |current, _| Observatory.fulfil({ ..current, request: Some(Forward) }) },
 ]
@@ -411,7 +411,7 @@ window_keys = [
 show_view : Observatory.State, Observatory.View -> Gui.Action(Observatory.State)
 show_view = |current, view| match current.capture {
 	Some(_) => Observatory.fulfil({ ..current, request: Some(Show(view)) })
-	None => Gui.none
+	None => Gui.Action.none
 }
 
 authority_bar : Observatory.State -> Gui.Elem(Observatory.State)
@@ -549,7 +549,7 @@ captures_rows = |sorted| Gui.virtual_rows({
 recent_shown : U64
 recent_shown = 8
 
-recent_row : Gui.FilesRecent -> Gui.Elem(Observatory.State)
+recent_row : Gui.Files.Recent -> Gui.Elem(Observatory.State)
 recent_row = |entry| {
 	key_value = entry.key
 	available = entry.status == Available
@@ -623,7 +623,7 @@ recent_row = |entry| {
 
 ## The captures and folders opened before, most recent first. Only the rows
 ## near the list's viewport are built, however many are remembered.
-recent_list : List(Gui.FilesRecent) -> List(Gui.Elem(Observatory.State))
+recent_list : List(Gui.Files.Recent) -> List(Gui.Elem(Observatory.State))
 recent_list = |recent| if recent.is_empty() {
 	[]
 } else {
@@ -1185,7 +1185,7 @@ cycles_section = |state, opened| {
 						on_range: Some(
 							|current, visible| match Observatory.cycles_wanted(current, visible) {
 								Some(offset) => Observatory.ask(current, ReadCycles(offset))
-								None => Gui.none
+								None => Gui.Action.none
 							},
 						),
 					}),
@@ -1464,7 +1464,7 @@ inspector = |state, opened| match state.inspected {
 			{ label: "Inspector title", width: Fill, padding: 0, gap: 6 },
 			[
 				Gui.col({ width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("CYCLE ${cycle_name(cycle)} · ${cycle.trigger} · ${cycle.patch_kind} · ${cycle.phase}")]),
-				Gui.row({ padding: 0, gap: Theme.inset }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.delegate(Observatory.close_inspector(current)) }))),
+				Gui.row({ padding: 0, gap: Theme.inset }, step.append(key({ caption: "Close", label: "Close inspector", selected: False, on_press: |current, _| Gui.Action.delegate(Observatory.close_inspector(current)) }))),
 			],
 		)
 		content = inspector_content(state)
@@ -1539,7 +1539,7 @@ cycle_keys : List(Gui.Shortcut(Observatory.State))
 cycle_keys = [
 	{ keys: "j", on_press: |current, _| Observatory.ask(current, InspectAdjacent(1)) },
 	{ keys: "k", on_press: |current, _| Observatory.ask(current, InspectAdjacent(-1)) },
-	{ keys: "i", on_press: |current, _| Gui.delegate({ ..current, inspector_focus: current.inspector_focus + 1 }) },
+	{ keys: "i", on_press: |current, _| Gui.Action.delegate({ ..current, inspector_focus: current.inspector_focus + 1 }) },
 ]
 
 ## The inspector, which I moves keyboard focus into. Annotated: written as an
@@ -1712,7 +1712,7 @@ process_resources = |opened| {
 memory : Observatory.State, Capture.Opened -> Gui.Elem(Observatory.State)
 memory = |state, opened| Gui.col(
 	{ label: "Memory", width: Fill, padding: Theme.inset, gap: Theme.inset },
-	[phase_selector(state, |current, phase| Gui.update(Observatory.set_phase(current, phase)))]
+	[phase_selector(state, |current, phase| Gui.Action.update(Observatory.set_phase(current, phase)))]
 		.concat(allocations_by_trigger(state, opened))
 		.concat(run_lifecycle(opened))
 		.concat(process_resources(opened)),
@@ -1810,7 +1810,7 @@ spec = |state, opened| {
 									on_range: Some(
 										|current, visible| match Observatory.steps_wanted(current, visible) {
 											Some(offset) => Observatory.ask(current, ReadSteps(offset))
-											None => Gui.none
+											None => Gui.Action.none
 										},
 									),
 								}),
@@ -2201,7 +2201,7 @@ distribution = |state, opened| {
 				primitives: hover_mark.concat(bars).concat(edges).concat(axis).concat(markers).append(readout).concat(hits),
 				on_pointer: |current, event| match (event.phase, target_of(event.target, Capture.bucket_count)) {
 					(Begin, Some(bucket)) => Observatory.ask(current, FilterBucket(bucket, count_of(bucket)))
-					_ => Gui.none
+					_ => Gui.Action.none
 				},
 				on_hover: Some(
 					|current, event| {
@@ -2209,7 +2209,7 @@ distribution = |state, opened| {
 							Move => target_of(event.target, Capture.bucket_count)
 							Leave => None
 						}
-						if hovered == current.bucket_hover Gui.none else Gui.update({ ..current, bucket_hover: hovered })
+						if hovered == current.bucket_hover Gui.Action.none else Gui.Action.update({ ..current, bucket_hover: hovered })
 					},
 				),
 				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
@@ -2265,7 +2265,7 @@ unavailable_band = |opened, plot, row, name, family_name| {
 
 ## Zooming halves or doubles the span of frames around the pointer's frame,
 ## and a sideways scroll pans by an eighth of it.
-zoomed : Capture.Strip, I64, Gui.EventCanvasWheel -> [None, Some({ start : I64, span : I64 })]
+zoomed : Capture.Strip, I64, Gui.Event.CanvasWheel -> [None, Some({ start : I64, span : I64 })]
 zoomed = |strip, plot, wheel| {
 	smallest = if strip.total < Capture.columns strip.total else Capture.columns
 	offset = if wheel.x.to_i64() < chart_gutter 0 else if wheel.x.to_i64() > chart_gutter + plot plot else wheel.x.to_i64() - chart_gutter
@@ -2356,9 +2356,9 @@ frame_strip = |state, opened| {
 			on_pointer: |current, event| match (event.phase, target_of(event.target, columns)) {
 				(Begin, Some(column)) => match bar_at(column) {
 					Some(bar) => Observatory.ask(current, SelectFrame(bar))
-					None => Gui.none
+					None => Gui.Action.none
 				}
-				_ => Gui.none
+				_ => Gui.Action.none
 			},
 			on_hover: Some(
 				|current, event| {
@@ -2366,13 +2366,13 @@ frame_strip = |state, opened| {
 						Move => target_of(event.target, columns)
 						Leave => None
 					}
-					if column == current.frame_hover Gui.none else Gui.update({ ..current, frame_hover: column })
+					if column == current.frame_hover Gui.Action.none else Gui.Action.update({ ..current, frame_hover: column })
 				},
 			),
 			on_wheel: Some(
 				|current, wheel| match zoomed(current.strip.strip, chart_plot(current), wheel) {
 					Some(next) => Observatory.ask(current, ShowFrames(next.start, next.span))
-					None => Gui.none
+					None => Gui.Action.none
 				},
 			),
 			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
@@ -2397,7 +2397,7 @@ budget_bar = |state, opened| {
 	Gui.row(
 		{ label: "Budget", width: Fill, padding: 0, gap: 6, align: Center },
 		[meta("BUDGET")]
-			.concat(Capture.budget_rates.map(|hz| key({ caption: "${hz.to_str()} Hz", label: "Budget ${hz.to_str()} Hz", selected: state.budget == hz, on_press: |current, _| Gui.delegate({ ..current, budget: hz }) })))
+			.concat(Capture.budget_rates.map(|hz| key({ caption: "${hz.to_str()} Hz", label: "Budget ${hz.to_str()} Hz", selected: state.budget == hz, on_press: |current, _| Gui.Action.delegate({ ..current, budget: hz }) })))
 			.append(Gui.row({ label: "Frame summary", padding: 0, gap: 0, grow: True, justify: End, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("${opened.frames.drawn.to_str()} frames · ${over.to_str()} over budget")])),
 	)
 }
@@ -2633,7 +2633,7 @@ virtual_lists = |state, opened| {
 			Gui.canvas({
 				label: "List passes",
 				primitives: pass_bars.concat(visible_marks).concat(chart_captions),
-				on_pointer: |_, _| Gui.none,
+				on_pointer: |_, _| Gui.Action.none,
 				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
 				width: chart_width,
 				height: Px(110),
@@ -2740,7 +2740,7 @@ workspace = |state| Gui.col(
 						max: 1100,
 						collapsible: True,
 						collapsed: state.inspector.collapsed,
-						on_resize: |current, event| Gui.update({ ..current, inspector: { ..current.inspector, size: event.size, collapsed: event.collapsed } }),
+						on_resize: |current, event| Gui.Action.update({ ..current, inspector: { ..current.inspector, size: event.size, collapsed: event.collapsed } }),
 						thickness: 5,
 						color: Theme.line,
 						hover_color: Theme.edge,
@@ -2794,10 +2794,10 @@ inspector_pane = |state| {
 			Gui.row(
 				{ padding: 0, gap: 6, grow: True, justify: End },
 				[
-					key({ caption: if pinned "Unpin" else "Pin", label: if pinned "Unpin inspector" else "Pin inspector", selected: pinned, on_press: |current, _| Gui.update(toggle_pin(current)) }),
+					key({ caption: if pinned "Unpin" else "Pin", label: if pinned "Unpin inspector" else "Pin inspector", selected: pinned, on_press: |current, _| Gui.Action.update(toggle_pin(current)) }),
 					# The split that folds the inspector is the window's, so the
 					# change is the root's to render.
-					key({ caption: "Hide", label: "Hide inspector", selected: False, on_press: |current, _| Gui.delegate({ ..current, inspector: { ..current.inspector, collapsed: True } }) }),
+					key({ caption: "Hide", label: "Hide inspector", selected: False, on_press: |current, _| Gui.Action.delegate({ ..current, inspector: { ..current.inspector, collapsed: True } }) }),
 				],
 			),
 		],

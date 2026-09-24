@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Gui
 
@@ -6,14 +6,11 @@ Cell : { id : U64, key : Gui.Key, inside : Bool, lit : Bool, generation : U64 }
 
 State : { cells : Gui.Index(Cell), count : U64, columns : U64, next_identity : U64 }
 
-idle : Gui.Color
-idle = 0x263247
+idle = 0x263247.Gui.Color
 
-active : Gui.Color
-active = 0x66E0FF
+active = 0x66E0FF.Gui.Color
 
-trailing : Gui.Color
-trailing = 0xD58AFF
+trailing = 0xD58AFF.Gui.Color
 
 create_grid : U64, U64 -> State
 create_grid = |count, first_identity| {
@@ -27,14 +24,14 @@ create_grid = |count, first_identity| {
 }
 
 enter : Cell -> Gui.Action(Cell)
-enter = |cell| if cell.inside Gui.none else Gui.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
+enter = |cell| if cell.inside Gui.Action.none else Gui.Action.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
 
 leave : Cell -> Gui.Action(Cell)
 leave = |cell| if !cell.inside {
-	Gui.none
+	Gui.Action.none
 } else {
 	generation = cell.generation
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..cell, inside: False },
 		run: || match Gui.Timer.start!({ interval_ms: 200 }) {
 			Ok(timer) => {
@@ -45,9 +42,9 @@ leave = |cell| if !cell.inside {
 			Err(_) => Canceled
 		},
 		resolve: |latest, tick| if tick == Fired and !latest.inside and latest.generation == generation {
-			Gui.update({ ..latest, lit: False })
+			Gui.Action.update({ ..latest, lit: False })
 		} else {
-			Gui.none
+			Gui.Action.none
 		},
 	})
 }
@@ -56,7 +53,7 @@ render_cell : Cell -> Gui.Elem(Cell)
 render_cell = |cell| Gui.button({
 	caption: "",
 	label: "Cell ${cell.id.to_str()}",
-	on_press: |_, _| Gui.none,
+	on_press: |_, _| Gui.Action.none,
 	on_hover_enter: Some(|latest, _| enter(latest)),
 	on_hover_exit: Some(|latest, _| leave(latest)),
 	width: Px(5),
@@ -109,10 +106,10 @@ render = |state| {
 			Gui.row(
 				{ gap: 8 },
 				[
-					Gui.button({ caption: "100 cells", label: "Create 100 cells", on_press: |latest, _| Gui.update(create_grid(100, latest.next_identity)) }),
-					Gui.button({ caption: "1,000 cells", label: "Create 1000 cells", on_press: |latest, _| Gui.update(create_grid(1000, latest.next_identity)) }),
-					Gui.button({ caption: "10,000 cells", label: "Create 10000 cells", on_press: |latest, _| Gui.update(create_grid(10000, latest.next_identity)) }),
-					Gui.button({ caption: "Clear trail", label: "Reset grid", on_press: |latest, _| Gui.update(create_grid(latest.count, latest.next_identity)) }),
+					Gui.button({ caption: "100 cells", label: "Create 100 cells", on_press: |latest, _| Gui.Action.update(create_grid(100, latest.next_identity)) }),
+					Gui.button({ caption: "1,000 cells", label: "Create 1000 cells", on_press: |latest, _| Gui.Action.update(create_grid(1000, latest.next_identity)) }),
+					Gui.button({ caption: "10,000 cells", label: "Create 10000 cells", on_press: |latest, _| Gui.Action.update(create_grid(10000, latest.next_identity)) }),
+					Gui.button({ caption: "Clear trail", label: "Reset grid", on_press: |latest, _| Gui.Action.update(create_grid(latest.count, latest.next_identity)) }),
 				],
 			),
 			Gui.col({ label: "Cells", gap: 1, padding: 0, width: Px(grid_width), min_width: Px(grid_width), max_width: Px(grid_width), height: Px(grid_height), min_height: Px(grid_height), max_height: Px(grid_height), grow: False }, $rows),

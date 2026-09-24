@@ -110,7 +110,7 @@ Settings := [].{
 
 	load = |state| {
 		id = state.next_request
-		Gui.task({
+		Gui.Action.task({
 			pending: { ..state, next_request: id + 1, status: Loading(id) },
 			run: || match state.access.app_data!() {
 				Err(error) => LoadFailed(preference_error_message(error))
@@ -134,21 +134,21 @@ Settings := [].{
 			},
 			resolve: |latest, result| match latest.status {
 				Loading(active) if active == id => match result {
-					LoadFailed(message) => Gui.update({ ..latest, status: Failed(message) })
-					LoadSucceeded(profile) => Gui.update({ ..latest, draft_name: profile.name, saved_name: profile.name, draft_notes: profile.notes, saved_notes: profile.notes, status: Loaded })
+					LoadFailed(message) => Gui.Action.update({ ..latest, status: Failed(message) })
+					LoadSucceeded(profile) => Gui.Action.update({ ..latest, draft_name: profile.name, saved_name: profile.name, draft_notes: profile.notes, saved_notes: profile.notes, status: Loaded })
 				}
-				_ => Gui.none
+				_ => Gui.Action.none
 			},
 		})
 	}
 
 	apply_name = |state| if state.draft_name.is_empty() or (state.draft_name == state.saved_name and state.draft_notes == state.saved_notes) {
-		Gui.none
+		Gui.Action.none
 	} else {
 		id = state.next_request
 		name_to_save = state.draft_name
 		notes_to_save = state.draft_notes
-		Gui.task({
+		Gui.Action.task({
 			pending: { ..state, next_request: id + 1, status: Saving(id) },
 			run: || match state.access.app_data!() {
 				Err(error) => SaveFailed(preference_error_message(error))
@@ -162,10 +162,10 @@ Settings := [].{
 			},
 			resolve: |latest, result| match latest.status {
 				Saving(active) if active == id => match result {
-					SaveFailed(message) => Gui.update({ ..latest, status: Failed(message) })
-					SaveSucceeded => Gui.update({ ..latest, saved_name: latest.draft_name, saved_notes: latest.draft_notes, status: Applied })
+					SaveFailed(message) => Gui.Action.update({ ..latest, status: Failed(message) })
+					SaveSucceeded => Gui.Action.update({ ..latest, saved_name: latest.draft_name, saved_notes: latest.draft_notes, status: Applied })
 				}
-				_ => Gui.none
+				_ => Gui.Action.none
 			},
 		})
 	}

@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Gui
 
@@ -30,12 +30,12 @@ render = |state| {
 			Gui.row(
 				{},
 				[
-					Gui.button({ caption: "Load 100 settings", label: "Load 100 settings", on_press: |current, _| Gui.update({ ..current, count: 100 }) }),
-					Gui.button({ caption: "Load 1,000 settings", label: "Load 1000 settings", on_press: |current, _| Gui.update({ ..current, count: 1000 }) }),
-					Gui.button({ caption: "Load 10,000 settings", label: "Load 10000 settings", on_press: |current, _| Gui.update({ ..current, count: 10000 }) }),
+					Gui.button({ caption: "Load 100 settings", label: "Load 100 settings", on_press: |current, _| Gui.Action.update({ ..current, count: 100 }) }),
+					Gui.button({ caption: "Load 1,000 settings", label: "Load 1000 settings", on_press: |current, _| Gui.Action.update({ ..current, count: 1000 }) }),
+					Gui.button({ caption: "Load 10,000 settings", label: "Load 10000 settings", on_press: |current, _| Gui.Action.update({ ..current, count: 10000 }) }),
 				],
 			),
-			Gui.text_input({ label: "Search settings", value: state.search, on_change: |current, event| Gui.update({ ..current, search: event.value }), on_submit: |_, _| Gui.none }),
+			Gui.text_input({ label: "Search settings", value: state.search, on_change: |current, event| Gui.Action.update({ ..current, search: event.value }), on_submit: |_, _| Gui.Action.none }),
 			Gui.text("Matches: ${visible.len().to_str()}"),
 			Gui.virtual_list({ label: "Matching settings", row_height: 34, items: visible.map(|setting| { key: setting.id, content: Gui.text(setting.name) }) }),
 		],

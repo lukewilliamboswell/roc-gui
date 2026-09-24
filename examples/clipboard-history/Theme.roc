@@ -17,60 +17,46 @@ import pf.Gui
 Theme := [].{
 
 	## The window ground.
-	ground : Gui.Color
-	ground = 0x14181d
+	ground = 0x14181d.Gui.Color
 
 	## A raised surface: the toolbar, a captured entry.
-	surface : Gui.Color
-	surface = 0x1b2027
+	surface = 0x1b2027.Gui.Color
 
 	## The same surface under the pointer.
-	surface_hover : Gui.Color
-	surface_hover = 0x222933
+	surface_hover = 0x222933.Gui.Color
 
 	## A recessed well: the list of entries, and editable fields.
-	well : Gui.Color
-	well = 0x0f1317
+	well = 0x0f1317.Gui.Color
 
 	## The hairline dividing one region from the next.
-	line : Gui.Color
-	line = 0x262d35
+	line = 0x262d35.Gui.Color
 
 	## A slightly brighter hairline for an editable or interactive edge.
-	edge : Gui.Color
-	edge = 0x38424c
+	edge = 0x38424c.Gui.Color
 
 	## Primary readable text: captured content.
-	text : Gui.Color
-	text = 0xdfe4e8
+	text = 0xdfe4e8.Gui.Color
 
 	## Labels, counts, and secondary sentences.
-	dim : Gui.Color
-	dim = 0x8b97a2
+	dim = 0x8b97a2.Gui.Color
 
 	## The quietest tier: an entry's ordinal, a disabled hint.
-	faint : Gui.Color
-	faint = 0x626d77
+	faint = 0x626d77.Gui.Color
 
 	## Capture is running and the clipboard is being read.
-	live : Gui.Color
-	live = 0x5aa97a
+	live = 0x5aa97a.Gui.Color
 
 	## The deliberate-discard path: privacy armed, and an item discarded.
-	privacy : Gui.Color
-	privacy = 0x9b8ad6
+	privacy = 0x9b8ad6.Gui.Color
 
 	## A pinned entry, which survives a clear.
-	pinned : Gui.Color
-	pinned = 0xd8a657
+	pinned = 0xd8a657.Gui.Color
 
 	## An operation that failed or a grant that was refused.
-	danger : Gui.Color
-	danger = 0xd1706a
+	danger = 0xd1706a.Gui.Color
 
 	## Text on top of a filled `live` or `privacy` surface.
-	on_fill : Gui.Color
-	on_fill = 0x0f1317
+	on_fill = 0x0f1317.Gui.Color
 
 	## Type scale. Captured text is the largest thing on screen because it is the
 	## only thing a person came here to read.

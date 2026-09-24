@@ -13,7 +13,7 @@ translations; keys and host-owned lifetimes keep their state and event routes
 separate.
 
 The example exercises process authority, which is an explicit host grant rather
-than an ambient executable API, and the long-running side of `Gui.task`: each
+than an ambient executable API, and the long-running side of `Gui.Action.task`: each
 bounded read schedules the next, so output arrives incrementally, and a
 generation counter means a completion from a session that has been stopped is
 discarded rather than reviving it. Control sequences are stripped, so scrollback

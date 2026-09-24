@@ -204,11 +204,27 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
+        executable.unlink(missing_ok=True)
+        result = subprocess.run(
             [roc, "build", f"--opt={roc_opt}", f"--output={executable}", str(app)],
             cwd=ROOT,
-            check=True,
+            capture_output=True,
+            text=True,
         )
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        # Roc currently exits with code 2 for warnings even when it writes a
+        # successful executable. Keep the diagnostic visible and require both
+        # the explicit success report and the new artifact before running it.
+        report = result.stdout + result.stderr
+        warnings_only = (
+            result.returncode == 2
+            and executable.is_file()
+            and "0 errors and" in report
+            and "while successfully building:" in report
+        )
+        if result.returncode != 0 and not warnings_only:
+            raise subprocess.CalledProcessError(result.returncode, result.args)
 
 
 def validate_capture(path: Path) -> None:

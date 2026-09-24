@@ -8,59 +8,42 @@ import pf.Gui
 Theme := [].{
 
 	## The paper. The ground behind every region.
-	paper : Gui.Color
-	paper = 0xf7f7f4
+	paper = 0xf7f7f4.Gui.Color
 
 	## A rail: the header, the authority bar, the two side columns, the footer.
-	rail : Gui.Color
-	rail = 0xeeeeea
+	rail = 0xeeeeea.Gui.Color
 
 	## A writable or readable surface laid on the paper.
-	card : Gui.Color
-	card = 0xffffff
+	card = 0xffffff.Gui.Color
 
 	## The hairline rule that divides one region, or one table row, from the next.
-	line : Gui.Color
-	line = 0xdedcd5
+	line = 0xdedcd5.Gui.Color
 
 	## A slightly darker rule for an editable edge.
-	edge : Gui.Color
-	edge = 0xc9c6bd
+	edge = 0xc9c6bd.Gui.Color
 
 	## Primary text.
-	ink : Gui.Color
-	ink = 0x1b1d21
+	ink = 0x1b1d21.Gui.Color
 
 	## Column names, counts, units, and the authority readout's labels.
-	dim : Gui.Color
-	dim = 0x767a80
+	dim = 0x767a80.Gui.Color
 
 	## The one accent. Reserved for running a query, which is the only act in the
 	## application that asks the database to do work.
-	accent : Gui.Color
-	accent = 0x2f3f8f
-	accent_hover : Gui.Color
-	accent_hover = 0x3b4da8
-	accent_active : Gui.Color
-	accent_active = 0x24316f
-	on_accent : Gui.Color
-	on_accent = 0xf7f7f4
+	accent = 0x2f3f8f.Gui.Color
+	accent_hover = 0x3b4da8.Gui.Color
+	accent_active = 0x24316f.Gui.Color
+	on_accent = 0xf7f7f4.Gui.Color
 
 	## A refusal. A tinted band, never an outline.
-	alarm : Gui.Color
-	alarm = 0xfaeae6
-	alarm_ink : Gui.Color
-	alarm_ink = 0x8c3a26
-	alarm_line : Gui.Color
-	alarm_line = 0xe8cfc7
+	alarm = 0xfaeae6.Gui.Color
+	alarm_ink = 0x8c3a26.Gui.Color
+	alarm_line = 0xe8cfc7.Gui.Color
 
 	## A quiet control at rest, under the pointer, and while pressed.
-	quiet : Gui.Color
-	quiet = 0xffffff
-	quiet_hover : Gui.Color
-	quiet_hover = 0xf0efe9
-	quiet_active : Gui.Color
-	quiet_active = 0xe5e3da
+	quiet = 0xffffff.Gui.Color
+	quiet_hover = 0xf0efe9.Gui.Color
+	quiet_active = 0xe5e3da.Gui.Color
 
 	## Schema names, file names, SQL, and every cell of a result are structured
 	## text, so they are all set at a fixed pitch.

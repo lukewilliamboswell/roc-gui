@@ -63,7 +63,7 @@ Workbench := [].{
 		"PATCH" => send_method(state, PATCH)
 		"POST" => send_method(state, POST)
 		"PUT" => send_method(state, PUT)
-		_ => Gui.update({
+		_ => Gui.Action.update({
 			..state,
 			error: "Unsupported HTTP method",
 			remedy: "The bench sends GET, POST, PUT, PATCH, and DELETE.",
@@ -73,7 +73,7 @@ Workbench := [].{
 
 	cancel : State -> Gui.Action(State)
 	cancel = |state| if state.sending {
-		Gui.update({
+		Gui.Action.update({
 			..state,
 			active_id: state.next_id,
 			next_id: state.next_id + 1,
@@ -82,7 +82,7 @@ Workbench := [].{
 			remedy: "The request is still in flight; its reply will be ignored.",
 		})
 	} else {
-		Gui.none
+		Gui.Action.none
 	}
 }
 
@@ -129,20 +129,20 @@ send_method = |state, method| {
 	url = if state.query.is_empty() state.url else "${state.url}?${state.query}"
 	base_request = Request.from_method(method).with_uri(url).with_body(Str.to_utf8(state.request))
 	request = if state.header_name.is_empty() base_request else base_request.add_header(state.header_name, state.header_value)
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_id: id + 1, active_id: id, sending: True, error: "", remedy: "" },
 		run: || {
-			client : Gui.HttpClient
+			client : Gui.Http.Client
 			client = state.access.http!()?
 			client.send!({ timeout_ms: 2_000, max_response_bytes: 262_144 }, request)
 		},
-		resolve: |latest, result| if latest.active_id != id Gui.none else match result {
+		resolve: |latest, result| if latest.active_id != id Gui.Action.none else match result {
 			Ok(response) => {
 				bytes = Response.body(response)
 				headers = Response.headers(response)
 				status_line = "Status ${Response.status(response).to_str()}"
 				match Str.from_utf8(bytes) {
-					Ok(body) => Gui.update({
+					Ok(body) => Gui.Action.update({
 						..latest,
 						response_status: status_line,
 						response_header_count: headers.len(),
@@ -154,7 +154,7 @@ send_method = |state, method| {
 						remedy: "",
 						sending: False,
 					})
-					Err(_) => Gui.update({
+					Err(_) => Gui.Action.update({
 						..latest,
 						response: "",
 						response_bytes: 0,
@@ -170,7 +170,7 @@ send_method = |state, method| {
 			}
 			Err(error) => {
 				failure = describe(error, origin)
-				Gui.update({
+				Gui.Action.update({
 					..latest,
 					response: "",
 					response_bytes: 0,

@@ -307,7 +307,7 @@ chart = |state, opened| {
 			on_pointer: |current, event| match (event.phase, hit_of_target(event.target)) {
 				(Begin, Some(OnFrame(mark))) => Observatory.ask(current, SelectFrame(mark.bar))
 				(End, Some(OnCycle(mark))) => Observatory.ask(current, InspectCycle(mark.cycle))
-				_ => Gui.none
+				_ => Gui.Action.none
 			},
 			on_hover: Some(
 				|current, event| {
@@ -315,13 +315,13 @@ chart = |state, opened| {
 						Move => target(event.target)
 						Leave => None
 					}
-					if index == current.clock_hover Gui.none else Gui.update({ ..current, clock_hover: index })
+					if index == current.clock_hover Gui.Action.none else Gui.Action.update({ ..current, clock_hover: index })
 				},
 			),
 			on_wheel: Some(
 				|current, wheel| match Timeline.zoomed(current.clock.window, wheel.x.to_i64() - gutter, plot_of(current), wheel.dx, wheel.dy) {
 					Some(next) => Observatory.ask(current, ShowTimeline(next.start, next.span))
-					None => Gui.none
+					None => Gui.Action.none
 				},
 			),
 			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),

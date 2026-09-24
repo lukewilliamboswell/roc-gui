@@ -292,7 +292,7 @@ result_table = |result, offset, scroll_request| {
 				count: result.rows.len(),
 				render_row,
 				scroll_to: scroll_request,
-				on_range: Some(|current, rows| Gui.update(Browser.show_rows(current, rows))),
+				on_range: Some(|current, rows| Gui.Action.update(Browser.show_rows(current, rows))),
 			}),
 		],
 	)
@@ -312,8 +312,8 @@ row_keys = |state, shown| {
 		}
 		on_screen.concat(
 			[
-				quiet_key({ caption: "First row", label: "Scroll to first row", on_press: |current, _| Gui.update(Browser.scroll_rows(current, 0, Start)), width: Auto }),
-				quiet_key({ caption: "Last row", label: "Scroll to last row", on_press: |current, _| Gui.update(Browser.scroll_rows(current, count - 1, End)), width: Auto }),
+				quiet_key({ caption: "First row", label: "Scroll to first row", on_press: |current, _| Gui.Action.update(Browser.scroll_rows(current, 0, Start)), width: Auto }),
+				quiet_key({ caption: "Last row", label: "Scroll to last row", on_press: |current, _| Gui.Action.update(Browser.scroll_rows(current, count - 1, End)), width: Auto }),
 			],
 		)
 	}
@@ -347,7 +347,7 @@ query_bench = |state| {
 				label: "SQL query",
 				value: state.query,
 				placeholder: "SELECT * FROM books LIMIT 100",
-				on_input: |current, event| Gui.update(Browser.set_query(current, event.value)),
+				on_input: |current, event| Gui.Action.update(Browser.set_query(current, event.value)),
 				width: Fill,
 				height: Px(76),
 				padding: Theme.inset,

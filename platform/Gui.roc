@@ -22,8 +22,8 @@ import Timer
 
 ## The whole application-facing platform under one import. Build a tree with
 ## the element constructors and their property records, adjust an element
-## with the modifiers on `Elem`, and answer events with `none`, `update`,
-## `delegate`, or `task`.
+## with the modifiers on `Elem`, and answer events with the constructors on
+## `Action`: `Action.none`, `Action.update`, `Action.delegate`, or `Action.task`.
 Gui := [].{
 
 	## A declarative UI tree whose event handlers transition application state.
@@ -65,135 +65,7 @@ Gui := [].{
 	SystemMonitor : SystemMonitor.SystemMonitor
 	Tcp : Tcp.Tcp
 	Timer : Timer.Timer
-
-	# Types exchanged with `KeyedSeq`.
-	KeyedSeqEdit(value) : KeyedSeq.Edit(value)
-	KeyedSeqPlacement : KeyedSeq.Placement
-	KeyedSeqTransition(value) : KeyedSeq.Transition(value)
-	KeyedSeqError : KeyedSeq.Error
-
-	# Types exchanged with `Appearance`.
-	AppearanceScheme : Appearance.Scheme
-	AppearanceMotion : Appearance.Motion
-	AppearanceSettings : Appearance.Settings
-	AppearancePreference : Appearance.Preference
-
-	# Types exchanged with `Assets`.
-	AssetsStore : Assets.Store
-	AssetsRoot : Assets.Root
-	AssetsContent : Assets.Content
-	AssetsManifest : Assets.Manifest
-	AssetsManifestPolicy : Assets.ManifestPolicy
-	AssetsStoreConfig : Assets.StoreConfig
-	AssetsReason : Assets.Reason
-	AssetsAssetErr : Assets.AssetErr
-
-	# Types exchanged with `Audio`.
-	AudioOutput : Audio.Output
-	AudioTrack : Audio.Track
-	AudioPlayback : Audio.Playback
-	AudioStatus : Audio.Status
-	AudioLoadedTrack : Audio.LoadedTrack
-	AudioReason : Audio.Reason
-	AudioAudioErr : Audio.AudioErr
-
-	# Types exchanged with `Clipboard`.
-	ClipboardHandle : Clipboard.Handle
-	ClipboardSnapshot : Clipboard.Snapshot
-	ClipboardReason : Clipboard.Reason
-	ClipboardClipboardErr : Clipboard.ClipboardErr
-
-	# Types exchanged with `Device`.
-	DeviceGrant : Device.Grant
-	DeviceConnection : Device.Connection
-	DeviceInfo : Device.Info
-	DeviceReason : Device.Reason
-	DeviceDeviceErr : Device.DeviceErr
-
-	# Types exchanged with `Event`.
-	EventPress : Event.Press
-	EventHover : Event.Hover
-	EventCheck : Event.Check
-	EventInput : Event.Input
-	EventDismiss : Event.Dismiss
-	EventTextChange : Event.TextChange
-	EventTextSubmit : Event.TextSubmit
-	EventCanvasPointer : Event.CanvasPointer
-	EventCanvasHover : Event.CanvasHover
-	EventCanvasWheel : Event.CanvasWheel
-	EventCanvasSize : Event.CanvasSize
-	EventVisibleRows : Event.VisibleRows
-	EventKey : Event.Key
-	EventResize : Event.Resize
-	EventTab : Event.Tab
-	EventDrop : Event.Drop
-	EventRefused : Event.Refused
-
-	# Types exchanged with `Files`.
-	FilesChoice(a) : Files.Choice(a)
-	FilesKind : Files.Kind
-	FilesEntry : Files.Entry
-	FilesReason : Files.Reason
-	FilesFileErr : Files.FileErr
-	FilesDirRead : Files.Dir.Read
-	FilesDirReadWrite : Files.Dir.ReadWrite
-	FilesDirReadUtf8 : Files.Dir.ReadUtf8
-	FilesSelection : Files.Selection
-	FilesFileRead : Files.File.Read
-	FilesFileSelection : Files.FileSelection
-	FilesFileType : Files.FileType
-	FilesWatch : Files.Watch
-	FilesChange : Files.Change
-	FilesChanges : Files.Changes
-	FilesRecent : Files.Recent
-	FilesUnavailable : Files.Unavailable
-
-	# Types exchanged with `Http`.
-	HttpClient : Http.Client
-	HttpReason : Http.Reason
-	HttpHttpErr : Http.HttpErr
-	HttpConfig : Http.Config
-
-	# Types exchanged with `ImageData`.
-	ImageDataMetadata : ImageData.Metadata
-	ImageDataReason : ImageData.Reason
-	ImageDataImageErr : ImageData.ImageErr
-
-	# Types exchanged with `Process`.
-	ProcessGrant : Process.Grant
-	ProcessPty : Process.Pty
-	ProcessReason : Process.Reason
-	ProcessProcessErr : Process.ProcessErr
-	ProcessRead : Process.Read
-	ProcessCancel : Process.Cancel
-
-	# Types exchanged with `Sqlite`.
-	SqliteDb : Sqlite.Db
-	SqliteValue : Sqlite.Value
-	SqliteResult : Sqlite.Result
-	SqlitePage : Sqlite.Page
-	SqliteReason : Sqlite.Reason
-	SqliteSqliteErr : Sqlite.SqliteErr
-
-	# Types exchanged with `SystemMonitor`.
-	SystemMonitorSampler : SystemMonitor.Sampler
-	SystemMonitorUnavailableReason : SystemMonitor.UnavailableReason
-	SystemMonitorValue(a) : SystemMonitor.Value(a)
-	SystemMonitorProcess : SystemMonitor.Process
-	SystemMonitorSnapshot : SystemMonitor.Snapshot
-	SystemMonitorReason : SystemMonitor.Reason
-	SystemMonitorSystemErr : SystemMonitor.SystemErr
-
-	# Types exchanged with `Tcp`.
-	TcpStream : Tcp.Stream
-	TcpReason : Tcp.Reason
-	TcpTcpErr : Tcp.TcpErr
-
-	# Types exchanged with `Timer`.
-	TimerHandle : Timer.Handle
-	TimerTick : Timer.Tick
-	TimerCancelResult : Timer.CancelResult
-	TimerTimerErr : Timer.TimerErr
+	Event : Event.Event
 
 	TranslateConfig(parent, child) : Elem.TranslateConfig(parent, child)
 	TryTranslateConfig(parent, child) : Elem.TryTranslateConfig(parent, child)
@@ -220,33 +92,6 @@ Gui := [].{
 	## Construct the program value required by the platform's `main` module.
 	run : Program.Config(state) -> Program.Program(state)
 	run = |config| Program.run(config)
-
-	## Leave state as it is.
-	none : Action.Action(a)
-	none = Action.none
-
-	## Install the next state.
-	update : a -> Action.Action(a)
-	update = |value| Action.update(value)
-
-	## Propose the next state to the enclosing boundary's `on_delegate`.
-	delegate : a -> Action.Action(a)
-	delegate = |value| Action.delegate(value)
-
-	## Install `pending`, run effects off the UI thread, then resolve against
-	## the latest state.
-	task : { pending : a, run : (() => result), resolve : (a, result -> Action.Action(a)) } -> Action.Action(a)
-	task = |config| Action.task(config)
-
-	## A task that supersedes this component's previous task with the same
-	## `key`: the superseded task is cancelled and its completion is never
-	## delivered.
-	keyed_task : { key : Str, pending : a, run : (() => result), resolve : (a, result -> Action.Action(a)) } -> Action.Action(a)
-	keyed_task = |config| Action.keyed_task(config)
-
-	## Install `state` and cancel this component's task with `key`.
-	cancel : a, Str -> Action.Action(a)
-	cancel = |state, key| Action.cancel(state, key)
 
 	## A colour for each appearance, `0xRRGGBB` both: `light` on a light
 	## window and `dark` on a dark one. The host chooses when it paints, so the
