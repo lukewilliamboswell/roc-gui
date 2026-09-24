@@ -4,9 +4,9 @@
 Code under `#[cfg(target_os = ...)]` compiles only for that target, so a
 change made on one machine can break the others without any local signal.
 This runs the same strict Clippy as the native hook with `--target` for each
-foreign host target. Clippy type-checks without linking, so no foreign SDK or
-linker inputs are needed. Build scripts that compile C use Zig as the cross C
-compiler, and GPUI's Windows resource manifest uses `llvm-rc`.
+foreign host target. Clippy does not final-link, but C build scripts still
+need target headers. macOS requires an SDK with IOKit headers. Build scripts
+use Zig as the cross C compiler, and GPUI's Windows manifest uses `llvm-rc`.
 
 A target this machine cannot check is reported as SKIP with its reason,
 never as a pass.
@@ -47,6 +47,10 @@ def unavailable(triple: str) -> str | None:
         return "zig is not on PATH"
     if triple.endswith("windows-gnullvm") and shutil.which("llvm-rc") is None:
         return "llvm-rc is not on PATH"
+    if triple.endswith("apple-darwin") and platform.system() != "Darwin":
+        sdk = os.environ.get("SDKROOT")
+        if not sdk or not (Path(sdk) / "System/Library/Frameworks/IOKit.framework/Headers/hid/IOHIDManager.h").is_file():
+            return "SDKROOT must identify a macOS SDK containing IOKit headers"
     if triple.endswith("linux-gnu") and platform.system() != "Linux":
         return "Wayland and ALSA build scripts need the target's pkg-config files"
     return None
@@ -61,6 +65,9 @@ def check(triple: str, zig: str, tools: Path) -> bool:
     archiver.write_text('#!/bin/sh\nexec zig ar "$@"\n')
     archiver.chmod(0o755)
     environment = {**os.environ, f"CC_{key}": str(compiler), f"AR_{key}": str(archiver)}
+    if triple.endswith("apple-darwin") and platform.system() != "Darwin":
+        sdk_flag = '-isysroot "' + os.environ["SDKROOT"] + '"'
+        environment[f"CFLAGS_{key}"] = " ".join(filter(None, (environment.get(f"CFLAGS_{key}"), sdk_flag)))
     if triple.endswith("windows-gnullvm"):
         environment[f"RC_{key}"] = shutil.which("llvm-rc")
     subprocess.run(["rustup", "target", "add", triple], cwd=ROOT, check=True,
