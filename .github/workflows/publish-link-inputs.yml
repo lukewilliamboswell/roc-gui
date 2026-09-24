@@ -7,6 +7,11 @@ on:
         description: Open same-repository PR containing the linker-input change
         type: string
         required: true
+      producer-run:
+        description: Successful producer run for the exact PR head (empty builds a new candidate)
+        type: string
+        required: false
+        default: ''
 
 permissions: {}
 
@@ -26,10 +31,11 @@ jobs:
       pull-requests: read
     steps:
       - name: Publish exact PR-produced bytes and adopt their lock
-        uses: lukewilliamboswell/roc-automation/actions/publish-build-inputs@d2bf9d412dcff12aae3249afde170eab8119253f
+        uses: lukewilliamboswell/roc-automation/actions/publish-build-inputs@26b692c5ce341efd5633793079d70c9e04559eac
         with:
           pull-request: ${{ inputs.pull-request }}
           producer-workflow: link-inputs.yml
+          producer-run: ${{ inputs.producer-run }}
           candidate-artifact: link-input-release
           lock-path: link-inputs.lock.json
           release-prefix: link-inputs
