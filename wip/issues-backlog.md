@@ -991,11 +991,31 @@ names the evidence so a fix can be verified against the same case.
   the final link with `ld64.lld: error: finalize: FIXME: thunk range overrun`
   (linker-input producer run 35925205033). The Linux dev build shows why: its
   `.text` is 201 MB, against about 80 MB for a whole Database Browser binary,
-  and arm64 branches reach only ±128 MB. The Roc dev backend emits far more code
-  for Observatory's many memoized boundaries and closures than its source
-  suggests. The LLVM backend cannot be used instead on the pinned nightly (see
-  the speed-backend entry). Find what the dev backend duplicates, report it
-  upstream, and until then the arm64 producer and CI cannot run Observatory.
+  and arm64 branches reach only ±128 MB. The LLVM backend cannot be used
+  instead on the pinned nightly (see the speed-backend entry), so until this is
+  fixed the arm64 producer and CI cannot run Observatory.
+
+  Root cause, reported as roc-lang/roc#11642: the dev backend copies aggregates
+  one 8-byte word at a time, fully unrolled, and on arm64 each word costs eight
+  instructions once the frame offset exceeds the `ldur`/`stur` immediate range.
+  It also reuses no stack slots, so the largest procs have frames of about
+  1.1 MB. Observatory's `State` is one wide record that holds its optional
+  fields inline, and every lens, update and handler copies all of it. In the
+  pinned app object, the ten largest procs are about 4.5 MB each and make up
+  21% of its 217 MB of `__text`. A counter app with 8 `Gui.translate` lenses
+  and an 8 KB `State` reproduces the overrun: 173 MB with `--opt=dev` against
+  13 MB with `--opt=speed`. `origin/main` (c7de7cf9b1) reduces the growth from
+  about 13 KB to about 5 KB of code per byte of `State`, but code size still
+  grows linearly with it.
+
+  - [ ] TODO roc-lang/roc#11642: once a nightly bounds the dev backend's
+    aggregate copies, rebuild Observatory for arm64 and restore it to the
+    producer and CI.
+  - [ ] TODO roc-lang/roc#11641: `origin/main` overflows the compiler's stack
+    in `lambda_mono` `Store.writeTypeDigest` on Observatory, with both
+    backends, apparently on a cyclic closure capture type. This also blocks
+    the nightly upgrade (PR #30). Bisect `220fd47..c7de7cf9b1` and add the
+    result to the issue.
 
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.
