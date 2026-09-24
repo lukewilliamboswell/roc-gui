@@ -163,10 +163,24 @@ must never fall back to a local build. Developers may explicitly select a native
 source build when an artifact is absent or its source fingerprint is stale.
 Final platform releases accept only locked, released, and attested inputs.
 
-Change a linker input through its owning recipe and tests, then dispatch the
-trusted linker-input publisher with that pull request number. The resulting
-signed lock commit makes the new symbols available to the same branch. Ordinary
-platform and host changes reuse the locked release and never invoke a producer.
+For a linker-input change, use this order:
+
+. Stage the owning recipe, catalog, and tests in a same-repository pull request.
+  A stale-lock failure in ordinary validation remains until lock adoption.
+. Optionally dispatch `link-inputs.yml` on that PR branch with
+  `release_candidate=true` and `expected_sha` set to the exact PR head. This
+  unprivileged candidate run builds, tests, and attests bytes without publishing.
+. From `main`, dispatch `publish-link-inputs.yml` with the PR number. Its trusted
+  controller reruns the producer at the exact PR head, publishes the immutable
+  linker-input release, and appends a GitHub-signed `link-inputs.lock.json`-only
+  commit to the same PR.
+. Review the lock and rerun the PR checks against the released inputs. Merge only
+  after validation passes. Build and publish the Roc platform bundle later in
+  its separate release cycle.
+
+Ordinary platform and host changes reuse the locked release and never invoke a
+producer. The optional candidate run does not replace the publisher's own
+producer run.
 
 === Generated system-library interfaces
 
