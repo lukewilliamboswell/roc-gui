@@ -71,7 +71,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
+          sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev
       - name: Install the Windows GNU host target
         if: runner.os == 'Windows'
         run: |
